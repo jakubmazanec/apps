@@ -17,7 +17,7 @@ concurrency:
 jobs:
   release_main_branch:
     name: Release
-    if: ${{ github.ref_name == '' }}
+    if: ${{ github.ref_name == 'main' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -122,25 +122,25 @@ jobs:
       - name: Checkout main branch
         run: |
           git fetch -p origin
-          git checkout 
-          git branch --set-upstream-to=origin/ 
-          git reset --hard origin/
+          git checkout main
+          git branch --set-upstream-to=origin/main main
+          git reset --hard origin/main
           git pull
 
       - name: Checkout development branch
         run: |
-          git checkout -B 
-          git branch --set-upstream-to=origin/ 
-          git reset --hard origin/
+          git checkout -B development
+          git branch --set-upstream-to=origin/development development
+          git reset --hard origin/development
 
       - name: Merge and commit
         run: |
-          git merge  --no-verify
-          git push -u origin  --no-verify
+          git merge main --no-verify
+          git push -u origin development --no-verify
 
   release_development_branch:
     name: Release preview
-    if: ${{ github.ref_name == '' }}
+    if: ${{ github.ref_name == 'development' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:

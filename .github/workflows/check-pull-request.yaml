@@ -77,4 +77,4 @@ jobs:
 
       - name: Check for changesets
         if: "github.actor != 'renovate[bot]'"
-        run: npx changeset status --since=origin/
+        run: npx changeset status --since=origin/development
