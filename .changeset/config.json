@@ -1,0 +1,17 @@
+{
+  "$schema": "https://unpkg.com/@changesets/config@1.6.1/schema.json",
+  "changelog": ["@jakubmazanec/changesets-changelog", {"repository": "jakubmazanec/apps"}],
+  "commit": false,
+  "linked": [],
+  "access": "public",
+  "baseBranch": "development",
+  "updateInternalDependencies": "minor",
+  "ignore": [],
+  "snapshot": {
+    "useCalculatedVersion": true,
+    "prereleaseTemplate": "{tag}.{commit}"
+  },
+  "___experimentalUnsafeOptions_WILL_CHANGE_IN_PATCH": {
+    "onlyUpdatePeerDependentsWhenOutOfRange": true
+  }
+}
