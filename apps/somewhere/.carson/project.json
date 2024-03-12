@@ -1,0 +1,6 @@
+{
+  "template": "@jakubmazanec/carson-templates:projects/remix-app",
+  "deployment": {
+    "appName": "somewhere"
+  }
+}
