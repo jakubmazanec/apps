@@ -4,7 +4,12 @@
 
 </div>
 
-<!-- projects --><!-- projects -->
+<!-- projects -->
+
+## Projects
+
+- [somewhere](./apps/somewhere) – Location-based game.
+<!-- projects -->
 
 ## License
 
