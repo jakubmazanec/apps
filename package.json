@@ -20,16 +20,17 @@
     "uninstall": "del-cli ./**/node_modules ./package-lock.json"
   },
   "devDependencies": {
-    "@changesets/cli": "^2.0.0",
-    "@jakubmazanec/carson": "^1.0.0",
-    "@jakubmazanec/carson-templates": "^2.0.1",
-    "@types/node": "^20.0.0",
-    "del-cli": "^5.0.0",
-    "patch-package": "^6.0.0",
-    "prettier": "^3.0.0",
-    "prettier-plugin-packagejson": "^2.0.0",
-    "turbo": "^1.0.0",
-    "typescript": "^5.0.0"
+    "@changesets/cli": "^2.27.1",
+    "@jakubmazanec/carson": "^1.0.1",
+    "@jakubmazanec/carson-templates": "^2.1.0",
+    "@jakubmazanec/changesets-changelog": "^2.0.0",
+    "@types/node": "^20.12.2",
+    "del-cli": "^5.1.0",
+    "patch-package": "^8.0.0",
+    "prettier": "^3.2.5",
+    "prettier-plugin-packagejson": "^2.4.14",
+    "turbo": "^1.13.1",
+    "typescript": "^5.4.3"
   },
   "packageManager": "npm@10.1.0",
   "engines": {
