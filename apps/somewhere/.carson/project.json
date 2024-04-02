@@ -2,5 +2,12 @@
   "template": "@jakubmazanec/carson-templates:projects/remix-app",
   "deployment": {
     "appName": "somewhere"
+  },
+  "overrides": {
+    "viteConfig": {
+      "build": {
+        "target": "ES2022"
+      }
+    }
   }
 }
