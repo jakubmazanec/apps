@@ -1,12 +1,25 @@
 import {type MetaFunction} from '@remix-run/node';
+import {useEffect, useState} from 'react';
+
+import {type Game} from '../engine/Game.js';
+import {GameProvider} from '../engine/GameProvider.js';
+import {game as importedGame} from '../game.client.js';
+import Renderer from '../ui/Renderer.js';
 
 export const meta: MetaFunction = () => [{title: 'Somewhere'}];
 
 export default function Index() {
+  let [game, setGame] = useState<Game | undefined>(undefined);
+
+  useEffect(() => {
+    setGame(importedGame);
+  }, []);
+
   return (
-    <div className="p-4">
-      <h1>Somewhere.</h1>
-      <p className="text-sm">In development.</p>
-    </div>
+    <GameProvider game={game}>
+      <div className="h-full w-full">
+        <Renderer />
+      </div>
+    </GameProvider>
   );
 }

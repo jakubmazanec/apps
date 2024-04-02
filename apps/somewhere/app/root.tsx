@@ -11,7 +11,7 @@ export default function Root() {
         <Meta />
         <Links />
       </head>
-      <body>
+      <body className="m-0 min-h-screen">
         <Outlet />
 
         <ScrollRestoration />
