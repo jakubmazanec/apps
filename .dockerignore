@@ -12,6 +12,14 @@
 *
 
 # except files that are allowed to be in the Docker image
+!apps/dram/app/**
+!apps/dram/public/**
+!apps/dram/env.d.ts
+!apps/dram/package.json
+!apps/dram/postcss.config.cjs
+!apps/dram/tailwind.config.ts
+!apps/dram/tsconfig.json
+!apps/dram/vite.config.ts
 !apps/somewhere/app/**
 !apps/somewhere/public/**
 !apps/somewhere/env.d.ts

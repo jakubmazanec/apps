@@ -41,6 +41,16 @@ jobs:
         with:
           node-version: 20
 
+      - uses: edgedb/setup-edgedb@v1
+      - with:
+          server-version: none
+
+      - name: Authenticate EdgeDB Cloud
+        env:
+          EDGEDB_SECRET_KEY: ${{ secrets.WHISKY_EDGEDB_TOKEN }}
+        run: |
+          edgedb project init --link jakubmazanec/whisky
+
       - name: Install packages
         run: npm ci
 
