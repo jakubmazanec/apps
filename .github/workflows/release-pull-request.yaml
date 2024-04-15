@@ -42,6 +42,12 @@ jobs:
           node-version: 20
           registry-url: 'https://registry.npmjs.org'
 
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - uses: edgedb/setup-edgedb@v1
+        with:
+          server-version: none
+
       - name: Install packages
         run: npm ci
 
@@ -60,7 +66,15 @@ jobs:
           git config --unset core.filemode
 
       - name: Run tests
-        run: npm test
+        run: npm test -- --filter=!dram
+
+      - name: Run tests
+        run: |
+          npm run test -- --filter=dram
+        env:
+          EDGEDB_INSTANCE: jakubmazanec/whisky
+          EDGEDB_BRANCH: ${{ github.head_ref }}
+          EDGEDB_SECRET_KEY: ${{ secrets.JAKUBMAZANEC_WHISKY_EDGEDB_TOKEN }}
 
       - name: Check for changes
         run: |
@@ -77,7 +91,7 @@ jobs:
           git config --unset core.filemode
 
       - name: Build packages
-        run: npm run build
+        run: npm run build -- --filter=!dram --filter=!somewhere
 
       - name: Authenticate to npm registry
         run: |
@@ -100,10 +114,19 @@ jobs:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           NPM_CONFIG_PROVENANCE: 'true' # must be string, not boolean
 
-      - uses: superfly/flyctl-actions/setup-flyctl@master
+      - name: Deploy dram
+        run: |
+          npm run deploy --workspace dram -- --app dram-unstable --build-arg "EDGEDB_INSTANCE=$EDGEDB_INSTANCE" --build-arg "EDGEDB_BRANCH=$EDGEDB_BRANCH" --build-secret "EDGEDB_SECRET_KEY=$EDGEDB_SECRET_KEY"
+        env:
+          FLY_ACCESS_TOKEN: ${{ secrets.FLY_TOKEN }}
+          FLY_API_TOKEN: ${{ secrets.FLY_TOKEN }}
+          EDGEDB_INSTANCE: jakubmazanec/whisky
+          EDGEDB_BRANCH: ${{ github.head_ref }}
+          EDGEDB_SECRET_KEY: ${{ secrets.JAKUBMAZANEC_WHISKY_EDGEDB_TOKEN }}
 
       - name: Deploy somewhere
-        run: npm run deploy --workspace somewhere -- --app somewhere-unstable
+        run: |
+          npm run deploy --workspace somewhere -- --app somewhere-unstable
         env:
           FLY_ACCESS_TOKEN: ${{ secrets.FLY_TOKEN }}
           FLY_API_TOKEN: ${{ secrets.FLY_TOKEN }}

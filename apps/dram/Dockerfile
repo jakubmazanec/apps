@@ -13,6 +13,10 @@ WORKDIR /workspace
 
 # Set up env variables
 ENV NODE_ENV=production
+ARG EDGEDB_INSTANCE
+ENV EDGEDB_INSTANCE=$EDGEDB_INSTANCE
+ARG EDGEDB_BRANCH
+ENV EDGEDB_BRANCH=$EDGEDB_BRANCH
 
 # Throw-away build stage to reduce size of final image
 FROM base as build
@@ -30,20 +34,20 @@ RUN npm ci --include=dev --ignore-scripts
 COPY --link . .
 
 # Build
-RUN npm run build -- --filter=somewhere
+RUN --mount=type=secret,id=EDGEDB_SECRET_KEY EDGEDB_SECRET_KEY="$(cat /run/secrets/EDGEDB_SECRET_KEY)" npm run build
 
 # Final stage for app image
 FROM base
 
 # Copy files
 COPY package-lock.json package.json /workspace/
-COPY --from=build /workspace/apps/somewhere/build /workspace/apps/somewhere/build
-COPY --from=build /workspace/apps/somewhere/package.json /workspace/apps/somewhere/package.json
+COPY --from=build /workspace/apps/dram/build /workspace/apps/dram/build
+COPY --from=build /workspace/apps/dram/package.json /workspace/apps/dram/package.json
 
 # Install dependencies
 RUN npm ci --omit=dev --ignore-scripts
 
 # Start the server
-WORKDIR /workspace/apps/somewhere
+WORKDIR /workspace/apps/dram
 EXPOSE 5000
 ENTRYPOINT ["npm", "start"]

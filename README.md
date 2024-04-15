@@ -8,6 +8,7 @@
 
 ## Projects
 
+- [dram](./apps/dram) – Whisky tasting notes app.
 - [somewhere](./apps/somewhere) – Location-based game.
 <!-- projects -->
 

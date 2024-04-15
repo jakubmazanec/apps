@@ -41,6 +41,10 @@ jobs:
         with:
           node-version: 20
 
+      - uses: edgedb/setup-edgedb@v1
+        with:
+          server-version: none
+
       - name: Install packages
         run: npm ci
 
@@ -59,7 +63,15 @@ jobs:
           git config --unset core.filemode
 
       - name: Run tests
-        run: npm test
+        run: npm test -- --filter=!dram
+
+      - name: Run tests
+        run: |
+          npm run test -- --filter=dram
+        env:
+          EDGEDB_INSTANCE: jakubmazanec/whisky
+          EDGEDB_BRANCH: ${{ github.head_ref }}
+          EDGEDB_SECRET_KEY: ${{ secrets.JAKUBMAZANEC_WHISKY_EDGEDB_TOKEN }}
 
       - name: Check for changes
         run: |

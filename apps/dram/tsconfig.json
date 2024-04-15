@@ -10,7 +10,7 @@
   "compilerOptions": {
     "allowSyntheticDefaultImports": true,
     "composite": true,
-    "exactOptionalPropertyTypes": true,
+    "exactOptionalPropertyTypes": false,
     "forceConsistentCasingInFileNames": true,
     "isolatedModules": true,
     "jsx": "react-jsx",
@@ -30,6 +30,6 @@
     "resolveJsonModule": true,
     "rootDir": "."
   },
-  "include": ["./app/**/*", "./*"],
+  "include": ["./app/**/*", "./dbschema/**/*", "./*"],
   "references": []
 }

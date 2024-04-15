@@ -1,0 +1,7 @@
+{
+  "template": "@jakubmazanec/carson-templates:projects/remix-app",
+  "deployment": {
+    "appName": "dram",
+    "dbInstance": "jakubmazanec/whisky"
+  }
+}
