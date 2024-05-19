@@ -22,6 +22,7 @@ RUN apt-get update -qq && \
 
 # Install dependencies
 COPY --link package-lock.json package.json ./
+COPY --link apps/somewhere/package.json apps/somewhere/package.json
 RUN npm ci --include=dev --ignore-scripts
 
 # Copy the workspace
