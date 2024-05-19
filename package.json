@@ -24,7 +24,7 @@
     "@jakubmazanec/carson": "^1.1.0",
     "@jakubmazanec/carson-templates": "^2.2.1",
     "@jakubmazanec/changesets-changelog": "^2.0.0",
-    "@types/node": "^20.12.2",
+    "@types/node": "^20.12.12",
     "del-cli": "^5.1.0",
     "patch-package": "^8.0.0",
     "prettier": "^3.2.5",
@@ -34,6 +34,6 @@
   },
   "packageManager": "npm@10.1.0",
   "engines": {
-    "node": "^20.8.0"
+    "node": "^20.13.1"
   }
 }
