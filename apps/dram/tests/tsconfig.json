@@ -9,7 +9,7 @@
 {
   "compilerOptions": {
     "allowSyntheticDefaultImports": true,
-    "composite": true,
+    "composite": false,
     "exactOptionalPropertyTypes": true,
     "forceConsistentCasingInFileNames": true,
     "isolatedModules": true,
@@ -24,12 +24,12 @@
     "skipLibCheck": true,
     "strict": true,
     "target": "es2022",
-    "allowJs": true,
-    "esModuleInterop": true,
-    "noEmit": true,
-    "resolveJsonModule": true,
-    "rootDir": "."
+    "noEmit": true
   },
-  "include": ["./app/**/*", "./*"],
-  "references": []
+  "include": ["./**/*"],
+  "references": [
+    {
+      "path": ".."
+    }
+  ]
 }
