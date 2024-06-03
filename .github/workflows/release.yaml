@@ -70,15 +70,15 @@ jobs:
           EDGEDB_BRANCH: ${{ github.ref_name  }}
           EDGEDB_SECRET_KEY: ${{ secrets.JAKUBMAZANEC_WHISKY_EDGEDB_TOKEN }}
 
-      - name: Run tests
+      - name: Test
         run: npm test -- --filter=!dram
 
-      - name: Run tests for "dram"
+      - name: Test "dram"
         run: |
           npm run test -- --filter=dram
         env:
           EDGEDB_INSTANCE: jakubmazanec/whisky
-          EDGEDB_BRANCH: ${{ github.head_ref }}
+          EDGEDB_BRANCH: ${{ github.ref_name }}
           EDGEDB_SECRET_KEY: ${{ secrets.JAKUBMAZANEC_WHISKY_EDGEDB_TOKEN }}
 
       - name: Check for changes
@@ -154,7 +154,7 @@ jobs:
           FLY_ACCESS_TOKEN: ${{ secrets.FLY_TOKEN }}
           FLY_API_TOKEN: ${{ secrets.FLY_TOKEN }}
           EDGEDB_INSTANCE: jakubmazanec/whisky
-          EDGEDB_BRANCH: ${{ github.head_ref }}
+          EDGEDB_BRANCH: ${{ github.ref_name }}
           EDGEDB_SECRET_KEY: ${{ secrets.JAKUBMAZANEC_WHISKY_EDGEDB_TOKEN }}
 
       - name: Deploy "somewhere"
@@ -238,15 +238,15 @@ jobs:
           EDGEDB_BRANCH: ${{ github.ref_name  }}
           EDGEDB_SECRET_KEY: ${{ secrets.JAKUBMAZANEC_WHISKY_EDGEDB_TOKEN }}
 
-      - name: Run tests
+      - name: Test
         run: npm test -- --filter=!dram
 
-      - name: Run tests for "dram"
+      - name: Test "dram"
         run: |
           npm run test -- --filter=dram
         env:
           EDGEDB_INSTANCE: jakubmazanec/whisky
-          EDGEDB_BRANCH: ${{ github.head_ref }}
+          EDGEDB_BRANCH: ${{ github.ref_name }}
           EDGEDB_SECRET_KEY: ${{ secrets.JAKUBMAZANEC_WHISKY_EDGEDB_TOKEN }}
 
       - name: Check for changes
@@ -304,7 +304,7 @@ jobs:
           FLY_ACCESS_TOKEN: ${{ secrets.FLY_TOKEN }}
           FLY_API_TOKEN: ${{ secrets.FLY_TOKEN }}
           EDGEDB_INSTANCE: jakubmazanec/whisky
-          EDGEDB_BRANCH: ${{ github.head_ref }}
+          EDGEDB_BRANCH: ${{ github.ref_name }}
           EDGEDB_SECRET_KEY: ${{ secrets.JAKUBMAZANEC_WHISKY_EDGEDB_TOKEN }}
 
       - name: Deploy "somewhere"

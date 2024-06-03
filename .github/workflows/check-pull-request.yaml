@@ -62,10 +62,10 @@ jobs:
 
           git config --unset core.filemode
 
-      - name: Run tests
+      - name: Test
         run: npm test -- --filter=!dram
 
-      - name: Run tests
+      - name: Test "dram"
         run: |
           npm run test -- --filter=dram
         env:
