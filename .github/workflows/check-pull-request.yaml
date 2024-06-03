@@ -67,8 +67,9 @@ jobs:
 
       - name: Test "dram"
         run: |
-          npm run test -- --filter=dram
+          npm run test -- --filter=dram -vvv --env-mode=loose
         env:
+          TURBO_UI: 0
           EDGEDB_INSTANCE: jakubmazanec/whisky
           EDGEDB_BRANCH: ${{ github.head_ref }}
           EDGEDB_SECRET_KEY: ${{ secrets.JAKUBMAZANEC_WHISKY_EDGEDB_TOKEN }}
