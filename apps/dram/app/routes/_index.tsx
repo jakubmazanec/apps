@@ -1,26 +1,47 @@
-import {json, type LoaderFunctionArgs, type MetaFunction} from '@remix-run/node';
-import {useLoaderData} from '@remix-run/react';
+import {json, type LoaderFunctionArgs} from '@remix-run/node';
+import {Link, useLoaderData} from '@remix-run/react';
 
-import {client, e} from '../db.js';
+import {e} from '../db.js';
+import {auth as clientAuth} from '../services/auth.js';
+import {auth} from '../services/auth.server.js';
 
-export async function loader({request}: LoaderFunctionArgs) {
-  const notesCount = await e.count(e.Note).run(client);
+export const loader = async ({request}: LoaderFunctionArgs) => {
+  let session = auth.getSession(request);
+  let isSignedIn = await session.isSignedIn();
+  let notesCount;
+
+  if (isSignedIn) {
+    notesCount = await e.count(e.Note).run(session.client);
+  }
 
   return json({
+    isSignedIn,
     notesCount,
   });
-}
-
-export const meta: MetaFunction = () => [{title: 'Dram'}];
+};
 
 export default function Index() {
-  const {notesCount} = useLoaderData<typeof loader>();
+  let {isSignedIn, notesCount} = useLoaderData<typeof loader>();
 
   return (
     <div className="p-4">
       <h1>Dram.</h1>
       <p className="text-sm">(In development.)</p>
-      <p className="text-sm">{notesCount} notes.</p>
+      {isSignedIn ?
+        <>
+          <p className="text-sm">{notesCount} notes.</p>
+          <ul className="text-sm">
+            <li>
+              <Link to={clientAuth.getSignoutUrl()}>Sign out</Link>
+            </li>
+          </ul>
+        </>
+      : <ul className="text-sm">
+          <li>
+            <Link to={clientAuth.getBuiltinUIUrl()}>Sign in</Link>
+          </li>
+        </ul>
+      }
     </div>
   );
 }
