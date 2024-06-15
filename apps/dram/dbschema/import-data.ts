@@ -1,11 +1,11 @@
 import fs from 'fs-extra';
 import _ from 'lodash';
+import path from 'node:path';
 import map from 'p-map';
-import path from 'path';
 import xlsx from 'xlsx';
 import {z} from 'zod';
 
-import {appRootPath} from '../app/constants.js';
+import {appRootPath} from '../app/constants.server.js';
 import {client, e, LocalDate, LocalDateTime, type Note} from '../app/db.js';
 
 let rowSchema = z

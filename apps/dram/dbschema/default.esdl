@@ -1,4 +1,18 @@
+using extension auth;
+
 module default {
+  global currentUser := (
+    assert_single((
+      select User
+      filter .identity = global ext::auth::ClientTokenIdentity
+    ))
+  );
+
+  type User {
+    required name: str;
+    required identity: ext::auth::Identity;
+  }
+
   type Note {
     required order: int64 {
       constraint exclusive;

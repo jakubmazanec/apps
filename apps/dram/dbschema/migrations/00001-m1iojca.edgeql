@@ -1,6 +1,17 @@
-CREATE MIGRATION m1hpbp6sp6lvpsqpmu4z3c5n5qd2xrjxuhy3wudq6kp7gzhmjrcjpq
+CREATE MIGRATION m1iojcap6lzzdfmjbif4rxtird2fgbygqsduxm43b54qtvbk5a663q
     ONTO initial
 {
+  CREATE EXTENSION pgcrypto VERSION '1.3';
+  CREATE EXTENSION auth VERSION '1.0';
+  CREATE TYPE default::User {
+      CREATE REQUIRED LINK identity: ext::auth::Identity;
+      CREATE REQUIRED PROPERTY name: std::str;
+  };
+  CREATE GLOBAL default::currentUser := (std::assert_single((SELECT
+      default::User
+  FILTER
+      (.identity = GLOBAL ext::auth::ClientTokenIdentity)
+  )));
   CREATE TYPE default::Note {
       CREATE PROPERTY age: std::int64;
       CREATE PROPERTY balanceRating: std::float64;
@@ -12,7 +23,7 @@ CREATE MIGRATION m1hpbp6sp6lvpsqpmu4z3c5n5qd2xrjxuhy3wudq6kp7gzhmjrcjpq
       CREATE PROPERTY bottled: std::str;
       CREATE PROPERTY bottler: std::str;
       CREATE PROPERTY bottlesCount: std::int64;
-      CREATE PROPERTY boughtAt: std::str;
+      CREATE PROPERTY boughtAt: cal::local_date;
       CREATE PROPERTY brand: std::str;
       CREATE PROPERTY caskNnumber: std::str;
       CREATE PROPERTY caskType: std::str;
@@ -24,14 +35,17 @@ CREATE MIGRATION m1hpbp6sp6lvpsqpmu4z3c5n5qd2xrjxuhy3wudq6kp7gzhmjrcjpq
       CREATE PROPERTY name: std::str;
       CREATE PROPERTY nose: std::str;
       CREATE PROPERTY noseRating: std::float64;
-      CREATE PROPERTY noteId: std::int64;
+      CREATE REQUIRED PROPERTY order: std::int64 {
+          SET readonly := true;
+          CREATE CONSTRAINT std::exclusive;
+      };
       CREATE PROPERTY rating: std::float64;
       CREATE PROPERTY score: std::float64;
       CREATE PROPERTY size: std::float64;
       CREATE PROPERTY strength: std::float64;
       CREATE PROPERTY taste: std::str;
       CREATE PROPERTY tasteRating: std::float64;
-      CREATE PROPERTY tastedAt: std::datetime;
+      CREATE PROPERTY tastedAt: cal::local_datetime;
       CREATE PROPERTY tastingLocation: std::str;
       CREATE PROPERTY vintage: std::str;
       CREATE PROPERTY whiskyId: std::str;
