@@ -36,7 +36,7 @@
       "outputs": []
     }
   },
-  "globalEnv": ["EDGEDB_INSTANCE", "EDGEDB_BRANCH", "EDGEDB_SECRET_KEY"],
+  "globalEnv": ["VITE_APP_URL", "EDGEDB_INSTANCE", "EDGEDB_BRANCH", "EDGEDB_SECRET_KEY"],
   "globalDependencies": [
     ".editorconfig",
     ".eslintrc.cjs",
