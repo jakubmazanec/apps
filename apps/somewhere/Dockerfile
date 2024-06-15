@@ -13,6 +13,8 @@ WORKDIR /workspace
 
 # Set up env variables
 ENV NODE_ENV=production
+ARG VITE_APP_URL
+ENV VITE_APP_URL=$VITE_APP_URL
 
 # Throw-away build stage to reduce size of final image
 FROM base as build
