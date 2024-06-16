@@ -1,5 +1,11 @@
 # somewhere
 
+## 0.1.2
+
+### Patch Changes
+
+- [#25](https://github.com/jakubmazanec/apps/pull/25) [`b493751`](https://github.com/jakubmazanec/apps/commit/b493751c18426d7f81c3586b49119e893235cead) ([@renovate](https://github.com/apps/renovate)) – Fixes Dockerfile.
+
 ## 0.1.1
 
 ### Patch Changes

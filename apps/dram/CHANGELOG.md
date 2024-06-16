@@ -1,5 +1,15 @@
 # dram
 
+## 0.2.0
+
+### Minor Changes
+
+- [#24](https://github.com/jakubmazanec/apps/pull/24) [`ca968dc`](https://github.com/jakubmazanec/apps/commit/ca968dc2e1574c656984ae5048a88296c9e47bf9) ([@jakubmazanec](https://github.com/jakubmazanec)) – Adds auth using EdgeDB auth.
+
+### Patch Changes
+
+- [#25](https://github.com/jakubmazanec/apps/pull/25) [`b493751`](https://github.com/jakubmazanec/apps/commit/b493751c18426d7f81c3586b49119e893235cead) ([@renovate](https://github.com/apps/renovate)) – Fixes Dockerfile.
+
 ## 0.1.0
 
 ### Minor Changes
