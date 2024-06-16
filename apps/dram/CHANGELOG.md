@@ -1,5 +1,11 @@
 # dram
 
+## 0.2.1
+
+### Patch Changes
+
+- [`acbdb22`](https://github.com/jakubmazanec/apps/commit/acbdb228451e99b7a004ccda6b4c2d8d43df4912) ([@jakubmazanec](https://github.com/jakubmazanec)) – Fixes Dram app URL.
+
 ## 0.2.0
 
 ### Minor Changes
