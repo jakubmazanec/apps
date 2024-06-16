@@ -151,7 +151,7 @@ jobs:
         run: |
           npm run deploy --workspace dram -- --build-arg "VITE_APP_URL=$VITE_APP_URL" --build-arg "EDGEDB_INSTANCE=$EDGEDB_INSTANCE" --build-arg "EDGEDB_BRANCH=$EDGEDB_BRANCH" --build-secret "EDGEDB_SECRET_KEY=$EDGEDB_SECRET_KEY"
         env:
-          VITE_APP_URL: https://dram.fly.dev
+          VITE_APP_URL: https://dram.mazanec.dev
           EDGEDB_INSTANCE: jakubmazanec/whisky
           EDGEDB_BRANCH: ${{ github.ref_name }}
           EDGEDB_SECRET_KEY: ${{ secrets.JAKUBMAZANEC_WHISKY_EDGEDB_TOKEN }}

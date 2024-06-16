@@ -2,6 +2,7 @@
   "template": "@jakubmazanec/carson-templates:projects/remix-app",
   "deployment": {
     "appName": "dram",
+    "appUrl": "https://dram.mazanec.dev",
     "dbInstance": "jakubmazanec/whisky"
   }
 }
