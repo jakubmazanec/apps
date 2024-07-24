@@ -1,5 +1,12 @@
 # somewhere
 
+## 0.1.3
+
+### Patch Changes
+
+- [#2](https://github.com/jakubmazanec/apps/pull/2) [`df3f9b8`](https://github.com/jakubmazanec/apps/commit/df3f9b881ff7d41cc93d34455061dba951906ed7) ([@jakubmazanec](https://github.com/jakubmazanec)) – Creates basis of the game engine, including prototype of entity component system and object pool,
+  and simple testing level with a movable character.
+
 ## 0.1.2
 
 ### Patch Changes
