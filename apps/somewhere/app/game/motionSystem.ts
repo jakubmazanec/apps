@@ -11,12 +11,12 @@ export const motionSystem = new System({
   world,
   components: [MotionComponent, GraphicsComponent],
   entityQueries: {
-    level: levelQuery,
+    levels: levelQuery,
   },
   // TODO: fix this
   // eslint-disable-next-line complexity -- TODO
   onUpdate: (delta, system) => {
-    let {map} = system.entityQueries.level.getFirst().getComponent(LevelComponent);
+    let {map} = system.entityQueries.levels.getFirst().getComponent(LevelComponent);
 
     for (let entity of system.entities) {
       let motion = entity.getComponent(MotionComponent);
@@ -34,8 +34,8 @@ export const motionSystem = new System({
           motion.velocity.y = 0;
         }
 
-        if (motion.velocity.length > 2) {
-          motion.velocity.length = 2;
+        if (motion.velocity.length > 4) {
+          motion.velocity.length = 4;
         }
       }
 

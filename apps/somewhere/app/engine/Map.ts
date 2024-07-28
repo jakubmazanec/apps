@@ -28,6 +28,9 @@ export class Map {
   readonly columnCount: number;
   readonly rowCount: number;
 
+  readonly width: number;
+  readonly height: number;
+
   constructor({assetName}: MapOptions) {
     let tilemap = pixi.Assets.get<Tilemap | undefined>(assetName);
 
@@ -89,6 +92,8 @@ export class Map {
     this.layers = layers;
     this.columnCount = tilemap.columnCount;
     this.rowCount = tilemap.rowCount;
+    this.width = tilemap.columnCount * tilemap.tileWidth;
+    this.height = tilemap.rowCount * tilemap.tileHeight;
   }
 
   addToLayer(view: pixi.Container) {
