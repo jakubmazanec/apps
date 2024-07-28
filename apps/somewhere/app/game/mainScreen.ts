@@ -18,7 +18,7 @@ export const mainScreen = new GameScreen({
       components: [
         new LevelComponent({
           mapOptions: {
-            assetName: 'map.json',
+            assetName: 'map',
           },
         }),
       ],
@@ -26,7 +26,7 @@ export const mainScreen = new GameScreen({
     let player = new Entity({
       components: [
         new PlayerComponent({name: 'Jakub'}),
-        new MotionComponent({position: new Vector(95, 70), velocity: new Vector(0, 0)}),
+        new MotionComponent({position: new Vector(64 * 9, 64 * 10), velocity: new Vector(0, 0)}),
         new GraphicsComponent({
           spriteOptions: {
             assetName: 'character',
@@ -41,7 +41,7 @@ export const mainScreen = new GameScreen({
               'walking-right',
             ],
           },
-          boundingBox: new pixi.Rectangle(0, 10, 16, 10),
+          boundingBox: new pixi.Rectangle(0, 40, 64, 40),
         }),
       ],
     });

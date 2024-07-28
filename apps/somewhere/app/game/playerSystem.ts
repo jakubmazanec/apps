@@ -26,10 +26,12 @@ export const playerSystem = new System({
         motion.target = new Vector(
           // TODO: fix the typings
           // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- TODO
-          event.clientX / 1 + cameraPosition.x,
+          event.clientX / 1 + cameraPosition.x - 32, // TODO: 32 is from the bounding box, fix it sthe value is used directly, not as a cosntant
           // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access -- TODO
-          event.clientY / 1 + cameraPosition.y,
+          event.clientY / 1 + cameraPosition.y - 60, // TODO: 60 is from the bounding box, fix it sthe value is used directly, not as a cosntant
         );
+        motion.velocity.x = 0;
+        motion.velocity.y = 0;
       }
     });
   },
