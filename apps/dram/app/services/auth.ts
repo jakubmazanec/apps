@@ -6,4 +6,5 @@ export const options = {
   baseUrl:
     import.meta.env.DEV ? 'http://localhost:5000' : String(import.meta.env.VITE_APP_URL ?? appUrl),
 } satisfies RemixAuthOptions;
+
 export const auth = createClientAuth(options);

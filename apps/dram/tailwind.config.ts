@@ -6,12 +6,4 @@
  * Run `npx carson update workspace` to regenerate.
  */
 
-import {type Config} from 'tailwindcss';
-
-export default {
-  content: ['./app/**/*.{js,jsx,ts,tsx}'],
-  theme: {
-    extend: {},
-  },
-  plugins: [],
-} satisfies Config;
+export {tailwindConfig as default} from './app/tailwindConfig.js';

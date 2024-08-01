@@ -30,7 +30,7 @@ module default {
     vintage: str;
     bottled: str;
     caskType: str;
-    caskNnumber: str;
+    caskNumber: str;
     strength: float64;
     size: float64;
     bottlesCount: int64;
@@ -46,7 +46,7 @@ module default {
     nose: str;
     taste: str;
     finish: str;
-    bottleNumber: int64;
+    bottleNumber: str;
     barCode: str;
     bottleCode: str;
     boughtAt: cal::local_date;

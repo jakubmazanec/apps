@@ -68,7 +68,7 @@ let rowSchema = z
     Nose: z.string().optional(),
     Taste: z.string().optional(),
     Finish: z.string().optional(),
-    'Bottle number': z.union([z.undefined(), z.coerce.number()]),
+    'Bottle number': z.union([z.undefined(), z.string()]),
     'Bar code': z.string().optional(),
     'Bottle code': z.string().optional(),
     'Bought at': z.coerce
@@ -135,7 +135,7 @@ function rowToNote(rawRow: unknown): Omit<Note, 'id'> {
     bottlesCount: row['Bottles count'],
     boughtAt: row['Bought at'],
     brand: row.Brand,
-    caskNnumber: row['Cask number'],
+    caskNumber: row['Cask number'],
     caskType: row['Cask type'],
     color: row.Color,
     distillery: row.Distillery,
