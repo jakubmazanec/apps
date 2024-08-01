@@ -70,7 +70,7 @@ jobs:
           npm run test -- --filter=dram
         env:
           EDGEDB_INSTANCE: jakubmazanec/whisky
-          EDGEDB_BRANCH: ${{ github.head_ref }}
+          EDGEDB_BRANCH: apps-${{ github.head_ref }}
           EDGEDB_SECRET_KEY: ${{ secrets.JAKUBMAZANEC_WHISKY_EDGEDB_TOKEN }}
 
       - name: Check for changes
