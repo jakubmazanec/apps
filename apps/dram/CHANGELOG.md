@@ -1,5 +1,17 @@
 # dram
 
+## 0.3.0
+
+### Minor Changes
+
+- [#28](https://github.com/jakubmazanec/apps/pull/28) [`a52243c`](https://github.com/jakubmazanec/apps/commit/a52243cbc646dedafb510600aa2f0e0794c976a1) ([@jakubmazanec](https://github.com/jakubmazanec)) – Latest tasting notes are shown on the homepage.
+
+- [#28](https://github.com/jakubmazanec/apps/pull/28) [`a52243c`](https://github.com/jakubmazanec/apps/commit/a52243cbc646dedafb510600aa2f0e0794c976a1) ([@jakubmazanec](https://github.com/jakubmazanec)) – UI is created using `@jakubmazanec/ui`.
+
+### Patch Changes
+
+- [#28](https://github.com/jakubmazanec/apps/pull/28) [`a52243c`](https://github.com/jakubmazanec/apps/commit/a52243cbc646dedafb510600aa2f0e0794c976a1) ([@jakubmazanec](https://github.com/jakubmazanec)) – Fixes DB schema.
+
 ## 0.2.1
 
 ### Patch Changes

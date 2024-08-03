@@ -1,5 +1,17 @@
 # somewhere
 
+## 0.1.4
+
+### Patch Changes
+
+- [#28](https://github.com/jakubmazanec/apps/pull/28) [`a52243c`](https://github.com/jakubmazanec/apps/commit/a52243cbc646dedafb510600aa2f0e0794c976a1) ([@jakubmazanec](https://github.com/jakubmazanec)) – Tweaks Vite and Tailwind configs.
+
+- [#30](https://github.com/jakubmazanec/apps/pull/30) [`1c82d2d`](https://github.com/jakubmazanec/apps/commit/1c82d2d3deff612c4a34f10c5088741221b28faf) ([@jakubmazanec](https://github.com/jakubmazanec)) – Tweaks how characters move along walls.
+
+- [#30](https://github.com/jakubmazanec/apps/pull/30) [`1c82d2d`](https://github.com/jakubmazanec/apps/commit/1c82d2d3deff612c4a34f10c5088741221b28faf) ([@jakubmazanec](https://github.com/jakubmazanec)) – Fixes the camera not following the player.
+
+- [#30](https://github.com/jakubmazanec/apps/pull/30) [`1c82d2d`](https://github.com/jakubmazanec/apps/commit/1c82d2d3deff612c4a34f10c5088741221b28faf) ([@jakubmazanec](https://github.com/jakubmazanec)) – Fixes graphics; pixels are now quadrupled for more blocky, pixel art look.
+
 ## 0.1.3
 
 ### Patch Changes
