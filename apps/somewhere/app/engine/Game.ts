@@ -1,6 +1,7 @@
 import {type EventEmitter} from 'eventemitter3';
 import * as pixi from 'pixi.js';
 
+// import {CRTFilter} from 'pixi-filters';
 import {tiledTilemapAsset, tiledTilesetAsset} from '../pixi-tools.js';
 import {type GameScreen} from './GameScreen.js';
 
@@ -103,6 +104,26 @@ export class Game {
     });
     await pixi.Assets.loadBundle(['default']);
     void pixi.Assets.backgroundLoadBundle(assetBundles.map((assetBundle) => assetBundle.name));
+
+    // // TODO: make better abstraction
+    // let filter = new CRTFilter({
+    //   lineWidth: 4,
+    //   lineContrast: 0.1,
+    //   noise: 0.1,
+    //   noiseSize: 0.1,
+    //   vignetting: 0,
+    //   time: 0,
+    // });
+
+    // app.stage.filters = [filter];
+
+    // app.ticker.add((delta) => {
+    //   filter.time += 0.5;
+
+    //   if (filter.time > 1000) {
+    //     filter.time = 0;
+    //   }
+    // });
 
     return new this({
       assetBundles,
