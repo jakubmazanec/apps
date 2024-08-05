@@ -6,7 +6,15 @@ import xlsx from 'xlsx';
 import {z} from 'zod';
 
 import {appRootPath} from '../app/constants.server.js';
-import {client, e, LocalDate, LocalDateTime, type Note} from '../app/db.js';
+import {client as baseClient, e, LocalDate, LocalDateTime, type Note} from '../app/db.js';
+
+let currentUserId = process.argv[2];
+
+if (!currentUserId) {
+  throw new Error('You must pass a User ID as a parameter!');
+}
+
+let client = baseClient.withGlobals({currentUserId});
 
 let rowSchema = z
   .object({
@@ -112,7 +120,7 @@ async function readXlsx(filePath: string, sheetName: string) {
   return rows;
 }
 
-function rowToNote(rawRow: unknown): Omit<Note, 'id'> {
+function rowToNote(rawRow: unknown): Omit<Note, 'id' | 'owner'> {
   let row;
 
   try {
@@ -162,7 +170,7 @@ function rowToNote(rawRow: unknown): Omit<Note, 'id'> {
   return note;
 }
 
-async function insertNote(note: Omit<Note, 'id'>) {
+async function insertNote(note: Omit<Note, 'id' | 'owner'>) {
   let existingNote = await e
     .select(e.Note, () => ({
       filter_single: {

@@ -11,17 +11,29 @@ let handlers = auth.createAuthRouteHandlers({
       return redirect('/');
     }
 
-    if (isSignUp && tokenData) {
-      await e
-        .insert(e.User, {
-          name: '',
-          identity: e.assert_exists(
-            e.select(e.ext.auth.Identity, () => ({
-              filter_single: {id: tokenData.identity_id},
-            })),
-          ),
-        })
+    let identityId = tokenData?.identity_id;
+
+    if (identityId) {
+      let existingUser = await e
+        .assert_single(
+          e.select(e.User, (user) => ({
+            filter: e.op(user.identities.id, '?=', e.uuid(identityId)),
+          })),
+        )
         .run(client);
+
+      if (!existingUser) {
+        await e
+          .insert(e.User, {
+            name: '',
+            identities: e.assert_exists(
+              e.select(e.ext.auth.Identity, () => ({
+                filter_single: {id: identityId},
+              })),
+            ),
+          })
+          .run(client);
+      }
 
       return redirect('/');
     }

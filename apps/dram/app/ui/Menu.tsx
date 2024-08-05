@@ -1,9 +1,24 @@
-import {type PropsWithChildren} from 'react';
+import {Link} from '@remix-run/react';
 
-export function Header({children}: PropsWithChildren) {
+import {auth as clientAuth} from '../services/auth.js';
+import {useAuth} from '../services/useAuth.js';
+
+export function Menu() {
+  let {isSignedIn} = useAuth();
+
   return (
-    <header className="fixed left-0 right-0 top-0 bg-orange-300 px-4 py-2 text-white">
-      <h1 className="text-sm uppercase tracking-wide">Dram</h1>
-    </header>
+    <menu className="flex justify-between gap-x-6 text-sm">
+      {isSignedIn ?
+        <Link to="/notes">Notes</Link>
+      : null}
+      {isSignedIn ?
+        <Link className="text-white " to={clientAuth.getSignoutUrl()}>
+          Sign out
+        </Link>
+      : <Link className="text-white " to={clientAuth.getBuiltinUIUrl()}>
+          Sign in
+        </Link>
+      }
+    </menu>
   );
 }
