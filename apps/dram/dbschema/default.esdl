@@ -1,16 +1,32 @@
 using extension auth;
 
 module default {
+  global currentUserId: uuid;
   global currentUser := (
     assert_single((
       select User
-      filter .identity = global ext::auth::ClientTokenIdentity
+      filter global ext::auth::ClientTokenIdentity in .identities or .id ?= global currentUserId
     ))
   );
 
+  scalar type UserRole extending enum<Guest, Member, Admin>;
+
   type User {
     required name: str;
-    required identity: ext::auth::Identity;
+    required multi identities: ext::auth::Identity {
+        constraint exclusive;
+    };
+    required role: UserRole {
+      default := UserRole.Guest;
+    };
+
+    # access policy authorHasFullAccess
+    #   allow all
+    #   using (.id ?= global currentUser.id);
+
+    # access policy adminHasFullAccess
+    #   allow all
+    #   using (global currentUser.role ?= UserRole.Admin);
   }
 
   type Note {
@@ -51,5 +67,17 @@ module default {
     bottleCode: str;
     boughtAt: cal::local_date;
     whiskybaseUrl: str;
+
+    required owner: User {
+      default := global currentUser;
+    };
+
+    access policy authorHasFullAccess
+      allow all
+      using (.owner.id ?= global currentUser.id);
+
+    access policy adminHasFullAccess
+      allow all
+      using (global currentUser.role ?= UserRole.Admin);
   }
 };
