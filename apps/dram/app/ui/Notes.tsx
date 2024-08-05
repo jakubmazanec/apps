@@ -3,7 +3,7 @@ import {type Note} from '../db.js';
 const WHISKYBASE_ID_REGEXP = /(?!\/)\d+(?=\/)/;
 
 export type NotesProps = {
-  notes: Note[];
+  notes: Array<Omit<Note, 'owner'>>;
 };
 
 export function Notes({notes}: NotesProps) {
