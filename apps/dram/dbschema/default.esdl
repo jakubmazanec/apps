@@ -4,7 +4,7 @@ module default {
   global currentUserId: uuid;
   global currentUser := (
     assert_single((
-      select User {id, role}
+      select User
       filter global ext::auth::ClientTokenIdentity in .identities or .id ?= global currentUserId
     ))
   );
