@@ -39,7 +39,7 @@
     "react-dom": "^18.2.0"
   },
   "devDependencies": {
-    "@edgedb/generate": "^0.5.3",
+    "@edgedb/generate": "^0.5.4",
     "@jakubmazanec/eslint-config": "^3.3.0",
     "@remix-run/dev": "^2.8.1",
     "@testing-library/jest-dom": "^6.4.2",
