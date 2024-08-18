@@ -1,5 +1,0 @@
----
-"dram": patch
----
-
-Squash migrations.

@@ -1,5 +1,11 @@
 # dram
 
+## 0.4.1
+
+### Patch Changes
+
+- [`77a7fc5`](https://github.com/jakubmazanec/apps/commit/77a7fc5cf6acf60d42432c9a5c99e4f07581229b) ([@jakubmazanec](https://github.com/jakubmazanec)) – Squash migrations.
+
 ## 0.4.0
 
 ### Minor Changes
