@@ -1,5 +1,23 @@
 # dram
 
+## 0.4.0
+
+### Minor Changes
+
+- [#31](https://github.com/jakubmazanec/apps/pull/31) [`e0dca06`](https://github.com/jakubmazanec/apps/commit/e0dca06834bd7a63e2eb5c778837f3fd3436ce7e) ([@jakubmazanec](https://github.com/jakubmazanec)) – Adds global variable `currentUserId` to the DB schema to allow simpler data import.
+
+- [#31](https://github.com/jakubmazanec/apps/pull/31) [`e0dca06`](https://github.com/jakubmazanec/apps/commit/e0dca06834bd7a63e2eb5c778837f3fd3436ce7e) ([@jakubmazanec](https://github.com/jakubmazanec)) – Adds page "Notes" that displays paginated list of all user's notes.
+
+### Patch Changes
+
+- [#31](https://github.com/jakubmazanec/apps/pull/31) [`e0dca06`](https://github.com/jakubmazanec/apps/commit/e0dca06834bd7a63e2eb5c778837f3fd3436ce7e) ([@jakubmazanec](https://github.com/jakubmazanec)) – Fixes access policies, so users cannot see notes of other users.
+
+- [#33](https://github.com/jakubmazanec/apps/pull/33) [`05b5274`](https://github.com/jakubmazanec/apps/commit/05b52744596c583d89bdec307de64118e3026501) ([@jakubmazanec](https://github.com/jakubmazanec)) – Fixes global variable `currentUser` in the DB schema.
+
+- [#31](https://github.com/jakubmazanec/apps/pull/31) [`e0dca06`](https://github.com/jakubmazanec/apps/commit/e0dca06834bd7a63e2eb5c778837f3fd3436ce7e) ([@jakubmazanec](https://github.com/jakubmazanec)) – Updates UI library.
+
+- [#31](https://github.com/jakubmazanec/apps/pull/31) [`e0dca06`](https://github.com/jakubmazanec/apps/commit/e0dca06834bd7a63e2eb5c778837f3fd3436ce7e) ([@jakubmazanec](https://github.com/jakubmazanec)) – Fixes how is a new user created after login.
+
 ## 0.3.0
 
 ### Minor Changes
