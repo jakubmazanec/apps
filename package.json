@@ -19,6 +19,9 @@
     "typecheck": "turbo run typecheck --no-daemon",
     "uninstall": "del-cli ./**/node_modules ./package-lock.json"
   },
+  "dependencies": {
+    "@headlessui/react": "^2.1.8"
+  },
   "devDependencies": {
     "@changesets/cli": "^2.27.1",
     "@jakubmazanec/carson": "^1.2.3",
@@ -35,5 +38,9 @@
   "packageManager": "npm@10.9.0",
   "engines": {
     "node": "^22.11.0"
+  },
+  "overrides": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
   }
 }
