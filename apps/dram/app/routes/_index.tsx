@@ -1,9 +1,9 @@
 import {json, type LoaderFunctionArgs} from '@remix-run/node';
-import {useLoaderData} from '@remix-run/react';
 
+// import {useLoaderData} from '@remix-run/react';
 import {e} from '../db.js';
 import {auth} from '../services/auth.server.js';
-import {Notes} from '../ui.js';
+// import {Notes} from '../ui.js';
 
 export const loader = async ({request}: LoaderFunctionArgs) => {
   let session = auth.getSession(request);
@@ -34,13 +34,13 @@ export const loader = async ({request}: LoaderFunctionArgs) => {
 };
 
 export default function IndexRoute() {
-  let data = useLoaderData<typeof loader>();
+  // let data = useLoaderData<typeof loader>();
 
   return (
     <div className="p-4">
-      {data.isSignedIn ?
+      {/*data.isSignedIn ?
         <Notes notes={data.notes} />
-      : null}
+      : null*/}
     </div>
   );
 }

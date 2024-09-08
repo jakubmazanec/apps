@@ -11,6 +11,7 @@ let handlers = auth.createAuthRouteHandlers({
       return redirect('/');
     }
 
+    let clientWithGlobal = client.withGlobals({isAdmin: true});
     let identityId = tokenData?.identity_id;
 
     if (identityId) {
@@ -20,7 +21,7 @@ let handlers = auth.createAuthRouteHandlers({
             filter: e.op(user.identities.id, '?=', e.uuid(identityId)),
           })),
         )
-        .run(client);
+        .run(clientWithGlobal);
 
       if (!existingUser) {
         await e
@@ -32,7 +33,7 @@ let handlers = auth.createAuthRouteHandlers({
               })),
             ),
           })
-          .run(client);
+          .run(clientWithGlobal);
       }
 
       return redirect('/');
