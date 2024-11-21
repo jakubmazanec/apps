@@ -1,4 +1,4 @@
-import * as pixi from 'pixi.js';
+import type * as pixi from 'pixi.js';
 
 import {Component} from './Component.js';
 import {Sprite, type SpriteOptions} from './Sprite.js';

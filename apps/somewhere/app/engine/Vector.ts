@@ -48,7 +48,7 @@ export class Vector {
   }
 
   get length(): number {
-    return Math.sqrt(this.x ** 2 + this.y ** 2);
+    return Math.hypot(this.x, this.y);
   }
 
   set length(value: number) {

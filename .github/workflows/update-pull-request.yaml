@@ -32,7 +32,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
 
       - name: Install packages
         run: npm ci
@@ -47,11 +47,9 @@ jobs:
               let names = [];
 
               for (let file of files) {
-                let data = JSON.parse(await fs.readFile(file, 'utf8'));
+                let packageJson = JSON.parse(await fs.readFile(file, 'utf8'));
 
-                if (!data.private) {
-                  names.push(data.name);
-                }
+                names.push(packageJson.name);
               }
 
               return names;
