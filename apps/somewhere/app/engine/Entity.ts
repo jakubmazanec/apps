@@ -24,7 +24,7 @@ export class Entity<
     return this.components.has(ComponentConstructor);
   }
 
-  getComponent<U extends T[number] | Component>(
+  getComponent<U extends Component | T[number]>(
     ComponentConstructor: Constructor<U>,
   ): U extends T[number] ? U : U | undefined {
     return this.components.get(ComponentConstructor) as U extends T[number] ? U : U | undefined;

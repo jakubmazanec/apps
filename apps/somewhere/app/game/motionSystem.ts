@@ -13,8 +13,6 @@ export const motionSystem = new System({
   entityQueries: {
     levels: levelQuery,
   },
-  // TODO: fix this
-  // eslint-disable-next-line complexity -- TODO
   onUpdate: (delta, system) => {
     let {map} = system.entityQueries.levels.getFirst().getComponent(LevelComponent);
 

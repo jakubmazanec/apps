@@ -13,9 +13,9 @@ export function Pagination({currentPage, pagesCount, pageLink}: PaginationProps)
       // eslint-disable-next-line react/no-array-index-key -- needed, there is no other value
       key={index}
       as={NavLink}
-      variant={currentPage === index + 1 ? 'solid' : 'outline'}
-      to={`${pageLink}${index + 1}`}
       className="group/page tabular-nums"
+      to={`${pageLink}${index + 1}`}
+      variant={currentPage === index + 1 ? 'solid' : 'outline'}
     >
       <span className="group-[.pending]/page:hidden">{index + 1}</span>
       <Spinner className="hidden group-[.pending]/page:inline-block" />
@@ -26,25 +26,25 @@ export function Pagination({currentPage, pagesCount, pageLink}: PaginationProps)
     <div className="flex flex-wrap gap-x-1 gap-y-1">
       <Button
         as={NavLink}
-        variant="outline"
-        to={`${pageLink}${Math.max(1, currentPage - 1)}`}
-        disabled={currentPage <= 1}
         className="group/previous"
+        disabled={currentPage <= 1}
+        to={`${pageLink}${Math.max(1, currentPage - 1)}`}
+        variant="outline"
       >
-        <Icon name="ArrowLongLeft" className="inline-block group-[.pending]/previous:hidden" />
+        <Icon className="inline-block group-[.pending]/previous:hidden" name="ArrowLongLeft" />
         <Spinner className="hidden group-[.pending]/previous:inline-block" />
         Previous
       </Button>
       {pageButtons}
       <Button
         as={NavLink}
-        variant="outline"
-        to={`${pageLink}${Math.min(pagesCount, currentPage + 1)}`}
-        disabled={currentPage >= pagesCount}
         className="group/next"
+        disabled={currentPage >= pagesCount}
+        to={`${pageLink}${Math.min(pagesCount, currentPage + 1)}`}
+        variant="outline"
       >
         Next
-        <Icon name="ArrowLongRight" className="inline-block group-[.pending]/next:hidden" />
+        <Icon className="inline-block group-[.pending]/next:hidden" name="ArrowLongRight" />
         <Spinner className="hidden group-[.pending]/next:inline-block" />
       </Button>
     </div>

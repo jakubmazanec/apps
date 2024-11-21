@@ -45,8 +45,8 @@ export default function NotesRoute() {
         <Notes notes={data.notes} />
         <Pagination
           currentPage={data.currentPage}
-          pagesCount={data.pagesCount}
           pageLink="/notes/"
+          pagesCount={data.pagesCount}
         />
       </div>
     : null;
