@@ -31,11 +31,9 @@ export class Sprite<const N extends readonly string[] = string[]> {
         );
       }
 
-      sprites[spriteName] = new pixi.AnimatedSprite(
-        spritesheet.animations[spriteName] as pixi.Texture[],
-      );
-      (sprites[spriteName] as pixi.AnimatedSprite).visible = false;
-      (sprites[spriteName] as pixi.AnimatedSprite).animationSpeed = 0.15;
+      sprites[spriteName] = new pixi.AnimatedSprite(spritesheet.animations[spriteName]);
+      sprites[spriteName].visible = false;
+      sprites[spriteName].animationSpeed = 0.15;
     }
 
     this.sprites = sprites as Record<N[number], pixi.AnimatedSprite>;
