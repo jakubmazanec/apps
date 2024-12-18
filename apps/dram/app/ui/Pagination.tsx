@@ -1,6 +1,8 @@
 import {Button, Icon, Spinner} from '@jakubmazanec/ui';
 import {NavLink} from '@remix-run/react';
 
+import {tailwindMerge} from '../utilities.js';
+
 export type PaginationProps = {
   currentPage: number;
   pagesCount: number;
@@ -12,8 +14,11 @@ export function Pagination({currentPage, pagesCount, pageLink}: PaginationProps)
     <Button
       // eslint-disable-next-line react/no-array-index-key -- needed, there is no other value
       key={index}
+      className={tailwindMerge(
+        'group/page tabular-nums',
+        currentPage === index + 1 ? 'pointer-events-none' : null,
+      )}
       as={NavLink}
-      className="group/page tabular-nums"
       to={`${pageLink}${index + 1}`}
       variant={currentPage === index + 1 ? 'solid' : 'outline'}
     >
@@ -40,7 +45,7 @@ export function Pagination({currentPage, pagesCount, pageLink}: PaginationProps)
         as={NavLink}
         className="group/next"
         disabled={currentPage >= pagesCount}
-        to={`${pageLink}${Math.min(pagesCount, currentPage + 1)}`}
+        to={`${pageLink}${Math.min(Math.max(pagesCount, 1), currentPage + 1)}`} // if there are no pages, let's default to 1
         variant="outline"
       >
         Next
