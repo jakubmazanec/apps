@@ -8,14 +8,11 @@
 
 name: Update pull request
 
-on:
-  pull_request_target:
-    branches: [development]
+on: [push]
 
 jobs:
   update_pull_request:
     name: Update pull request
-    if: ${{ github.actor == 'renovate[bot]' && contains(github.head_ref, 'renovate/') }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -126,6 +123,8 @@ jobs:
             let {stdout: shortHash} = await exec.getExecOutput('git rev-parse --short HEAD');
             let fileName = `.changeset/renovate-${shortHash.trim()}.md`;
             let packageBumps = await getBumps(files);
+
+            console.log('packageBumps', Array.from(packageBumps));
 
             if (
               !packageNames.length &&
