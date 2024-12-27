@@ -1,4 +1,12 @@
-<!-- header --><!-- header -->
+<!-- header -->
+<div align="center">
+
+# dram
+
+Whisky tasting notes app.
+
+</div>
+<!-- header -->
 
 ## Installation
 
