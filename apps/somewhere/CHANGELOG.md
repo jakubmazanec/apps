@@ -1,5 +1,14 @@
 # somewhere
 
+## 0.1.6
+
+### Patch Changes
+
+- [#44](https://github.com/jakubmazanec/apps/pull/44)
+  [`55011a1`](https://github.com/jakubmazanec/apps/commit/55011a11113f224da8eaa8310338956b4363c5aa)
+  ([@renovate](https://github.com/apps/renovate)) – Applies templates from
+  `@jakubmazanec/carson-templates` updated to version `^3.2.1`.
+
 ## 0.1.5
 
 ### Patch Changes
