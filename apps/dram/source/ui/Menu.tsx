@@ -1,4 +1,4 @@
-import {Link} from '@remix-run/react';
+import {Link} from 'react-router';
 
 import {auth as clientAuth} from '../services/auth.js';
 import {useAuth} from '../services/useAuth.js';

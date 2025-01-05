@@ -1,5 +1,5 @@
 import {Spinner} from '@jakubmazanec/ui';
-import {Link, useNavigation} from '@remix-run/react';
+import {Link, useNavigation} from 'react-router';
 
 export function Logo() {
   let {state} = useNavigation();

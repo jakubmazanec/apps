@@ -36,7 +36,7 @@ export class Game {
   private readonly interactionView: pixi.Container = new pixi.Container();
   readonly ticker: pixi.Ticker;
 
-  ref: React.RefObject<Element> | null = null;
+  ref: React.RefObject<HTMLElement | null> | null = null;
 
   private constructor({assetBundles, app}: GameOptions) {
     this.assetBundles = assetBundles;
@@ -157,8 +157,12 @@ export class Game {
     return true;
   }
 
-  addRef(ref: React.RefObject<Element>) {
-    ref.current?.appendChild(this.app.view as unknown as Node);
+  addRef(ref: React.RefObject<HTMLElement | null>) {
+    if (!ref.current) {
+      return this;
+    }
+
+    ref.current.appendChild(this.app.view as unknown as Node);
     window.addEventListener('resize', this.resize);
 
     this.ref = ref;
