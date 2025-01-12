@@ -20,7 +20,7 @@
     "format": "prettier . --write --ignore-unknown",
     "lint": "eslint .",
     "migrate": "edgedb migration create && edgedb migrate && npm run codegen",
-    "start": "cross-env NODE_ENV=production PORT=${APP_PORT} react-router-serve ./build/server/index.js",
+    "start": "cross-env NODE_ENV=production PORT=5000 react-router-serve ./build/server/index.js",
     "test": "del-cli coverage && vitest run --coverage --passWithNoTests",
     "typecheck": "tsc --project tsconfig.typecheck.json"
   },
