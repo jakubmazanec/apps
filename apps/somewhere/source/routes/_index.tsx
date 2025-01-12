@@ -1,5 +1,5 @@
-import {type MetaFunction} from '@remix-run/node';
 import {useEffect, useState} from 'react';
+import {type MetaFunction} from 'react-router';
 
 import {type Game} from '../engine/Game.js';
 import {GameProvider} from '../engine/GameProvider.js';

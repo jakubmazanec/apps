@@ -1,4 +1,4 @@
-import {redirect} from '@remix-run/node';
+import {redirect} from 'react-router';
 
 import {client, e} from '../db.js';
 import {auth} from '../services/auth.server.js';

@@ -147,6 +147,25 @@ jobs:
         run: |
           git push --follow-tags
 
+      - name: Checkout development branch
+        run: |
+          git fetch -p origin
+          git checkout -B development
+          git branch --set-upstream-to=origin/development development
+          git reset --hard origin/development
+
+      - name: Merge and commit
+        run: |
+          git merge main --no-verify
+          git push -u origin development --no-verify
+
+      - name: Checkout main branch
+        run: |
+          git checkout -B main
+          git branch --set-upstream-to=origin/main main
+          git reset --hard origin/main
+          git pull
+
       - name: Deploy "dram"
         run: |
           npm run deploy --workspace dram -- --build-arg "VITE_APP_URL=$VITE_APP_URL" --build-arg "EDGEDB_INSTANCE=$EDGEDB_INSTANCE" --build-arg "EDGEDB_BRANCH=$EDGEDB_BRANCH" --build-secret "EDGEDB_SECRET_KEY=$EDGEDB_SECRET_KEY"
@@ -165,25 +184,6 @@ jobs:
           VITE_APP_URL: https://somewhere.fly.dev
           FLY_ACCESS_TOKEN: ${{ secrets.FLY_TOKEN }}
           FLY_API_TOKEN: ${{ secrets.FLY_TOKEN }}
-
-      - name: Checkout main branch
-        run: |
-          git fetch -p origin
-          git checkout main
-          git branch --set-upstream-to=origin/main main
-          git reset --hard origin/main
-          git pull
-
-      - name: Checkout development branch
-        run: |
-          git checkout -B development
-          git branch --set-upstream-to=origin/development development
-          git reset --hard origin/development
-
-      - name: Merge and commit
-        run: |
-          git merge main --no-verify
-          git push -u origin development --no-verify
 
   release_development_branch:
     name: Release preview

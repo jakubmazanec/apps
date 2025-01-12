@@ -1,4 +1,4 @@
-import {json, type LoaderFunctionArgs} from '@remix-run/node';
+import {type LoaderFunctionArgs} from 'react-router';
 
 // import {useLoaderData} from '@remix-run/react';
 // import {e} from '../db.js';
@@ -10,7 +10,7 @@ export const loader = async ({request}: LoaderFunctionArgs) => {
   let isSignedIn = await session.isSignedIn();
 
   if (!isSignedIn) {
-    return json({isSignedIn});
+    return {isSignedIn};
   }
 
   // TODO: when @jakubmazanec/ui DataTable allows for disabling pagination and other additional functionality, enable this again
@@ -27,11 +27,11 @@ export const loader = async ({request}: LoaderFunctionArgs) => {
   //   }))
   //   .run(session.client);
 
-  return json({
+  return {
     isSignedIn,
     // notesCount,
     // notes,
-  });
+  };
 };
 
 export default function IndexRoute() {

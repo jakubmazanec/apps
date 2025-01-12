@@ -1,5 +1,5 @@
 import {Button, Icon, Spinner} from '@jakubmazanec/ui';
-import {NavLink} from '@remix-run/react';
+import {NavLink} from 'react-router';
 
 import {tailwindMerge} from '../utilities.js';
 

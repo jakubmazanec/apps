@@ -12,27 +12,29 @@
 *
 
 # except files that are allowed to be in the Docker image
-!apps/dram/app/**
+!/package-lock.json
+!/package.json
+!/turbo.json
 !apps/dram/dbschema/**
-!apps/dram/public/**
 !apps/dram/edgedb.toml
 !apps/dram/env.d.ts
 !apps/dram/package.json
 !apps/dram/postcss.config.cjs
+!apps/dram/public/**
+!apps/dram/react-router.config.ts
+!apps/dram/source/**
 !apps/dram/tailwind.config.ts
 !apps/dram/tsconfig.json
 !apps/dram/vite.config.ts
-!apps/somewhere/app/**
-!apps/somewhere/public/**
 !apps/somewhere/env.d.ts
 !apps/somewhere/package.json
 !apps/somewhere/postcss.config.cjs
+!apps/somewhere/public/**
+!apps/somewhere/react-router.config.ts
+!apps/somewhere/source/**
 !apps/somewhere/tailwind.config.ts
 !apps/somewhere/tsconfig.json
 !apps/somewhere/vite.config.ts
-!/package-lock.json
-!/package.json
-!/turbo.json
 
 # we might also need .npmrc with token
 !.npmrc

@@ -8,13 +8,14 @@ import {
   type DataTableSorting,
   dataTableSortingSchema,
 } from '@jakubmazanec/ui';
-import {json, type LoaderFunctionArgs} from '@remix-run/node';
-import {useLoaderData, useSearchParams} from '@remix-run/react';
 import {useCallback} from 'react';
+import {type LoaderFunctionArgs} from 'react-router';
+import {useSearchParams} from 'react-router';
 
 import {e} from '../db.js';
 import {auth} from '../services/auth.server.js';
 import {Notes} from '../ui.js';
+import {type Route} from './+types/notes.js';
 
 function parsePagination(value: string | null): DataTablePagination {
   let result: DataTablePagination = {
@@ -90,7 +91,7 @@ export const loader = async ({request}: LoaderFunctionArgs) => {
   let isSignedIn = await session.isSignedIn();
 
   if (!isSignedIn) {
-    return json({isSignedIn});
+    return {isSignedIn};
   }
 
   let pagination = parsePagination(url.searchParams.get('pagination'));
@@ -239,17 +240,24 @@ export const loader = async ({request}: LoaderFunctionArgs) => {
     })
     .run(session.client);
 
-  return json({
+  // TODO: this is temporary hack, remove this
+  // @ts-expect-error -- client expect dates as strings
+  notes = notes.map((note) => ({
+    ...note,
+    tastedAt: note.tastedAt?.toString(),
+    boughtAt: note.boughtAt?.toString(),
+  }));
+
+  return {
     isSignedIn,
     notes,
     currentPage: pagination.page,
     pageCount:
       Math.trunc(noteCount / pagination.pageSize) + (noteCount % pagination.pageSize > 0 ? 1 : 0),
-  });
+  };
 };
 
-export default function NotesRoute() {
-  let data = useLoaderData<typeof loader>();
+export default function NotesRoute({loaderData}: Route.ComponentProps) {
   let [searchParameters, setSearchParameters] = useSearchParams();
 
   let pagination = parsePagination(searchParameters.get('pagination'));
@@ -325,12 +333,14 @@ export default function NotesRoute() {
     [setSearchParameters],
   );
 
-  return data.isSignedIn ?
+  return loaderData.isSignedIn ?
       <div className="flex flex-col gap-y-6 p-4">
         <Notes
           filters={filters}
-          notes={data.notes}
-          pagination={{...pagination, pageCount: data.pageCount}}
+          // TODO: fix this
+          // @ts-expect-error -- now that React Router serializes classes, but without their methods, and the underlying table expects just strings, we now have type and runtime errors
+          notes={loaderData.notes}
+          pagination={{...pagination, pageCount: loaderData.pageCount}}
           search={search}
           sorting={sorting}
           onFiltersChange={handleFiltersChange}

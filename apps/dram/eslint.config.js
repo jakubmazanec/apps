@@ -25,6 +25,7 @@ export default [
       'coverage/**',
       'node_modules/**',
       'public/**',
+      '.react-router/**',
       'dbschema/edgeql-js/**',
       'dbschema/interfaces.*',
     ],

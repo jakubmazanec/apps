@@ -1,6 +1,6 @@
 import {defaultTheme, ThemeProvider} from '@jakubmazanec/ui';
-import {json, type LoaderFunctionArgs} from '@remix-run/node';
-import {Links, Meta, Outlet, Scripts, ScrollRestoration, useLoaderData} from '@remix-run/react';
+import {type LoaderFunctionArgs} from 'react-router';
+import {Links, Meta, Outlet, Scripts, ScrollRestoration, useLoaderData} from 'react-router';
 
 import {auth} from './services/auth.server.js';
 import {authContext} from './services/authContext.js';
@@ -12,9 +12,9 @@ export const loader = async ({request}: LoaderFunctionArgs) => {
   let session = auth.getSession(request);
   let isSignedIn = await session.isSignedIn();
 
-  return json({
+  return {
     isSignedIn: Boolean(isSignedIn),
-  });
+  };
 };
 
 export default function Root() {

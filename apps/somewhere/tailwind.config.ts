@@ -6,4 +6,4 @@
  * Run `npx carson update workspace` to regenerate.
  */
 
-export {tailwindConfig as default} from './app/tailwindConfig.js';
+export {tailwindConfig as default} from './source/tailwindConfig.js';

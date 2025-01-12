@@ -5,8 +5,8 @@ import map from 'p-map';
 import xlsx from 'xlsx';
 import {z} from 'zod';
 
-import {appRootPath} from '../app/constants.server.js';
-import {client as baseClient, e, LocalDate, LocalDateTime, type Note} from '../app/db.js';
+import {appRootPath} from '../source/constants.server.js';
+import {client as baseClient, e, LocalDate, LocalDateTime, type Note} from '../source/db.js';
 
 let currentUserId = process.argv[2];
 

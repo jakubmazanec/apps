@@ -6,4 +6,13 @@
  * Run `npx carson update workspace` to regenerate.
  */
 
-export {tailwindConfig as default} from './source/tailwindConfig.js';
+import {type Config} from '@react-router/dev/config';
+import _ from 'lodash';
+
+export default _.merge(
+  {
+    appDirectory: 'source',
+    ssr: true,
+  },
+  {},
+) satisfies Config;
