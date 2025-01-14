@@ -25,7 +25,7 @@
     "typecheck": "tsc --project tsconfig.typecheck.json"
   },
   "dependencies": {
-    "@edgedb/auth-remix": "^0.2.1",
+    "@edgedb/auth-remix": "^0.2.2",
     "@jakubmazanec/ui": "0.2.0",
     "@react-router/express": "^7.0.0",
     "@react-router/fs-routes": "^7.0.0",
