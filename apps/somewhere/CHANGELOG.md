@@ -1,5 +1,127 @@
 # somewhere
 
+## 0.1.7
+
+### Patch Changes
+
+- [#45](https://github.com/jakubmazanec/apps/pull/45)
+  [`a15b8ae`](https://github.com/jakubmazanec/apps/commit/a15b8aec8435421719ef1f397118ad9fda234dd5)
+  ([@jakubmazanec](https://github.com/jakubmazanec)) – Update to React 19.
+
+- [#45](https://github.com/jakubmazanec/apps/pull/45)
+  [`a15b8ae`](https://github.com/jakubmazanec/apps/commit/a15b8aec8435421719ef1f397118ad9fda234dd5)
+  ([@jakubmazanec](https://github.com/jakubmazanec)) – Applies templates from
+  `@jakubmazanec/carson-templates` updated to version `^4.0.0`.
+
+- [#45](https://github.com/jakubmazanec/apps/pull/45)
+  [`a15b8ae`](https://github.com/jakubmazanec/apps/commit/a15b8aec8435421719ef1f397118ad9fda234dd5)
+  ([@jakubmazanec](https://github.com/jakubmazanec)) – Update to React Router v7.
+
+- [#72](https://github.com/jakubmazanec/apps/pull/72)
+  [`b1e419d`](https://github.com/jakubmazanec/apps/commit/b1e419df3b04282e8ae777c62dfb6083e18543ee)
+  ([@renovate](https://github.com/apps/renovate)) – Dependency `vite` updated to version `^6.0.7`.
+
+- [#62](https://github.com/jakubmazanec/apps/pull/62)
+  [`a26797c`](https://github.com/jakubmazanec/apps/commit/a26797caa33b47d2c0273a9d35d4b68dfe85d348)
+  ([@renovate](https://github.com/apps/renovate)) – Dependency `prettier-plugin-tailwindcss` updated
+  to version `^0.6.9`.
+
+- [#66](https://github.com/jakubmazanec/apps/pull/66)
+  [`bf56964`](https://github.com/jakubmazanec/apps/commit/bf56964e96f395cce8acb1ac50bf6c5ee81e17f9)
+  ([@renovate](https://github.com/apps/renovate)) – Dependency `prettier` updated to version
+  `^3.4.2`.
+
+- [#58](https://github.com/jakubmazanec/apps/pull/58)
+  [`1d264c5`](https://github.com/jakubmazanec/apps/commit/1d264c5ee4c8a12a4196f20426a5aeed18083498)
+  ([@renovate](https://github.com/apps/renovate)) – Dependency `@react-router/express` updated to
+  version `^7.1.1`. Dependency `@react-router/fs-routes` updated to version `^7.1.1`. Dependency
+  `@react-router/node` updated to version `^7.1.1`. Dependency `@react-router/serve` updated to
+  version `^7.1.1`. Dependency `react-router` updated to version `^7.1.1`. Dependency
+  `@react-router/dev` updated to version `^7.1.1`.
+
+- [#71](https://github.com/jakubmazanec/apps/pull/71)
+  [`2a3dd51`](https://github.com/jakubmazanec/apps/commit/2a3dd515284ab9861725cbbaf927136359b3ea8a)
+  ([@renovate](https://github.com/apps/renovate)) – Dependency `typescript` updated to version
+  `^5.7.3`.
+
+- [#61](https://github.com/jakubmazanec/apps/pull/61)
+  [`9134d22`](https://github.com/jakubmazanec/apps/commit/9134d2276b664ba4fc8f7dd6791b30ec8fd33caa)
+  ([@renovate](https://github.com/apps/renovate)) – Dependency `happy-dom` updated to version
+  `^16.6.0`.
+
+- [#67](https://github.com/jakubmazanec/apps/pull/67)
+  [`dbf8d30`](https://github.com/jakubmazanec/apps/commit/dbf8d30a6e2cb38a5cbf77470b55477beebb7653)
+  ([@renovate](https://github.com/apps/renovate)) – Dependency `prettier-plugin-packagejson` updated
+  to version `^2.5.7`.
+
+- [#55](https://github.com/jakubmazanec/apps/pull/55)
+  [`51fb38b`](https://github.com/jakubmazanec/apps/commit/51fb38bb10baffdcbdecab0a9903e2f536d0d702)
+  ([@renovate](https://github.com/apps/renovate)) – Dependency `@jakubmazanec/zod-utils` updated to
+  version `^2.0.9`.
+
+- [#68](https://github.com/jakubmazanec/apps/pull/68)
+  [`6f581a4`](https://github.com/jakubmazanec/apps/commit/6f581a4789564e916293963643de3f801c0b12ee)
+  ([@renovate](https://github.com/apps/renovate)) – Dependency `prettier-plugin-tailwindcss` updated
+  to version `^0.6.10`.
+
+- [#59](https://github.com/jakubmazanec/apps/pull/59)
+  [`ebb949f`](https://github.com/jakubmazanec/apps/commit/ebb949fde00f7411160edc4746e91354be26b4b6)
+  ([@renovate](https://github.com/apps/renovate)) – Dependency `@testing-library/jest-dom` updated
+  to version `^6.6.3`. Dependency `@testing-library/react` updated to version `^16.1.0`.
+
+- [#53](https://github.com/jakubmazanec/apps/pull/53)
+  [`2f66b06`](https://github.com/jakubmazanec/apps/commit/2f66b0650e49be2a098f31f5bcda06e570f16aad)
+  ([@renovate](https://github.com/apps/renovate)) – Dependency `@jakubmazanec/eslint-config` updated
+  to version `^4.1.3`.
+
+- [#49](https://github.com/jakubmazanec/apps/pull/49)
+  [`0d3ea5d`](https://github.com/jakubmazanec/apps/commit/0d3ea5d5773cab1338e1440acf3879ef6725675e)
+  ([@renovate](https://github.com/apps/renovate)) – Dependency `@types/lodash` updated to version
+  `^4.17.14`.
+
+- [#69](https://github.com/jakubmazanec/apps/pull/69)
+  [`2fee3da`](https://github.com/jakubmazanec/apps/commit/2fee3da593f35dac52bdea1bd026231bcaa01d6c)
+  ([@renovate](https://github.com/apps/renovate)) – Dependency `tailwindcss` updated to version
+  `^3.4.17`.
+
+- [#60](https://github.com/jakubmazanec/apps/pull/60)
+  [`0bada23`](https://github.com/jakubmazanec/apps/commit/0bada23415954d7f4be38611745af3cd5056d0bb)
+  ([@renovate](https://github.com/apps/renovate)) – Dependency `@vitest/coverage-v8` updated to
+  version `^2.1.8`. Dependency `vitest` updated to version `^2.1.8`.
+
+- [#41](https://github.com/jakubmazanec/apps/pull/41)
+  [`43c7768`](https://github.com/jakubmazanec/apps/commit/43c7768bb63738bc98a71d98641dc707fa9866d2)
+  ([@renovate](https://github.com/apps/renovate)) – Dependency `@types/react` updated to version
+  `^19.0.7`. Dependency `@types/react-dom` updated to version `^19.0.3`.
+
+- [#73](https://github.com/jakubmazanec/apps/pull/73)
+  [`6db6e07`](https://github.com/jakubmazanec/apps/commit/6db6e07986da8cce1e099297351994e0ab0506e5)
+  ([@renovate](https://github.com/apps/renovate)) – Dependency `zod` updated to version `^3.24.1`.
+
+- [#64](https://github.com/jakubmazanec/apps/pull/64)
+  [`3305811`](https://github.com/jakubmazanec/apps/commit/33058115f28690e326054fb18cd5880bcd5fd762)
+  ([@renovate](https://github.com/apps/renovate)) – Dependency `eslint` updated to version
+  `^9.18.0`.
+
+- [#54](https://github.com/jakubmazanec/apps/pull/54)
+  [`b905d8a`](https://github.com/jakubmazanec/apps/commit/b905d8a77ce479b2d0c4626cb2728c14c54dcd88)
+  ([@renovate](https://github.com/apps/renovate)) – Dependency `@jakubmazanec/ts-utils` updated to
+  version `^3.0.10`.
+
+- [#51](https://github.com/jakubmazanec/apps/pull/51)
+  [`647f585`](https://github.com/jakubmazanec/apps/commit/647f585c256798e62cbd0f04d3b00e6ed1c911b0)
+  ([@renovate](https://github.com/apps/renovate)) – Dependency `isbot` updated to version `^5.1.21`.
+
+- [#46](https://github.com/jakubmazanec/apps/pull/46)
+  [`9fcd5f9`](https://github.com/jakubmazanec/apps/commit/9fcd5f91f8287c30b08e16f018b4086620802bfe)
+  ([@renovate](https://github.com/apps/renovate)) – Applies templates from
+  `@jakubmazanec/carson-templates` updated to version `^4.0.2`.
+
+- [#57](https://github.com/jakubmazanec/apps/pull/57)
+  [`a0b1643`](https://github.com/jakubmazanec/apps/commit/a0b16438fb56e9f9ce24f1119031006c06107388)
+  ([@renovate](https://github.com/apps/renovate)) – Dependency `autoprefixer` updated to version
+  `^10.4.20`.
+
 ## 0.1.6
 
 ### Patch Changes
