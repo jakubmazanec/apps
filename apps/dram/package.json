@@ -55,7 +55,7 @@
     "autoprefixer": "^10.4.20",
     "del-cli": "^6.0.0",
     "eslint": "^9.18.0",
-    "fs-extra": "^11.2.0",
+    "fs-extra": "^11.3.0",
     "happy-dom": "^16.6.0",
     "p-map": "^7.0.3",
     "prettier": "^3.4.2",
