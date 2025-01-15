@@ -12,10 +12,10 @@ export function Menu() {
         <Link to="/notes">Notes</Link>
       : null}
       {isSignedIn ?
-        <Link className="text-white " to={clientAuth.getSignoutUrl()}>
+        <Link className="text-white" to={clientAuth.getSignoutUrl()}>
           Sign out
         </Link>
-      : <Link className="text-white " to={clientAuth.getBuiltinUIUrl()}>
+      : <Link className="text-white" to={clientAuth.getBuiltinUIUrl()}>
           Sign in
         </Link>
       }
