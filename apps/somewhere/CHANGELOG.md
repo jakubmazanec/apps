@@ -1,5 +1,48 @@
 # somewhere
 
+## 0.1.8
+
+### Patch Changes
+
+- [#79](https://github.com/jakubmazanec/apps/pull/79)
+  [`e58f6b3`](https://github.com/jakubmazanec/apps/commit/e58f6b343a4e641fa8d79dbe8a6baf8d6b64feaf)
+  ([@renovate](https://github.com/apps/renovate)) – Dependency `@react-router/express` updated to
+  version `^7.1.2`. Dependency `@react-router/fs-routes` updated to version `^7.1.2`. Dependency
+  `@react-router/node` updated to version `^7.1.2`. Dependency `@react-router/serve` updated to
+  version `^7.1.2`. Dependency `react-router` updated to version `^7.1.2`. Dependency
+  `@react-router/dev` updated to version `^7.1.2`.
+
+- [#85](https://github.com/jakubmazanec/apps/pull/85)
+  [`92bbf42`](https://github.com/jakubmazanec/apps/commit/92bbf42b44282b781e7949bb28452131fd3031b2)
+  ([@renovate](https://github.com/apps/renovate)) – Dependency `vite` updated to version `^6.0.10`.
+
+- [#77](https://github.com/jakubmazanec/apps/pull/77)
+  [`9726fd8`](https://github.com/jakubmazanec/apps/commit/9726fd8868b8d6d3681294b507e9ce30749c941c)
+  ([@renovate](https://github.com/apps/renovate)) – Dependency `@testing-library/react` updated to
+  version `^16.2.0`.
+
+- [#86](https://github.com/jakubmazanec/apps/pull/86)
+  [`ff4b405`](https://github.com/jakubmazanec/apps/commit/ff4b40552a0059d0d613c82b622dddee6e0c64d0)
+  ([@renovate](https://github.com/apps/renovate)) – Dependency `happy-dom` updated to version
+  `^16.7.0`.
+
+- [#83](https://github.com/jakubmazanec/apps/pull/83)
+  [`258b685`](https://github.com/jakubmazanec/apps/commit/258b6858f4fa5b72c5132a397a39e18c01cab0c4)
+  ([@renovate](https://github.com/apps/renovate)) – Dependency `vite` updated to version `^6.0.9`.
+
+- [#82](https://github.com/jakubmazanec/apps/pull/82)
+  [`e074bdd`](https://github.com/jakubmazanec/apps/commit/e074bdd9d3e110e0e075504340ce3c8ebb02a9dc)
+  ([@renovate](https://github.com/apps/renovate)) – Dependency `prettier-plugin-packagejson` updated
+  to version `^2.5.8`.
+
+- [#84](https://github.com/jakubmazanec/apps/pull/84)
+  [`9c43316`](https://github.com/jakubmazanec/apps/commit/9c43316892415a8614a9be76819b8b5dc0458b31)
+  ([@renovate](https://github.com/apps/renovate)) – Dependency `@react-router/express` updated to
+  version `^7.1.3`. Dependency `@react-router/fs-routes` updated to version `^7.1.3`. Dependency
+  `@react-router/node` updated to version `^7.1.3`. Dependency `@react-router/serve` updated to
+  version `^7.1.3`. Dependency `react-router` updated to version `^7.1.3`. Dependency
+  `@react-router/dev` updated to version `^7.1.3`.
+
 ## 0.1.7
 
 ### Patch Changes
