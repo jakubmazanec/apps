@@ -1,5 +1,38 @@
 # somewhere
 
+## 0.1.9
+
+### Patch Changes
+
+- [#93](https://github.com/jakubmazanec/apps/pull/93)
+  [`bec42a5`](https://github.com/jakubmazanec/apps/commit/bec42a57a4602e991c4d543996d8a02508f16f67)
+  ([@renovate](https://github.com/apps/renovate)) – Dependency `prettier-plugin-tailwindcss` updated
+  to version `^0.6.11`.
+
+- [#88](https://github.com/jakubmazanec/apps/pull/88)
+  [`8cf8b6a`](https://github.com/jakubmazanec/apps/commit/8cf8b6a529686a1216377a618b565ee60e6d6353)
+  ([@renovate](https://github.com/apps/renovate)) – Dependency `vite` updated to version `^6.0.11`.
+
+- [#87](https://github.com/jakubmazanec/apps/pull/87)
+  [`0c71e29`](https://github.com/jakubmazanec/apps/commit/0c71e29ece9d07365c0e87bbe56397989fa75f7e)
+  ([@renovate](https://github.com/apps/renovate)) – Dependency `happy-dom` updated to version
+  `^16.7.1`.
+
+- [#92](https://github.com/jakubmazanec/apps/pull/92)
+  [`014d444`](https://github.com/jakubmazanec/apps/commit/014d4447f4ea4c061638c5fee4373a294ae4aab3)
+  ([@renovate](https://github.com/apps/renovate)) – Dependency `happy-dom` updated to version
+  `^16.7.2`.
+
+- [#95](https://github.com/jakubmazanec/apps/pull/95)
+  [`0b0f7be`](https://github.com/jakubmazanec/apps/commit/0b0f7be7c717afff94f471b55bda082385436ac5)
+  ([@renovate](https://github.com/apps/renovate)) – Dependency `eslint` updated to version
+  `^9.19.0`.
+
+- [#90](https://github.com/jakubmazanec/apps/pull/90)
+  [`4f8054a`](https://github.com/jakubmazanec/apps/commit/4f8054a8513a35fdcc5be83dabbc4edf921598d8)
+  ([@renovate](https://github.com/apps/renovate)) – Dependency `@types/react` updated to version
+  `^19.0.8`.
+
 ## 0.1.8
 
 ### Patch Changes
