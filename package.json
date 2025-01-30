@@ -25,7 +25,7 @@
   "devDependencies": {
     "@changesets/cli": "^2.27.12",
     "@jakubmazanec/carson": "^2.0.2",
-    "@jakubmazanec/carson-templates": "^4.0.2",
+    "@jakubmazanec/carson-templates": "^5.0.2",
     "@jakubmazanec/changesets-changelog": "^2.0.8",
     "@types/node": "^22.0.0",
     "del-cli": "^6.0.0",
