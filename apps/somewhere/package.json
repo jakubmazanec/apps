@@ -34,7 +34,7 @@
     "eventemitter3": "^5.0.1",
     "isbot": "^5.1.22",
     "lodash": "^4.17.21",
-    "pixi-filters": "^5.3.0",
+    "pixi-filters": "^6.1.0",
     "pixi.js": "^7.4.2",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
