@@ -27,7 +27,7 @@
     "@jakubmazanec/carson": "^2.0.1",
     "@jakubmazanec/carson-templates": "^4.0.2",
     "@jakubmazanec/changesets-changelog": "^2.0.8",
-    "@types/node": "^22.0.0",
+    "@types/node": "^22.12.0",
     "del-cli": "^6.0.0",
     "patch-package": "^8.0.0",
     "prettier": "^3.4.2",
@@ -37,7 +37,7 @@
   },
   "packageManager": "npm@10.9.0",
   "engines": {
-    "node": "^22.13.0"
+    "node": "^22.13.1"
   },
   "overrides": {
     "react": "^19.0.0",
