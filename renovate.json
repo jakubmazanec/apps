@@ -9,7 +9,7 @@
     "workarounds:all"
   ],
 
-  "enabledManagers": ["npm", "dockerfile", "nodenv", "nvm", "github-actions"],
+  "enabledManagers": ["npm", "nodenv", "nvm", "github-actions"],
   "rangeStrategy": "bump",
 
   "packageRules": [
