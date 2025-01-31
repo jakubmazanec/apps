@@ -1,5 +1,55 @@
 # dram
 
+## 0.5.5
+
+### Patch Changes
+
+- [#98](https://github.com/jakubmazanec/apps/pull/98)
+  [`14c12fd`](https://github.com/jakubmazanec/apps/commit/14c12fd0128b0729e4608605c7ccc1de311d2bc3)
+  ([@renovate](https://github.com/apps/renovate)) – Dependency `isbot` updated to version `^5.1.22`.
+
+- [#102](https://github.com/jakubmazanec/apps/pull/102)
+  [`e9e59b7`](https://github.com/jakubmazanec/apps/commit/e9e59b7bd2c980c2d8c3a0e9dbb18162aaa8622a)
+  ([@renovate](https://github.com/apps/renovate)) – Applies templates from
+  `@jakubmazanec/carson-templates` updated to version `^5.0.2`.
+
+- [#96](https://github.com/jakubmazanec/apps/pull/96)
+  [`e7e3b26`](https://github.com/jakubmazanec/apps/commit/e7e3b268cb70ec546a4eb148d4753710d6f07b18)
+  ([@renovate](https://github.com/apps/renovate)) – Dependency `happy-dom` updated to version
+  `^16.7.3`.
+
+- [#111](https://github.com/jakubmazanec/apps/pull/111)
+  [`0105113`](https://github.com/jakubmazanec/apps/commit/0105113a910228554a0472759485f468f8121dbf)
+  ([@renovate](https://github.com/apps/renovate)) – Dependency `@vitest/coverage-v8` updated to
+  version `^3.0.4`.
+
+- [#106](https://github.com/jakubmazanec/apps/pull/106)
+  [`bc43727`](https://github.com/jakubmazanec/apps/commit/bc4372724dc00e48d03b725e73e62df5a32b1bfa)
+  ([@renovate](https://github.com/apps/renovate)) – Dependency `@jakubmazanec/eslint-config` updated
+  to version `^4.1.5`.
+
+- [#109](https://github.com/jakubmazanec/apps/pull/109)
+  [`11f514a`](https://github.com/jakubmazanec/apps/commit/11f514a139d578ad235f7254014d012437dd7ca1)
+  ([@renovate](https://github.com/apps/renovate)) – Dependency `@react-router/express` updated to
+  version `^7.1.4`. Dependency `@react-router/fs-routes` updated to version `^7.1.4`. Dependency
+  `@react-router/node` updated to version `^7.1.4`. Dependency `@react-router/serve` updated to
+  version `^7.1.4`. Dependency `react-router` updated to version `^7.1.4`. Dependency
+  `@react-router/dev` updated to version `^7.1.4`.
+
+- [#113](https://github.com/jakubmazanec/apps/pull/113)
+  [`5b39c5f`](https://github.com/jakubmazanec/apps/commit/5b39c5f8294f5834f64e62d7117210da846ecc00)
+  ([@renovate](https://github.com/apps/renovate)) – Dependency `vitest` updated to version `^3.0.4`.
+
+- [#97](https://github.com/jakubmazanec/apps/pull/97)
+  [`1463380`](https://github.com/jakubmazanec/apps/commit/1463380e09cfbbd456cf52cc3d0603f93239bf98)
+  ([@renovate](https://github.com/apps/renovate)) – Dependency `@types/lodash` updated to version
+  `^4.17.15`.
+
+- [#112](https://github.com/jakubmazanec/apps/pull/112)
+  [`1f0fba9`](https://github.com/jakubmazanec/apps/commit/1f0fba90d742afcb2b2d7f451eac727edb4869f3)
+  ([@renovate](https://github.com/apps/renovate)) – Dependency `happy-dom` updated to version
+  `^16.8.1`.
+
 ## 0.5.4
 
 ### Patch Changes
