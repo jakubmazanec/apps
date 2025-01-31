@@ -26,7 +26,7 @@
     "@changesets/cli": "^2.27.12",
     "@jakubmazanec/carson": "^2.0.2",
     "@jakubmazanec/carson-templates": "^5.0.2",
-    "@jakubmazanec/changesets-changelog": "^2.0.8",
+    "@jakubmazanec/changesets-changelog": "^2.0.10",
     "@types/node": "^22.0.0",
     "del-cli": "^6.0.0",
     "patch-package": "^8.0.0",
