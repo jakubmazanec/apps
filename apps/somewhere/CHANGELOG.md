@@ -1,5 +1,36 @@
 # somewhere
 
+## 0.1.11
+
+### Patch Changes
+
+- [#121](https://github.com/jakubmazanec/apps/pull/121)
+  [`0819411`](https://github.com/jakubmazanec/apps/commit/081941169025844cec42f48631e5a9d21ea8a456)
+  ([@renovate](https://github.com/apps/renovate)) – Dependency `prettier` updated to version
+  `^3.5.0`.
+
+- [#118](https://github.com/jakubmazanec/apps/pull/118)
+  [`61669f5`](https://github.com/jakubmazanec/apps/commit/61669f535b2d008d078c380b3b60d47190da6883)
+  ([@renovate](https://github.com/apps/renovate)) – Dependency `vite` updated to version `^6.1.0`.
+
+- [#120](https://github.com/jakubmazanec/apps/pull/120)
+  [`36ae7da`](https://github.com/jakubmazanec/apps/commit/36ae7dad7769e749f09c43ee354026c9234f6615)
+  ([@renovate](https://github.com/apps/renovate)) – Dependency `eslint` updated to version
+  `^9.20.0`.
+
+- [#116](https://github.com/jakubmazanec/apps/pull/116)
+  [`b31d866`](https://github.com/jakubmazanec/apps/commit/b31d866ea59470696ce5baa14873b14a90e1bfa0)
+  ([@renovate](https://github.com/apps/renovate)) – Dependency `@vitest/coverage-v8` updated to
+  version `^3.0.5`.
+
+- [#114](https://github.com/jakubmazanec/apps/pull/114)
+  [`9781e3c`](https://github.com/jakubmazanec/apps/commit/9781e3c0d5e34f6cbab6e464f2f5b952cdcdb3d5)
+  ([@renovate](https://github.com/apps/renovate)) – Dependency `@react-router/express` updated to
+  version `^7.1.5`. Dependency `@react-router/fs-routes` updated to version `^7.1.5`. Dependency
+  `@react-router/node` updated to version `^7.1.5`. Dependency `@react-router/serve` updated to
+  version `^7.1.5`. Dependency `react-router` updated to version `^7.1.5`. Dependency
+  `@react-router/dev` updated to version `^7.1.5`.
+
 ## 0.1.10
 
 ### Patch Changes
