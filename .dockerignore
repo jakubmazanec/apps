@@ -26,6 +26,15 @@
 !apps/dram/tailwind.config.ts
 !apps/dram/tsconfig.json
 !apps/dram/vite.config.ts
+!apps/headwind/env.d.ts
+!apps/headwind/package.json
+!apps/headwind/postcss.config.cjs
+!apps/headwind/public/**
+!apps/headwind/react-router.config.ts
+!apps/headwind/source/**
+!apps/headwind/tailwind.config.ts
+!apps/headwind/tsconfig.json
+!apps/headwind/vite.config.ts
 !apps/somewhere/env.d.ts
 !apps/somewhere/package.json
 !apps/somewhere/postcss.config.cjs

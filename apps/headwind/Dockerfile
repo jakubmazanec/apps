@@ -15,10 +15,6 @@ WORKDIR /workspace
 ENV NODE_ENV=production
 ARG VITE_APP_URL
 ENV VITE_APP_URL=$VITE_APP_URL
-ARG EDGEDB_INSTANCE
-ENV EDGEDB_INSTANCE=$EDGEDB_INSTANCE
-ARG EDGEDB_BRANCH
-ENV EDGEDB_BRANCH=$EDGEDB_BRANCH
 
 # Throw-away build stage to reduce size of final image
 FROM base as build
@@ -37,20 +33,20 @@ RUN npm ci --include=dev --ignore-scripts
 COPY --link . .
 
 # Build
-RUN --mount=type=secret,id=EDGEDB_SECRET_KEY EDGEDB_SECRET_KEY="$(cat /run/secrets/EDGEDB_SECRET_KEY)" npm run build
+RUN npm run build -- --filter=headwind
 
 # Final stage for app image
 FROM base
 
 # Copy files
 COPY package-lock.json package.json /workspace/
-COPY --from=build /workspace/apps/dram/build /workspace/apps/dram/build
-COPY --from=build /workspace/apps/dram/package.json /workspace/apps/dram/package.json
+COPY --from=build /workspace/apps/headwind/build /workspace/apps/headwind/build
+COPY --from=build /workspace/apps/headwind/package.json /workspace/apps/headwind/package.json
 
 # Install dependencies
 RUN npm ci --omit=dev --ignore-scripts
 
 # Start the server
-WORKDIR /workspace/apps/dram
+WORKDIR /workspace/apps/headwind
 EXPOSE 5000
 ENTRYPOINT ["npm", "start"]
