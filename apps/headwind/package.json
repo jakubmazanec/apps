@@ -1,0 +1,67 @@
+{
+  "name": "headwind",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Age of Sail rogue-like deck-building game.",
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:jakubmazanec/apps.git",
+    "directory": "apps/headwind"
+  },
+  "license": "AGPL-3.0-only",
+  "author": "Jakub Mazanec <jakub@mazanec.dev>",
+  "type": "module",
+  "scripts": {
+    "build": "del-cli build && react-router build",
+    "clean": "del-cli coverage build *.tsbuildinfo",
+    "codegen": "react-router typegen",
+    "deploy": "flyctl deploy ../.. --config apps/headwind/fly.toml",
+    "develop": "react-router dev --port 5000",
+    "format": "prettier . --write --ignore-unknown",
+    "lint": "eslint .",
+    "start": "cross-env NODE_ENV=production PORT=5000 react-router-serve ./build/server/index.js",
+    "test": "del-cli coverage && vitest run --coverage --passWithNoTests",
+    "typecheck": "tsc --project tsconfig.typecheck.json"
+  },
+  "dependencies": {
+    "@jakubmazanec/ts-utils": "^3.0.12",
+    "@jakubmazanec/zod-utils": "^2.0.11",
+    "@react-router/express": "^7.1.5",
+    "@react-router/fs-routes": "^7.1.5",
+    "@react-router/node": "^7.1.5",
+    "@react-router/serve": "^7.1.5",
+    "cross-env": "^7.0.3",
+    "isbot": "^5.1.22",
+    "lodash": "^4.17.21",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "react-router": "^7.1.5",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@jakubmazanec/eslint-config": "^4.1.5",
+    "@react-router/dev": "^7.1.5",
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.2.0",
+    "@types/lodash": "^4.17.15",
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.8",
+    "@types/react-dom": "^19.0.3",
+    "@vitest/coverage-v8": "^3.0.5",
+    "autoprefixer": "^10.4.20",
+    "del-cli": "^6.0.0",
+    "eslint": "^9.20.0",
+    "happy-dom": "^16.8.1",
+    "prettier": "^3.5.0",
+    "prettier-plugin-packagejson": "^2.5.8",
+    "prettier-plugin-tailwindcss": "^0.6.11",
+    "tailwindcss": "^3.4.17",
+    "typescript": "^5.7.3",
+    "vite": "^6.1.0",
+    "vitest": "^3.0.4"
+  },
+  "packageManager": "npm@10.9.0",
+  "engines": {
+    "node": "^22.13.0"
+  }
+}

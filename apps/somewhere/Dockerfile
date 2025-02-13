@@ -25,6 +25,7 @@ RUN apt-get update -qq && apt-get install --no-install-recommends -y build-essen
 # Install dependencies
 COPY --link package-lock.json package.json ./
 COPY --link apps/dram/package.json apps/dram/package.json
+COPY --link apps/headwind/package.json apps/headwind/package.json
 COPY --link apps/somewhere/package.json apps/somewhere/package.json
 RUN npm ci --include=dev --ignore-scripts
 

@@ -96,7 +96,7 @@ jobs:
           git config --unset core.filemode
 
       - name: Build packages
-        run: npm run build -- --filter=!dram --filter=!somewhere
+        run: npm run build -- --filter=!dram --filter=!headwind --filter=!somewhere
 
       - name: Authenticate to npm registry
         run: |
@@ -174,6 +174,14 @@ jobs:
           EDGEDB_INSTANCE: jakubmazanec/whisky
           EDGEDB_BRANCH: ${{ github.ref_name }}
           EDGEDB_SECRET_KEY: ${{ secrets.JAKUBMAZANEC_WHISKY_EDGEDB_TOKEN }}
+          FLY_ACCESS_TOKEN: ${{ secrets.FLY_TOKEN }}
+          FLY_API_TOKEN: ${{ secrets.FLY_TOKEN }}
+
+      - name: Deploy "headwind"
+        run: |
+          npm run deploy --workspace headwind -- --build-arg "VITE_APP_URL=$VITE_APP_URL"
+        env:
+          VITE_APP_URL: https://headwind.fly.dev
           FLY_ACCESS_TOKEN: ${{ secrets.FLY_TOKEN }}
           FLY_API_TOKEN: ${{ secrets.FLY_TOKEN }}
 
@@ -266,7 +274,7 @@ jobs:
           git config --unset core.filemode
 
       - name: Build packages
-        run: npm run build -- --filter=!dram --filter=!somewhere
+        run: npm run build -- --filter=!dram --filter=!headwind --filter=!somewhere
 
       - name: Update documentation
         run: |
@@ -307,6 +315,14 @@ jobs:
           EDGEDB_INSTANCE: jakubmazanec/whisky
           EDGEDB_BRANCH: ${{ github.ref_name }}
           EDGEDB_SECRET_KEY: ${{ secrets.JAKUBMAZANEC_WHISKY_EDGEDB_TOKEN }}
+          FLY_ACCESS_TOKEN: ${{ secrets.FLY_TOKEN }}
+          FLY_API_TOKEN: ${{ secrets.FLY_TOKEN }}
+
+      - name: Deploy "headwind"
+        run: |
+          npm run deploy --workspace headwind -- --app headwind-next --build-arg "VITE_APP_URL=$VITE_APP_URL"
+        env:
+          VITE_APP_URL: https://headwind-next.fly.dev
           FLY_ACCESS_TOKEN: ${{ secrets.FLY_TOKEN }}
           FLY_API_TOKEN: ${{ secrets.FLY_TOKEN }}
 

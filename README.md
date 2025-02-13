@@ -9,6 +9,7 @@
 ## Projects
 
 - [dram](./apps/dram) – Whisky tasting notes app.
+- [headwind](./apps/headwind) – Age of Sail rogue-like deck-building game.
 - [somewhere](./apps/somewhere) – Location-based game.
 <!-- projects -->
 
