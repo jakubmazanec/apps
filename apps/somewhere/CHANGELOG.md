@@ -1,5 +1,32 @@
 # somewhere
 
+## 0.1.12
+
+### Patch Changes
+
+- [#123](https://github.com/jakubmazanec/apps/pull/123)
+  [`c7a3130`](https://github.com/jakubmazanec/apps/commit/c7a313012c5eaf54f1334f2b4a6fdd5fc6df9fb9)
+  ([@renovate](https://github.com/apps/renovate)) – Dependency `@types/node` updated to version
+  `^22.13.1`. Dependency `node` updated to version `^22.14.0`.
+
+- [#129](https://github.com/jakubmazanec/apps/pull/129)
+  [`d0733cd`](https://github.com/jakubmazanec/apps/commit/d0733cdcaa0f2b2788d5309256ed1afb23fb414a)
+  ([@renovate](https://github.com/apps/renovate)) – Dependency `vitest` updated to version `^3.0.5`.
+
+- [#124](https://github.com/jakubmazanec/apps/pull/124)
+  [`5d2cf47`](https://github.com/jakubmazanec/apps/commit/5d2cf4706c05f90c2f71183472e4deebe9c62907)
+  ([@renovate](https://github.com/apps/renovate)) – Dependency `eslint` updated to version
+  `^9.20.1`.
+
+- [#127](https://github.com/jakubmazanec/apps/pull/127)
+  [`88f6d1a`](https://github.com/jakubmazanec/apps/commit/88f6d1afd1e0c53918e815d231e40b3505b5c168)
+  ([@renovate](https://github.com/apps/renovate)) – Dependency `prettier` updated to version
+  `^3.5.1`.
+
+- [#125](https://github.com/jakubmazanec/apps/pull/125)
+  [`078ca5a`](https://github.com/jakubmazanec/apps/commit/078ca5a4ef679380dfe8004372244d231b4b4513)
+  ([@renovate](https://github.com/apps/renovate)) – Dependency `zod` updated to version `^3.24.2`.
+
 ## 0.1.11
 
 ### Patch Changes
