@@ -1,0 +1,46 @@
+.pathfinding-example svg g {
+  fill: #4499a9;
+  fill-opacity: 0.6;
+}
+.pathfinding-example svg g:hover {
+  fill: #7be3f6;
+  fill-opacity: 0.7;
+}
+.pathfinding-example svg g:hover text {
+  fill-opacity: 1;
+}
+.pathfinding-example svg g.q .hexagon {
+  fill: Red;
+  fill-opacity: 0.4;
+}
+.pathfinding-example svg g.r .hexagon {
+  fill: Green;
+  fill-opacity: 0.4;
+}
+.pathfinding-example svg g.s .hexagon {
+  fill: Blue;
+  fill-opacity: 0.4;
+}
+.pathfinding-example svg g.active .hexagon {
+  fill: Coral;
+  fill-opacity: 0.9;
+}
+.pathfinding-example svg g polygon {
+  stroke: #7be3f6;
+  stroke-width: 0.2;
+  transition: fill-opacity 0.5s;
+}
+.pathfinding-example svg g text {
+  font-size: 0.17em;
+  fill: white;
+  fill-opacity: 0.7;
+  transition: fill-opacity 0.5s;
+}
+.pathfinding-example svg path {
+  fill: none;
+  stroke: #03090a;
+  stroke-width: 0.2em;
+  stroke-opacity: 0.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
