@@ -1,7 +1,7 @@
-import { isOffset, isTuple, tupleToCube } from '../../utils'
-import { CubeCoordinates, HexCoordinates, HexSettings } from '../types'
-import { completeCube } from './completeCube'
-import { offsetToCube } from './offsetToCube'
+import {isOffset, isTuple, tupleToCube} from '../../utils/index.js';
+import {CubeCoordinates, HexCoordinates, HexSettings} from '../types.js';
+import {completeCube} from './completeCube.js';
+import {offsetToCube} from './offsetToCube.js';
 
 // todo: make overloads to only require hexSettings when coordinates are offset
 /**
@@ -13,9 +13,9 @@ export function toCube(
   hexSettings: Pick<HexSettings, 'offset' | 'orientation'>,
   coordinates: HexCoordinates,
 ): CubeCoordinates {
-  return isTuple(coordinates)
-    ? tupleToCube(coordinates)
-    : isOffset(coordinates)
-    ? offsetToCube(hexSettings, coordinates)
+  return (
+    isTuple(coordinates) ? tupleToCube(coordinates)
+    : isOffset(coordinates) ? offsetToCube(hexSettings, coordinates)
     : completeCube(coordinates)
+  );
 }

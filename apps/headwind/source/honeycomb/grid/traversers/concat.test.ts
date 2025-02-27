@@ -1,17 +1,17 @@
-import { expect, test, vi } from 'vitest'
-import { Hex, HexCoordinates } from '../../hex'
-import { concat } from './concat'
+import {expect, test, vi} from 'vitest';
+import {Hex, HexCoordinates} from '../../hex';
+import {concat} from './concat';
 
-const cursor: HexCoordinates = [1, 2]
-const createHex = (coordinates?: HexCoordinates) => new Hex(coordinates)
+const cursor: HexCoordinates = [1, 2];
+const createHex = (coordinates?: HexCoordinates) => new Hex(coordinates);
 
 test('accepts a traverser and returns it', () => {
-  const traverser = vi.fn()
-  expect(concat(traverser)).toBe(traverser)
-})
+  const traverser = vi.fn();
+  expect(concat(traverser)).toBe(traverser);
+});
 
 test('accepts multiple traversers in an array and returns a single traverser', () => {
-  const traverser = vi.fn((_, cursor?: HexCoordinates) => [new Hex(cursor)])
+  const traverser = vi.fn((_, cursor?: HexCoordinates) => [new Hex(cursor)]);
   expect(concat([traverser, traverser, traverser])(createHex, cursor)).toMatchInlineSnapshot(`
     [
       Hex {
@@ -27,5 +27,5 @@ test('accepts multiple traversers in an array and returns a single traverser', (
         "r": 2,
       },
     ]
-  `)
-})
+  `);
+});

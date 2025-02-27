@@ -1,30 +1,37 @@
-import { offsetFromZero } from '../../utils'
-import { CubeCoordinates, HexOffset, HexSettings, OffsetCoordinates, Orientation } from '../types'
+import {offsetFromZero} from '../../utils/index.js';
+import {CubeCoordinates, HexOffset, HexSettings, OffsetCoordinates, Orientation} from '../types.js';
 
 /**
  * @hidden
  */
-export const offsetToCubePointy = (col: number, row: number, offset: HexOffset): CubeCoordinates => {
-  const q = col - offsetFromZero(offset, row)
-  const r = row
-  const s = -q - r
-  return { q, r, s }
-}
+export const offsetToCubePointy = (
+  col: number,
+  row: number,
+  offset: HexOffset,
+): CubeCoordinates => {
+  const q = col - offsetFromZero(offset, row);
+  const r = row;
+  const s = -q - r;
+  return {q, r, s};
+};
 
 /**
  * @hidden
  */
 export const offsetToCubeFlat = (col: number, row: number, offset: HexOffset): CubeCoordinates => {
-  const q = col
-  const r = row - offsetFromZero(offset, col)
-  const s = -q - r
-  return { q, r, s }
-}
+  const q = col;
+  const r = row - offsetFromZero(offset, col);
+  const s = -q - r;
+  return {q, r, s};
+};
 
 /**
  * @category Hex
  */
 export const offsetToCube = (
-  { offset, orientation }: Pick<HexSettings, 'offset' | 'orientation'>,
-  { col, row }: OffsetCoordinates,
-) => (orientation === Orientation.POINTY ? offsetToCubePointy(col, row, offset) : offsetToCubeFlat(col, row, offset))
+  {offset, orientation}: Pick<HexSettings, 'offset' | 'orientation'>,
+  {col, row}: OffsetCoordinates,
+) =>
+  orientation === Orientation.POINTY ?
+    offsetToCubePointy(col, row, offset)
+  : offsetToCubeFlat(col, row, offset);

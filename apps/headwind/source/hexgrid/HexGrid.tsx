@@ -1,6 +1,6 @@
-import React, { Component } from "react"
+import React from 'react';
 
-type Props = {} & React.SVGProps<SVGSVGElement>
+type Props = {} & React.SVGProps<SVGSVGElement>;
 
 /**
  * Simple renders an `<svg>` container element for SVG graphics.
@@ -12,12 +12,7 @@ type Props = {} & React.SVGProps<SVGSVGElement>
  * @param {string} SVGProps.viewBox - the container's internal coordinate system
  * @returns
  */
-export function HexGrid({
-  width = 800,
-  height = 600,
-  viewBox = "-50 -50 100 100",
-  ...props
-}: Props) {
+export function HexGrid({width = 800, height = 600, viewBox = '-50 -50 100 100', ...props}: Props) {
   return (
     <svg
       className="grid"
@@ -28,6 +23,6 @@ export function HexGrid({
       xmlns="http://www.w3.org/2000/svg"
       {...props}
     />
-  )
+  );
 }
-export default HexGrid
+export default HexGrid;

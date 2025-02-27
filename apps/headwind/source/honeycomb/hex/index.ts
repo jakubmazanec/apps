@@ -1,3 +1,3 @@
-export * from './functions'
-export * from './hex'
-export * from './types'
+export * from './functions/index.js';
+export * from './hex.js';
+export * from './types.js';

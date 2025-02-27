@@ -1,8 +1,15 @@
-import { completeCube, Hex, HexCoordinates, HexOffset, hexToOffset, OffsetCoordinates } from '../../hex'
-import { isOffset, isTuple, rotate, tupleToCube } from '../../utils'
-import { Direction, Traverser } from '../types'
-import { line } from './line'
-import { repeatWith } from './repeatWith'
+import {
+  completeCube,
+  type Hex,
+  type HexCoordinates,
+  type HexOffset,
+  hexToOffset,
+  type OffsetCoordinates,
+} from '../../hex/index.js';
+import {isOffset, isTuple, rotate, tupleToCube} from '../../utils/index.js';
+import {Direction, type Traverser} from '../types.js';
+import {line} from './line.js';
+import {repeatWith} from './repeatWith.js';
 
 // todo: when passed opposing corners:
 //       maybe add option to determine if row or col is traversed first
@@ -11,8 +18,11 @@ import { repeatWith } from './repeatWith'
  * @category Traverser
  * @remarks The rectangle will only have 90° corners for the directions North, East, South and West.
  */
-export function rectangle<T extends Hex>(options: RectangleOptions): Traverser<T>
-export function rectangle<T extends Hex>(cornerA: HexCoordinates, cornerB: HexCoordinates): Traverser<T>
+export function rectangle<T extends Hex>(options: RectangleOptions): Traverser<T>;
+export function rectangle<T extends Hex>(
+  cornerA: HexCoordinates,
+  cornerB: HexCoordinates,
+): Traverser<T>;
 export function rectangle<T extends Hex>(
   optionsOrCornerA: RectangleOptions | HexCoordinates,
   cornerB?: HexCoordinates,
@@ -23,17 +33,18 @@ export function rectangle<T extends Hex>(
       height,
       start,
       direction = Direction.E,
-    } = cornerB
-      ? optionsFromOpposingCorners(optionsOrCornerA as HexCoordinates, cornerB, createHex())
-      : (optionsOrCornerA as RectangleOptions)
-    const startCoordinates = start ?? cursor ?? [0, 0]
+    } =
+      cornerB ?
+        optionsFromOpposingCorners(optionsOrCornerA as HexCoordinates, cornerB, createHex())
+      : (optionsOrCornerA as RectangleOptions);
+    const startCoordinates = start ?? cursor ?? [0, 0];
     const hexes = repeatWith<T>(
-      line({ start: startCoordinates, direction: rotate(direction, 2), length: height }),
-      line({ direction, length: width - 1 }),
-    )(createHex, startCoordinates)
+      line({start: startCoordinates, direction: rotate(direction, 2), length: height}),
+      line({direction, length: width - 1}),
+    )(createHex, startCoordinates);
 
-    return !start && cursor ? hexes.slice(1) : hexes
-  }
+    return !start && cursor ? hexes.slice(1) : hexes;
+  };
 }
 
 /**
@@ -41,40 +52,44 @@ export function rectangle<T extends Hex>(
  * @remarks The rectangle will only have 90° corners for the directions North, East, South and West.
  */
 export interface RectangleOptions {
-  start?: HexCoordinates
-  width: number
-  height: number
-  direction?: Direction
+  start?: HexCoordinates;
+  width: number;
+  height: number;
+  direction?: Direction;
 }
 
 function optionsFromOpposingCorners(
   cornerA: HexCoordinates,
   cornerB: HexCoordinates,
-  { isPointy, offset }: Hex,
+  {isPointy, offset}: Hex,
 ): RectangleOptions {
-  const { col: cornerACol, row: cornerARow } = assertOffsetCoordinates(cornerA, isPointy, offset)
-  const { col: cornerBCol, row: cornerBRow } = assertOffsetCoordinates(cornerB, isPointy, offset)
-  const smallestCol = cornerACol < cornerBCol ? 'A' : 'B'
-  const smallestRow = cornerARow < cornerBRow ? 'A' : 'B'
-  const smallestColRow = (smallestCol + smallestRow) as keyof typeof RULES_FOR_SMALLEST_COL_ROW
-  const { swapWidthHeight, direction } = RULES_FOR_SMALLEST_COL_ROW[smallestColRow]
-  const width = Math.abs(cornerACol - cornerBCol) + 1
-  const height = Math.abs(cornerARow - cornerBRow) + 1
+  const {col: cornerACol, row: cornerARow} = assertOffsetCoordinates(cornerA, isPointy, offset);
+  const {col: cornerBCol, row: cornerBRow} = assertOffsetCoordinates(cornerB, isPointy, offset);
+  const smallestCol = cornerACol < cornerBCol ? 'A' : 'B';
+  const smallestRow = cornerARow < cornerBRow ? 'A' : 'B';
+  const smallestColRow = (smallestCol + smallestRow) as keyof typeof RULES_FOR_SMALLEST_COL_ROW;
+  const {swapWidthHeight, direction} = RULES_FOR_SMALLEST_COL_ROW[smallestColRow];
+  const width = Math.abs(cornerACol - cornerBCol) + 1;
+  const height = Math.abs(cornerARow - cornerBRow) + 1;
 
   return {
     width: swapWidthHeight ? height : width,
     height: swapWidthHeight ? width : height,
     start: cornerA,
     direction,
-  }
+  };
 }
 
 // todo: move to util?
-function assertOffsetCoordinates(coordinates: HexCoordinates, isPointy: boolean, offset: HexOffset): OffsetCoordinates {
-  if (isOffset(coordinates)) return coordinates
+function assertOffsetCoordinates(
+  coordinates: HexCoordinates,
+  isPointy: boolean,
+  offset: HexOffset,
+): OffsetCoordinates {
+  if (isOffset(coordinates)) return coordinates;
 
-  const { q, r } = isTuple(coordinates) ? tupleToCube(coordinates) : completeCube(coordinates)
-  return hexToOffset({ q, r, isPointy, offset })
+  const {q, r} = isTuple(coordinates) ? tupleToCube(coordinates) : completeCube(coordinates);
+  return hexToOffset({q, r, isPointy, offset});
 }
 
 const RULES_FOR_SMALLEST_COL_ROW = {
@@ -94,7 +109,7 @@ const RULES_FOR_SMALLEST_COL_ROW = {
     swapWidthHeight: false,
     direction: Direction.W,
   },
-}
+};
 
 /**
  * This is the "old way" of creating rectangles. It's less performant (up until ~40x slower with 200x200 rectangles), but it's able to create

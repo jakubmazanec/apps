@@ -1,33 +1,25 @@
-import * as React from "react"
-import { ComponentStory, ComponentMeta } from "@storybook/react"
-import {
-  HexGrid,
-  Layout,
-  Hexagon,
-  GridGenerator,
-  Text,
-  HexUtils,
-  Hex,
-} from "../.."
-import { configurations } from "./configurations"
-import { css } from "@emotion/react"
+import * as React from 'react';
+import {ComponentStory, ComponentMeta} from '@storybook/react';
+import {HexGrid, Layout, Hexagon, GridGenerator, Text, HexUtils, Hex} from '../..';
+import {configurations} from './configurations';
+import {css} from '@emotion/react';
 
 export default {
-  title: "Templates",
+  title: 'Templates',
   component: Hexagon,
-} as ComponentMeta<typeof Hexagon>
+} as ComponentMeta<typeof Hexagon>;
 
-const initialConfig = configurations["hexagon"]
-const generator = GridGenerator.getGenerator(initialConfig.map)
+const initialConfig = configurations['hexagon'];
+const generator = GridGenerator.getGenerator(initialConfig.map);
 
-const initialHexagons: Hex[] = generator(initialConfig.mapProps)
+const initialHexagons: Hex[] = generator(initialConfig.mapProps);
 
-const Template: ComponentStory<typeof Hexagon> = (args, { argTypes }) => {
-  const [hexagons, setHexagons] = React.useState(initialHexagons)
-  const [config, setConfig] = React.useState<any>(initialConfig)
+const Template: ComponentStory<typeof Hexagon> = (args, {argTypes}) => {
+  const [hexagons, setHexagons] = React.useState(initialHexagons);
+  const [config, setConfig] = React.useState<any>(initialConfig);
 
-  const layout = config.layout
-  const size = { x: layout.width, y: layout.height }
+  const layout = config.layout;
+  const size = {x: layout.width, y: layout.height};
   return (
     <div
       css={css`
@@ -42,12 +34,12 @@ const Template: ComponentStory<typeof Hexagon> = (args, { argTypes }) => {
         <strong>Template: </strong>
         <select
           onChange={(event) => {
-            const name = event.currentTarget.value
-            const config = configurations[name]
-            const generator = GridGenerator.getGenerator(config.map)
-            const hexagons = generator.apply(this, config.mapProps)
-            setConfig(config)
-            setHexagons(hexagons)
+            const name = event.currentTarget.value;
+            const config = configurations[name];
+            const generator = GridGenerator.getGenerator(config.map);
+            const hexagons = generator.apply(this, config.mapProps);
+            setConfig(config);
+            setHexagons(hexagons);
           }}
         >
           {Object.keys(configurations).map((type) => (
@@ -80,12 +72,7 @@ const Template: ComponentStory<typeof Hexagon> = (args, { argTypes }) => {
           }
         `}
       >
-        <Layout
-          size={size}
-          flat={layout.flat}
-          spacing={layout.spacing}
-          origin={config.origin}
-        >
+        <Layout size={size} flat={layout.flat} spacing={layout.spacing} origin={config.origin}>
           {
             // note: key must be unique between re-renders.
             // using config.mapProps+i makes a new key when the goal template chnages.
@@ -98,7 +85,7 @@ const Template: ComponentStory<typeof Hexagon> = (args, { argTypes }) => {
         </Layout>
       </HexGrid>
     </div>
-  )
-}
+  );
+};
 
-export const Default = Template.bind({})
+export const Default = Template.bind({});

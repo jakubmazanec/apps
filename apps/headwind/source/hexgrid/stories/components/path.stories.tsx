@@ -1,16 +1,16 @@
-import { css } from "@emotion/react"
-import { ComponentMeta, ComponentStory } from "@storybook/react"
-import { GridGenerator, Hex, Hexagon, HexGrid, Layout, Path } from "../.."
-import { COLORS } from "../colors"
+import {css} from '@emotion/react';
+import {ComponentMeta, ComponentStory} from '@storybook/react';
+import {GridGenerator, Hex, Hexagon, HexGrid, Layout, Path} from '../..';
+import {COLORS} from '../colors';
 
-type PathType = typeof Path
+type PathType = typeof Path;
 
 export default {
-  title: "Components/Path",
+  title: 'Components/Path',
   component: Path,
-} as ComponentMeta<PathType>
+} as ComponentMeta<PathType>;
 
-const hexas = GridGenerator.hexagon(10)
+const hexas = GridGenerator.hexagon(10);
 
 const Template: ComponentStory<PathType> = (args) => (
   <HexGrid
@@ -23,12 +23,12 @@ const Template: ComponentStory<PathType> = (args) => (
   >
     <Layout spacing={1.05}>
       <>
-        {hexas.map(({ q, r, s }) => (
+        {hexas.map(({q, r, s}) => (
           <Hexagon
             css={css`
               fill: ${COLORS.dark[2]};
             `}
-            onClick={() => console.log("clicked", { q, r, s })}
+            onClick={() => console.log('clicked', {q, r, s})}
             q={q}
             r={r}
             s={s}
@@ -47,10 +47,10 @@ const Template: ComponentStory<PathType> = (args) => (
       />
     </Layout>
   </HexGrid>
-)
+);
 
-export const Basic: ComponentStory<PathType> = Template.bind({})
+export const Basic: ComponentStory<PathType> = Template.bind({});
 Basic.args = {
   start: new Hex(5, -3, -2),
   end: new Hex(-5, 1, 4),
-}
+};

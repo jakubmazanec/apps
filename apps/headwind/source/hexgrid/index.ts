@@ -1,23 +1,11 @@
-import { GridGenerator } from "./GridGenerator"
-import { HexGrid } from "./HexGrid"
-import { HexUtils } from "./HexUtils"
-import { Layout } from "./Layout"
-import { Path } from "./Path"
-import { Pattern } from "./Pattern"
+import {GridGenerator} from './GridGenerator.js';
+import {Hexagon} from './Hexagon/Hexagon.js';
+import {Text} from './Hexagon/Text.js';
+import {HexGrid} from './HexGrid.js';
+import {HexUtils} from './HexUtils.js';
+import {Layout} from './Layout.js';
+import {Hex} from './models/Hex.js';
+import {Path} from './Path.js';
+import {Pattern} from './Pattern.js';
 
-import { Hexagon } from "./Hexagon/Hexagon"
-import { Text } from "./Hexagon/Text"
-
-import { Hex } from "./models/Hex"
-
-export {
-  GridGenerator,
-  HexGrid,
-  HexUtils,
-  Layout,
-  Path,
-  Pattern,
-  Hexagon,
-  Text,
-  Hex,
-}
+export {GridGenerator, HexGrid, HexUtils, Layout, Path, Pattern, Hexagon, Text, Hex};

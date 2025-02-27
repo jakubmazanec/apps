@@ -1,5 +1,5 @@
-import { Hex, HexCoordinates } from '../../hex'
-import { Traverser } from '../types'
+import {type Hex, type HexCoordinates} from '../../hex/index.js';
+import {type Traverser} from '../types.js';
 
 /**
  * @category Traverser
@@ -7,4 +7,4 @@ import { Traverser } from '../types'
 export const fromCoordinates =
   <T extends Hex>(...coordinates: HexCoordinates[]): Traverser<T> =>
   (createHex) =>
-    coordinates.map(createHex)
+    coordinates.map(createHex);

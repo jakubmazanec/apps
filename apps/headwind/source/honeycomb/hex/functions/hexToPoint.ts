@@ -1,16 +1,22 @@
-import { Hex } from '../hex'
-import { Orientation, Point } from '../types'
+import {type Hex} from '../hex.js';
+import {Orientation, type Point} from '../types.js';
 
 /**
  * @category Hex
  */
-export const hexToPoint = ({ orientation, dimensions: { xRadius, yRadius }, origin: { x, y }, q, r }: Hex): Point =>
-  orientation === Orientation.POINTY
-    ? {
-        x: xRadius * Math.sqrt(3) * (q + r / 2) - x,
-        y: ((yRadius * 3) / 2) * r - y,
-      }
-    : {
-        x: ((xRadius * 3) / 2) * q - x,
-        y: yRadius * Math.sqrt(3) * (r + q / 2) - y,
-      }
+export const hexToPoint = ({
+  orientation,
+  dimensions: {xRadius, yRadius},
+  origin: {x, y},
+  q,
+  r,
+}: Hex): Point =>
+  orientation === Orientation.POINTY ?
+    {
+      x: xRadius * Math.sqrt(3) * (q + r / 2) - x,
+      y: ((yRadius * 3) / 2) * r - y,
+    }
+  : {
+      x: ((xRadius * 3) / 2) * q - x,
+      y: yRadius * Math.sqrt(3) * (r + q / 2) - y,
+    };

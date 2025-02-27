@@ -1,5 +1,5 @@
-import * as React from "react"
-import { ComponentStory, ComponentMeta } from "@storybook/react"
+import * as React from 'react';
+import {ComponentStory, ComponentMeta} from '@storybook/react';
 import {
   HexGrid,
   Layout,
@@ -9,18 +9,18 @@ import {
   Path as P,
   Pattern,
   Hex,
-} from "../.."
-import { css, jsx } from "@emotion/react"
-import styled from "@emotion/styled"
+} from '../..';
+import {css, jsx} from '@emotion/react';
+import styled from '@emotion/styled';
 
 export default {
-  title: "CustomGrid",
+  title: 'CustomGrid',
   component: HexGrid,
   argTypes: {},
-} as ComponentMeta<typeof H>
+} as ComponentMeta<typeof H>;
 
-const hexagonSize = { x: 10, y: 10 }
-const moreHexas = GridGenerator.parallelogram(-2, 2, -2, 2)
+const hexagonSize = {x: 10, y: 10};
+const moreHexas = GridGenerator.parallelogram(-2, 2, -2, 2);
 
 const Hexagon = styled(H)`
   stroke: #7be3f6;
@@ -30,14 +30,14 @@ const Hexagon = styled(H)`
     fill: #7be3f6;
     fill-opacity: 0.7;
   }
-`
+`;
 
 const Text = styled(T)`
   font-size: 0.22em;
   fill: white;
   fill-opacity: 0.7;
   transition: fill-opacity 0.5s;
-`
+`;
 
 const Path = styled(P)`
   fill: none;
@@ -46,31 +46,28 @@ const Path = styled(P)`
   stroke-opacity: 0.7;
   stroke-linecap: round;
   stroke-linejoin: round;
-`
+`;
 
-const Template: ComponentStory<typeof H> = (args, { argTypes }) => {
+const Template: ComponentStory<typeof H> = (args, {argTypes}) => {
   return (
     <div
       style={{
-        background: "#133b43",
-        color: "white",
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
+        background: '#133b43',
+        color: 'white',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
       }}
     >
       <h2>React Hexgrid v1</h2>
-      <p>
-        Constructing Hexgrid with component-based approach with custom SVG
-        elements.
-      </p>
+      <p>Constructing Hexgrid with component-based approach with custom SVG elements.</p>
       <HexGrid width={1200} height={800} viewBox="-50 -50 100 100">
         {/* Main grid with bit hexagons, all manual */}
         <Layout
           size={hexagonSize}
           flat={true}
           spacing={1.1}
-          origin={{ x: 0, y: 0 }}
+          origin={{x: 0, y: 0}}
           css={css`
             fill: #4499a9;
             fill-opacity: 0.6;
@@ -100,19 +97,15 @@ const Template: ComponentStory<typeof H> = (args, { argTypes }) => {
             fill: #4499a9;
             fill-opacity: 0.6;
           `}
-          size={{ x: 2, y: 2 }}
-          origin={{ x: 50, y: -30 }}
+          size={{x: 2, y: 2}}
+          origin={{x: 50, y: -30}}
         >
           {moreHexas.map((hex, i) => (
             <Hexagon key={i} q={hex.q} r={hex.r} s={hex.s} />
           ))}
         </Layout>
         {/* You can define multiple patterns and switch between them with "fill" prop on Hexagon */}
-        <Pattern
-          id="pat-1"
-          link="https://picsum.photos/id/1048/100"
-          size={hexagonSize}
-        />
+        <Pattern id="pat-1" link="https://picsum.photos/id/1048/100" size={hexagonSize} />
         <Pattern
           id="pat-2"
           link="https://picsum.photos/id/1051/100"
@@ -131,7 +124,7 @@ const Template: ComponentStory<typeof H> = (args, { argTypes }) => {
         </g>
       </HexGrid>
     </div>
-  )
-}
+  );
+};
 
-export const Default = Template.bind({})
+export const Default = Template.bind({});

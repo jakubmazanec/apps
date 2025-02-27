@@ -1,29 +1,21 @@
-import * as React from "react"
-import { ComponentStory, ComponentMeta } from "@storybook/react"
-import {
-  HexGrid,
-  Layout,
-  Hexagon,
-  GridGenerator,
-  Pattern,
-  Text,
-  HexUtils,
-} from "../.."
-import { css, jsx } from "@emotion/react"
+import * as React from 'react';
+import {ComponentStory, ComponentMeta} from '@storybook/react';
+import {HexGrid, Layout, Hexagon, GridGenerator, Pattern, Text, HexUtils} from '../..';
+import {css, jsx} from '@emotion/react';
 
 export default {
-  title: "PatternSwap",
+  title: 'PatternSwap',
   component: Hexagon,
-} as ComponentMeta<typeof Hexagon>
+} as ComponentMeta<typeof Hexagon>;
 
-const initialHexagons = GridGenerator.hexagon(2)
+const initialHexagons = GridGenerator.hexagon(2);
 // Set additional data for hexagons
 initialHexagons.forEach((hex) => {
-  hex.pattern = "pattern1"
-})
+  hex.pattern = 'pattern1';
+});
 
-const Template: ComponentStory<typeof Hexagon> = (args, { argTypes }) => {
-  const [hexagons, setHexagons] = React.useState(initialHexagons)
+const Template: ComponentStory<typeof Hexagon> = (args, {argTypes}) => {
+  const [hexagons, setHexagons] = React.useState(initialHexagons);
   return (
     <div
       css={css`
@@ -44,12 +36,7 @@ const Template: ComponentStory<typeof Hexagon> = (args, { argTypes }) => {
       </h2>
       <p>Click a tile to swap it's pattern</p>
       <HexGrid width={1200} height={800}>
-        <Layout
-          size={{ x: 10, y: 10 }}
-          flat={false}
-          spacing={1.1}
-          origin={{ x: 0, y: 0 }}
-        >
+        <Layout size={{x: 10, y: 10}} flat={false} spacing={1.1} origin={{x: 0, y: 0}}>
           <>
             {hexagons.map((hex, i) => (
               <Hexagon
@@ -81,16 +68,13 @@ const Template: ComponentStory<typeof Hexagon> = (args, { argTypes }) => {
                     // Switch pattern only for the hexagon that was clicked
                     if (HexUtils.equals(source.state.hex, hex)) {
                       // Assign new pattern to _our_ data
-                      hex.pattern =
-                        source.props?.fill === "pattern1"
-                          ? "pattern2"
-                          : "pattern1"
+                      hex.pattern = source.props?.fill === 'pattern1' ? 'pattern2' : 'pattern1';
                     }
 
-                    return hex
-                  })
+                    return hex;
+                  });
 
-                  setHexagons([...hexas])
+                  setHexagons([...hexas]);
                 }}
               >
                 <Text
@@ -115,7 +99,7 @@ const Template: ComponentStory<typeof Hexagon> = (args, { argTypes }) => {
         </Layout>
       </HexGrid>
     </div>
-  )
-}
+  );
+};
 
-export const Default = Template.bind({})
+export const Default = Template.bind({});

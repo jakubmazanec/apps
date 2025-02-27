@@ -1,2 +1,2 @@
-export * from './distance'
-export * from './neighborOf'
+export * from './distance.js';
+export * from './neighborOf.js';

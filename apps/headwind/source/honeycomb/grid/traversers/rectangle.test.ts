@@ -1,15 +1,15 @@
-import { describe, expect, test, vi } from 'vitest'
-import { Hex, HexCoordinates } from '../../hex'
-import { Direction } from '../types'
-import { rectangle } from './rectangle'
+import {describe, expect, test, vi} from 'vitest';
+import {Hex, HexCoordinates} from '../../hex';
+import {Direction} from '../types';
+import {rectangle} from './rectangle';
 
-const cursor: HexCoordinates = [1, 2]
-const createHex = vi.fn((coordinates?: HexCoordinates) => new Hex(coordinates))
+const cursor: HexCoordinates = [1, 2];
+const createHex = vi.fn((coordinates?: HexCoordinates) => new Hex(coordinates));
 
 describe('when called with width and height', () => {
   describe('without cursor', () => {
     test('returns a traverser that returns hexes in a rectangular shape starting at [0, 0]', () => {
-      expect(rectangle({ width: 2, height: 2 })(createHex)).toMatchInlineSnapshot(`
+      expect(rectangle({width: 2, height: 2})(createHex)).toMatchInlineSnapshot(`
         [
           Hex {
             "q": 0,
@@ -28,13 +28,13 @@ describe('when called with width and height', () => {
             "r": 1,
           },
         ]
-      `)
-    })
-  })
+      `);
+    });
+  });
 
   describe('with cursor', () => {
     test('returns a traverser that returns hexes in a rectangular shape starting at the cursor, excluding the cursor', () => {
-      expect(rectangle({ width: 2, height: 2 })(createHex, cursor)).toMatchInlineSnapshot(`
+      expect(rectangle({width: 2, height: 2})(createHex, cursor)).toMatchInlineSnapshot(`
         [
           Hex {
             "q": 2,
@@ -49,15 +49,15 @@ describe('when called with width and height', () => {
             "r": 3,
           },
         ]
-      `)
-    })
-  })
-})
+      `);
+    });
+  });
+});
 
 describe('when called with width, height and start', () => {
   describe('without cursor', () => {
     test('returns a traverser that returns hexes in a rectangular shape starting at start', () => {
-      expect(rectangle({ width: 2, height: 2, start: [1, 2] })(createHex)).toMatchInlineSnapshot(`
+      expect(rectangle({width: 2, height: 2, start: [1, 2]})(createHex)).toMatchInlineSnapshot(`
         [
           Hex {
             "q": 1,
@@ -76,13 +76,14 @@ describe('when called with width, height and start', () => {
             "r": 3,
           },
         ]
-      `)
-    })
-  })
+      `);
+    });
+  });
 
   describe('with cursor', () => {
     test('returns a traverser that returns hexes in a rectangular shape starting at start', () => {
-      expect(rectangle({ width: 2, height: 2, start: [1, 2] })(createHex, cursor)).toMatchInlineSnapshot(`
+      expect(rectangle({width: 2, height: 2, start: [1, 2]})(createHex, cursor))
+        .toMatchInlineSnapshot(`
         [
           Hex {
             "q": 1,
@@ -101,15 +102,16 @@ describe('when called with width, height and start', () => {
             "r": 3,
           },
         ]
-      `)
-    })
-  })
-})
+      `);
+    });
+  });
+});
 
 describe('when called with width, height and direction', () => {
   describe('without cursor', () => {
     test('returns a traverser that returns hexes in a rectangular shape in the given direction starting at [0, 0]', () => {
-      expect(rectangle({ width: 2, height: 2, direction: Direction.S })(createHex)).toMatchInlineSnapshot(`
+      expect(rectangle({width: 2, height: 2, direction: Direction.S})(createHex))
+        .toMatchInlineSnapshot(`
         [
           Hex {
             "q": 0,
@@ -128,13 +130,14 @@ describe('when called with width, height and direction', () => {
             "r": 1,
           },
         ]
-      `)
-    })
-  })
+      `);
+    });
+  });
 
   describe('with cursor', () => {
     test('returns a traverser that returns hexes in a rectangular shape in the given direction starting at the cursor, excluding the cursor', () => {
-      expect(rectangle({ width: 2, height: 2, direction: Direction.S })(createHex, cursor)).toMatchInlineSnapshot(`
+      expect(rectangle({width: 2, height: 2, direction: Direction.S})(createHex, cursor))
+        .toMatchInlineSnapshot(`
         [
           Hex {
             "q": 1,
@@ -149,10 +152,10 @@ describe('when called with width, height and direction', () => {
             "r": 3,
           },
         ]
-      `)
-    })
-  })
-})
+      `);
+    });
+  });
+});
 
 describe('when called with opposing corners', () => {
   describe('without cursor', () => {
@@ -176,9 +179,9 @@ describe('when called with opposing corners', () => {
             "r": 3,
           },
         ]
-      `)
-    })
-  })
+      `);
+    });
+  });
 
   describe('with cursor', () => {
     test('returns a traverser that returns hexes in a rectangular shape from one corner to the other, ignoring the cursor', () => {
@@ -201,7 +204,7 @@ describe('when called with opposing corners', () => {
             "r": 0,
           },
         ]
-      `)
-    })
-  })
-})
+      `);
+    });
+  });
+});

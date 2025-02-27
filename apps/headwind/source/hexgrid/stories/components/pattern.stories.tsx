@@ -1,16 +1,16 @@
-import { css } from "@emotion/react"
-import { ComponentMeta, ComponentStory } from "@storybook/react"
-import { GridGenerator, Hex, Hexagon, HexGrid, Layout, Pattern } from "../.."
-import { COLORS } from "../colors"
+import {css} from '@emotion/react';
+import {ComponentMeta, ComponentStory} from '@storybook/react';
+import {GridGenerator, Hex, Hexagon, HexGrid, Layout, Pattern} from '../..';
+import {COLORS} from '../colors';
 
-type PathType = typeof Pattern
+type PathType = typeof Pattern;
 
 export default {
-  title: "Components/Pattern",
+  title: 'Components/Pattern',
   component: Pattern,
-} as ComponentMeta<PathType>
+} as ComponentMeta<PathType>;
 
-const hexas = GridGenerator.hexagon(10)
+const hexas = GridGenerator.hexagon(10);
 
 const Template: ComponentStory<PathType> = (args) => (
   <HexGrid
@@ -43,7 +43,7 @@ const Template: ComponentStory<PathType> = (args) => (
             q={hex.q}
             r={hex.r}
             s={hex.s}
-            fill={hex.r % 2 === 0 ? "pattern1" : "pattern2"}
+            fill={hex.r % 2 === 0 ? 'pattern1' : 'pattern2'}
           />
         ))}
       </>
@@ -51,8 +51,8 @@ const Template: ComponentStory<PathType> = (args) => (
       <Pattern id="pattern2" link="https://picsum.photos/200?image=82" />
     </Layout>
   </HexGrid>
-)
-export const Default = Template.bind({})
+);
+export const Default = Template.bind({});
 
 // import * as React from "react"
 // import { ComponentStory, ComponentMeta } from "@storybook/react"
