@@ -17,11 +17,13 @@ import {defineHex, Grid, Orientation, rectangle} from '../honeycomb/index.js';
 // };
 // const hexagons = GridGenerator.rectangle(...config.mapProps);
 
+// ←  ↑   →   ↓   ↔   ↕   ↖   ↗   ↘   ↙
+
 const Hex = defineHex({
   orientation: Orientation.FLAT,
-  dimensions: {xRadius: 50, yRadius: 50},
+  dimensions: {xRadius: 20, yRadius: 20},
 });
-const grid = new Grid(Hex, rectangle({width: 20, height: 10}));
+const grid = new Grid(Hex, rectangle({width: 10, height: 5}));
 
 export const GameRenderer: FC = observer(() => {
   const game = useGame();
@@ -44,14 +46,17 @@ export const GameRenderer: FC = observer(() => {
         >
           {grid.toArray().map((hex, i) => (
             <g key={i}>
-              <g className="hexagon">
-                <polygon
-                  points={hex.corners.map(({x, y}) => `${x},${y}`).join(' ')}
-                  className="fill-gray-100 stroke-gray-300 stroke-1"
-                />
-              </g>
+              <polygon
+                points={hex.corners.map(({x, y}) => `${x},${y}`).join(' ')}
+                className="fill-gray-100 stroke-gray-300 stroke-1"
+              />
             </g>
           ))}
+          <g>
+            <text x={grid.getHex([1, 1])?.x} y={grid.getHex([1, 1])?.y} className="text-gray-900">
+              ↗
+            </text>
+          </g>
         </svg>
         {/*<HexGrid
           className=""
