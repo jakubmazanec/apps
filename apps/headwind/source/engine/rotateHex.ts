@@ -15,21 +15,24 @@ export function rotateHex(coordinates: TupleCoordinates, degrees: number): Tuple
 
   const rotations = (angle / 60) % 6;
 
-  console.log(rotations);
-
   switch (rotations) {
-    case 1:
-      return [-s, -q, -r]; // 60 degrees
-    case 2:
-      return [-r, -s, -q]; // 120 degrees
-    case 3:
-      return [s, q, r]; // 180 degrees
-    case 4:
-      return [r, s, q]; // 240 degrees
-    case 5:
-      return [s, q, r]; // -60 degrees (300 degrees clockwise)
-    case 0:
-    default:
-      return [q, r, s]; // 0 or 360 degrees
+    case 1: {
+      return [-r, -s, -q];
+    } // 60° right
+    case 2: {
+      return [s, q, r];
+    } // 120° right
+    case 3: {
+      return [-q, -r, -s];
+    } // 180°
+    case 4: {
+      return [r, s, q];
+    } // 240° right (or 120° left)
+    case 5: {
+      return [-s, -q, -r];
+    } // 300° right (or 60° left)
+    default: {
+      return [q, r, s];
+    } // 0° or 360°
   }
 }

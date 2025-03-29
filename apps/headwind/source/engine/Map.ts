@@ -17,6 +17,6 @@ export class Map {
     this.name = name;
 
     this.windStrength = 1;
-    this.windDirection = 180;
+    this.windDirection = 240;
   }
 }

@@ -3,7 +3,8 @@ import {type Card} from './Card.js';
 import {type Game} from './Game.js';
 import {type Ship} from './Ship.js';
 
-function getWindMoveBonus(game: Game, ship: Ship) {
+function getWindBonus(game: Game, ship: Ship) {
+  // console.log('getWindBonus()...');
   let strength = game.map.windStrength;
   let directionDelta = game.map.windDirection - ship.direction;
   let result;
@@ -99,17 +100,21 @@ function getWindTurnBonus(game: Game, ship: Ship) {
   return 0;
 }
 
-export function getCardEnergyCost(game: Game, ship: Ship, card: Card) {
-  // console.log('getCardCost()...');
-  if (card.config.type === 'move') {
-    let windBonus = getWindMoveBonus(game, ship);
+export function getCardEvadeCost(game: Game, ship: Ship, card: Card) {
+  // cards that cost 0 evade, i.e. usual cards, can never cost more
+  if (card.config.evadeCost === 0) {
+    return 0;
+  }
 
-    return Math.max(card.config.energyCost - ship.moveCardCostBonus - windBonus, 0);
+  if (card.config.type === 'move') {
+    let windBonus = getWindBonus(game, ship);
+
+    return Math.max(card.config.evadeCost - ship.moveCardCostBonus - windBonus, 0);
   } else if (card.config.type === 'turn') {
     let windBonus = getWindTurnBonus(game, ship);
 
-    return Math.max(card.config.energyCost - ship.turnCardCostBonus - windBonus, 0);
+    return Math.max(card.config.evadeCost - ship.turnCardCostBonus - windBonus, 0);
   }
 
-  return card.config.energyCost;
+  return card.config.evadeCost;
 }
