@@ -3,7 +3,7 @@ export * from './engine/Card.js';
 export * from './engine/Game.js';
 export * from './engine/GameContext.js';
 export * from './engine/GameProvider.js';
-export * from './engine/getCardCost.js';
+export * from './engine/getCardEnergyCost.js';
 export * from './engine/Map.js';
 export * from './engine/Ship.js';
 export * from './engine/useGame.js';

@@ -1,16 +1,16 @@
 import {canAttack} from './canAttack.js';
-import {type Card} from './Card.js';
+import {Card} from './Card.js';
 import {type Game} from './Game.js';
-import {getCardEnergyCost} from './getCardCost.js';
+import {getCardEnergyCost} from './getCardEnergyCost.js';
 import {getCardEvadeCost} from './getCardEvadeCost.js';
 import {type Ship} from './Ship.js';
 
-export function canPlayCard(game: Game, ship: Ship, card: Card, target?: Ship) {
+export function canPlayCard(game: Game, ship: Ship, card: Card, target?: Card | Ship) {
   // console.log('canPlayCard()...', game, ship, card, target);
   switch (card.config.type) {
     case 'attack': {
-      if (!target) {
-        throw new Error('Target is undefined!');
+      if (!target || target instanceof Card) {
+        throw new Error('Invalid target!');
       }
 
       let energyCost = getCardEnergyCost(game, ship, card);
@@ -28,6 +28,16 @@ export function canPlayCard(game: Game, ship: Ship, card: Card, target?: Ship) {
       if (!canAttack(game, ship, card, target)) {
         return false;
       }
+
+      return true;
+    }
+
+    case 'board': {
+      if (!target || target instanceof Card) {
+        throw new Error('Invalid target!');
+      }
+
+      // TODO: implement boarding conditions: you cannot capture ships with zero health; you must have more crew then enemy; the enemy must be slow and in the same hex
 
       return true;
     }
@@ -77,6 +87,7 @@ export function canPlayCard(game: Game, ship: Ship, card: Card, target?: Ship) {
         return false;
       }
 
+      // wind strength
       let directionDelta = game.map.windDirection - ship.direction;
 
       if (directionDelta >= 360) {
@@ -92,6 +103,11 @@ export function canPlayCard(game: Game, ship: Ship, card: Card, target?: Ship) {
       }
 
       if (game.map.windStrength === 3 && directionDelta >= 120 && directionDelta <= 240) {
+        return false;
+      }
+
+      // ships sails damage
+      if (ship.sails <= 0) {
         return false;
       }
 

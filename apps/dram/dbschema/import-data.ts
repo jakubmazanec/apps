@@ -205,7 +205,7 @@ async function importData() {
 
   console.log(`Importing ${notes.length} notes...`);
 
-  await map(notes, insertNote, {concurrency: 10});
+  await map(notes, insertNote, {concurrency: 1});
 
   console.log('Done!');
 }

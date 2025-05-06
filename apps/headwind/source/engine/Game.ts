@@ -1,18 +1,20 @@
+import _ from 'lodash';
 import {makeAutoObservable} from 'mobx';
 
 import {canAttack} from './canAttack.js';
 import {canPlayCard} from './canPlayCard.js';
 import {Card} from './Card.js';
-import {getCardEnergyCost} from './getCardCost.js';
+import {type Effect} from './Effect.js';
+import {getCardEnergyCost} from './getCardEnergyCost.js';
 import {getCardEvadeCost} from './getCardEvadeCost.js';
 import {Map} from './Map.js';
 import {rotateHex} from './rotateHex.js';
-import {Ship} from './Ship.js';
-import _ from 'lodash';
+import {Ship, type ShipAmmo} from './Ship.js';
 
-export const evadeMoveCard = new Card(Card.getTemplate('move-evade'));
-export const evadeTurnRightCard = new Card(Card.getTemplate('turn-right-evade'));
-export const evadeTurnLeftCard = new Card(Card.getTemplate('turn-left-evade'));
+export const windMoveCard = new Card(Card.getTemplate('internal-move-wind'));
+export const evadeMoveCard = new Card(Card.getTemplate('internal-move-evade'));
+export const evadeTurnRightCard = new Card(Card.getTemplate('internal-turn-right-evade'));
+export const evadeTurnLeftCard = new Card(Card.getTemplate('internal-turn-left-evade'));
 
 export type GameStatus = 'finished' | 'in-progress' | 'not-started';
 
@@ -20,6 +22,7 @@ export type GameAttack = {
   card: Card;
   ship: Ship;
   target: Ship;
+  // ammo: ShipAmmo;
 };
 
 export type GameOptions = {
@@ -46,14 +49,24 @@ export class Game {
 
     // TODO: hard-coded game settings, fix!
     this.map = new Map({
-      name: 'test',
+      ...Map.getTemplate('map-1'),
+      game: this,
     });
-    this.ships = [new Ship(Ship.getTemplate('ship-1')), new Ship(Ship.getTemplate('ship-2'))];
+    this.ships = [
+      new Ship({...Ship.getTemplate('ship-1'), game: this}),
+      new Ship({...Ship.getTemplate('ship-2'), game: this}),
+    ];
 
+    // TODO: remove this and finish game-restarting logic
     this.ships[0]!.q = 7;
     this.ships[0]!.r = 3;
     this.ships[1]!.q = 8;
     this.ships[1]!.r = 2;
+
+    // TODO: remove
+    if (typeof window !== 'undefined') {
+      window.game = this;
+    }
   }
 
   get result() {
@@ -61,13 +74,43 @@ export class Game {
     let teams = _.groupBy(this.ships, 'team');
 
     for (let [teamName, teamShips] of Object.entries(teams)) {
-      result[teamName] = teamShips.some((ship) => !ship.isDestroyed);
+      result[teamName] = false;
+
+      if (this.map.objectives[teamName] === 'escape') {
+        result[teamName] = true;
+
+        if (teamShips.some((ship) => !this.map.grid.getHex([ship.q, ship.r])?.isEscapable)) {
+          result[teamName] = false;
+        }
+      } else if (this.map.objectives[teamName] === 'capture') {
+        result[teamName] = true;
+
+        for (let [otherTeamName, otherTeamShips] of Object.entries(teams)) {
+          if (otherTeamName !== teamName && otherTeamShips.length) {
+            result[teamName] = false;
+
+            break;
+          }
+        }
+      } else if (this.map.objectives[teamName] === 'destroy') {
+        result[teamName] = true;
+
+        for (let [otherTeamName, otherTeamShips] of Object.entries(teams)) {
+          if (otherTeamName !== teamName && otherTeamShips.some((ship) => !ship.isDestroyed)) {
+            result[teamName] = false;
+
+            break;
+          }
+        }
+      }
     }
 
     return result;
   }
 
   start() {
+    console.log('Game.start()...');
+
     this.status = 'in-progress';
 
     for (let ship of this.ships) {
@@ -101,38 +144,104 @@ export class Game {
 
         // TODO: implmenet relative orientation of ships
 
-        let hullDamage = Math.round(
-          attack.card.config.minHullDamage +
-            Math.random() * (attack.card.config.maxHullDamage - attack.card.config.minHullDamage),
-        );
-        let sailsDamage = Math.round(
-          attack.card.config.minSailsDamage +
-            Math.random() * (attack.card.config.maxSailsDamage - attack.card.config.minSailsDamage),
-        );
-        let crewDamage = Math.round(
-          attack.card.config.minCrewDamage +
-            Math.random() * (attack.card.config.maxCrewDamage - attack.card.config.minCrewDamage),
-        );
+        let bonus = 0;
+        let multiplier = 1;
 
-        attack.target.hull = Math.max(attack.target.hull - hullDamage, 0);
-        attack.target.sails = Math.max(attack.target.sails - sailsDamage, 0);
-        attack.target.crew = Math.max(attack.target.crew - crewDamage, 0);
+        for (let effect of attack.ship.effects) {
+          if (effect.config.type === 'accuracy') {
+            bonus += effect.config.accuracyBonus;
+            multiplier += effect.config.accuracyMultiplier;
 
-        console.log(
-          `"${attack.ship.name}" damages "${attack.target.name}": ${hullDamage}/${sailsDamage}/${crewDamage}.`,
-        );
+            if (effect.duration.type === 'uses') {
+              attack.ship.decreaseEffectDuration(effect);
+            }
+          }
+        }
+
+        let probability = (attack.card.config.accuracy + bonus) * multiplier;
+        let isHit = Math.random() <= probability;
+        let {damage} = attack.card.config;
+        let ammo: ShipAmmo = 'round';
+
+        for (let effect of attack.ship.effects) {
+          if (effect.config.type === 'ammo') {
+            ammo = effect.config.ammo;
+
+            if (effect.duration.type === 'uses') {
+              attack.ship.decreaseEffectDuration(effect);
+            }
+          }
+        }
+
+        if (!isHit) {
+          console.log(
+            `"${attack.ship.name}" misess "${attack.target.name}" (probability was ${Math.round(probability * 100)} %).`,
+          );
+
+          continue;
+        }
+
+        switch (ammo) {
+          case 'chain': {
+            attack.target.sails = Math.max(attack.target.sails - damage, 0);
+
+            console.log(
+              `"${attack.ship.name}" damages "${attack.target.name}": -${damage} sails (probability was ${Math.round(probability * 100)} %).`,
+            );
+
+            break;
+          }
+
+          case 'grape': {
+            attack.target.crew = Math.max(attack.target.crew - damage, 0);
+
+            console.log(
+              `"${attack.ship.name}" damages "${attack.target.name}": -${damage} crew (probability was ${Math.round(probability * 100)} %).`,
+            );
+
+            break;
+          }
+
+          case 'round': {
+            attack.target.hull = Math.max(attack.target.hull - damage, 0);
+
+            console.log(
+              `"${attack.ship.name}" damages "${attack.target.name}": -${damage} hull (probability was ${Math.round(probability * 100)} %).`,
+            );
+
+            break;
+          }
+
+          // no default
+        }
       }
     }
 
     this.attacks = [];
 
-    // check if game needs to end
-    if (Object.values(this.result).filter(Boolean).length === 1) {
-      this.end();
-    } else {
-      // select next ship
-      this.nextShip();
+    this.checkEnd();
+
+    // apply automove
+    for (let ship of this.ships) {
+      if (ship.roundsUntilAutomove <= 0) {
+        if (!canPlayCard(this, ship, windMoveCard)) {
+          continue;
+        }
+
+        this.applyCard(ship, windMoveCard);
+      }
     }
+
+    // map starts new round
+    this.map.startRound();
+
+    // starts all ships round
+    for (let ship of this.ships) {
+      ship.startRound();
+    }
+
+    // starts next ship action
+    this.nextShip();
   }
 
   nextShip() {
@@ -141,6 +250,8 @@ export class Game {
     }
 
     console.log('Game.nextShip()...');
+
+    this.checkEnd();
 
     const nextShipIndex = this.getNextShipIndex();
 
@@ -151,16 +262,24 @@ export class Game {
     } else {
       this.activeShipIndex = nextShipIndex;
 
-      this.activeShip.startRound(this.round);
+      this.activeShip.startAction();
     }
   }
 
-  playCard(card: Card, target?: Ship) {
+  // checks if game needs to end
+  checkEnd() {
+    if (Object.values(this.result).some(Boolean)) {
+      this.end();
+    }
+  }
+
+  playCard(card: Card, target?: Card | Ship) {
     if (this.status !== 'in-progress') {
       return;
     }
 
     console.log('Game.playCard()...');
+
     if (!canPlayCard(this, this.activeShip, card, target)) {
       return;
     }
@@ -171,9 +290,28 @@ export class Game {
       throw new Error('Invalid card played!');
     }
 
-    this.activeShip.discardPile.push(this.activeShip.hand.splice(cardIndex, 1)[0]!);
+    this.applyCard(this.activeShip, card, target);
 
-    this.applyCard(card, target);
+    // move the cards
+    if (card.config.isTemporary) {
+      this.activeShip.hand.splice(cardIndex, 1);
+    } else if (card.config.isExhaustible) {
+      this.activeShip.exhaustPile.push(this.activeShip.hand.splice(cardIndex, 1)[0]!);
+    } else {
+      this.activeShip.discardPile.push(this.activeShip.hand.splice(cardIndex, 1)[0]!);
+    }
+
+    // effects
+    this.activeShip.decreaseEffectsDuration('cards');
+
+    for (let card of [
+      ...this.activeShip.drawPile,
+      ...this.activeShip.discardPile,
+      ...this.activeShip.exhaustPile,
+      ...this.activeShip.hand,
+    ]) {
+      card.decreaseEffectsDuration('cards');
+    }
   }
 
   playEvadeSail() {
@@ -181,7 +319,7 @@ export class Game {
       return;
     }
 
-    this.applyCard(evadeMoveCard);
+    this.applyCard(this.activeShip, evadeMoveCard);
   }
 
   playEvadeTurnStarboard() {
@@ -189,7 +327,7 @@ export class Game {
       return;
     }
 
-    this.applyCard(evadeTurnRightCard);
+    this.applyCard(this.activeShip, evadeTurnRightCard);
   }
 
   playEvadeTurnPort() {
@@ -197,75 +335,161 @@ export class Game {
       return;
     }
 
-    this.applyCard(evadeTurnLeftCard);
+    this.applyCard(this.activeShip, evadeTurnLeftCard);
   }
 
-  applyCard(card: Card, target?: Ship) {
+  applyCard(activeShip: Ship, card: Card, targetShipOrCard?: Card | Ship) {
+    let ship = activeShip;
+    let target = targetShipOrCard;
+
     switch (card.config.type) {
       case 'attack': {
-        if (!target) {
-          throw new Error('Target is undefined!');
+        if (!target || target instanceof Card) {
+          throw new Error('Invalid target!');
         }
 
-        let energyCost = getCardEnergyCost(this, this.activeShip, card);
-        let evadeCost = getCardEvadeCost(this, this.activeShip, card);
+        let energyCost = getCardEnergyCost(this, ship, card);
+        let evadeCost = getCardEvadeCost(this, ship, card);
 
-        this.activeShip.energy -= energyCost;
-        this.activeShip.evade -= evadeCost;
+        ship.energy -= energyCost;
+        ship.evade -= evadeCost;
 
         this.attacks.push({
           card,
-          ship: this.activeShip,
+          ship,
           target,
+          // ammo: ship.ammo,
         });
 
         break;
       }
 
+      case 'board': {
+        if (!target || target instanceof Card) {
+          throw new Error('Invalid target!');
+        }
+
+        let energyCost = getCardEnergyCost(this, ship, card);
+        let evadeCost = getCardEvadeCost(this, ship, card);
+
+        ship.energy -= energyCost;
+        ship.evade -= evadeCost;
+
+        target.team = ship.team;
+        target.crew = Math.round(ship.crew / 2);
+        ship.crew = Math.round(ship.crew / 2);
+
+        break;
+      }
+
       case 'effect': {
+        let energyCost = getCardEnergyCost(this, ship, card);
+        let evadeCost = getCardEvadeCost(this, ship, card);
+
+        ship.energy -= energyCost;
+        ship.evade -= evadeCost;
+
+        for (let effect of card.config.effects) {
+          this.applyEffect(activeShip, effect, target);
+        }
+
         break;
       }
 
       case 'evade': {
-        let energyCost = getCardEnergyCost(this, this.activeShip, card);
-        let evadeCost = getCardEvadeCost(this, this.activeShip, card);
+        let energyCost = getCardEnergyCost(this, ship, card);
+        let evadeCost = getCardEvadeCost(this, ship, card);
 
-        this.activeShip.energy -= energyCost;
-        this.activeShip.evade -= evadeCost;
-        this.activeShip.evade += card.config.evade;
+        ship.energy -= energyCost;
+        ship.evade -= evadeCost;
+        ship.evade += card.config.evade;
 
         break;
       }
 
       case 'move': {
-        let energyCost = getCardEnergyCost(this, this.activeShip, card);
-        let evadeCost = getCardEvadeCost(this, this.activeShip, card);
+        let energyCost = getCardEnergyCost(this, ship, card);
+        let evadeCost = getCardEvadeCost(this, ship, card);
 
-        this.activeShip.energy -= energyCost;
-        this.activeShip.evade -= evadeCost;
+        ship.energy -= energyCost;
+        ship.evade -= evadeCost;
 
-        let [q, r] = rotateHex(card.config.rangeVector, this.activeShip.direction);
+        let [q, r] = rotateHex(card.config.rangeVector, ship.direction);
 
-        this.activeShip.q += q;
-        this.activeShip.r += r;
+        ship.q += q;
+        ship.r += r;
 
         break;
       }
 
       case 'turn': {
-        let energyCost = getCardEnergyCost(this, this.activeShip, card);
-        let evadeCost = getCardEvadeCost(this, this.activeShip, card);
+        let energyCost = getCardEnergyCost(this, ship, card);
+        let evadeCost = getCardEvadeCost(this, ship, card);
 
-        this.activeShip.energy -= energyCost;
-        this.activeShip.evade -= evadeCost;
-        this.activeShip.direction += card.config.angle;
+        ship.energy -= energyCost;
+        ship.evade -= evadeCost;
+        ship.direction += card.config.angle;
 
-        if (this.activeShip.direction >= 360) {
-          this.activeShip.direction -= 360;
+        if (ship.direction >= 360) {
+          ship.direction -= 360;
         }
 
-        if (this.activeShip.direction < 0) {
-          this.activeShip.direction += 360;
+        if (ship.direction < 0) {
+          ship.direction += 360;
+        }
+
+        break;
+      }
+
+      // no default
+    }
+  }
+
+  applyEffect(activeShip: Ship, effect: Effect, target?: Card | Ship) {
+    switch (effect.config.type) {
+      case 'accuracy': {
+        if (effect.duration.type === 'permanent') {
+          throw new Error('Invalid effect!');
+        }
+
+        activeShip.applyEffect(effect);
+
+        break;
+      }
+
+      case 'ammo': {
+        if (effect.duration.type === 'permanent' || effect.duration.type === 'battle') {
+          throw new Error('Invalid effect!');
+        }
+
+        activeShip.applyEffect(effect);
+
+        break;
+      }
+
+      case 'change-card': {
+        if (!target || target instanceof Ship) {
+          throw new Error('Invalid target!');
+        }
+
+        if (target.config.type !== effect.config.cardType) {
+          throw new Error('Invalid card type!');
+        }
+
+        target.applyEffect(effect);
+
+        break;
+      }
+
+      case 'change-ship': {
+        if (target instanceof Card) {
+          throw new Error('Invalid target!');
+        }
+
+        if (target) {
+          target.applyEffect(effect);
+        } else {
+          activeShip.applyEffect(effect);
         }
 
         break;
@@ -301,5 +525,10 @@ export class Game {
       .toSorted((shipA, shipB) => shipA.initiative - shipB.initiative);
 
     return ships;
+  }
+
+  // TODO: implement
+  endBattle() {
+    // TODO: remove battle effects
   }
 }

@@ -2,10 +2,16 @@ import {makeAutoObservable} from 'mobx';
 
 import {shuffle} from '../internals.js';
 import {Card} from './Card.js';
+import {Effect, type EffectDurationType} from './Effect.js';
+import {type Game} from './Game.js';
 
 const CARDS_IN_HAND = 5;
 
+export type ShipAmmo = 'chain' | 'grape' | 'round';
+
 export type ShipOptions = {
+  game: Game;
+
   name: string;
   className: string;
   team: string;
@@ -26,6 +32,8 @@ export type ShipOptions = {
 };
 
 export class Ship {
+  game: Game;
+
   name: string;
   className: string;
   team: string;
@@ -34,11 +42,11 @@ export class Ship {
   maxSails = 0;
   maxCrew = 0;
 
-  energyPerTurn = 0; // how much energy ships gets at start of each round
+  #energyPerTurn = 0; // how much energy ships gets at start of each round
   maxEnergy = 0; // max energy the ship can have
-  initiative = 0; // determines order of ships action in a round; lower means it executes its actions earlier
-  moveCardCostBonus = 0; // additive modifier (positive or negative) to energy costs of move cards; higher is better
-  turnCardCostBonus = 0; // additive modifier (positive or negative) to energy costs of turn cards; higher is better
+  #initiative = 0; // determines order of ships action in a round; lower means it executes its actions earlier
+  #moveCardCostBonus = 0; // additive modifier (positive or negative) to energy costs of move cards; higher is better
+  #turnCardCostBonus = 0; // additive modifier (positive or negative) to energy costs of turn cards; higher is better
   attackCardCostBonus = 0; // additive modifier (positive or negative) to energy costs of attack cards; higher is better
   maxAttackCards = 0; // how many attack cards ship can have
 
@@ -50,15 +58,20 @@ export class Ship {
   q = 0;
   r = 0;
   direction = 0;
+  // ammo: ShipAmmo = 'round';
 
   drawPile: Card[] = [];
   discardPile: Card[] = [];
   exhaustPile: Card[] = [];
   hand: Card[] = [];
 
+  effects: Effect[] = [];
+
   nextRound = 0;
+  roundsUntilAutomove = 3;
 
   constructor({
+    game,
     name,
     className,
     team,
@@ -75,6 +88,8 @@ export class Ship {
     cards,
   }: ShipOptions) {
     makeAutoObservable(this);
+
+    this.game = game;
 
     this.name = name;
     this.className = className;
@@ -101,6 +116,108 @@ export class Ship {
     return this.hull <= 0;
   }
 
+  get allCards() {
+    return [...this.drawPile, ...this.discardPile, ...this.exhaustPile, ...this.hand];
+  }
+
+  get energyPerTurn() {
+    let resolvedValue = this.#energyPerTurn;
+
+    // TODO:
+    for (let effect of this.effects) {
+      if (effect.config.type === 'change-ship' && effect.config.propertyName === 'energyPerTurn') {
+        if (effect.config.value !== null) {
+          resolvedValue = effect.config.value;
+
+          continue;
+        }
+
+        resolvedValue = (resolvedValue + effect.config.bonus) * effect.config.multiplier;
+      }
+    }
+
+    return Math.max(resolvedValue, 0);
+  }
+
+  set energyPerTurn(value: number) {
+    this.#energyPerTurn = value;
+  }
+
+  get initiative() {
+    let resolvedValue = this.#initiative;
+
+    // TODO:
+    for (let effect of this.effects) {
+      if (effect.config.type === 'change-ship' && effect.config.propertyName === 'initiative') {
+        if (effect.config.value !== null) {
+          resolvedValue = effect.config.value;
+
+          continue;
+        }
+
+        resolvedValue = (resolvedValue + effect.config.bonus) * effect.config.multiplier;
+      }
+    }
+
+    return resolvedValue;
+  }
+
+  set initiative(value: number) {
+    this.#initiative = value;
+  }
+
+  get moveCardCostBonus() {
+    let resolvedValue = this.#moveCardCostBonus;
+
+    // TODO:
+    for (let effect of this.effects) {
+      if (
+        effect.config.type === 'change-ship' &&
+        effect.config.propertyName === 'moveCardCostBonus'
+      ) {
+        if (effect.config.value !== null) {
+          resolvedValue = effect.config.value;
+
+          continue;
+        }
+
+        resolvedValue = (resolvedValue + effect.config.bonus) * effect.config.multiplier;
+      }
+    }
+
+    return resolvedValue;
+  }
+
+  set moveCardCostBonus(value: number) {
+    this.#moveCardCostBonus = value;
+  }
+
+  get turnCardCostBonus() {
+    let resolvedValue = this.#turnCardCostBonus;
+
+    // TODO:
+    for (let effect of this.effects) {
+      if (
+        effect.config.type === 'change-ship' &&
+        effect.config.propertyName === 'turnCardCostBonus'
+      ) {
+        if (effect.config.value !== null) {
+          resolvedValue = effect.config.value;
+
+          continue;
+        }
+
+        resolvedValue = (resolvedValue + effect.config.bonus) * effect.config.multiplier;
+      }
+    }
+
+    return resolvedValue;
+  }
+
+  set turnCardCostBonus(value: number) {
+    this.#turnCardCostBonus = value;
+  }
+
   reset() {
     this.hull = this.maxHull;
     this.sails = this.maxSails;
@@ -121,8 +238,8 @@ export class Ship {
     this.hand = [];
   }
 
-  static getTemplate(templateId: string): ShipOptions {
-    let templates: Array<ShipOptions & {id: string}> = [
+  static getTemplate(templateId: string): Omit<ShipOptions, 'game'> {
+    let templates: Array<Omit<ShipOptions, 'game'> & {id: string}> = [
       {
         id: 'ship-1',
         name: "Droits de l'Homme",
@@ -131,11 +248,11 @@ export class Ship {
         maxHull: 114,
         maxSails: 85,
         maxCrew: 105,
-        energyPerTurn: 8,
-        maxEnergy: 10,
+        energyPerTurn: 6,
+        maxEnergy: 8,
         initiative: 1,
-        moveCardCostBonus: 0,
-        turnCardCostBonus: 0,
+        moveCardCostBonus: -1,
+        turnCardCostBonus: -1,
         attackCardCostBonus: 0,
         maxAttackCards: 7,
         cards: [
@@ -144,20 +261,31 @@ export class Ship {
           // new Card(Card.getTemplate('trash-1')),
           new Card(Card.getTemplate('move-1')),
           new Card(Card.getTemplate('move-1')),
+          // new Card(Card.getTemplate('move-1')),
+          // new Card(Card.getTemplate('move-1')),
+          // new Card(Card.getTemplate('turn-right-60')),
           new Card(Card.getTemplate('turn-right-60')),
-          new Card(Card.getTemplate('turn-left-60')),
-          new Card(Card.getTemplate('turn-right-60')),
+          // new Card(Card.getTemplate('turn-left-60')),
           new Card(Card.getTemplate('turn-left-60')),
           new Card(Card.getTemplate('evade-1')),
           new Card(Card.getTemplate('evade-2')),
-          new Card(Card.getTemplate('evade-4')),
+          // new Card(Card.getTemplate('evade-4')),
           new Card(Card.getTemplate('attack-36')),
           new Card(Card.getTemplate('attack-36')),
           new Card(Card.getTemplate('attack-18')),
           new Card(Card.getTemplate('attack-18')),
-          new Card(Card.getTemplate('attack-18-chain')),
-          new Card(Card.getTemplate('attack-36-carronade')),
-          new Card(Card.getTemplate('attack-36-carronade-grape')),
+          new Card(Card.getTemplate('attack-18')),
+          // new Card(Card.getTemplate('attack-36-carronade')),
+          // new Card(Card.getTemplate('attack-36-carronade')),
+
+          // new Card(Card.getTemplate('effect-ammo-chain-2')),
+          // new Card(Card.getTemplate('effect-ammo-grape-2')),
+
+          // new Card(Card.getTemplate('effect-accuracy-bonus-5')),
+          // new Card(Card.getTemplate('effect-accuracy-bonus-10')),
+
+          new Card(Card.getTemplate('board-1')),
+          new Card(Card.getTemplate('board-1')),
         ],
       },
       {
@@ -169,10 +297,10 @@ export class Ship {
         maxSails: 65,
         maxCrew: 46,
         energyPerTurn: 4,
-        maxEnergy: 10,
+        maxEnergy: 6,
         initiative: 2,
-        moveCardCostBonus: 2,
-        turnCardCostBonus: 0,
+        moveCardCostBonus: 1,
+        turnCardCostBonus: 1,
         attackCardCostBonus: 0,
         maxAttackCards: 4,
         cards: [
@@ -181,17 +309,24 @@ export class Ship {
           // new Card(Card.getTemplate('trash-1')),
           new Card(Card.getTemplate('move-1')),
           new Card(Card.getTemplate('move-1')),
+          new Card(Card.getTemplate('move-1')),
+          new Card(Card.getTemplate('move-1')),
           new Card(Card.getTemplate('turn-right-60')),
-          new Card(Card.getTemplate('turn-left-60')),
-          new Card(Card.getTemplate('turn-right-120')),
-          new Card(Card.getTemplate('turn-left-120')),
-          new Card(Card.getTemplate('turn-180')),
-          new Card(Card.getTemplate('evade-1')),
-          new Card(Card.getTemplate('evade-2')),
+          new Card(Card.getTemplate('turn-right-60')),
+          // new Card(Card.getTemplate('turn-right-120')),
+          // new Card(Card.getTemplate('turn-left-60')),
+          // new Card(Card.getTemplate('turn-left-60')),
+          // new Card(Card.getTemplate('turn-left-120')),
+          // new Card(Card.getTemplate('turn-180')),
+          // new Card(Card.getTemplate('evade-2')),
+          // new Card(Card.getTemplate('evade-4')),
           new Card(Card.getTemplate('attack-24')),
           new Card(Card.getTemplate('attack-12')),
           new Card(Card.getTemplate('attack-42-carronade')),
           new Card(Card.getTemplate('attack-9-long')),
+
+          new Card(Card.getTemplate('effect-change-card-attack-accuracy-*2')),
+          new Card(Card.getTemplate('effect-change-card-attack-accuracy-*2')),
         ],
       },
       {
@@ -293,8 +428,8 @@ export class Ship {
           new Card(Card.getTemplate('evade-2')),
           new Card(Card.getTemplate('attack-32')),
           new Card(Card.getTemplate('attack-32')),
-          new Card(Card.getTemplate('attack-32-grape')),
-          new Card(Card.getTemplate('attack-32-chain')),
+          new Card(Card.getTemplate('attack-32')),
+          new Card(Card.getTemplate('attack-32')),
           new Card(Card.getTemplate('attack-24')),
           new Card(Card.getTemplate('attack-24')),
           new Card(Card.getTemplate('attack-24')),
@@ -434,15 +569,34 @@ export class Ship {
       throw new Error(`Ship template "${templateId}" not found!`);
     }
 
-    let {id, ...card} = template;
+    let {id, ...ship} = template;
 
-    return {...card};
+    return {...ship};
   }
 
-  startRound(round: number) {
+  startRound() {
     console.log(`Ship "${this.name}" startRound()...`);
 
-    this.nextRound = round + 1;
+    // automove countdown
+    if (this.roundsUntilAutomove <= 0) {
+      this.roundsUntilAutomove = 3;
+    }
+
+    this.roundsUntilAutomove -= this.game.map.windStrength;
+
+    // effects
+    this.decreaseEffectsDuration('rounds');
+
+    for (let card of this.allCards) {
+      card.decreaseEffectsDuration('rounds');
+    }
+  }
+
+  startAction() {
+    console.log(`Ship "${this.name}" startAction()...`);
+
+    // set next round
+    this.nextRound = this.game.round + 1;
 
     // change cards
     this.discardPile.push(...this.hand);
@@ -461,6 +615,55 @@ export class Ship {
     }
 
     // add energy
-    this.energy = Math.min(this.energy + this.energyPerTurn, this.maxEnergy);
+    let damageBonus = 0;
+
+    if (this.crew / this.maxCrew <= 0.1) {
+      damageBonus = -2;
+    }
+
+    if (this.crew / this.maxCrew <= 0.5) {
+      damageBonus = -1;
+    }
+
+    this.energy = Math.min(
+      this.energy + Math.max(this.energyPerTurn - damageBonus, 1),
+      this.maxEnergy,
+    );
+  }
+
+  applyEffect(effect: Effect) {
+    this.effects.push(Effect.from(effect));
+  }
+
+  removeInactiveEffects() {
+    let remainingEffects = [];
+
+    for (let effect of this.effects) {
+      if (effect.isActive) {
+        remainingEffects.push(effect);
+      }
+    }
+
+    this.effects = remainingEffects;
+  }
+
+  decreaseEffectsDuration(durationType: Omit<EffectDurationType, 'battle' | 'permanent' | 'uses'>) {
+    for (let effect of this.effects) {
+      if (effect.duration.type === durationType) {
+        effect.decreaseDuration();
+      }
+    }
+
+    this.removeInactiveEffects();
+  }
+
+  decreaseEffectDuration(effect: Effect) {
+    if (!this.effects.includes(effect)) {
+      throw new Error('Effect must belong to the ship!');
+    }
+
+    effect.decreaseDuration();
+
+    this.removeInactiveEffects();
   }
 }
