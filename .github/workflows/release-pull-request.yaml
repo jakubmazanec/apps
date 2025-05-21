@@ -39,12 +39,12 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
           registry-url: 'https://registry.npmjs.org'
 
       - uses: superfly/flyctl-actions/setup-flyctl@master
 
-      - uses: edgedb/setup-edgedb@v1
+      - uses: geldata/setup-gel@v1
         with:
           server-version: none
 
@@ -72,9 +72,9 @@ jobs:
         run: |
           npm run test -- --filter=dram
         env:
-          EDGEDB_INSTANCE: jakubmazanec/whisky
-          EDGEDB_BRANCH: apps-${{ github.head_ref }}
-          EDGEDB_SECRET_KEY: ${{ secrets.JAKUBMAZANEC_WHISKY_EDGEDB_TOKEN }}
+          GEL_INSTANCE: jakubmazanec/whisky
+          GEL_BRANCH: apps-${{ github.head_ref }}
+          GEL_SECRET_KEY: ${{ secrets.JAKUBMAZANEC_WHISKY_GEL_TOKEN }}
 
       - name: Check for changes
         run: |
@@ -116,12 +116,12 @@ jobs:
 
       - name: Deploy dram
         run: |
-          npm run deploy --workspace dram -- --app dram-unstable --build-arg "VITE_APP_URL=$VITE_APP_URL" --build-arg "EDGEDB_INSTANCE=$EDGEDB_INSTANCE" --build-arg "EDGEDB_BRANCH=$EDGEDB_BRANCH" --build-secret "EDGEDB_SECRET_KEY=$EDGEDB_SECRET_KEY"
+          npm run deploy --workspace dram -- --app dram-unstable --build-arg "VITE_APP_URL=$VITE_APP_URL" --build-arg "GEL_INSTANCE=$GEL_INSTANCE" --build-arg "GEL_BRANCH=$GEL_BRANCH" --build-secret "GEL_SECRET_KEY=$GEL_SECRET_KEY"
         env:
           VITE_APP_URL: https://dram-unstable.fly.dev
-          EDGEDB_INSTANCE: jakubmazanec/whisky
-          EDGEDB_BRANCH: apps-${{ github.head_ref }}
-          EDGEDB_SECRET_KEY: ${{ secrets.JAKUBMAZANEC_WHISKY_EDGEDB_TOKEN }}
+          GEL_INSTANCE: jakubmazanec/whisky
+          GEL_BRANCH: apps-${{ github.head_ref }}
+          GEL_SECRET_KEY: ${{ secrets.JAKUBMAZANEC_WHISKY_GEL_TOKEN }}
           FLY_ACCESS_TOKEN: ${{ secrets.FLY_TOKEN }}
           FLY_API_TOKEN: ${{ secrets.FLY_TOKEN }}
 

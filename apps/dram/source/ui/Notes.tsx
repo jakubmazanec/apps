@@ -228,10 +228,8 @@ export function Notes({
   onSearchChange,
 }: NotesProps) {
   return (
-    <div className="w-full overflow-y-visible overflow-x-scroll text-xs [scrollbar-color:theme(colors.gray.200)_transparent] [scrollbar-width:thin]">
+    <div className="w-full overflow-x-scroll overflow-y-visible text-xs [scrollbar-color:theme(colors.gray.200)_transparent] [scrollbar-width:thin]">
       <DataTable
-        // TODO: fix
-        // @ts-expect-error -- weird typing error, probably must be fixed in DataTable
         columns={columns}
         data={notes}
         filters={filters}

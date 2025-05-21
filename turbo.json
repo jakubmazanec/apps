@@ -36,7 +36,7 @@
       "outputs": []
     }
   },
-  "globalEnv": ["CI", "VITE_APP_URL", "EDGEDB_INSTANCE", "EDGEDB_BRANCH", "EDGEDB_SECRET_KEY"],
+  "globalEnv": ["CI", "VITE_APP_URL", "GEL_INSTANCE", "GEL_BRANCH", "GEL_SECRET_KEY"],
   "globalDependencies": [
     ".editorconfig",
     ".prettierignore",

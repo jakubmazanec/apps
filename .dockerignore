@@ -16,8 +16,8 @@
 !/package.json
 !/turbo.json
 !apps/dram/dbschema/**
-!apps/dram/edgedb.toml
 !apps/dram/env.d.ts
+!apps/dram/gel.toml
 !apps/dram/package.json
 !apps/dram/postcss.config.cjs
 !apps/dram/public/**

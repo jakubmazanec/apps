@@ -39,9 +39,9 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
 
-      - uses: edgedb/setup-edgedb@v1
+      - uses: geldata/setup-gel@v1
         with:
           server-version: none
 
@@ -69,9 +69,9 @@ jobs:
         run: |
           npm run test -- --filter=dram
         env:
-          EDGEDB_INSTANCE: jakubmazanec/whisky
-          EDGEDB_BRANCH: apps-${{ github.head_ref }}
-          EDGEDB_SECRET_KEY: ${{ secrets.JAKUBMAZANEC_WHISKY_EDGEDB_TOKEN }}
+          GEL_INSTANCE: jakubmazanec/whisky
+          GEL_BRANCH: apps-${{ github.head_ref }}
+          GEL_SECRET_KEY: ${{ secrets.JAKUBMAZANEC_WHISKY_GEL_TOKEN }}
 
       - name: Check for changes
         run: |

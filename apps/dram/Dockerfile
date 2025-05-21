@@ -7,7 +7,7 @@
 #
 
 # Base stage
-FROM node:22-slim as base
+FROM node:24-slim as base
 
 WORKDIR /workspace
 
@@ -15,10 +15,10 @@ WORKDIR /workspace
 ENV NODE_ENV=production
 ARG VITE_APP_URL
 ENV VITE_APP_URL=$VITE_APP_URL
-ARG EDGEDB_INSTANCE
-ENV EDGEDB_INSTANCE=$EDGEDB_INSTANCE
-ARG EDGEDB_BRANCH
-ENV EDGEDB_BRANCH=$EDGEDB_BRANCH
+ARG GEL_INSTANCE
+ENV GEL_INSTANCE=$GEL_INSTANCE
+ARG GEL_BRANCH
+ENV GEL_BRANCH=$GEL_BRANCH
 
 # Throw-away build stage to reduce size of final image
 FROM base as build
@@ -37,7 +37,7 @@ RUN npm ci --include=dev --ignore-scripts
 COPY --link . .
 
 # Build
-RUN --mount=type=secret,id=EDGEDB_SECRET_KEY EDGEDB_SECRET_KEY="$(cat /run/secrets/EDGEDB_SECRET_KEY)" npm run build
+RUN --mount=type=secret,id=GEL_SECRET_KEY GEL_SECRET_KEY="$(cat /run/secrets/GEL_SECRET_KEY)" npm run build
 
 # Final stage for app image
 FROM base

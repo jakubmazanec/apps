@@ -8,4 +8,4 @@ export type E = typeof e;
 
 export {type $infer} from '../../dbschema/edgeql-js/index.mjs';
 export type * from '../../dbschema/interfaces.js';
-export {LocalDate, LocalDateTime} from 'edgedb';
+export {LocalDate, LocalDateTime} from 'gel';
