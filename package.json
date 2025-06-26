@@ -30,7 +30,7 @@
     "@types/node": "^22.13.1",
     "del-cli": "^6.0.0",
     "patch-package": "^8.0.0",
-    "prettier": "^3.5.1",
+    "prettier": "^3.6.1",
     "prettier-plugin-packagejson": "^2.5.8",
     "turbo": "^2.5.4",
     "typescript": "^5.8.3"
