@@ -7,6 +7,7 @@
  */
 
 import {reactRouter} from '@react-router/dev/vite';
+import tailwindcss from '@tailwindcss/vite';
 import _ from 'lodash';
 import {defineConfig} from 'vitest/config';
 
@@ -17,7 +18,7 @@ export default defineConfig(
         port: 5000,
         strictPort: true,
       },
-      plugins: [!process.env.VITEST && reactRouter()],
+      plugins: [tailwindcss(), !process.env.VITEST && reactRouter()],
       test: {
         environment: 'happy-dom',
         setupFiles: ['tests/setup.ts'],

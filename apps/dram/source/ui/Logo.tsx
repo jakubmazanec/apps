@@ -7,7 +7,7 @@ export function Logo() {
   return (
     <div className="flex gap-x-2">
       <Link to="/">
-        <h1 className="text-sm uppercase tracking-wide">Dram (preview)</h1>
+        <h1 className="text-sm tracking-wide uppercase">Dram (preview)</h1>
       </Link>
       {state === 'idle' ? null : <Spinner className="fill-white text-orange-200" />}
     </div>

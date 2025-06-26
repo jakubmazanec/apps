@@ -1,4 +1,4 @@
-import createServerAuth from '@edgedb/auth-remix/server';
+import createServerAuth from '@gel/auth-remix/server';
 
 import {client} from '../db.js';
 import {options} from './auth.js';

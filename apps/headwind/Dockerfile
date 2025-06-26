@@ -7,7 +7,7 @@
 #
 
 # Base stage
-FROM node:22-slim as base
+FROM node:24-slim as base
 
 WORKDIR /workspace
 

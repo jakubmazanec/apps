@@ -1,4 +1,4 @@
-import createClientAuth, {type RemixAuthOptions} from '@edgedb/auth-remix/client';
+import createClientAuth, {type RemixAuthOptions} from '@gel/auth-remix/client';
 
 import {appUrl} from '../constants.js';
 
