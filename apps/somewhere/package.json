@@ -25,7 +25,7 @@
   },
   "dependencies": {
     "@jakubmazanec/ts-utils": "^3.0.13",
-    "@jakubmazanec/zod-utils": "^2.0.11",
+    "@jakubmazanec/zod-utils": "^2.0.12",
     "@react-router/express": "^7.6.2",
     "@react-router/fs-routes": "^7.6.2",
     "@react-router/node": "^7.6.2",
