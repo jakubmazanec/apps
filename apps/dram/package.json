@@ -26,7 +26,7 @@
   },
   "dependencies": {
     "@gel/auth-remix": "^0.3.0",
-    "@jakubmazanec/ui": "^0.4.0",
+    "@jakubmazanec/ui": "^0.4.1",
     "@react-router/express": "^7.6.2",
     "@react-router/fs-routes": "^7.6.2",
     "@react-router/node": "^7.6.2",
