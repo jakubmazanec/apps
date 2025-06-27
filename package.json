@@ -25,9 +25,9 @@
   "devDependencies": {
     "@changesets/cli": "^2.29.5",
     "@jakubmazanec/carson": "^3.0.1",
-    "@jakubmazanec/carson-templates": "^6.0.0",
+    "@jakubmazanec/carson-templates": "^6.0.1",
     "@jakubmazanec/changesets-changelog": "^2.0.11",
-    "@types/node": "^22.13.1",
+    "@types/node": "^24.0.0",
     "del-cli": "^6.0.0",
     "patch-package": "^8.0.0",
     "prettier": "^3.6.1",
@@ -35,8 +35,9 @@
     "turbo": "^2.5.4",
     "typescript": "^5.8.3"
   },
-  "packageManager": "npm@11.3.0",
+  "packageManager": "npm@11.0.0",
   "engines": {
-    "node": "^24.1.0"
+    "node": "^24.1.0",
+    "npm": "^11.0.0"
   }
 }
