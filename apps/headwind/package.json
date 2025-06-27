@@ -39,7 +39,7 @@
     "zod": "^3.25.67"
   },
   "devDependencies": {
-    "@jakubmazanec/eslint-config": "^4.1.6",
+    "@jakubmazanec/eslint-config": "^4.1.7",
     "@react-router/dev": "^7.6.2",
     "@tailwindcss/vite": "^4.1.11",
     "@testing-library/jest-dom": "^6.6.3",
