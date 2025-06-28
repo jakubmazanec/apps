@@ -1,5 +1,51 @@
 # dram
 
+## 0.5.9
+
+### Patch Changes
+
+- [#184](https://github.com/jakubmazanec/apps/pull/184)
+  [`988c1a6`](https://github.com/jakubmazanec/apps/commit/988c1a6050b65ffa240fd27e78af790383664760)
+  ([@renovate](https://github.com/apps/renovate)) – Dependency `@types/node` updated to version
+  `^24.0.7`.
+
+- [#178](https://github.com/jakubmazanec/apps/pull/178)
+  [`35e5467`](https://github.com/jakubmazanec/apps/commit/35e5467fb1e47078df97cf27ce24eb1de17ccb84)
+  ([@renovate](https://github.com/apps/renovate)) – Dependency `@gel/generate` updated to version
+  `^0.6.4`.
+
+- [#180](https://github.com/jakubmazanec/apps/pull/180)
+  [`da2dce2`](https://github.com/jakubmazanec/apps/commit/da2dce2cb44f42f96514715080d207f5ce2c6f51)
+  ([@renovate](https://github.com/apps/renovate)) – Dependency `gel` updated to version `^2.1.1`.
+
+- [#181](https://github.com/jakubmazanec/apps/pull/181)
+  [`447a8ca`](https://github.com/jakubmazanec/apps/commit/447a8ca106040c1b0d58e7153eee63c886bcfa1b)
+  ([@renovate](https://github.com/apps/renovate)) – Dependency `prettier-plugin-packagejson` updated
+  to version `^2.5.17`.
+
+- [#183](https://github.com/jakubmazanec/apps/pull/183)
+  [`f02d0cc`](https://github.com/jakubmazanec/apps/commit/f02d0ccc6eef1280ac1c8d666f89694a82ebd0fd)
+  ([@renovate](https://github.com/apps/renovate)) – Dependency `eslint` updated to version
+  `^9.30.0`.
+
+- [#177](https://github.com/jakubmazanec/apps/pull/177)
+  [`fe1780d`](https://github.com/jakubmazanec/apps/commit/fe1780d0c450d8062cbbbed5f55f3561e1754cee)
+  ([@renovate](https://github.com/apps/renovate)) – Dependency `prettier` updated to version
+  `^3.6.2`.
+
+- [#179](https://github.com/jakubmazanec/apps/pull/179)
+  [`2d97013`](https://github.com/jakubmazanec/apps/commit/2d9701306a4ed3198d3e488cd5f477ecdd456d7d)
+  ([@renovate](https://github.com/apps/renovate)) – Dependency `@types/node` updated to version
+  `^24.0.6`.
+
+- [#182](https://github.com/jakubmazanec/apps/pull/182)
+  [`44d0dea`](https://github.com/jakubmazanec/apps/commit/44d0dea0090a55ca304cac842b0b0c9c61bad7f6)
+  ([@renovate](https://github.com/apps/renovate)) – Dependency `@react-router/express` updated to
+  version `^7.6.3`. Dependency `@react-router/fs-routes` updated to version `^7.6.3`. Dependency
+  `@react-router/node` updated to version `^7.6.3`. Dependency `@react-router/serve` updated to
+  version `^7.6.3`. Dependency `react-router` updated to version `^7.6.3`. Dependency
+  `@react-router/dev` updated to version `^7.6.3`.
+
 ## 0.5.8
 
 ### Patch Changes
