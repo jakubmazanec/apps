@@ -1,5 +1,41 @@
 # dram
 
+## 0.5.10
+
+### Patch Changes
+
+- [#189](https://github.com/jakubmazanec/apps/pull/189)
+  [`fa92e96`](https://github.com/jakubmazanec/apps/commit/fa92e960fd91f3038d896d5eecdb3f87af29ba03)
+  ([@renovate](https://github.com/apps/renovate)) – Dependency `prettier-plugin-packagejson` updated
+  to version `^2.5.19`.
+
+- [#187](https://github.com/jakubmazanec/apps/pull/187)
+  [`151fed6`](https://github.com/jakubmazanec/apps/commit/151fed696de26598e38809a1f8921b725bfff368)
+  ([@renovate](https://github.com/apps/renovate)) – Dependency `eslint` updated to version
+  `^9.31.0`.
+
+- [#190](https://github.com/jakubmazanec/apps/pull/190)
+  [`5554421`](https://github.com/jakubmazanec/apps/commit/55544214c069c90f4e689b61a854c2c9ca287fc9)
+  ([@renovate](https://github.com/apps/renovate)) – Dependency `prettier-plugin-tailwindcss` updated
+  to version `^0.6.14`.
+
+- [#186](https://github.com/jakubmazanec/apps/pull/186)
+  [`ffa3814`](https://github.com/jakubmazanec/apps/commit/ffa3814c9cb092e63d193bb6ee64bac25a264636)
+  ([@renovate](https://github.com/apps/renovate)) – Dependency `@types/lodash` updated to version
+  `^4.17.20`.
+
+- [#193](https://github.com/jakubmazanec/apps/pull/193)
+  [`e5a8d49`](https://github.com/jakubmazanec/apps/commit/e5a8d4972f0ad3b238588cfbcee9f442958102b8)
+  ([@renovate](https://github.com/apps/renovate)) – Dependency `@react-router/express` updated to
+  version `^7.7.0`. Dependency `@react-router/fs-routes` updated to version `^7.7.0`. Dependency
+  `@react-router/node` updated to version `^7.7.0`. Dependency `@react-router/serve` updated to
+  version `^7.7.0`. Dependency `react-router` updated to version `^7.7.0`. Dependency
+  `@react-router/dev` updated to version `^7.7.0`.
+
+- [#188](https://github.com/jakubmazanec/apps/pull/188)
+  [`fae0060`](https://github.com/jakubmazanec/apps/commit/fae006088e008971dcd37dbba518c9bf78414546)
+  ([@renovate](https://github.com/apps/renovate)) – Dependency `zod` updated to version `^3.25.76`.
+
 ## 0.5.9
 
 ### Patch Changes
