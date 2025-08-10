@@ -35,6 +35,15 @@
 !apps/headwind/tailwind.config.ts
 !apps/headwind/tsconfig.json
 !apps/headwind/vite.config.ts
+!apps/riffle/env.d.ts
+!apps/riffle/package.json
+!apps/riffle/postcss.config.cjs
+!apps/riffle/public/**
+!apps/riffle/react-router.config.ts
+!apps/riffle/source/**
+!apps/riffle/tailwind.config.ts
+!apps/riffle/tsconfig.json
+!apps/riffle/vite.config.ts
 !apps/somewhere/env.d.ts
 !apps/somewhere/package.json
 !apps/somewhere/postcss.config.cjs
