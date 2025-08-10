@@ -96,7 +96,7 @@ jobs:
           git config --unset core.filemode
 
       - name: Build packages
-        run: npm run build -- --filter=!dram --filter=!headwind --filter=!somewhere
+        run: npm run build -- --filter=!dram --filter=!headwind --filter=!riffle --filter=!somewhere
 
       - name: Authenticate to npm registry
         run: |
@@ -182,6 +182,14 @@ jobs:
           npm run deploy --workspace headwind -- --build-arg "VITE_APP_URL=$VITE_APP_URL"
         env:
           VITE_APP_URL: https://headwind.fly.dev
+          FLY_ACCESS_TOKEN: ${{ secrets.FLY_TOKEN }}
+          FLY_API_TOKEN: ${{ secrets.FLY_TOKEN }}
+
+      - name: Deploy "riffle"
+        run: |
+          npm run deploy --workspace riffle -- --build-arg "VITE_APP_URL=$VITE_APP_URL"
+        env:
+          VITE_APP_URL: https://riffle.fly.dev
           FLY_ACCESS_TOKEN: ${{ secrets.FLY_TOKEN }}
           FLY_API_TOKEN: ${{ secrets.FLY_TOKEN }}
 
@@ -274,7 +282,7 @@ jobs:
           git config --unset core.filemode
 
       - name: Build packages
-        run: npm run build -- --filter=!dram --filter=!headwind --filter=!somewhere
+        run: npm run build -- --filter=!dram --filter=!headwind --filter=!riffle --filter=!somewhere
 
       - name: Update documentation
         run: |
@@ -323,6 +331,14 @@ jobs:
           npm run deploy --workspace headwind -- --app headwind-next --build-arg "VITE_APP_URL=$VITE_APP_URL"
         env:
           VITE_APP_URL: https://headwind-next.fly.dev
+          FLY_ACCESS_TOKEN: ${{ secrets.FLY_TOKEN }}
+          FLY_API_TOKEN: ${{ secrets.FLY_TOKEN }}
+
+      - name: Deploy "riffle"
+        run: |
+          npm run deploy --workspace riffle -- --app riffle-next --build-arg "VITE_APP_URL=$VITE_APP_URL"
+        env:
+          VITE_APP_URL: https://riffle-next.fly.dev
           FLY_ACCESS_TOKEN: ${{ secrets.FLY_TOKEN }}
           FLY_API_TOKEN: ${{ secrets.FLY_TOKEN }}
 

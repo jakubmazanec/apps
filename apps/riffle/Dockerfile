@@ -34,20 +34,20 @@ RUN npm ci --include=dev --ignore-scripts
 COPY --link . .
 
 # Build
-RUN npm run build -- --filter=somewhere
+RUN npm run build -- --filter=riffle
 
 # Final stage for app image
 FROM base
 
 # Copy files
 COPY package-lock.json package.json /workspace/
-COPY --from=build /workspace/apps/somewhere/build /workspace/apps/somewhere/build
-COPY --from=build /workspace/apps/somewhere/package.json /workspace/apps/somewhere/package.json
+COPY --from=build /workspace/apps/riffle/build /workspace/apps/riffle/build
+COPY --from=build /workspace/apps/riffle/package.json /workspace/apps/riffle/package.json
 
 # Install dependencies
 RUN npm ci --omit=dev --ignore-scripts
 
 # Start the server
-WORKDIR /workspace/apps/somewhere
+WORKDIR /workspace/apps/riffle
 EXPOSE 5000
 ENTRYPOINT ["npm", "start"]
