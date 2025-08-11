@@ -1,0 +1,4 @@
+---
+'riffle': patch
+---
+Dependency `autoprefixer` updated to version `^10.4.21`.
