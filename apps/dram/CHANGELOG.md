@@ -1,5 +1,57 @@
 # dram
 
+## 0.5.11
+
+### Patch Changes
+
+- [#208](https://github.com/jakubmazanec/apps/pull/208)
+  [`40602f8`](https://github.com/jakubmazanec/apps/commit/40602f8fa8dc5a47b1d2a2cc24088a452bb67586)
+  ([@renovate](https://github.com/apps/renovate)) – Dependency `@types/react` updated to version
+  `^19.1.10`.
+
+- [#196](https://github.com/jakubmazanec/apps/pull/196)
+  [`dbde583`](https://github.com/jakubmazanec/apps/commit/dbde583a3b33b852f33e90e27665eb9ef9d8c0cd)
+  ([@renovate](https://github.com/apps/renovate)) – Dependency `eslint` updated to version
+  `^9.33.0`.
+
+- [#199](https://github.com/jakubmazanec/apps/pull/199)
+  [`a1f0f7a`](https://github.com/jakubmazanec/apps/commit/a1f0f7a509807854340cbccbe75f48ca2ad0f6d2)
+  ([@renovate](https://github.com/apps/renovate)) – Dependency `react` updated to version `^19.1.1`.
+  Dependency `react-dom` updated to version `^19.1.1`. Dependency `@types/react` updated to version
+  `^19.1.9`. Dependency `@types/react-dom` updated to version `^19.1.7`.
+
+- [#194](https://github.com/jakubmazanec/apps/pull/194)
+  [`c028d74`](https://github.com/jakubmazanec/apps/commit/c028d740ea4658f022c33e5beb63617636f96cba)
+  ([@renovate](https://github.com/apps/renovate)) – Dependency `@react-router/express` updated to
+  version `^7.8.0`. Dependency `@react-router/fs-routes` updated to version `^7.8.0`. Dependency
+  `@react-router/node` updated to version `^7.8.0`. Dependency `@react-router/serve` updated to
+  version `^7.8.0`. Dependency `react-router` updated to version `^7.8.0`. Dependency
+  `@react-router/dev` updated to version `^7.8.0`.
+
+- [#206](https://github.com/jakubmazanec/apps/pull/206)
+  [`0547c2e`](https://github.com/jakubmazanec/apps/commit/0547c2e089da7cbcc79e0c023ea9d7e3184a3f26)
+  ([@renovate](https://github.com/apps/renovate)) – Dependency `isbot` updated to version `^5.1.29`.
+
+- [#210](https://github.com/jakubmazanec/apps/pull/210)
+  [`a6402fa`](https://github.com/jakubmazanec/apps/commit/a6402faa793b002444c25170585683da4668e2a7)
+  ([@renovate](https://github.com/apps/renovate)) – Dependency `typescript` updated to version
+  `^5.9.2`.
+
+- [#198](https://github.com/jakubmazanec/apps/pull/198)
+  [`fedf5eb`](https://github.com/jakubmazanec/apps/commit/fedf5eb89e06ec4c1d193949c0fc45ba41509a1d)
+  ([@renovate](https://github.com/apps/renovate)) – Dependency `@testing-library/jest-dom` updated
+  to version `^6.6.4`.
+
+- [#205](https://github.com/jakubmazanec/apps/pull/205)
+  [`7c74c7d`](https://github.com/jakubmazanec/apps/commit/7c74c7d3e97beac559a37e711a3a24cabd498ac0)
+  ([@renovate](https://github.com/apps/renovate)) – Dependency `fs-extra` updated to version
+  `^11.3.1`.
+
+- [#185](https://github.com/jakubmazanec/apps/pull/185)
+  [`f0e7c44`](https://github.com/jakubmazanec/apps/commit/f0e7c44a00989bd486a8389c03f3dd689509c12d)
+  ([@renovate](https://github.com/apps/renovate)) – Dependency `@types/node` updated to version
+  `^24.2.1`. Dependency `node` updated to version `^24.5.0`.
+
 ## 0.5.10
 
 ### Patch Changes
