@@ -31,7 +31,7 @@
     "@react-router/fs-routes": "^7.8.0",
     "@react-router/node": "^7.8.0",
     "@react-router/serve": "^7.8.0",
-    "cross-env": "^7.0.3",
+    "cross-env": "^10.0.0",
     "gel": "^2.1.1",
     "isbot": "^5.1.29",
     "lodash": "^4.17.21",
@@ -64,7 +64,7 @@
     "tailwindcss": "^4.1.11",
     "tsx": "^4.20.3",
     "typescript": "^5.9.2",
-    "vite": "^6.3.5",
+    "vite": "^7.0.0",
     "vitest": "^3.2.4",
     "xlsx": "^0.18.5",
     "zod": "^3.25.76"
