@@ -41,7 +41,7 @@
   "devDependencies": {
     "@jakubmazanec/eslint-config": "^4.1.7",
     "@react-router/dev": "^7.8.0",
-    "@tailwindcss/vite": "^4.1.11",
+    "@tailwindcss/vite": "^4.1.12",
     "@testing-library/jest-dom": "^6.6.4",
     "@testing-library/react": "^16.3.0",
     "@types/lodash": "^4.17.20",
