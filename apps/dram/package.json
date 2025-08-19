@@ -42,7 +42,7 @@
   },
   "devDependencies": {
     "@gel/generate": "^0.6.4",
-    "@jakubmazanec/eslint-config": "^4.1.7",
+    "@jakubmazanec/eslint-config": "^4.1.8",
     "@react-router/dev": "^7.8.0",
     "@tailwindcss/vite": "^4.1.12",
     "@testing-library/jest-dom": "^6.6.4",
