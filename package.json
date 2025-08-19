@@ -35,9 +35,9 @@
     "turbo": "^2.5.6",
     "typescript": "^5.9.2"
   },
-  "packageManager": "npm@11.4.2",
+  "packageManager": "npm@11.5.2",
   "engines": {
     "node": "^24.5.0",
-    "npm": "^11.4.2"
+    "npm": "^11.5.2"
   }
 }

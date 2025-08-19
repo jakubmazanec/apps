@@ -69,9 +69,9 @@
     "xlsx": "^0.18.5",
     "zod": "^4.0.17"
   },
-  "packageManager": "npm@11.4.2",
+  "packageManager": "npm@11.5.2",
   "engines": {
     "node": "^24.5.0",
-    "npm": "^11.4.2"
+    "npm": "^11.5.2"
   }
 }
