@@ -23,7 +23,7 @@
     "@headlessui/react": "^2.2.7"
   },
   "devDependencies": {
-    "@changesets/cli": "^2.29.5",
+    "@changesets/cli": "^2.29.6",
     "@jakubmazanec/carson": "^3.0.2",
     "@jakubmazanec/carson-templates": "^7.0.0",
     "@jakubmazanec/changesets-changelog": "^2.0.13",
