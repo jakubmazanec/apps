@@ -3,6 +3,6 @@
   "deployment": {
     "appName": "dram",
     "appUrl": "https://dram.mazanec.dev",
-    "dbInstance": "jakubmazanec/whisky"
+    "dbInstance": "jakubmazanec/dram"
   }
 }
