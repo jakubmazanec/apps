@@ -24,7 +24,7 @@
     "typecheck": "tsc --project tsconfig.typecheck.json"
   },
   "dependencies": {
-    "@jakubmazanec/ts-utils": "^3.0.14",
+    "@jakubmazanec/ts-utils": "^3.0.15",
     "@react-router/express": "^7.8.0",
     "@react-router/fs-routes": "^7.8.0",
     "@react-router/node": "^7.8.0",
