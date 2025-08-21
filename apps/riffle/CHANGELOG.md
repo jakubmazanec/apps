@@ -1,5 +1,14 @@
 # riffle
 
+## 0.1.3
+
+### Patch Changes
+
+- [#235](https://github.com/jakubmazanec/apps/pull/235)
+  [`45bf3a7`](https://github.com/jakubmazanec/apps/commit/45bf3a7e4e217ec11b6659a377cb192d999e232a)
+  ([@renovate](https://github.com/apps/renovate)) – Dependency `@testing-library/jest-dom` updated
+  to version `^6.8.0`.
+
 ## 0.1.2
 
 ### Patch Changes
