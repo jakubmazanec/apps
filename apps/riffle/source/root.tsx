@@ -1,5 +1,7 @@
 import {Links, Meta, Outlet, Scripts, ScrollRestoration} from 'react-router';
 
+import {App} from './ui.js';
+
 import './tailwind.css';
 
 export default function Root() {
@@ -12,7 +14,9 @@ export default function Root() {
         <Links />
       </head>
       <body className="m-0 min-h-screen">
-        <Outlet />
+        <App>
+          <Outlet />
+        </App>
 
         <ScrollRestoration />
         <Scripts />
