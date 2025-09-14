@@ -39,7 +39,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 24.8.0
+          node-version: 24
 
       - uses: geldata/setup-gel@v1
         with:
