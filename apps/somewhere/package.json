@@ -43,7 +43,7 @@
   "devDependencies": {
     "@jakubmazanec/eslint-config": "^4.1.8",
     "@react-router/dev": "^7.8.1",
-    "@tailwindcss/vite": "^4.1.12",
+    "@tailwindcss/vite": "^4.1.13",
     "@testing-library/jest-dom": "^6.8.0",
     "@testing-library/react": "^16.3.0",
     "@types/lodash": "^4.17.20",
@@ -57,7 +57,7 @@
     "prettier": "^3.6.2",
     "prettier-plugin-packagejson": "^2.5.19",
     "prettier-plugin-tailwindcss": "^0.6.14",
-    "tailwindcss": "^4.1.12",
+    "tailwindcss": "^4.1.13",
     "typescript": "^5.9.2",
     "vite": "^7.1.5",
     "vitest": "^3.2.4"
