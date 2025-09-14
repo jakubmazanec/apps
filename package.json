@@ -20,7 +20,7 @@
     "uninstall": "del-cli ./**/node_modules ./package-lock.json"
   },
   "dependencies": {
-    "@headlessui/react": "^2.2.7"
+    "@headlessui/react": "^2.2.8"
   },
   "devDependencies": {
     "@changesets/cli": "^2.29.6",
