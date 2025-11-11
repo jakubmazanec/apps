@@ -228,19 +228,18 @@ export function Notes({
   onSearchChange,
 }: NotesProps) {
   return (
-    <div className="w-full overflow-x-scroll overflow-y-visible text-xs [scrollbar-color:theme(colors.gray.200)_transparent] [scrollbar-width:thin]">
-      <DataTable
-        columns={columns}
-        data={notes}
-        filters={filters}
-        pagination={pagination}
-        search={search}
-        sorting={sorting}
-        onFiltersChange={onFiltersChange}
-        onPaginationChange={onPaginationChange}
-        onSearchChange={onSearchChange}
-        onSortingChange={onSortingChange}
-      />
-    </div>
+    <DataTable
+      showRowSummaryOnClick
+      columns={columns}
+      data={notes}
+      filters={filters}
+      pagination={pagination}
+      search={search}
+      sorting={sorting}
+      onFiltersChange={onFiltersChange}
+      onPaginationChange={onPaginationChange}
+      onSearchChange={onSearchChange}
+      onSortingChange={onSortingChange}
+    />
   );
 }
