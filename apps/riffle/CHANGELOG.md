@@ -1,5 +1,22 @@
 # riffle
 
+## 0.1.4
+
+### Patch Changes
+
+- [#245](https://github.com/jakubmazanec/apps/pull/245)
+  [`0052884`](https://github.com/jakubmazanec/apps/commit/0052884d8a712307524554a834b649cecaf7cb50)
+  ([@renovate](https://github.com/apps/renovate)) – Dependency `vite` updated to version `^7.1.5`.
+
+- [#239](https://github.com/jakubmazanec/apps/pull/239)
+  [`d6fd606`](https://github.com/jakubmazanec/apps/commit/d6fd606cbf8ae228e5199961b00f72380f99c7bc)
+  ([@renovate](https://github.com/apps/renovate)) – Dependency `zod` updated to version `^4.1.8`.
+
+- [#238](https://github.com/jakubmazanec/apps/pull/238)
+  [`d6afbce`](https://github.com/jakubmazanec/apps/commit/d6afbce2f01ef4fb97702a357d90e97ed4562e6c)
+  ([@renovate](https://github.com/apps/renovate)) – Dependency `eslint` updated to version
+  `^9.35.0`.
+
 ## 0.1.3
 
 ### Patch Changes

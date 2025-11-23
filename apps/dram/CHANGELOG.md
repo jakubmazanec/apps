@@ -1,5 +1,38 @@
 # dram
 
+## 0.6.0
+
+### Minor Changes
+
+- [#254](https://github.com/jakubmazanec/apps/pull/254)
+  [`dadf751`](https://github.com/jakubmazanec/apps/commit/dadf751275aa39249bc391b0992d2cf3a87125b5)
+  ([@jakubmazanec](https://github.com/jakubmazanec)) – Notes table now has fixed scrolling and shows
+  a row summary on click.
+
+### Patch Changes
+
+- [#245](https://github.com/jakubmazanec/apps/pull/245)
+  [`0052884`](https://github.com/jakubmazanec/apps/commit/0052884d8a712307524554a834b649cecaf7cb50)
+  ([@renovate](https://github.com/apps/renovate)) – Dependency `vite` updated to version `^7.1.5`.
+
+- [#240](https://github.com/jakubmazanec/apps/pull/240)
+  [`3230734`](https://github.com/jakubmazanec/apps/commit/32307349ec3d34b758a69621fd1424f6c0b8f72e)
+  ([@renovate](https://github.com/apps/renovate)) – Dependency `tsx` updated to version `^4.20.5`.
+
+- [#239](https://github.com/jakubmazanec/apps/pull/239)
+  [`d6fd606`](https://github.com/jakubmazanec/apps/commit/d6fd606cbf8ae228e5199961b00f72380f99c7bc)
+  ([@renovate](https://github.com/apps/renovate)) – Dependency `zod` updated to version `^4.1.8`.
+
+- [#253](https://github.com/jakubmazanec/apps/pull/253)
+  [`3ab52df`](https://github.com/jakubmazanec/apps/commit/3ab52dff4d65c25b4536c258d80e9aa44bae4518)
+  ([@renovate](https://github.com/apps/renovate)) – Dependency `@jakubmazanec/ui` updated to version
+  `^0.5.0`.
+
+- [#238](https://github.com/jakubmazanec/apps/pull/238)
+  [`d6afbce`](https://github.com/jakubmazanec/apps/commit/d6afbce2f01ef4fb97702a357d90e97ed4562e6c)
+  ([@renovate](https://github.com/apps/renovate)) – Dependency `eslint` updated to version
+  `^9.35.0`.
+
 ## 0.5.13
 
 ### Patch Changes
