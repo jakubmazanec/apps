@@ -1,5 +1,5 @@
 {
-  "template": "@jakubmazanec/carson-templates:projects/remix-app",
+  "template": "@jakubmazanec/carson-templates:projects/app",
   "deployment": {
     "appName": "headwind"
   }

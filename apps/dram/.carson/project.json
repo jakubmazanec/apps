@@ -1,8 +1,15 @@
 {
-  "template": "@jakubmazanec/carson-templates:projects/remix-app",
+  "template": "@jakubmazanec/carson-templates:projects/app",
   "deployment": {
     "appName": "dram",
     "appUrl": "https://dram.mazanec.dev",
     "dbInstance": "jakubmazanec/dram"
+  },
+  "overrides": {
+    "tsconfig": {
+      "compilerOptions": {
+        "erasableSyntaxOnly": false
+      }
+    }
   }
 }
