@@ -21,7 +21,7 @@
   },
   "devDependencies": {
     "@changesets/cli": "^2.29.6",
-    "@jakubmazanec/carson": "^3.0.2",
+    "@jakubmazanec/carson": "^3.0.4",
     "@jakubmazanec/carson-templates": "^7.0.0",
     "@jakubmazanec/changesets-changelog": "^2.0.13",
     "@types/node": "^24.2.1",
