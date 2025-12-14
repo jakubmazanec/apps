@@ -1,5 +1,14 @@
 # dram
 
+## 0.6.1
+
+### Patch Changes
+
+- [#258](https://github.com/jakubmazanec/apps/pull/258)
+  [`e2765a3`](https://github.com/jakubmazanec/apps/commit/e2765a3d7b462ced8fa27bf89e23ed729be0d097)
+  ([@renovate](https://github.com/apps/renovate)) – Applies templates from
+  `@jakubmazanec/carson-templates` updated to version `^8.0.1`.
+
 ## 0.6.0
 
 ### Minor Changes

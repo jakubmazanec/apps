@@ -1,6 +1,6 @@
 {
   "name": "riffle",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "private": true,
   "description": "A rogue-like deck-building game with letters and words.",
   "repository": {
