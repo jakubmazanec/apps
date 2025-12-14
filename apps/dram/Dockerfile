@@ -7,7 +7,7 @@
 #
 
 # Base stage
-FROM node:24-slim as base
+FROM node:24-slim AS base
 
 WORKDIR /workspace
 
@@ -21,7 +21,7 @@ ARG GEL_BRANCH
 ENV GEL_BRANCH=$GEL_BRANCH
 
 # Throw-away build stage to reduce size of final image
-FROM base as build
+FROM base AS build
 
 # Install packages needed to install dependencies
 RUN apt-get update -qq && apt-get install --no-install-recommends -y build-essential node-gyp pkg-config python-is-python3
@@ -49,7 +49,7 @@ COPY --from=build /workspace/apps/dram/build /workspace/apps/dram/build
 COPY --from=build /workspace/apps/dram/package.json /workspace/apps/dram/package.json
 
 # Install dependencies
-RUN npm ci --omit=dev --ignore-scripts
+RUN npm ci --omit=dev --ignore-scripts && npm cache clean --force
 
 # Start the server
 WORKDIR /workspace/apps/dram

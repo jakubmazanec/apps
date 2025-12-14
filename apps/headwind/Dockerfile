@@ -7,7 +7,7 @@
 #
 
 # Base stage
-FROM node:24-slim as base
+FROM node:24-slim AS base
 
 WORKDIR /workspace
 
@@ -17,7 +17,7 @@ ARG VITE_APP_URL
 ENV VITE_APP_URL=$VITE_APP_URL
 
 # Throw-away build stage to reduce size of final image
-FROM base as build
+FROM base AS build
 
 # Install packages needed to install dependencies
 RUN apt-get update -qq && apt-get install --no-install-recommends -y build-essential node-gyp pkg-config python-is-python3
@@ -45,7 +45,7 @@ COPY --from=build /workspace/apps/headwind/build /workspace/apps/headwind/build
 COPY --from=build /workspace/apps/headwind/package.json /workspace/apps/headwind/package.json
 
 # Install dependencies
-RUN npm ci --omit=dev --ignore-scripts
+RUN npm ci --omit=dev --ignore-scripts && npm cache clean --force
 
 # Start the server
 WORKDIR /workspace/apps/headwind

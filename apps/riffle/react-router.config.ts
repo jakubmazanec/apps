@@ -7,12 +7,8 @@
  */
 
 import {type Config} from '@react-router/dev/config';
-import _ from 'lodash';
 
-export default _.merge(
-  {
-    appDirectory: 'source',
-    ssr: true,
-  },
-  {},
-) satisfies Config;
+export default {
+  appDirectory: 'source',
+  ssr: true,
+} satisfies Config;
