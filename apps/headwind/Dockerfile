@@ -47,6 +47,9 @@ COPY --from=build /workspace/apps/headwind/package.json /workspace/apps/headwind
 # Install dependencies
 RUN npm ci --omit=dev --ignore-scripts && npm cache clean --force
 
+# Set up env variables
+ENV GEL_CLIENT_TLS_SECURITY=insecure
+
 # Start the server
 WORKDIR /workspace/apps/headwind
 EXPOSE 5000

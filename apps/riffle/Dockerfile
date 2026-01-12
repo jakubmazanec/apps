@@ -47,6 +47,9 @@ COPY --from=build /workspace/apps/riffle/package.json /workspace/apps/riffle/pac
 # Install dependencies
 RUN npm ci --omit=dev --ignore-scripts && npm cache clean --force
 
+# Set up env variables
+ENV GEL_CLIENT_TLS_SECURITY=insecure
+
 # Start the server
 WORKDIR /workspace/apps/riffle
 EXPOSE 5000

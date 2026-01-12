@@ -6,7 +6,7 @@ import xlsx from 'xlsx';
 import {z} from 'zod';
 
 import {appRootPath} from '../source/constants.server.js';
-import {client as baseClient, e, LocalDate, LocalDateTime, type Note} from '../source/db.js';
+import {createClient, e, LocalDate, LocalDateTime, type Note} from '../source/db.js';
 
 let currentUserId = process.argv[2];
 
@@ -14,7 +14,9 @@ if (!currentUserId) {
   throw new Error('You must pass a User ID as a parameter!');
 }
 
-let client = baseClient.withGlobals({currentUserId});
+let client = createClient({
+  dsn: 'gel://admin:Z2DXqL5RLd6JdM2r9_vcWGUzEp2vTSqu@dram-gel.internal:8080',
+}).withGlobals({currentUserId});
 
 let rowSchema = z
   .object({

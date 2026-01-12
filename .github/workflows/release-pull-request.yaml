@@ -72,9 +72,9 @@ jobs:
         run: |
           npm run test -- --filter=dram
         env:
-          GEL_INSTANCE: jakubmazanec/dram
+          GEL_DSN: gel://dram-gel.fly.dev
           GEL_BRANCH: apps-${{ github.head_ref }}
-          GEL_SECRET_KEY: ${{ secrets.JAKUBMAZANEC_DRAM_GEL_TOKEN }}
+          GEL_PASSWORD: ${{ secrets.DRAM_GEL_PASSWORD }}
 
       - name: Check for changes
         run: |
@@ -116,12 +116,12 @@ jobs:
 
       - name: Deploy dram
         run: |
-          npm run deploy --workspace dram -- --app dram-unstable --build-arg "VITE_APP_URL=$VITE_APP_URL" --build-arg "GEL_INSTANCE=$GEL_INSTANCE" --build-arg "GEL_BRANCH=$GEL_BRANCH" --build-secret "GEL_SECRET_KEY=$GEL_SECRET_KEY"
+          npm run deploy --workspace dram -- --app dram-unstable --build-arg "VITE_APP_URL=$VITE_APP_URL" --build-arg "GEL_DSN=$GEL_DSN" --build-arg "GEL_BRANCH=$GEL_BRANCH" --build-secret "GEL_PASSWORD=$GEL_PASSWORD"
         env:
           VITE_APP_URL: https://dram-unstable.fly.dev
-          GEL_INSTANCE: jakubmazanec/dram
+          GEL_DSN: gel://dram-gel.fly.dev
           GEL_BRANCH: apps-${{ github.head_ref }}
-          GEL_SECRET_KEY: ${{ secrets.JAKUBMAZANEC_DRAM_GEL_TOKEN }}
+          GEL_PASSWORD: ${{ secrets.DRAM_GEL_PASSWORD }}
           FLY_ACCESS_TOKEN: ${{ secrets.FLY_TOKEN }}
           FLY_API_TOKEN: ${{ secrets.FLY_TOKEN }}
 
