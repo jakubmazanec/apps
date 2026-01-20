@@ -15,8 +15,8 @@ WORKDIR /workspace
 ENV NODE_ENV=production
 ARG VITE_APP_URL
 ENV VITE_APP_URL=$VITE_APP_URL
-ARG GEL_INSTANCE
-ENV GEL_INSTANCE=$GEL_INSTANCE
+ARG GEL_DSN
+ENV GEL_DSN=$GEL_DSN
 ARG GEL_BRANCH
 ENV GEL_BRANCH=$GEL_BRANCH
 
@@ -38,7 +38,7 @@ RUN npm ci --include=dev --ignore-scripts
 COPY --link . .
 
 # Build
-RUN --mount=type=secret,id=GEL_SECRET_KEY GEL_SECRET_KEY="$(cat /run/secrets/GEL_SECRET_KEY)" npm run build
+RUN --mount=type=secret,id=GEL_PASSWORD GEL_PASSWORD="$(cat /run/secrets/GEL_PASSWORD)" npm run build
 
 # Final stage for app image
 FROM base
@@ -50,6 +50,9 @@ COPY --from=build /workspace/apps/dram/package.json /workspace/apps/dram/package
 
 # Install dependencies
 RUN npm ci --omit=dev --ignore-scripts && npm cache clean --force
+
+# Set up env variables
+ENV GEL_CLIENT_TLS_SECURITY=insecure
 
 # Start the server
 WORKDIR /workspace/apps/dram

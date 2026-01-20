@@ -14,7 +14,7 @@
   "scripts": {
     "build": "del-cli build && react-router build",
     "clean": "del-cli coverage build *.tsbuildinfo",
-    "codegen": "react-router typegen && del-cli dbschema/edgeql-js dbschema/interfaces.* && generate edgeql-js --force-overwrite --target mts && generate interfaces --force-overwrite",
+    "codegen": "react-router typegen && del-cli dbschema/edgeql-js dbschema/interfaces.* && cross-env GEL_CLIENT_TLS_SECURITY=insecure generate edgeql-js --force-overwrite --target mts && cross-env GEL_CLIENT_TLS_SECURITY=insecure generate interfaces --force-overwrite",
     "deploy": "flyctl deploy ../.. --config apps/dram/fly.toml",
     "develop": "react-router dev --port 5000",
     "format": "prettier . --write --ignore-unknown",

@@ -87,13 +87,13 @@ module default {
     index ext::pg_trgm::gin on (.caskNumber);
     index ext::pg_trgm::gin on (to_str(.strength * 100));
 
-    access policy ownerHasFullAccess
-      allow all
-      using (.owner.id ?= global currentUser.id);
+    # access policy ownerHasFullAccess
+    #   allow all
+    #   using (.owner.id ?= global currentUser.id);
 
-    access policy adminHasFullAccess
-      allow all
-      using (global currentUser.role ?= UserRole.Admin);
+    # access policy adminHasFullAccess
+    #   allow all
+    #   using (global currentUser.role ?= UserRole.Admin);
   }
 
   type Distillery {

@@ -3,7 +3,7 @@
   "deployment": {
     "appName": "dram",
     "appUrl": "https://dram.mazanec.dev",
-    "dbInstance": "jakubmazanec/dram"
+    "gel": "gel://dram-gel.fly.dev"
   },
   "overrides": {
     "tsconfig": {

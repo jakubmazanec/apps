@@ -69,9 +69,9 @@ jobs:
         run: |
           npm run test -- --filter=dram
         env:
-          GEL_INSTANCE: jakubmazanec/dram
+          GEL_DSN: gel://dram-gel.fly.dev
           GEL_BRANCH: apps-${{ github.head_ref }}
-          GEL_SECRET_KEY: ${{ secrets.JAKUBMAZANEC_DRAM_GEL_TOKEN }}
+          GEL_PASSWORD: ${{ secrets.DRAM_GEL_PASSWORD }}
 
       - name: Check for changes
         run: |

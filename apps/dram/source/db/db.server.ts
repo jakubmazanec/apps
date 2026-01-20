@@ -3,6 +3,7 @@ import e, {createClient} from '../../dbschema/edgeql-js/index.mjs';
 export {e};
 
 export const client = createClient();
+export {createClient};
 
 export type E = typeof e;
 
