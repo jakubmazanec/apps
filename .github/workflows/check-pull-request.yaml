@@ -41,10 +41,6 @@ jobs:
         with:
           node-version: 24
 
-      - uses: geldata/setup-gel@v1
-        with:
-          server-version: none
-
       - name: Install packages
         run: npm ci
 
@@ -63,15 +59,7 @@ jobs:
           git config --unset core.filemode
 
       - name: Test
-        run: npm test -- --filter=!dram
-
-      - name: Test "dram"
-        run: |
-          npm run test -- --filter=dram
-        env:
-          GEL_INSTANCE: jakubmazanec/dram
-          GEL_BRANCH: apps-${{ github.head_ref }}
-          GEL_SECRET_KEY: ${{ secrets.JAKUBMAZANEC_DRAM_GEL_TOKEN }}
+        run: npm test
 
       - name: Check for changes
         run: |

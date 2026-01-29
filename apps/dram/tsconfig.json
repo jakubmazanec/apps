@@ -11,7 +11,7 @@
     "allowSyntheticDefaultImports": true,
     "composite": true,
     "erasableSyntaxOnly": false,
-    "exactOptionalPropertyTypes": false,
+    "exactOptionalPropertyTypes": true,
     "forceConsistentCasingInFileNames": true,
     "isolatedModules": true,
     "jsx": "react-jsx",
@@ -31,6 +31,6 @@
     "resolveJsonModule": true,
     "rootDirs": [".", "./.react-router/types"]
   },
-  "include": ["./.react-router/types/**/*", "./source/**/*", "./dbschema/**/*", "./*"],
+  "include": ["./.react-router/types/**/*", "./source/**/*", "./*"],
   "references": []
 }

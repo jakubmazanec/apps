@@ -2,8 +2,7 @@
   "template": "@jakubmazanec/carson-templates:projects/app",
   "deployment": {
     "appName": "dram",
-    "appUrl": "https://dram.mazanec.dev",
-    "dbInstance": "jakubmazanec/dram"
+    "appUrl": "https://dram.mazanec.dev"
   },
   "overrides": {
     "tsconfig": {

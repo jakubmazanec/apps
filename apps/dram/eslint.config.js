@@ -26,8 +26,6 @@ export default [
       'node_modules/**',
       'public/**',
       '.react-router/**',
-      'dbschema/edgeql-js/**',
-      'dbschema/interfaces.*',
     ],
   },
 ];

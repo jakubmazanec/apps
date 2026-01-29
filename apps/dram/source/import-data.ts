@@ -1,20 +1,11 @@
+// TODO: fix this; this file should be in the `tools` directory
+/* eslint-disable import/no-extraneous-dependencies -- TODO */
 import fs from 'fs-extra';
-import _ from 'lodash';
 import path from 'node:path';
-import map from 'p-map';
 import xlsx from 'xlsx';
 import {z} from 'zod';
 
-import {appRootPath} from '../source/constants.server.js';
-import {client as baseClient, e, LocalDate, LocalDateTime, type Note} from '../source/db.js';
-
-let currentUserId = process.argv[2];
-
-if (!currentUserId) {
-  throw new Error('You must pass a User ID as a parameter!');
-}
-
-let client = baseClient.withGlobals({currentUserId});
+import {appRootPath} from './constants.server.js';
 
 let rowSchema = z
   .object({
@@ -61,15 +52,7 @@ let rowSchema = z
           return undefined;
         }
 
-        return new LocalDateTime(
-          date.getUTCFullYear(),
-          date.getUTCMonth() + 1, // months are 0-based
-          date.getUTCDate(),
-          date.getUTCHours(),
-          date.getUTCMinutes(),
-          date.getUTCSeconds(),
-          date.getUTCMilliseconds(),
-        );
+        return date.toISOString();
       }),
     'Tasting location': z.string().optional(),
     Color: z.string().optional(),
@@ -87,11 +70,7 @@ let rowSchema = z
           return undefined;
         }
 
-        return new LocalDate(
-          date.getUTCFullYear(),
-          date.getUTCMonth() + 1, // months are 0-based
-          date.getUTCDate(),
-        );
+        return date.toISOString().slice(0, 10);
       }),
     'Whiskybase URL': z.string().optional(),
   })
@@ -120,8 +99,8 @@ async function readXlsx(filePath: string, sheetName: string) {
   return rows;
 }
 
-function rowToNote(rawRow: unknown): Omit<Note, 'id' | 'owner'> {
-  let row;
+function rowToNote(rawRow: unknown) {
+  let row: z.infer<typeof rowSchema>;
 
   try {
     row = rowSchema.parse(rawRow);
@@ -170,52 +149,21 @@ function rowToNote(rawRow: unknown): Omit<Note, 'id' | 'owner'> {
   return note;
 }
 
-async function insertNote(note: Omit<Note, 'id' | 'owner'>) {
-  let existingNote = await e
-    .select(e.Note, () => ({
-      filter_single: {
-        order: note.order,
-      },
-    }))
-    .run(client);
-
-  if (!existingNote) {
-    console.log(`Inserting note "${note.order}"`);
-
-    await e.insert(e.Note, note).run(client);
-
-    return;
-  }
-
-  console.log(`Updating note "${note.order}"`);
-
-  await e
-    .update(e.Note, () => ({
-      filter_single: {
-        order: note.order,
-      },
-      set: _.omit(note, 'order'),
-    }))
-    .run(client);
-}
-
 async function importData() {
   let rawRows = await readXlsx(path.join(appRootPath, '$/whisky.xlsx'), 'tasting_notes');
   let notes = rawRows.map((rawNote) => rowToNote(rawNote)).filter((note) => note.tastedAt);
 
-  console.log(`Importing ${notes.length} notes...`);
+  console.log(`Writing ${notes.length} notes to JSON...`);
 
-  await map(notes, insertNote, {concurrency: 10});
+  let outputPath = path.join(appRootPath, 'source/data.json');
+  await fs.ensureDir(path.dirname(outputPath));
+  await fs.writeJson(outputPath, notes, {spaces: 2});
 
   console.log('Done!');
 }
 
-importData()
-  .catch((error: unknown) => {
-    console.error(error);
+importData().catch((error: unknown) => {
+  console.error(error);
 
-    process.exitCode = 1;
-  })
-  .finally(() => {
-    void client.close();
-  });
+  process.exitCode = 1;
+});

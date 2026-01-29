@@ -15,9 +15,7 @@
 !/package-lock.json
 !/package.json
 !/turbo.json
-!apps/dram/dbschema/**
 !apps/dram/env.d.ts
-!apps/dram/gel.toml
 !apps/dram/package.json
 !apps/dram/public/**
 !apps/dram/react-router.config.ts

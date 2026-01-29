@@ -1,12 +1,6 @@
-import {
-  createColumnHelper,
-  DataTable,
-  type DataTableProps,
-  formatDateTime,
-  formatNumber,
-} from '@jakubmazanec/ui';
+import {createColumnHelper, DataTable, formatDateTime, formatNumber} from '@jakubmazanec/ui';
 
-import {type Note} from '../db.js';
+import {type Note} from '../Note.js';
 
 const WHISKYBASE_ID_REGEXP = /(?!\/whisky\/)\d+/;
 
@@ -197,49 +191,20 @@ let columns = [
 ];
 
 export type NotesProps = {
-  notes: Array<Omit<Note, 'owner'>>;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- needed
-  pagination: DataTableProps<any, any>['pagination'];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- needed
-  onPaginationChange: DataTableProps<any, any>['onPaginationChange'];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- needed
-  sorting: DataTableProps<any, any>['sorting'];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- needed
-  onSortingChange: DataTableProps<any, any>['onSortingChange'];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- needed
-  filters: DataTableProps<any, any>['filters'];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- needed
-  onFiltersChange: DataTableProps<any, any>['onFiltersChange'];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- needed
-  search: DataTableProps<any, any>['search'];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- needed
-  onSearchChange: DataTableProps<any, any>['onSearchChange'];
+  notes: Note[];
 };
 
-export function Notes({
-  notes,
-  pagination,
-  onPaginationChange,
-  sorting,
-  onSortingChange,
-  filters,
-  onFiltersChange,
-  search,
-  onSearchChange,
-}: NotesProps) {
+export function Notes({notes}: NotesProps) {
   return (
     <DataTable
+      clientFaceting
+      clientFilters
+      clientPagination
+      clientSearch
+      clientSorting
       showRowSummaryOnClick
       columns={columns}
       data={notes}
-      filters={filters}
-      pagination={pagination}
-      search={search}
-      sorting={sorting}
-      onFiltersChange={onFiltersChange}
-      onPaginationChange={onPaginationChange}
-      onSearchChange={onSearchChange}
-      onSortingChange={onSortingChange}
     />
   );
 }
