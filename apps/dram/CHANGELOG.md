@@ -1,5 +1,14 @@
 # dram
 
+## 0.7.0
+
+### Minor Changes
+
+- [#265](https://github.com/jakubmazanec/apps/pull/265)
+  [`8dd98ab`](https://github.com/jakubmazanec/apps/commit/8dd98abc2f616f58870cc6b9c39e167af817e488)
+  ([@jakubmazanec](https://github.com/jakubmazanec)) – Gel was removed. Data are now loaded from
+  JSON file stored with the app source code.
+
 ## 0.6.1
 
 ### Patch Changes
