@@ -15,10 +15,6 @@ WORKDIR /workspace
 ENV NODE_ENV=production
 ARG VITE_APP_URL
 ENV VITE_APP_URL=$VITE_APP_URL
-ARG GEL_INSTANCE
-ENV GEL_INSTANCE=$GEL_INSTANCE
-ARG GEL_BRANCH
-ENV GEL_BRANCH=$GEL_BRANCH
 
 # Throw-away build stage to reduce size of final image
 FROM base AS build
@@ -38,7 +34,7 @@ RUN npm ci --include=dev --ignore-scripts
 COPY --link . .
 
 # Build
-RUN --mount=type=secret,id=GEL_SECRET_KEY GEL_SECRET_KEY="$(cat /run/secrets/GEL_SECRET_KEY)" npm run build
+RUN npm run build -- --filter=dram
 
 # Final stage for app image
 FROM base

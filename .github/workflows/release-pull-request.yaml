@@ -44,10 +44,6 @@ jobs:
 
       - uses: superfly/flyctl-actions/setup-flyctl@master
 
-      - uses: geldata/setup-gel@v1
-        with:
-          server-version: none
-
       - name: Install packages
         run: npm ci
 
@@ -66,15 +62,7 @@ jobs:
           git config --unset core.filemode
 
       - name: Test
-        run: npm test -- --filter=!dram
-
-      - name: Test "dram"
-        run: |
-          npm run test -- --filter=dram
-        env:
-          GEL_INSTANCE: jakubmazanec/dram
-          GEL_BRANCH: apps-${{ github.head_ref }}
-          GEL_SECRET_KEY: ${{ secrets.JAKUBMAZANEC_DRAM_GEL_TOKEN }}
+        run: npm test
 
       - name: Check for changes
         run: |
@@ -116,12 +104,9 @@ jobs:
 
       - name: Deploy dram
         run: |
-          npm run deploy --workspace dram -- --app dram-unstable --build-arg "VITE_APP_URL=$VITE_APP_URL" --build-arg "GEL_INSTANCE=$GEL_INSTANCE" --build-arg "GEL_BRANCH=$GEL_BRANCH" --build-secret "GEL_SECRET_KEY=$GEL_SECRET_KEY"
+          npm run deploy --workspace dram -- --app dram-unstable --build-arg "VITE_APP_URL=$VITE_APP_URL"
         env:
           VITE_APP_URL: https://dram-unstable.fly.dev
-          GEL_INSTANCE: jakubmazanec/dram
-          GEL_BRANCH: apps-${{ github.head_ref }}
-          GEL_SECRET_KEY: ${{ secrets.JAKUBMAZANEC_DRAM_GEL_TOKEN }}
           FLY_ACCESS_TOKEN: ${{ secrets.FLY_TOKEN }}
           FLY_API_TOKEN: ${{ secrets.FLY_TOKEN }}
 

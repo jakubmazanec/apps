@@ -11,11 +11,5 @@
   "compilerOptions": {
     "composite": false
   },
-  "include": [
-    "./.react-router/types/**/*",
-    "./source/**/*",
-    "./dbschema/**/*",
-    "./tests/**/*",
-    "./*"
-  ]
+  "include": ["./.react-router/types/**/*", "./source/**/*", "./tests/**/*", "./*"]
 }
