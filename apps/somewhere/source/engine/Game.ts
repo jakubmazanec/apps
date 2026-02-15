@@ -78,7 +78,9 @@ export class Game {
   }
 
   static async create({assetBundles}: GameCreateOptions) {
-    let app = new pixi.Application({
+    let app = new pixi.Application();
+
+    await app.init({
       // resolution: Math.max(window.devicePixelRatio, 2),
       resolution: 1,
       backgroundColor: 0x000000,
@@ -162,7 +164,7 @@ export class Game {
       return this;
     }
 
-    ref.current.appendChild(this.app.view as unknown as Node);
+    ref.current.appendChild(this.app.canvas as unknown as Node);
     window.addEventListener('resize', this.resize);
 
     this.ref = ref;
@@ -173,7 +175,7 @@ export class Game {
   }
 
   removeRef() {
-    this.ref?.current?.removeChild(this.app.view as unknown as Node);
+    this.ref?.current?.removeChild(this.app.canvas as unknown as Node);
     window.removeEventListener('resize', this.resize);
 
     this.ref = null;
@@ -200,8 +202,8 @@ export class Game {
 
       // update canvas style dimensions and scroll window up to avoid issues on mobile resize
       // this.app.renderer.view.style ??= {};
-      this.app.renderer.view.style!.width = `${width * 1}px`;
-      this.app.renderer.view.style!.height = `${height * 1}px`;
+      this.app.renderer.view.canvas.style!.width = `${width * 1}px`;
+      this.app.renderer.view.canvas.style!.height = `${height * 1}px`;
       // this.app.canvas.style.imageRendering = 'pixelated';
 
       if (this.interactionView.hitArea) {
@@ -241,7 +243,7 @@ export class Game {
       // if there is a screen already created, hide it
       if (this.currentScreen) {
         this.ticker.remove(this.currentScreen.update, this.currentScreen);
-        this.currentScreen.view.parent.removeChild(this.currentScreen.view);
+        this.currentScreen.view.parent?.removeChild(this.currentScreen.view);
       }
 
       // load assets for the new screen, if available
@@ -260,7 +262,7 @@ export class Game {
         // hide loading screen, if exists
         if (this.loadingScreen) {
           this.ticker.remove(this.loadingScreen.update, this.loadingScreen);
-          this.loadingScreen.view.parent.removeChild(this.loadingScreen.view);
+          this.loadingScreen.view.parent?.removeChild(this.loadingScreen.view);
         }
       }
 
@@ -308,7 +310,7 @@ export class Game {
     // }
 
     this.ticker.remove(screen.update, screen);
-    screen.view.parent.removeChild(screen.view);
+    screen.view.parent?.removeChild(screen.view);
 
     return this;
   }

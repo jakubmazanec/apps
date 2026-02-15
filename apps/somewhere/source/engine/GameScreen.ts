@@ -4,7 +4,7 @@ import {type Game} from './Game.js';
 
 export type Renderable = {
   view: pixi.Container;
-  update: (delta: number) => void;
+  update: (ticker: pixi.Ticker) => void;
 };
 
 export type GameScreenOptions = {
@@ -13,7 +13,7 @@ export type GameScreenOptions = {
   onInit?: ((screen: GameScreen, game: Game) => void) | undefined;
   onShow?: ((screen: GameScreen, game: Game) => Promise<void> | void) | undefined;
   onHide?: ((screen: GameScreen, game: Game) => Promise<void> | void) | undefined;
-  onUpdate?: ((delta: number, screen: GameScreen, game: Game) => void) | undefined;
+  onUpdate?: ((ticker: pixi.Ticker, screen: GameScreen, game: Game) => void) | undefined;
 };
 
 export class GameScreen {
@@ -23,7 +23,7 @@ export class GameScreen {
 
   private readonly onShow?: (screen: GameScreen, game: Game) => Promise<void> | void;
   private readonly onHide?: (screen: GameScreen, game: Game) => Promise<void> | void;
-  private readonly onUpdate?: (delta: number, gameScreen: GameScreen, game: Game) => void;
+  private readonly onUpdate?: (ticker: pixi.Ticker, gameScreen: GameScreen, game: Game) => void;
 
   constructor({assetBundles, game, onInit, onShow, onHide, onUpdate}: GameScreenOptions) {
     this.game = game;
@@ -47,8 +47,8 @@ export class GameScreen {
     onInit?.(this, this.game);
   }
 
-  update(delta: number) {
-    this.onUpdate?.(delta, this, this.game);
+  update(ticker: pixi.Ticker) {
+    this.onUpdate?.(ticker, this, this.game);
   }
 
   async show() {
