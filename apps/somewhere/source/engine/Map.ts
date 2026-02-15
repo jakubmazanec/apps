@@ -44,8 +44,6 @@ export class Map {
       let layerView = new pixi.Container();
       let tiles: MapTile[] = [];
 
-      layerView.sortableChildren = true;
-
       for (let [tileIndex, tileGid] of tilemapLayer.tileGids.entries()) {
         let tilesetTile = tilemap.getTile(tileGid);
         let tile: MapTile = {

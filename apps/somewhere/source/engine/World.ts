@@ -96,11 +96,11 @@ export class World {
     return entity;
   }
 
-  update(delta: number) {
+  update(ticker: pixi.Ticker) {
     this.#isUpdating = true;
 
     for (let system of this.systems) {
-      system.update(delta);
+      system.update(ticker);
     }
 
     this.#isUpdating = false;

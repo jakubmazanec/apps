@@ -1,6 +1,6 @@
 import {Game} from '../engine/Game.js';
 
-export const game = await Game.create({
+export const game = new Game({
   assetBundles: [
     {
       name: 'default',
