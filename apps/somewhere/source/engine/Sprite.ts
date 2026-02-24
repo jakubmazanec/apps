@@ -1,7 +1,7 @@
 import * as pixi from 'pixi.js';
 
 type UniversalSpritesheet = pixi.Spritesheet<
-  pixi.ISpritesheetData & {animations: Record<string, unknown>}
+  pixi.SpritesheetData & {animations: Record<string, unknown>}
 >;
 
 export type SpriteOptions<N extends readonly string[] = string[]> = {

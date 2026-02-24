@@ -1,4 +1,4 @@
-import {Assets, type ISpritesheetFrameData, Rectangle, Spritesheet, Texture} from 'pixi.js';
+import {Assets, Rectangle, Spritesheet, type SpritesheetFrameData, Texture} from 'pixi.js';
 
 import {tiledUnsourcedTilesetSchema} from '../tiled-tools.js';
 import {type TileId, toTileId} from './TileId.js';
@@ -36,7 +36,7 @@ export class Tileset {
   static async from(source: unknown) {
     let tiledTileset = tiledUnsourcedTilesetSchema.parse(source);
 
-    let frames: Record<string, ISpritesheetFrameData> = {};
+    let frames: Record<string, SpritesheetFrameData> = {};
     let animations: Record<string, string[]> = {};
 
     for (let i = 0; i < tiledTileset.tilecount; i++) {

@@ -14,7 +14,7 @@ export type SystemOptions<
   components: T;
   entityQueries?: U | undefined;
   onInit?: ((system: System<T, U>) => void) | undefined;
-  onUpdate?: ((delta: number, system: System<T, U>) => void) | undefined;
+  onUpdate?: ((ticker: pixi.Ticker, system: System<T, U>) => void) | undefined;
   onAddEntity?:
     | ((entity: Entity<readonly [InstanceType<T[number]>]>, system: System<T, U>) => void)
     | undefined;
@@ -37,7 +37,7 @@ export class System<
   readonly entities: Array<Entity<readonly [InstanceType<T[number]>]>> = [];
   readonly entityQueries: U; // entity queries are for querying entities that this system will only read, not modify
 
-  private readonly onUpdate?: (delta: number, system: System<T, U>) => void;
+  private readonly onUpdate?: (ticker: pixi.Ticker, system: System<T, U>) => void;
   private readonly onAddEntity?: (
     entity: Entity<readonly [InstanceType<T[number]>]>,
     system: System<T, U>,
@@ -90,8 +90,8 @@ export class System<
     onInit?.(this);
   }
 
-  update(delta: number) {
-    this.onUpdate?.(delta, this);
+  update(ticker: pixi.Ticker) {
+    this.onUpdate?.(ticker, this);
   }
 
   addEntity(entity: Entity<readonly [InstanceType<T[number]>]>) {

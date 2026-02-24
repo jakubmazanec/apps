@@ -26,12 +26,12 @@ export const cameraSystem = new System({
       .getFirst()
       .getComponent(MotionComponent);
 
-    let x = Math.floor(playerPosition.x - game.app.view.width / 2);
-    let y = Math.floor(playerPosition.y - game.app.view.height / 2);
+    let x = Math.floor(playerPosition.x - game.app.canvas.width / 2);
+    let y = Math.floor(playerPosition.y - game.app.canvas.height / 2);
 
     cameraPosition.set(
-      Math.max(map.position.x, Math.min(map.position.x + map.width - game.app.view.width, x)),
-      Math.max(map.position.y, Math.min(map.position.y + map.height - game.app.view.height, y)),
+      Math.max(map.position.x, Math.min(map.position.x + map.width - game.app.canvas.width, x)),
+      Math.max(map.position.y, Math.min(map.position.y + map.height - game.app.canvas.height, y)),
     );
   },
 });

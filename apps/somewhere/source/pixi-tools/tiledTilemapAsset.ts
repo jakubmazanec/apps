@@ -26,7 +26,7 @@ const cache: pixi.CacheParser<Tilemap> = {
 };
 
 const loader: pixi.LoaderParser<TiledTilemap> = {
-  name: 'TiledTilemapAsset',
+  id: 'TiledTilemapAsset',
   extension: {
     type: pixi.ExtensionType.LoadParser,
     priority: pixi.LoaderParserPriority.Normal,

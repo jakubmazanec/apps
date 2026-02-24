@@ -13,7 +13,7 @@ export const motionSystem = new System({
   entityQueries: {
     levels: levelQuery,
   },
-  onUpdate: (delta, system) => {
+  onUpdate: (ticker, system) => {
     let {map} = system.entityQueries.levels.getFirst().getComponent(LevelComponent);
 
     for (let entity of system.entities) {
@@ -40,8 +40,8 @@ export const motionSystem = new System({
       // handle collisions
       let {boundingBox} = entity.getComponent(GraphicsComponent);
       let layer = map.layers[1]!;
-      let deltaX = motion.velocity.x * delta;
-      let deltaY = motion.velocity.y * delta;
+      let deltaX = motion.velocity.x * ticker.deltaTime;
+      let deltaY = motion.velocity.y * ticker.deltaTime;
 
       // TODO: player mustn't be able to move outside the map!
 
@@ -56,8 +56,8 @@ export const motionSystem = new System({
               let y1 = tile.view.y + tile.boundingBox.y;
               let w1 = tile.boundingBox.width;
               let h1 = tile.boundingBox.height;
-              let x2 = motion.position.x + motion.velocity.x * delta + boundingBox.x;
-              let y2 = motion.position.y + motion.velocity.y * delta + boundingBox.y;
+              let x2 = motion.position.x + motion.velocity.x * ticker.deltaTime + boundingBox.x;
+              let y2 = motion.position.y + motion.velocity.y * ticker.deltaTime + boundingBox.y;
               let w2 = boundingBox.width;
               let h2 = boundingBox.height;
 
