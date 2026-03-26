@@ -25,7 +25,7 @@ const cache: pixi.CacheParser<Tileset> = {
 };
 
 const loader: pixi.LoaderParser<TiledTileset> = {
-  name: 'TiledTilesetAsset',
+  id: 'TiledTilesetAsset',
   extension: {
     type: pixi.ExtensionType.LoadParser,
     priority: pixi.LoaderParserPriority.Normal,

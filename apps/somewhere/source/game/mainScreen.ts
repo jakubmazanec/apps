@@ -54,5 +54,3 @@ export const mainScreen = new GameScreen({
 });
 
 game.addScreen(mainScreen);
-
-void game.showScreen(mainScreen);

@@ -15,13 +15,8 @@ export type GameAssetBundle = {
   assets: GameAssetBundleAsset[];
 };
 
-export type GameCreateOptions = {
-  assetBundles: GameAssetBundle[];
-};
-
 export type GameOptions = {
   assetBundles: GameAssetBundle[];
-  app: pixi.Application;
 };
 
 export class Game {
@@ -34,20 +29,66 @@ export class Game {
   readonly app: pixi.Application;
   readonly view: pixi.Container = new pixi.Container();
   private readonly interactionView: pixi.Container = new pixi.Container();
-  readonly ticker: pixi.Ticker;
 
   ref: React.RefObject<HTMLElement | null> | null = null;
 
-  private constructor({assetBundles, app}: GameOptions) {
+  constructor({assetBundles}: GameOptions) {
     this.assetBundles = assetBundles;
-    this.app = app;
-    this.ticker = app.ticker;
+    this.app = new pixi.Application();
+  }
 
-    app.stage.addChild(this.view);
-    app.stage.addChild(this.interactionView);
+  async init() {
+    await this.app.init({
+      // resolution: Math.max(window.devicePixelRatio, 2),
+      resolution: 1,
+      backgroundColor: 0x000000,
+      antialias: false,
+      eventMode: 'passive',
+      preference: 'webgl',
+    });
+
+    this.app.stage.addChild(this.view);
+    this.app.stage.addChild(this.interactionView);
 
     this.interactionView.eventMode = 'static';
     this.interactionView.hitArea = new pixi.Rectangle();
+
+    pixi.extensions.add(tiledTilesetAsset);
+    pixi.extensions.add(tiledTilemapAsset);
+
+    await pixi.Assets.init({
+      manifest: {
+        bundles: this.assetBundles.map(({name, assets}) => ({
+          name,
+          assets: assets.map(({name, sources}) => ({
+            alias: name,
+            src: sources,
+          })),
+        })),
+      },
+    });
+    await pixi.Assets.loadBundle(['default']);
+    void pixi.Assets.backgroundLoadBundle(this.assetBundles.map((assetBundle) => assetBundle.name));
+
+    // // TODO: make better abstraction
+    // let filter = new CRTFilter({
+    //   lineWidth: 4,
+    //   lineContrast: 0.1,
+    //   noise: 0.1,
+    //   noiseSize: 0.1,
+    //   vignetting: 0,
+    //   time: 0,
+    // });
+
+    // app.stage.filters = [filter];
+
+    // app.ticker.add((delta) => {
+    //   filter.time += 0.5;
+
+    //   if (filter.time > 1000) {
+    //     filter.time = 0;
+    //   }
+    // });
   }
 
   on<T extends EventEmitter.EventNames<pixi.FederatedEventMap>>(
@@ -75,60 +116,6 @@ export class Game {
     this.interactionView.off(event, fn, this);
 
     return this;
-  }
-
-  static async create({assetBundles}: GameCreateOptions) {
-    let app = new pixi.Application({
-      // resolution: Math.max(window.devicePixelRatio, 2),
-      resolution: 1,
-      backgroundColor: 0x000000,
-      antialias: false,
-      // roundPixels: true,
-      eventMode: 'passive',
-    });
-
-    pixi.extensions.add(tiledTilesetAsset);
-    pixi.extensions.add(tiledTilemapAsset);
-
-    // init assets
-    await pixi.Assets.init({
-      manifest: {
-        bundles: assetBundles.map(({name, assets}) => ({
-          name,
-          assets: assets.map(({name, sources}) => ({
-            alias: name,
-            src: sources,
-          })),
-        })),
-      },
-    });
-    await pixi.Assets.loadBundle(['default']);
-    void pixi.Assets.backgroundLoadBundle(assetBundles.map((assetBundle) => assetBundle.name));
-
-    // // TODO: make better abstraction
-    // let filter = new CRTFilter({
-    //   lineWidth: 4,
-    //   lineContrast: 0.1,
-    //   noise: 0.1,
-    //   noiseSize: 0.1,
-    //   vignetting: 0,
-    //   time: 0,
-    // });
-
-    // app.stage.filters = [filter];
-
-    // app.ticker.add((delta) => {
-    //   filter.time += 0.5;
-
-    //   if (filter.time > 1000) {
-    //     filter.time = 0;
-    //   }
-    // });
-
-    return new this({
-      assetBundles,
-      app,
-    });
   }
 
   isAssetBundleLoaded(bundle: string) {
@@ -162,7 +149,7 @@ export class Game {
       return this;
     }
 
-    ref.current.appendChild(this.app.view as unknown as Node);
+    ref.current.appendChild(this.app.canvas as unknown as Node);
     window.addEventListener('resize', this.resize);
 
     this.ref = ref;
@@ -173,7 +160,7 @@ export class Game {
   }
 
   removeRef() {
-    this.ref?.current?.removeChild(this.app.view as unknown as Node);
+    this.ref?.current?.removeChild(this.app.canvas as unknown as Node);
     window.removeEventListener('resize', this.resize);
 
     this.ref = null;
@@ -200,8 +187,8 @@ export class Game {
 
       // update canvas style dimensions and scroll window up to avoid issues on mobile resize
       // this.app.renderer.view.style ??= {};
-      this.app.renderer.view.style!.width = `${width * 1}px`;
-      this.app.renderer.view.style!.height = `${height * 1}px`;
+      this.app.renderer.view.canvas.style!.width = `${width * 1}px`;
+      this.app.renderer.view.canvas.style!.height = `${height * 1}px`;
       // this.app.canvas.style.imageRendering = 'pixelated';
 
       if (this.interactionView.hitArea) {
@@ -240,8 +227,8 @@ export class Game {
     if (this.screens.includes(screen)) {
       // if there is a screen already created, hide it
       if (this.currentScreen) {
-        this.ticker.remove(this.currentScreen.update, this.currentScreen);
-        this.currentScreen.view.parent.removeChild(this.currentScreen.view);
+        this.app.ticker.remove(this.currentScreen.update, this.currentScreen);
+        this.currentScreen.view.parent?.removeChild(this.currentScreen.view);
       }
 
       // load assets for the new screen, if available
@@ -249,7 +236,7 @@ export class Game {
         // if assets are not loaded yet, show loading screen, if there is one
         if (this.loadingScreen) {
           this.view.addChild(this.loadingScreen.view);
-          this.ticker.add(this.loadingScreen.update, this.loadingScreen);
+          this.app.ticker.add(this.loadingScreen.update, this.loadingScreen);
         }
 
         // await new Promise((resolve) => setTimeout(resolve, 5 * 1000));
@@ -259,8 +246,8 @@ export class Game {
 
         // hide loading screen, if exists
         if (this.loadingScreen) {
-          this.ticker.remove(this.loadingScreen.update, this.loadingScreen);
-          this.loadingScreen.view.parent.removeChild(this.loadingScreen.view);
+          this.app.ticker.remove(this.loadingScreen.update, this.loadingScreen);
+          this.loadingScreen.view.parent?.removeChild(this.loadingScreen.view);
         }
       }
 
@@ -269,7 +256,7 @@ export class Game {
 
       // add screen to stage
       this.view.addChild(screen.view);
-      this.ticker.add(screen.update, screen);
+      this.app.ticker.add(screen.update, screen);
 
       // // add screen's resize handler, if available
       // if (screen.resize) {
@@ -307,8 +294,8 @@ export class Game {
     //   app.ticker.remove(screen.update, screen);
     // }
 
-    this.ticker.remove(screen.update, screen);
-    screen.view.parent.removeChild(screen.view);
+    this.app.ticker.remove(screen.update, screen);
+    screen.view.parent?.removeChild(screen.view);
 
     return this;
   }
