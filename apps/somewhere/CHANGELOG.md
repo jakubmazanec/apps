@@ -1,5 +1,14 @@
 # somewhere
 
+## 0.1.21
+
+### Patch Changes
+
+- [#266](https://github.com/jakubmazanec/apps/pull/266)
+  [`ba43ebe`](https://github.com/jakubmazanec/apps/commit/ba43ebeed29b4f3ae84f931240d5b8235b1bb079)
+  ([@jakubmazanec](https://github.com/jakubmazanec)) – Dependency `pixi.js` updated to version
+  `^8.15.0`.
+
 ## 0.1.20
 
 ### Patch Changes
