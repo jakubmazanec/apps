@@ -1,0 +1,67 @@
+{
+  "name": "foam",
+  "version": "0.0.0",
+  "private": true,
+  "description": "A resource management adventure game about single night in Brno.",
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:jakubmazanec/apps.git",
+    "directory": "apps/foam"
+  },
+  "license": "AGPL-3.0-only",
+  "author": "Jakub Mazanec <jakub@mazanec.dev>",
+  "type": "module",
+  "scripts": {
+    "build": "del-cli build && react-router build",
+    "clean": "del-cli coverage build *.tsbuildinfo",
+    "codegen": "react-router typegen",
+    "deploy": "flyctl deploy ../.. --config apps/foam/fly.toml",
+    "develop": "react-router dev --port 5000",
+    "format": "prettier . --write --ignore-unknown",
+    "lint": "eslint .",
+    "start": "cross-env NODE_ENV=production PORT=5000 react-router-serve ./build/server/index.js",
+    "test": "del-cli coverage && vitest run --coverage --passWithNoTests",
+    "typecheck": "tsc --project tsconfig.typecheck.json"
+  },
+  "dependencies": {
+    "@jakubmazanec/ts-utils": "^3.0.15",
+    "@react-router/express": "^7.8.1",
+    "@react-router/fs-routes": "^7.8.1",
+    "@react-router/node": "^7.8.1",
+    "@react-router/serve": "^7.8.1",
+    "cross-env": "^10.0.0",
+    "isbot": "^5.1.30",
+    "lodash": "^4.17.21",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
+    "react-router": "^7.8.1",
+    "zod": "^4.1.8"
+  },
+  "devDependencies": {
+    "@jakubmazanec/eslint-config": "^4.1.8",
+    "@react-router/dev": "^7.8.1",
+    "@tailwindcss/vite": "^4.1.12",
+    "@testing-library/jest-dom": "^6.8.0",
+    "@testing-library/react": "^16.3.0",
+    "@types/lodash": "^4.17.20",
+    "@types/node": "^24.2.1",
+    "@types/react": "^19.1.10",
+    "@types/react-dom": "^19.1.7",
+    "@vitest/coverage-v8": "^4.0.0",
+    "del-cli": "^7.0.0",
+    "eslint": "^9.35.0",
+    "happy-dom": "^20.0.0",
+    "prettier": "^3.6.2",
+    "prettier-plugin-packagejson": "^2.5.19",
+    "prettier-plugin-tailwindcss": "^0.6.14",
+    "tailwindcss": "^4.1.12",
+    "typescript": "^5.9.2",
+    "vite": "^7.1.5",
+    "vitest": "^4.0.0"
+  },
+  "packageManager": "npm@11.4.2",
+  "engines": {
+    "node": "^24.5.0",
+    "npm": "^11.4.2"
+  }
+}
