@@ -35,20 +35,20 @@ RUN npm ci --include=dev --ignore-scripts
 COPY --link . .
 
 # Build
-RUN npm run build -- --filter=somewhere
+RUN npm run build -- --filter=foam
 
 # Final stage for app image
 FROM base
 
 # Copy files
 COPY package-lock.json package.json /workspace/
-COPY --from=build /workspace/apps/somewhere/build /workspace/apps/somewhere/build
-COPY --from=build /workspace/apps/somewhere/package.json /workspace/apps/somewhere/package.json
+COPY --from=build /workspace/apps/foam/build /workspace/apps/foam/build
+COPY --from=build /workspace/apps/foam/package.json /workspace/apps/foam/package.json
 
 # Install dependencies
 RUN npm ci --omit=dev --ignore-scripts && npm cache clean --force
 
 # Start the server
-WORKDIR /workspace/apps/somewhere
+WORKDIR /workspace/apps/foam
 EXPOSE 5000
 ENTRYPOINT ["npm", "start"]

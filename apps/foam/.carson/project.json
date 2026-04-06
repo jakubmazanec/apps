@@ -1,0 +1,6 @@
+{
+  "template": "@jakubmazanec/carson-templates:projects/app",
+  "deployment": {
+    "appName": "foam"
+  }
+}
