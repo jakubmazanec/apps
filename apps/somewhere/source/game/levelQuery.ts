@@ -1,8 +1,6 @@
-import {EntityQuery} from '../engine/EntityQuery.js';
-import {LevelComponent} from '../engine/LevelComponent.js';
-import {world} from './world.js';
+import {EntityQuery} from '../engine/ecs/EntityQuery.js';
+import {LevelComponent} from './LevelComponent.js';
 
 export const levelQuery = new EntityQuery({
-  world,
   components: [LevelComponent],
 });

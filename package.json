@@ -19,6 +19,9 @@
     "typecheck": "turbo run typecheck --no-daemon",
     "uninstall": "del-cli ./**/node_modules ./package-lock.json"
   },
+  "overrides": {
+    "pixi.js": "8.19.0"
+  },
   "devDependencies": {
     "@changesets/cli": "^2.31.1",
     "@jakubmazanec/carson": "^3.0.6",
@@ -44,6 +47,7 @@
   },
   "allowScripts": {
     "unrs-resolver": true,
-    "esbuild": true
+    "esbuild": true,
+    "@tailwindcss/oxide": true
   }
 }

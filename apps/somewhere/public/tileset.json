@@ -1,14 +1,14 @@
 {
   "columns": 64,
   "image": "tileset.png",
-  "imageheight": 4096,
-  "imagewidth": 4096,
+  "imageheight": 1024,
+  "imagewidth": 1024,
   "margin": 0,
   "name": "tileset",
   "spacing": 0,
   "tilecount": 4096,
   "tiledversion": "1.10.2",
-  "tileheight": 64,
+  "tileheight": 16,
   "tiles": [
     {
       "id": 64,
@@ -18,15 +18,15 @@
         "name": "",
         "objects": [
           {
-            "height": 32,
+            "height": 8,
             "id": 1,
             "name": "",
             "rotation": 0,
             "type": "",
             "visible": true,
-            "width": 48,
-            "x": 8,
-            "y": 32
+            "width": 12,
+            "x": 2,
+            "y": 8
           }
         ],
         "opacity": 1,
@@ -44,15 +44,15 @@
         "name": "",
         "objects": [
           {
-            "height": 32,
+            "height": 8,
             "id": 1,
             "name": "",
             "rotation": 0,
             "type": "",
             "visible": true,
-            "width": 48,
-            "x": 8,
-            "y": 32
+            "width": 12,
+            "x": 2,
+            "y": 8
           }
         ],
         "opacity": 1,
@@ -70,14 +70,14 @@
         "name": "",
         "objects": [
           {
-            "height": 64,
+            "height": 16,
             "id": 1,
             "name": "",
             "rotation": 0,
             "type": "",
             "visible": true,
-            "width": 56,
-            "x": 8,
+            "width": 14,
+            "x": 2,
             "y": 0
           }
         ],
@@ -96,15 +96,15 @@
         "name": "",
         "objects": [
           {
-            "height": 16,
+            "height": 4,
             "id": 1,
             "name": "",
             "rotation": 0,
             "type": "",
             "visible": true,
-            "width": 64,
+            "width": 16,
             "x": 0,
-            "y": 48
+            "y": 12
           }
         ],
         "opacity": 1,
@@ -122,13 +122,13 @@
         "name": "",
         "objects": [
           {
-            "height": 64,
+            "height": 16,
             "id": 1,
             "name": "",
             "rotation": 0,
             "type": "",
             "visible": true,
-            "width": 56,
+            "width": 14,
             "x": 0,
             "y": 0
           }
@@ -148,14 +148,14 @@
         "name": "",
         "objects": [
           {
-            "height": 44,
+            "height": 11,
             "id": 1,
             "name": "",
             "rotation": 0,
             "type": "",
             "visible": true,
-            "width": 56,
-            "x": 8,
+            "width": 14,
+            "x": 2,
             "y": 0
           }
         ],
@@ -174,13 +174,13 @@
         "name": "",
         "objects": [
           {
-            "height": 32,
+            "height": 8,
             "id": 1,
             "name": "",
             "rotation": 0,
             "type": "",
             "visible": true,
-            "width": 64,
+            "width": 16,
             "x": 0,
             "y": 0
           }
@@ -200,13 +200,13 @@
         "name": "",
         "objects": [
           {
-            "height": 44,
+            "height": 11,
             "id": 1,
             "name": "",
             "rotation": 0,
             "type": "",
             "visible": true,
-            "width": 56,
+            "width": 14,
             "x": 0,
             "y": 0
           }
@@ -219,7 +219,7 @@
       }
     }
   ],
-  "tilewidth": 64,
+  "tilewidth": 16,
   "transparentcolor": "#ff00cc",
   "type": "tileset",
   "version": "1.10"
