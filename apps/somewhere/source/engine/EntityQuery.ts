@@ -34,6 +34,7 @@ export class EntityQuery<
     }
   }
 
+  /** @internal Use `world.addEntity()` instead. Called by `World` to sync entities. */
   addEntity(entity: Entity<readonly [InstanceType<T[number]>]>) {
     if (this.entities.includes(entity)) {
       throw new Error('Entity was already added to the system!');
@@ -42,6 +43,7 @@ export class EntityQuery<
     this.entities.push(entity);
   }
 
+  /** @internal Use `world.removeEntity()` instead. Called by `World` to sync entities. */
   removeEntity(entity: Entity<readonly [InstanceType<T[number]>]>) {
     let index = this.entities.indexOf(entity);
 

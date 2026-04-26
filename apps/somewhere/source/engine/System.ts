@@ -80,6 +80,7 @@ export class System<
     this.onUpdate?.(ticker, this);
   }
 
+  /** @internal Use `world.addEntity()` instead. Called by `World` to sync entities. */
   addEntity(entity: Entity<readonly [InstanceType<T[number]>]>) {
     if (this.entities.includes(entity)) {
       throw new Error('Entity was already added to the system!');
@@ -89,6 +90,7 @@ export class System<
     this.onAddEntity?.(entity, this);
   }
 
+  /** @internal Use `world.removeEntity()` instead. Called by `World` to sync entities. */
   removeEntity(entity: Entity<readonly [InstanceType<T[number]>]>) {
     let index = this.entities.indexOf(entity);
 
