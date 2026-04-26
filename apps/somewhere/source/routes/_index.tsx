@@ -3,7 +3,7 @@ import {type MetaFunction} from 'react-router';
 
 import {type Game} from '../engine/Game.js';
 import {GameProvider} from '../engine/GameProvider.js';
-import {game as importedGame, mainScreen} from '../game.client.js';
+import {game as importedGame, loadingScreen, mainScreen} from '../game.client.js';
 import Renderer from '../ui/Renderer.js';
 
 export const meta: MetaFunction = () => [{title: 'Somewhere'}];
@@ -13,6 +13,7 @@ export default function Index() {
 
   useEffect(() => {
     void importedGame.init().then(() => {
+      importedGame.addLoadingScreen(loadingScreen);
       void importedGame.showScreen(mainScreen);
       setGame(importedGame);
     });
