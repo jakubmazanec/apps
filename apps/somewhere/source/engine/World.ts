@@ -25,6 +25,10 @@ export class World {
     T extends readonly [...rest: ReadonlyArray<Constructor<Component>>],
     U extends Record<string, EntityQuery>,
   >(system: System<T, U>) {
+    if (this.systems.includes(system as unknown as System)) {
+      throw new Error('System was already added to the world!');
+    }
+
     this.systems.push(system as unknown as System);
 
     for (let entity of this.entities) {
