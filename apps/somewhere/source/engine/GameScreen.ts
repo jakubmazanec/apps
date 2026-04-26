@@ -7,25 +7,26 @@ export type Renderable = {
   update: (ticker: pixi.Ticker) => void;
 };
 
-export type GameScreenOptions = {
+export type GameScreenOptions<T> = {
   assetBundles?: string[] | undefined;
   game: Game;
-  onInit?: ((screen: GameScreen, game: Game) => void) | undefined;
-  onShow?: ((screen: GameScreen, game: Game) => Promise<void> | void) | undefined;
-  onHide?: ((screen: GameScreen, game: Game) => Promise<void> | void) | undefined;
-  onUpdate?: ((ticker: pixi.Ticker, screen: GameScreen, game: Game) => void) | undefined;
+  onInit?: ((screen: GameScreen<T>, game: Game) => T) | undefined;
+  onShow?: ((screen: GameScreen<T>, game: Game) => Promise<void> | void) | undefined;
+  onHide?: ((screen: GameScreen<T>, game: Game) => Promise<void> | void) | undefined;
+  onUpdate?: ((ticker: pixi.Ticker, screen: GameScreen<T>, game: Game) => void) | undefined;
 };
 
-export class GameScreen {
+export class GameScreen<T = undefined> {
   readonly assetBundles: string[] = [];
   readonly game: Game;
   readonly view: pixi.Container = new pixi.Container();
+  readonly state: T;
 
-  private readonly onShow?: (screen: GameScreen, game: Game) => Promise<void> | void;
-  private readonly onHide?: (screen: GameScreen, game: Game) => Promise<void> | void;
-  private readonly onUpdate?: (ticker: pixi.Ticker, gameScreen: GameScreen, game: Game) => void;
+  private readonly onShow?: (screen: GameScreen<T>, game: Game) => Promise<void> | void;
+  private readonly onHide?: (screen: GameScreen<T>, game: Game) => Promise<void> | void;
+  private readonly onUpdate?: (ticker: pixi.Ticker, screen: GameScreen<T>, game: Game) => void;
 
-  constructor({assetBundles, game, onInit, onShow, onHide, onUpdate}: GameScreenOptions) {
+  constructor({assetBundles, game, onInit, onShow, onHide, onUpdate}: GameScreenOptions<T>) {
     this.game = game;
 
     if (assetBundles !== undefined) {
@@ -44,7 +45,7 @@ export class GameScreen {
       this.onUpdate = onUpdate;
     }
 
-    onInit?.(this, this.game);
+    this.state = onInit?.(this, this.game) as T;
   }
 
   update(ticker: pixi.Ticker) {
