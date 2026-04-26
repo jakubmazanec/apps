@@ -8,6 +8,9 @@
       "build": {
         "target": "ES2022"
       }
+    },
+    "eslintConfig": {
+      "ignores": ["$/**"]
     }
   }
 }
