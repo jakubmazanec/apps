@@ -81,13 +81,14 @@ export class World {
       this.entities.splice(index, 1);
 
       for (let system of this.systems) {
+        // `areComponentsSame` was already checked when entity was added, so we don't need it here.
         for (let entityQuery of Object.values(system.entityQueries)) {
-          if (areComponentsSame(entityQuery, entity)) {
+          if (entityQuery.entities.includes(entity)) {
             entityQuery.removeEntity(entity);
           }
         }
 
-        if (areComponentsSame(system, entity)) {
+        if (system.entities.includes(entity)) {
           system.removeEntity(entity);
         }
       }
