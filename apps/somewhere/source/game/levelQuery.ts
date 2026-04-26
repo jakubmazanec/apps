@@ -6,3 +6,5 @@ export const levelQuery = new EntityQuery({
   world,
   components: [LevelComponent],
 });
+
+world.addEntityQuery(levelQuery);

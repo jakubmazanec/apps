@@ -11,14 +11,9 @@ export const playerSystem = new System({
   displayName: 'Player system',
   world,
   components: [PlayerComponent, MotionComponent],
-  entityQueries: {
-    cameras: cameraQuery,
-  },
   onInit: (system) => {
     game.on('pointertap', (event) => {
-      let {position: cameraPosition} = system.entityQueries.cameras
-        .getFirst()
-        .getComponent(CameraComponent);
+      let {position: cameraPosition} = cameraQuery.getFirst().getComponent(CameraComponent);
 
       for (let entity of system.entities) {
         let motion = entity.getComponent(MotionComponent);

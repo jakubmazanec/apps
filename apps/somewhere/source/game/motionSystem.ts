@@ -10,11 +10,8 @@ const MAX_DELTA_TIME = 2;
 export const motionSystem = new System({
   world,
   components: [MotionComponent, GraphicsComponent],
-  entityQueries: {
-    levels: levelQuery,
-  },
   onUpdate: (ticker, system) => {
-    let {map} = system.entityQueries.levels.getFirst().getComponent(LevelComponent);
+    let {map} = levelQuery.getFirst().getComponent(LevelComponent);
     let deltaTime = Math.min(ticker.deltaTime, MAX_DELTA_TIME);
 
     for (let entity of system.entities) {

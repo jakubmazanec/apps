@@ -6,3 +6,5 @@ export const cameraQuery = new EntityQuery({
   world,
   components: [CameraComponent],
 });
+
+world.addEntityQuery(cameraQuery);
