@@ -28,4 +28,7 @@ export default [
       '.react-router/**',
     ],
   },
+  {
+    ignores: ['$/**'],
+  },
 ];
