@@ -22,9 +22,12 @@ export type GameOptions = {
 export class Game {
   assetBundles: GameAssetBundle[];
 
-  screens: GameScreen[] = [];
-  loadingScreen?: GameScreen;
-  currentScreen: GameScreen | null = null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- needed
+  screens: Array<GameScreen<any>> = [];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- needed
+  loadingScreen?: GameScreen<any>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- needed
+  currentScreen: GameScreen<any> | null = null;
 
   readonly app: pixi.Application;
   readonly view: pixi.Container = new pixi.Container();
@@ -207,7 +210,8 @@ export class Game {
     }
   };
 
-  addLoadingScreen(gameScreen: GameScreen) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- needed
+  addLoadingScreen(gameScreen: GameScreen<any>) {
     this.loadingScreen = gameScreen;
 
     this.addScreen(this.loadingScreen);
@@ -215,7 +219,8 @@ export class Game {
     return this;
   }
 
-  addScreen(gameScreen: GameScreen) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- needed
+  addScreen(gameScreen: GameScreen<any>) {
     if (!this.screens.includes(gameScreen)) {
       this.screens.push(gameScreen);
     }
@@ -223,7 +228,8 @@ export class Game {
     return this;
   }
 
-  async showScreen(screen: GameScreen) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- needed
+  async showScreen(screen: GameScreen<any>) {
     if (this.screens.includes(screen)) {
       // if there is a screen already created, hide it
       if (this.currentScreen) {
@@ -280,7 +286,8 @@ export class Game {
     return this;
   }
 
-  async hideScreen(screen: GameScreen) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- needed
+  async hideScreen(screen: GameScreen<any>) {
     await screen.hide();
 
     // // unlink resize handler if exists
