@@ -1,5 +1,5 @@
-import {Component} from './Component.js';
-import {Map, type MapOptions} from './Map.js';
+import {Component} from '../engine/Component.js';
+import {Map, type MapOptions} from '../engine/Map.js';
 
 export type LevelComponentOptions = {
   mapOptions: MapOptions;

@@ -1,6 +1,6 @@
-import {CameraComponent} from '../engine/CameraComponent.js';
 import {Entity} from '../engine/Entity.js';
 import {Vector} from '../engine/Vector.js';
+import {CameraComponent} from './CameraComponent.js';
 import {world} from './world.js';
 
 export const camera = new Entity({

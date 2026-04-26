@@ -1,7 +1,7 @@
 import type * as pixi from 'pixi.js';
 
-import {Component} from './Component.js';
-import {Sprite, type SpriteOptions} from './Sprite.js';
+import {Component} from '../engine/Component.js';
+import {Sprite, type SpriteOptions} from '../engine/Sprite.js';
 
 export type GraphicsComponentOptions = {
   spriteOptions: SpriteOptions;

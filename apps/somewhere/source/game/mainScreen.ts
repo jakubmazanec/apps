@@ -2,12 +2,12 @@ import * as pixi from 'pixi.js';
 
 import {Entity} from '../engine/Entity.js';
 import {GameScreen} from '../engine/GameScreen.js';
-import {GraphicsComponent} from '../engine/GraphicsComponent.js';
-import {LevelComponent} from '../engine/LevelComponent.js';
-import {MotionComponent} from '../engine/MotionComponent.js';
-import {PlayerComponent} from '../engine/PlayerComponent.js';
 import {Vector} from '../engine/Vector.js';
 import {game} from './game.js';
+import {GraphicsComponent} from './GraphicsComponent.js';
+import {LevelComponent} from './LevelComponent.js';
+import {MotionComponent} from './MotionComponent.js';
+import {PlayerComponent} from './PlayerComponent.js';
 import {world} from './world.js';
 
 export const mainScreen = new GameScreen({

@@ -1,10 +1,10 @@
-import {CameraComponent} from '../engine/CameraComponent.js';
-import {MotionComponent} from '../engine/MotionComponent.js';
-import {PlayerComponent} from '../engine/PlayerComponent.js';
 import {System} from '../engine/System.js';
 import {Vector} from '../engine/Vector.js';
+import {CameraComponent} from './CameraComponent.js';
 import {cameraQuery} from './cameraQuery.js';
 import {game} from './game.js';
+import {MotionComponent} from './MotionComponent.js';
+import {PlayerComponent} from './PlayerComponent.js';
 import {world} from './world.js';
 
 export const playerSystem = new System({

@@ -1,10 +1,10 @@
-import {CameraComponent} from '../engine/CameraComponent.js';
-import {GraphicsComponent} from '../engine/GraphicsComponent.js';
-import {LevelComponent} from '../engine/LevelComponent.js';
-import {MotionComponent} from '../engine/MotionComponent.js';
 import {System} from '../engine/System.js';
+import {CameraComponent} from './CameraComponent.js';
 import {cameraQuery} from './cameraQuery.js';
+import {GraphicsComponent} from './GraphicsComponent.js';
+import {LevelComponent} from './LevelComponent.js';
 import {levelQuery} from './levelQuery.js';
+import {MotionComponent} from './MotionComponent.js';
 import {world} from './world.js';
 
 export const graphicsSystem = new System({
