@@ -3,23 +3,18 @@ import type * as pixi from 'pixi.js';
 import {type Constructor} from '../utilities/Constructor.js';
 import {type Component} from './Component.js';
 import {type Entity} from './Entity.js';
-import {type EntityQuery} from './EntityQuery.js';
 import {type World} from './World.js';
 
-export type SystemOptions<
-  T extends readonly [...rest: ReadonlyArray<Constructor<Component>>],
-  U extends Record<string, EntityQuery>,
-> = {
+export type SystemOptions<T extends readonly [...rest: ReadonlyArray<Constructor<Component>>]> = {
   world: World;
   components: T;
-  entityQueries?: U | undefined;
-  onInit?: ((system: System<T, U>) => void) | undefined;
-  onUpdate?: ((ticker: pixi.Ticker, system: System<T, U>) => void) | undefined;
+  onInit?: ((system: System<T>) => void) | undefined;
+  onUpdate?: ((ticker: pixi.Ticker, system: System<T>) => void) | undefined;
   onAddEntity?:
-    | ((entity: Entity<readonly [InstanceType<T[number]>]>, system: System<T, U>) => void)
+    | ((entity: Entity<readonly [InstanceType<T[number]>]>, system: System<T>) => void)
     | undefined;
   onRemoveEntity?:
-    | ((entity: Entity<readonly [InstanceType<T[number]>]>, system: System<T, U>) => void)
+    | ((entity: Entity<readonly [InstanceType<T[number]>]>, system: System<T>) => void)
     | undefined;
 
   displayName?: string | undefined;
@@ -29,22 +24,20 @@ export class System<
   const T extends readonly [...rest: ReadonlyArray<Constructor<Component>>] = readonly [
     ...rest: ReadonlyArray<Constructor<Component>>,
   ],
-  const U extends Readonly<Record<string, EntityQuery>> = Readonly<Record<string, EntityQuery>>,
 > {
   readonly view: pixi.Container;
   readonly world: World;
-  readonly components: T; // components are for querying entities that this system will modify
+  readonly components: T;
   readonly entities: Array<Entity<readonly [InstanceType<T[number]>]>> = [];
-  readonly entityQueries: U; // entity queries are for querying entities that this system will only read, not modify
 
-  private readonly onUpdate?: (ticker: pixi.Ticker, system: System<T, U>) => void;
+  private readonly onUpdate?: (ticker: pixi.Ticker, system: System<T>) => void;
   private readonly onAddEntity?: (
     entity: Entity<readonly [InstanceType<T[number]>]>,
-    system: System<T, U>,
+    system: System<T>,
   ) => void;
   private readonly onRemoveEntity?: (
     entity: Entity<readonly [InstanceType<T[number]>]>,
-    system: System<T, U>,
+    system: System<T>,
   ) => void;
 
   displayName: string;
@@ -52,22 +45,15 @@ export class System<
   constructor({
     world,
     components,
-    entityQueries,
     onInit,
     onUpdate,
     onAddEntity,
     onRemoveEntity,
     displayName,
-  }: SystemOptions<T, U>) {
+  }: SystemOptions<T>) {
     this.view = world.view;
     this.world = world;
     this.components = components;
-
-    if (entityQueries === undefined) {
-      this.entityQueries = {} as unknown as U;
-    } else {
-      this.entityQueries = entityQueries;
-    }
 
     if (onUpdate !== undefined) {
       this.onUpdate = onUpdate;

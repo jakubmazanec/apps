@@ -14,17 +14,16 @@ export class World {
 
   readonly entities: Entity[] = [];
   readonly systems: System[] = [];
+  readonly entityQueries: EntityQuery[] = [];
 
   private readonly entitiesToBeAdded: Entity[] = [];
   private readonly entitiesToBeDeleted: Entity[] = [];
 
   constructor() {}
 
-  // TODO: the same type after `extends` is also used in `System`; create some type alias?
-  addSystem<
-    T extends readonly [...rest: ReadonlyArray<Constructor<Component>>],
-    U extends Record<string, EntityQuery>,
-  >(system: System<T, U>) {
+  addSystem<T extends readonly [...rest: ReadonlyArray<Constructor<Component>>]>(
+    system: System<T>,
+  ) {
     if (this.systems.includes(system as unknown as System)) {
       throw new Error('System was already added to the world!');
     }
@@ -32,14 +31,26 @@ export class World {
     this.systems.push(system as unknown as System);
 
     for (let entity of this.entities) {
-      for (let entityQuery of Object.values(system.entityQueries)) {
-        if (!entityQuery.entities.includes(entity) && areComponentsSame(entityQuery, entity)) {
-          entityQuery.addEntity(entity);
-        }
-      }
-
-      if (!system.entities.includes(entity) && areComponentsSame(system, entity)) {
+      if (areComponentsSame(system, entity)) {
         system.addEntity(entity);
+      }
+    }
+
+    return this;
+  }
+
+  addEntityQuery<T extends readonly [...rest: ReadonlyArray<Constructor<Component>>]>(
+    entityQuery: EntityQuery<T>,
+  ) {
+    if (this.entityQueries.includes(entityQuery as unknown as EntityQuery)) {
+      throw new Error('Entity query was already added to the world!');
+    }
+
+    this.entityQueries.push(entityQuery as unknown as EntityQuery);
+
+    for (let entity of this.entities) {
+      if (areComponentsSame(entityQuery, entity)) {
+        entityQuery.addEntity(entity);
       }
     }
 
@@ -56,14 +67,14 @@ export class World {
 
       this.entities.push(entity);
 
-      for (let system of this.systems) {
-        for (let entityQuery of Object.values(system.entityQueries)) {
-          if (!entityQuery.entities.includes(entity) && areComponentsSame(entityQuery, entity)) {
-            entityQuery.addEntity(entity);
-          }
+      for (let entityQuery of this.entityQueries) {
+        if (areComponentsSame(entityQuery, entity)) {
+          entityQuery.addEntity(entity);
         }
+      }
 
-        if (!system.entities.includes(entity) && areComponentsSame(system, entity)) {
+      for (let system of this.systems) {
+        if (areComponentsSame(system, entity)) {
           system.addEntity(entity);
         }
       }
@@ -84,14 +95,13 @@ export class World {
 
       this.entities.splice(index, 1);
 
-      for (let system of this.systems) {
-        // `areComponentsSame` was already checked when entity was added, so we don't need it here.
-        for (let entityQuery of Object.values(system.entityQueries)) {
-          if (entityQuery.entities.includes(entity)) {
-            entityQuery.removeEntity(entity);
-          }
+      for (let entityQuery of this.entityQueries) {
+        if (entityQuery.entities.includes(entity)) {
+          entityQuery.removeEntity(entity);
         }
+      }
 
+      for (let system of this.systems) {
         if (system.entities.includes(entity)) {
           system.removeEntity(entity);
         }

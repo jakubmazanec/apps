@@ -8,13 +8,8 @@ export const mapSystem = new System({
   displayName: 'Map system',
   world,
   components: [LevelComponent],
-  entityQueries: {
-    cameras: cameraQuery,
-  },
   onUpdate: (delta, system) => {
-    let {position: cameraPosition} = system.entityQueries.cameras
-      .getFirst()
-      .getComponent(CameraComponent);
+    let {position: cameraPosition} = cameraQuery.getFirst().getComponent(CameraComponent);
 
     for (let entity of system.entities) {
       let {map} = entity.getComponent(LevelComponent);

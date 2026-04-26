@@ -9,43 +9,29 @@ import {World} from '../source/engine/World.js';
 const FooComponent = defineComponent<{value: number}>();
 
 describe('World', () => {
-  test('addEntity adds the entity to a shared EntityQuery exactly once', () => {
+  test('addEntity adds the entity to a registered EntityQuery exactly once', () => {
     let world = new World();
     let sharedQuery = new EntityQuery({world, components: [FooComponent]});
-    let systemA = new System({
-      world,
-      components: [],
-      entityQueries: {shared: sharedQuery},
-    });
-    let systemB = new System({
-      world,
-      components: [],
-      entityQueries: {shared: sharedQuery},
-    });
+    let systemA = new System({world, components: []});
+    let systemB = new System({world, components: []});
     let entity = new Entity({components: [new FooComponent({value: 1})]});
 
     world.addSystem(systemA).addSystem(systemB);
+    world.addEntityQuery(sharedQuery);
     world.addEntity(entity);
 
     expect(sharedQuery.entities.filter((each) => each === entity)).toHaveLength(1);
   });
 
-  test('removeEntity does not throw when an EntityQuery is shared across systems', () => {
+  test('removeEntity removes the entity from a registered EntityQuery without throwing', () => {
     let world = new World();
     let sharedQuery = new EntityQuery({world, components: [FooComponent]});
-    let systemA = new System({
-      world,
-      components: [],
-      entityQueries: {shared: sharedQuery},
-    });
-    let systemB = new System({
-      world,
-      components: [],
-      entityQueries: {shared: sharedQuery},
-    });
+    let systemA = new System({world, components: []});
+    let systemB = new System({world, components: []});
     let entity = new Entity({components: [new FooComponent({value: 1})]});
 
     world.addSystem(systemA).addSystem(systemB);
+    world.addEntityQuery(sharedQuery);
     world.addEntity(entity);
 
     expect(sharedQuery.entities).toContain(entity);
@@ -66,5 +52,29 @@ describe('World', () => {
       world.addSystem(system);
     }).toThrow('System was already added to the world!');
     expect(world.systems).toHaveLength(1);
+  });
+
+  test('addEntityQuery throws when the same EntityQuery is added twice', () => {
+    let world = new World();
+    let entityQuery = new EntityQuery({world, components: [FooComponent]});
+
+    world.addEntityQuery(entityQuery);
+
+    expect(() => {
+      world.addEntityQuery(entityQuery);
+    }).toThrow('Entity query was already added to the world!');
+    expect(world.entityQueries).toHaveLength(1);
+  });
+
+  test('addEntityQuery picks up entities already in the world', () => {
+    let world = new World();
+    let entity = new Entity({components: [new FooComponent({value: 1})]});
+
+    world.addEntity(entity);
+
+    let entityQuery = new EntityQuery({world, components: [FooComponent]});
+    world.addEntityQuery(entityQuery);
+
+    expect(entityQuery.entities).toContain(entity);
   });
 });
