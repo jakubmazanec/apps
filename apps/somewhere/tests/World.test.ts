@@ -55,4 +55,16 @@ describe('World', () => {
     expect(sharedQuery.entities).not.toContain(entity);
     expect(world.entities).not.toContain(entity);
   });
+
+  test('addSystem throws when the same System is added twice', () => {
+    let world = new World();
+    let system = new System({world, components: []});
+
+    world.addSystem(system);
+
+    expect(() => {
+      world.addSystem(system);
+    }).toThrow('System was already added to the world!');
+    expect(world.systems).toHaveLength(1);
+  });
 });
