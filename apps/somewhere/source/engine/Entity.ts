@@ -10,13 +10,14 @@ export class Entity<
     ...rest: readonly Component[],
   ],
 > {
-  // TODO: make it work with `ReadonlyMap`
-  // private readonly components: ReadonlyMap<typeof Component, Component> = new Map();
-  private readonly components: Map<typeof Component, Component> = new Map();
+  private readonly components: ReadonlyMap<typeof Component, Component> = new Map();
 
   constructor({components}: EntityOptions<T>) {
     for (let component of components) {
-      this.components.set(component.constructor as typeof Component, component);
+      (this.components as Map<typeof Component, Component>).set(
+        component.constructor as typeof Component,
+        component,
+      );
     }
   }
 
