@@ -237,6 +237,7 @@ export class Game {
         if (this.loadingScreen) {
           this.view.addChild(this.loadingScreen.view);
           this.app.ticker.add(this.loadingScreen.update, this.loadingScreen);
+          await this.loadingScreen.show();
         }
 
         // await new Promise((resolve) => setTimeout(resolve, 5 * 1000));
