@@ -26,7 +26,7 @@ export class Game {
   screens: Array<GameScreen<any>> = [];
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- needed
   loadingScreen?: GameScreen<any>;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- needed
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-redundant-type-constituents -- needed
   currentScreen: GameScreen<any> | null = null;
 
   readonly app: pixi.Application;
@@ -152,7 +152,7 @@ export class Game {
       return this;
     }
 
-    ref.current.appendChild(this.app.canvas as unknown as Node);
+    ref.current.append(this.app.canvas);
     window.addEventListener('resize', this.resize);
 
     this.ref = ref;
@@ -163,7 +163,7 @@ export class Game {
   }
 
   removeRef() {
-    this.ref?.current?.removeChild(this.app.canvas as unknown as Node);
+    this.app.canvas.remove();
     window.removeEventListener('resize', this.resize);
 
     this.ref = null;
