@@ -1,7 +1,7 @@
-import {CameraComponent} from '../engine/CameraComponent.js';
-import {LevelComponent} from '../engine/LevelComponent.js';
 import {System} from '../engine/System.js';
+import {CameraComponent} from './CameraComponent.js';
 import {cameraQuery} from './cameraQuery.js';
+import {LevelComponent} from './LevelComponent.js';
 import {world} from './world.js';
 
 export const mapSystem = new System({

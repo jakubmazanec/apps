@@ -1,11 +1,11 @@
-import {CameraComponent} from '../engine/CameraComponent.js';
 import {EntityQuery} from '../engine/EntityQuery.js';
-import {LevelComponent} from '../engine/LevelComponent.js';
-import {MotionComponent} from '../engine/MotionComponent.js';
-import {PlayerComponent} from '../engine/PlayerComponent.js';
 import {System} from '../engine/System.js';
+import {CameraComponent} from './CameraComponent.js';
 import {game} from './game.js';
+import {LevelComponent} from './LevelComponent.js';
 import {levelQuery} from './levelQuery.js';
+import {MotionComponent} from './MotionComponent.js';
+import {PlayerComponent} from './PlayerComponent.js';
 import {world} from './world.js';
 
 export const cameraSystem = new System({
