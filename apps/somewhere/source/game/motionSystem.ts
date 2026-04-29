@@ -8,7 +8,6 @@ import {world} from './world.js';
 const MAX_DELTA_TIME = 2;
 
 export const motionSystem = new System({
-  world,
   components: [MotionComponent, GraphicsComponent],
   onUpdate: (ticker, system) => {
     let {map} = levelQuery.getFirst().getComponent(LevelComponent);

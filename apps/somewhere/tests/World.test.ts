@@ -11,9 +11,9 @@ const FooComponent = defineComponent<{value: number}>();
 describe('World', () => {
   test('addEntity adds the entity to a registered EntityQuery exactly once', () => {
     let world = new World();
-    let sharedQuery = new EntityQuery({world, components: [FooComponent]});
-    let systemA = new System({world, components: []});
-    let systemB = new System({world, components: []});
+    let sharedQuery = new EntityQuery({components: [FooComponent]});
+    let systemA = new System({components: []});
+    let systemB = new System({components: []});
     let entity = new Entity({components: [new FooComponent({value: 1})]});
 
     world.addSystem(systemA).addSystem(systemB);
@@ -25,9 +25,9 @@ describe('World', () => {
 
   test('removeEntity removes the entity from a registered EntityQuery without throwing', () => {
     let world = new World();
-    let sharedQuery = new EntityQuery({world, components: [FooComponent]});
-    let systemA = new System({world, components: []});
-    let systemB = new System({world, components: []});
+    let sharedQuery = new EntityQuery({components: [FooComponent]});
+    let systemA = new System({components: []});
+    let systemB = new System({components: []});
     let entity = new Entity({components: [new FooComponent({value: 1})]});
 
     world.addSystem(systemA).addSystem(systemB);
@@ -44,7 +44,7 @@ describe('World', () => {
 
   test('addSystem throws when the same System is added twice', () => {
     let world = new World();
-    let system = new System({world, components: []});
+    let system = new System({components: []});
 
     world.addSystem(system);
 
@@ -56,7 +56,7 @@ describe('World', () => {
 
   test('addEntityQuery throws when the same EntityQuery is added twice', () => {
     let world = new World();
-    let entityQuery = new EntityQuery({world, components: [FooComponent]});
+    let entityQuery = new EntityQuery({components: [FooComponent]});
 
     world.addEntityQuery(entityQuery);
 
@@ -72,7 +72,7 @@ describe('World', () => {
 
     world.addEntity(entity);
 
-    let entityQuery = new EntityQuery({world, components: [FooComponent]});
+    let entityQuery = new EntityQuery({components: [FooComponent]});
     world.addEntityQuery(entityQuery);
 
     expect(entityQuery.entities).toContain(entity);

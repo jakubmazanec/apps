@@ -8,7 +8,6 @@ import {MotionComponent} from './MotionComponent.js';
 import {world} from './world.js';
 
 export const graphicsSystem = new System({
-  world,
   components: [MotionComponent, GraphicsComponent],
   onUpdate: (ticker, system) => {
     let {map} = levelQuery.getFirst().getComponent(LevelComponent);

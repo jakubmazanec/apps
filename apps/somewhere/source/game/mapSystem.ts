@@ -6,7 +6,6 @@ import {world} from './world.js';
 
 export const mapSystem = new System({
   displayName: 'Map system',
-  world,
   components: [LevelComponent],
   onUpdate: (delta, system) => {
     let {position: cameraPosition} = cameraQuery.getFirst().getComponent(CameraComponent);
