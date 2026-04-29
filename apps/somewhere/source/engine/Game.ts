@@ -222,6 +222,7 @@ export class Game {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- needed
   addScreen(gameScreen: GameScreen<any>) {
     if (!this.screens.includes(gameScreen)) {
+      gameScreen.setGame(this);
       this.screens.push(gameScreen);
     }
 

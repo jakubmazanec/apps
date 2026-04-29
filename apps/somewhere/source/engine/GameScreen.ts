@@ -9,28 +9,31 @@ export type Renderable = {
 
 export type GameScreenOptions<T> = {
   assetBundles?: string[] | undefined;
-  game: Game;
-  onInit?: ((screen: GameScreen<T>, game: Game) => T) | undefined;
+  onAdd?: ((screen: GameScreen<T>, game: Game) => T) | undefined;
   onShow?: ((screen: GameScreen<T>, game: Game) => Promise<void> | void) | undefined;
   onHide?: ((screen: GameScreen<T>, game: Game) => Promise<void> | void) | undefined;
   onUpdate?: ((ticker: pixi.Ticker, screen: GameScreen<T>, game: Game) => void) | undefined;
 };
 
 export class GameScreen<T = undefined> {
-  readonly assetBundles: string[] = [];
-  readonly game: Game;
-  readonly view: pixi.Container = new pixi.Container();
-  readonly state: T;
+  #game: Game | null = null;
 
+  readonly assetBundles: string[] = [];
+  readonly view: pixi.Container = new pixi.Container();
+  state!: T;
+
+  private readonly onAdd?: (screen: GameScreen<T>, game: Game) => T;
   private readonly onShow?: (screen: GameScreen<T>, game: Game) => Promise<void> | void;
   private readonly onHide?: (screen: GameScreen<T>, game: Game) => Promise<void> | void;
   private readonly onUpdate?: (ticker: pixi.Ticker, screen: GameScreen<T>, game: Game) => void;
 
-  constructor({assetBundles, game, onInit, onShow, onHide, onUpdate}: GameScreenOptions<T>) {
-    this.game = game;
-
+  constructor({assetBundles, onAdd, onShow, onHide, onUpdate}: GameScreenOptions<T>) {
     if (assetBundles !== undefined) {
       this.assetBundles = assetBundles;
+    }
+
+    if (onAdd !== undefined) {
+      this.onAdd = onAdd;
     }
 
     if (onShow !== undefined) {
@@ -44,8 +47,23 @@ export class GameScreen<T = undefined> {
     if (onUpdate !== undefined) {
       this.onUpdate = onUpdate;
     }
+  }
 
-    this.state = onInit?.(this, this.game) as T;
+  get game(): Game {
+    if (!this.#game) {
+      throw new Error('Game is not set on the screen!');
+    }
+
+    return this.#game;
+  }
+
+  setGame(game: Game) {
+    if (this.#game) {
+      throw new Error('Game is already set on the screen!');
+    }
+
+    this.#game = game;
+    this.state = this.onAdd?.(this, game) as T;
   }
 
   update(ticker: pixi.Ticker) {

@@ -11,7 +11,6 @@ import {PlayerComponent} from './PlayerComponent.js';
 import {world} from './world.js';
 
 export const mainScreen = new GameScreen({
-  game,
   assetBundles: ['default', 'game'],
   onShow: async (screen, game) => {
     let map = new Entity({

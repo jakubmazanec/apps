@@ -9,7 +9,6 @@ import {world} from './world.js';
 
 export const cameraSystem = new System({
   displayName: 'Camera system',
-  world,
   components: [CameraComponent],
   onUpdate: (delta, system) => {
     let {position: cameraPosition} = system.getFirst().getComponent(CameraComponent);

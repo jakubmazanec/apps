@@ -6,7 +6,6 @@ import {type World} from './World.js';
 export type EntityQueryOptions<
   T extends readonly [...rest: ReadonlyArray<Constructor<Component>>],
 > = {
-  world: World;
   components: T;
 
   displayName?: string | undefined;
@@ -17,14 +16,14 @@ export class EntityQuery<
     ...rest: ReadonlyArray<Constructor<Component>>,
   ],
 > {
-  readonly world: World;
+  #world: World | null = null;
+
   readonly components: T;
   readonly entities: Array<Entity<readonly [InstanceType<T[number]>]>> = [];
 
   displayName: string;
 
-  constructor({world, components, displayName}: EntityQueryOptions<T>) {
-    this.world = world;
+  constructor({components, displayName}: EntityQueryOptions<T>) {
     this.components = components;
 
     if (displayName === undefined) {
@@ -32,6 +31,22 @@ export class EntityQuery<
     } else {
       this.displayName = displayName;
     }
+  }
+
+  get world(): World {
+    if (!this.#world) {
+      throw new Error('World is not set on the entity query!');
+    }
+
+    return this.#world;
+  }
+
+  setWorld(world: World) {
+    if (this.#world) {
+      throw new Error('World is already set on the entity query!');
+    }
+
+    this.#world = world;
   }
 
   /** @internal Use `world.addEntity()` instead. Called by `World` to sync entities. */

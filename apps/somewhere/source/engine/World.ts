@@ -29,9 +29,10 @@ export class World {
     }
 
     this.systems.push(system as unknown as System);
+    system.setWorld(this);
 
     for (let entity of this.entities) {
-      if (areComponentsSame(system, entity)) {
+      if (areComponentsSame(system as unknown as System, entity)) {
         system.addEntity(entity);
       }
     }
@@ -47,6 +48,7 @@ export class World {
     }
 
     this.entityQueries.push(entityQuery as unknown as EntityQuery);
+    entityQuery.setWorld(this);
 
     for (let entity of this.entities) {
       if (areComponentsSame(entityQuery, entity)) {

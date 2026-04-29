@@ -4,7 +4,6 @@ import {PlayerComponent} from './PlayerComponent.js';
 import {world} from './world.js';
 
 export const playersQuery = new EntityQuery({
-  world,
   components: [PlayerComponent, MotionComponent],
 });
 

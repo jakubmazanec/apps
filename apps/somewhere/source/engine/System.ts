@@ -6,9 +6,8 @@ import {type Entity} from './Entity.js';
 import {type World} from './World.js';
 
 export type SystemOptions<T extends readonly [...rest: ReadonlyArray<Constructor<Component>>]> = {
-  world: World;
   components: T;
-  onInit?: ((system: System<T>) => void) | undefined;
+  onAdd?: ((system: System<T>) => void) | undefined;
   onUpdate?: ((ticker: pixi.Ticker, system: System<T>) => void) | undefined;
   onAddEntity?:
     | ((entity: Entity<readonly [InstanceType<T[number]>]>, system: System<T>) => void)
@@ -25,16 +24,18 @@ export class System<
     ...rest: ReadonlyArray<Constructor<Component>>,
   ],
 > {
-  readonly view: pixi.Container;
-  readonly world: World;
+  #world: World | null = null;
+
   readonly components: T;
   readonly entities: Array<Entity<readonly [InstanceType<T[number]>]>> = [];
 
+  private readonly onAdd?: (system: System<T>) => void;
   private readonly onUpdate?: (ticker: pixi.Ticker, system: System<T>) => void;
   private readonly onAddEntity?: (
     entity: Entity<readonly [InstanceType<T[number]>]>,
     system: System<T>,
   ) => void;
+
   private readonly onRemoveEntity?: (
     entity: Entity<readonly [InstanceType<T[number]>]>,
     system: System<T>,
@@ -43,17 +44,18 @@ export class System<
   displayName: string;
 
   constructor({
-    world,
     components,
-    onInit,
+    onAdd,
     onUpdate,
     onAddEntity,
     onRemoveEntity,
     displayName,
   }: SystemOptions<T>) {
-    this.view = world.view;
-    this.world = world;
     this.components = components;
+
+    if (onAdd !== undefined) {
+      this.onAdd = onAdd;
+    }
 
     if (onUpdate !== undefined) {
       this.onUpdate = onUpdate;
@@ -72,8 +74,27 @@ export class System<
     } else {
       this.displayName = displayName;
     }
+  }
 
-    onInit?.(this);
+  get world(): World {
+    if (!this.#world) {
+      throw new Error('World is not set on the system!');
+    }
+
+    return this.#world;
+  }
+
+  get view(): pixi.Container {
+    return this.world.view;
+  }
+
+  setWorld(world: World) {
+    if (this.#world) {
+      throw new Error('World is already set on the system!');
+    }
+
+    this.#world = world;
+    this.onAdd?.(this);
   }
 
   update(ticker: pixi.Ticker) {

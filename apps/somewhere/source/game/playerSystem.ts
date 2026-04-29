@@ -9,9 +9,8 @@ import {world} from './world.js';
 
 export const playerSystem = new System({
   displayName: 'Player system',
-  world,
   components: [PlayerComponent, MotionComponent],
-  onInit: (system) => {
+  onAdd: (system) => {
     game.on('pointertap', (event) => {
       let {position: cameraPosition} = cameraQuery.getFirst().getComponent(CameraComponent);
 
