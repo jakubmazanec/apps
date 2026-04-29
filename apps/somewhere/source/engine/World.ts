@@ -40,6 +40,29 @@ export class World {
     return this;
   }
 
+  removeSystem<T extends readonly [...rest: ReadonlyArray<Constructor<Component>>]>(
+    system: System<T>,
+  ) {
+    let index = this.systems.indexOf(system as unknown as System);
+
+    if (index < 0) {
+      throw new Error("System wasn't found!");
+    }
+
+    for (let i = system.entities.length - 1; i >= 0; i--) {
+      let entity = system.entities[i];
+
+      if (entity !== undefined) {
+        system.removeEntity(entity);
+      }
+    }
+
+    this.systems.splice(index, 1);
+    system.unsetWorld();
+
+    return this;
+  }
+
   addEntityQuery<T extends readonly [...rest: ReadonlyArray<Constructor<Component>>]>(
     entityQuery: EntityQuery<T>,
   ) {
@@ -55,6 +78,29 @@ export class World {
         entityQuery.addEntity(entity);
       }
     }
+
+    return this;
+  }
+
+  removeEntityQuery<T extends readonly [...rest: ReadonlyArray<Constructor<Component>>]>(
+    entityQuery: EntityQuery<T>,
+  ) {
+    let index = this.entityQueries.indexOf(entityQuery as unknown as EntityQuery);
+
+    if (index < 0) {
+      throw new Error("Entity query wasn't found!");
+    }
+
+    for (let i = entityQuery.entities.length - 1; i >= 0; i--) {
+      let entity = entityQuery.entities[i];
+
+      if (entity !== undefined) {
+        entityQuery.removeEntity(entity);
+      }
+    }
+
+    this.entityQueries.splice(index, 1);
+    entityQuery.unsetWorld();
 
     return this;
   }
