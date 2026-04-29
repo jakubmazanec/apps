@@ -7,13 +7,21 @@ import {type World} from './World.js';
 
 export type SystemOptions<T extends readonly [...rest: ReadonlyArray<Constructor<Component>>]> = {
   components: T;
-  onAdd?: ((system: System<T>) => void) | undefined;
-  onUpdate?: ((ticker: pixi.Ticker, system: System<T>) => void) | undefined;
+  onAdd?: ((system: System<T>, world: World) => void) | undefined;
+  onUpdate?: ((ticker: pixi.Ticker, system: System<T>, world: World) => void) | undefined;
   onAddEntity?:
-    | ((entity: Entity<readonly [InstanceType<T[number]>]>, system: System<T>) => void)
+    | ((
+        entity: Entity<readonly [InstanceType<T[number]>]>,
+        system: System<T>,
+        world: World,
+      ) => void)
     | undefined;
   onRemoveEntity?:
-    | ((entity: Entity<readonly [InstanceType<T[number]>]>, system: System<T>) => void)
+    | ((
+        entity: Entity<readonly [InstanceType<T[number]>]>,
+        system: System<T>,
+        world: World,
+      ) => void)
     | undefined;
 
   displayName?: string | undefined;
@@ -29,16 +37,18 @@ export class System<
   readonly components: T;
   readonly entities: Array<Entity<readonly [InstanceType<T[number]>]>> = [];
 
-  private readonly onAdd?: (system: System<T>) => void;
-  private readonly onUpdate?: (ticker: pixi.Ticker, system: System<T>) => void;
+  private readonly onAdd?: (system: System<T>, world: World) => void;
+  private readonly onUpdate?: (ticker: pixi.Ticker, system: System<T>, world: World) => void;
   private readonly onAddEntity?: (
     entity: Entity<readonly [InstanceType<T[number]>]>,
     system: System<T>,
+    world: World,
   ) => void;
 
   private readonly onRemoveEntity?: (
     entity: Entity<readonly [InstanceType<T[number]>]>,
     system: System<T>,
+    world: World,
   ) => void;
 
   displayName: string;
@@ -94,11 +104,11 @@ export class System<
     }
 
     this.#world = world;
-    this.onAdd?.(this);
+    this.onAdd?.(this, world);
   }
 
   update(ticker: pixi.Ticker) {
-    this.onUpdate?.(ticker, this);
+    this.onUpdate?.(ticker, this, this.world);
   }
 
   /** @internal Use `world.addEntity()` instead. Called by `World` to sync entities. */
@@ -108,7 +118,7 @@ export class System<
     }
 
     this.entities.push(entity);
-    this.onAddEntity?.(entity, this);
+    this.onAddEntity?.(entity, this, this.world);
   }
 
   /** @internal Use `world.removeEntity()` instead. Called by `World` to sync entities. */
@@ -120,7 +130,7 @@ export class System<
     }
 
     this.entities.splice(index, 1);
-    this.onRemoveEntity?.(entity, this);
+    this.onRemoveEntity?.(entity, this, this.world);
   }
 
   getFirst() {
