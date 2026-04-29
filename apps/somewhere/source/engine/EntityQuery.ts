@@ -49,6 +49,14 @@ export class EntityQuery<
     this.#world = world;
   }
 
+  unsetWorld() {
+    if (!this.#world) {
+      throw new Error('World is not set on the entity query!');
+    }
+
+    this.#world = null;
+  }
+
   /** @internal Use `world.addEntity()` instead. Called by `World` to sync entities. */
   addEntity(entity: Entity<readonly [InstanceType<T[number]>]>) {
     if (this.entities.includes(entity)) {

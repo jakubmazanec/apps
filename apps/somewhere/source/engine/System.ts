@@ -8,6 +8,7 @@ import {type World} from './World.js';
 export type SystemOptions<T extends readonly [...rest: ReadonlyArray<Constructor<Component>>]> = {
   components: T;
   onAdd?: ((system: System<T>, world: World) => void) | undefined;
+  onRemove?: ((system: System<T>, world: World) => void) | undefined;
   onUpdate?: ((ticker: pixi.Ticker, system: System<T>, world: World) => void) | undefined;
   onAddEntity?:
     | ((
@@ -38,6 +39,7 @@ export class System<
   readonly entities: Array<Entity<readonly [InstanceType<T[number]>]>> = [];
 
   private readonly onAdd?: (system: System<T>, world: World) => void;
+  private readonly onRemove?: (system: System<T>, world: World) => void;
   private readonly onUpdate?: (ticker: pixi.Ticker, system: System<T>, world: World) => void;
   private readonly onAddEntity?: (
     entity: Entity<readonly [InstanceType<T[number]>]>,
@@ -56,6 +58,7 @@ export class System<
   constructor({
     components,
     onAdd,
+    onRemove,
     onUpdate,
     onAddEntity,
     onRemoveEntity,
@@ -65,6 +68,10 @@ export class System<
 
     if (onAdd !== undefined) {
       this.onAdd = onAdd;
+    }
+
+    if (onRemove !== undefined) {
+      this.onRemove = onRemove;
     }
 
     if (onUpdate !== undefined) {
@@ -104,7 +111,16 @@ export class System<
     }
 
     this.#world = world;
-    this.onAdd?.(this, world);
+    this.onAdd?.(this, this.#world);
+  }
+
+  unsetWorld() {
+    if (!this.#world) {
+      throw new Error('World is not set on the system!');
+    }
+
+    this.onRemove?.(this, this.#world);
+    this.#world = null;
   }
 
   update(ticker: pixi.Ticker) {

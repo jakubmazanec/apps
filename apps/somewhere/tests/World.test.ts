@@ -77,4 +77,137 @@ describe('World', () => {
 
     expect(entityQuery.entities).toContain(entity);
   });
+
+  test('removeSystem removes the system from the world', () => {
+    let world = new World();
+    let system = new System({components: []});
+
+    world.addSystem(system);
+    world.removeSystem(system);
+
+    expect(world.systems).not.toContain(system);
+    expect(world.systems).toHaveLength(0);
+  });
+
+  test("removeSystem throws when the System wasn't added", () => {
+    let world = new World();
+    let system = new System({components: []});
+
+    expect(() => {
+      world.removeSystem(system);
+    }).toThrow("System wasn't found!");
+  });
+
+  test('removeSystem fires onRemove with system and world', () => {
+    let world = new World();
+    let receivedSystem: System<readonly []> | null = null;
+    let receivedWorld: World | null = null;
+    let system = new System({
+      components: [],
+      onRemove: (s, w) => {
+        receivedSystem = s;
+        receivedWorld = w;
+      },
+    });
+
+    world.addSystem(system);
+    world.removeSystem(system);
+
+    expect(receivedSystem).toBe(system);
+    expect(receivedWorld).toBe(world);
+  });
+
+  test('removeSystem fires onRemoveEntity for each tracked entity', () => {
+    let world = new World();
+    let removed: Entity[] = [];
+    let system = new System({
+      components: [FooComponent],
+      onRemoveEntity: (entity) => {
+        removed.push(entity);
+      },
+    });
+    let entity1 = new Entity({components: [new FooComponent({value: 1})]});
+    let entity2 = new Entity({components: [new FooComponent({value: 2})]});
+
+    world.addEntity(entity1);
+    world.addEntity(entity2);
+    world.addSystem(system);
+    world.removeSystem(system);
+
+    expect(removed).toHaveLength(2);
+    expect(removed).toContain(entity1);
+    expect(removed).toContain(entity2);
+    expect(system.entities).toHaveLength(0);
+  });
+
+  test('removeSystem allows the system to be re-added', () => {
+    let world = new World();
+    let system = new System({components: []});
+
+    world.addSystem(system);
+    world.removeSystem(system);
+
+    expect(() => {
+      world.addSystem(system);
+    }).not.toThrow();
+    expect(world.systems).toContain(system);
+  });
+
+  test('removeSystem returns the world for chaining', () => {
+    let world = new World();
+    let system = new System({components: []});
+
+    world.addSystem(system);
+
+    expect(world.removeSystem(system)).toBe(world);
+  });
+
+  test('removeEntityQuery removes the query from the world', () => {
+    let world = new World();
+    let entityQuery = new EntityQuery({components: [FooComponent]});
+
+    world.addEntityQuery(entityQuery);
+    world.removeEntityQuery(entityQuery);
+
+    expect(world.entityQueries).not.toContain(entityQuery);
+    expect(world.entityQueries).toHaveLength(0);
+  });
+
+  test("removeEntityQuery throws when the EntityQuery wasn't added", () => {
+    let world = new World();
+    let entityQuery = new EntityQuery({components: [FooComponent]});
+
+    expect(() => {
+      world.removeEntityQuery(entityQuery);
+    }).toThrow("Entity query wasn't found!");
+  });
+
+  test('removeEntityQuery clears entities and unsets the world', () => {
+    let world = new World();
+    let entityQuery = new EntityQuery({components: [FooComponent]});
+    let entity = new Entity({components: [new FooComponent({value: 1})]});
+
+    world.addEntity(entity);
+    world.addEntityQuery(entityQuery);
+
+    expect(entityQuery.entities).toContain(entity);
+
+    world.removeEntityQuery(entityQuery);
+
+    expect(entityQuery.entities).toHaveLength(0);
+    expect(() => entityQuery.world).toThrow('World is not set on the entity query!');
+  });
+
+  test('removeEntityQuery allows the query to be re-added', () => {
+    let world = new World();
+    let entityQuery = new EntityQuery({components: [FooComponent]});
+
+    world.addEntityQuery(entityQuery);
+    world.removeEntityQuery(entityQuery);
+
+    expect(() => {
+      world.addEntityQuery(entityQuery);
+    }).not.toThrow();
+    expect(world.entityQueries).toContain(entityQuery);
+  });
 });
