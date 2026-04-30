@@ -3,7 +3,6 @@ import {GraphicsComponent} from './GraphicsComponent.js';
 import {LevelComponent} from './LevelComponent.js';
 import {levelQuery} from './levelQuery.js';
 import {MotionComponent} from './MotionComponent.js';
-import {world} from './world.js';
 
 const MAX_DELTA_TIME = 2;
 
@@ -147,5 +146,3 @@ export const motionSystem = new System({
     }
   },
 });
-
-world.addSystem(motionSystem);

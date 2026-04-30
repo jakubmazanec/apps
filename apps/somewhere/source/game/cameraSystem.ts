@@ -5,7 +5,6 @@ import {LevelComponent} from './LevelComponent.js';
 import {levelQuery} from './levelQuery.js';
 import {MotionComponent} from './MotionComponent.js';
 import {playersQuery} from './playersQuery.js';
-import {world} from './world.js';
 
 export const cameraSystem = new System({
   displayName: 'Camera system',
@@ -24,5 +23,3 @@ export const cameraSystem = new System({
     );
   },
 });
-
-world.addSystem(cameraSystem);

@@ -5,7 +5,6 @@ import {GraphicsComponent} from './GraphicsComponent.js';
 import {LevelComponent} from './LevelComponent.js';
 import {levelQuery} from './levelQuery.js';
 import {MotionComponent} from './MotionComponent.js';
-import {world} from './world.js';
 
 export const graphicsSystem = new System({
   components: [MotionComponent, GraphicsComponent],
@@ -52,6 +51,12 @@ export const graphicsSystem = new System({
       map.addToLayer(sprite);
     }
   },
-});
+  onRemoveEntity: (entity, system) => {
+    let graphics = entity.getComponent(GraphicsComponent);
+    let {map} = levelQuery.getFirst().getComponent(LevelComponent);
 
-world.addSystem(graphicsSystem);
+    for (let sprite of Object.values(graphics.sprite.sprites)) {
+      map.removeFromLayer(sprite);
+    }
+  },
+});

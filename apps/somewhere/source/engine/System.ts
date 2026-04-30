@@ -102,9 +102,14 @@ export class System<
   }
 
   get view(): pixi.Container {
-    return this.world.view;
+    if (!this.#world) {
+      throw new Error('World is not set on the system!');
+    }
+
+    return this.#world.view;
   }
 
+  /** @internal Called by `World`. */
   setWorld(world: World) {
     if (this.#world) {
       throw new Error('World is already set on the system!');
@@ -114,15 +119,18 @@ export class System<
     this.onAdd?.(this, this.#world);
   }
 
+  /** @internal Called by `World`. */
   unsetWorld() {
     if (!this.#world) {
       throw new Error('World is not set on the system!');
     }
 
+    // events "hug" the state of the thing they belong to, i.e. starting events run after something is done, and ending events run before something is done
     this.onRemove?.(this, this.#world);
     this.#world = null;
   }
 
+  /** @internal Called by `World`. */
   update(ticker: pixi.Ticker) {
     this.onUpdate?.(ticker, this, this.world);
   }

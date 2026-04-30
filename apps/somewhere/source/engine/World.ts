@@ -7,8 +7,14 @@ import {type Entity} from './Entity.js';
 import {type EntityQuery} from './EntityQuery.js';
 import {type System} from './System.js';
 
+export type WorldOptions = {
+  onStart?: ((world: World) => void) | undefined;
+  onStop?: ((world: World) => void) | undefined;
+};
+
 export class World {
   #isUpdating = false;
+  #isRunning = false;
 
   readonly view: pixi.Container = new pixi.Container();
 
@@ -19,7 +25,72 @@ export class World {
   private readonly entitiesToBeAdded: Entity[] = [];
   private readonly entitiesToBeDeleted: Entity[] = [];
 
-  constructor() {}
+  private readonly onStart?: (world: World) => void;
+  private readonly onStop?: (world: World) => void;
+
+  constructor({onStart, onStop}: WorldOptions = {}) {
+    if (onStart !== undefined) {
+      this.onStart = onStart;
+    }
+
+    if (onStop !== undefined) {
+      this.onStop = onStop;
+    }
+  }
+
+  get isRunning(): boolean {
+    return this.#isRunning;
+  }
+
+  start() {
+    if (this.#isRunning) {
+      throw new Error('World is already running!');
+    }
+
+    this.#isRunning = true;
+    this.onStart?.(this);
+  }
+
+  stop() {
+    if (!this.#isRunning) {
+      throw new Error('World is not running!');
+    }
+
+    if (this.#isUpdating) {
+      throw new Error('Cannot stop the world during an update!');
+    }
+
+    this.onStop?.(this);
+
+    for (let i = this.entities.length - 1; i >= 0; i--) {
+      let entity = this.entities[i];
+
+      if (entity !== undefined) {
+        this.removeEntity(entity);
+      }
+    }
+
+    for (let i = this.systems.length - 1; i >= 0; i--) {
+      let system = this.systems[i];
+
+      if (system !== undefined) {
+        this.removeSystem(system);
+      }
+    }
+
+    for (let i = this.entityQueries.length - 1; i >= 0; i--) {
+      let entityQuery = this.entityQueries[i];
+
+      if (entityQuery !== undefined) {
+        this.removeEntityQuery(entityQuery);
+      }
+    }
+
+    this.entitiesToBeAdded.length = 0;
+    this.entitiesToBeDeleted.length = 0;
+
+    this.#isRunning = false;
+  }
 
   addSystem<T extends readonly [...rest: ReadonlyArray<Constructor<Component>>]>(
     system: System<T>,
