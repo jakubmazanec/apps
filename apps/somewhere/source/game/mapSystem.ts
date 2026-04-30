@@ -2,7 +2,6 @@ import {System} from '../engine/System.js';
 import {CameraComponent} from './CameraComponent.js';
 import {cameraQuery} from './cameraQuery.js';
 import {LevelComponent} from './LevelComponent.js';
-import {world} from './world.js';
 
 export const mapSystem = new System({
   displayName: 'Map system',
@@ -28,5 +27,3 @@ export const mapSystem = new System({
     system.view.removeChild(map.view);
   },
 });
-
-world.addSystem(mapSystem);

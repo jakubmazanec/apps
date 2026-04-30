@@ -82,4 +82,9 @@ export class GameScreen<T = undefined> {
     this.view.addChild(renderable.view);
     this.game.app.ticker.add(renderable.update, renderable);
   }
+
+  removeFromView(renderable: Renderable) {
+    this.view.removeChild(renderable.view);
+    this.game.app.ticker.remove(renderable.update, renderable);
+  }
 }

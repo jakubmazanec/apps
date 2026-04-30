@@ -1,53 +1,16 @@
-import * as pixi from 'pixi.js';
-
-import {Entity} from '../engine/Entity.js';
 import {GameScreen} from '../engine/GameScreen.js';
-import {Vector} from '../engine/Vector.js';
 import {game} from './game.js';
-import {GraphicsComponent} from './GraphicsComponent.js';
-import {LevelComponent} from './LevelComponent.js';
-import {MotionComponent} from './MotionComponent.js';
-import {PlayerComponent} from './PlayerComponent.js';
 import {world} from './world.js';
 
 export const mainScreen = new GameScreen({
   assetBundles: ['default', 'game'],
-  onShow: async (screen, game) => {
-    let map = new Entity({
-      components: [
-        new LevelComponent({
-          mapOptions: {
-            assetName: 'map',
-          },
-        }),
-      ],
-    });
-    let player = new Entity({
-      components: [
-        new PlayerComponent({name: 'Jakub'}),
-        new MotionComponent({position: new Vector(64 * 9, 64 * 10), velocity: new Vector(0, 0)}),
-        new GraphicsComponent({
-          spriteOptions: {
-            assetName: 'character',
-            spriteNames: [
-              'standing-down',
-              'walking-down',
-              'standing-left',
-              'walking-left',
-              'standing-up',
-              'walking-up',
-              'standing-right',
-              'walking-right',
-            ],
-          },
-          boundingBox: new pixi.Rectangle(0, 40, 64, 40),
-        }),
-      ],
-    });
-
-    world.addEntity(map);
-    world.addEntity(player);
+  onShow: (screen) => {
     screen.addToView(world);
+    world.start();
+  },
+  onHide: (screen) => {
+    world.stop();
+    screen.removeFromView(world);
   },
   onUpdate: (ticker, screen) => {},
 });
