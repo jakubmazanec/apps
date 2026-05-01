@@ -1,5 +1,5 @@
-import {Component} from '../engine/Component.js';
-import {type Vector} from '../engine/Vector.js';
+import {Component} from '../engine/ecs/Component.js';
+import {type Vector} from '../engine/utilities/Vector.js';
 
 export type MotionComponentOptions = {
   position: Vector;

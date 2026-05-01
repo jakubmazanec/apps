@@ -1,4 +1,4 @@
-import {System} from '../engine/System.js';
+import {System} from '../engine/ecs/System.js';
 import {CameraComponent} from './CameraComponent.js';
 import {cameraQuery} from './cameraQuery.js';
 import {LevelComponent} from './LevelComponent.js';

@@ -1,6 +1,6 @@
 import * as pixi from 'pixi.js';
 
-import {tiledTilemapSchema} from '../tiled-tools/TiledTilemap.js';
+import {tiledTilemapSchema} from '../../tiled-tools/TiledTilemap.js';
 import {getGid} from './getGid.js';
 import {type TileGid, toTileGid} from './TileGid.js';
 import {Tileset} from './Tileset.js';

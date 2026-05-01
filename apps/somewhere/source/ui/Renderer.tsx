@@ -1,6 +1,6 @@
 import {useEffect, useRef} from 'react';
 
-import {useGame} from '../engine/useGame.js';
+import {useGame} from '../engine/app/useGame.js';
 
 export default function Renderer() {
   let game = useGame();

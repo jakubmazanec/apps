@@ -4,7 +4,7 @@ import {
   FLIPPED_HORIZONTALLY_FLAG,
   FLIPPED_VERTICALLY_FLAG,
   ROTATED_HEXAGONAL_120_FLAG,
-} from '../constants.js';
+} from './constants.js';
 import {type TileGid} from './TileGid.js';
 
 export function getGid(gid: TileGid): TileGid {

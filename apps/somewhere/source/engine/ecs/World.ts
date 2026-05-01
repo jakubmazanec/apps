@@ -1,7 +1,7 @@
 import * as pixi from 'pixi.js';
 
-import {areComponentsSame} from '../utilities/areComponentsSame.js';
-import {type Constructor} from '../utilities/Constructor.js';
+import {areComponentsSame} from '../../utilities/areComponentsSame.js';
+import {type Constructor} from '../../utilities/Constructor.js';
 import {type Component} from './Component.js';
 import {type Entity} from './Entity.js';
 import {type EntityQuery} from './EntityQuery.js';

@@ -1,8 +1,8 @@
 import * as pixi from 'pixi.js';
 
-import {Entity} from '../engine/Entity.js';
-import {ObjectPool} from '../engine/ObjectPool.js';
-import {Vector} from '../engine/Vector.js';
+import {Entity} from '../engine/ecs/Entity.js';
+import {ObjectPool} from '../engine/utilities/ObjectPool.js';
+import {Vector} from '../engine/utilities/Vector.js';
 import {GraphicsComponent} from './GraphicsComponent.js';
 import {MotionComponent} from './MotionComponent.js';
 import {PlayerComponent} from './PlayerComponent.js';

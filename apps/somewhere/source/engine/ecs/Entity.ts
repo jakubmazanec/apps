@@ -1,4 +1,4 @@
-import {type Constructor} from '../utilities/Constructor.js';
+import {type Constructor} from '../../utilities/Constructor.js';
 import {type Component} from './Component.js';
 
 export type EntityOptions<T extends readonly [...rest: readonly Component[]]> = {

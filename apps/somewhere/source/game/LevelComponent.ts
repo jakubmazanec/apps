@@ -1,5 +1,5 @@
-import {Component} from '../engine/Component.js';
-import {Map, type MapOptions} from '../engine/Map.js';
+import {Component} from '../engine/ecs/Component.js';
+import {Map, type MapOptions} from '../engine/tiled/Map.js';
 
 export type LevelComponentOptions = {
   mapOptions: MapOptions;

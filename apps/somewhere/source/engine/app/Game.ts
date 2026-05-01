@@ -2,8 +2,8 @@ import {type EventEmitter} from 'eventemitter3';
 import * as pixi from 'pixi.js';
 
 // import {CRTFilter} from 'pixi-filters';
-import {tiledTilemapAsset} from '../pixi-tools/tiledTilemapAsset.js';
-import {tiledTilesetAsset} from '../pixi-tools/tiledTilesetAsset.js';
+import {tiledTilemapAsset} from '../../pixi-tools/tiledTilemapAsset.js';
+import {tiledTilesetAsset} from '../../pixi-tools/tiledTilesetAsset.js';
 import {type GameScreen} from './GameScreen.js';
 
 export type GameAssetBundleAsset = {

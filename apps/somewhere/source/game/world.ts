@@ -1,5 +1,5 @@
-import {type Entity} from '../engine/Entity.js';
-import {World} from '../engine/World.js';
+import {type Entity} from '../engine/ecs/Entity.js';
+import {World} from '../engine/ecs/World.js';
 import {camera} from './camera.js';
 import {CameraComponent} from './CameraComponent.js';
 import {cameraQuery} from './cameraQuery.js';

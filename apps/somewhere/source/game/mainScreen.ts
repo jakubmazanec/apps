@@ -1,4 +1,4 @@
-import {GameScreen} from '../engine/GameScreen.js';
+import {GameScreen} from '../engine/app/GameScreen.js';
 import {game} from './game.js';
 import {world} from './world.js';
 
