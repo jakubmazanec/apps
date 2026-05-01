@@ -1,7 +1,7 @@
 import type * as pixi from 'pixi.js';
 
-import {System} from '../engine/System.js';
-import {Vector} from '../engine/Vector.js';
+import {System} from '../engine/ecs/System.js';
+import {Vector} from '../engine/utilities/Vector.js';
 import {CameraComponent} from './CameraComponent.js';
 import {cameraQuery} from './cameraQuery.js';
 import {game} from './game.js';

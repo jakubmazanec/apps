@@ -1,4 +1,4 @@
-import {type Opaque} from '../utilities/Opaque.js';
+import {type Opaque} from '../../utilities/Opaque.js';
 
 /**
  * Local Tile ID, i.e. local to a tileset, i.e. starts with 0, i.e. zero-based index.

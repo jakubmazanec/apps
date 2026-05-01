@@ -1,10 +1,10 @@
 import {describe, expect, test} from 'vitest';
 
-import {defineComponent} from '../source/engine/Component.js';
-import {Entity} from '../source/engine/Entity.js';
-import {EntityQuery} from '../source/engine/EntityQuery.js';
-import {System} from '../source/engine/System.js';
-import {World} from '../source/engine/World.js';
+import {defineComponent} from '../source/engine/ecs/Component.js';
+import {Entity} from '../source/engine/ecs/Entity.js';
+import {EntityQuery} from '../source/engine/ecs/EntityQuery.js';
+import {System} from '../source/engine/ecs/System.js';
+import {World} from '../source/engine/ecs/World.js';
 
 const FooComponent = defineComponent<{value: number}>();
 

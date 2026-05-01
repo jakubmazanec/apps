@@ -1,4 +1,4 @@
-import {Game} from '../engine/Game.js';
+import {Game} from '../engine/app/Game.js';
 
 export const game = new Game({
   assetBundles: [

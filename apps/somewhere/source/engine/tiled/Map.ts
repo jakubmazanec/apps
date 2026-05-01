@@ -1,8 +1,8 @@
 import * as pixi from 'pixi.js';
 
-import {to2dArray} from '../utilities/to2dArray.js';
+import {to2dArray} from '../../utilities/to2dArray.js';
+import {Vector} from '../utilities/Vector.js';
 import {Tilemap} from './Tilemap.js';
-import {Vector} from './Vector.js';
 
 export type MapTile = {
   view: pixi.Container;

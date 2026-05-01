@@ -1,5 +1,5 @@
-import {Entity} from '../engine/Entity.js';
-import {ObjectPool} from '../engine/ObjectPool.js';
+import {Entity} from '../engine/ecs/Entity.js';
+import {ObjectPool} from '../engine/utilities/ObjectPool.js';
 import {LevelComponent} from './LevelComponent.js';
 
 // Requires the 'game' asset bundle to be loaded before .create() is called.

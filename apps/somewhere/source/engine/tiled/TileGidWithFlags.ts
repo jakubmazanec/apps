@@ -1,4 +1,4 @@
-import {type Opaque} from '../utilities/Opaque.js';
+import {type Opaque} from '../../utilities/Opaque.js';
 
 /**
  * Global Tile ID with flags for flipping and stuff.

@@ -1,4 +1,4 @@
-import {System} from '../engine/System.js';
+import {System} from '../engine/ecs/System.js';
 import {GraphicsComponent} from './GraphicsComponent.js';
 import {LevelComponent} from './LevelComponent.js';
 import {levelQuery} from './levelQuery.js';

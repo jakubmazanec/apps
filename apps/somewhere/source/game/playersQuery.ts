@@ -1,4 +1,4 @@
-import {EntityQuery} from '../engine/EntityQuery.js';
+import {EntityQuery} from '../engine/ecs/EntityQuery.js';
 import {MotionComponent} from './MotionComponent.js';
 import {PlayerComponent} from './PlayerComponent.js';
 

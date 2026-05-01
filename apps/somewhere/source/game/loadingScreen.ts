@@ -1,6 +1,6 @@
 import * as pixi from 'pixi.js';
 
-import {GameScreen} from '../engine/GameScreen.js';
+import {GameScreen} from '../engine/app/GameScreen.js';
 
 export const loadingScreen = new GameScreen({
   assetBundles: ['default'],
