@@ -3,7 +3,6 @@ import {type MetaFunction} from 'react-router';
 
 import {type Game} from '../engine/Game.js';
 import {GameProvider} from '../engine/GameProvider.js';
-import {game as importedGame, loadingScreen, mainScreen} from '../game.client.js';
 import Renderer from '../ui/Renderer.js';
 
 export const meta: MetaFunction = () => [{title: 'Somewhere'}];
@@ -12,11 +11,17 @@ export default function Index() {
   let [game, setGame] = useState<Game | undefined>(undefined);
 
   useEffect(() => {
-    void importedGame.init().then(() => {
+    void (async () => {
+      let [{game: importedGame}, {loadingScreen}, {mainScreen}] = await Promise.all([
+        import('../game/game.js'),
+        import('../game/loadingScreen.js'),
+        import('../game/mainScreen.js'),
+      ]);
+      await importedGame.init();
       importedGame.addLoadingScreen(loadingScreen);
       void importedGame.showScreen(mainScreen);
       setGame(importedGame);
-    });
+    })();
   }, []);
 
   return (
