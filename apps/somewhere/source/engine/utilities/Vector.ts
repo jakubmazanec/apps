@@ -1,34 +1,24 @@
-// TODO: rework this class
-// const TURN = 360;
 const HALF_TURN = 180;
-const EPSILON = Number.EPSILON || 10e-12;
 
 export class Vector {
   x: number;
   y: number;
-  private __angle: number; // TODO: what about using private fields?
+  #angle = 0;
 
-  static ORIGIN = new Vector(0, 0);
+  static readonly ORIGIN: Vector = Object.freeze(new Vector(0, 0)) as Vector;
 
   constructor(x = 0, y = 0) {
     this.x = x;
     this.y = y;
-
-    if (this.x === 0 && this.y === 0) {
-      this.__angle = 0;
-    } else {
-      this.__angle = this.angleInRadians;
-    }
+    this.#angle = this.angleInRadians;
   }
 
-  set(x: number, y: number) {
+  set(x: number, y: number): this {
     this.x = x;
     this.y = y;
 
-    if (this.x === 0 && this.y === 0) {
-      this.__angle ||= 0;
-    } else {
-      this.__angle = this.angleInRadians;
+    if (!this.isZero) {
+      this.#angle = Math.atan2(this.y, this.x);
     }
 
     return this;
@@ -53,9 +43,7 @@ export class Vector {
 
   set length(value: number) {
     if (this.isZero) {
-      let angle = this.__angle || 0;
-
-      this.set(Math.cos(angle) * value, Math.sin(angle) * value);
+      this.set(Math.cos(this.#angle) * value, Math.sin(this.#angle) * value);
     } else {
       let scale = value / this.length;
 
@@ -72,31 +60,34 @@ export class Vector {
   }
 
   get angleInRadians(): number {
-    return this.isZero ? this.__angle : Math.atan2(this.y, this.x);
+    return this.isZero ? this.#angle : Math.atan2(this.y, this.x);
   }
 
   set angleInRadians(value: number) {
-    this.__angle = value;
+    if (this.isZero) {
+      this.#angle = value;
+    } else {
+      let {length} = this;
 
-    if (!this.isZero) {
-      this.set(Math.cos(value) * this.length, Math.sin(value) * this.length);
+      this.set(Math.cos(value) * length, Math.sin(value) * length);
     }
   }
 
-  normalize(length = 1) {
+  normalize(length = 1): this {
     let currentLength = this.length;
     let scale = currentLength === 0 ? 0 : length / currentLength;
 
-    // TODO: modify this instead
-    return new Vector(this.x * scale, this.y * scale);
+    this.x *= scale;
+    this.y *= scale;
+
+    return this;
   }
 
-  isEqual(point = Vector.ORIGIN) {
+  isEqual(point: Vector = Vector.ORIGIN): boolean {
     return (
       this === point ||
       (this.x === point.x && this.y === point.y) ||
-      (Math.abs(this.x - point.x) < EPSILON && Math.abs(this.y - point.y) < EPSILON) ||
-      false
+      (Math.abs(this.x - point.x) < Number.EPSILON && Math.abs(this.y - point.y) < Number.EPSILON)
     );
   }
 
@@ -124,6 +115,32 @@ export class Vector {
   divide(vector: Vector): this {
     this.x /= vector.x;
     this.y /= vector.y;
+
+    return this;
+  }
+
+  dot(vector: Vector): number {
+    return this.x * vector.x + this.y * vector.y;
+  }
+
+  cross(vector: Vector): number {
+    return this.x * vector.y - this.y * vector.x;
+  }
+
+  distance(vector: Vector): number {
+    return Math.hypot(this.x - vector.x, this.y - vector.y);
+  }
+
+  negate(): this {
+    this.x = -this.x;
+    this.y = -this.y;
+
+    return this;
+  }
+
+  lerp(target: Vector, t: number): this {
+    this.x += (target.x - this.x) * t;
+    this.y += (target.y - this.y) * t;
 
     return this;
   }
