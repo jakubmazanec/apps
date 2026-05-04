@@ -57,6 +57,8 @@ export class Game {
     this.interactionView.eventMode = 'static';
     this.interactionView.hitArea = new pixi.Rectangle();
 
+    pixi.TextureSource.defaultOptions.scaleMode = 'nearest';
+
     pixi.extensions.add(tiledTilesetAsset);
     pixi.extensions.add(tiledTilemapAsset);
 

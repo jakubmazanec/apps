@@ -4,7 +4,10 @@ export const game = new Game({
   assetBundles: [
     {
       name: 'default',
-      assets: [{name: 'tileset', sources: ['tileset.json']}],
+      assets: [
+        {name: 'tileset', sources: ['tileset.json']},
+        {name: 'font', sources: ['font.fnt']},
+      ],
     },
     {
       name: 'game',
