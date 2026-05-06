@@ -4,7 +4,7 @@ import * as pixi from 'pixi.js';
 // import {CRTFilter} from 'pixi-filters';
 import {tiledTilemapAsset} from '../../pixi-tools/tiledTilemapAsset.js';
 import {tiledTilesetAsset} from '../../pixi-tools/tiledTilesetAsset.js';
-import {type GameScreen} from './GameScreen.js';
+import {type GameScreen, type Renderable} from './GameScreen.js';
 
 export type GameAssetBundleAsset = {
   name: string;
@@ -175,41 +175,34 @@ export class Game {
   }
 
   resize = () => {
-    if (this.ref?.current) {
-      let width = Math.trunc(this.ref.current.clientWidth / 1);
-      let height = Math.trunc(this.ref.current.clientHeight / 1);
+    if (!this.ref?.current) {
+      return;
+    }
 
-      // const windowWidth = window.innerWidth;
-      // const windowHeight = window.innerHeight;
-      // const minWidth = designConfig.content.width;
-      // const minHeight = designConfig.content.height;
+    let width = Math.trunc(this.ref.current.clientWidth);
+    let height = Math.trunc(this.ref.current.clientHeight);
 
-      // // calculate renderer and canvas sizes based on current dimensions
-      // const scaleX = windowWidth < minWidth ? minWidth / windowWidth : 1;
-      // const scaleY = windowHeight < minHeight ? minHeight / windowHeight : 1;
-      // const scale = scaleX > scaleY ? scaleX : scaleY;
-      // const width = windowWidth * scale;
-      // const height = windowHeight * scale;
+    this.app.canvas.style.width = `${width}px`;
+    this.app.canvas.style.height = `${height}px`;
 
-      // update canvas style dimensions and scroll window up to avoid issues on mobile resize
-      // this.app.renderer.view.style ??= {};
-      this.app.renderer.view.canvas.style!.width = `${width * 1}px`;
-      this.app.renderer.view.canvas.style!.height = `${height * 1}px`;
-      // this.app.canvas.style.imageRendering = 'pixelated';
+    if (this.interactionView.hitArea) {
+      let hitArea = this.interactionView.hitArea as pixi.Rectangle;
 
-      if (this.interactionView.hitArea) {
-        (this.interactionView.hitArea as pixi.Rectangle).x = 0;
-        (this.interactionView.hitArea as pixi.Rectangle).y = 0;
-        (this.interactionView.hitArea as pixi.Rectangle).width = width;
-        (this.interactionView.hitArea as pixi.Rectangle).height = height;
-      }
+      hitArea.x = 0;
+      hitArea.y = 0;
+      hitArea.width = width;
+      hitArea.height = height;
+    }
 
-      window.scrollTo(0, 0);
+    window.scrollTo(0, 0);
+    this.app.renderer.resize(width, height);
 
-      // update renderer and navigation screens dimensions
-      this.app.renderer.resize(width, height);
-      // navigation.init();
-      // navigation.resize(width, height);
+    if (this.currentScreen?.view.parent) {
+      this.currentScreen.resize();
+    }
+
+    if (this.loadingScreen?.view.parent) {
+      this.loadingScreen.resize();
     }
   };
 
@@ -237,53 +230,32 @@ export class Game {
     if (this.screens.includes(screen)) {
       // if there is a screen already created, hide it
       if (this.currentScreen) {
-        this.app.ticker.remove(this.currentScreen.update, this.currentScreen);
-        this.currentScreen.view.parent?.removeChild(this.currentScreen.view);
+        this.removeFromView(this.currentScreen);
       }
 
       // load assets for the new screen, if available
       if (screen.assetBundles.length && !this.areAssetBundlesLoaded(screen.assetBundles)) {
         // if assets are not loaded yet, show loading screen, if there is one
         if (this.loadingScreen) {
-          this.view.addChild(this.loadingScreen.view);
-          this.app.ticker.add(this.loadingScreen.update, this.loadingScreen);
+          this.addToView(this.loadingScreen);
+          this.loadingScreen.resize();
           await this.loadingScreen.show();
         }
-
-        // await new Promise((resolve) => setTimeout(resolve, 5 * 1000));
 
         // load all assets required by this new screen
         await pixi.Assets.loadBundle(screen.assetBundles);
 
         // hide loading screen, if exists
         if (this.loadingScreen) {
-          this.app.ticker.remove(this.loadingScreen.update, this.loadingScreen);
-          this.loadingScreen.view.parent?.removeChild(this.loadingScreen.view);
+          this.removeFromView(this.loadingScreen);
         }
       }
 
-      // create the new screen and add to the stage
       this.currentScreen = screen;
 
       // add screen to stage
-      this.view.addChild(screen.view);
-      this.app.ticker.add(screen.update, screen);
-
-      // // add screen's resize handler, if available
-      // if (screen.resize) {
-      //   // encapsulate resize in another function that can be removed later, to avoi scope issues with addEventListener
-
-      //   this.currentScreenResize = () => screen.resize;
-
-      //   // Trigger a first resize
-      //   screen.resize(this._w, this._h);
-      // }
-
-      // // add update function if available
-      // if (screen.update) {
-      //   app.ticker.add(screen.update, screen);
-      // }
-
+      this.addToView(screen);
+      screen.resize();
       await screen.show();
     }
 
@@ -294,21 +266,18 @@ export class Game {
   async hideScreen(screen: GameScreen<any>) {
     await screen.hide();
 
-    // // unlink resize handler if exists
-    // if (isOverlay) {
-    //   this.currentOverlayResize && window.removeEventListener('resize', this.currentOverlayResize);
-    // } else {
-    //   this.currentScreenResize && window.removeEventListener('resize', this.currentScreenResize);
-    // }
-
-    // // unlink update function if method is available
-    // if (screen.update) {
-    //   app.ticker.remove(screen.update, screen);
-    // }
-
-    this.app.ticker.remove(screen.update, screen);
-    screen.view.parent?.removeChild(screen.view);
+    this.removeFromView(screen);
 
     return this;
+  }
+
+  addToView(renderable: Renderable) {
+    this.view.addChild(renderable.view);
+    this.app.ticker.add(renderable.update, renderable);
+  }
+
+  removeFromView(renderable: Renderable) {
+    this.view.removeChild(renderable.view);
+    this.app.ticker.remove(renderable.update, renderable);
   }
 }

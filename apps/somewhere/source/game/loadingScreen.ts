@@ -30,15 +30,18 @@ export const loadingScreen = new GameScreen({
       setTimeout(resolve, 100);
     });
   },
-  onUpdate: (ticker, screen) => {
-    let cx = screen.game.app.screen.width / 2;
-    let cy = screen.game.app.screen.height / 2;
+  onResize: (screen, game) => {
+    let cx = game.app.canvas.width / 2;
+    let cy = game.app.canvas.height / 2;
     /* eslint-disable no-param-reassign -- needed */
     screen.state.spinner.x = cx;
     screen.state.spinner.y = cy;
-    screen.state.spinner.rotation += 0.1 * ticker.deltaTime;
     screen.state.label.x = cx;
     screen.state.label.y = cy + 70;
     /* eslint-enable no-param-reassign -- needed */
+  },
+  onUpdate: (ticker, screen) => {
+    // eslint-disable-next-line no-param-reassign -- needed
+    screen.state.spinner.rotation += 0.1 * ticker.deltaTime;
   },
 });

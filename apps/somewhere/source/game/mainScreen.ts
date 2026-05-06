@@ -69,24 +69,11 @@ export const mainScreen = new GameScreen({
       screen.view.removeChild(label);
     }
   },
-  onUpdate: (ticker, screen) => {
-    // let cx = screen.game.app.screen.width / 2;
-    // let labels = [
-    //   screen.state.title,
-    //   screen.state.fillExample,
-    //   screen.state.tintExample,
-    //   screen.state.outlineMR,
-    //   screen.state.shadowMR,
-    // ];
-
+  onResize: (screen, game) => {
     screen.state.title.x = 4 * 3;
     screen.state.title.y = 0;
-
-    // for (let [index, label] of labels.entries()) {
-    //   label.x = 0;
-    //   label.y = 0 + index * 64;
-    // }
-
+  },
+  onUpdate: (ticker, screen) => {
     // let h = ((ticker.lastTime / 1000) * 0.2) % 1;
     // let i = Math.floor(h * 6);
     // let f = h * 6 - i;
@@ -99,7 +86,6 @@ export const mainScreen = new GameScreen({
     //   [f, 0, 1],
     //   [1, 0, q],
     // ][i % 6] as [number, number, number];
-
     // screen.state.tintExample.tint =
     //   // eslint-disable-next-line no-bitwise -- needed
     //   (Math.round(rgb[0] * 255) << 16) | (Math.round(rgb[1] * 255) << 8) | Math.round(rgb[2] * 255);
