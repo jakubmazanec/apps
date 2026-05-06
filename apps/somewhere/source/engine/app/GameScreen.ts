@@ -13,6 +13,7 @@ export type GameScreenOptions<T> = {
   onShow?: ((screen: GameScreen<T>, game: Game) => Promise<void> | void) | undefined;
   onHide?: ((screen: GameScreen<T>, game: Game) => Promise<void> | void) | undefined;
   onUpdate?: ((ticker: pixi.Ticker, screen: GameScreen<T>, game: Game) => void) | undefined;
+  onResize?: ((screen: GameScreen<T>, game: Game) => void) | undefined;
 };
 
 export class GameScreen<T = undefined> {
@@ -26,8 +27,9 @@ export class GameScreen<T = undefined> {
   private readonly onShow?: (screen: GameScreen<T>, game: Game) => Promise<void> | void;
   private readonly onHide?: (screen: GameScreen<T>, game: Game) => Promise<void> | void;
   private readonly onUpdate?: (ticker: pixi.Ticker, screen: GameScreen<T>, game: Game) => void;
+  private readonly onResize?: (screen: GameScreen<T>, game: Game) => void;
 
-  constructor({assetBundles, onAdd, onShow, onHide, onUpdate}: GameScreenOptions<T>) {
+  constructor({assetBundles, onAdd, onShow, onHide, onUpdate, onResize}: GameScreenOptions<T>) {
     if (assetBundles !== undefined) {
       this.assetBundles = assetBundles;
     }
@@ -46,6 +48,10 @@ export class GameScreen<T = undefined> {
 
     if (onUpdate !== undefined) {
       this.onUpdate = onUpdate;
+    }
+
+    if (onResize !== undefined) {
+      this.onResize = onResize;
     }
   }
 
@@ -76,6 +82,10 @@ export class GameScreen<T = undefined> {
 
   async hide() {
     await this.onHide?.(this, this.game);
+  }
+
+  resize() {
+    this.onResize?.(this, this.game);
   }
 
   addToView(renderable: Renderable) {
