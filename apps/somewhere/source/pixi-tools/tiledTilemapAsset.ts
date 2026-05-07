@@ -1,8 +1,8 @@
 import * as pixi from 'pixi.js';
 
-import {Tilemap} from '../engine/Tilemap.js';
-import {type Tileset} from '../engine/Tileset.js';
-import {type TiledTilemap, tiledTilemapSchema} from '../tiled-tools.js';
+import {Tilemap} from '../engine/tiled/Tilemap.js';
+import {type Tileset} from '../engine/tiled/Tileset.js';
+import {type TiledTilemap, tiledTilemapSchema} from '../tiled-tools/TiledTilemap.js';
 
 function getCacheableAssets(keys: string[], asset: Tilemap) {
   const cacheableAssets: Record<string, unknown> = {};

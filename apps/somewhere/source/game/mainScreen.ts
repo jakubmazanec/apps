@@ -1,56 +1,95 @@
-import * as pixi from 'pixi.js';
-
-import {Entity} from '../engine/Entity.js';
-import {GameScreen} from '../engine/GameScreen.js';
-import {GraphicsComponent} from '../engine/GraphicsComponent.js';
-import {LevelComponent} from '../engine/LevelComponent.js';
-import {MotionComponent} from '../engine/MotionComponent.js';
-import {PlayerComponent} from '../engine/PlayerComponent.js';
-import {Vector} from '../engine/Vector.js';
+/* eslint-disable no-param-reassign -- needed */
+import {GameScreen} from '../engine/app/GameScreen.js';
+import {Text} from '../engine/graphics/Text.js';
 import {game} from './game.js';
 import {world} from './world.js';
 
 export const mainScreen = new GameScreen({
-  game,
   assetBundles: ['default', 'game'],
-  onShow: async (screen, game) => {
-    let map = new Entity({
-      components: [
-        new LevelComponent({
-          mapOptions: {
-            assetName: 'map',
-          },
-        }),
-      ],
+  onAdd: () => {
+    let title = new Text({
+      text: 'Somewhere',
+      fontFamily: 'monogram',
+      fontSize: 12,
+      fill: 0xffffff,
+      outlineColor: 'rgba(0,0,0,0.8)',
     });
-    let player = new Entity({
-      components: [
-        new PlayerComponent({name: 'Jakub'}),
-        new MotionComponent({position: new Vector(64 * 9, 64 * 10), velocity: new Vector(0, 0)}),
-        new GraphicsComponent({
-          spriteOptions: {
-            assetName: 'character',
-            spriteNames: [
-              'standing-down',
-              'walking-down',
-              'standing-left',
-              'walking-left',
-              'standing-up',
-              'walking-up',
-              'standing-right',
-              'walking-right',
-            ],
-          },
-          boundingBox: new pixi.Rectangle(0, 40, 64, 40),
-        }),
-      ],
+    let fillExample = new Text({
+      text: 'Solid fill (#ff5577)',
+      fontFamily: 'px sans nouveaux',
+      fontSize: 16,
+      fill: 0xff5577,
+    });
+    let tintExample = new Text({
+      text: 'Animated tint',
+      fontFamily: 'px sans nouveaux',
+      fontSize: 16,
+      fill: 0xffffff,
+    });
+    let outlineMR = new Text({
+      text: 'Multi-render outline',
+      fontFamily: 'px sans nouveaux',
+      fontSize: 16,
+      fill: 0xffffff,
+      outlineColor: 'rgba(0,0,0,0.8)',
+    });
+    let shadowMR = new Text({
+      text: 'Multi-render shadow',
+      fontFamily: 'px sans nouveaux',
+      fontSize: 16,
+      fill: 0xffffff,
+      shadowColor: 'rgba(0,0,0,0.8)',
     });
 
-    world.addEntity(map);
-    world.addEntity(player);
-    screen.addToView(world);
+    return {title, fillExample, tintExample, outlineMR, shadowMR};
   },
-  onUpdate: (ticker, screen) => {},
+  onShow: (screen) => {
+    screen.addToView(world);
+    world.start();
+    for (let label of [
+      screen.state.title,
+      // screen.state.fillExample,
+      // screen.state.tintExample,
+      // screen.state.outlineMR,
+      // screen.state.shadowMR,
+    ]) {
+      screen.view.addChild(label);
+    }
+  },
+  onHide: (screen) => {
+    world.stop();
+    screen.removeFromView(world);
+    for (let label of [
+      screen.state.title,
+      // screen.state.fillExample,
+      // screen.state.tintExample,
+      // screen.state.outlineMR,
+      // screen.state.shadowMR,
+    ]) {
+      screen.view.removeChild(label);
+    }
+  },
+  onResize: (screen, game) => {
+    screen.state.title.x = 4 * 3;
+    screen.state.title.y = 0;
+  },
+  onUpdate: (ticker, screen) => {
+    // let h = ((ticker.lastTime / 1000) * 0.2) % 1;
+    // let i = Math.floor(h * 6);
+    // let f = h * 6 - i;
+    // let q = 1 - f;
+    // let rgb: readonly [number, number, number] = [
+    //   [1, f, 0],
+    //   [q, 1, 0],
+    //   [0, 1, f],
+    //   [0, q, 1],
+    //   [f, 0, 1],
+    //   [1, 0, q],
+    // ][i % 6] as [number, number, number];
+    // screen.state.tintExample.tint =
+    //   // eslint-disable-next-line no-bitwise -- needed
+    //   (Math.round(rgb[0] * 255) << 16) | (Math.round(rgb[1] * 255) << 8) | Math.round(rgb[2] * 255);
+  },
 });
 
 game.addScreen(mainScreen);

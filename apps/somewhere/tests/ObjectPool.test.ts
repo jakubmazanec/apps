@@ -1,7 +1,7 @@
 /* eslint-disable no-param-reassign -- TODO */
 import {describe, expect, test} from 'vitest';
 
-import {ObjectPool} from '../source/engine/ObjectPool.js';
+import {ObjectPool} from '../source/engine/utilities/ObjectPool.js';
 
 // class Foo {
 //   value: number | null = null;

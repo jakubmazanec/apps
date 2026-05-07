@@ -1,10 +1,14 @@
-import {Game} from '../engine/Game.js';
+import {Game} from '../engine/app/Game.js';
 
 export const game = new Game({
   assetBundles: [
     {
       name: 'default',
-      assets: [{name: 'tileset', sources: ['tileset.json']}],
+      assets: [
+        {name: 'tileset', sources: ['tileset.json']},
+        {name: 'font', sources: ['font.fnt']},
+        {name: 'monogram', sources: ['monogram.fnt']},
+      ],
     },
     {
       name: 'game',

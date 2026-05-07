@@ -1,24 +1,16 @@
-import {CameraComponent} from '../engine/CameraComponent.js';
-import {GraphicsComponent} from '../engine/GraphicsComponent.js';
-import {LevelComponent} from '../engine/LevelComponent.js';
-import {MotionComponent} from '../engine/MotionComponent.js';
-import {System} from '../engine/System.js';
+import {System} from '../engine/ecs/System.js';
+import {CameraComponent} from './CameraComponent.js';
 import {cameraQuery} from './cameraQuery.js';
+import {GraphicsComponent} from './GraphicsComponent.js';
+import {LevelComponent} from './LevelComponent.js';
 import {levelQuery} from './levelQuery.js';
-import {world} from './world.js';
+import {MotionComponent} from './MotionComponent.js';
 
 export const graphicsSystem = new System({
-  world,
   components: [MotionComponent, GraphicsComponent],
-  entityQueries: {
-    cameras: cameraQuery,
-    level: levelQuery,
-  },
   onUpdate: (ticker, system) => {
     let {map} = levelQuery.getFirst().getComponent(LevelComponent);
-    let {position: cameraPosition} = system.entityQueries.cameras
-      .getFirst()
-      .getComponent(CameraComponent);
+    let {position: cameraPosition} = cameraQuery.getFirst().getComponent(CameraComponent);
 
     for (let entity of system.entities) {
       let motion = entity.getComponent(MotionComponent);
@@ -59,6 +51,12 @@ export const graphicsSystem = new System({
       map.addToLayer(sprite);
     }
   },
-});
+  onRemoveEntity: (entity, system) => {
+    let graphics = entity.getComponent(GraphicsComponent);
+    let {map} = levelQuery.getFirst().getComponent(LevelComponent);
 
-world.addSystem(graphicsSystem);
+    for (let sprite of Object.values(graphics.sprite.sprites)) {
+      map.removeFromLayer(sprite);
+    }
+  },
+});

@@ -1,20 +1,13 @@
-import {CameraComponent} from '../engine/CameraComponent.js';
-import {LevelComponent} from '../engine/LevelComponent.js';
-import {System} from '../engine/System.js';
+import {System} from '../engine/ecs/System.js';
+import {CameraComponent} from './CameraComponent.js';
 import {cameraQuery} from './cameraQuery.js';
-import {world} from './world.js';
+import {LevelComponent} from './LevelComponent.js';
 
 export const mapSystem = new System({
   displayName: 'Map system',
-  world,
   components: [LevelComponent],
-  entityQueries: {
-    cameras: cameraQuery,
-  },
   onUpdate: (delta, system) => {
-    let {position: cameraPosition} = system.entityQueries.cameras
-      .getFirst()
-      .getComponent(CameraComponent);
+    let {position: cameraPosition} = cameraQuery.getFirst().getComponent(CameraComponent);
 
     for (let entity of system.entities) {
       let {map} = entity.getComponent(LevelComponent);
@@ -34,5 +27,3 @@ export const mapSystem = new System({
     system.view.removeChild(map.view);
   },
 });
-
-world.addSystem(mapSystem);
