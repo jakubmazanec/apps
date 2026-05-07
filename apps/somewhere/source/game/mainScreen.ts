@@ -8,9 +8,9 @@ export const mainScreen = new GameScreen({
   assetBundles: ['default', 'game'],
   onAdd: () => {
     let title = new Text({
-      text: 'SOMEWHERE',
-      fontFamily: 'px sans nouveaux',
-      fontSize: 16,
+      text: 'Somewhere',
+      fontFamily: 'monogram',
+      fontSize: 12,
       fill: 0xffffff,
       outlineColor: 'rgba(0,0,0,0.8)',
     });

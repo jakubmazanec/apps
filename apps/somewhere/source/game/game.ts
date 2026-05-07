@@ -7,6 +7,7 @@ export const game = new Game({
       assets: [
         {name: 'tileset', sources: ['tileset.json']},
         {name: 'font', sources: ['font.fnt']},
+        {name: 'monogram', sources: ['monogram.fnt']},
       ],
     },
     {
