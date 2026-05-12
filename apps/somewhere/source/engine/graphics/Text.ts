@@ -26,11 +26,16 @@ const OUTLINE_OFFSETS: ReadonlyArray<readonly [number, number]> = [
   [1, 1],
 ];
 
-export class Text extends pixi.Container {
-  readonly #layers: pixi.BitmapText[] = [];
+export class Text {
+  readonly view: pixi.Container = new pixi.Container();
+
+  readonly #content: pixi.Container = new pixi.Container();
+
+  readonly #sprites: pixi.BitmapText[] = [];
 
   constructor(options: TextOptions) {
-    super();
+    this.#content.scale.set(SCALE);
+    this.view.addChild(this.#content);
 
     let {
       text,
@@ -46,9 +51,9 @@ export class Text extends pixi.Container {
 
       shadow.x = shadowOffset.x;
       shadow.y = shadowOffset.y;
-      shadow.alpha = new pixi.Color(shadowColor).alpha; // BitmapText ignores alpha channel, only the RGB channels are used, so instead we set the alpha directly.
+      shadow.alpha = new pixi.Color(shadowColor).alpha; // BitmapText ignores alpha channel, so instead we set the alpha directly.
 
-      this.#layers.push(shadow);
+      this.#sprites.push(shadow);
     }
 
     if (outlineColor !== undefined) {
@@ -61,7 +66,7 @@ export class Text extends pixi.Container {
         outline.y = dy;
         outline.alpha = outlineAlpha;
 
-        this.#layers.push(outline);
+        this.#sprites.push(outline);
       }
     }
 
@@ -71,27 +76,25 @@ export class Text extends pixi.Container {
       main.alpha = new pixi.Color(style.fill).alpha;
     }
 
-    this.#layers.push(main);
+    this.#sprites.push(main);
 
-    for (let layer of this.#layers) {
-      layer.anchor.set(anchor.x, anchor.y);
-      this.addChild(layer);
+    for (let sprite of this.#sprites) {
+      sprite.anchor.set(anchor.x, anchor.y);
+      this.#content.addChild(sprite);
     }
-
-    this.scale.set(SCALE);
   }
 
   setText(text: string): this {
-    for (let layer of this.#layers) {
-      layer.text = text;
+    for (let sprite of this.#sprites) {
+      sprite.text = text;
     }
 
     return this;
   }
 
   setAnchor(anchor: pixi.PointData): this {
-    for (let layer of this.#layers) {
-      layer.anchor.set(anchor.x, anchor.y);
+    for (let sprite of this.#sprites) {
+      sprite.anchor.set(anchor.x, anchor.y);
     }
 
     return this;

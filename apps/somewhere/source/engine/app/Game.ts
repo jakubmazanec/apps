@@ -32,7 +32,6 @@ export class Game {
 
   readonly app: pixi.Application;
   readonly view: pixi.Container = new pixi.Container();
-  private readonly interactionView: pixi.Container = new pixi.Container();
 
   ref: React.RefObject<HTMLElement | null> | null = null;
 
@@ -52,10 +51,9 @@ export class Game {
     });
 
     this.app.stage.addChild(this.view);
-    this.app.stage.addChild(this.interactionView);
 
-    this.interactionView.eventMode = 'static';
-    this.interactionView.hitArea = new pixi.Rectangle();
+    this.view.eventMode = 'static';
+    this.view.hitArea = new pixi.Rectangle();
 
     pixi.TextureSource.defaultOptions.scaleMode = 'nearest';
 
@@ -101,7 +99,7 @@ export class Game {
     event: T,
     fn: EventEmitter.EventListener<pixi.FederatedEventMap, T>,
   ): this {
-    this.interactionView.on(event, fn, this);
+    this.view.on(event, fn, this);
 
     return this;
   }
@@ -110,7 +108,7 @@ export class Game {
     event: T,
     fn: EventEmitter.EventListener<pixi.FederatedEventMap, T>,
   ): this {
-    this.interactionView.once(event, fn, this);
+    this.view.once(event, fn, this);
 
     return this;
   }
@@ -119,7 +117,7 @@ export class Game {
     event: T,
     fn?: EventEmitter.EventListener<pixi.FederatedEventMap, T>,
   ): this {
-    this.interactionView.off(event, fn, this);
+    this.view.off(event, fn, this);
 
     return this;
   }
@@ -185,8 +183,8 @@ export class Game {
     this.app.canvas.style.width = `${width}px`;
     this.app.canvas.style.height = `${height}px`;
 
-    if (this.interactionView.hitArea) {
-      let hitArea = this.interactionView.hitArea as pixi.Rectangle;
+    if (this.view.hitArea) {
+      let hitArea = this.view.hitArea as pixi.Rectangle;
 
       hitArea.x = 0;
       hitArea.y = 0;

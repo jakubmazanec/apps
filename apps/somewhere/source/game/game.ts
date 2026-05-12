@@ -8,6 +8,7 @@ export const game = new Game({
         {name: 'tileset', sources: ['tileset.json']},
         {name: 'font', sources: ['font.fnt']},
         {name: 'monogram', sources: ['monogram.fnt']},
+        {name: 'banner', sources: ['banner.png']},
       ],
     },
     {

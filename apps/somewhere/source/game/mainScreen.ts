@@ -1,6 +1,9 @@
 /* eslint-disable no-param-reassign -- needed */
+import * as pixi from 'pixi.js';
+
 import {GameScreen} from '../engine/app/GameScreen.js';
 import {Text} from '../engine/graphics/Text.js';
+import {Button} from '../engine/ui/Button.js';
 import {game} from './game.js';
 import {world} from './world.js';
 
@@ -40,12 +43,86 @@ export const mainScreen = new GameScreen({
       fill: 0xffffff,
       shadowColor: 'rgba(0,0,0,0.8)',
     });
+    let banner = new pixi.NineSliceSprite({
+      texture: pixi.Texture.EMPTY,
+      leftWidth: 12,
+      topHeight: 4,
+      rightWidth: 12,
+      bottomHeight: 12,
+      width: 240,
+      height: 52,
+    });
 
-    return {title, fillExample, tintExample, outlineMR, shadowMR};
+    let buttonSlice = {leftWidth: 12, topHeight: 12, rightWidth: 12, bottomHeight: 12};
+    let buttonWidth = 160;
+    let buttonHeight = 32;
+
+    let makeButtonSprite = (tint: number) => {
+      let sprite = new pixi.NineSliceSprite({
+        texture: pixi.Texture.EMPTY,
+        ...buttonSlice,
+        width: buttonWidth,
+        height: buttonHeight,
+      });
+
+      sprite.tint = tint;
+
+      return sprite;
+    };
+
+    let newGameNormal = makeButtonSprite(0xffffff);
+    let newGameHover = makeButtonSprite(0xccccff);
+    let newGamePressed = makeButtonSprite(0x8888bb);
+    let newGameDisabled = makeButtonSprite(0x555555);
+
+    let newGameLabel = new Text({
+      text: 'New game',
+      fontFamily: 'monogram',
+      fontSize: 12,
+      fill: 0xffffff,
+      anchor: {x: 0.5, y: 0.5},
+    });
+    newGameLabel.view.position.set(buttonWidth / 2, buttonHeight / 2);
+
+    let newGameButton = new Button({
+      sprites: {
+        normal: newGameNormal,
+        hover: newGameHover,
+        pressed: newGamePressed,
+        disabled: newGameDisabled,
+      },
+      onClick: () => {
+        // eslint-disable-next-line no-console -- placeholder until Game screen exists
+        console.log('New game clicked');
+      },
+    });
+    newGameButton.view.addChild(newGameLabel.view);
+
+    return {
+      title,
+      fillExample,
+      tintExample,
+      outlineMR,
+      shadowMR,
+      banner,
+      newGameButton,
+      newGameSprites: [newGameNormal, newGameHover, newGamePressed, newGameDisabled],
+    };
   },
   onShow: (screen) => {
     screen.addToView(world);
     world.start();
+    screen.state.banner.texture = pixi.Assets.get('banner');
+    screen.view.addChild(screen.state.banner);
+
+    screen.state.banner.width = 300;
+
+    for (let sprite of screen.state.newGameSprites) {
+      sprite.texture = pixi.Assets.get('banner');
+    }
+
+    screen.view.addChild(screen.state.newGameButton.view);
+
     for (let label of [
       screen.state.title,
       // screen.state.fillExample,
@@ -53,12 +130,14 @@ export const mainScreen = new GameScreen({
       // screen.state.outlineMR,
       // screen.state.shadowMR,
     ]) {
-      screen.view.addChild(label);
+      screen.view.addChild(label.view);
     }
   },
   onHide: (screen) => {
     world.stop();
     screen.removeFromView(world);
+    screen.view.removeChild(screen.state.banner);
+    screen.view.removeChild(screen.state.newGameButton.view);
     for (let label of [
       screen.state.title,
       // screen.state.fillExample,
@@ -66,12 +145,16 @@ export const mainScreen = new GameScreen({
       // screen.state.outlineMR,
       // screen.state.shadowMR,
     ]) {
-      screen.view.removeChild(label);
+      screen.view.removeChild(label.view);
     }
   },
   onResize: (screen, game) => {
-    screen.state.title.x = 4 * 3;
-    screen.state.title.y = 0;
+    screen.state.title.view.x = 4 * 3;
+    screen.state.title.view.y = 0;
+    screen.state.banner.x = 4 * 3;
+    screen.state.banner.y = 24;
+    screen.state.newGameButton.view.x = 4 * 3;
+    screen.state.newGameButton.view.y = 90;
   },
   onUpdate: (ticker, screen) => {
     // let h = ((ticker.lastTime / 1000) * 0.2) % 1;
