@@ -1,10 +1,9 @@
-/* eslint-disable no-param-reassign -- needed */
 import * as pixi from 'pixi.js';
 
 import {GameScreen} from '../engine/app/GameScreen.js';
 import {Text} from '../engine/graphics/Text.js';
 import {Button} from '../engine/ui/Button.js';
-import {game} from './game.js';
+import {Panel} from '../engine/ui/Panel.js';
 import {world} from './world.js';
 
 export const mainScreen = new GameScreen({
@@ -16,53 +15,54 @@ export const mainScreen = new GameScreen({
       fontSize: 12,
       fill: 0xffffff,
       outlineColor: 'rgba(0,0,0,0.8)',
+      layout: true,
     });
-    let fillExample = new Text({
-      text: 'Solid fill (#ff5577)',
-      fontFamily: 'px sans nouveaux',
-      fontSize: 16,
-      fill: 0xff5577,
-    });
-    let tintExample = new Text({
-      text: 'Animated tint',
-      fontFamily: 'px sans nouveaux',
-      fontSize: 16,
-      fill: 0xffffff,
-    });
-    let outlineMR = new Text({
-      text: 'Multi-render outline',
-      fontFamily: 'px sans nouveaux',
-      fontSize: 16,
-      fill: 0xffffff,
-      outlineColor: 'rgba(0,0,0,0.8)',
-    });
-    let shadowMR = new Text({
-      text: 'Multi-render shadow',
-      fontFamily: 'px sans nouveaux',
-      fontSize: 16,
-      fill: 0xffffff,
-      shadowColor: 'rgba(0,0,0,0.8)',
-    });
+
     let banner = new pixi.NineSliceSprite({
       texture: pixi.Texture.EMPTY,
       leftWidth: 12,
       topHeight: 4,
       rightWidth: 12,
       bottomHeight: 12,
-      width: 240,
-      height: 52,
+    });
+    banner.layout = {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      width: 'auto',
+      height: 'auto',
+    };
+
+    // let debugRect = new pixi.Graphics().rect(0, 0, 1, 1).fill(0x2a4d6e);
+    // debugRect.layout = {
+    //   position: 'absolute',
+    //   top: 0,
+    //   left: 0,
+    //   right: 0,
+    //   bottom: 0,
+    //   width: 'auto',
+    //   height: 'auto',
+    // };
+
+    // let debugRect2 = new pixi.Graphics({layout: true}).rect(0, 0, 200, 100).fill(0xff00cc);
+
+    let bannerPanel = new Panel({
+      children: [banner, title.view],
+      layout: {
+        padding: 16,
+        alignItems: 'center',
+        justifyContent: 'center',
+      },
     });
 
     let buttonSlice = {leftWidth: 12, topHeight: 12, rightWidth: 12, bottomHeight: 12};
-    let buttonWidth = 160;
-    let buttonHeight = 32;
 
     let makeButtonSprite = (tint: number) => {
       let sprite = new pixi.NineSliceSprite({
         texture: pixi.Texture.EMPTY,
         ...buttonSlice,
-        width: buttonWidth,
-        height: buttonHeight,
       });
 
       sprite.tint = tint;
@@ -80,9 +80,8 @@ export const mainScreen = new GameScreen({
       fontFamily: 'monogram',
       fontSize: 12,
       fill: 0xffffff,
-      anchor: {x: 0.5, y: 0.5},
+      layout: true,
     });
-    newGameLabel.view.position.set(buttonWidth / 2, buttonHeight / 2);
 
     let newGameButton = new Button({
       sprites: {
@@ -95,16 +94,17 @@ export const mainScreen = new GameScreen({
         // eslint-disable-next-line no-console -- placeholder until Game screen exists
         console.log('New game clicked');
       },
+      layout: {
+        padding: 8,
+        alignItems: 'center',
+        justifyContent: 'center',
+      },
     });
     newGameButton.view.addChild(newGameLabel.view);
 
     return {
-      title,
-      fillExample,
-      tintExample,
-      outlineMR,
-      shadowMR,
       banner,
+      bannerPanel,
       newGameButton,
       newGameSprites: [newGameNormal, newGameHover, newGamePressed, newGameDisabled],
     };
@@ -112,67 +112,23 @@ export const mainScreen = new GameScreen({
   onShow: (screen) => {
     screen.addToView(world);
     world.start();
-    screen.state.banner.texture = pixi.Assets.get('banner');
-    screen.view.addChild(screen.state.banner);
 
-    screen.state.banner.width = 300;
+    console.log(pixi.Assets.get('banner'));
+    screen.state.banner.texture = pixi.Assets.get('banner');
 
     for (let sprite of screen.state.newGameSprites) {
       sprite.texture = pixi.Assets.get('banner');
     }
 
-    screen.view.addChild(screen.state.newGameButton.view);
-
-    for (let label of [
-      screen.state.title,
-      // screen.state.fillExample,
-      // screen.state.tintExample,
-      // screen.state.outlineMR,
-      // screen.state.shadowMR,
-    ]) {
-      screen.view.addChild(label.view);
-    }
+    screen.view.addChild(screen.state.bannerPanel.view);
+    // screen.view.addChild(screen.state.newGameButton.view);
   },
   onHide: (screen) => {
     world.stop();
     screen.removeFromView(world);
-    screen.view.removeChild(screen.state.banner);
+    screen.view.removeChild(screen.state.bannerPanel.view);
     screen.view.removeChild(screen.state.newGameButton.view);
-    for (let label of [
-      screen.state.title,
-      // screen.state.fillExample,
-      // screen.state.tintExample,
-      // screen.state.outlineMR,
-      // screen.state.shadowMR,
-    ]) {
-      screen.view.removeChild(label.view);
-    }
   },
-  onResize: (screen, game) => {
-    screen.state.title.view.x = 4 * 3;
-    screen.state.title.view.y = 0;
-    screen.state.banner.x = 4 * 3;
-    screen.state.banner.y = 24;
-    screen.state.newGameButton.view.x = 4 * 3;
-    screen.state.newGameButton.view.y = 90;
-  },
-  onUpdate: (ticker, screen) => {
-    // let h = ((ticker.lastTime / 1000) * 0.2) % 1;
-    // let i = Math.floor(h * 6);
-    // let f = h * 6 - i;
-    // let q = 1 - f;
-    // let rgb: readonly [number, number, number] = [
-    //   [1, f, 0],
-    //   [q, 1, 0],
-    //   [0, 1, f],
-    //   [0, q, 1],
-    //   [f, 0, 1],
-    //   [1, 0, q],
-    // ][i % 6] as [number, number, number];
-    // screen.state.tintExample.tint =
-    //   // eslint-disable-next-line no-bitwise -- needed
-    //   (Math.round(rgb[0] * 255) << 16) | (Math.round(rgb[1] * 255) << 8) | Math.round(rgb[2] * 255);
-  },
+  onResize: () => {},
+  onUpdate: () => {},
 });
-
-game.addScreen(mainScreen);

@@ -25,6 +25,7 @@
   },
   "dependencies": {
     "@jakubmazanec/ts-utils": "^3.0.15",
+    "@pixi/layout": "^3.2.0",
     "@react-router/express": "^7.8.1",
     "@react-router/fs-routes": "^7.8.1",
     "@react-router/node": "^7.8.1",

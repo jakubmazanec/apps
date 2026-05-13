@@ -6,6 +6,8 @@ import {tiledTilemapAsset} from '../../pixi-tools/tiledTilemapAsset.js';
 import {tiledTilesetAsset} from '../../pixi-tools/tiledTilesetAsset.js';
 import {type GameScreen, type Renderable} from './GameScreen.js';
 
+import '@pixi/layout';
+
 export type GameAssetBundleAsset = {
   name: string;
   sources: string[];
@@ -42,23 +44,25 @@ export class Game {
 
   async init() {
     await this.app.init({
-      // resolution: Math.max(window.devicePixelRatio, 2),
-      resolution: 1,
+      resolution: 1, //typeof window === 'undefined' ? 1 : window.devicePixelRatio,
       backgroundColor: 0x000000,
       antialias: false,
       eventMode: 'passive',
       preference: 'webgl',
+      layout: {
+        autoUpdate: true,
+        enableDebug: false,
+        throttle: 100,
+      },
     });
 
+    pixi.extensions.add(tiledTilesetAsset);
+    pixi.extensions.add(tiledTilemapAsset);
     this.app.stage.addChild(this.view);
 
     this.view.eventMode = 'static';
     this.view.hitArea = new pixi.Rectangle();
-
     pixi.TextureSource.defaultOptions.scaleMode = 'nearest';
-
-    pixi.extensions.add(tiledTilesetAsset);
-    pixi.extensions.add(tiledTilemapAsset);
 
     await pixi.Assets.init({
       manifest: {
@@ -154,6 +158,7 @@ export class Game {
     }
 
     ref.current.append(this.app.canvas);
+    this.app.canvas.style.imageRendering = 'pixelated';
     window.addEventListener('resize', this.resize);
 
     this.ref = ref;
@@ -177,23 +182,25 @@ export class Game {
       return;
     }
 
-    let width = Math.trunc(this.ref.current.clientWidth);
-    let height = Math.trunc(this.ref.current.clientHeight);
+    let cssWidth = Math.trunc(this.ref.current.clientWidth);
+    let cssHeight = Math.trunc(this.ref.current.clientHeight);
+    let pixelWidth = Math.round(cssWidth * window.devicePixelRatio);
+    let pixelHeight = Math.round(cssHeight * window.devicePixelRatio);
 
-    this.app.canvas.style.width = `${width}px`;
-    this.app.canvas.style.height = `${height}px`;
+    this.app.canvas.style.width = `${cssWidth}px`;
+    this.app.canvas.style.height = `${cssHeight}px`;
 
     if (this.view.hitArea) {
       let hitArea = this.view.hitArea as pixi.Rectangle;
 
       hitArea.x = 0;
       hitArea.y = 0;
-      hitArea.width = width;
-      hitArea.height = height;
+      hitArea.width = pixelWidth;
+      hitArea.height = pixelHeight;
     }
 
     window.scrollTo(0, 0);
-    this.app.renderer.resize(width, height);
+    this.app.renderer.resize(pixelWidth, pixelHeight);
 
     if (this.currentScreen?.view.parent) {
       this.currentScreen.resize();

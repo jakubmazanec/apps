@@ -19,6 +19,7 @@ export default function Index() {
       ]);
       await importedGame.init();
       importedGame.addLoadingScreen(loadingScreen);
+      importedGame.addScreen(mainScreen);
       void importedGame.showScreen(mainScreen);
       setGame(importedGame);
     })();

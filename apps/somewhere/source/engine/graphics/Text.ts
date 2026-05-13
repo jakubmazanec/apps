@@ -10,6 +10,7 @@ export type TextOptions = Pick<pixi.TextStyleOptions, 'fontFamily' | 'fontSize'>
   shadowColor?: pixi.ColorSource;
   shadowOffset?: pixi.PointData;
   anchor?: pixi.PointData;
+  layout?: pixi.Container['layout'];
 };
 
 const DEFAULT_ANCHOR: pixi.PointData = {x: 0, y: 0};
@@ -43,6 +44,7 @@ export class Text {
       shadowColor,
       shadowOffset = DEFAULT_SHADOW_OFFSET,
       anchor = DEFAULT_ANCHOR,
+      layout,
       ...style
     } = options;
 
@@ -81,6 +83,18 @@ export class Text {
     for (let sprite of this.#sprites) {
       sprite.anchor.set(anchor.x, anchor.y);
       this.#content.addChild(sprite);
+    }
+
+    if (layout !== undefined) {
+      // Text's view is a plain Container, but semantically a leaf. Force isLeaf
+      // so @pixi/layout uses intrinsic bounds and compensates for outline offsets.
+      if (layout === true) {
+        this.view.layout = {isLeaf: true};
+      } else if (typeof layout === 'object' && layout !== null) {
+        this.view.layout = {isLeaf: true, ...layout};
+      } else {
+        this.view.layout = layout;
+      }
     }
   }
 

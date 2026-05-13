@@ -10,6 +10,7 @@ export type ButtonOptions = {
     disabled?: pixi.Container;
   };
   onClick?: (button: Button) => void;
+  layout?: pixi.Container['layout'];
 };
 
 export class Button {
@@ -20,7 +21,7 @@ export class Button {
   readonly #sprites: Record<ButtonState, pixi.Container>;
   private readonly onClick?: (button: Button) => void;
 
-  constructor({sprites, onClick}: ButtonOptions) {
+  constructor({sprites, onClick, layout}: ButtonOptions) {
     if (onClick !== undefined) {
       this.onClick = onClick;
     }
@@ -87,6 +88,14 @@ export class Button {
         this.onClick?.(this);
       }
     });
+
+    if (layout !== undefined) {
+      this.view.layout = layout;
+      // state sprites become background fill so label children drive the button size
+      for (let sprite of new Set(Object.values(this.#sprites))) {
+        sprite.layout = {position: 'absolute', width: '100%', height: '100%'};
+      }
+    }
   }
 
   get state(): ButtonState {
