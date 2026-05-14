@@ -21,8 +21,8 @@ export const playerSystem = new System({
         let motion = entity.getComponent(MotionComponent);
 
         motion.target = new Vector(
-          event.clientX / 1 + cameraPosition.x - 32, // TODO: 32 is from the bounding box, fix it sthe value is used directly, not as a cosntant
-          event.clientY / 1 + cameraPosition.y - 60, // TODO: 60 is from the bounding box, fix it sthe value is used directly, not as a cosntant
+          event.global.x + cameraPosition.x - 32, // TODO: 32 is from the bounding box, fix it sthe value is used directly, not as a cosntant
+          event.global.y + cameraPosition.y - 60, // TODO: 60 is from the bounding box, fix it sthe value is used directly, not as a cosntant
         );
         motion.velocity.x = 0;
         motion.velocity.y = 0;
