@@ -9,6 +9,8 @@ export const game = new Game({
         {name: 'font', sources: ['font.fnt']},
         {name: 'monogram', sources: ['monogram.fnt']},
         {name: 'banner', sources: ['banner.png']},
+        {name: 'banner-hover', sources: ['banner-hover.png']},
+        {name: 'banner-active', sources: ['banner-active.png']},
       ],
     },
     {

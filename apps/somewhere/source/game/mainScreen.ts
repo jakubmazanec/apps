@@ -33,26 +33,22 @@ export const mainScreen = new GameScreen({
         padding: 32,
         alignItems: 'center',
         justifyContent: 'center',
+        flexDirection: 'column',
       },
     });
 
     let buttonSlice = {leftWidth: 12, topHeight: 12, rightWidth: 12, bottomHeight: 12};
 
-    let makeButtonSprite = (tint: number) => {
-      let sprite = new pixi.NineSliceSprite({
+    let makeButtonBackground = () =>
+      new pixi.NineSliceSprite({
         texture: pixi.Texture.EMPTY,
         ...buttonSlice,
       });
 
-      sprite.tint = tint;
-
-      return sprite;
-    };
-
-    let newGameNormal = makeButtonSprite(0xffffff);
-    let newGameHover = makeButtonSprite(0xccccff);
-    let newGamePressed = makeButtonSprite(0x8888bb);
-    let newGameDisabled = makeButtonSprite(0x555555);
+    let newGameBgNormal = makeButtonBackground();
+    let newGameBgHover = makeButtonBackground();
+    let newGameBgPressed = makeButtonBackground();
+    let newGameBgDisabled = makeButtonBackground();
 
     let newGameLabel = new Text({
       text: 'New game',
@@ -63,11 +59,11 @@ export const mainScreen = new GameScreen({
     });
 
     let newGameButton = new Button({
-      sprites: {
-        normal: newGameNormal,
-        hover: newGameHover,
-        pressed: newGamePressed,
-        disabled: newGameDisabled,
+      backgrounds: {
+        normal: newGameBgNormal,
+        hover: newGameBgHover,
+        pressed: newGameBgPressed,
+        disabled: newGameBgDisabled,
       },
       onClick: () => {
         // eslint-disable-next-line no-console -- placeholder until Game screen exists
@@ -81,11 +77,18 @@ export const mainScreen = new GameScreen({
     });
     newGameButton.view.addChild(newGameLabel.view);
 
+    bannerPanel.view.addChild(newGameButton.view);
+
     return {
       banner,
       bannerPanel,
       newGameButton,
-      newGameSprites: [newGameNormal, newGameHover, newGamePressed, newGameDisabled],
+      newGameBackgrounds: {
+        normal: newGameBgNormal,
+        hover: newGameBgHover,
+        pressed: newGameBgPressed,
+        disabled: newGameBgDisabled,
+      },
     };
   },
   onShow: (screen) => {
@@ -94,18 +97,21 @@ export const mainScreen = new GameScreen({
 
     screen.state.banner.texture = pixi.Assets.get('banner');
 
-    for (let sprite of screen.state.newGameSprites) {
-      sprite.texture = pixi.Assets.get('banner');
+    for (let [background, asset] of [
+      [screen.state.newGameBackgrounds.normal, 'banner'],
+      [screen.state.newGameBackgrounds.hover, 'banner-hover'],
+      [screen.state.newGameBackgrounds.pressed, 'banner-active'],
+      [screen.state.newGameBackgrounds.disabled, 'banner'],
+    ] as const) {
+      background.texture = pixi.Assets.get(asset);
     }
 
     screen.view.addChild(screen.state.bannerPanel.view);
-    // screen.view.addChild(screen.state.newGameButton.view);
   },
   onHide: (screen) => {
     world.stop();
     screen.removeFromView(world);
     screen.view.removeChild(screen.state.bannerPanel.view);
-    screen.view.removeChild(screen.state.newGameButton.view);
   },
   onResize: () => {},
   onUpdate: () => {},

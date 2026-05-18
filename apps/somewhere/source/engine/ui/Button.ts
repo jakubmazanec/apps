@@ -1,9 +1,10 @@
-import * as pixi from 'pixi.js';
+import {LayoutContainer} from '@pixi/layout/components';
+import type * as pixi from 'pixi.js';
 
 export type ButtonState = 'disabled' | 'hover' | 'normal' | 'pressed';
 
 export type ButtonOptions = {
-  sprites: {
+  backgrounds: {
     normal: pixi.Container;
     hover?: pixi.Container;
     pressed?: pixi.Container;
@@ -14,30 +15,26 @@ export type ButtonOptions = {
 };
 
 export class Button {
-  readonly view: pixi.Container = new pixi.Container();
+  readonly view: LayoutContainer;
 
   #state: ButtonState = 'normal';
 
-  readonly #sprites: Record<ButtonState, pixi.Container>;
-  private readonly onClick?: (button: Button) => void;
+  readonly #backgrounds: Record<ButtonState, pixi.Container>;
+  readonly #onClick?: (button: Button) => void;
 
-  constructor({sprites, onClick, layout}: ButtonOptions) {
+  constructor({backgrounds, onClick, layout}: ButtonOptions) {
     if (onClick !== undefined) {
-      this.onClick = onClick;
+      this.#onClick = onClick;
     }
 
-    this.#sprites = {
-      normal: sprites.normal,
-      hover: sprites.hover ?? sprites.normal,
-      pressed: sprites.pressed ?? sprites.normal,
-      disabled: sprites.disabled ?? sprites.normal,
+    this.#backgrounds = {
+      normal: backgrounds.normal,
+      hover: backgrounds.hover ?? backgrounds.normal,
+      pressed: backgrounds.pressed ?? backgrounds.normal,
+      disabled: backgrounds.disabled ?? backgrounds.normal,
     };
 
-    for (let sprite of new Set(Object.values(this.#sprites))) {
-      sprite.visible = false;
-      this.view.addChild(sprite);
-    }
-    this.#sprites.normal.visible = true;
+    this.view = new LayoutContainer({background: this.#backgrounds.normal});
 
     this.view.eventMode = 'static';
     this.view.cursor = 'pointer';
@@ -47,9 +44,7 @@ export class Button {
         return;
       }
 
-      this.#sprites[this.#state].visible = false;
-      this.#state = 'hover';
-      this.#sprites.hover.visible = true;
+      this.#setState('hover');
     });
 
     this.view.on('pointerout', () => {
@@ -57,9 +52,7 @@ export class Button {
         return;
       }
 
-      this.#sprites[this.#state].visible = false;
-      this.#state = 'normal';
-      this.#sprites.normal.visible = true;
+      this.#setState('normal');
     });
 
     this.view.on('pointerdown', () => {
@@ -67,9 +60,7 @@ export class Button {
         return;
       }
 
-      this.#sprites[this.#state].visible = false;
-      this.#state = 'pressed';
-      this.#sprites.pressed.visible = true;
+      this.#setState('pressed');
     });
 
     this.view.on('pointerup', () => {
@@ -77,24 +68,18 @@ export class Button {
         return;
       }
 
-      this.#sprites.pressed.visible = false;
-      this.#state = 'hover';
-      this.#sprites.hover.visible = true;
+      this.#setState('hover');
     });
 
     this.view.on('pointertap', (event) => {
       if (this.#state !== 'disabled') {
         event.stopPropagation();
-        this.onClick?.(this);
+        this.#onClick?.(this);
       }
     });
 
     if (layout !== undefined) {
       this.view.layout = layout;
-      // state sprites become background fill so label children drive the button size
-      for (let sprite of new Set(Object.values(this.#sprites))) {
-        sprite.layout = {position: 'absolute', width: '100%', height: '100%'};
-      }
     }
   }
 
@@ -107,9 +92,7 @@ export class Button {
       return;
     }
 
-    this.#sprites.disabled.visible = false;
-    this.#state = 'normal';
-    this.#sprites.normal.visible = true;
+    this.#setState('normal');
 
     this.view.eventMode = 'static';
     this.view.cursor = 'pointer';
@@ -120,11 +103,34 @@ export class Button {
       return;
     }
 
-    this.#sprites[this.#state].visible = false;
-    this.#state = 'disabled';
-    this.#sprites.disabled.visible = true;
+    this.#setState('disabled');
 
     this.view.eventMode = 'none';
     this.view.cursor = 'default';
+  }
+
+  // `LayoutContainer.background` is a plain field added as a direct child once
+  // in the constructor, so swapping states means re-parenting via the library's
+  // public `containerMethods` (the original Container methods; the public
+  // `addChild` is rebound to route into `overflowContainer`). The incoming
+  // background is sized from the outgoing one — which the layout engine already
+  // sized to fill — so the swap is correct immediately without forcing a
+  // relayout; later relayouts keep sizing `view.background` as usual.
+  #setState(state: ButtonState) {
+    let previous = this.#backgrounds[this.#state];
+    let next = this.#backgrounds[state];
+
+    this.#state = state;
+
+    if (previous === next) {
+      return;
+    }
+
+    next.position.set(0, 0);
+    next.setSize(previous.width, previous.height);
+
+    this.view.containerMethods.removeChild(previous);
+    this.view.containerMethods.addChildAt(next, 0);
+    this.view.background = next;
   }
 }
