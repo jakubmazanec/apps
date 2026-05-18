@@ -1,14 +1,18 @@
-import * as pixi from 'pixi.js';
+import {LayoutContainer} from '@pixi/layout/components';
+import type * as pixi from 'pixi.js';
 
 export type PanelOptions = {
+  background?: pixi.Container;
   children: pixi.Container[];
   layout?: pixi.Container['layout'];
 };
 
 export class Panel {
-  readonly view: pixi.Container = new pixi.Container();
+  readonly view: LayoutContainer;
 
-  constructor({children, layout}: PanelOptions) {
+  constructor({background, children, layout}: PanelOptions) {
+    this.view = new LayoutContainer(background === undefined ? {} : {background});
+
     for (let child of children) {
       this.view.addChild(child);
     }

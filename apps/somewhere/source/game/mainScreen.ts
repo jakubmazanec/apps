@@ -25,33 +25,12 @@ export const mainScreen = new GameScreen({
       rightWidth: 12,
       bottomHeight: 12,
     });
-    banner.layout = {
-      position: 'absolute',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      width: 'auto',
-      height: 'auto',
-    };
-
-    // let debugRect = new pixi.Graphics().rect(0, 0, 1, 1).fill(0x2a4d6e);
-    // debugRect.layout = {
-    //   position: 'absolute',
-    //   top: 0,
-    //   left: 0,
-    //   right: 0,
-    //   bottom: 0,
-    //   width: 'auto',
-    //   height: 'auto',
-    // };
-
-    // let debugRect2 = new pixi.Graphics({layout: true}).rect(0, 0, 200, 100).fill(0xff00cc);
 
     let bannerPanel = new Panel({
-      children: [banner, title.view],
+      background: banner,
+      children: [title.view],
       layout: {
-        padding: 16,
+        padding: 32,
         alignItems: 'center',
         justifyContent: 'center',
       },
@@ -113,7 +92,6 @@ export const mainScreen = new GameScreen({
     screen.addToView(world);
     world.start();
 
-    console.log(pixi.Assets.get('banner'));
     screen.state.banner.texture = pixi.Assets.get('banner');
 
     for (let sprite of screen.state.newGameSprites) {
