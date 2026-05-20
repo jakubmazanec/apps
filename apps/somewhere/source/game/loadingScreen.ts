@@ -1,20 +1,18 @@
 import * as pixi from 'pixi.js';
 
 import {GameScreen} from '../engine/app/GameScreen.js';
+import {Text} from '../engine/graphics/Text.js';
 
 export const loadingScreen = new GameScreen({
   assetBundles: ['default'],
   onAdd: () => {
-    let label = new pixi.BitmapText({
+    let label = new Text({
       text: 'Loading...',
-      style: {
-        fontFamily: 'px sans nouveaux',
-        fontSize: 16,
-        fill: 0xffffff,
-      },
+      fontFamily: 'px sans nouveaux',
+      fontSize: 64,
+      fill: 0xffffff,
+      anchor: {x: 0.5, y: 0.5},
     });
-    label.anchor.set(0.5);
-    label.scale.set(4);
 
     return {
       spinner: new pixi.Graphics()
@@ -25,7 +23,7 @@ export const loadingScreen = new GameScreen({
   },
   onShow: async (screen) => {
     screen.view.addChild(screen.state.spinner);
-    screen.view.addChild(screen.state.label);
+    screen.view.addChild(screen.state.label.view);
     await new Promise((resolve) => {
       setTimeout(resolve, 100);
     });
@@ -36,8 +34,8 @@ export const loadingScreen = new GameScreen({
     /* eslint-disable no-param-reassign -- needed */
     screen.state.spinner.x = cx;
     screen.state.spinner.y = cy;
-    screen.state.label.x = cx;
-    screen.state.label.y = cy + 70;
+    screen.state.label.view.x = cx;
+    screen.state.label.view.y = cy + 70;
     /* eslint-enable no-param-reassign -- needed */
   },
   onUpdate: (ticker, screen) => {

@@ -12,9 +12,17 @@ export const mainScreen = new GameScreen({
     let title = new Text({
       text: 'Somewhere',
       fontFamily: 'monogram',
-      fontSize: 12,
+      fontSize: 48,
       fill: 0xffffff,
-      outlineColor: 'rgba(0,0,0,0.8)',
+      // outlineColor: 'rgba(0,0,0,0.8)',
+      layout: true,
+    });
+
+    let title2 = new Text({
+      text: 'Somewhere',
+      fontFamily: 'monogram-outline',
+      fontSize: 48,
+      // fill: 0xffff00,
       layout: true,
     });
 
@@ -28,12 +36,13 @@ export const mainScreen = new GameScreen({
 
     let bannerPanel = new Panel({
       background: banner,
-      children: [title.view],
+      children: [title.view, title2.view],
       layout: {
         padding: 32,
         alignItems: 'center',
         justifyContent: 'center',
         flexDirection: 'column',
+        gap: 16,
       },
     });
 
@@ -50,39 +59,40 @@ export const mainScreen = new GameScreen({
     let newGameBgPressed = makeButtonBackground();
     let newGameBgDisabled = makeButtonBackground();
 
-    let newGameLabel = new Text({
-      text: 'New game',
-      fontFamily: 'monogram',
-      fontSize: 12,
-      fill: 0xffffff,
-      layout: true,
-    });
+    // let newGameLabel = new Text({
+    //   text: 'New game',
+    //   fontFamily: 'monogram-outline',
+    //   fontSize: 48,
+    //   fill: 0xffffff,
+    //   outlineColor: 0x000000,
+    //   layout: true,
+    // });
 
-    let newGameButton = new Button({
-      backgrounds: {
-        normal: newGameBgNormal,
-        hover: newGameBgHover,
-        pressed: newGameBgPressed,
-        disabled: newGameBgDisabled,
-      },
-      onClick: () => {
-        // eslint-disable-next-line no-console -- placeholder until Game screen exists
-        console.log('New game clicked');
-      },
-      layout: {
-        padding: 8,
-        alignItems: 'center',
-        justifyContent: 'center',
-      },
-    });
-    newGameButton.view.addChild(newGameLabel.view);
+    // let newGameButton = new Button({
+    //   backgrounds: {
+    //     normal: newGameBgNormal,
+    //     hover: newGameBgHover,
+    //     pressed: newGameBgPressed,
+    //     disabled: newGameBgDisabled,
+    //   },
+    //   onClick: () => {
+    //     // eslint-disable-next-line no-console -- placeholder until Game screen exists
+    //     console.log('New game clicked');
+    //   },
+    //   layout: {
+    //     padding: 8,
+    //     alignItems: 'center',
+    //     justifyContent: 'center',
+    //   },
+    // });
+    // newGameButton.view.addChild(newGameLabel.view);
 
-    bannerPanel.view.addChild(newGameButton.view);
+    // bannerPanel.view.addChild(newGameButton.view);
 
     return {
       banner,
       bannerPanel,
-      newGameButton,
+      // newGameButton,
       newGameBackgrounds: {
         normal: newGameBgNormal,
         hover: newGameBgHover,
