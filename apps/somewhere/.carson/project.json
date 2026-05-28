@@ -10,10 +10,7 @@
       }
     },
     "eslintConfig": {
-      "ignores": ["$/**"],
-      "rules": {
-        "unicorn/prefer-dom-node-remove": "off"
-      }
+      "ignores": ["$/**"]
     },
     "tsconfig": {
       "compilerOptions": {

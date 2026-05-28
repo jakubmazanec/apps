@@ -44,16 +44,11 @@ export class Game {
 
   async init() {
     await this.app.init({
-      resolution: 1, //typeof window === 'undefined' ? 1 : window.devicePixelRatio,
+      resolution: 1,
       backgroundColor: 0x000000,
       antialias: false,
       eventMode: 'passive',
       preference: 'webgl',
-      layout: {
-        autoUpdate: true,
-        enableDebug: false,
-        throttle: 100,
-      },
     });
 
     pixi.extensions.add(tiledTilesetAsset);

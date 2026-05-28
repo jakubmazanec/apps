@@ -17,14 +17,14 @@ export type ButtonOptions = {
 export class Button {
   readonly view: LayoutContainer;
 
-  #state: ButtonState = 'normal';
+  private readonly onClick?: (button: Button) => void;
 
+  #state: ButtonState = 'normal';
   readonly #backgrounds: Record<ButtonState, pixi.Container>;
-  readonly #onClick?: (button: Button) => void;
 
   constructor({backgrounds, onClick, layout}: ButtonOptions) {
     if (onClick !== undefined) {
-      this.#onClick = onClick;
+      this.onClick = onClick;
     }
 
     this.#backgrounds = {
@@ -74,7 +74,7 @@ export class Button {
     this.view.on('pointertap', (event) => {
       if (this.#state !== 'disabled') {
         event.stopPropagation();
-        this.#onClick?.(this);
+        this.onClick?.(this);
       }
     });
 
@@ -109,13 +109,6 @@ export class Button {
     this.view.cursor = 'default';
   }
 
-  // `LayoutContainer.background` is a plain field added as a direct child once
-  // in the constructor, so swapping states means re-parenting via the library's
-  // public `containerMethods` (the original Container methods; the public
-  // `addChild` is rebound to route into `overflowContainer`). The incoming
-  // background is sized from the outgoing one — which the layout engine already
-  // sized to fill — so the swap is correct immediately without forcing a
-  // relayout; later relayouts keep sizing `view.background` as usual.
   #setState(state: ButtonState) {
     let previous = this.#backgrounds[this.#state];
     let next = this.#backgrounds[state];

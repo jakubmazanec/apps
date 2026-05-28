@@ -14,7 +14,6 @@ export const mainScreen = new GameScreen({
       fontFamily: 'monogram',
       fontSize: 48,
       fill: 0xffffff,
-      // outlineColor: 'rgba(0,0,0,0.8)',
       layout: true,
     });
 
@@ -27,7 +26,7 @@ export const mainScreen = new GameScreen({
     });
 
     let banner = new pixi.NineSliceSprite({
-      texture: pixi.Texture.EMPTY,
+      texture: pixi.Assets.get('banner'),
       leftWidth: 12,
       topHeight: 4,
       rightWidth: 12,
@@ -48,73 +47,54 @@ export const mainScreen = new GameScreen({
 
     let buttonSlice = {leftWidth: 12, topHeight: 12, rightWidth: 12, bottomHeight: 12};
 
-    let makeButtonBackground = () =>
+    let makeButtonBackground = (texture: pixi.Texture) =>
       new pixi.NineSliceSprite({
-        texture: pixi.Texture.EMPTY,
+        texture,
         ...buttonSlice,
       });
 
-    let newGameBgNormal = makeButtonBackground();
-    let newGameBgHover = makeButtonBackground();
-    let newGameBgPressed = makeButtonBackground();
-    let newGameBgDisabled = makeButtonBackground();
+    let newGameBgNormal = makeButtonBackground(pixi.Assets.get('banner'));
+    let newGameBgHover = makeButtonBackground(pixi.Assets.get('banner-hover'));
+    let newGameBgPressed = makeButtonBackground(pixi.Assets.get('banner-active'));
+    let newGameBgDisabled = makeButtonBackground(pixi.Assets.get('banner'));
 
-    // let newGameLabel = new Text({
-    //   text: 'New game',
-    //   fontFamily: 'monogram-outline',
-    //   fontSize: 48,
-    //   fill: 0xffffff,
-    //   outlineColor: 0x000000,
-    //   layout: true,
-    // });
+    let newGameLabel = new Text({
+      text: 'New game',
+      fontFamily: 'monogram-outline',
+      fontSize: 48,
+      fill: 0xffffff,
+      layout: true,
+    });
 
-    // let newGameButton = new Button({
-    //   backgrounds: {
-    //     normal: newGameBgNormal,
-    //     hover: newGameBgHover,
-    //     pressed: newGameBgPressed,
-    //     disabled: newGameBgDisabled,
-    //   },
-    //   onClick: () => {
-    //     // eslint-disable-next-line no-console -- placeholder until Game screen exists
-    //     console.log('New game clicked');
-    //   },
-    //   layout: {
-    //     padding: 8,
-    //     alignItems: 'center',
-    //     justifyContent: 'center',
-    //   },
-    // });
-    // newGameButton.view.addChild(newGameLabel.view);
-
-    // bannerPanel.view.addChild(newGameButton.view);
-
-    return {
-      banner,
-      bannerPanel,
-      // newGameButton,
-      newGameBackgrounds: {
+    let newGameButton = new Button({
+      backgrounds: {
         normal: newGameBgNormal,
         hover: newGameBgHover,
         pressed: newGameBgPressed,
         disabled: newGameBgDisabled,
       },
+      onClick: () => {
+        // eslint-disable-next-line no-console -- placeholder until Game screen exists
+        console.log('New game clicked');
+      },
+      layout: {
+        padding: 8,
+        alignItems: 'center',
+        justifyContent: 'center',
+      },
+    });
+    newGameButton.view.addChild(newGameLabel.view);
+
+    bannerPanel.view.addChild(newGameButton.view);
+
+    return {
+      bannerPanel,
+      newGameButton,
     };
   },
   onShow: (screen) => {
     screen.addToView(world);
     world.start();
-
-    screen.state.banner.texture = pixi.Assets.get('banner');
-
-    for (let [background, asset] of [
-      [screen.state.newGameBackgrounds.normal, 'banner'],
-      [screen.state.newGameBackgrounds.hover, 'banner-hover'],
-      [screen.state.newGameBackgrounds.pressed, 'banner-active'],
-      [screen.state.newGameBackgrounds.disabled, 'banner'],
-    ] as const) {
-      background.texture = pixi.Assets.get(asset);
-    }
 
     screen.view.addChild(screen.state.bannerPanel.view);
   },
