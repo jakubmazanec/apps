@@ -10,7 +10,7 @@ export const mainScreen = new GameScreen({
   assetBundles: ['default', 'game'],
   onAdd: () => {
     let title = new Text({
-      text: 'Somewhere',
+      text: 'Somewhere.',
       fontFamily: 'monogram',
       fontSize: 48,
       fill: 0xffffff,

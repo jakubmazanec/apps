@@ -55,6 +55,7 @@ export class Game {
     pixi.extensions.add(tiledTilemapAsset);
     this.app.stage.addChild(this.view);
 
+    this.view.layout = {width: this.app.screen.width, height: this.app.screen.height};
     this.view.eventMode = 'static';
     this.view.hitArea = new pixi.Rectangle();
     pixi.TextureSource.defaultOptions.scaleMode = 'nearest';
@@ -196,6 +197,8 @@ export class Game {
 
     window.scrollTo(0, 0);
     this.app.renderer.resize(pixelWidth, pixelHeight);
+
+    this.view.layout = {width: this.app.screen.width, height: this.app.screen.height}; // muste be called after renderer.resize() call, apparently
 
     if (this.currentScreen?.view.parent) {
       this.currentScreen.resize();

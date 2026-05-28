@@ -6,7 +6,6 @@ export const game = new Game({
       name: 'default',
       assets: [
         {name: 'tileset', sources: ['tileset.json']},
-        {name: 'font', sources: ['font.fnt']},
         {name: 'monogram', sources: ['monogram.fnt']},
         {name: 'monogram-outline', sources: ['monogram-outline.fnt']},
         {name: 'banner', sources: ['banner.png']},
