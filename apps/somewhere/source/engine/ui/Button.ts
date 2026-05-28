@@ -11,7 +11,7 @@ export type ButtonOptions = {
     disabled?: pixi.Container;
   };
   onClick?: (button: Button) => void;
-  layout?: pixi.Container['layout'];
+  layout?: pixi.ContainerOptions['layout'];
 };
 
 export class Button {

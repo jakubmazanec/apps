@@ -4,7 +4,7 @@ import type * as pixi from 'pixi.js';
 export type PanelOptions = {
   background?: pixi.Container;
   children: pixi.Container[];
-  layout?: pixi.Container['layout'];
+  layout?: pixi.ContainerOptions['layout'];
 };
 
 export class Panel {

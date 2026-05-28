@@ -30,5 +30,8 @@ export default [
   },
   {
     ignores: ['$/**'],
+    rules: {
+      'unicorn/prefer-dom-node-remove': 'off',
+    },
   },
 ];

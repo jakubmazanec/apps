@@ -5,7 +5,7 @@ export type TextOptions = Pick<pixi.TextStyleOptions, 'fontFamily' | 'fontSize'>
   text: string;
   fill?: pixi.ColorSource;
   anchor?: pixi.PointData;
-  layout?: pixi.Container['layout'];
+  layout?: pixi.ContainerOptions['layout'];
 };
 
 const DEFAULT_ANCHOR: pixi.PointData = {x: 0, y: 0};
