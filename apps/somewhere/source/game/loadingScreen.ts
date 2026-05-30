@@ -32,7 +32,7 @@ export const loadingScreen = new GameScreen({
     // screen.view.addChild(screen.state.spinner);
     screen.view.addChild(screen.state.label.view);
     await new Promise((resolve) => {
-      setTimeout(resolve, 1000000);
+      setTimeout(resolve, 200);
     });
   },
   onResize: () => {},
