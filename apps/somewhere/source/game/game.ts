@@ -11,6 +11,12 @@ export const game = new Game({
         {name: 'banner', sources: ['banner.png']},
         {name: 'banner-hover', sources: ['banner-hover.png']},
         {name: 'banner-active', sources: ['banner-active.png']},
+        {name: 'toggle-unchecked', sources: ['toggle-unchecked.png']},
+        {name: 'toggle-checked', sources: ['toggle-checked.png']},
+        {name: 'toggle-hovered', sources: ['toggle-hovered.png']},
+        {name: 'toggle-hovered-checked', sources: ['toggle-hovered-checked.png']},
+        {name: 'toggle-disabled', sources: ['toggle-disabled.png']},
+        {name: 'toggle-disabled-checked', sources: ['toggle-disabled-checked.png']},
       ],
     },
     {

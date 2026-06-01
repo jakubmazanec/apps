@@ -1,27 +1,24 @@
-import {LayoutContainer} from '@pixi/layout/components';
-import type * as pixi from 'pixi.js';
+import * as pixi from 'pixi.js';
 
 import {type UiChild} from './UiChild.js';
 
-export type PanelOptions = {
-  background?: pixi.Container;
+export type ContainerOptions = {
   children?: UiChild[];
   layout?: pixi.ContainerOptions['layout'];
 };
 
-export class Panel {
-  readonly view: LayoutContainer;
+export class Container {
+  readonly view: pixi.Container = new pixi.Container();
 
-  constructor({background, children, layout}: PanelOptions) {
-    this.view = new LayoutContainer(background === undefined ? {} : {background});
-
+  constructor({children, layout}: ContainerOptions) {
     if (children !== undefined) {
       this.addChild(...children);
     }
 
-    if (layout !== undefined) {
-      this.view.layout = layout;
-    }
+    this.view.layout =
+      typeof layout === 'object' && layout !== null ?
+        {flexDirection: 'row', alignItems: 'center', ...layout}
+      : {flexDirection: 'row', alignItems: 'center'};
   }
 
   addChild(...children: UiChild[]): this {

@@ -1,15 +1,18 @@
 import {LayoutContainer} from '@pixi/layout/components';
 import type * as pixi from 'pixi.js';
 
-export type ButtonState = 'disabled' | 'hover' | 'normal' | 'pressed';
+import {type UiChild} from './UiChild.js';
+
+export type ButtonState = 'disabled' | 'hovered' | 'normal' | 'pressed';
 
 export type ButtonOptions = {
   backgrounds: {
     normal: pixi.Container;
-    hover?: pixi.Container;
+    hovered?: pixi.Container;
     pressed?: pixi.Container;
     disabled?: pixi.Container;
   };
+  children?: UiChild[];
   onClick?: (button: Button) => void;
   layout?: pixi.ContainerOptions['layout'];
 };
@@ -22,14 +25,14 @@ export class Button {
   #state: ButtonState = 'normal';
   readonly #backgrounds: Record<ButtonState, pixi.Container>;
 
-  constructor({backgrounds, onClick, layout}: ButtonOptions) {
+  constructor({backgrounds, children, onClick, layout}: ButtonOptions) {
     if (onClick !== undefined) {
       this.onClick = onClick;
     }
 
     this.#backgrounds = {
       normal: backgrounds.normal,
-      hover: backgrounds.hover ?? backgrounds.normal,
+      hovered: backgrounds.hovered ?? backgrounds.normal,
       pressed: backgrounds.pressed ?? backgrounds.normal,
       disabled: backgrounds.disabled ?? backgrounds.normal,
     };
@@ -40,11 +43,11 @@ export class Button {
     this.view.cursor = 'pointer';
 
     this.view.on('pointerover', () => {
-      if (this.#state === 'disabled' || this.#state === 'hover') {
+      if (this.#state === 'disabled' || this.#state === 'hovered') {
         return;
       }
 
-      this.#setState('hover');
+      this.#setState('hovered');
     });
 
     this.view.on('pointerout', () => {
@@ -68,7 +71,7 @@ export class Button {
         return;
       }
 
-      this.#setState('hover');
+      this.#setState('hovered');
     });
 
     this.view.on('pointertap', (event) => {
@@ -78,9 +81,29 @@ export class Button {
       }
     });
 
+    if (children !== undefined) {
+      this.addChild(...children);
+    }
+
     if (layout !== undefined) {
       this.view.layout = layout;
     }
+  }
+
+  addChild(...children: UiChild[]): this {
+    for (let child of children) {
+      this.view.addChild('view' in child ? child.view : child);
+    }
+
+    return this;
+  }
+
+  removeChild(...children: UiChild[]): this {
+    for (let child of children) {
+      this.view.removeChild('view' in child ? child.view : child);
+    }
+
+    return this;
   }
 
   get state(): ButtonState {
