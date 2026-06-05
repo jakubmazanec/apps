@@ -1,4 +1,4 @@
-import * as pixi from 'pixi.js';
+// import * as pixi from 'pixi.js';
 
 import {GameScreen} from '../engine/app/GameScreen.js';
 import {Text} from '../engine/ui/Text.js';
@@ -22,6 +22,7 @@ export const loadingScreen = new GameScreen({
     };
   },
   onShow: async (screen) => {
+    // eslint-disable-next-line no-param-reassign -- needed
     screen.view.layout = {
       width: '100%',
       height: '100%',
