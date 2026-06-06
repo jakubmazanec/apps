@@ -22,19 +22,19 @@ export class World {
   readonly systems: System[] = [];
   readonly entityQueries: EntityQuery[] = [];
 
-  private readonly entitiesToBeAdded: Entity[] = [];
-  private readonly entitiesToBeDeleted: Entity[] = [];
+  readonly #entitiesToBeAdded: Entity[] = [];
+  readonly #entitiesToBeDeleted: Entity[] = [];
 
-  private readonly onStart?: (world: World) => void;
-  private readonly onStop?: (world: World) => void;
+  readonly #onStart?: (world: World) => void;
+  readonly #onStop?: (world: World) => void;
 
   constructor({onStart, onStop}: WorldOptions = {}) {
     if (onStart !== undefined) {
-      this.onStart = onStart;
+      this.#onStart = onStart;
     }
 
     if (onStop !== undefined) {
-      this.onStop = onStop;
+      this.#onStop = onStop;
     }
   }
 
@@ -48,7 +48,7 @@ export class World {
     }
 
     this.#isRunning = true;
-    this.onStart?.(this);
+    this.#onStart?.(this);
   }
 
   stop() {
@@ -60,7 +60,7 @@ export class World {
       throw new Error('Cannot stop the world during an update!');
     }
 
-    this.onStop?.(this);
+    this.#onStop?.(this);
 
     for (let i = this.entities.length - 1; i >= 0; i--) {
       let entity = this.entities[i];
@@ -86,8 +86,8 @@ export class World {
       }
     }
 
-    this.entitiesToBeAdded.length = 0;
-    this.entitiesToBeDeleted.length = 0;
+    this.#entitiesToBeAdded.length = 0;
+    this.#entitiesToBeDeleted.length = 0;
 
     this.#isRunning = false;
   }
@@ -178,7 +178,7 @@ export class World {
 
   addEntity(entity: Entity) {
     if (this.#isUpdating) {
-      this.entitiesToBeAdded.push(entity);
+      this.#entitiesToBeAdded.push(entity);
     } else {
       if (this.entities.includes(entity)) {
         throw new Error('Entity was already added to the world!');
@@ -204,7 +204,7 @@ export class World {
 
   removeEntity(entity: Entity) {
     if (this.#isUpdating) {
-      this.entitiesToBeDeleted.push(entity);
+      this.#entitiesToBeDeleted.push(entity);
     } else {
       let index = this.entities.indexOf(entity);
 
@@ -239,12 +239,12 @@ export class World {
 
     this.#isUpdating = false;
 
-    while (this.entitiesToBeAdded.length) {
-      this.addEntity(this.entitiesToBeAdded.shift() as Entity); // the type assertions is ok, because we checked `this.entitiesToBeAdded.length`
+    while (this.#entitiesToBeAdded.length) {
+      this.addEntity(this.#entitiesToBeAdded.shift() as Entity); // the type assertions is ok, because we checked `this.#entitiesToBeAdded.length`
     }
 
-    while (this.entitiesToBeDeleted.length) {
-      this.removeEntity(this.entitiesToBeDeleted.shift() as Entity); // the type assertions is ok, because we checked `this.entitiesToBeDeleted.length`
+    while (this.#entitiesToBeDeleted.length) {
+      this.removeEntity(this.#entitiesToBeDeleted.shift() as Entity); // the type assertions is ok, because we checked `this.#entitiesToBeDeleted.length`
     }
   }
 }

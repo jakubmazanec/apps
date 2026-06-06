@@ -20,10 +20,6 @@ export class Text {
 
     this.#sprite = new pixi.BitmapText({text, style});
 
-    if (style.fill !== undefined) {
-      this.#sprite.alpha = new pixi.Color(style.fill).alpha;
-    }
-
     this.#sprite.anchor.set(anchor.x, anchor.y);
     this.view.addChild(this.#sprite);
 
@@ -48,5 +44,9 @@ export class Text {
     this.#sprite.anchor.set(anchor.x, anchor.y);
 
     return this;
+  }
+
+  destroy() {
+    this.view.destroy({children: true});
   }
 }

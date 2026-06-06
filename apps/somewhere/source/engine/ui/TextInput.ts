@@ -22,8 +22,8 @@ const CARET_WIDTH = 2;
 export class TextInput {
   readonly view: LayoutContainer;
 
-  private readonly onChange?: (input: TextInput) => void;
-  private readonly onEnter?: (input: TextInput) => void;
+  readonly #onChange?: (input: TextInput) => void;
+  readonly #onEnter?: (input: TextInput) => void;
 
   readonly #container: HTMLElement;
   readonly #maxLength?: number;
@@ -51,11 +51,11 @@ export class TextInput {
     layout,
   }: TextInputOptions) {
     if (onChange !== undefined) {
-      this.onChange = onChange;
+      this.#onChange = onChange;
     }
 
     if (onEnter !== undefined) {
-      this.onEnter = onEnter;
+      this.#onEnter = onEnter;
     }
 
     this.#container = container;
@@ -83,7 +83,20 @@ export class TextInput {
     this.#caret.tint = fill ?? 0xffffff;
     this.#caret.layout = {width: CARET_WIDTH, height: Math.round(fontSize * 0.8), marginLeft: 2};
 
-    this.view.on('pointertap', (event) => {
+    // Cancel the native pointerdown so the browser does not generate the
+    // compatibility mouse events whose default action moves focus to the canvas,
+    // which would immediately blur the hidden input right after focus() and close
+    // the soft keyboard. (Per the Pointer Events spec, canceling pointerdown
+    // suppresses the compatibility mouse events.)
+    this.view.on('pointerdown', (event) => {
+      event.stopPropagation();
+      event.preventDefault();
+    });
+
+    // Use pointerup rather than pointertap: on touch, a tap with slight finger
+    // movement is classified as a drag and pointertap never fires, so the field
+    // would never focus and the soft keyboard would never open.
+    this.view.on('pointerup', (event) => {
       event.stopPropagation();
       this.focus();
     });
@@ -119,20 +132,70 @@ export class TextInput {
 
     this.#focused = true;
 
-    let input = this.#createInput();
+    let input = document.createElement('input');
+
+    input.type = 'text';
+    input.value = this.#value;
+    input.inputMode = 'text';
+    input.autocomplete = 'off';
+    input.spellcheck = false;
+    input.setAttribute('autocorrect', 'off');
+    input.setAttribute('autocapitalize', 'none');
+
+    if (this.#maxLength !== undefined) {
+      input.maxLength = this.#maxLength;
+    }
+
+    let {style} = input;
+
+    // Keep the element genuinely present and focusable so mobile opens the soft
+    // keyboard, but make it visually invisible via transparent colors rather than
+    // display:none / visibility:hidden / opacity:0 / z-index:-1, all of which can
+    // stop Android from opening the keyboard. pointerEvents is 'none' so taps
+    // always route through the Pixi view, never this element.
+    style.position = 'fixed';
+    style.top = '0';
+    style.left = '0';
+    style.width = '1px';
+    style.height = '1px';
+    style.padding = '0';
+    style.margin = '0';
+    style.border = '0';
+    style.outline = 'none';
+    style.background = 'transparent';
+    style.color = 'transparent';
+    style.caretColor = 'transparent';
+    style.fontSize = '16px'; // >= 16px avoids iOS focus zoom
+    style.pointerEvents = 'none';
 
     this.#input = input;
     this.#container.append(input);
-    this.#positionInput();
+
+    let {x, y} = this.view.getGlobalPosition();
+    let ratio = window.devicePixelRatio || 1;
+
+    // getGlobalPosition is in renderer (device) pixels relative to the canvas;
+    // the input is position: fixed (viewport-relative), so offset by the canvas
+    // container's viewport rect and convert device px -> CSS px.
+    let rect = this.#container.getBoundingClientRect();
+
+    style.left = `${rect.left + x / ratio}px`;
+    style.top = `${rect.top + y / ratio}px`;
+
     input.addEventListener('input', this.#handleInput);
     input.addEventListener('keydown', this.#handleKeyDown);
-    input.focus();
+    input.addEventListener('blur', this.#handleInputBlur);
+    input.focus({preventScroll: true});
 
     pixi.Ticker.shared.add(this.#blink);
 
     // Defer so the click that focused this field does not immediately blur it.
     setTimeout(() => {
-      window.addEventListener('pointerdown', this.#handleOutsidePointerDown);
+      // Guard against focus() -> blur()/destroy() within the same tick, which
+      // would otherwise attach a global listener that is never removed.
+      if (this.#focused) {
+        window.addEventListener('pointerdown', this.#handleOutsidePointerDown);
+      }
     }, 0);
 
     this.#refresh();
@@ -153,6 +216,7 @@ export class TextInput {
     if (this.#input) {
       this.#input.removeEventListener('input', this.#handleInput);
       this.#input.removeEventListener('keydown', this.#handleKeyDown);
+      this.#input.removeEventListener('blur', this.#handleInputBlur);
       this.#input.blur();
       this.#input.remove();
       this.#input = undefined;
@@ -166,44 +230,15 @@ export class TextInput {
 
   destroy() {
     this.blur();
-    this.view.destroy();
-  }
 
-  #createInput(): HTMLInputElement {
-    let input = document.createElement('input');
+    // #valueText / #placeholderText / #caret are swapped in and out of #row, so
+    // whichever is currently detached would leak under view.destroy({children}).
+    this.#row.removeChildren();
+    this.#valueText.destroy();
+    this.#placeholderText.destroy();
+    this.#caret.destroy();
 
-    input.type = 'text';
-    input.value = this.#value;
-
-    if (this.#maxLength !== undefined) {
-      input.maxLength = this.#maxLength;
-    }
-
-    let {style} = input;
-
-    style.position = 'fixed';
-    style.opacity = '0.0000001';
-    style.pointerEvents = 'none';
-    style.zIndex = '-1';
-    style.width = '1px';
-    style.height = '1px';
-    style.border = '0';
-    style.padding = '0';
-    style.margin = '0';
-
-    return input;
-  }
-
-  #positionInput() {
-    if (!this.#input) {
-      return;
-    }
-
-    let {x, y} = this.view.getGlobalPosition();
-    let ratio = window.devicePixelRatio || 1;
-
-    this.#input.style.left = `${x / ratio}px`;
-    this.#input.style.top = `${y / ratio}px`;
+    this.view.destroy({children: true});
   }
 
   #refresh() {
@@ -231,12 +266,12 @@ export class TextInput {
 
     this.#value = next;
     this.#valueText.setText(next);
-    this.onChange?.(this);
+    this.#onChange?.(this);
   };
 
   readonly #handleKeyDown = (event: KeyboardEvent) => {
     if (event.key === 'Enter') {
-      this.onEnter?.(this);
+      this.#onEnter?.(this);
       this.blur();
     } else if (event.key === 'Escape') {
       this.blur();
@@ -244,6 +279,12 @@ export class TextInput {
   };
 
   readonly #handleOutsidePointerDown = () => {
+    this.blur();
+  };
+
+  // Keep our state in sync when the input loses focus on its own (e.g. the soft
+  // keyboard is dismissed), so the field can be focused again afterwards.
+  readonly #handleInputBlur = () => {
     this.blur();
   };
 

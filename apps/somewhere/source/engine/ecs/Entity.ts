@@ -10,11 +10,11 @@ export class Entity<
     ...rest: readonly Component[],
   ],
 > {
-  private readonly components: ReadonlyMap<typeof Component, Component> = new Map();
+  readonly #components: ReadonlyMap<typeof Component, Component> = new Map();
 
   constructor({components}: EntityOptions<T>) {
     for (let component of components) {
-      (this.components as Map<typeof Component, Component>).set(
+      (this.#components as Map<typeof Component, Component>).set(
         component.constructor as typeof Component,
         component,
       );
@@ -22,12 +22,12 @@ export class Entity<
   }
 
   hasComponent<U extends T[number]>(ComponentConstructor: Constructor<U>): boolean {
-    return this.components.has(ComponentConstructor);
+    return this.#components.has(ComponentConstructor);
   }
 
   getComponent<U extends Component | T[number]>(
     ComponentConstructor: Constructor<U>,
   ): U extends T[number] ? U : U | undefined {
-    return this.components.get(ComponentConstructor) as U extends T[number] ? U : U | undefined;
+    return this.#components.get(ComponentConstructor) as U extends T[number] ? U : U | undefined;
   }
 }

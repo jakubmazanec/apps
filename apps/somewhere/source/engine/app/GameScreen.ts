@@ -23,11 +23,11 @@ export class GameScreen<T = undefined> {
   readonly view: pixi.Container = new pixi.Container();
   state!: T;
 
-  private readonly onAdd?: (screen: GameScreen<T>, game: Game) => T;
-  private readonly onShow?: (screen: GameScreen<T>, game: Game) => Promise<void> | void;
-  private readonly onHide?: (screen: GameScreen<T>, game: Game) => Promise<void> | void;
-  private readonly onUpdate?: (ticker: pixi.Ticker, screen: GameScreen<T>, game: Game) => void;
-  private readonly onResize?: (screen: GameScreen<T>, game: Game) => void;
+  readonly #onAdd?: (screen: GameScreen<T>, game: Game) => T;
+  readonly #onShow?: (screen: GameScreen<T>, game: Game) => Promise<void> | void;
+  readonly #onHide?: (screen: GameScreen<T>, game: Game) => Promise<void> | void;
+  readonly #onUpdate?: (ticker: pixi.Ticker, screen: GameScreen<T>, game: Game) => void;
+  readonly #onResize?: (screen: GameScreen<T>, game: Game) => void;
 
   constructor({assetBundles, onAdd, onShow, onHide, onUpdate, onResize}: GameScreenOptions<T>) {
     if (assetBundles !== undefined) {
@@ -35,23 +35,23 @@ export class GameScreen<T = undefined> {
     }
 
     if (onAdd !== undefined) {
-      this.onAdd = onAdd;
+      this.#onAdd = onAdd;
     }
 
     if (onShow !== undefined) {
-      this.onShow = onShow;
+      this.#onShow = onShow;
     }
 
     if (onHide !== undefined) {
-      this.onHide = onHide;
+      this.#onHide = onHide;
     }
 
     if (onUpdate !== undefined) {
-      this.onUpdate = onUpdate;
+      this.#onUpdate = onUpdate;
     }
 
     if (onResize !== undefined) {
-      this.onResize = onResize;
+      this.#onResize = onResize;
     }
   }
 
@@ -69,23 +69,23 @@ export class GameScreen<T = undefined> {
     }
 
     this.#game = game;
-    this.state = this.onAdd?.(this, game) as T;
+    this.state = this.#onAdd?.(this, game) as T;
   }
 
   update(ticker: pixi.Ticker) {
-    this.onUpdate?.(ticker, this, this.game);
+    this.#onUpdate?.(ticker, this, this.game);
   }
 
   async show() {
-    await this.onShow?.(this, this.game);
+    await this.#onShow?.(this, this.game);
   }
 
   async hide() {
-    await this.onHide?.(this, this.game);
+    await this.#onHide?.(this, this.game);
   }
 
   resize() {
-    this.onResize?.(this, this.game);
+    this.#onResize?.(this, this.game);
   }
 
   addToView(renderable: Renderable) {

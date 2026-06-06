@@ -19,7 +19,7 @@ export type ToggleOptions = {
 export class Toggle {
   readonly view: LayoutContainer;
 
-  private readonly onChange?: (toggle: Toggle) => void;
+  readonly #onChange?: (toggle: Toggle) => void;
 
   #checked: boolean;
   #state: ToggleState = 'normal';
@@ -28,7 +28,7 @@ export class Toggle {
 
   constructor({backgrounds, checked = false, onChange}: ToggleOptions) {
     if (onChange !== undefined) {
-      this.onChange = onChange;
+      this.#onChange = onChange;
     }
 
     this.#backgrounds = {
@@ -76,7 +76,7 @@ export class Toggle {
       event.stopPropagation();
 
       this.#setChecked(!this.#checked);
-      this.onChange?.(this);
+      this.#onChange?.(this);
     });
   }
 
@@ -134,6 +134,22 @@ export class Toggle {
     this.#render();
   }
 
+  destroy() {
+    let backgrounds = new Set(
+      Object.values(this.#backgrounds).flatMap((state) => [state.unchecked, state.checked]),
+    );
+
+    this.view.destroy({children: true});
+
+    // Inactive backgrounds are detached during swaps, so `{children: true}` does
+    // not reach them; destroy any that the view did not already take down.
+    for (let background of backgrounds) {
+      if (!background.destroyed) {
+        background.destroy();
+      }
+    }
+  }
+
   #render() {
     let next = this.#backgrounds[this.#state][this.#checked ? 'checked' : 'unchecked'];
 
@@ -141,9 +157,8 @@ export class Toggle {
       return;
     }
 
-    next.position.set(0, 0);
-    next.setSize(this.#background.width, this.#background.height);
-
+    // The layout system sizes and positions `view.background` to the computed
+    // layout box on each tick, so we only swap which sprite is displayed.
     this.view.containerMethods.removeChild(this.#background);
     this.view.containerMethods.addChildAt(next, 0);
     this.view.background = next;

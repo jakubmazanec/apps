@@ -39,4 +39,8 @@ export class Panel {
 
     return this;
   }
+
+  destroy() {
+    this.view.destroy({children: true});
+  }
 }

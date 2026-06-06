@@ -36,4 +36,8 @@ export class Container {
 
     return this;
   }
+
+  destroy() {
+    this.view.destroy({children: true});
+  }
 }

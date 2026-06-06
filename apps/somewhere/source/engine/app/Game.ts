@@ -47,6 +47,7 @@ export class Game {
       resolution: 1,
       backgroundColor: 0x000000,
       antialias: false,
+      roundPixels: true,
       eventMode: 'passive',
       preference: 'webgl',
     });

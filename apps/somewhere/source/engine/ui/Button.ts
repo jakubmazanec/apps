@@ -20,14 +20,14 @@ export type ButtonOptions = {
 export class Button {
   readonly view: LayoutContainer;
 
-  private readonly onClick?: (button: Button) => void;
+  readonly #onClick?: (button: Button) => void;
 
   #state: ButtonState = 'normal';
   readonly #backgrounds: Record<ButtonState, pixi.Container>;
 
   constructor({backgrounds, children, onClick, layout}: ButtonOptions) {
     if (onClick !== undefined) {
-      this.onClick = onClick;
+      this.#onClick = onClick;
     }
 
     this.#backgrounds = {
@@ -74,10 +74,20 @@ export class Button {
       this.#setState('hovered');
     });
 
+    // A press released outside the button never fires `pointerup`, which would
+    // otherwise leave the button stuck in `pressed`.
+    this.view.on('pointerupoutside', () => {
+      if (this.#state !== 'pressed') {
+        return;
+      }
+
+      this.#setState('normal');
+    });
+
     this.view.on('pointertap', (event) => {
       if (this.#state !== 'disabled') {
         event.stopPropagation();
-        this.onClick?.(this);
+        this.#onClick?.(this);
       }
     });
 
@@ -132,6 +142,20 @@ export class Button {
     this.view.cursor = 'default';
   }
 
+  destroy() {
+    let backgrounds = new Set(Object.values(this.#backgrounds));
+
+    this.view.destroy({children: true});
+
+    // Inactive backgrounds are detached during swaps, so `{children: true}` does
+    // not reach them; destroy any that the view did not already take down.
+    for (let background of backgrounds) {
+      if (!background.destroyed) {
+        background.destroy();
+      }
+    }
+  }
+
   #setState(state: ButtonState) {
     let previous = this.#backgrounds[this.#state];
     let next = this.#backgrounds[state];
@@ -142,11 +166,9 @@ export class Button {
       return;
     }
 
-    next.position.set(0, 0);
-    next.setSize(previous.width, previous.height);
-
     this.view.containerMethods.removeChild(previous);
     this.view.containerMethods.addChildAt(next, 0);
     this.view.background = next;
+    next.setSize(previous.width, previous.height);
   }
 }

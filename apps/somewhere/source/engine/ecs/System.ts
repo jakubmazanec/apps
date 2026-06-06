@@ -38,16 +38,16 @@ export class System<
   readonly components: T;
   readonly entities: Array<Entity<readonly [InstanceType<T[number]>]>> = [];
 
-  private readonly onAdd?: (system: System<T>, world: World) => void;
-  private readonly onRemove?: (system: System<T>, world: World) => void;
-  private readonly onUpdate?: (ticker: pixi.Ticker, system: System<T>, world: World) => void;
-  private readonly onAddEntity?: (
+  readonly #onAdd?: (system: System<T>, world: World) => void;
+  readonly #onRemove?: (system: System<T>, world: World) => void;
+  readonly #onUpdate?: (ticker: pixi.Ticker, system: System<T>, world: World) => void;
+  readonly #onAddEntity?: (
     entity: Entity<readonly [InstanceType<T[number]>]>,
     system: System<T>,
     world: World,
   ) => void;
 
-  private readonly onRemoveEntity?: (
+  readonly #onRemoveEntity?: (
     entity: Entity<readonly [InstanceType<T[number]>]>,
     system: System<T>,
     world: World,
@@ -67,23 +67,23 @@ export class System<
     this.components = components;
 
     if (onAdd !== undefined) {
-      this.onAdd = onAdd;
+      this.#onAdd = onAdd;
     }
 
     if (onRemove !== undefined) {
-      this.onRemove = onRemove;
+      this.#onRemove = onRemove;
     }
 
     if (onUpdate !== undefined) {
-      this.onUpdate = onUpdate;
+      this.#onUpdate = onUpdate;
     }
 
     if (onAddEntity !== undefined) {
-      this.onAddEntity = onAddEntity;
+      this.#onAddEntity = onAddEntity;
     }
 
     if (onRemoveEntity !== undefined) {
-      this.onRemoveEntity = onRemoveEntity;
+      this.#onRemoveEntity = onRemoveEntity;
     }
 
     if (displayName === undefined) {
@@ -116,7 +116,7 @@ export class System<
     }
 
     this.#world = world;
-    this.onAdd?.(this, this.#world);
+    this.#onAdd?.(this, this.#world);
   }
 
   /** @internal Called by `World`. */
@@ -126,13 +126,13 @@ export class System<
     }
 
     // events "hug" the state of the thing they belong to, i.e. starting events run after something is done, and ending events run before something is done
-    this.onRemove?.(this, this.#world);
+    this.#onRemove?.(this, this.#world);
     this.#world = null;
   }
 
   /** @internal Called by `World`. */
   update(ticker: pixi.Ticker) {
-    this.onUpdate?.(ticker, this, this.world);
+    this.#onUpdate?.(ticker, this, this.world);
   }
 
   /** @internal Use `world.addEntity()` instead. Called by `World` to sync entities. */
@@ -142,7 +142,7 @@ export class System<
     }
 
     this.entities.push(entity);
-    this.onAddEntity?.(entity, this, this.world);
+    this.#onAddEntity?.(entity, this, this.world);
   }
 
   /** @internal Use `world.removeEntity()` instead. Called by `World` to sync entities. */
@@ -154,7 +154,7 @@ export class System<
     }
 
     this.entities.splice(index, 1);
-    this.onRemoveEntity?.(entity, this, this.world);
+    this.#onRemoveEntity?.(entity, this, this.world);
   }
 
   getFirst() {

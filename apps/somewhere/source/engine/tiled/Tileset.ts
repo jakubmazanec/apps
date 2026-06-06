@@ -18,7 +18,7 @@ export type TilesetOptions = {
 };
 
 export class Tileset {
-  protected tiles: TilesetTile[];
+  readonly #tiles: TilesetTile[];
 
   tileWidth: number;
   tileHeight: number;
@@ -30,7 +30,7 @@ export class Tileset {
     this.tileHeight = tileHeight;
     this.columnCount = columnCount;
     this.rowCount = rowCount;
-    this.tiles = tiles;
+    this.#tiles = tiles;
   }
 
   static async from(source: unknown) {
@@ -122,7 +122,7 @@ export class Tileset {
   }
 
   getTile(tileId: number): TilesetTile {
-    let tile = this.tiles[tileId];
+    let tile = this.#tiles[tileId];
 
     if (!tile) {
       throw new Error(`Tile with ID "${tileId}" not found!`);
