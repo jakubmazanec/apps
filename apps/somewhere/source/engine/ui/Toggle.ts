@@ -25,6 +25,7 @@ export class Toggle {
   #state: ToggleState = 'normal';
   #background: pixi.Container;
   readonly #backgrounds: Record<ToggleState, {checked: pixi.Container; unchecked: pixi.Container}>;
+  readonly #disposables = new DisposableStack();
 
   constructor({backgrounds, checked = false, onChange}: ToggleOptions) {
     if (onChange !== undefined) {
@@ -42,6 +43,18 @@ export class Toggle {
         checked: backgrounds.disabledChecked ?? backgrounds.checked,
       },
     };
+
+    // Inactive backgrounds are detached during swaps, so `{children: true}` does
+    // not reach them; destroy any that the view did not already take down.
+    for (let background of new Set(
+      Object.values(this.#backgrounds).flatMap((state) => [state.unchecked, state.checked]),
+    )) {
+      this.#disposables.adopt(background, (b) => {
+        if (!b.destroyed) {
+          b.destroy();
+        }
+      });
+    }
 
     this.#checked = checked;
     this.#background = this.#backgrounds.normal[checked ? 'checked' : 'unchecked'];
@@ -78,6 +91,8 @@ export class Toggle {
       this.#setChecked(!this.#checked);
       this.#onChange?.(this);
     });
+
+    this.#disposables.defer(() => this.view.destroy({children: true}));
   }
 
   get checked(): boolean {
@@ -135,19 +150,7 @@ export class Toggle {
   }
 
   destroy() {
-    let backgrounds = new Set(
-      Object.values(this.#backgrounds).flatMap((state) => [state.unchecked, state.checked]),
-    );
-
-    this.view.destroy({children: true});
-
-    // Inactive backgrounds are detached during swaps, so `{children: true}` does
-    // not reach them; destroy any that the view did not already take down.
-    for (let background of backgrounds) {
-      if (!background.destroyed) {
-        background.destroy();
-      }
-    }
+    this.#disposables.dispose();
   }
 
   #render() {

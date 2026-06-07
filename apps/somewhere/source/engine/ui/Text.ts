@@ -14,6 +14,7 @@ export class Text {
   readonly view: pixi.Container = new pixi.Container();
 
   readonly #sprite: pixi.BitmapText;
+  readonly #disposables = new DisposableStack();
 
   constructor(options: TextOptions) {
     let {text, anchor = DEFAULT_ANCHOR, layout, ...style} = options;
@@ -32,6 +33,8 @@ export class Text {
         this.view.layout = layout;
       }
     }
+
+    this.#disposables.defer(() => this.view.destroy({children: true}));
   }
 
   setText(text: string): this {
@@ -47,6 +50,6 @@ export class Text {
   }
 
   destroy() {
-    this.view.destroy({children: true});
+    this.#disposables.dispose();
   }
 }

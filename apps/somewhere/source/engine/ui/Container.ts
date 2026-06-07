@@ -10,6 +10,8 @@ export type ContainerOptions = {
 export class Container {
   readonly view: pixi.Container = new pixi.Container();
 
+  readonly #disposables = new DisposableStack();
+
   constructor({children, layout}: ContainerOptions) {
     if (children !== undefined) {
       this.addChild(...children);
@@ -19,6 +21,8 @@ export class Container {
       typeof layout === 'object' && layout !== null ?
         {flexDirection: 'row', alignItems: 'center', ...layout}
       : {flexDirection: 'row', alignItems: 'center'};
+
+    this.#disposables.defer(() => this.view.destroy({children: true}));
   }
 
   addChild(...children: UiChild[]): this {
@@ -38,6 +42,6 @@ export class Container {
   }
 
   destroy() {
-    this.view.destroy({children: true});
+    this.#disposables.dispose();
   }
 }

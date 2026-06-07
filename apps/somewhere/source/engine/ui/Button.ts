@@ -24,6 +24,7 @@ export class Button {
 
   #state: ButtonState = 'normal';
   readonly #backgrounds: Record<ButtonState, pixi.Container>;
+  readonly #disposables = new DisposableStack();
 
   constructor({backgrounds, children, onClick, layout}: ButtonOptions) {
     if (onClick !== undefined) {
@@ -36,6 +37,16 @@ export class Button {
       pressed: backgrounds.pressed ?? backgrounds.normal,
       disabled: backgrounds.disabled ?? backgrounds.normal,
     };
+
+    // Inactive backgrounds are detached during swaps, so `{children: true}` does
+    // not reach them; destroy any that the view did not already take down.
+    for (let background of new Set(Object.values(this.#backgrounds))) {
+      this.#disposables.adopt(background, (b) => {
+        if (!b.destroyed) {
+          b.destroy();
+        }
+      });
+    }
 
     this.view = new LayoutContainer({background: this.#backgrounds.normal});
 
@@ -98,6 +109,8 @@ export class Button {
     if (layout !== undefined) {
       this.view.layout = layout;
     }
+
+    this.#disposables.defer(() => this.view.destroy({children: true}));
   }
 
   addChild(...children: UiChild[]): this {
@@ -143,17 +156,7 @@ export class Button {
   }
 
   destroy() {
-    let backgrounds = new Set(Object.values(this.#backgrounds));
-
-    this.view.destroy({children: true});
-
-    // Inactive backgrounds are detached during swaps, so `{children: true}` does
-    // not reach them; destroy any that the view did not already take down.
-    for (let background of backgrounds) {
-      if (!background.destroyed) {
-        background.destroy();
-      }
-    }
+    this.#disposables.dispose();
   }
 
   #setState(state: ButtonState) {

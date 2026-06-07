@@ -31,11 +31,11 @@ export class TextInput {
   readonly #valueText: Text;
   readonly #placeholderText: Text;
   readonly #caret: pixi.Sprite;
+  readonly #input: HTMLInputElement;
+  readonly #disposables = new DisposableStack();
 
   #value: string;
   #focused = false;
-  #tick = 0;
-  #input: HTMLInputElement | undefined = undefined;
 
   constructor({
     background,
@@ -105,6 +105,128 @@ export class TextInput {
       this.view.layout = layout;
     }
 
+    let input = document.createElement('input');
+
+    input.type = 'text';
+    input.value = value;
+    input.inputMode = 'text';
+    input.autocomplete = 'off';
+    input.spellcheck = false;
+    input.tabIndex = -1;
+    input.setAttribute('autocorrect', 'off');
+    input.setAttribute('autocapitalize', 'none');
+
+    if (maxLength !== undefined) {
+      input.maxLength = maxLength;
+    }
+
+    let inputStyle = input.style;
+
+    // Keep the element genuinely present and focusable so mobile opens the soft
+    // keyboard, but make it visually invisible via transparent colors rather than
+    // display:none / visibility:hidden / opacity:0 / z-index:-1, all of which can
+    // stop Android from opening the keyboard. pointerEvents is 'none' so taps
+    // always route through the Pixi view, never this element.
+    inputStyle.position = 'fixed';
+    inputStyle.top = '0';
+    inputStyle.left = '0';
+    inputStyle.width = '1px';
+    inputStyle.height = '1px';
+    inputStyle.padding = '0';
+    inputStyle.margin = '0';
+    inputStyle.border = '0';
+    inputStyle.outline = 'none';
+    inputStyle.background = 'transparent';
+    inputStyle.color = 'transparent';
+    inputStyle.caretColor = 'transparent';
+    inputStyle.fontSize = '16px'; // >= 16px avoids iOS focus zoom
+    inputStyle.pointerEvents = 'none';
+
+    this.#input = input;
+    this.#container.append(input);
+
+    let handleInput = () => {
+      let next = input.value;
+
+      if (this.#maxLength !== undefined && next.length > this.#maxLength) {
+        next = next.slice(0, this.#maxLength);
+        input.value = next;
+      }
+
+      this.#value = next;
+      this.#valueText.setText(next);
+      this.#onChange?.(this);
+    };
+
+    // TODO: remove when linter config contains fix for this: https://github.com/sindresorhus/eslint-plugin-unicorn/issues/2088
+    // eslint-disable-next-line unicorn/consistent-function-scoping -- false positive
+    let handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Enter') {
+        this.#onEnter?.(this);
+        this.blur();
+      } else if (event.key === 'Escape') {
+        this.blur();
+      }
+    };
+
+    // TODO: remove when linter config contains fix for this: https://github.com/sindresorhus/eslint-plugin-unicorn/issues/2088
+    // eslint-disable-next-line unicorn/consistent-function-scoping -- false positive
+    let handleBlur = () => {
+      this.blur();
+    };
+
+    input.addEventListener('input', handleInput);
+    input.addEventListener('keydown', handleKeyDown);
+
+    // Keep our state in sync when the input loses focus on its own (e.g. the soft
+    // keyboard is dismissed), so the field can be focused again afterwards.
+    input.addEventListener('blur', handleBlur);
+
+    this.#disposables.defer(() => {
+      input.removeEventListener('input', handleInput);
+      input.removeEventListener('keydown', handleKeyDown);
+      input.removeEventListener('blur', handleBlur);
+      input.remove();
+    });
+
+    // Stay attached for the component lifetime; blur() self-guards on #focused, so
+    // this is a no-op until the field is focused. The tap that focuses the field
+    // fires pointerdown while #focused is still false (focus happens on pointerup),
+    // so it does not immediately blur the field. This replaces an earlier
+    // focus-time setTimeout whose timer id was never stored and so could never be
+    // cleared.
+    window.addEventListener('pointerdown', handleBlur);
+
+    this.#disposables.defer(() => {
+      window.removeEventListener('pointerdown', handleBlur);
+    });
+
+    let tick = 0;
+    let blink = (ticker: pixi.Ticker) => {
+      if (!this.#focused) {
+        return;
+      }
+
+      tick += ticker.deltaTime;
+      this.#caret.alpha = Math.abs(Math.sin(tick * 0.1));
+    };
+
+    pixi.Ticker.shared.add(blink);
+
+    this.#disposables.defer(() => {
+      pixi.Ticker.shared.remove(blink);
+    });
+
+    // #valueText / #placeholderText / #caret are swapped in and out of #row, so
+    // whichever is currently detached would leak under view.destroy({children}).
+    this.#disposables.defer(() => {
+      this.#row.removeChildren();
+      this.#valueText.destroy();
+      this.#placeholderText.destroy();
+      this.#caret.destroy();
+      this.view.destroy({children: true});
+    });
+
     this.#refresh();
   }
 
@@ -115,10 +237,7 @@ export class TextInput {
   setValue(value: string): this {
     this.#value = this.#maxLength === undefined ? value : value.slice(0, this.#maxLength);
     this.#valueText.setText(this.#value);
-
-    if (this.#input) {
-      this.#input.value = this.#value;
-    }
+    this.#input.value = this.#value;
 
     this.#refresh();
 
@@ -132,44 +251,7 @@ export class TextInput {
 
     this.#focused = true;
 
-    let input = document.createElement('input');
-
-    input.type = 'text';
-    input.value = this.#value;
-    input.inputMode = 'text';
-    input.autocomplete = 'off';
-    input.spellcheck = false;
-    input.setAttribute('autocorrect', 'off');
-    input.setAttribute('autocapitalize', 'none');
-
-    if (this.#maxLength !== undefined) {
-      input.maxLength = this.#maxLength;
-    }
-
-    let {style} = input;
-
-    // Keep the element genuinely present and focusable so mobile opens the soft
-    // keyboard, but make it visually invisible via transparent colors rather than
-    // display:none / visibility:hidden / opacity:0 / z-index:-1, all of which can
-    // stop Android from opening the keyboard. pointerEvents is 'none' so taps
-    // always route through the Pixi view, never this element.
-    style.position = 'fixed';
-    style.top = '0';
-    style.left = '0';
-    style.width = '1px';
-    style.height = '1px';
-    style.padding = '0';
-    style.margin = '0';
-    style.border = '0';
-    style.outline = 'none';
-    style.background = 'transparent';
-    style.color = 'transparent';
-    style.caretColor = 'transparent';
-    style.fontSize = '16px'; // >= 16px avoids iOS focus zoom
-    style.pointerEvents = 'none';
-
-    this.#input = input;
-    this.#container.append(input);
+    this.#input.value = this.#value;
 
     let {x, y} = this.view.getGlobalPosition();
     let ratio = window.devicePixelRatio || 1;
@@ -179,24 +261,10 @@ export class TextInput {
     // container's viewport rect and convert device px -> CSS px.
     let rect = this.#container.getBoundingClientRect();
 
-    style.left = `${rect.left + x / ratio}px`;
-    style.top = `${rect.top + y / ratio}px`;
+    this.#input.style.left = `${rect.left + x / ratio}px`;
+    this.#input.style.top = `${rect.top + y / ratio}px`;
 
-    input.addEventListener('input', this.#handleInput);
-    input.addEventListener('keydown', this.#handleKeyDown);
-    input.addEventListener('blur', this.#handleInputBlur);
-    input.focus({preventScroll: true});
-
-    pixi.Ticker.shared.add(this.#blink);
-
-    // Defer so the click that focused this field does not immediately blur it.
-    setTimeout(() => {
-      // Guard against focus() -> blur()/destroy() within the same tick, which
-      // would otherwise attach a global listener that is never removed.
-      if (this.#focused) {
-        window.addEventListener('pointerdown', this.#handleOutsidePointerDown);
-      }
-    }, 0);
+    this.#input.focus({preventScroll: true});
 
     this.#refresh();
 
@@ -210,19 +278,8 @@ export class TextInput {
 
     this.#focused = false;
 
-    pixi.Ticker.shared.remove(this.#blink);
-    window.removeEventListener('pointerdown', this.#handleOutsidePointerDown);
+    this.#input.blur();
 
-    if (this.#input) {
-      this.#input.removeEventListener('input', this.#handleInput);
-      this.#input.removeEventListener('keydown', this.#handleKeyDown);
-      this.#input.removeEventListener('blur', this.#handleInputBlur);
-      this.#input.blur();
-      this.#input.remove();
-      this.#input = undefined;
-    }
-
-    this.#tick = 0;
     this.#refresh();
 
     return this;
@@ -230,15 +287,7 @@ export class TextInput {
 
   destroy() {
     this.blur();
-
-    // #valueText / #placeholderText / #caret are swapped in and out of #row, so
-    // whichever is currently detached would leak under view.destroy({children}).
-    this.#row.removeChildren();
-    this.#valueText.destroy();
-    this.#placeholderText.destroy();
-    this.#caret.destroy();
-
-    this.view.destroy({children: true});
+    this.#disposables.dispose();
   }
 
   #refresh() {
@@ -252,44 +301,4 @@ export class TextInput {
       this.#row.addChild(this.#valueText.view);
     }
   }
-
-  readonly #handleInput = () => {
-    let next = this.#input?.value ?? '';
-
-    if (this.#maxLength !== undefined && next.length > this.#maxLength) {
-      next = next.slice(0, this.#maxLength);
-
-      if (this.#input) {
-        this.#input.value = next;
-      }
-    }
-
-    this.#value = next;
-    this.#valueText.setText(next);
-    this.#onChange?.(this);
-  };
-
-  readonly #handleKeyDown = (event: KeyboardEvent) => {
-    if (event.key === 'Enter') {
-      this.#onEnter?.(this);
-      this.blur();
-    } else if (event.key === 'Escape') {
-      this.blur();
-    }
-  };
-
-  readonly #handleOutsidePointerDown = () => {
-    this.blur();
-  };
-
-  // Keep our state in sync when the input loses focus on its own (e.g. the soft
-  // keyboard is dismissed), so the field can be focused again afterwards.
-  readonly #handleInputBlur = () => {
-    this.blur();
-  };
-
-  readonly #blink = (ticker: pixi.Ticker) => {
-    this.#tick += ticker.deltaTime;
-    this.#caret.alpha = Math.abs(Math.sin(this.#tick * 0.1));
-  };
 }

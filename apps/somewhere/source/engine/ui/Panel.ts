@@ -12,6 +12,8 @@ export type PanelOptions = {
 export class Panel {
   readonly view: LayoutContainer;
 
+  readonly #disposables = new DisposableStack();
+
   constructor({background, children, layout}: PanelOptions) {
     this.view = new LayoutContainer(background === undefined ? {} : {background});
 
@@ -22,6 +24,8 @@ export class Panel {
     if (layout !== undefined) {
       this.view.layout = layout;
     }
+
+    this.#disposables.defer(() => this.view.destroy({children: true}));
   }
 
   addChild(...children: UiChild[]): this {
@@ -41,6 +45,6 @@ export class Panel {
   }
 
   destroy() {
-    this.view.destroy({children: true});
+    this.#disposables.dispose();
   }
 }
