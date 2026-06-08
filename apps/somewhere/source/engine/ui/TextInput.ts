@@ -195,10 +195,10 @@ export class TextInput {
     // so it does not immediately blur the field. This replaces an earlier
     // focus-time setTimeout whose timer id was never stored and so could never be
     // cleared.
-    window.addEventListener('pointerdown', handleBlur);
+    globalThis.addEventListener('pointerdown', handleBlur);
 
     this.#disposables.defer(() => {
-      window.removeEventListener('pointerdown', handleBlur);
+      globalThis.removeEventListener('pointerdown', handleBlur);
     });
 
     let tick = 0;

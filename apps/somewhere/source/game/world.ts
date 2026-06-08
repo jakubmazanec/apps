@@ -58,6 +58,8 @@ export const world = new World({
   },
 });
 
+/* eslint-disable unicorn/prefer-global-this -- browser-only debug handle: SSR-guarded by `typeof window` and typed via the `Window` augmentation above; `globalThis` would force a `var` global (vars-on-top) and a no-typeof-undefined/no-unnecessary-condition conflict on the guard */
 if (typeof window !== 'undefined') {
   window.world = world;
 }
+/* eslint-enable unicorn/prefer-global-this */
