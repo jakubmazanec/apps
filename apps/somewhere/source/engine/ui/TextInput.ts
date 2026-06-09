@@ -95,6 +95,12 @@ export class TextInput {
 
     this.#row = new LayoutContainer({});
     this.#row.layout = {flexDirection: 'row', alignItems: 'center'};
+
+    // LayoutContainer makes itself an interactive hit target ('static', for its
+    // scroll trackpad), and Pixi takes the canvas cursor from the deepest
+    // interactive hit target only; the purely visual row would override the
+    // view's 'text' cursor wherever the text covers the field.
+    this.#row.eventMode = 'none';
     this.view.addChild(this.#row);
 
     let style = fill === undefined ? {fontFamily, fontSize} : {fontFamily, fontSize, fill};

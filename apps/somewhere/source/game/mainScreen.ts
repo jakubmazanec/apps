@@ -59,7 +59,7 @@ export const mainScreen = new GameScreen({
     let inputSlice = {leftWidth: 4, topHeight: 4, rightWidth: 4, bottomHeight: 4};
 
     let newGameLabel = new Text({
-      text: 'New game',
+      text: 'Ňew game',
       fontFamily: 'monogram-outline',
       fontSize: 48,
       fill: 0xffffff,
