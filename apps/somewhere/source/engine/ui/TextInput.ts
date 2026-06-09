@@ -3,8 +3,14 @@ import * as pixi from 'pixi.js';
 
 import {Text} from './Text.js';
 
+export type TextInputState = 'disabled' | 'hovered' | 'normal';
+
 export type TextInputOptions = {
-  background: pixi.Container;
+  backgrounds: {
+    normal: pixi.Container;
+    hovered?: pixi.Container;
+    disabled?: pixi.Container;
+  };
   value?: string;
   placeholder?: string;
   maxLength?: number;
@@ -33,12 +39,14 @@ export class TextInput {
   readonly #caret: pixi.Sprite;
   readonly #input: HTMLInputElement;
   readonly #disposables = new DisposableStack();
+  readonly #backgrounds: Record<TextInputState, pixi.Container>;
 
+  #state: TextInputState = 'normal';
   #value: string;
   #focused = false;
 
   constructor({
-    background,
+    backgrounds,
     value = '',
     placeholder = '',
     maxLength,
@@ -65,7 +73,23 @@ export class TextInput {
       this.#maxLength = maxLength;
     }
 
-    this.view = new LayoutContainer({background});
+    this.#backgrounds = {
+      normal: backgrounds.normal,
+      hovered: backgrounds.hovered ?? backgrounds.normal,
+      disabled: backgrounds.disabled ?? backgrounds.normal,
+    };
+
+    // Inactive backgrounds are detached during swaps, so `{children: true}` does
+    // not reach them; destroy any that the view did not already take down.
+    for (let background of new Set(Object.values(this.#backgrounds))) {
+      this.#disposables.adopt(background, (b) => {
+        if (!b.destroyed) {
+          b.destroy();
+        }
+      });
+    }
+
+    this.view = new LayoutContainer({background: this.#backgrounds.normal});
     this.view.eventMode = 'static';
     this.view.cursor = 'text';
 
@@ -99,6 +123,22 @@ export class TextInput {
     this.view.on('pointerup', (event) => {
       event.stopPropagation();
       this.focus();
+    });
+
+    this.view.on('pointerover', () => {
+      if (this.#state === 'disabled' || this.#state === 'hovered') {
+        return;
+      }
+
+      this.#setState('hovered');
+    });
+
+    this.view.on('pointerout', () => {
+      if (this.#state === 'disabled' || this.#state === 'normal') {
+        return;
+      }
+
+      this.#setState('normal');
     });
 
     if (layout !== undefined) {
@@ -285,9 +325,47 @@ export class TextInput {
     return this;
   }
 
+  enable() {
+    if (this.#state !== 'disabled') {
+      return;
+    }
+
+    this.#setState('normal');
+
+    this.view.eventMode = 'static';
+    this.view.cursor = 'text';
+  }
+
+  disable() {
+    if (this.#state === 'disabled') {
+      return;
+    }
+
+    this.#setState('disabled');
+
+    this.view.eventMode = 'none';
+    this.view.cursor = 'default';
+  }
+
   destroy() {
     this.blur();
     this.#disposables.dispose();
+  }
+
+  #setState(state: TextInputState) {
+    let previous = this.#backgrounds[this.#state];
+    let next = this.#backgrounds[state];
+
+    this.#state = state;
+
+    if (previous === next) {
+      return;
+    }
+
+    this.view.containerMethods.removeChild(previous);
+    this.view.containerMethods.addChildAt(next, 0);
+    this.view.background = next;
+    next.setSize(previous.width, previous.height);
   }
 
   #refresh() {

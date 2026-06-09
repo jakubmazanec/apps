@@ -15,6 +15,9 @@ export type ButtonOptions = {
   children?: UiChild[];
   onClick?: (button: Button) => void;
   layout?: pixi.ContainerOptions['layout'];
+  // Pixels to shift the content down while pressed, so the label tracks a
+  // background whose face drops on press (e.g. an extruded 3D button).
+  pressOffset?: number;
 };
 
 export class Button {
@@ -24,12 +27,16 @@ export class Button {
 
   #state: ButtonState = 'normal';
   readonly #backgrounds: Record<ButtonState, pixi.Container>;
+  readonly #pressOffset: number;
+  #layout: pixi.ContainerOptions['layout'];
   readonly #disposables = new DisposableStack();
 
-  constructor({backgrounds, children, onClick, layout}: ButtonOptions) {
+  constructor({backgrounds, children, onClick, layout, pressOffset = 0}: ButtonOptions) {
     if (onClick !== undefined) {
       this.#onClick = onClick;
     }
+
+    this.#pressOffset = pressOffset;
 
     this.#backgrounds = {
       normal: backgrounds.normal,
@@ -107,6 +114,7 @@ export class Button {
     }
 
     if (layout !== undefined) {
+      this.#layout = layout;
       this.view.layout = layout;
     }
 
@@ -164,6 +172,7 @@ export class Button {
     let next = this.#backgrounds[state];
 
     this.#state = state;
+    this.#applyPressOffset();
 
     if (previous === next) {
       return;
@@ -173,5 +182,23 @@ export class Button {
     this.view.containerMethods.addChildAt(next, 0);
     this.view.background = next;
     next.setSize(previous.width, previous.height);
+  }
+
+  // Shift content down while pressed by moving padding from the bottom to the
+  // top, so the box height is unchanged and the centered label tracks a face
+  // that drops on press (the extruded button background).
+  #applyPressOffset() {
+    if (this.#pressOffset === 0 || this.#layout === undefined) {
+      return;
+    }
+
+    let base = this.#layout as {padding?: number};
+    let pad = base.padding ?? 0;
+    let shift = this.#state === 'pressed' ? this.#pressOffset : 0;
+
+    // Always set both edges explicitly: @pixi/layout merges style assignments,
+    // so omitting paddingTop/paddingBottom on release would leave the pressed
+    // values stuck rather than resetting them to the base padding.
+    this.view.layout = {...base, paddingTop: pad + shift, paddingBottom: pad - shift};
   }
 }

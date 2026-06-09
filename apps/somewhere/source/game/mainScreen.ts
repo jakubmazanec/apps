@@ -49,18 +49,14 @@ export const mainScreen = new GameScreen({
       },
     });
 
-    let buttonSlice = {leftWidth: 12, topHeight: 12, rightWidth: 12, bottomHeight: 12};
+    let nineSlice = (
+      name: string,
+      slice: {bottomHeight: number; leftWidth: number; rightWidth: number; topHeight: number},
+    ) => new pixi.NineSliceSprite({texture: pixi.Assets.get(name), ...slice});
 
-    let makeButtonBackground = (texture: pixi.Texture) =>
-      new pixi.NineSliceSprite({
-        texture,
-        ...buttonSlice,
-      });
-
-    let newGameBgNormal = makeButtonBackground(pixi.Assets.get('banner'));
-    let newGameBgHover = makeButtonBackground(pixi.Assets.get('banner-hover'));
-    let newGameBgPressed = makeButtonBackground(pixi.Assets.get('banner-active'));
-    let newGameBgDisabled = makeButtonBackground(pixi.Assets.get('banner'));
+    let buttonSlice = {leftWidth: 4, topHeight: 8, rightWidth: 4, bottomHeight: 8};
+    let buttonPressedSlice = {leftWidth: 4, topHeight: 8, rightWidth: 4, bottomHeight: 4};
+    let inputSlice = {leftWidth: 4, topHeight: 4, rightWidth: 4, bottomHeight: 4};
 
     let newGameLabel = new Text({
       text: 'New game',
@@ -72,12 +68,13 @@ export const mainScreen = new GameScreen({
 
     let newGameButton = new Button({
       backgrounds: {
-        normal: newGameBgNormal,
-        hovered: newGameBgHover,
-        pressed: newGameBgPressed,
-        disabled: newGameBgDisabled,
+        normal: nineSlice('button-normal', buttonSlice),
+        hovered: nineSlice('button-hovered', buttonSlice),
+        pressed: nineSlice('button-pressed', buttonPressedSlice),
+        disabled: nineSlice('button-disabled', buttonSlice),
       },
       children: [newGameLabel],
+      pressOffset: 4,
       onClick: () => {
         // eslint-disable-next-line no-console -- placeholder until Game screen exists
         console.log('New game clicked');
@@ -124,10 +121,14 @@ export const mainScreen = new GameScreen({
     });
 
     let demoInput = new TextInput({
-      background: makeButtonBackground(pixi.Assets.get('banner')),
+      backgrounds: {
+        normal: nineSlice('text-input-normal', inputSlice),
+        hovered: nineSlice('text-input-hovered', inputSlice),
+        disabled: nineSlice('text-input-disabled', inputSlice),
+      },
       placeholder: 'Name...',
       fontFamily: 'monogram',
-      fontSize: 32,
+      fontSize: 48,
       fill: 0xffffff,
       maxLength: 16,
       container: game.app.canvas.parentElement ?? document.body,
@@ -135,7 +136,14 @@ export const mainScreen = new GameScreen({
         // eslint-disable-next-line no-console -- demo
         console.log('input', input.value);
       },
-      layout: {padding: 12, minWidth: 220},
+      layout: {
+        height: 72,
+        minWidth: 220,
+        paddingLeft: 16,
+        paddingRight: 16,
+        justifyContent: 'center',
+        alignItems: 'flex-start',
+      },
     });
 
     bannerPanel.addChild(demoToggleRow, demoInput);

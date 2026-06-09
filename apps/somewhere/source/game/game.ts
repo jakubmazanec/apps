@@ -17,6 +17,13 @@ export const game = new Game({
         {name: 'toggle-hovered-checked', sources: ['toggle-hovered-checked.png']},
         {name: 'toggle-disabled', sources: ['toggle-disabled.png']},
         {name: 'toggle-disabled-checked', sources: ['toggle-disabled-checked.png']},
+        {name: 'text-input-normal', sources: ['text-input-normal.png']},
+        {name: 'text-input-hovered', sources: ['text-input-hovered.png']},
+        {name: 'text-input-disabled', sources: ['text-input-disabled.png']},
+        {name: 'button-normal', sources: ['button-normal.png']},
+        {name: 'button-hovered', sources: ['button-hovered.png']},
+        {name: 'button-pressed', sources: ['button-pressed.png']},
+        {name: 'button-disabled', sources: ['button-disabled.png']},
       ],
     },
     {
