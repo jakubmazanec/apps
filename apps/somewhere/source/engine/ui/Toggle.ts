@@ -1,5 +1,5 @@
 import {LayoutContainer} from '@pixi/layout/components';
-import type * as pixi from 'pixi.js';
+import * as pixi from 'pixi.js';
 
 export type ToggleState = 'disabled' | 'hovered' | 'normal';
 
@@ -64,6 +64,18 @@ export class Toggle {
 
     this.view.eventMode = 'static';
     this.view.cursor = 'pointer';
+
+    // The state backgrounds are swapped in and out of the view, and a freshly
+    // attached child's transform is stale until the next render, which would
+    // let hits in that window fall through the view (e.g. a click whose
+    // pointerover and pointerdown arrive in the same frame). The hit area
+    // keeps hit testing independent of the background children.
+    this.view.hitArea = new pixi.Rectangle();
+
+    this.view.on('layout', ({computedLayout}) => {
+      (this.view.hitArea as pixi.Rectangle).width = computedLayout.width;
+      (this.view.hitArea as pixi.Rectangle).height = computedLayout.height;
+    });
 
     this.view.on('pointerover', () => {
       if (this.#state === 'disabled' || this.#state === 'hovered') {

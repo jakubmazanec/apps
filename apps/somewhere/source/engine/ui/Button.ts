@@ -1,5 +1,5 @@
 import {LayoutContainer} from '@pixi/layout/components';
-import type * as pixi from 'pixi.js';
+import * as pixi from 'pixi.js';
 
 import {type UiChild} from './UiChild.js';
 
@@ -28,7 +28,6 @@ export class Button {
   #state: ButtonState = 'normal';
   readonly #backgrounds: Record<ButtonState, pixi.Container>;
   readonly #pressOffset: number;
-  #layout: pixi.ContainerOptions['layout'];
   readonly #disposables = new DisposableStack();
 
   constructor({backgrounds, children, onClick, layout, pressOffset = 0}: ButtonOptions) {
@@ -59,6 +58,18 @@ export class Button {
 
     this.view.eventMode = 'static';
     this.view.cursor = 'pointer';
+
+    // The state backgrounds are swapped in and out of the view, and a freshly
+    // attached child's transform is stale until the next render, which would
+    // let hits in that window fall through the view (e.g. a click whose
+    // pointerover and pointerdown arrive in the same frame). The hit area
+    // keeps hit testing independent of the background children.
+    this.view.hitArea = new pixi.Rectangle();
+
+    this.view.on('layout', ({computedLayout}) => {
+      (this.view.hitArea as pixi.Rectangle).width = computedLayout.width;
+      (this.view.hitArea as pixi.Rectangle).height = computedLayout.height;
+    });
 
     this.view.on('pointerover', () => {
       if (this.#state === 'disabled' || this.#state === 'hovered') {
@@ -113,10 +124,11 @@ export class Button {
       this.addChild(...children);
     }
 
-    if (layout !== undefined) {
-      this.#layout = layout;
-      this.view.layout = layout;
-    }
+    this.view.layout = {
+      justifyContent: 'center',
+      alignItems: 'center',
+      ...(typeof layout === 'object' ? layout : undefined),
+    };
 
     this.#disposables.defer(() => this.view.destroy({children: true}));
   }
@@ -188,17 +200,18 @@ export class Button {
   // top, so the box height is unchanged and the centered label tracks a face
   // that drops on press (the extruded button background).
   #applyPressOffset() {
-    if (this.#pressOffset === 0 || this.#layout === undefined) {
+    if (this.#pressOffset === 0) {
       return;
     }
 
-    let base = this.#layout as {padding?: number};
-    let pad = base.padding ?? 0;
+    // The base padding stays readable in the merged styles even while the
+    // paddingTop/paddingBottom edges override it during a press.
+    let {padding = 0} = (this.view.layout?.style ?? {}) as {padding?: number};
     let shift = this.#state === 'pressed' ? this.#pressOffset : 0;
 
     // Always set both edges explicitly: @pixi/layout merges style assignments,
     // so omitting paddingTop/paddingBottom on release would leave the pressed
     // values stuck rather than resetting them to the base padding.
-    this.view.layout = {...base, paddingTop: pad + shift, paddingBottom: pad - shift};
+    this.view.layout = {paddingTop: padding + shift, paddingBottom: padding - shift};
   }
 }

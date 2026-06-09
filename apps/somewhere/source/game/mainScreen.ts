@@ -81,8 +81,6 @@ export const mainScreen = new GameScreen({
       },
       layout: {
         padding: 8,
-        alignItems: 'center',
-        justifyContent: 'center',
       },
     });
 
@@ -137,12 +135,8 @@ export const mainScreen = new GameScreen({
         console.log('input', input.value);
       },
       layout: {
-        height: 72,
         minWidth: 220,
-        paddingLeft: 16,
-        paddingRight: 16,
-        justifyContent: 'center',
-        alignItems: 'flex-start',
+        padding: 16,
       },
     });
 

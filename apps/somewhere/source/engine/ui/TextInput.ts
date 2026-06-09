@@ -93,6 +93,18 @@ export class TextInput {
     this.view.eventMode = 'static';
     this.view.cursor = 'text';
 
+    // The state backgrounds are swapped in and out of the view, and a freshly
+    // attached child's transform is stale until the next render, which would
+    // let hits in that window fall through the view (e.g. a click whose
+    // pointerover and pointerdown arrive in the same frame). The hit area
+    // keeps hit testing independent of the background children.
+    this.view.hitArea = new pixi.Rectangle();
+
+    this.view.on('layout', ({computedLayout}) => {
+      (this.view.hitArea as pixi.Rectangle).width = computedLayout.width;
+      (this.view.hitArea as pixi.Rectangle).height = computedLayout.height;
+    });
+
     this.#row = new LayoutContainer({});
     this.#row.layout = {flexDirection: 'row', alignItems: 'center'};
 
@@ -147,9 +159,11 @@ export class TextInput {
       this.#setState('normal');
     });
 
-    if (layout !== undefined) {
-      this.view.layout = layout;
-    }
+    this.view.layout = {
+      justifyContent: 'center',
+      alignItems: 'center',
+      ...(typeof layout === 'object' ? layout : undefined),
+    };
 
     let input = document.createElement('input');
 
