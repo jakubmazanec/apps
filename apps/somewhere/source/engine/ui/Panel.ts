@@ -1,7 +1,7 @@
 import {LayoutContainer} from '@pixi/layout/components';
 import type * as pixi from 'pixi.js';
 
-import {type UiChild} from './UiChild.js';
+import {type UiChild, type UiParent} from './UiChild.js';
 
 export type PanelOptions = {
   background?: pixi.Container;
@@ -9,8 +9,9 @@ export type PanelOptions = {
   layout?: pixi.ContainerOptions['layout'];
 };
 
-export class Panel {
+export class Panel implements UiParent {
   readonly view: LayoutContainer;
+  readonly children: UiChild[] = [];
 
   readonly #disposables = new DisposableStack();
 
@@ -30,6 +31,7 @@ export class Panel {
 
   addChild(...children: UiChild[]): this {
     for (let child of children) {
+      this.children.push(child);
       this.view.addChild('view' in child ? child.view : child);
     }
 
@@ -38,6 +40,12 @@ export class Panel {
 
   removeChild(...children: UiChild[]): this {
     for (let child of children) {
+      let index = this.children.indexOf(child);
+
+      if (index !== -1) {
+        this.children.splice(index, 1);
+      }
+
       this.view.removeChild('view' in child ? child.view : child);
     }
 

@@ -4,6 +4,7 @@ import * as pixi from 'pixi.js';
 // import {CRTFilter} from 'pixi-filters';
 import {tiledTilemapAsset} from '../../pixi-tools/tiledTilemapAsset.js';
 import {tiledTilesetAsset} from '../../pixi-tools/tiledTilesetAsset.js';
+import {type FocusRingOptions} from '../ui/UiRoot.js';
 import {type GameScreen, type Renderable} from './GameScreen.js';
 
 import '@pixi/layout';
@@ -18,8 +19,16 @@ export type GameAssetBundle = {
   assets: GameAssetBundleAsset[];
 };
 
+export type FocusCommand = 'activate' | 'down' | 'left' | 'next' | 'previous' | 'right' | 'up';
+
+// Values are KeyboardEvent.code strings; a 'Shift+' prefix is the only
+// supported modifier syntax (e.g. 'Shift+Tab').
+export type FocusKeys = Partial<Record<FocusCommand, string[]>>;
+
 export type GameOptions = {
   assetBundles: GameAssetBundle[];
+  focusKeys?: FocusKeys;
+  focusRing?: FocusRingOptions;
 };
 
 export class Game {
@@ -37,8 +46,25 @@ export class Game {
 
   ref: React.RefObject<HTMLElement | null> | null = null;
 
-  constructor({assetBundles}: GameOptions) {
+  readonly focusRing?: FocusRingOptions;
+
+  readonly #focusCommands = new Map<string, FocusCommand>();
+
+  constructor({assetBundles, focusKeys, focusRing}: GameOptions) {
     this.assetBundles = assetBundles;
+
+    if (focusRing !== undefined) {
+      this.focusRing = focusRing;
+    }
+
+    for (let [command, codes] of Object.entries(focusKeys ?? {}) as Array<
+      [FocusCommand, string[]]
+    >) {
+      for (let code of codes) {
+        this.#focusCommands.set(code, command);
+      }
+    }
+
     this.app = new pixi.Application();
   }
 
@@ -158,6 +184,12 @@ export class Game {
     this.app.canvas.style.imageRendering = 'pixelated';
     window.addEventListener('resize', this.resize);
 
+    // Without a focusKeys map the whole focus system is inert; no listener,
+    // zero cost for games that do not use it.
+    if (this.#focusCommands.size > 0) {
+      globalThis.addEventListener('keydown', this.#handleKeyDown);
+    }
+
     this.ref = ref;
 
     this.resize();
@@ -168,6 +200,7 @@ export class Game {
   removeRef() {
     this.app.canvas.remove();
     window.removeEventListener('resize', this.resize);
+    globalThis.removeEventListener('keydown', this.#handleKeyDown);
 
     this.ref = null;
 
@@ -207,6 +240,75 @@ export class Game {
 
     if (this.loadingScreen?.view.parent) {
       this.loadingScreen.resize();
+    }
+  };
+
+  // Focus commands are routed to the current screen's UI root. While a DOM
+  // input element has focus (a TextInput is editing), every key belongs to the
+  // input, so navigation is suspended without any per-component key hooks.
+  readonly #handleKeyDown = (event: KeyboardEvent) => {
+    if (event.target instanceof HTMLInputElement) {
+      return;
+    }
+
+    let command = this.#focusCommands.get(event.shiftKey ? `Shift+${event.code}` : event.code);
+
+    if (command === undefined) {
+      return;
+    }
+
+    // Only mapped keys are consumed; this keeps Tab from escaping to the
+    // browser while leaving every other key alone.
+    event.preventDefault();
+
+    if (!this.currentScreen?.view.parent) {
+      return;
+    }
+
+    let {ui} = this.currentScreen;
+
+    switch (command) {
+      case 'activate': {
+        ui.activate();
+
+        break;
+      }
+
+      case 'down': {
+        ui.moveFocus(command);
+
+        break;
+      }
+
+      case 'left': {
+        ui.moveFocus(command);
+
+        break;
+      }
+
+      case 'next': {
+        ui.focusNext();
+
+        break;
+      }
+
+      case 'previous': {
+        ui.focusPrevious();
+
+        break;
+      }
+
+      case 'right': {
+        ui.moveFocus(command);
+
+        break;
+      }
+
+      case 'up': {
+        ui.moveFocus(command);
+
+        break;
+      }
     }
   };
 

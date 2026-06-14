@@ -1,6 +1,8 @@
 import {LayoutContainer} from '@pixi/layout/components';
 import * as pixi from 'pixi.js';
 
+import {type Focusable} from './Focusable.js';
+
 export type ToggleState = 'disabled' | 'hovered' | 'normal';
 
 export type ToggleOptions = {
@@ -16,7 +18,7 @@ export type ToggleOptions = {
   onChange?: (toggle: Toggle) => void;
 };
 
-export class Toggle {
+export class Toggle implements Focusable {
   readonly view: LayoutContainer;
 
   readonly #onChange?: (toggle: Toggle) => void;
@@ -100,8 +102,7 @@ export class Toggle {
 
       event.stopPropagation();
 
-      this.#setChecked(!this.#checked);
-      this.#onChange?.(this);
+      this.activate();
     });
 
     this.#disposables.defer(() => this.view.destroy({children: true}));
@@ -113,6 +114,19 @@ export class Toggle {
 
   get disabled(): boolean {
     return this.#state === 'disabled';
+  }
+
+  get isFocusable(): boolean {
+    return this.#state !== 'disabled';
+  }
+
+  activate() {
+    if (this.#state === 'disabled') {
+      return;
+    }
+
+    this.#setChecked(!this.#checked);
+    this.#onChange?.(this);
   }
 
   setChecked(value: boolean): this {

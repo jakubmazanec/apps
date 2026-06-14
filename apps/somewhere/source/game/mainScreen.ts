@@ -55,7 +55,7 @@ export const mainScreen = new GameScreen({
     ) => new pixi.NineSliceSprite({texture: pixi.Assets.get(name), ...slice});
 
     let buttonSlice = {leftWidth: 4, topHeight: 8, rightWidth: 4, bottomHeight: 8};
-    let buttonPressedSlice = {leftWidth: 4, topHeight: 8, rightWidth: 4, bottomHeight: 4};
+    let buttonActiveSlice = {leftWidth: 4, topHeight: 8, rightWidth: 4, bottomHeight: 4};
     let inputSlice = {leftWidth: 4, topHeight: 4, rightWidth: 4, bottomHeight: 4};
 
     let newGameLabel = new Text({
@@ -70,7 +70,7 @@ export const mainScreen = new GameScreen({
       backgrounds: {
         normal: nineSlice('button-normal', buttonSlice),
         hovered: nineSlice('button-hovered', buttonSlice),
-        pressed: nineSlice('button-pressed', buttonPressedSlice),
+        active: nineSlice('button-active', buttonActiveSlice),
         disabled: nineSlice('button-disabled', buttonSlice),
       },
       children: [newGameLabel],
@@ -152,12 +152,12 @@ export const mainScreen = new GameScreen({
     screen.addToView(world);
     world.start();
 
-    screen.view.addChild(screen.state.bannerPanel.view);
+    screen.ui.addChild(screen.state.bannerPanel);
   },
   onHide: (screen) => {
     world.stop();
     screen.removeFromView(world);
-    screen.view.removeChild(screen.state.bannerPanel.view);
+    screen.ui.removeChild(screen.state.bannerPanel);
   },
   onResize: () => {},
   onUpdate: () => {},

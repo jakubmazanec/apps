@@ -1,14 +1,15 @@
 import * as pixi from 'pixi.js';
 
-import {type UiChild} from './UiChild.js';
+import {type UiChild, type UiParent} from './UiChild.js';
 
 export type ContainerOptions = {
   children?: UiChild[];
   layout?: pixi.ContainerOptions['layout'];
 };
 
-export class Container {
+export class Container implements UiParent {
   readonly view: pixi.Container = new pixi.Container();
+  readonly children: UiChild[] = [];
 
   readonly #disposables = new DisposableStack();
 
@@ -27,6 +28,7 @@ export class Container {
 
   addChild(...children: UiChild[]): this {
     for (let child of children) {
+      this.children.push(child);
       this.view.addChild('view' in child ? child.view : child);
     }
 
@@ -35,6 +37,12 @@ export class Container {
 
   removeChild(...children: UiChild[]): this {
     for (let child of children) {
+      let index = this.children.indexOf(child);
+
+      if (index !== -1) {
+        this.children.splice(index, 1);
+      }
+
       this.view.removeChild('view' in child ? child.view : child);
     }
 

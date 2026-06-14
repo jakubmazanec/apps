@@ -1,15 +1,16 @@
 import {LayoutContainer} from '@pixi/layout/components';
 import * as pixi from 'pixi.js';
 
-import {type UiChild} from './UiChild.js';
+import {type Focusable} from './Focusable.js';
+import {type UiChild, type UiParent} from './UiChild.js';
 
-export type ButtonState = 'disabled' | 'hovered' | 'normal' | 'pressed';
+export type ButtonState = 'active' | 'disabled' | 'hovered' | 'normal';
 
 export type ButtonOptions = {
   backgrounds: {
     normal: pixi.Container;
     hovered?: pixi.Container;
-    pressed?: pixi.Container;
+    active?: pixi.Container;
     disabled?: pixi.Container;
   };
   children?: UiChild[];
@@ -20,8 +21,9 @@ export type ButtonOptions = {
   pressOffset?: number;
 };
 
-export class Button {
+export class Button implements Focusable, UiParent {
   readonly view: LayoutContainer;
+  readonly children: UiChild[] = [];
 
   readonly #onClick?: (button: Button) => void;
 
@@ -40,7 +42,7 @@ export class Button {
     this.#backgrounds = {
       normal: backgrounds.normal,
       hovered: backgrounds.hovered ?? backgrounds.normal,
-      pressed: backgrounds.pressed ?? backgrounds.normal,
+      active: backgrounds.active ?? backgrounds.normal,
       disabled: backgrounds.disabled ?? backgrounds.normal,
     };
 
@@ -88,15 +90,15 @@ export class Button {
     });
 
     this.view.on('pointerdown', () => {
-      if (this.#state === 'disabled' || this.#state === 'pressed') {
+      if (this.#state === 'disabled' || this.#state === 'active') {
         return;
       }
 
-      this.#setState('pressed');
+      this.#setState('active');
     });
 
     this.view.on('pointerup', () => {
-      if (this.#state !== 'pressed') {
+      if (this.#state !== 'active') {
         return;
       }
 
@@ -104,9 +106,9 @@ export class Button {
     });
 
     // A press released outside the button never fires `pointerup`, which would
-    // otherwise leave the button stuck in `pressed`.
+    // otherwise leave the button stuck in `active`.
     this.view.on('pointerupoutside', () => {
-      if (this.#state !== 'pressed') {
+      if (this.#state !== 'active') {
         return;
       }
 
@@ -116,7 +118,7 @@ export class Button {
     this.view.on('pointertap', (event) => {
       if (this.#state !== 'disabled') {
         event.stopPropagation();
-        this.#onClick?.(this);
+        this.activate();
       }
     });
 
@@ -135,6 +137,7 @@ export class Button {
 
   addChild(...children: UiChild[]): this {
     for (let child of children) {
+      this.children.push(child);
       this.view.addChild('view' in child ? child.view : child);
     }
 
@@ -143,6 +146,12 @@ export class Button {
 
   removeChild(...children: UiChild[]): this {
     for (let child of children) {
+      let index = this.children.indexOf(child);
+
+      if (index !== -1) {
+        this.children.splice(index, 1);
+      }
+
       this.view.removeChild('view' in child ? child.view : child);
     }
 
@@ -151,6 +160,18 @@ export class Button {
 
   get state(): ButtonState {
     return this.#state;
+  }
+
+  get isFocusable(): boolean {
+    return this.#state !== 'disabled';
+  }
+
+  activate() {
+    if (this.#state === 'disabled') {
+      return;
+    }
+
+    this.#onClick?.(this);
   }
 
   enable() {
@@ -207,7 +228,7 @@ export class Button {
     // The base padding stays readable in the merged styles even while the
     // paddingTop/paddingBottom edges override it during a press.
     let {padding = 0} = (this.view.layout?.style ?? {}) as {padding?: number};
-    let shift = this.#state === 'pressed' ? this.#pressOffset : 0;
+    let shift = this.#state === 'active' ? this.#pressOffset : 0;
 
     // Always set both edges explicitly: @pixi/layout merges style assignments,
     // so omitting paddingTop/paddingBottom on release would leave the pressed

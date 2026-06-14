@@ -1,6 +1,23 @@
 import {Game} from '../engine/app/Game.js';
 
 export const game = new Game({
+  focusKeys: {
+    up: ['ArrowUp'],
+    down: ['ArrowDown'],
+    left: ['ArrowLeft'],
+    right: ['ArrowRight'],
+    next: ['Tab'],
+    previous: ['Shift+Tab'],
+    activate: ['Enter', 'Space'],
+  },
+  focusRing: {
+    assetName: 'focus-ring',
+    leftWidth: 4,
+    topHeight: 4,
+    rightWidth: 4,
+    bottomHeight: 4,
+    padding: 8,
+  },
   assetBundles: [
     {
       name: 'default',
@@ -22,8 +39,9 @@ export const game = new Game({
         {name: 'text-input-disabled', sources: ['text-input-disabled.png']},
         {name: 'button-normal', sources: ['button-normal.png']},
         {name: 'button-hovered', sources: ['button-hovered.png']},
-        {name: 'button-pressed', sources: ['button-pressed.png']},
+        {name: 'button-active', sources: ['button-active.png']},
         {name: 'button-disabled', sources: ['button-disabled.png']},
+        {name: 'focus-ring', sources: ['focus-ring.png']},
       ],
     },
     {

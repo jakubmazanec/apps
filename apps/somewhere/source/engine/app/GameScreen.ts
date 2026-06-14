@@ -1,5 +1,6 @@
 import * as pixi from 'pixi.js';
 
+import {UiRoot} from '../ui/UiRoot.js';
 import {type Game} from './Game.js';
 
 export type Renderable = {
@@ -18,6 +19,7 @@ export type GameScreenOptions<T> = {
 
 export class GameScreen<T = undefined> {
   #game: Game | null = null;
+  #ui: UiRoot | null = null;
 
   readonly assetBundles: string[] = [];
   readonly view: pixi.Container = new pixi.Container();
@@ -72,8 +74,20 @@ export class GameScreen<T = undefined> {
     this.state = this.#onAdd?.(this, game) as T;
   }
 
+  get ui(): UiRoot {
+    if (this.#ui === null) {
+      this.#ui = new UiRoot(
+        this.game.focusRing === undefined ? {} : {focusRing: this.game.focusRing},
+      );
+      this.view.addChild(this.#ui.view);
+    }
+
+    return this.#ui;
+  }
+
   update(ticker: pixi.Ticker) {
     this.#onUpdate?.(ticker, this, this.game);
+    this.#ui?.update();
   }
 
   async show() {
@@ -81,6 +95,7 @@ export class GameScreen<T = undefined> {
   }
 
   async hide() {
+    this.#ui?.clearFocus();
     await this.#onHide?.(this, this.game);
   }
 
@@ -90,6 +105,11 @@ export class GameScreen<T = undefined> {
 
   addToView(renderable: Renderable) {
     this.view.addChild(renderable.view);
+
+    if (this.#ui !== null) {
+      this.view.setChildIndex(this.#ui.view, this.view.children.length - 1);
+    }
+
     this.game.app.ticker.add(renderable.update, renderable);
   }
 

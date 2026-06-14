@@ -1,6 +1,7 @@
 import {LayoutContainer} from '@pixi/layout/components';
 import * as pixi from 'pixi.js';
 
+import {type Focusable} from './Focusable.js';
 import {Text} from './Text.js';
 
 export type TextInputState = 'disabled' | 'hovered' | 'normal';
@@ -25,7 +26,7 @@ export type TextInputOptions = {
 
 const CARET_WIDTH = 2;
 
-export class TextInput {
+export class TextInput implements Focusable {
   readonly view: LayoutContainer;
 
   readonly #onChange?: (input: TextInput) => void;
@@ -302,6 +303,20 @@ export class TextInput {
     this.#refresh();
 
     return this;
+  }
+
+  get isFocusable(): boolean {
+    return this.#state !== 'disabled';
+  }
+
+  // Navigation focus and editing focus are distinct: activating the
+  // navigation-focused field is what starts editing.
+  activate() {
+    if (this.#state === 'disabled') {
+      return;
+    }
+
+    this.focus();
   }
 
   focus(): this {
