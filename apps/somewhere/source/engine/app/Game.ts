@@ -50,6 +50,8 @@ export class Game {
 
   readonly #focusCommands = new Map<string, FocusCommand>();
 
+  #disposables: DisposableStack | undefined;
+
   constructor({assetBundles, focusKeys, focusRing}: GameOptions) {
     this.assetBundles = assetBundles;
 
@@ -187,7 +189,80 @@ export class Game {
     // Without a focusKeys map the whole focus system is inert; no listener,
     // zero cost for games that do not use it.
     if (this.#focusCommands.size > 0) {
-      globalThis.addEventListener('keydown', this.#handleKeyDown);
+      // Focus commands are routed to the current screen's UI root. While a DOM
+      // input element has focus (a TextInput is editing), every key belongs to the
+      // input, so navigation is suspended without any per-component key hooks.
+      let handleKeyDown = (event: KeyboardEvent) => {
+        if (event.target instanceof HTMLInputElement) {
+          return;
+        }
+
+        let command = this.#focusCommands.get(event.shiftKey ? `Shift+${event.code}` : event.code);
+
+        if (command === undefined) {
+          return;
+        }
+
+        // Only mapped keys are consumed; this keeps Tab from escaping to the
+        // browser while leaving every other key alone.
+        event.preventDefault();
+
+        if (!this.currentScreen?.view.parent) {
+          return;
+        }
+
+        let {ui} = this.currentScreen;
+
+        switch (command) {
+          case 'activate': {
+            ui.activate();
+
+            break;
+          }
+
+          case 'down': {
+            ui.moveFocus(command);
+
+            break;
+          }
+
+          case 'left': {
+            ui.moveFocus(command);
+
+            break;
+          }
+
+          case 'next': {
+            ui.focusNext();
+
+            break;
+          }
+
+          case 'previous': {
+            ui.focusPrevious();
+
+            break;
+          }
+
+          case 'right': {
+            ui.moveFocus(command);
+
+            break;
+          }
+
+          case 'up': {
+            ui.moveFocus(command);
+
+            break;
+          }
+
+          // no default
+        }
+      };
+
+      this.#disposables = new DisposableStack();
+      globalThis.addEventListener('keydown', handleKeyDown);
+      this.#disposables.defer(() => globalThis.removeEventListener('keydown', handleKeyDown));
     }
 
     this.ref = ref;
@@ -200,7 +275,8 @@ export class Game {
   removeRef() {
     this.app.canvas.remove();
     window.removeEventListener('resize', this.resize);
-    globalThis.removeEventListener('keydown', this.#handleKeyDown);
+    this.#disposables?.dispose();
+    this.#disposables = undefined;
 
     this.ref = null;
 
@@ -240,75 +316,6 @@ export class Game {
 
     if (this.loadingScreen?.view.parent) {
       this.loadingScreen.resize();
-    }
-  };
-
-  // Focus commands are routed to the current screen's UI root. While a DOM
-  // input element has focus (a TextInput is editing), every key belongs to the
-  // input, so navigation is suspended without any per-component key hooks.
-  readonly #handleKeyDown = (event: KeyboardEvent) => {
-    if (event.target instanceof HTMLInputElement) {
-      return;
-    }
-
-    let command = this.#focusCommands.get(event.shiftKey ? `Shift+${event.code}` : event.code);
-
-    if (command === undefined) {
-      return;
-    }
-
-    // Only mapped keys are consumed; this keeps Tab from escaping to the
-    // browser while leaving every other key alone.
-    event.preventDefault();
-
-    if (!this.currentScreen?.view.parent) {
-      return;
-    }
-
-    let {ui} = this.currentScreen;
-
-    switch (command) {
-      case 'activate': {
-        ui.activate();
-
-        break;
-      }
-
-      case 'down': {
-        ui.moveFocus(command);
-
-        break;
-      }
-
-      case 'left': {
-        ui.moveFocus(command);
-
-        break;
-      }
-
-      case 'next': {
-        ui.focusNext();
-
-        break;
-      }
-
-      case 'previous': {
-        ui.focusPrevious();
-
-        break;
-      }
-
-      case 'right': {
-        ui.moveFocus(command);
-
-        break;
-      }
-
-      case 'up': {
-        ui.moveFocus(command);
-
-        break;
-      }
     }
   };
 
