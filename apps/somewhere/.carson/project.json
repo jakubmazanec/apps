@@ -9,9 +9,16 @@
         "target": "ES2022"
       }
     },
-    "eslintConfig": {
-      "ignores": ["$/**"]
-    },
+    "eslintConfig": [
+      {
+        "ignores": ["$/**"]
+      },
+      {
+        "rules": {
+          "unicorn/prefer-dom-node-remove": "off"
+        }
+      }
+    ],
     "tsconfig": {
       "compilerOptions": {
         "module": "preserve",
