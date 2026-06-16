@@ -37,9 +37,14 @@ into each other.
 | Completion | — | closure / `Promise` | push a domain `Event` onto a channel |
 | Lifecycle | — | cleared on screen `hide()` | cleared on `world.stop()` |
 
-The camera is an entity (`CameraComponent` + `cameraSystem`), so camera tweens are ECS-side, not
-`Scheduler`-side. The litmus is one test: **is the thing being timed part of the simulation?**
-ECS components. **Is it Pixi UI?** the `Scheduler`.
+The camera is an entity (`CameraComponent` + `cameraSystem`), so a camera tween would be ECS-side,
+not `Scheduler`-side. One caveat the litmus does not capture: `cameraSystem` already rewrites
+`CameraComponent.position` **every frame** to follow the player, so a camera tween cannot simply
+drive that field — the follow write would have to be taught to yield first (see
+[ECS door](#ecs-door-tweencomponent--timercomponent)). An entity no other system writes each frame
+(an enemy cooldown timer) has no such contention and is the clean case. The litmus is one test:
+**is the thing being timed part of the simulation?** ECS components. **Is it Pixi UI?** the
+`Scheduler`.
 
 ## Layering
 
@@ -56,8 +61,16 @@ The core is dependency-free and **handler-free**: a primitive answers exactly on
 "did you fire this frame", and holds no completion behavior of its own. That is what keeps a
 closure from leaking into the simulation (see [Why the boundary is type-enforced](#why-the-boundary-is-type-enforced)).
 
-All durations are **milliseconds**, advanced with `ticker.deltaMS` (not `deltaTime`, which is
-in frames). Tween targets stay floats; the renderer's `roundPixels: true` keeps pixels crisp.
+All durations are **milliseconds**, advanced with `ticker.deltaMS`. `motionSystem` integrates in
+`deltaTime`, which is *frames*, so the engine now runs both bases side by side — clamped frames for
+the simulation's hand-rolled motion, milliseconds for tweens; neither is "wrong," they answer
+different questions. Pixi's `Ticker` already caps `deltaMS` at `1000 / minFPS` (~100ms by default,
+and the app does not override `minFPS`), so after an alt-tab / GC stall a tween advances at most
+~100ms in one frame — enough to visibly skip part of a short fade, not enough to overshoot.
+`motionSystem` clamps far tighter (`Math.min(deltaTime, 2)` ≈ 33ms) to stop wall-tunneling; the
+scheduler adds no clamp of its own and relies on Pixi's 100ms cap. If a game finds post-stall jumps
+objectionable, clamp `deltaMs` in `Scheduler.update` / the systems the same way. Tween targets stay
+floats; the renderer's `roundPixels: true` keeps pixels crisp.
 
 ### `easing`
 
@@ -88,17 +101,22 @@ values at construction (so it begins the moment it is created or pushed). `advan
 // engine/scheduler/Tween.ts
 import {type Easing, linear} from './easing.js';
 
-export type TweenOptions<T extends Record<string, number>> = {
+// Real targets (a Pixi `Container`, an `ObservablePoint`, a `Vector`) are class instances with
+// methods, so they do NOT satisfy `Record<string, number>`. Leave `target` loose and constrain
+// only `to` to the target's numeric-valued keys.
+type NumericKeys<T> = {[K in keyof T]: T[K] extends number ? K : never}[keyof T];
+
+export type TweenOptions<T> = {
   target: T;
-  to: Partial<T>;
-  duration: number; // milliseconds
+  to: Partial<Pick<T, NumericKeys<T>>>;
+  duration: number; // milliseconds, must be > 0
   easing?: Easing;
 };
 
-export class Tween<T extends Record<string, number> = Record<string, number>> {
+export class Tween<T = Record<string, number>> {
   readonly #target: T;
-  readonly #to: Partial<T>;
-  readonly #from: Partial<T> = {};
+  readonly #to: Partial<Pick<T, NumericKeys<T>>>;
+  readonly #from: Partial<Record<NumericKeys<T>, number>> = {};
   readonly #duration: number;
   readonly #easing: Easing;
   #elapsed = 0;
@@ -109,20 +127,25 @@ export class Tween<T extends Record<string, number> = Record<string, number>> {
     this.#duration = duration;
     this.#easing = easing;
 
-    for (let key in to) {
-      this.#from[key] = target[key];
+    let source = target as Record<NumericKeys<T>, number>;
+
+    for (let key of Object.keys(to) as Array<NumericKeys<T>>) {
+      this.#from[key] = source[key];
     }
   }
 
   /** Advance by `deltaMs`; returns `true` on the frame it reaches the end. */
   advance(deltaMs: number): boolean {
     this.#elapsed += deltaMs;
-    let progress = Math.min(this.#elapsed / this.#duration, 1);
+    // Guard `duration <= 0`: without it a zero-delta tick yields 0/0 = NaN and poisons the target.
+    let progress = this.#duration <= 0 ? 1 : Math.min(this.#elapsed / this.#duration, 1);
     let eased = this.#easing(progress);
+    let target = this.#target as Record<NumericKeys<T>, number>;
+    let to = this.#to as Partial<Record<NumericKeys<T>, number>>;
 
-    for (let key in this.#to) {
+    for (let key of Object.keys(to) as Array<NumericKeys<T>>) {
       let from = this.#from[key]!;
-      this.#target[key] = from + (this.#to[key]! - from) * eased;
+      target[key] = from + (to[key]! - from) * eased;
     }
 
     return progress >= 1;
@@ -130,13 +153,19 @@ export class Tween<T extends Record<string, number> = Record<string, number>> {
 }
 ```
 
-Nested targets are reached by pointing `target` at the sub-object: `{target: sprite.scale, to: {x: 2, y: 2}}`.
+Nested targets are reached by pointing `target` at the sub-object: `{target: sprite.scale, to: {x: 2, y: 2}}`
+(`sprite.scale` is an `ObservablePoint`; the loose-`target` typing above is what lets that and a
+Pixi `Container` typecheck).
 
 ### `Timer`
 
-Counts down, then fires. A one-shot fires once; a `repeat` timer fires every period and
-re-arms. `advance` returns `true` on the frame it fires — for a repeat timer that is **every**
-period, not once (see [Timing](#timing)).
+Counts down, then fires. A one-shot fires once; a `repeat` timer fires and re-arms, carrying any
+overshoot into the next period. `advance` returns `true` on a frame it fires, but **at most once per
+call**: if one frame's `deltaMs` spans several periods (a long hitch), it reports a single fire and
+carries the surplus forward, so fire counts can drift behind elapsed periods. Fine for coarse
+periods (a 10s wave spawner); for fast repeats where exact counts matter, drain with a
+`while (#elapsed >= #duration)` loop instead. Pass a positive `duration` — a non-positive period
+would re-fire every frame (see [Timing](#timing)).
 
 ```ts
 // engine/scheduler/Timer.ts
@@ -160,7 +189,7 @@ export class Timer {
     return this.#repeat;
   }
 
-  /** Advance by `deltaMs`; returns `true` on the frame it fires (a repeat fires every period). */
+  /** Advance by `deltaMs`; returns `true` if it fired this call (at most once, even across several periods). */
   advance(deltaMs: number): boolean {
     if (this.#finished) {
       return false;
@@ -198,12 +227,16 @@ import type * as pixi from 'pixi.js';
 import {Timer} from './Timer.js';
 import {Tween, type TweenOptions} from './Tween.js';
 
-type TweenEntry = {tween: Tween; onComplete?: (() => void) | undefined};
+// `Tween<unknown>`, not `Tween`: a `Tween<Container>` is not assignable to the default
+// `Tween<Record<string, number>>` (the private `#target: T` field is checked), but it is to
+// `Tween<unknown>`. `advance` is the only public method and doesn't depend on `T`, so this is safe.
+type TweenEntry = {tween: Tween<unknown>; onComplete?: (() => void) | undefined};
 type TimerEntry = {timer: Timer; onComplete: () => void};
 
 export class Scheduler {
   readonly #tweens = new Set<TweenEntry>();
   readonly #timers = new Set<TimerEntry>();
+  readonly #pendingWaits = new Set<(reason?: unknown) => void>();
 
   /** @internal Called by `GameScreen.update`. */
   update(ticker: pixi.Ticker) {
@@ -225,9 +258,7 @@ export class Scheduler {
     }
   }
 
-  tween<T extends Record<string, number>>(
-    options: TweenOptions<T> & {onComplete?: () => void},
-  ): () => void {
+  tween<T>(options: TweenOptions<T> & {onComplete?: () => void}): () => void {
     let entry: TweenEntry = {tween: new Tween(options), onComplete: options.onComplete};
     this.#tweens.add(entry);
     return () => this.#tweens.delete(entry);
@@ -246,19 +277,33 @@ export class Scheduler {
   }
 
   wait(duration: number): Promise<void> {
-    return new Promise((resolve) => {
-      this.after(duration, resolve);
+    // Track `reject` so `clear()` can settle a pending wait; otherwise dropping the timer would
+    // leave `await scheduler.wait(...)` suspended forever.
+    return new Promise((resolve, reject) => {
+      this.#pendingWaits.add(reject);
+      this.after(duration, () => {
+        this.#pendingWaits.delete(reject);
+        resolve();
+      });
     });
   }
 
   clear() {
     this.#tweens.clear();
     this.#timers.clear();
+
+    for (let reject of this.#pendingWaits) {
+      reject(new Error('Scheduler cleared'));
+    }
+
+    this.#pendingWaits.clear();
   }
 }
 ```
 
-Each method returns a cancel function; `clear()` cancels everything at once.
+Each method returns a cancel function; `clear()` cancels everything at once. `wait()` is the one
+method without a cancel handle: a pending `wait()` **rejects** if the scheduler is cleared before it
+fires, so an `await scheduler.wait(...)` interrupted by a screen `hide()` throws rather than hanging.
 
 ### `GameScreen` ownership
 
@@ -305,6 +350,10 @@ import {type EventChannel} from '../ecs/EventChannel.js';
 export type EventEmit = {channel: EventChannel; event: Event};
 ```
 
+`EventEmit` here is plain data — a channel plus a prebuilt `Event` to `push` — and is unrelated to
+the UI bus's `ui.emit` in `event-system.md` (a synchronous `eventemitter3` emit); they share only
+the word "emit."
+
 ```ts
 // engine/scheduler/TweenComponent.ts
 import {defineComponent} from '../ecs/Component.js';
@@ -312,7 +361,8 @@ import {type Tween} from './Tween.js';
 import {type EventEmit} from './EventEmit.js';
 
 export const TweenComponent = defineComponent<{
-  tweens: Array<{tween: Tween; emit?: EventEmit | undefined}>;
+  // `Tween<unknown>` so a `Tween<Vector>` (camera/position) or any concrete target assigns in.
+  tweens: Array<{tween: Tween<unknown>; emit?: EventEmit | undefined}>;
 }>();
 
 // engine/scheduler/TimerComponent.ts
@@ -352,7 +402,11 @@ Because an `Entity`'s component set is fixed at construction (there is no `addCo
 the component map is keyed by constructor so there is one per type), a tweenable or timed entity
 is created up front with an **empty** `TweenComponent` / `TimerComponent`, and entries are pushed
 into the list at runtime. The list-in-a-component pattern also lets one entity run several tweens
-or timers at once. To cancel, splice the entry out of the list.
+or timers at once. To cancel, splice the entry out of the list — note the ECS door returns **no
+cancel handle** (unlike the UI door's `Scheduler` methods), so the caller must keep a reference to
+the pushed entry to find and splice it. A tween's `emit` is optional: a fire-and-forget ease needs
+none and simply disappears from the list on completion (no signal), whereas a timer usually carries
+an `emit` so something downstream learns it fired.
 
 ```ts
 // per-entity one-shot: cooldown that announces readiness as a domain event next frame
@@ -378,17 +432,19 @@ The systems are registered by the game in `world.ts`, like every other system:
 
 ```ts
 // world.ts — onStart
-world.addSystem(timerSystem); // early: timer events are queued promptly
+world.addSystem(timerSystem); // placement is free: timer events are buffered, seen next frame regardless
 // ...motion, player, camera systems...
 world.addSystem(tweenSystem); // late, just before graphicsSystem: scripted motion is the last word
 world.addSystem(graphicsSystem);
 ```
 
-Order is significant here (systems run in registration order, as the existing pipeline already
-relies on). The default above puts `timerSystem` early so timer-driven events are available the
-rest of the frame, and `tweenSystem` late so a tween that writes `position` is the final value a
-frame's render sees. A game that wants velocity to win over a tween can move `tweenSystem` ahead
-of `motionSystem` instead; this is a per-game tuning knob, not a fixed rule.
+Order is load-bearing for `tweenSystem` **only**. A tween writes component state (`position`)
+**directly**, and `graphicsSystem` reads that state the same frame, so `tweenSystem` runs late —
+just before `graphicsSystem` — to be the final word on a tweened field. `timerSystem`'s placement
+among systems is, by contrast, **free**: a timer's completion is an event `push`, and channels swap
+at the end of `World.update`, so a consumer sees it next frame no matter where `timerSystem` sits
+(see [Timing](#timing)). A game that wants velocity to win over a tween can move `tweenSystem` ahead
+of `motionSystem`; that reorder is the one real tuning knob.
 
 ## Why the boundary is type-enforced
 
@@ -396,10 +452,12 @@ The core primitive has **no completion handler**. The two doors carry completion
 non-overlapping types: a `Scheduler` entry has `onComplete: () => void` and no `emit`; a component
 entry has `emit?: EventEmit` and no callback field. So:
 
-- A closure cannot reach the simulation: there is no `onComplete` parameter on `Timer`/`Tween`
-  and none on the component entry, so a function is not assignable anywhere in the ECS door and
-  `tsc` rejects it. A closure firing inside the deterministic `World.update` is impossible by
-  construction, not by convention.
+- A closure cannot reach the simulation **through the scheduler**: there is no `onComplete`
+  parameter on `Timer`/`Tween` and none on the component entry, so a function is not assignable
+  anywhere in the ECS door and `tsc` rejects it. This closes the accidental path — routing a
+  completion closure into the deterministic `World.update` is impossible by construction, not by
+  convention. (A system author can of course still run arbitrary code inside an `onUpdate`; the
+  guarantee is about the timing API's surface, not about systems in general.)
 - Event data cannot reach the UI door either; the `Scheduler` has no `emit`.
 
 "Which door am I in" is answered by which API you called, and the compiler holds you to it.
@@ -420,6 +478,8 @@ entry has `emit?: EventEmit` and no callback field. So:
 - **UI:** the `Scheduler` is cleared in `GameScreen.hide()`, cancelling every in-flight UI tween
   and timer; individual items can be cancelled earlier via their returned handle. Because the
   scheduler is advanced from the screen's own `update`, a hidden screen's animations simply stop.
+  A pending `wait()` **rejects** on that clear, so any `await scheduler.wait(...)` across a hide
+  throws (and runs its `finally`) instead of hanging forever — callers should expect that.
 - **ECS:** nothing special. Components are cleared when the `World` tears down entities on
   `stop()`; an entry is cancelled by splicing it from its list. The `emit` channels are owned and
   cleared by the `World` per the event-system design.
@@ -468,8 +528,9 @@ implement it).
 
 ## Open decisions
 
-- The default system order (`timerSystem` early, `tweenSystem` late) is a sensible starting point;
-  individual games may reorder. No engine-level ordering is imposed.
+- `tweenSystem` runs late (just before `graphicsSystem`) by default; `timerSystem`'s placement is
+  free (its events are seen next frame regardless). Individual games may reorder `tweenSystem`. No
+  engine-level ordering is imposed.
 - Whether to add a tiny typed helper for building an `EventEmit` (to keep the channel and event
   type aligned at the construction site) or leave it as a plain object literal. Leaning literal
   until the friction is felt.
@@ -481,5 +542,8 @@ implement it).
 2. Add the `Scheduler` and wire it into `GameScreen` (`update` tick, `clear` on `hide`). Convert
    one real UI animation (for example a screen or panel fade) to prove the API.
 3. Add `TweenComponent` / `TimerComponent`, `tweenSystem` / `timerSystem`, and `EventEmit`;
-   register them in `world.ts`. Convert one real simulation timing need (a cooldown or the camera
-   ease) and assert the completion event arrives on its channel the next frame.
+   register them in `world.ts`. Convert one real simulation timing need — a cooldown (no system
+   writes the timed field every frame, so there is no contention to resolve first) — and assert the
+   completion event arrives on its channel the next frame. (Avoid the camera ease as the first
+   conversion: `cameraSystem` writes `CameraComponent.position` every frame and would fight the
+   tween until taught to yield.)
