@@ -184,7 +184,47 @@ export class Game {
 
     ref.current.append(this.app.canvas);
     this.app.canvas.style.imageRendering = 'pixelated';
-    window.addEventListener('resize', this.resize);
+
+    this.#disposables = new DisposableStack();
+
+    let resize = () => {
+      if (!this.ref?.current) {
+        return;
+      }
+
+      let cssWidth = Math.trunc(this.ref.current.clientWidth);
+      let cssHeight = Math.trunc(this.ref.current.clientHeight);
+      let pixelWidth = Math.round(cssWidth * window.devicePixelRatio);
+      let pixelHeight = Math.round(cssHeight * window.devicePixelRatio);
+
+      this.app.canvas.style.width = `${cssWidth}px`;
+      this.app.canvas.style.height = `${cssHeight}px`;
+
+      if (this.view.hitArea) {
+        let hitArea = this.view.hitArea as pixi.Rectangle;
+
+        hitArea.x = 0;
+        hitArea.y = 0;
+        hitArea.width = pixelWidth;
+        hitArea.height = pixelHeight;
+      }
+
+      window.scrollTo(0, 0);
+      this.app.renderer.resize(pixelWidth, pixelHeight);
+
+      this.view.layout = {width: this.app.screen.width, height: this.app.screen.height}; // muste be called after renderer.resize() call, apparently
+
+      if (this.currentScreen?.view.parent) {
+        this.currentScreen.resize();
+      }
+
+      if (this.loadingScreen?.view.parent) {
+        this.loadingScreen.resize();
+      }
+    };
+
+    window.addEventListener('resize', resize);
+    this.#disposables.defer(() => window.removeEventListener('resize', resize));
 
     // Without a focusKeys map the whole focus system is inert; no listener,
     // zero cost for games that do not use it.
@@ -260,21 +300,19 @@ export class Game {
         }
       };
 
-      this.#disposables = new DisposableStack();
       globalThis.addEventListener('keydown', handleKeyDown);
       this.#disposables.defer(() => globalThis.removeEventListener('keydown', handleKeyDown));
     }
 
     this.ref = ref;
 
-    this.resize();
+    resize();
 
     return this;
   }
 
   removeRef() {
     this.app.canvas.remove();
-    window.removeEventListener('resize', this.resize);
     this.#disposables?.dispose();
     this.#disposables = undefined;
 
@@ -282,42 +320,6 @@ export class Game {
 
     return this;
   }
-
-  resize = () => {
-    if (!this.ref?.current) {
-      return;
-    }
-
-    let cssWidth = Math.trunc(this.ref.current.clientWidth);
-    let cssHeight = Math.trunc(this.ref.current.clientHeight);
-    let pixelWidth = Math.round(cssWidth * window.devicePixelRatio);
-    let pixelHeight = Math.round(cssHeight * window.devicePixelRatio);
-
-    this.app.canvas.style.width = `${cssWidth}px`;
-    this.app.canvas.style.height = `${cssHeight}px`;
-
-    if (this.view.hitArea) {
-      let hitArea = this.view.hitArea as pixi.Rectangle;
-
-      hitArea.x = 0;
-      hitArea.y = 0;
-      hitArea.width = pixelWidth;
-      hitArea.height = pixelHeight;
-    }
-
-    window.scrollTo(0, 0);
-    this.app.renderer.resize(pixelWidth, pixelHeight);
-
-    this.view.layout = {width: this.app.screen.width, height: this.app.screen.height}; // muste be called after renderer.resize() call, apparently
-
-    if (this.currentScreen?.view.parent) {
-      this.currentScreen.resize();
-    }
-
-    if (this.loadingScreen?.view.parent) {
-      this.loadingScreen.resize();
-    }
-  };
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- needed
   addLoadingScreen(gameScreen: GameScreen<any>) {
