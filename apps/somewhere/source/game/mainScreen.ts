@@ -10,6 +10,8 @@ import {Toggle} from '../engine/ui/Toggle.js';
 import {game} from './game.js';
 import {world} from './world.js';
 
+let wallHitCount = 0;
+
 export const mainScreen = new GameScreen({
   assetBundles: ['default', 'game'],
   onAdd: () => {
@@ -143,21 +145,39 @@ export const mainScreen = new GameScreen({
     bannerPanel.addChild(demoToggleRow, demoInput);
     // --- END DEMO ---
 
+    let hitCounter = new Text({
+      text: 'Wall hits: 0',
+      fontFamily: 'monogram-outline',
+      fontSize: 32,
+      fill: 0xffffff,
+      layout: true,
+    });
+
     return {
       bannerPanel,
       newGameButton,
+      hitCounter,
     };
   },
   onShow: (screen) => {
     screen.addToView(world);
     world.start();
 
+    wallHitCount = 0;
+    screen.state.hitCounter.setText('Wall hits: 0');
     screen.ui.addChild(screen.state.bannerPanel);
+    screen.ui.addChild(screen.state.hitCounter);
+
+    screen.subscribe('world:wallHit', () => {
+      wallHitCount += 1;
+      screen.state.hitCounter.setText(`Wall hits: ${wallHitCount}`);
+    });
   },
   onHide: (screen) => {
     world.stop();
     screen.removeFromView(world);
     screen.ui.removeChild(screen.state.bannerPanel);
+    screen.ui.removeChild(screen.state.hitCounter);
   },
   onResize: () => {},
   onUpdate: () => {},

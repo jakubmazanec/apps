@@ -3,6 +3,8 @@ import {GraphicsComponent} from './GraphicsComponent.js';
 import {LevelComponent} from './LevelComponent.js';
 import {levelQuery} from './levelQuery.js';
 import {MotionComponent} from './MotionComponent.js';
+import {WallHit} from './WallHit.js';
+import {wallHitChannel} from './wallHitChannel.js';
 
 const MAX_DELTA_TIME = 2;
 
@@ -66,6 +68,8 @@ export const motionSystem = new System({
               playerBottom > tileY &&
               tileBottom > playerY
             ) {
+              wallHitChannel.push(new WallHit({entity, tile}));
+
               if (deltaX > 0) {
                 // Guard against teleport-backward when already stuck inside a tile.
                 tentativeX = Math.max(motion.position.x, tileX - boundingBox.x - boundingBox.width);
@@ -107,6 +111,8 @@ export const motionSystem = new System({
               playerBottom > tileY &&
               tileBottom > playerY
             ) {
+              wallHitChannel.push(new WallHit({entity, tile}));
+
               if (deltaY > 0) {
                 tentativeY = Math.max(
                   motion.position.y,

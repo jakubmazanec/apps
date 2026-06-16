@@ -1,5 +1,7 @@
+import {type EventEmitter} from 'eventemitter3';
 import * as pixi from 'pixi.js';
 
+import {ui, type UIEventMap} from '../ui/ui.js';
 import {UiRoot} from '../ui/UiRoot.js';
 import {type Game} from './Game.js';
 
@@ -20,6 +22,7 @@ export type GameScreenOptions<T> = {
 export class GameScreen<T = undefined> {
   #game: Game | null = null;
   #ui: UiRoot | null = null;
+  readonly #uiSubscriptions: Array<() => void> = [];
 
   readonly assetBundles: string[] = [];
   readonly view: pixi.Container = new pixi.Container();
@@ -94,8 +97,27 @@ export class GameScreen<T = undefined> {
     await this.#onShow?.(this, this.game);
   }
 
+  subscribe<E extends EventEmitter.EventNames<UIEventMap>>(
+    event: E,
+    handler: EventEmitter.EventListener<UIEventMap, E>,
+  ): this {
+    ui.on(event, handler);
+    this.#uiSubscriptions.push(() => {
+      ui.off(event, handler);
+    });
+
+    return this;
+  }
+
   async hide() {
     this.#ui?.clearFocus();
+
+    for (let off of this.#uiSubscriptions) {
+      off();
+    }
+
+    this.#uiSubscriptions.length = 0;
+
     await this.#onHide?.(this, this.game);
   }
 

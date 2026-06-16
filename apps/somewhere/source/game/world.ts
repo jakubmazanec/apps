@@ -12,6 +12,8 @@ import {motionSystem} from './motionSystem.js';
 import {playerPool} from './playerPool.js';
 import {playersQuery} from './playersQuery.js';
 import {playerSystem} from './playerSystem.js';
+import {uiBridge} from './uiBridge.js';
+import {wallHitChannel} from './wallHitChannel.js';
 
 declare global {
   interface Window {
@@ -26,12 +28,15 @@ export const world = new World({
   onStart: (world) => {
     camera.getComponent(CameraComponent).position.set(0, 0);
 
+    world.addEventChannel(wallHitChannel);
+
     world.addEntityQuery(cameraQuery);
     world.addEntityQuery(levelQuery);
     world.addEntityQuery(playersQuery);
 
     world.addSystem(mapSystem);
     world.addSystem(motionSystem);
+    world.addSystem(uiBridge);
     world.addSystem(playerSystem);
     world.addSystem(cameraSystem);
     world.addSystem(graphicsSystem);

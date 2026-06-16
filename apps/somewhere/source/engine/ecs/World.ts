@@ -5,6 +5,8 @@ import {type Constructor} from '../../utilities/Constructor.js';
 import {type Component} from './Component.js';
 import {type Entity} from './Entity.js';
 import {type EntityQuery} from './EntityQuery.js';
+import {type Event} from './Event.js';
+import {type EventChannel} from './EventChannel.js';
 import {type System} from './System.js';
 
 export type WorldOptions = {
@@ -21,6 +23,7 @@ export class World {
   readonly entities: Entity[] = [];
   readonly systems: System[] = [];
   readonly entityQueries: EntityQuery[] = [];
+  readonly eventChannels: EventChannel[] = [];
 
   readonly #entitiesToBeAdded: Entity[] = [];
   readonly #entitiesToBeDeleted: Entity[] = [];
@@ -83,6 +86,14 @@ export class World {
 
       if (entityQuery !== undefined) {
         this.removeEntityQuery(entityQuery);
+      }
+    }
+
+    for (let i = this.eventChannels.length - 1; i >= 0; i--) {
+      let channel = this.eventChannels[i];
+
+      if (channel !== undefined) {
+        this.removeEventChannel(channel);
       }
     }
 
@@ -176,6 +187,29 @@ export class World {
     return this;
   }
 
+  addEventChannel<T extends Constructor<Event>>(channel: EventChannel<T>) {
+    if (this.eventChannels.includes(channel as unknown as EventChannel)) {
+      throw new Error('Event channel was already added to the world!');
+    }
+
+    this.eventChannels.push(channel as unknown as EventChannel);
+
+    return this;
+  }
+
+  removeEventChannel<T extends Constructor<Event>>(channel: EventChannel<T>) {
+    let index = this.eventChannels.indexOf(channel as unknown as EventChannel);
+
+    if (index < 0) {
+      throw new Error("Event channel wasn't found!");
+    }
+
+    (channel as unknown as EventChannel).clear();
+    this.eventChannels.splice(index, 1);
+
+    return this;
+  }
+
   addEntity(entity: Entity) {
     if (this.#isUpdating) {
       this.#entitiesToBeAdded.push(entity);
@@ -245,6 +279,10 @@ export class World {
 
     while (this.#entitiesToBeDeleted.length) {
       this.removeEntity(this.#entitiesToBeDeleted.shift() as Entity); // the type assertions is ok, because we checked `this.#entitiesToBeDeleted.length`
+    }
+
+    for (let channel of this.eventChannels) {
+      channel.swap();
     }
   }
 }
