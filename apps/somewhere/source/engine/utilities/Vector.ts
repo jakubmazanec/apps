@@ -77,10 +77,7 @@ export class Vector {
     let currentLength = this.length;
     let scale = currentLength === 0 ? 0 : length / currentLength;
 
-    this.x *= scale;
-    this.y *= scale;
-
-    return this;
+    return this.set(this.x * scale, this.y * scale);
   }
 
   isEqual(point: Vector = Vector.ORIGIN): boolean {
@@ -92,31 +89,19 @@ export class Vector {
   }
 
   add(vector: Vector, delta = 1): this {
-    this.x += vector.x * delta;
-    this.y += vector.y * delta;
-
-    return this;
+    return this.set(this.x + vector.x * delta, this.y + vector.y * delta);
   }
 
   subtract(vector: Vector): this {
-    this.x -= vector.x;
-    this.y -= vector.y;
-
-    return this;
+    return this.set(this.x - vector.x, this.y - vector.y);
   }
 
   multiply(vector: Vector): this {
-    this.x *= vector.x;
-    this.y *= vector.y;
-
-    return this;
+    return this.set(this.x * vector.x, this.y * vector.y);
   }
 
   divide(vector: Vector): this {
-    this.x /= vector.x;
-    this.y /= vector.y;
-
-    return this;
+    return this.set(this.x / vector.x, this.y / vector.y);
   }
 
   dot(vector: Vector): number {
@@ -132,16 +117,10 @@ export class Vector {
   }
 
   negate(): this {
-    this.x = -this.x;
-    this.y = -this.y;
-
-    return this;
+    return this.set(-this.x, -this.y);
   }
 
   lerp(target: Vector, t: number): this {
-    this.x += (target.x - this.x) * t;
-    this.y += (target.y - this.y) * t;
-
-    return this;
+    return this.set(this.x + (target.x - this.x) * t, this.y + (target.y - this.y) * t);
   }
 }

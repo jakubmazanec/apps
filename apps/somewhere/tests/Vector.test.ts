@@ -154,6 +154,53 @@ describe('Vector', () => {
     });
   });
 
+  describe('direction memory after arithmetic mutators (H2)', () => {
+    test('subtract to zero preserves the last live direction', () => {
+      let v = new Vector(2, 0);
+
+      v.add(new Vector(0, 2));
+
+      let lastDirection = v.angle;
+
+      expect(lastDirection).toBeCloseTo(45);
+
+      v.subtract(new Vector(2, 2));
+
+      expect(v.isZero).toBeTruthy();
+      expect(v.angle).toBeCloseTo(lastDirection);
+    });
+
+    test('negate then zero preserves the negated direction', () => {
+      let v = new Vector(0, 3);
+
+      v.negate();
+
+      let lastDirection = v.angle;
+
+      expect(lastDirection).toBeCloseTo(-90);
+
+      v.add(new Vector(0, 3));
+
+      expect(v.isZero).toBeTruthy();
+      expect(v.angle).toBeCloseTo(lastDirection);
+    });
+
+    test('length setter revives a mutator-zeroed vector along its last direction', () => {
+      let v = new Vector(2, 0);
+
+      v.add(new Vector(0, 2));
+      v.subtract(new Vector(2, 2));
+
+      expect(v.isZero).toBeTruthy();
+
+      v.length = 8;
+
+      expect(v.angle).toBeCloseTo(45);
+      expect(v.x).toBeCloseTo(Math.SQRT2 * 4);
+      expect(v.y).toBeCloseTo(Math.SQRT2 * 4);
+    });
+  });
+
   describe('normalize', () => {
     test('normalize mutates the vector to unit length and returns this', () => {
       let v = new Vector(3, 4);
