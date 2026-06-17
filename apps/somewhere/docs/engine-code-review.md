@@ -24,14 +24,26 @@ The engine has a clear, recognisable shape — `new X({options})`, composition o
 
 Resolved by routing every mutator through `set()` so it is the single chokepoint that maintains the `#angle` cache. Proven by `tests/Vector.test.ts` (`describe('direction memory after arithmetic mutators (H2)')`). Remaining known limitation: writing components directly to zero (`v.x = 0; v.y = 0`) still can't snapshot the angle — use `v.length = 0` or `v.set(0, 0)`.
 
-### H3 — ObjectPool has no double-destroy / double-create guard
-`utilities/ObjectPool.ts:34-52`: `destroy(x)` re-pushes blindly, so `pool.destroy(x); pool.destroy(x)` quietly hands the same instance to two callers on the next two `create()` calls. No `WeakSet` of pooled instances, no dev-mode assertion. For a primitive whose purpose is identity tracking, the foot-gun is severe.
+### ~~H3 — ObjectPool has no double-destroy / double-create guard~~ ✅ FIXED (2026-06-17)
+~~`utilities/ObjectPool.ts:34-52`: `destroy(x)` re-pushes blindly, so `pool.destroy(x); pool.destroy(x)` quietly hands the same instance to two callers on the next two `create()` calls. No `WeakSet` of pooled instances, no dev-mode assertion. For a primitive whose purpose is identity tracking, the foot-gun is severe.~~
 
-### H4 — Game.addRef does five unrelated jobs inline
+Resolved by a dev-only assertion in `destroy()`: `if (import.meta.env.DEV && this.#objects.includes(object)) throw new Error('Object was already destroyed!')`. The conventional array free list, `create`, and `getSize` are untouched; the check throws on double-destroy in dev/test and is dead-code-eliminated from the production bundle (Vite substitutes `import.meta.env.DEV → false`, so it ships zero cost — verified by grepping the built bundle). Proven by `tests/ObjectPool.test.ts` (`throws on double destroy (H3)`). Scope note: foreign/cross-pool destroy is intentionally not guarded — `destroy(object: T)` only accepts a `T` and `create()` re-runs `onReset`, so TypeScript + reset already make shape a non-issue.
+
+### H4 — Game.addRef does five unrelated jobs inline — 🔍 REVIEWED, NO CODE CHANGE (2026-06-22)
 `app/Game.ts:180-312`: mounts canvas, lazily builds the `#disposables` stack (line 188 — so its lifetime is tied to ref-attachment, not to Game), wires `resize`, builds `handleKeyDown` with a 45-line `FocusCommand` switch (256-300) where four cases all call `ui.moveFocus(command)` and the rest are 1:1 pass-throughs to UiRoot methods. Resource ownership, DOM mounting, and input routing all sit at the same altitude.
+
+**Disposition.** H4 decomposes into three independent subissues, reviewed with Jakub:
+
+- **Subissue 1 — focus `switch` verbosity** (`Game.ts:256-300`): **kept as-is.** It is explicit and greppable; the four duplicate `ui.moveFocus(command)` cases are tolerable. A collapse is available later (a `FocusDirection = 'down'|'left'|'right'|'up'` type already exists at `ui/FocusManager.ts:6` and is exactly `moveFocus`'s parameter, so a `default` branch would typecheck) but is not warranted now.
+- **Subissue 2 — `addRef` altitude** (132-line method): **kept as-is.** It is a cohesive attach/setup method; the engine deliberately uses inline method-local closures (no `#handle*` methods, no `.bind`), and the closure-identity-via-`DisposableStack.defer` teardown depends on that locality.
+- **Subissue 3 — `#disposables` lazy + lifetime tied to `addRef`/`removeRef`**: **reassigned to [H5](#h5--asymmetric-game-lifecycle-init-has-no-destroy-counterpart)** as part of the Game-lifecycle rework.
+
+Correction to the original write-up: the implied double-`addRef` listener leak does **not** occur. `addRef` is called from `source/ui/Renderer.tsx:9-19` in a `useEffect([game])` whose cleanup calls `removeRef`; React 18 StrictMode (`source/entry.client.tsx:8-11`) runs setup → cleanup → setup (`addRef → removeRef → addRef`), and `game` is a module singleton (`source/game/game.ts`) that transitions `undefined → game` once. Behavior is locked by `tests/Game.test.ts` (8 focus-routing tests).
 
 ### H5 — Asymmetric Game lifecycle: `init()` has no `destroy()` counterpart
 `app/Game.ts:73-125` registers pixi extensions, kicks off `Assets.backgroundLoadBundle`, and constructs the Pixi Application; only `removeRef` exists for teardown (`app/Game.ts:314-322`), and it only unmounts the canvas. The Pixi app, extensions, background loads, and ticker callbacks all leak if Game is ever discarded.
+
+Folded in from [H4](#h4--gameaddref-does-five-unrelated-jobs-inline--reviewed-no-code-change-2026-06-22) (subissue 3): the `#disposables` stack is built lazily inside `addRef` (`Game.ts:188`) with its lifetime scoped to the `addRef`/`removeRef` pair. That scoping is defensible (the deferred `resize`/`keydown` listeners are born and die there), but the unconditional `this.#disposables = new DisposableStack()` at line 188 overwrites any existing stack without disposing it — a latent foot-gun (not triggered today) that should be closed when a symmetric `init()`/`destroy()` (or equivalent) lifecycle is introduced here.
 
 ### H6 — GameScreen.subscribe couples screens to a module-global `ui` emitter
 `app/GameScreen.ts:1-6, 100-110` calls `ui.on(...)` against the imported `../ui/ui.js` singleton, not against anything injected. The screen's own `#ui` (a UiRoot) is a completely different object also named `ui`. Violates the "constructor injection over helpers" rule; cleanup at `hide()` only covers handlers registered via this exact method.
