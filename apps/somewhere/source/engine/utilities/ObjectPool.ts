@@ -44,6 +44,10 @@ export class ObjectPool<P extends unknown[], T extends object = object> {
   }
 
   destroy(object: T) {
+    if (import.meta.env.DEV && this.#objects.includes(object)) {
+      throw new Error('Object was already destroyed!');
+    }
+
     this.#onDestroy?.(object);
 
     this.#objects.push(object);

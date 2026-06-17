@@ -72,4 +72,23 @@ describe('ObjectPool', () => {
 
     expect(object.value).toBe(42);
   });
+
+  test('throws on double destroy (H3)', () => {
+    let pool = new ObjectPool({
+      onCreate: () => ({
+        foo: true,
+      }),
+      onReset: (object) => {
+        object.foo = true;
+
+        return object;
+      },
+    });
+
+    let object = pool.create();
+
+    pool.destroy(object);
+
+    expect(() => pool.destroy(object)).toThrow('Object was already destroyed!');
+  });
 });
