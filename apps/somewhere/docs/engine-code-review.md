@@ -19,8 +19,10 @@ The engine has a clear, recognisable shape — `new X({options})`, composition o
 ### H1 — Tilemap.from masks off all flip/rotation bits before storage
 `tiled/Tilemap.ts:62` does `tiledTilemapLayer.data.map((gid) => getGid(toTileGid(gid)))`, so `Map` (`tiled/Map.ts:47-69`) never sees flag bits and never applies flips. Combined with the dead `getHorizontalFlip`/`getVerticalFlip`/`getDiagonalFlip`/`getRotatedHex120` files and the unused `TileGidWithFlags` brand, the entire flag pipeline is either dead or silently broken.
 
-### H2 — Vector.length setter and `#angle` cache are entangled and bug-prone
-`utilities/Vector.ts:44-52` reads `isZero` (x/y only) to pick a branch using `#angle`, but mutators `add`/`subtract`/`multiply`/`divide`/`negate`/`lerp`/`normalize` (`utilities/Vector.ts:76-146`) write x/y directly and never refresh `#angle`. After a non-zero detour back to (0,0) the cached angle is stale; `normalize` bypasses `set()` and desyncs the invariant. The "remember last direction while at origin" contract is never actually maintained.
+### ~~H2 — Vector.length setter and `#angle` cache are entangled and bug-prone~~ ✅ FIXED (2026-06-17)
+~~`utilities/Vector.ts:44-52` reads `isZero` (x/y only) to pick a branch using `#angle`, but mutators `add`/`subtract`/`multiply`/`divide`/`negate`/`lerp`/`normalize` (`utilities/Vector.ts:76-146`) write x/y directly and never refresh `#angle`. After a non-zero detour back to (0,0) the cached angle is stale; `normalize` bypasses `set()` and desyncs the invariant. The "remember last direction while at origin" contract is never actually maintained.~~
+
+Resolved by routing every mutator through `set()` so it is the single chokepoint that maintains the `#angle` cache. Proven by `tests/Vector.test.ts` (`describe('direction memory after arithmetic mutators (H2)')`). Remaining known limitation: writing components directly to zero (`v.x = 0; v.y = 0`) still can't snapshot the angle — use `v.length = 0` or `v.set(0, 0)`.
 
 ### H3 — ObjectPool has no double-destroy / double-create guard
 `utilities/ObjectPool.ts:34-52`: `destroy(x)` re-pushes blindly, so `pool.destroy(x); pool.destroy(x)` quietly hands the same instance to two callers on the next two `create()` calls. No `WeakSet` of pooled instances, no dev-mode assertion. For a primitive whose purpose is identity tracking, the foot-gun is severe.
