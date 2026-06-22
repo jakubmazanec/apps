@@ -161,3 +161,35 @@ describe('GameScreen.ui', () => {
     await expect(screen.hide()).resolves.toBeUndefined();
   });
 });
+
+describe('GameScreen.destroy', () => {
+  afterEach(() => {
+    ui.removeAllListeners();
+  });
+
+  test('drains subscriptions so handler is not called after destroy', () => {
+    let screen = createScreen();
+    let spy = vi.fn();
+
+    screen.subscribe('world:wallHit', spy);
+    screen.destroy();
+    ui.emit('world:wallHit', {tile: null as unknown as MapTile});
+
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  test('disposes the lazily-created ui root', () => {
+    let screen = createScreen();
+    let spy = vi.spyOn(screen.ui, 'destroy');
+
+    screen.destroy();
+
+    expect(spy).toHaveBeenCalledTimes(1);
+  });
+
+  test('a screen that never touched ui destroys without throwing', () => {
+    let screen = createScreen();
+
+    expect(() => screen.destroy()).not.toThrow();
+  });
+});

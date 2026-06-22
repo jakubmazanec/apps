@@ -125,6 +125,17 @@ export class GameScreen<T = undefined> {
     this.#onResize?.(this, this.game);
   }
 
+  destroy() {
+    for (let off of this.#uiSubscriptions) {
+      off();
+    }
+
+    this.#uiSubscriptions.length = 0;
+    this.#ui?.destroy();
+    this.#ui = null;
+    this.view.destroy({children: true});
+  }
+
   addToView(renderable: Renderable) {
     this.view.addChild(renderable.view);
 

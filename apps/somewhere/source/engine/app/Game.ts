@@ -9,6 +9,12 @@ import {type GameScreen, type Renderable} from './GameScreen.js';
 
 import '@pixi/layout';
 
+// Tiled asset loaders are Pixi-library-global plugins (like the `@pixi/layout`
+// import above), not Game-instance state, so they are registered once at module
+// load rather than per Game.init().
+pixi.extensions.add(tiledTilesetAsset);
+pixi.extensions.add(tiledTilemapAsset);
+
 export type GameAssetBundleAsset = {
   name: string;
   sources: string[];
@@ -50,7 +56,13 @@ export class Game {
 
   readonly #focusCommands = new Map<string, FocusCommand>();
 
-  #disposables: DisposableStack | undefined;
+  // Game-lifetime resources (the addRef listeners), disposed once in destroy().
+  // Game is one-shot (not restartable, unlike World) and a DisposableStack
+  // cannot be reused after disposal, so a single readonly stack is sufficient.
+  readonly #disposables = new DisposableStack();
+
+  #isRunning = false;
+  #isDestroyed = false;
 
   constructor({assetBundles, focusKeys, focusRing}: GameOptions) {
     this.assetBundles = assetBundles;
@@ -71,6 +83,10 @@ export class Game {
   }
 
   async init() {
+    if (this.#isRunning || this.#isDestroyed) {
+      return;
+    }
+
     await this.app.init({
       resolution: 1,
       backgroundColor: 0x000000,
@@ -80,8 +96,6 @@ export class Game {
       preference: 'webgl',
     });
 
-    pixi.extensions.add(tiledTilesetAsset);
-    pixi.extensions.add(tiledTilemapAsset);
     this.app.stage.addChild(this.view);
 
     this.view.layout = {width: this.app.screen.width, height: this.app.screen.height};
@@ -102,6 +116,8 @@ export class Game {
     });
     await pixi.Assets.loadBundle(['default']);
     void pixi.Assets.backgroundLoadBundle(this.assetBundles.map((assetBundle) => assetBundle.name));
+
+    this.#isRunning = true;
 
     // // TODO: make better abstraction
     // let filter = new CRTFilter({
@@ -128,6 +144,10 @@ export class Game {
     event: T,
     fn: EventEmitter.EventListener<pixi.FederatedEventMap, T>,
   ): this {
+    if (!this.#isRunning) {
+      return this;
+    }
+
     this.view.on(event, fn, this);
 
     return this;
@@ -137,6 +157,10 @@ export class Game {
     event: T,
     fn: EventEmitter.EventListener<pixi.FederatedEventMap, T>,
   ): this {
+    if (!this.#isRunning) {
+      return this;
+    }
+
     this.view.once(event, fn, this);
 
     return this;
@@ -146,6 +170,10 @@ export class Game {
     event: T,
     fn?: EventEmitter.EventListener<pixi.FederatedEventMap, T>,
   ): this {
+    if (!this.#isRunning) {
+      return this;
+    }
+
     this.view.off(event, fn, this);
 
     return this;
@@ -178,14 +206,16 @@ export class Game {
   }
 
   addRef(ref: React.RefObject<HTMLElement | null>) {
+    if (!this.#isRunning) {
+      return this;
+    }
+
     if (!ref.current) {
       return this;
     }
 
     ref.current.append(this.app.canvas);
     this.app.canvas.style.imageRendering = 'pixelated';
-
-    this.#disposables = new DisposableStack();
 
     let resize = () => {
       if (!this.ref?.current) {
@@ -312,17 +342,44 @@ export class Game {
   }
 
   removeRef() {
+    if (!this.#isRunning) {
+      return this;
+    }
+
     this.app.canvas.remove();
-    this.#disposables?.dispose();
-    this.#disposables = undefined;
 
     this.ref = null;
 
     return this;
   }
 
+  // Terminal teardown counterpart to init(). Game is a process-lifetime
+  // singleton (it is not restartable like World), so destroy() exists for
+  // correctness, test isolation, and the React unmount path. The screens are
+  // module singletons reused across a dev StrictMode init->destroy->init cycle,
+  // so they are intentionally left intact.
+  destroy() {
+    if (!this.#isRunning) {
+      return this;
+    }
+
+    this.removeRef();
+    this.#disposables.dispose();
+    this.app.stage.removeChild(this.view);
+    this.app.destroy(true);
+
+    this.#isRunning = false;
+    this.#isDestroyed = true;
+
+    return this;
+  }
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- needed
   addLoadingScreen(gameScreen: GameScreen<any>) {
+    if (!this.#isRunning) {
+      return this;
+    }
+
     this.loadingScreen = gameScreen;
 
     this.addScreen(this.loadingScreen);
@@ -332,6 +389,10 @@ export class Game {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- needed
   addScreen(gameScreen: GameScreen<any>) {
+    if (!this.#isRunning) {
+      return this;
+    }
+
     if (!this.screens.includes(gameScreen)) {
       gameScreen.setGame(this);
       this.screens.push(gameScreen);
@@ -342,6 +403,10 @@ export class Game {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- needed
   async showScreen(screen: GameScreen<any>) {
+    if (!this.#isRunning) {
+      return this;
+    }
+
     if (this.screens.includes(screen)) {
       // if there is a screen already created, hide it
       if (this.currentScreen) {
@@ -379,6 +444,10 @@ export class Game {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- needed
   async hideScreen(screen: GameScreen<any>) {
+    if (!this.#isRunning) {
+      return this;
+    }
+
     await screen.hide();
 
     this.removeFromView(screen);
@@ -387,11 +456,19 @@ export class Game {
   }
 
   addToView(renderable: Renderable) {
+    if (!this.#isRunning) {
+      return;
+    }
+
     this.view.addChild(renderable.view);
     this.app.ticker.add(renderable.update, renderable);
   }
 
   removeFromView(renderable: Renderable) {
+    if (!this.#isRunning) {
+      return;
+    }
+
     this.view.removeChild(renderable.view);
     this.app.ticker.remove(renderable.update, renderable);
   }

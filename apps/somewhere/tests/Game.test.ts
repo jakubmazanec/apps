@@ -5,8 +5,19 @@ vi.mock('pixi.js', () => ({
     canvas = document.createElement('canvas');
     renderer = {resize() {}};
     screen = {width: 0, height: 0};
-    stage = {addChild() {}};
+    stage = {addChild() {}, removeChild() {}};
     ticker = {add() {}, remove() {}};
+
+    async init() {}
+
+    destroy() {}
+  },
+  extensions: {add() {}},
+  TextureSource: {defaultOptions: {}},
+  Assets: {
+    init: async () => {},
+    loadBundle: async () => {},
+    backgroundLoadBundle: async () => {},
   },
   Container: class Container {
     eventMode = 'auto';
@@ -55,14 +66,18 @@ const FOCUS_KEYS = {
 
 let cleanups: Array<() => void> = [];
 
-function createGame(focusKeys?: typeof FOCUS_KEYS) {
+async function createGame(focusKeys?: typeof FOCUS_KEYS) {
   let game = new Game({assetBundles: [], ...(focusKeys === undefined ? {} : {focusKeys})});
   let element = document.createElement('div');
+
+  // init() owns the #disposables stack that addRef defers its listeners into,
+  // so the game must be initialised before it is attached.
+  await game.init();
 
   document.body.append(element);
   game.addRef({current: element});
   cleanups.push(() => {
-    game.removeRef();
+    game.destroy();
     element.remove();
   });
 
@@ -96,8 +111,8 @@ describe('Game focus key routing', () => {
     vi.restoreAllMocks();
   });
 
-  test('routes arrow keys to moveFocus', () => {
-    let {ui} = createGame(FOCUS_KEYS);
+  test('routes arrow keys to moveFocus', async () => {
+    let {ui} = await createGame(FOCUS_KEYS);
 
     press('ArrowUp');
     press('ArrowDown');
@@ -107,8 +122,8 @@ describe('Game focus key routing', () => {
     expect(ui.moveFocus.mock.calls).toEqual([['up'], ['down'], ['left'], ['right']]);
   });
 
-  test('routes Tab and Shift+Tab to linear navigation', () => {
-    let {ui} = createGame(FOCUS_KEYS);
+  test('routes Tab and Shift+Tab to linear navigation', async () => {
+    let {ui} = await createGame(FOCUS_KEYS);
 
     press('Tab');
 
@@ -121,8 +136,8 @@ describe('Game focus key routing', () => {
     expect(ui.focusPrevious).toHaveBeenCalledTimes(1);
   });
 
-  test('routes Enter and Space to activate', () => {
-    let {ui} = createGame(FOCUS_KEYS);
+  test('routes Enter and Space to activate', async () => {
+    let {ui} = await createGame(FOCUS_KEYS);
 
     press('Enter');
     press('Space');
@@ -130,15 +145,15 @@ describe('Game focus key routing', () => {
     expect(ui.activate).toHaveBeenCalledTimes(2);
   });
 
-  test('prevents default on mapped keys only', () => {
-    createGame(FOCUS_KEYS);
+  test('prevents default on mapped keys only', async () => {
+    await createGame(FOCUS_KEYS);
 
     expect(press('Tab').defaultPrevented).toBeTruthy();
     expect(press('KeyA').defaultPrevented).toBeFalsy();
   });
 
-  test('ignores keys while a DOM input element has focus', () => {
-    let {ui} = createGame(FOCUS_KEYS);
+  test('ignores keys while a DOM input element has focus', async () => {
+    let {ui} = await createGame(FOCUS_KEYS);
     let input = document.createElement('input');
 
     document.body.append(input);
@@ -153,8 +168,8 @@ describe('Game focus key routing', () => {
     input.remove();
   });
 
-  test('ignores keys while the current screen is hidden', () => {
-    let {game, ui} = createGame(FOCUS_KEYS);
+  test('ignores keys while the current screen is hidden', async () => {
+    let {game, ui} = await createGame(FOCUS_KEYS);
 
     (game.currentScreen as unknown as {view: {parent: unknown}}).view.parent = null;
 
@@ -163,19 +178,82 @@ describe('Game focus key routing', () => {
     expect(ui.moveFocus).not.toHaveBeenCalled();
   });
 
-  test('is inert when focusKeys is omitted', () => {
-    let {ui} = createGame();
+  test('is inert when focusKeys is omitted', async () => {
+    let {ui} = await createGame();
 
     expect(press('Tab').defaultPrevented).toBeFalsy();
     expect(ui.focusNext).not.toHaveBeenCalled();
   });
 
-  test('removeRef detaches the keydown listener', () => {
-    let {game, ui} = createGame(FOCUS_KEYS);
+  test('removeRef keeps focus routing active until destroy', async () => {
+    let {game, ui} = await createGame(FOCUS_KEYS);
 
+    // The keydown listener now lives for the Game lifetime (#disposables runs
+    // init -> destroy), so detaching the canvas does not stop focus routing.
     game.removeRef();
     press('Tab');
 
+    expect(ui.focusNext).toHaveBeenCalledTimes(1);
+  });
+
+  test('destroy detaches the keydown listener', async () => {
+    let {game, ui} = await createGame(FOCUS_KEYS);
+
+    game.destroy();
+    press('Tab');
+
     expect(ui.focusNext).not.toHaveBeenCalled();
+  });
+
+  test('destroy disposes the pixi application', async () => {
+    let {game} = await createGame();
+    let spy = vi.spyOn(game.app, 'destroy');
+
+    game.destroy();
+
+    expect(spy).toHaveBeenCalledTimes(1);
+  });
+
+  test('destroy is idempotent', async () => {
+    let {game} = await createGame();
+
+    game.destroy();
+
+    expect(() => game.destroy()).not.toThrow();
+  });
+
+  test('destroy before init is a safe no-op', () => {
+    let game = new Game({assetBundles: []});
+
+    expect(() => game.destroy()).not.toThrow();
+  });
+
+  test('init after destroy is a no-op', async () => {
+    let {game} = await createGame();
+    let spy = vi.spyOn(game.app, 'init');
+
+    game.destroy();
+    await game.init();
+
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  test('addRef before init is a no-op', () => {
+    let game = new Game({assetBundles: []});
+    let element = document.createElement('div');
+
+    game.addRef({current: element});
+
+    expect(element.children).toHaveLength(0);
+  });
+
+  test('renderer methods are a no-op after destroy', async () => {
+    let {game} = await createGame();
+    let spy = vi.spyOn(game.app.ticker, 'add');
+
+    game.destroy();
+    game.addToView({view: {}, update() {}} as unknown as Parameters<(typeof game)['addToView']>[0]);
+
+    expect(spy).not.toHaveBeenCalled();
   });
 });
