@@ -3,10 +3,13 @@ import {describe, expect, test} from 'vitest';
 import {defineComponent} from '../source/engine/ecs/Component.js';
 import {Entity} from '../source/engine/ecs/Entity.js';
 import {EntityQuery} from '../source/engine/ecs/EntityQuery.js';
+import {defineEvent} from '../source/engine/ecs/Event.js';
+import {EventChannel} from '../source/engine/ecs/EventChannel.js';
 import {System} from '../source/engine/ecs/System.js';
 import {World} from '../source/engine/ecs/World.js';
 
 const FooComponent = defineComponent<{value: number}>();
+const BarEvent = defineEvent<{value: number}>();
 
 describe('World', () => {
   test('addEntity adds the entity to a registered EntityQuery exactly once', () => {
@@ -209,5 +212,43 @@ describe('World', () => {
       world.addEntityQuery(entityQuery);
     }).not.toThrow();
     expect(world.entityQueries).toContain(entityQuery);
+  });
+
+  describe('topology mutation during an update throws (H7)', () => {
+    test.each<[string, (world: World) => () => void]>([
+      ['addSystem', (world) => () => world.addSystem(new System({components: []}))],
+      [
+        'removeSystem',
+        (world) => {
+          let victim = new System({components: []});
+          world.addSystem(victim);
+          return () => world.removeSystem(victim);
+        },
+      ],
+      ['addEntityQuery', (world) => () => world.addEntityQuery(new EntityQuery({components: []}))],
+      [
+        'removeEntityQuery',
+        (world) => {
+          let victim = new EntityQuery({components: []});
+          world.addEntityQuery(victim);
+          return () => world.removeEntityQuery(victim);
+        },
+      ],
+      ['addEventChannel', (world) => () => world.addEventChannel(new EventChannel({event: BarEvent}))],
+      [
+        'removeEventChannel',
+        (world) => {
+          let victim = new EventChannel({event: BarEvent});
+          world.addEventChannel(victim);
+          return () => world.removeEventChannel(victim);
+        },
+      ],
+    ])('%s called from a system update throws', (_name, prepare) => {
+      let world = new World();
+      let offend = prepare(world);
+      world.addSystem(new System({components: [], onUpdate: offend}));
+
+      expect(() => world.update({deltaTime: 1} as never)).toThrow(/during an update/);
+    });
   });
 });

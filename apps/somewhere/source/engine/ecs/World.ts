@@ -106,6 +106,10 @@ export class World {
   addSystem<T extends readonly [...rest: ReadonlyArray<Constructor<Component>>]>(
     system: System<T>,
   ) {
+    if (this.#isUpdating) {
+      throw new Error('Cannot add a system during an update!');
+    }
+
     if (this.systems.includes(system as unknown as System)) {
       throw new Error('System was already added to the world!');
     }
@@ -125,6 +129,10 @@ export class World {
   removeSystem<T extends readonly [...rest: ReadonlyArray<Constructor<Component>>]>(
     system: System<T>,
   ) {
+    if (this.#isUpdating) {
+      throw new Error('Cannot remove a system during an update!');
+    }
+
     let index = this.systems.indexOf(system as unknown as System);
 
     if (index < 0) {
@@ -148,6 +156,10 @@ export class World {
   addEntityQuery<T extends readonly [...rest: ReadonlyArray<Constructor<Component>>]>(
     entityQuery: EntityQuery<T>,
   ) {
+    if (this.#isUpdating) {
+      throw new Error('Cannot add an entity query during an update!');
+    }
+
     if (this.entityQueries.includes(entityQuery as unknown as EntityQuery)) {
       throw new Error('Entity query was already added to the world!');
     }
@@ -167,6 +179,10 @@ export class World {
   removeEntityQuery<T extends readonly [...rest: ReadonlyArray<Constructor<Component>>]>(
     entityQuery: EntityQuery<T>,
   ) {
+    if (this.#isUpdating) {
+      throw new Error('Cannot remove an entity query during an update!');
+    }
+
     let index = this.entityQueries.indexOf(entityQuery as unknown as EntityQuery);
 
     if (index < 0) {
@@ -188,6 +204,10 @@ export class World {
   }
 
   addEventChannel<T extends Constructor<Event>>(channel: EventChannel<T>) {
+    if (this.#isUpdating) {
+      throw new Error('Cannot add an event channel during an update!');
+    }
+
     if (this.eventChannels.includes(channel as unknown as EventChannel)) {
       throw new Error('Event channel was already added to the world!');
     }
@@ -198,6 +218,10 @@ export class World {
   }
 
   removeEventChannel<T extends Constructor<Event>>(channel: EventChannel<T>) {
+    if (this.#isUpdating) {
+      throw new Error('Cannot remove an event channel during an update!');
+    }
+
     let index = this.eventChannels.indexOf(channel as unknown as EventChannel);
 
     if (index < 0) {
