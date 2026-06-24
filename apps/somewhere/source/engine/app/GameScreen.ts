@@ -12,12 +12,12 @@ export type Renderable = {
 
 export type GameScreenOptions<T> = {
   assetBundles?: string[] | undefined;
-  onAdd?: ((screen: GameScreen<T>, game: Game) => T) | undefined;
   onShow?: ((screen: GameScreen<T>, game: Game) => Promise<void> | void) | undefined;
   onHide?: ((screen: GameScreen<T>, game: Game) => Promise<void> | void) | undefined;
   onUpdate?: ((ticker: pixi.Ticker, screen: GameScreen<T>, game: Game) => void) | undefined;
   onResize?: ((screen: GameScreen<T>, game: Game) => void) | undefined;
-};
+} & (undefined extends T ? {onAdd?: ((screen: GameScreen<T>, game: Game) => T) | undefined}
+: {onAdd: (screen: GameScreen<T>, game: Game) => T});
 
 export class GameScreen<T = undefined> {
   #game: Game | null = null;
@@ -74,6 +74,7 @@ export class GameScreen<T = undefined> {
     }
 
     this.#game = game;
+    // `as T` is sound: `onAdd` is required whenever `T` is not `undefined`.
     this.state = this.#onAdd?.(this, game) as T;
   }
 
