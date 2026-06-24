@@ -2,6 +2,7 @@ import {describe, expect, test} from 'vitest';
 
 import {defineEvent} from '../source/engine/ecs/Event.js';
 import {EventChannel} from '../source/engine/ecs/EventChannel.js';
+import {System} from '../source/engine/ecs/System.js';
 import {World} from '../source/engine/ecs/World.js';
 
 const FooEvent = defineEvent<{value: number}>();
@@ -132,5 +133,37 @@ describe('World event channel integration', () => {
     world.update({deltaTime: 1} as never);
 
     expect(channel.events).toHaveLength(1);
+  });
+
+  // (H8) a push made between frames is delivered to an in-update consumer, not overwritten/lost
+  test('event pushed between frames surfaces to an in-update consumer (H8)', () => {
+    let channel = new EventChannel({event: FooEvent, displayName: 'Foo'});
+    let seen: Array<InstanceType<typeof FooEvent>> = [];
+    let recorder = new System({
+      components: [],
+      onUpdate: () => {
+        for (let ev of channel.events) {
+          seen.push(ev);
+        }
+      },
+    });
+    let world = new World({
+      onStart: (w) => {
+        w.addEventChannel(channel).addSystem(recorder);
+      },
+    });
+
+    world.start();
+
+    let ev = new FooEvent({value: 7});
+    channel.push(ev); // between-frames push (outside any update)
+
+    world.update({deltaTime: 1} as never); // frame 1: recorder reads [] (ev still in #nextEvents), then swap promotes ev
+
+    expect(seen).toHaveLength(0);
+
+    world.update({deltaTime: 1} as never); // frame 2: recorder reads [ev]
+
+    expect(seen).toContain(ev); // delivered the following frame, not lost
   });
 });
