@@ -93,11 +93,15 @@ The facts are correct but the "disagree about `system.entities`" framing is not:
 ### M5 — `addChild`/`removeChild` duplicated across every UI container
 `ui/UiRoot.ts:80-102`, `ui/Button.ts:138-159`, `ui/Panel.ts:32-53`, `ui/Container.ts:29-50`. Four near-identical 8-line methods plus the `'view' in child ? child.view : child` adapter; UiRoot differs only because it must keep the overlay layer last.
 
-### M6 — UiRoot is a shallow pass-through over FocusManager
-`ui/UiRoot.ts:104-134`. Seven methods (`focus`, `moveFocus`, `focusNext`, `focusPrevious`, `activate`, `pushFocusScope`, `popFocusScope`, `clearFocus`) plus the `focused` getter are pure forwarding. Doubles the public surface for no policy or simplification.
+### ~~M6 — UiRoot is a shallow pass-through over FocusManager~~ ✅ FIXED (2026-06-24)
+~~`ui/UiRoot.ts:104-134`. Seven methods (`focus`, `moveFocus`, `focusNext`, `focusPrevious`, `activate`, `pushFocusScope`, `popFocusScope`, `clearFocus`) plus the `focused` getter are pure forwarding. Doubles the public surface for no policy or simplification.~~
 
-### M7 — FocusManager.hideRing leaks ring-lifecycle ownership to UiRoot
-`ui/FocusManager.ts:40-42,55-57`; `ui/UiRoot.ts:63-65`. FocusManager owns `#ringVisible` but UiRoot's global pointerdown handler reaches in to call `hideRing()`. Ring visibility is one concept split across two owners.
+Resolved by merging `FocusManager` into `UiRoot` and deleting `ui/FocusManager.ts`. The focus API is now declared once as real methods on `UiRoot` instead of a manager plus a forwarding layer, so the public surface is no longer doubled. The merge was chosen over the lighter alternative (keep `FocusManager`, expose it as `ui.focus.*`, and drop only the forwarders) to remove the class entirely and keep all focus behavior in one owner; the accepted tradeoff is `UiRoot.ts` growing from ~180 to ~440 lines with the spatial-navigation geometry inside it (kept as private methods, no helper module). Every external call site is untouched (`Game.ts:288-324` still calls `ui.moveFocus`/`ui.activate`/`ui.focusNext`/`ui.focusPrevious`; `GameScreen.ts:113` still calls `ui.clearFocus()`), because behavior was folded *into* `UiRoot` rather than exposed as a sub-object. `focusFromPointer` and `hideRing` (never forwarded) became private/inlined — a net surface reduction — while `isRingVisible` is kept as a public getter (introspection, matches [X7](#x7)). Proven by `tests/UiRoot.test.ts`, into which the full `FocusManager.test.ts` suite was folded (linear/spatial navigation, ring visibility, activation, stale focus, pointer focus, focus scopes) and `tests/FocusManager.test.ts` deleted. Design doc: `docs/superpowers/specs/2026-06-24-focusmanager-uiroot-merge-design.md`.
+
+### ~~M7 — FocusManager.hideRing leaks ring-lifecycle ownership to UiRoot~~ ✅ FIXED (2026-06-24)
+~~`ui/FocusManager.ts:40-42,55-57`; `ui/UiRoot.ts:63-65`. FocusManager owns `#ringVisible` but UiRoot's global pointerdown handler reaches in to call `hideRing()`. Ring visibility is one concept split across two owners.~~
+
+Resolved as a consequence of the M6 merge: `#ringVisible`, the global `pointerdown` handler, and the ring rendering (`#overlay`/`#ring`/`#createRing`/`update`) now all live in `UiRoot`, so there is no cross-object reach. `hideRing` had a single caller (the `pointerdown` handler) and was inlined to `this.#ringVisible = false` there, consistent with how `clearFocus` already clears the flag. Ring visibility is now owned by one class.
 
 ### M8 — Toggle's options API drifts from Button/TextInput
 `ui/Toggle.ts:8-19` accepts neither `layout` nor `children`, while Button and TextInput accept `layout` and Button accepts `children`. Toggle hard-codes its size from `backgrounds.unchecked.width/height` (line 65). Toggle also implements `Focusable` but not `UiParent`, with no documented reason.
