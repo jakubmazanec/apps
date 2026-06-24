@@ -132,7 +132,7 @@ export class EventChannel<const T extends Constructor<Event> = Constructor<Event
     }
   }
 
-  /** Push an event onto the channel. Becomes current (visible via `events`) next frame. Safe to call mid-update. */
+  /** Push an event onto the channel. Becomes current (visible via `events`) next frame. Safe to call mid-update. Off-cycle pushes are batched into the next swap (readable the following frame), never dropped. */
   push(event: InstanceType<T>): void {
     this.#nextEvents.push(event);
   }
