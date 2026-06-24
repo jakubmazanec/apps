@@ -251,4 +251,89 @@ describe('World', () => {
       expect(() => world.update({deltaTime: 1} as never)).toThrow(/during an update/);
     });
   });
+
+  describe('system teardown lifecycle ordering (M1)', () => {
+    test('stop() fires system onRemove with world.entities populated and system.entities empty', () => {
+      let world = new World();
+      let worldEntitiesDuringRemove: number | null = null;
+      let systemEntitiesDuringRemove: number | null = null;
+      let system = new System({
+        components: [FooComponent],
+        onRemove: (s, w) => {
+          worldEntitiesDuringRemove = w.entities.length;
+          systemEntitiesDuringRemove = s.entities.length;
+        },
+      });
+      let entity1 = new Entity({components: [new FooComponent({value: 1})]});
+      let entity2 = new Entity({components: [new FooComponent({value: 2})]});
+
+      world.addEntity(entity1);
+      world.addEntity(entity2);
+      world.addSystem(system);
+      world.start();
+      world.stop();
+
+      expect(worldEntitiesDuringRemove).toBe(2);
+      expect(systemEntitiesDuringRemove).toBe(0);
+    });
+
+    test('removeSystem (standalone) fires onRemove with world.entities populated and system.entities empty', () => {
+      let world = new World();
+      let worldEntitiesDuringRemove: number | null = null;
+      let systemEntitiesDuringRemove: number | null = null;
+      let system = new System({
+        components: [FooComponent],
+        onRemove: (s, w) => {
+          worldEntitiesDuringRemove = w.entities.length;
+          systemEntitiesDuringRemove = s.entities.length;
+        },
+      });
+
+      world.addEntity(new Entity({components: [new FooComponent({value: 1})]}));
+      world.addEntity(new Entity({components: [new FooComponent({value: 2})]}));
+      world.addSystem(system);
+      world.removeSystem(system);
+
+      expect(worldEntitiesDuringRemove).toBe(2);
+      expect(systemEntitiesDuringRemove).toBe(0);
+    });
+
+    test('stop() fires every onRemoveEntity before the system onRemove', () => {
+      let world = new World();
+      let log: string[] = [];
+      let system = new System({
+        components: [FooComponent],
+        onRemoveEntity: () => log.push('removeEntity'),
+        onRemove: () => log.push('remove'),
+      });
+
+      world.addEntity(new Entity({components: [new FooComponent({value: 1})]}));
+      world.addEntity(new Entity({components: [new FooComponent({value: 2})]}));
+      world.addSystem(system);
+      world.start();
+      world.stop();
+
+      expect(log).toEqual(['removeEntity', 'removeEntity', 'remove']);
+    });
+
+    test('onAdd fires with world.entities populated and system.entities empty (symmetry)', () => {
+      let world = new World();
+      let worldEntitiesDuringAdd: number | null = null;
+      let systemEntitiesDuringAdd: number | null = null;
+      let system = new System({
+        components: [FooComponent],
+        onAdd: (s, w) => {
+          worldEntitiesDuringAdd = w.entities.length;
+          systemEntitiesDuringAdd = s.entities.length;
+        },
+      });
+
+      world.addEntity(new Entity({components: [new FooComponent({value: 1})]}));
+      world.addEntity(new Entity({components: [new FooComponent({value: 2})]}));
+      world.addSystem(system);
+
+      expect(worldEntitiesDuringAdd).toBe(2);
+      expect(systemEntitiesDuringAdd).toBe(0);
+    });
+  });
 });

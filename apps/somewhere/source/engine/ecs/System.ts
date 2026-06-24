@@ -116,6 +116,7 @@ export class System<
     }
 
     this.#world = world;
+    // symmetric with `unsetWorld`: `onAdd` fires with `world.entities` populated but `system.entities` not yet synced in
     this.#onAdd?.(this, this.#world);
   }
 
@@ -126,6 +127,7 @@ export class System<
     }
 
     // events "hug" the state of the thing they belong to, i.e. starting events run after something is done, and ending events run before something is done
+    // concretely `onRemove` fires with the world still attached and `world.entities` populated, but `system.entities` already drained — per-entity teardown belongs in `onRemoveEntity`. `World.stop` removes systems before entities so this holds there too, matching a standalone `removeSystem`. (M1)
     this.#onRemove?.(this, this.#world);
     this.#world = null;
   }

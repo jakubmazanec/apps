@@ -65,19 +65,21 @@ export class World {
 
     this.#onStop?.(this);
 
-    for (let i = this.entities.length - 1; i >= 0; i--) {
-      let entity = this.entities[i];
-
-      if (entity !== undefined) {
-        this.removeEntity(entity);
-      }
-    }
-
+    // systems are removed before entities so each `onRemove` sees the same state as a standalone
+    // `removeSystem`: world still populated, the system already drained (see `System.unsetWorld`)
     for (let i = this.systems.length - 1; i >= 0; i--) {
       let system = this.systems[i];
 
       if (system !== undefined) {
         this.removeSystem(system);
+      }
+    }
+
+    for (let i = this.entities.length - 1; i >= 0; i--) {
+      let entity = this.entities[i];
+
+      if (entity !== undefined) {
+        this.removeEntity(entity);
       }
     }
 
