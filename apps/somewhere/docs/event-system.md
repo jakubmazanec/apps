@@ -466,6 +466,14 @@ the next start's first frame. In practice no current producer can do this (syste
 `onRemove`, which runs during `stop()`; hidden-screen widgets leave the scene graph and receive no
 input), so the rule is simply: only push from listeners that are torn down before `stop()`.
 
+**System lifecycle ordering** is symmetric and uniform across teardown paths: a system's `onAdd` and
+`onRemove` both fire with the world attached and `world.entities` populated, but `system.entities`
+empty — `addSystem` runs `onAdd` *before* syncing matching entities into the system, and
+`removeSystem` drains them (firing `onRemoveEntity` for each) *before* `onRemove`. Per-entity
+setup/teardown therefore belongs in `onAddEntity`/`onRemoveEntity`, never `onAdd`/`onRemove`.
+`World.stop()` removes **systems before entities** so this holds there exactly as for a standalone
+`removeSystem` (finding M1).
+
 ## Trade-offs
 
 **Pros**
