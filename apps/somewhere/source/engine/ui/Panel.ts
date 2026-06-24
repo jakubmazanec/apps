@@ -22,9 +22,9 @@ export class Panel implements UiParent {
       this.addChild(...children);
     }
 
-    if (layout !== undefined) {
-      this.view.layout = layout;
-    }
+    this.view.layout = {
+      ...(typeof layout === 'object' ? layout : undefined),
+    };
 
     this.#disposables.defer(() => this.view.destroy({children: true}));
   }

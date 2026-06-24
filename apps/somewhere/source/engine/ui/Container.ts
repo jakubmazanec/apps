@@ -18,10 +18,11 @@ export class Container implements UiParent {
       this.addChild(...children);
     }
 
-    this.view.layout =
-      typeof layout === 'object' && layout !== null ?
-        {flexDirection: 'row', alignItems: 'center', ...layout}
-      : {flexDirection: 'row', alignItems: 'center'};
+    this.view.layout = {
+      flexDirection: 'row',
+      alignItems: 'center',
+      ...(typeof layout === 'object' ? layout : undefined),
+    };
 
     this.#disposables.defer(() => this.view.destroy({children: true}));
   }

@@ -62,7 +62,7 @@ export class System<
     onUpdate,
     onAddEntity,
     onRemoveEntity,
-    displayName,
+    displayName = System.name,
   }: SystemOptions<T>) {
     this.components = components;
 
@@ -86,11 +86,7 @@ export class System<
       this.#onRemoveEntity = onRemoveEntity;
     }
 
-    if (displayName === undefined) {
-      this.displayName = System.name;
-    } else {
-      this.displayName = displayName;
-    }
+    this.displayName = displayName;
   }
 
   get world(): World {

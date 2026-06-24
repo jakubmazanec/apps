@@ -24,7 +24,7 @@ export class GameScreen<T = undefined> {
   #ui: UiRoot | null = null;
   readonly #uiSubscriptions: Array<() => void> = [];
 
-  readonly assetBundles: string[] = [];
+  readonly assetBundles: string[];
   readonly view: pixi.Container = new pixi.Container();
   state!: T;
 
@@ -34,10 +34,15 @@ export class GameScreen<T = undefined> {
   readonly #onUpdate?: (ticker: pixi.Ticker, screen: GameScreen<T>, game: Game) => void;
   readonly #onResize?: (screen: GameScreen<T>, game: Game) => void;
 
-  constructor({assetBundles, onAdd, onShow, onHide, onUpdate, onResize}: GameScreenOptions<T>) {
-    if (assetBundles !== undefined) {
-      this.assetBundles = assetBundles;
-    }
+  constructor({
+    assetBundles = [],
+    onAdd,
+    onShow,
+    onHide,
+    onUpdate,
+    onResize,
+  }: GameScreenOptions<T>) {
+    this.assetBundles = assetBundles;
 
     if (onAdd !== undefined) {
       this.#onAdd = onAdd;
