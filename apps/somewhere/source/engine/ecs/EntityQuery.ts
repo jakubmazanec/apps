@@ -60,7 +60,7 @@ export class EntityQuery<
   /** @internal Use `world.addEntity()` instead. Called by `World` to sync entities. */
   addEntity(entity: Entity<readonly [InstanceType<T[number]>]>) {
     if (this.entities.includes(entity)) {
-      throw new Error('Entity was already added to the system!');
+      throw new Error('Entity was already added to the entity query!');
     }
 
     this.entities.push(entity);

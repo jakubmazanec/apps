@@ -16,6 +16,14 @@ let wallHitCount = 0;
 export const mainScreen = new GameScreen({
   assetBundles: ['default', 'game'],
   events: uiEvents,
+  focusRing: {
+    assetName: 'focus-ring',
+    leftWidth: 4,
+    topHeight: 4,
+    rightWidth: 4,
+    bottomHeight: 4,
+    padding: 8,
+  },
   onAdd: () => {
     let title = new Text({
       text: 'Somewhere.',

@@ -10,14 +10,6 @@ export const game = new Game({
     previous: ['Shift+Tab'],
     activate: ['Enter', 'Space'],
   },
-  focusRing: {
-    assetName: 'focus-ring',
-    leftWidth: 4,
-    topHeight: 4,
-    rightWidth: 4,
-    bottomHeight: 4,
-    padding: 8,
-  },
   assetBundles: [
     {
       name: 'default',

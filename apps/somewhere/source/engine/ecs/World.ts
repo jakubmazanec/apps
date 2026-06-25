@@ -297,8 +297,6 @@ export class World {
       system.update(ticker);
     }
 
-    this.#isUpdating = false;
-
     while (this.#entitiesToBeAdded.length) {
       this.addEntity(this.#entitiesToBeAdded.shift() as Entity); // the type assertions is ok, because we checked `this.#entitiesToBeAdded.length`
     }
@@ -310,5 +308,7 @@ export class World {
     for (let channel of this.eventChannels) {
       channel.swap();
     }
+
+    this.#isUpdating = false;
   }
 }

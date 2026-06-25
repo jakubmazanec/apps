@@ -81,6 +81,17 @@ describe('World', () => {
     expect(entityQuery.entities).toContain(entity);
   });
 
+  test('EntityQuery.addEntity throws an entity-query-specific message when the same entity is added twice (L1)', () => {
+    let entityQuery = new EntityQuery({components: [FooComponent]});
+    let entity = new Entity({components: [new FooComponent({value: 1})]});
+
+    entityQuery.addEntity(entity);
+
+    expect(() => {
+      entityQuery.addEntity(entity);
+    }).toThrow('Entity was already added to the entity query!');
+  });
+
   test('removeSystem removes the system from the world', () => {
     let world = new World();
     let system = new System({components: []});

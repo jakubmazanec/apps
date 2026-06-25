@@ -108,13 +108,11 @@ describe('GameScreen.subscribe', () => {
 });
 
 describe('GameScreen.ui', () => {
-  test('creates the UI root lazily and only once', () => {
+  test('exposes the UI root created eagerly when the game is set', () => {
     let {screen} = createScreen();
 
-    expect(screen.view.children).toHaveLength(0);
-
-    // Read the getter into a local, then read it again below to assert the
-    // lazily-created root is returned identically on the second access.
+    // The root is created once in setGame, mounted in the view, and returned
+    // identically on every read.
     let uiRoot = screen.ui;
 
     expect(screen.ui).toBe(uiRoot);
@@ -170,7 +168,7 @@ describe('GameScreen.destroy', () => {
     expect(spy).not.toHaveBeenCalled();
   });
 
-  test('disposes the lazily-created ui root', () => {
+  test('disposes the ui root', () => {
     let {screen} = createScreen();
     let spy = vi.spyOn(screen.ui, 'destroy');
 

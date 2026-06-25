@@ -4,7 +4,6 @@ import * as pixi from 'pixi.js';
 // import {CRTFilter} from 'pixi-filters';
 import {tiledTilemapAsset} from '../../pixi-tools/tiledTilemapAsset.js';
 import {tiledTilesetAsset} from '../../pixi-tools/tiledTilesetAsset.js';
-import {type FocusRingOptions} from '../ui/UiRoot.js';
 import {type GameScreen, type Renderable} from './GameScreen.js';
 
 import '@pixi/layout';
@@ -34,7 +33,6 @@ export type FocusKeys = Partial<Record<FocusCommand, string[]>>;
 export type GameOptions = {
   assetBundles: GameAssetBundle[];
   focusKeys?: FocusKeys;
-  focusRing?: FocusRingOptions;
 };
 
 export class Game {
@@ -52,8 +50,6 @@ export class Game {
 
   ref: React.RefObject<HTMLElement | null> | null = null;
 
-  readonly focusRing?: FocusRingOptions;
-
   readonly #focusCommands = new Map<string, FocusCommand>();
 
   // Game-lifetime resources (the addRef listeners), disposed once in destroy().
@@ -64,12 +60,8 @@ export class Game {
   #isRunning = false;
   #isDestroyed = false;
 
-  constructor({assetBundles, focusKeys, focusRing}: GameOptions) {
+  constructor({assetBundles, focusKeys}: GameOptions) {
     this.assetBundles = assetBundles;
-
-    if (focusRing !== undefined) {
-      this.focusRing = focusRing;
-    }
 
     for (let [command, codes] of Object.entries(focusKeys ?? {}) as Array<
       [FocusCommand, string[]]

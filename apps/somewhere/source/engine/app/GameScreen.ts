@@ -1,7 +1,7 @@
 import {type EventEmitter} from 'eventemitter3';
 import * as pixi from 'pixi.js';
 
-import {UiRoot} from '../ui/UiRoot.js';
+import {type FocusRingOptions, UiRoot} from '../ui/UiRoot.js';
 import {type Game} from './Game.js';
 
 export type Renderable = {
@@ -12,6 +12,7 @@ export type Renderable = {
 export type GameScreenOptions<T, E extends EventEmitter.ValidEventTypes = Record<never, never>> = {
   assetBundles?: string[] | undefined;
   events?: EventEmitter<E> | undefined;
+  focusRing?: FocusRingOptions | undefined;
   onShow?: ((screen: GameScreen<T, E>, game: Game) => Promise<void> | void) | undefined;
   onHide?: ((screen: GameScreen<T, E>, game: Game) => Promise<void> | void) | undefined;
   onUpdate?: ((ticker: pixi.Ticker, screen: GameScreen<T, E>, game: Game) => void) | undefined;
@@ -24,8 +25,10 @@ export class GameScreen<
   Events extends EventEmitter.ValidEventTypes = Record<never, never>,
 > {
   #game: Game | null = null;
-  #ui: UiRoot | null = null;
+  // Created eagerly in `setGame` (when the screen is wired into a game); present for the whole active lifetime.
+  #ui!: UiRoot;
   readonly #events?: EventEmitter<Events>;
+  readonly #focusRing?: FocusRingOptions;
   // Engine teardown idiom (DisposableStack + defer), like Game/Button/UiRoot. Unlike those
   // one-shot stacks it is reset on each hide so the screen can re-subscribe on the next show;
   // a DisposableStack cannot be reused after disposal.
@@ -44,6 +47,7 @@ export class GameScreen<
   constructor({
     assetBundles = [],
     events,
+    focusRing,
     onAdd,
     onShow,
     onHide,
@@ -54,6 +58,10 @@ export class GameScreen<
 
     if (events !== undefined) {
       this.#events = events;
+    }
+
+    if (focusRing !== undefined) {
+      this.#focusRing = focusRing;
     }
 
     if (onAdd !== undefined) {
@@ -91,24 +99,19 @@ export class GameScreen<
     }
 
     this.#game = game;
+    this.#ui = new UiRoot(this.#focusRing === undefined ? {} : {focusRing: this.#focusRing});
+    this.view.addChild(this.#ui.view);
     // `as T` is sound: `onAdd` is required whenever `T` is not `undefined`.
     this.state = this.#onAdd?.(this, game) as T;
   }
 
   get ui(): UiRoot {
-    if (this.#ui === null) {
-      this.#ui = new UiRoot(
-        this.game.focusRing === undefined ? {} : {focusRing: this.game.focusRing},
-      );
-      this.view.addChild(this.#ui.view);
-    }
-
     return this.#ui;
   }
 
   update(ticker: pixi.Ticker) {
     this.#onUpdate?.(ticker, this, this.game);
-    this.#ui?.update();
+    this.#ui.update();
   }
 
   async show() {
@@ -128,7 +131,7 @@ export class GameScreen<
   }
 
   async hide() {
-    this.#ui?.clearFocus();
+    this.#ui.clearFocus();
 
     this.#disposables.dispose();
     this.#disposables = new DisposableStack();
@@ -142,18 +145,13 @@ export class GameScreen<
 
   destroy() {
     this.#disposables.dispose();
-    this.#ui?.destroy();
-    this.#ui = null;
+    this.#ui.destroy();
     this.view.destroy({children: true});
   }
 
   addToView(renderable: Renderable) {
     this.view.addChild(renderable.view);
-
-    if (this.#ui !== null) {
-      this.view.setChildIndex(this.#ui.view, this.view.children.length - 1);
-    }
-
+    this.view.setChildIndex(this.#ui.view, this.view.children.length - 1);
     this.game.app.ticker.add(renderable.update, renderable);
   }
 
