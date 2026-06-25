@@ -307,7 +307,7 @@ for (let {entity, tile} of wallHitChannel.events) {
 A typed, synchronous bus for UI/presentation events, separate from the ECS channels.
 
 ```ts
-// engine/ui/ui.ts
+// game/uiEvents.ts — USER-owned, not an engine module
 import {EventEmitter} from 'eventemitter3';
 
 export type UIEventMap = {
@@ -317,23 +317,26 @@ export type UIEventMap = {
   // ...add UI events as needed
 };
 
-// module singleton (like `game` and `world`). The map-of-functions form (each key → listener
-// signature) is eventemitter3 v5's typed-map convention. Note `game` does NOT use this form; it
-// wraps `this.view` and types its `on/off/once` via `EventEmitter.EventNames`/`EventListener` over
-// `pixi.FederatedEventMap`, so don't model this bus on `Game`'s emitter typing.
-export const ui = new EventEmitter<UIEventMap>();
+// game module singleton (like `game` and `world`). The engine does NOT own or name this bus; the
+// user creates the typed emitter and injects it into each screen via the `events` constructor option,
+// from which `GameScreen<T, Events>` infers `Events` (so `screen.subscribe` is typed with no
+// hand-written type argument). The map-of-functions form is eventemitter3 v5's typed-map convention.
+// Note `game` does NOT use this form; it wraps `this.view` and types its `on/off/once` via
+// `EventEmitter.EventNames`/`EventListener` over `pixi.FederatedEventMap`.
+export const uiEvents = new EventEmitter<UIEventMap>();
 ```
 
 ```ts
 // a Pixi HUD container reacts immediately, just flashes a marker, no frame wait
-ui.on('world:wallHit', ({tile}) => hitMarker.flashAt(tile));
+// (in a screen, prefer `screen.subscribe('world:wallHit', …)` so the listener is auto-cleaned on hide)
+uiEvents.on('world:wallHit', ({tile}) => hitMarker.flashAt(tile));
 ```
 
 Per-widget interaction (a clickable control invoking a local callback) is handled by the
 widget itself — Pixi display objects already carry their own `eventemitter3` and can
-listen to their own `pointertap`. The global `ui` bus is reserved for **broadcast /
-decoupled** UI events and as the bridge's emit target; it is not required for simple
-widget-local callbacks.
+listen to their own `pointertap`. The shared `uiEvents` bus (a user-owned emitter injected into each
+screen via the `events` option) is reserved for **broadcast / decoupled** UI events and as the bridge's
+emit target; it is not required for simple widget-local callbacks.
 
 ### Widgets and `Button`
 
@@ -366,14 +369,14 @@ export type ButtonOptions = {
 | --- | --- |
 | Raw federated events on `view` / `game.on` | Engine-internal: widget internals, canvas-wide raw input. |
 | `Button.onClick` (widget-local callback) | "Control activated → do one thing." Bridges to ECS by calling `channel.push` inside the callback. |
-| The global `ui` bus | Broadcast / decoupled UI-to-UI, and as the ECS→UI bridge's emit target. |
+| The injected `uiEvents` bus | Broadcast / decoupled UI-to-UI, and as the ECS→UI bridge's emit target. |
 
 Litmus: *one sender → one local effect* ⇒ `onClick`; *one world fact → many UI reactions*
-⇒ the `ui` bus.
+⇒ the `uiEvents` bus.
 
-A Button may also be **driven by** a `ui` event to `enable()` / `disable()` itself on game
-state — but that `ui.on` subscription belongs to the **screen/HUD, not the Button** (keeps
-the widget free of bus coupling), and is then subject to the cleanup rule below.
+A Button may also be **driven by** a `uiEvents` event to `enable()` / `disable()` itself on game
+state — but that subscription belongs to the **screen/HUD, not the Button** (via `screen.subscribe`,
+keeping the widget free of bus coupling), and is then subject to the cleanup rule below.
 
 ## Bridge
 
@@ -416,7 +419,7 @@ export const uiBridge = new System({
   displayName: 'ECS->UI bridge',
   onUpdate: () => {
     for (let {tile} of wallHitChannel.events) {
-      ui.emit('world:wallHit', {tile}); // → many HUD listeners react; all Pixi presentation
+      uiEvents.emit('world:wallHit', {tile}); // → many HUD listeners react; all Pixi presentation
     }
   },
 });
@@ -426,7 +429,7 @@ export const uiBridge = new System({
 of entity count.) "Immediate" here is only the **emit → render** step: because `uiBridge.onUpdate`
 runs *inside* `World.update()`, it reads the snapshot promoted by the **previous** frame's swap, so
 the UI sees an event the frame *after* it was pushed (~1-frame, imperceptible). The bridge is the
-single seam that imports both `ui` and the ECS channels.
+single seam that imports both `uiEvents` and the ECS channels.
 
 This is safe because UI handlers are pure Pixi presentation (they set display objects,
 never spawn/kill entities), so they cannot trip the `#isUpdating` guard. If a handler
@@ -437,18 +440,19 @@ during updates, so it degrades gracefully.
 
 There are two distinct cleanup regimes — do not conflate them.
 
-**Bus / raw-input listeners** (`ui.on`, `game.on`) are not owned by any display object, so
+**Bus / raw-input listeners** (`uiEvents.on`, `game.on`) are not owned by any display object, so
 they leak unless removed. Screens must unsubscribe on hide — the same pattern `playerSystem`
 already uses for its `pointertap` handler (`onAdd` subscribes via `game.on`, `onRemove`
 unsubscribes via `game.off`).
 
-For `ui.on` specifically, make this structural rather than per-screen discipline: give `GameScreen`
-a subscription tracker (a `#uiSubscriptions: Array<() => void>` plus a `screen.subscribe(event,
-handler)` that registers on `ui` and stores the off-thunk), drained automatically inside
-`GameScreen.hide()` *before* `#onHide` runs (it already does lifecycle work there, e.g.
-`clearFocus()`). Mandate that screens never call `ui.on` directly, always `screen.subscribe`. This
-matters because `ui` is a module singleton and `onShow` runs on **every** show: an `ui.on` added in
-`onShow` without a matching teardown both leaks (the closure outlives the hidden screen) and
+For the `uiEvents` bus specifically, make this structural rather than per-screen discipline: the
+user-owned emitter is injected into the screen via the `events` constructor option, and `GameScreen`
+keeps a subscription tracker (a `#uiSubscriptions: Array<() => void>` plus a `screen.subscribe(event,
+handler)` that registers on the injected `this.#events` and stores the off-thunk), drained automatically
+inside `GameScreen.hide()` *before* `#onHide` runs (it already does lifecycle work there, e.g.
+`clearFocus()`). Mandate that screens never call `uiEvents.on` directly, always `screen.subscribe`. This
+matters because `uiEvents` is a module singleton and `onShow` runs on **every** show: a `uiEvents.on`
+added in `onShow` without a matching teardown both leaks (the closure outlives the hidden screen) and
 **double-subscribes on re-show** (`eventemitter3` does not dedupe, so `world:wallHit` would fire
 twice, then thrice). Putting the tracker on `GameScreen` makes that failure mode structurally
 impossible instead of merely documented-against.
@@ -540,8 +544,8 @@ than invisible.
    (c) `clear()` empties both buffers; (d) double-add throws "already added"; (e) re-add after
    `stop()` succeeds (proves the splice, not just `clear`); (f) pushing while iterating `events` does
    not mutate the current snapshot and appears next frame (re-entrancy).
-2. Introduce the `ui` bus + `uiBridge` reader System; wire one HUD element / sound to `wallHitChannel`
-   through it.
+2. Introduce the user-owned `uiEvents` bus + `uiBridge` reader System; wire one HUD element / sound to
+   `wallHitChannel` through it.
 3. Add the `GameScreen` `ui`-subscription tracker (`screen.subscribe` + auto-drain in `hide()`), and
    route the step-2 subscription through it.
 ```
