@@ -1,7 +1,6 @@
 import {type EventEmitter} from 'eventemitter3';
 import * as pixi from 'pixi.js';
 
-import {ui, type UIEventMap} from '../ui/ui.js';
 import {UiRoot} from '../ui/UiRoot.js';
 import {type Game} from './Game.js';
 
@@ -10,39 +9,52 @@ export type Renderable = {
   update: (ticker: pixi.Ticker) => void;
 };
 
-export type GameScreenOptions<T> = {
+export type GameScreenOptions<T, E extends EventEmitter.ValidEventTypes = Record<never, never>> = {
   assetBundles?: string[] | undefined;
-  onShow?: ((screen: GameScreen<T>, game: Game) => Promise<void> | void) | undefined;
-  onHide?: ((screen: GameScreen<T>, game: Game) => Promise<void> | void) | undefined;
-  onUpdate?: ((ticker: pixi.Ticker, screen: GameScreen<T>, game: Game) => void) | undefined;
-  onResize?: ((screen: GameScreen<T>, game: Game) => void) | undefined;
-} & (undefined extends T ? {onAdd?: ((screen: GameScreen<T>, game: Game) => T) | undefined}
-: {onAdd: (screen: GameScreen<T>, game: Game) => T});
+  events?: EventEmitter<E> | undefined;
+  onShow?: ((screen: GameScreen<T, E>, game: Game) => Promise<void> | void) | undefined;
+  onHide?: ((screen: GameScreen<T, E>, game: Game) => Promise<void> | void) | undefined;
+  onUpdate?: ((ticker: pixi.Ticker, screen: GameScreen<T, E>, game: Game) => void) | undefined;
+  onResize?: ((screen: GameScreen<T, E>, game: Game) => void) | undefined;
+} & (undefined extends T ? {onAdd?: ((screen: GameScreen<T, E>, game: Game) => T) | undefined}
+: {onAdd: (screen: GameScreen<T, E>, game: Game) => T});
 
-export class GameScreen<T = undefined> {
+export class GameScreen<
+  T = undefined,
+  Events extends EventEmitter.ValidEventTypes = Record<never, never>,
+> {
   #game: Game | null = null;
   #ui: UiRoot | null = null;
-  readonly #uiSubscriptions: Array<() => void> = [];
+  readonly #events?: EventEmitter<Events>;
+  // Engine teardown idiom (DisposableStack + defer), like Game/Button/UiRoot. Unlike those
+  // one-shot stacks it is reset on each hide so the screen can re-subscribe on the next show;
+  // a DisposableStack cannot be reused after disposal.
+  #disposables = new DisposableStack();
 
   readonly assetBundles: string[];
   readonly view: pixi.Container = new pixi.Container();
-  state!: T;
+  state!: T; // TODO: maybe model this like in @jakubmazanec/carson's Workspace.packageJson, which can be null based on a type parameter
 
-  readonly #onAdd?: (screen: GameScreen<T>, game: Game) => T;
-  readonly #onShow?: (screen: GameScreen<T>, game: Game) => Promise<void> | void;
-  readonly #onHide?: (screen: GameScreen<T>, game: Game) => Promise<void> | void;
-  readonly #onUpdate?: (ticker: pixi.Ticker, screen: GameScreen<T>, game: Game) => void;
-  readonly #onResize?: (screen: GameScreen<T>, game: Game) => void;
+  readonly #onAdd?: (screen: GameScreen<T, Events>, game: Game) => T;
+  readonly #onShow?: (screen: GameScreen<T, Events>, game: Game) => Promise<void> | void;
+  readonly #onHide?: (screen: GameScreen<T, Events>, game: Game) => Promise<void> | void;
+  readonly #onUpdate?: (ticker: pixi.Ticker, screen: GameScreen<T, Events>, game: Game) => void;
+  readonly #onResize?: (screen: GameScreen<T, Events>, game: Game) => void;
 
   constructor({
     assetBundles = [],
+    events,
     onAdd,
     onShow,
     onHide,
     onUpdate,
     onResize,
-  }: GameScreenOptions<T>) {
+  }: GameScreenOptions<T, Events>) {
     this.assetBundles = assetBundles;
+
+    if (events !== undefined) {
+      this.#events = events;
+    }
 
     if (onAdd !== undefined) {
       this.#onAdd = onAdd;
@@ -103,13 +115,13 @@ export class GameScreen<T = undefined> {
     await this.#onShow?.(this, this.game);
   }
 
-  subscribe<E extends EventEmitter.EventNames<UIEventMap>>(
+  subscribe<E extends EventEmitter.EventNames<Events>>(
     event: E,
-    handler: EventEmitter.EventListener<UIEventMap, E>,
+    handler: EventEmitter.EventListener<Events, E>,
   ): this {
-    ui.on(event, handler);
-    this.#uiSubscriptions.push(() => {
-      ui.off(event, handler);
+    this.#events?.on(event, handler);
+    this.#disposables.defer(() => {
+      this.#events?.off(event, handler);
     });
 
     return this;
@@ -118,11 +130,8 @@ export class GameScreen<T = undefined> {
   async hide() {
     this.#ui?.clearFocus();
 
-    for (let off of this.#uiSubscriptions) {
-      off();
-    }
-
-    this.#uiSubscriptions.length = 0;
+    this.#disposables.dispose();
+    this.#disposables = new DisposableStack();
 
     await this.#onHide?.(this, this.game);
   }
@@ -132,11 +141,7 @@ export class GameScreen<T = undefined> {
   }
 
   destroy() {
-    for (let off of this.#uiSubscriptions) {
-      off();
-    }
-
-    this.#uiSubscriptions.length = 0;
+    this.#disposables.dispose();
     this.#ui?.destroy();
     this.#ui = null;
     this.view.destroy({children: true});

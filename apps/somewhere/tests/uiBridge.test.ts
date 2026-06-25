@@ -3,8 +3,8 @@ import {afterEach, describe, expect, test} from 'vitest';
 import {Entity} from '../source/engine/ecs/Entity.js';
 import {World} from '../source/engine/ecs/World.js';
 import {type MapTile} from '../source/engine/tiled/Map.js';
-import {ui} from '../source/engine/ui/ui.js';
 import {uiBridge} from '../source/game/uiBridge.js';
+import {uiEvents} from '../source/game/uiEvents.js';
 import {WallHit} from '../source/game/WallHit.js';
 import {wallHitChannel} from '../source/game/wallHitChannel.js';
 
@@ -22,7 +22,7 @@ function withBridge(run: (world: World) => void) {
 
 describe('uiBridge', () => {
   afterEach(() => {
-    ui.removeAllListeners();
+    uiEvents.removeAllListeners();
     wallHitChannel.clear();
   });
 
@@ -30,7 +30,7 @@ describe('uiBridge', () => {
     let tile = {} as unknown as MapTile;
     let received: Array<{tile: MapTile}> = [];
 
-    ui.on('world:wallHit', (payload) => {
+    uiEvents.on('world:wallHit', (payload) => {
       received.push(payload);
     });
 
@@ -50,7 +50,7 @@ describe('uiBridge', () => {
     let tileB = {} as unknown as MapTile;
     let received: Array<{tile: MapTile}> = [];
 
-    ui.on('world:wallHit', (payload) => {
+    uiEvents.on('world:wallHit', (payload) => {
       received.push(payload);
     });
 
@@ -70,7 +70,7 @@ describe('uiBridge', () => {
   test('emits nothing when the channel is empty', () => {
     let fired = 0;
 
-    ui.on('world:wallHit', () => {
+    uiEvents.on('world:wallHit', () => {
       fired += 1;
     });
 

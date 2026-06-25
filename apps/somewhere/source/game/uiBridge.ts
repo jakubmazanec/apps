@@ -1,5 +1,5 @@
 import {System} from '../engine/ecs/System.js';
-import {ui} from '../engine/ui/ui.js';
+import {uiEvents} from './uiEvents.js';
 import {wallHitChannel} from './wallHitChannel.js';
 
 export const uiBridge = new System({
@@ -7,7 +7,7 @@ export const uiBridge = new System({
   displayName: 'ECS->UI bridge',
   onUpdate: () => {
     for (let {tile} of wallHitChannel.events) {
-      ui.emit('world:wallHit', {tile});
+      uiEvents.emit('world:wallHit', {tile});
     }
   },
 });

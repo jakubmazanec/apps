@@ -1,9 +1,10 @@
+import {EventEmitter} from 'eventemitter3';
 import type * as pixiTypes from 'pixi.js';
-import {afterEach, describe, expect, test, vi} from 'vitest';
+import {describe, expect, test, vi} from 'vitest';
 
 import {type Game} from '../source/engine/app/Game.js';
 import {type MapTile} from '../source/engine/tiled/Map.js';
-import {ui} from '../source/engine/ui/ui.js';
+import {type UIEventMap} from '../source/game/uiEvents.js';
 
 vi.mock('pixi.js', () => ({
   Container: class Container {
@@ -54,56 +55,53 @@ const {GameScreen} = await import('../source/engine/app/GameScreen.js');
 const {Container} = await import('pixi.js');
 
 function createScreen() {
-  let screen = new GameScreen({});
+  let events = new EventEmitter<UIEventMap>();
+  let screen = new GameScreen({events});
 
   screen.setGame({
     app: {ticker: {add: vi.fn(), remove: vi.fn()}},
   } as unknown as Game);
 
-  return screen;
+  return {screen, events};
 }
 
 describe('GameScreen.subscribe', () => {
-  afterEach(() => {
-    ui.removeAllListeners();
-  });
-
-  test('subscribe registers the handler on the ui bus', () => {
-    let screen = createScreen();
+  test('subscribe registers the handler on the injected emitter', () => {
+    let {screen, events} = createScreen();
     let spy = vi.fn();
 
     screen.subscribe('world:wallHit', spy);
-    ui.emit('world:wallHit', {tile: null as unknown as MapTile});
+    events.emit('world:wallHit', {tile: null as unknown as MapTile});
 
     expect(spy).toHaveBeenCalledTimes(1);
   });
 
   test('hide() drains subscriptions so handler is not called after hide', async () => {
-    let screen = createScreen();
+    let {screen, events} = createScreen();
     let spy = vi.fn();
 
     screen.subscribe('world:wallHit', spy);
-    ui.emit('world:wallHit', {tile: null as unknown as MapTile});
+    events.emit('world:wallHit', {tile: null as unknown as MapTile});
     await screen.hide();
-    ui.emit('world:wallHit', {tile: null as unknown as MapTile});
+    events.emit('world:wallHit', {tile: null as unknown as MapTile});
 
     expect(spy).toHaveBeenCalledTimes(1);
   });
 
   test('re-show does NOT double-subscribe: one emit fires handler exactly once', async () => {
-    let screen = createScreen();
+    let {screen, events} = createScreen();
     let spy = vi.fn();
 
     screen.subscribe('world:wallHit', spy);
     await screen.hide();
     screen.subscribe('world:wallHit', spy);
-    ui.emit('world:wallHit', {tile: null as unknown as MapTile});
+    events.emit('world:wallHit', {tile: null as unknown as MapTile});
 
     expect(spy).toHaveBeenCalledTimes(1);
   });
 
   test('hide() with no subscriptions resolves without throwing', async () => {
-    let screen = createScreen();
+    let {screen} = createScreen();
 
     await expect(screen.hide()).resolves.toBeUndefined();
   });
@@ -111,32 +109,30 @@ describe('GameScreen.subscribe', () => {
 
 describe('GameScreen.ui', () => {
   test('creates the UI root lazily and only once', () => {
-    let screen = createScreen();
+    let {screen} = createScreen();
 
     expect(screen.view.children).toHaveLength(0);
 
     // Read the getter into a local, then read it again below to assert the
     // lazily-created root is returned identically on the second access.
-    // eslint-disable-next-line @typescript-eslint/no-shadow, @typescript-eslint/prefer-destructuring -- second getter call is the assertion; shadows top-level ui import intentionally
-    let ui = screen.ui;
+    let uiRoot = screen.ui;
 
-    expect(screen.ui).toBe(ui);
-    expect(screen.view.children).toEqual([ui.view]);
+    expect(screen.ui).toBe(uiRoot);
+    expect(screen.view.children).toEqual([uiRoot.view]);
   });
 
   test('keeps the UI root above content added through addToView', () => {
-    let screen = createScreen();
-    // eslint-disable-next-line @typescript-eslint/no-shadow, @typescript-eslint/prefer-destructuring -- screen.view is read again below; shadows top-level ui import intentionally
-    let ui = screen.ui;
+    let {screen} = createScreen();
+    let uiRoot = screen.ui;
     let worldView = new Container();
 
     screen.addToView({view: worldView as unknown as pixiTypes.Container, update() {}});
 
-    expect(screen.view.children.at(-1)).toBe(ui.view);
+    expect(screen.view.children.at(-1)).toBe(uiRoot.view);
   });
 
   test('update drives the UI root', () => {
-    let screen = createScreen();
+    let {screen} = createScreen();
     let spy = vi.spyOn(screen.ui, 'update');
 
     screen.update({} as pixiTypes.Ticker);
@@ -145,7 +141,7 @@ describe('GameScreen.ui', () => {
   });
 
   test('hide clears focus', async () => {
-    let screen = createScreen();
+    let {screen} = createScreen();
     let spy = vi.spyOn(screen.ui, 'clearFocus');
 
     await screen.hide();
@@ -154,7 +150,7 @@ describe('GameScreen.ui', () => {
   });
 
   test('a screen that never touched ui still updates and hides safely', async () => {
-    let screen = createScreen();
+    let {screen} = createScreen();
 
     screen.update({} as pixiTypes.Ticker);
 
@@ -163,23 +159,19 @@ describe('GameScreen.ui', () => {
 });
 
 describe('GameScreen.destroy', () => {
-  afterEach(() => {
-    ui.removeAllListeners();
-  });
-
   test('drains subscriptions so handler is not called after destroy', () => {
-    let screen = createScreen();
+    let {screen, events} = createScreen();
     let spy = vi.fn();
 
     screen.subscribe('world:wallHit', spy);
     screen.destroy();
-    ui.emit('world:wallHit', {tile: null as unknown as MapTile});
+    events.emit('world:wallHit', {tile: null as unknown as MapTile});
 
     expect(spy).not.toHaveBeenCalled();
   });
 
   test('disposes the lazily-created ui root', () => {
-    let screen = createScreen();
+    let {screen} = createScreen();
     let spy = vi.spyOn(screen.ui, 'destroy');
 
     screen.destroy();
@@ -188,7 +180,7 @@ describe('GameScreen.destroy', () => {
   });
 
   test('a screen that never touched ui destroys without throwing', () => {
-    let screen = createScreen();
+    let {screen} = createScreen();
 
     expect(() => screen.destroy()).not.toThrow();
   });

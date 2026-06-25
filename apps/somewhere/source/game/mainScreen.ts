@@ -8,12 +8,14 @@ import {Text} from '../engine/ui/Text.js';
 import {TextInput} from '../engine/ui/TextInput.js';
 import {Toggle} from '../engine/ui/Toggle.js';
 import {game} from './game.js';
+import {uiEvents} from './uiEvents.js';
 import {world} from './world.js';
 
 let wallHitCount = 0;
 
 export const mainScreen = new GameScreen({
   assetBundles: ['default', 'game'],
+  events: uiEvents,
   onAdd: () => {
     let title = new Text({
       text: 'Somewhere.',
