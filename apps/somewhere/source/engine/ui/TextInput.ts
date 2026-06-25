@@ -44,7 +44,7 @@ export class TextInput implements Focusable {
 
   #state: TextInputState = 'normal';
   #value: string;
-  #focused = false;
+  #editing = false;
 
   constructor({
     backgrounds,
@@ -128,7 +128,7 @@ export class TextInput implements Focusable {
 
     // Cancel the native pointerdown so the browser does not generate the
     // compatibility mouse events whose default action moves focus to the canvas,
-    // which would immediately blur the hidden input right after focus() and close
+    // which would immediately blur the hidden input right after startEditing() and close
     // the soft keyboard. (Per the Pointer Events spec, canceling pointerdown
     // suppresses the compatibility mouse events.)
     this.view.on('pointerdown', (event) => {
@@ -141,7 +141,7 @@ export class TextInput implements Focusable {
     // would never focus and the soft keyboard would never open.
     this.view.on('pointerup', (event) => {
       event.stopPropagation();
-      this.focus();
+      this.startEditing();
     });
 
     this.view.on('pointerover', () => {
@@ -224,16 +224,16 @@ export class TextInput implements Focusable {
     let handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Enter') {
         this.#onEnter?.(this);
-        this.blur();
+        this.stopEditing();
       } else if (event.key === 'Escape') {
-        this.blur();
+        this.stopEditing();
       }
     };
 
     // TODO: remove when linter config contains fix for this: https://github.com/sindresorhus/eslint-plugin-unicorn/issues/2088
     // eslint-disable-next-line unicorn/consistent-function-scoping -- false positive
     let handleBlur = () => {
-      this.blur();
+      this.stopEditing();
     };
 
     input.addEventListener('input', handleInput);
@@ -250,12 +250,12 @@ export class TextInput implements Focusable {
       input.remove();
     });
 
-    // Stay attached for the component lifetime; blur() self-guards on #focused, so
-    // this is a no-op until the field is focused. The tap that focuses the field
-    // fires pointerdown while #focused is still false (focus happens on pointerup),
-    // so it does not immediately blur the field. This replaces an earlier
-    // focus-time setTimeout whose timer id was never stored and so could never be
-    // cleared.
+    // Stay attached for the component lifetime; stopEditing() self-guards on
+    // #editing, so this is a no-op until the field is being edited. The tap that
+    // starts editing fires pointerdown while #editing is still false (editing
+    // starts on pointerup), so it does not immediately stop editing. This replaces
+    // an earlier setTimeout (scheduled when editing started) whose timer id was
+    // never stored and so could never be cleared.
     globalThis.addEventListener('pointerdown', handleBlur);
 
     this.#disposables.defer(() => {
@@ -264,7 +264,7 @@ export class TextInput implements Focusable {
 
     let tick = 0;
     let blink = (ticker: pixi.Ticker) => {
-      if (!this.#focused) {
+      if (!this.#editing) {
         return;
       }
 
@@ -316,15 +316,15 @@ export class TextInput implements Focusable {
       return;
     }
 
-    this.focus();
+    this.startEditing();
   }
 
-  focus(): this {
-    if (this.#focused) {
+  startEditing(): this {
+    if (this.#editing) {
       return this;
     }
 
-    this.#focused = true;
+    this.#editing = true;
 
     this.#input.value = this.#value;
 
@@ -346,12 +346,12 @@ export class TextInput implements Focusable {
     return this;
   }
 
-  blur(): this {
-    if (!this.#focused) {
+  stopEditing(): this {
+    if (!this.#editing) {
       return this;
     }
 
-    this.#focused = false;
+    this.#editing = false;
 
     this.#input.blur();
 
@@ -383,7 +383,7 @@ export class TextInput implements Focusable {
   }
 
   destroy() {
-    this.blur();
+    this.stopEditing();
     this.#disposables.dispose();
   }
 
@@ -406,7 +406,7 @@ export class TextInput implements Focusable {
   #refresh() {
     this.#row.removeChildren();
 
-    if (this.#focused) {
+    if (this.#editing) {
       this.#row.addChild(this.#valueText.view, this.#caret);
     } else if (this.#value.length === 0) {
       this.#row.addChild(this.#placeholderText.view);

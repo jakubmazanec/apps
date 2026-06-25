@@ -93,16 +93,16 @@ describe('TextInput', () => {
     vi.restoreAllMocks();
   });
 
-  test('attaches the global pointerdown listener once, not per focus cycle', () => {
+  test('attaches the global pointerdown listener once, not per edit cycle', () => {
     let addSpy = vi.spyOn(globalThis, 'addEventListener');
     let input = createInput();
 
     expect(addSpy.mock.calls.filter(([type]) => type === 'pointerdown')).toHaveLength(1);
 
-    input.focus();
-    input.blur();
-    input.focus();
-    input.blur();
+    input.startEditing();
+    input.stopEditing();
+    input.startEditing();
+    input.stopEditing();
 
     expect(addSpy.mock.calls.filter(([type]) => type === 'pointerdown')).toHaveLength(1);
   });
@@ -157,7 +157,7 @@ describe('TextInput', () => {
     expect(view.hitArea).toMatchObject({width: 220, height: 80});
   });
 
-  test('a global pointerdown blurs the input only while focused', () => {
+  test('a global pointerdown blurs the input only while editing', () => {
     let input = createInput();
     let element = container.querySelector('input');
 
@@ -171,7 +171,7 @@ describe('TextInput', () => {
 
     expect(blurSpy).not.toHaveBeenCalled();
 
-    input.focus();
+    input.startEditing();
     globalThis.dispatchEvent(new Event('pointerdown'));
 
     expect(blurSpy).toHaveBeenCalledWith();

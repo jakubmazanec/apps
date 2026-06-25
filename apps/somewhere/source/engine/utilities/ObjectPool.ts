@@ -5,14 +5,14 @@ export type ObjectPoolOptions<T extends object, A extends unknown[]> = {
   initialSize?: number;
 };
 
-export class ObjectPool<P extends unknown[], T extends object = object> {
+export class ObjectPool<T extends object, A extends unknown[]> {
   readonly #objects: T[] = [];
 
   readonly #onCreate: () => T;
-  readonly #onReset: (object: T, ...rest: P) => T;
+  readonly #onReset: (object: T, ...rest: A) => T;
   readonly #onDestroy?: (object: T) => void;
 
-  constructor({onCreate, onReset, onDestroy, initialSize}: ObjectPoolOptions<T, P>) {
+  constructor({onCreate, onReset, onDestroy, initialSize}: ObjectPoolOptions<T, A>) {
     this.#onCreate = onCreate;
     this.#onReset = onReset;
 
@@ -31,7 +31,7 @@ export class ObjectPool<P extends unknown[], T extends object = object> {
     return this.#objects.length;
   }
 
-  create(...rest: P) {
+  create(...rest: A) {
     let object = this.#objects.pop();
 
     if (object) {
