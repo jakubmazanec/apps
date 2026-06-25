@@ -158,8 +158,10 @@ Resolved across the H5 and H6 reworks: `Game.#disposables` became a single eager
 ### M20 — Vector.isZero uses a different epsilon criterion than isEqual
 `utilities/Vector.ts:31-38` uses strict `< EPSILON && > -EPSILON`; `isEqual` (86-92) uses `Math.abs(...) < EPSILON`. `Vector(Number.EPSILON, 0).isZero` is `false` even though `a.isEqual(Vector.ORIGIN)` may be `true` at the boundary.
 
-### M21 — `is*` getter / `disabled` field / state-introspection naming is inconsistent
-Button exposes `get state` (`ui/Button.ts:161-167`); Toggle exposes both `get disabled` and `get isFocusable` (`ui/Toggle.ts:111-121`); TextInput has neither (`ui/TextInput.ts:294-310`). No consistent way to ask "is this widget disabled". See also [X7](#x7).
+### ~~M21 — `is*` getter / `disabled` field / state-introspection naming is inconsistent~~ ✅ FIXED (2026-06-26)
+~~Button exposes `get state` (`ui/Button.ts:161-167`); Toggle exposes both `get disabled` and `get isFocusable` (`ui/Toggle.ts:111-121`); TextInput has neither (`ui/TextInput.ts:294-310`). No consistent way to ask "is this widget disabled". See also [X7](#x7).~~
+
+Resolved by converging state-introspection getters on the `is*` prefix (the engine's de-facto standard, mandated by `Focusable.isFocusable`): Toggle's `checked`/`disabled` became `isChecked`/`isDisabled`, and Button and TextInput each gained a uniform `get isDisabled(): boolean`. Every focusable widget now answers `isDisabled` identically while keeping its own domain getter (`state`/`isChecked`/`value`). Proven by the `is focusable unless disabled` tests in `tests/{Button,Toggle,TextInput}.test.ts`, which now also assert `isDisabled`.
 
 ### M22 — GameScreen.state has no peer in System/World/EntityQuery
 `app/GameScreen.ts:22-78`. The `state!: T` initialised by `onAdd` is a unique threading mechanism; the rest of the engine uses captured closure or constructor options. Either it's the right pattern (and should appear elsewhere) or it's an accidental localism.
@@ -310,6 +312,8 @@ Same finding as [M17](#m17--option-defaulting-style-differs-from-class-to-class)
 | Silent / `undefined`-returning | `tiled/Map.ts:97-103`, `tiled/Tilemap.ts:80-91` |
 
 ### X7 — State introspection
+Resolved together with [M21](#m21--is-getter--disabled-field--state-introspection-naming-is-inconsistent) (2026-06-26): boolean introspection getters now all use the `is*` prefix and every focusable widget exposes a uniform `get isDisabled()`. The table below records the pre-fix state.
+
 | Variant | Where |
 |---|---|
 | `get state: ButtonState` | `ui/Button.ts:161-167` |
