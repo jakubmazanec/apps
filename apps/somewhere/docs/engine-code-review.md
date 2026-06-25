@@ -168,8 +168,10 @@ Button exposes `get state` (`ui/Button.ts:161-167`); Toggle exposes both `get di
 
 ## 4. Low-severity / nits
 
-### L1
-`EntityQuery.addEntity` error message says "system" — copy-paste from `ecs/System.ts:141`. (`ecs/EntityQuery.ts:63`)
+### ~~L1~~ ✅ FIXED (2026-06-25)
+~~`EntityQuery.addEntity` error message says "system" — copy-paste from `ecs/System.ts:141`. (`ecs/EntityQuery.ts:63`)~~
+
+Resolved by changing the message to `'Entity was already added to the entity query!'`, matching the file's other `entity query` messages. Proven by `tests/World.test.ts` (`EntityQuery.addEntity throws an entity-query-specific message when the same entity is added twice (L1)`).
 
 ### L2
 `World.stop` has four near-identical reverse-iteration teardown loops. (`ecs/World.ts:68-98`)
@@ -189,8 +191,10 @@ No system ordering/priority beyond insertion order. (`ecs/World.ts:23-26, 270-27
 ### L7
 Commented-out CRTFilter block in `init()`. (`app/Game.ts:4, 106-124`)
 
-### L8
-Lazy `GameScreen.ui` getter mutates the scene graph on first read. (`app/GameScreen.ts:80-89`)
+### ~~L8~~ ✅ FIXED (2026-06-25)
+~~Lazy `GameScreen.ui` getter mutates the scene graph on first read. (`app/GameScreen.ts:80-89`)~~
+
+Resolved by constructing the `UiRoot` eagerly in `setGame()` (beside `state`, when the screen is wired into a game) so `get ui()` is now a pure `return this.#ui`. The `#ui` field dropped its `| null` for a definite-assignment `#ui!: UiRoot` (mirroring the sibling `state!: T`), retiring the null guards in `update`/`hide`/`destroy`/`addToView`. Trade-off accepted (Option 1 of three): every screen now builds a `UiRoot` and registers its global `pointerdown` listener, including non-UI screens like `loadingScreen` — negligible for module-singleton screens. Proven by `tests/GameScreen.test.ts` (`exposes the UI root created eagerly when the game is set`, plus the unchanged `update`/`hide`/`destroy`/`addToView` coverage).
 
 ### L9
 Per-property `if (x !== undefined)` constructor pattern repeated 5x in GameScreen, 2x in Game. (`app/GameScreen.ts:37-61`, `app/Game.ts:55-71`)
