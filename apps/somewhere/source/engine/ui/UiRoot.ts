@@ -43,7 +43,7 @@ export class UiRoot implements UiParent {
   readonly #disposables = new DisposableStack();
 
   #focused: Focusable | null = null;
-  #ringVisible = false;
+  #isRingVisible = false;
   #ring: pixi.NineSliceSprite | null = null;
 
   constructor({focusRing}: UiRootOptions = {}) {
@@ -74,7 +74,7 @@ export class UiRoot implements UiParent {
     // TODO: remove when linter config contains fix for this: https://github.com/sindresorhus/eslint-plugin-unicorn/issues/2088
     // eslint-disable-next-line unicorn/consistent-function-scoping -- false positive
     let handlePointerDown = () => {
-      this.#ringVisible = false;
+      this.#isRingVisible = false;
     };
 
     globalThis.addEventListener('pointerdown', handlePointerDown);
@@ -91,7 +91,7 @@ export class UiRoot implements UiParent {
   }
 
   get isRingVisible(): boolean {
-    return this.#ringVisible;
+    return this.#isRingVisible;
   }
 
   addChild(...children: UiChild[]): this {
@@ -125,7 +125,7 @@ export class UiRoot implements UiParent {
 
   clearFocus() {
     this.#focused = null;
-    this.#ringVisible = false;
+    this.#isRingVisible = false;
     this.#scopes.length = 0;
   }
 
@@ -144,7 +144,7 @@ export class UiRoot implements UiParent {
       return;
     }
 
-    this.#ringVisible = true;
+    this.#isRingVisible = true;
 
     let current = this.#focused;
 
@@ -204,7 +204,7 @@ export class UiRoot implements UiParent {
   update() {
     let focused = this.#focused;
 
-    if (this.#focusRing === undefined || !this.#ringVisible || !focused?.isFocusable) {
+    if (this.#focusRing === undefined || !this.#isRingVisible || !focused?.isFocusable) {
       if (this.#ring !== null) {
         this.#ring.visible = false;
       }
@@ -278,7 +278,7 @@ export class UiRoot implements UiParent {
       return;
     }
 
-    this.#ringVisible = true;
+    this.#isRingVisible = true;
 
     let current = this.#focused;
 

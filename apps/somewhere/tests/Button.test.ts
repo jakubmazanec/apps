@@ -147,14 +147,17 @@ describe('Button focus', () => {
     let button = new Button({backgrounds: {normal: background(), disabled: background()}});
 
     expect(button.isFocusable).toBeTruthy();
+    expect(button.isDisabled).toBeFalsy();
 
     button.disable();
 
     expect(button.isFocusable).toBeFalsy();
+    expect(button.isDisabled).toBeTruthy();
 
     button.enable();
 
     expect(button.isFocusable).toBeTruthy();
+    expect(button.isDisabled).toBeFalsy();
   });
 
   test('activate fires onClick', () => {

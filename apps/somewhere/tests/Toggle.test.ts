@@ -76,10 +76,12 @@ describe('Toggle focus', () => {
     let toggle = new Toggle({backgrounds: {unchecked: background(), checked: background()}});
 
     expect(toggle.isFocusable).toBeTruthy();
+    expect(toggle.isDisabled).toBeFalsy();
 
     toggle.disable();
 
     expect(toggle.isFocusable).toBeFalsy();
+    expect(toggle.isDisabled).toBeTruthy();
   });
 
   test('activate flips the value and fires onChange', () => {
@@ -91,12 +93,29 @@ describe('Toggle focus', () => {
 
     toggle.activate();
 
-    expect(toggle.checked).toBeTruthy();
+    expect(toggle.isChecked).toBeTruthy();
     expect(onChange).toHaveBeenCalledWith(toggle);
 
     toggle.activate();
 
-    expect(toggle.checked).toBeFalsy();
+    expect(toggle.isChecked).toBeFalsy();
+  });
+
+  test('check and uncheck set the value without firing onChange', () => {
+    let onChange = vi.fn();
+    let toggle = new Toggle({
+      backgrounds: {unchecked: background(), checked: background()},
+      onChange,
+    });
+
+    toggle.check();
+
+    expect(toggle.isChecked).toBeTruthy();
+
+    toggle.uncheck();
+
+    expect(toggle.isChecked).toBeFalsy();
+    expect(onChange).not.toHaveBeenCalled();
   });
 
   test('activate is a no-op while disabled', () => {
@@ -109,7 +128,7 @@ describe('Toggle focus', () => {
     toggle.disable();
     toggle.activate();
 
-    expect(toggle.checked).toBeFalsy();
+    expect(toggle.isChecked).toBeFalsy();
     expect(onChange).not.toHaveBeenCalled();
   });
 });

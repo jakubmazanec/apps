@@ -181,10 +181,12 @@ describe('TextInput', () => {
     let input = createInput();
 
     expect(input.isFocusable).toBeTruthy();
+    expect(input.isDisabled).toBeFalsy();
 
     input.disable();
 
     expect(input.isFocusable).toBeFalsy();
+    expect(input.isDisabled).toBeTruthy();
   });
 
   test('activate starts editing in the hidden input', () => {

@@ -101,18 +101,22 @@ export const mainScreen = new GameScreen({
     // --- DEMO (temporary): verify Toggle + TextInput ---
     let toggleSprite = (name: string) => new pixi.Sprite(pixi.Assets.get(name));
 
+    // Each Toggle owns and destroys its background sprites, so build a fresh set
+    // per toggle rather than sharing instances.
+    let toggleBackgrounds = () => ({
+      unchecked: toggleSprite('toggle-unchecked'),
+      checked: toggleSprite('toggle-checked'),
+      hovered: toggleSprite('toggle-hovered'),
+      hoveredChecked: toggleSprite('toggle-hovered-checked'),
+      disabled: toggleSprite('toggle-disabled'),
+      disabledChecked: toggleSprite('toggle-disabled-checked'),
+    });
+
     let demoToggle = new Toggle({
-      backgrounds: {
-        unchecked: toggleSprite('toggle-unchecked'),
-        checked: toggleSprite('toggle-checked'),
-        hovered: toggleSprite('toggle-hovered'),
-        hoveredChecked: toggleSprite('toggle-hovered-checked'),
-        disabled: toggleSprite('toggle-disabled'),
-        disabledChecked: toggleSprite('toggle-disabled-checked'),
-      },
+      backgrounds: toggleBackgrounds(),
       onChange: (toggle) => {
         // eslint-disable-next-line no-console -- demo
-        console.log('toggle', toggle.checked);
+        console.log('toggle', toggle.isChecked);
       },
     });
 
@@ -126,6 +130,32 @@ export const mainScreen = new GameScreen({
           layout: true,
         }),
         demoToggle,
+      ],
+      layout: {gap: 12},
+    });
+
+    let enableToggle = new Toggle({
+      backgrounds: toggleBackgrounds(),
+      checked: true,
+      onChange: (toggle) => {
+        if (toggle.isChecked) {
+          demoToggle.enable();
+        } else {
+          demoToggle.disable();
+        }
+      },
+    });
+
+    let enableToggleRow = new Container({
+      children: [
+        new Text({
+          text: 'Enable sound',
+          fontFamily: 'monogram-outline',
+          fontSize: 48,
+          fill: 0xffffff,
+          layout: true,
+        }),
+        enableToggle,
       ],
       layout: {gap: 12},
     });
@@ -152,7 +182,7 @@ export const mainScreen = new GameScreen({
       },
     });
 
-    bannerPanel.addChild(demoToggleRow, demoInput);
+    bannerPanel.addChild(demoToggleRow, enableToggleRow, demoInput);
     // --- END DEMO ---
 
     let hitCounter = new Text({

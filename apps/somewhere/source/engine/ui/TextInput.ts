@@ -44,7 +44,7 @@ export class TextInput implements Focusable {
 
   #state: TextInputState = 'normal';
   #value: string;
-  #editing = false;
+  #isEditing = false;
 
   constructor({
     backgrounds,
@@ -251,8 +251,8 @@ export class TextInput implements Focusable {
     });
 
     // Stay attached for the component lifetime; stopEditing() self-guards on
-    // #editing, so this is a no-op until the field is being edited. The tap that
-    // starts editing fires pointerdown while #editing is still false (editing
+    // #isEditing, so this is a no-op until the field is being edited. The tap that
+    // starts editing fires pointerdown while #isEditing is still false (editing
     // starts on pointerup), so it does not immediately stop editing. This replaces
     // an earlier setTimeout (scheduled when editing started) whose timer id was
     // never stored and so could never be cleared.
@@ -264,7 +264,7 @@ export class TextInput implements Focusable {
 
     let tick = 0;
     let blink = (ticker: pixi.Ticker) => {
-      if (!this.#editing) {
+      if (!this.#isEditing) {
         return;
       }
 
@@ -309,6 +309,10 @@ export class TextInput implements Focusable {
     return this.#state !== 'disabled';
   }
 
+  get isDisabled(): boolean {
+    return this.#state === 'disabled';
+  }
+
   // Navigation focus and editing focus are distinct: activating the
   // navigation-focused field is what starts editing.
   activate() {
@@ -320,11 +324,11 @@ export class TextInput implements Focusable {
   }
 
   startEditing(): this {
-    if (this.#editing) {
+    if (this.#isEditing) {
       return this;
     }
 
-    this.#editing = true;
+    this.#isEditing = true;
 
     this.#input.value = this.#value;
 
@@ -347,11 +351,11 @@ export class TextInput implements Focusable {
   }
 
   stopEditing(): this {
-    if (!this.#editing) {
+    if (!this.#isEditing) {
       return this;
     }
 
-    this.#editing = false;
+    this.#isEditing = false;
 
     this.#input.blur();
 
@@ -406,7 +410,7 @@ export class TextInput implements Focusable {
   #refresh() {
     this.#row.removeChildren();
 
-    if (this.#editing) {
+    if (this.#isEditing) {
       this.#row.addChild(this.#valueText.view, this.#caret);
     } else if (this.#value.length === 0) {
       this.#row.addChild(this.#placeholderText.view);

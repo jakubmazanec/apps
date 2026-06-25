@@ -19,15 +19,15 @@ export type ToggleOptions = {
 };
 
 export class Toggle implements Focusable {
+  #isChecked: boolean;
+  #state: ToggleState = 'normal';
+
   readonly view: LayoutContainer;
+  readonly #disposables = new DisposableStack();
 
   readonly #onChange?: (toggle: Toggle) => void;
 
-  #checked: boolean;
-  #state: ToggleState = 'normal';
-  #background: pixi.Container;
   readonly #backgrounds: Record<ToggleState, {checked: pixi.Container; unchecked: pixi.Container}>;
-  readonly #disposables = new DisposableStack();
 
   constructor({backgrounds, checked = false, onChange}: ToggleOptions) {
     if (onChange !== undefined) {
@@ -46,24 +46,11 @@ export class Toggle implements Focusable {
       },
     };
 
-    // Inactive backgrounds are detached during swaps, so `{children: true}` does
-    // not reach them; destroy any that the view did not already take down.
-    for (let background of new Set(
-      Object.values(this.#backgrounds).flatMap((state) => [state.unchecked, state.checked]),
-    )) {
-      this.#disposables.adopt(background, (b) => {
-        if (!b.destroyed) {
-          b.destroy();
-        }
-      });
-    }
-
-    this.#checked = checked;
-    this.#background = this.#backgrounds.normal[checked ? 'checked' : 'unchecked'];
-
-    this.view = new LayoutContainer({background: this.#background});
+    this.#isChecked = checked;
+    this.view = new LayoutContainer({
+      background: this.#backgrounds.normal[checked ? 'checked' : 'unchecked'],
+    });
     this.view.layout = {width: backgrounds.unchecked.width, height: backgrounds.unchecked.height};
-
     this.view.eventMode = 'static';
     this.view.cursor = 'pointer';
 
@@ -96,23 +83,30 @@ export class Toggle implements Focusable {
     });
 
     this.view.on('pointertap', (event) => {
-      if (this.#state === 'disabled') {
-        return;
-      }
-
       event.stopPropagation();
-
       this.activate();
     });
 
     this.#disposables.defer(() => this.view.destroy({children: true}));
+
+    // Inactive backgrounds are detached during swaps, so `{children: true}` does
+    // not reach them; destroy any that the view did not already take down.
+    for (let background of new Set(
+      Object.values(this.#backgrounds).flatMap((state) => [state.unchecked, state.checked]),
+    )) {
+      this.#disposables.adopt(background, (b) => {
+        if (!b.destroyed) {
+          b.destroy();
+        }
+      });
+    }
   }
 
-  get checked(): boolean {
-    return this.#checked;
+  get isChecked(): boolean {
+    return this.#isChecked;
   }
 
-  get disabled(): boolean {
+  get isDisabled(): boolean {
     return this.#state === 'disabled';
   }
 
@@ -125,14 +119,24 @@ export class Toggle implements Focusable {
       return;
     }
 
-    this.#setChecked(!this.#checked);
+    this.#setChecked(!this.#isChecked);
     this.#onChange?.(this);
   }
 
-  setChecked(value: boolean): this {
-    this.#setChecked(value);
+  check() {
+    if (this.#isChecked) {
+      return;
+    }
 
-    return this;
+    this.#setChecked(true);
+  }
+
+  uncheck() {
+    if (!this.#isChecked) {
+      return;
+    }
+
+    this.#setChecked(false);
   }
 
   enable() {
@@ -142,7 +146,6 @@ export class Toggle implements Focusable {
 
     this.#setState('normal');
 
-    this.view.eventMode = 'static';
     this.view.cursor = 'pointer';
   }
 
@@ -153,17 +156,16 @@ export class Toggle implements Focusable {
 
     this.#setState('disabled');
 
-    this.view.eventMode = 'none';
     this.view.cursor = 'default';
   }
 
   #setChecked(checked: boolean) {
-    if (this.#checked === checked) {
+    if (this.#isChecked === checked) {
       return;
     }
 
-    this.#checked = checked;
-    this.#render();
+    this.#isChecked = checked;
+    this.#swapBackground();
   }
 
   #setState(state: ToggleState) {
@@ -172,25 +174,20 @@ export class Toggle implements Focusable {
     }
 
     this.#state = state;
-    this.#render();
+    this.#swapBackground();
   }
 
   destroy() {
     this.#disposables.dispose();
   }
 
-  #render() {
-    let next = this.#backgrounds[this.#state][this.#checked ? 'checked' : 'unchecked'];
-
-    if (this.#background === next) {
-      return;
-    }
+  #swapBackground() {
+    let nextBackground = this.#backgrounds[this.#state][this.#isChecked ? 'checked' : 'unchecked'];
 
     // The layout system sizes and positions `view.background` to the computed
     // layout box on each tick, so we only swap which sprite is displayed.
-    this.view.containerMethods.removeChild(this.#background);
-    this.view.containerMethods.addChildAt(next, 0);
-    this.view.background = next;
-    this.#background = next;
+    this.view.containerMethods.removeChildren();
+    this.view.containerMethods.addChildAt(nextBackground, 0);
+    this.view.background = nextBackground;
   }
 }

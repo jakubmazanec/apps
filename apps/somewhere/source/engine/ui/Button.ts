@@ -166,6 +166,10 @@ export class Button implements Focusable, UiParent {
     return this.#state !== 'disabled';
   }
 
+  get isDisabled(): boolean {
+    return this.#state === 'disabled';
+  }
+
   activate() {
     if (this.#state === 'disabled') {
       return;
