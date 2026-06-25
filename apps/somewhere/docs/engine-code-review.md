@@ -202,8 +202,8 @@ Per-property `if (x !== undefined)` constructor pattern repeated 5x in GameScree
 ### L10
 `Spriteset.ts` is a dead 5-line placeholder. (`graphics/Spriteset.ts:1-5`)
 
-### L11
-`ObjectPoolOptions<T,A>` vs `ObjectPool<P,T>` — inverted/renamed generics. (`utilities/ObjectPool.ts:1,8`)
+### ~~L11~~ ✅ FIXED (2026-06-25)
+~~`ObjectPoolOptions<T,A>` vs `ObjectPool<P,T>` — inverted/renamed generics. (`utilities/ObjectPool.ts:1,8`)~~
 
 ### L12
 `onCreate/onReset/onDestroy` naming clashes with the engine's event-observer `on*` convention. (`utilities/ObjectPool.ts:1-15`)
@@ -229,8 +229,9 @@ Magic `animationSpeed = 0.15`, hardcoded layer index 1, and unexplained z-index 
 ### L19
 `FocusManager.#collectFocusables` relies on duck-typed `'view' in node` + `isFocusable === true`. (`ui/FocusManager.ts:189-215`)
 
-### L20
-`TextInput` registers a permanent global `pointerdown` listener per instance for blur-on-click. (`ui/TextInput.ts:253-263`)
+### ~~L20~~ ✅ RESOLVED (2026-06-25)
+~~`TextInput` registers a permanent global `pointerdown` listener per instance for blur-on-click. (`ui/TextInput.ts:253-263`)~~
+Not a leak: removal is deferred on the `DisposableStack` and tested. The listener owns the DOM input / soft-keyboard *editing* lifecycle, which is global by necessity and distinct from `UiRoot` navigation focus. Renamed TextInput's editing methods (`focus`/`blur` → `startEditing`/`stopEditing`, `#focused` → `#editing`) so the concept no longer clashes with `UiRoot`'s navigation focus.
 
 ### L21
 `Text.layout` three-way runtime branch with a misleading type. (`ui/Text.ts:4-9, 27-35`)
