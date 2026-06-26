@@ -135,6 +135,10 @@ export class Button implements Focusable, UiParent {
     this.#disposables.defer(() => this.view.destroy({children: true}));
   }
 
+  destroy() {
+    this.#disposables.dispose();
+  }
+
   addChild(...children: UiChild[]): this {
     for (let child of children) {
       this.children.push(child);
@@ -162,20 +166,12 @@ export class Button implements Focusable, UiParent {
     return this.#state;
   }
 
-  get isFocusable(): boolean {
-    return this.#state !== 'disabled';
-  }
-
   get isDisabled(): boolean {
     return this.#state === 'disabled';
   }
 
-  activate() {
-    if (this.#state === 'disabled') {
-      return;
-    }
-
-    this.#onClick?.(this);
+  get isFocusable(): boolean {
+    return this.#state !== 'disabled';
   }
 
   enable() {
@@ -200,8 +196,12 @@ export class Button implements Focusable, UiParent {
     this.view.cursor = 'default';
   }
 
-  destroy() {
-    this.#disposables.dispose();
+  activate() {
+    if (this.#state === 'disabled') {
+      return;
+    }
+
+    this.#onClick?.(this);
   }
 
   #setState(state: ButtonState) {
@@ -209,7 +209,14 @@ export class Button implements Focusable, UiParent {
     let next = this.#backgrounds[state];
 
     this.#state = state;
-    this.#applyPressOffset();
+
+    if (this.#pressOffset !== 0) {
+      // The base padding stays readable in the merged styles even while the paddingTop/paddingBottom edges override it during a press.
+      let {padding = 0} = (this.view.layout?.style ?? {}) as {padding?: number};
+      let shift = this.#state === 'active' ? this.#pressOffset : 0;
+
+      this.view.layout = {paddingTop: padding + shift, paddingBottom: padding - shift};
+    }
 
     if (previous === next) {
       return;
@@ -219,24 +226,5 @@ export class Button implements Focusable, UiParent {
     this.view.containerMethods.addChildAt(next, 0);
     this.view.background = next;
     next.setSize(previous.width, previous.height);
-  }
-
-  // Shift content down while pressed by moving padding from the bottom to the
-  // top, so the box height is unchanged and the centered label tracks a face
-  // that drops on press (the extruded button background).
-  #applyPressOffset() {
-    if (this.#pressOffset === 0) {
-      return;
-    }
-
-    // The base padding stays readable in the merged styles even while the
-    // paddingTop/paddingBottom edges override it during a press.
-    let {padding = 0} = (this.view.layout?.style ?? {}) as {padding?: number};
-    let shift = this.#state === 'active' ? this.#pressOffset : 0;
-
-    // Always set both edges explicitly: @pixi/layout merges style assignments,
-    // so omitting paddingTop/paddingBottom on release would leave the pressed
-    // values stuck rather than resetting them to the base padding.
-    this.view.layout = {paddingTop: padding + shift, paddingBottom: padding - shift};
   }
 }

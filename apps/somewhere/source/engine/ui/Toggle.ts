@@ -19,7 +19,7 @@ export type ToggleOptions = {
 };
 
 export class Toggle implements Focusable {
-  #isChecked: boolean;
+  #isChecked: boolean; // basically a `value`
   #state: ToggleState = 'normal';
 
   readonly view: LayoutContainer;
@@ -54,11 +54,7 @@ export class Toggle implements Focusable {
     this.view.eventMode = 'static';
     this.view.cursor = 'pointer';
 
-    // The state backgrounds are swapped in and out of the view, and a freshly
-    // attached child's transform is stale until the next render, which would
-    // let hits in that window fall through the view (e.g. a click whose
-    // pointerover and pointerdown arrive in the same frame). The hit area
-    // keeps hit testing independent of the background children.
+    // The hit area keeps hit testing independent of the background children (because they're are swapped in and out of the view, and a freshly attached child's transform is stale until the next render, which would let hits fall through)
     this.view.hitArea = new pixi.Rectangle();
 
     this.view.on('layout', ({computedLayout}) => {
@@ -89,21 +85,28 @@ export class Toggle implements Focusable {
 
     this.#disposables.defer(() => this.view.destroy({children: true}));
 
-    // Inactive backgrounds are detached during swaps, so `{children: true}` does
-    // not reach them; destroy any that the view did not already take down.
+    // Inactive backgrounds are detached during swaps, so `{children: true}` does not work; this will destroy any that the view did not already take down.
     for (let background of new Set(
       Object.values(this.#backgrounds).flatMap((state) => [state.unchecked, state.checked]),
     )) {
-      this.#disposables.adopt(background, (b) => {
-        if (!b.destroyed) {
-          b.destroy();
+      this.#disposables.defer(() => {
+        if (!background.destroyed) {
+          background.destroy();
         }
       });
     }
   }
 
+  destroy() {
+    this.#disposables.dispose();
+  }
+
   get isChecked(): boolean {
     return this.#isChecked;
+  }
+
+  get state(): ToggleState {
+    return this.#state;
   }
 
   get isDisabled(): boolean {
@@ -112,15 +115,6 @@ export class Toggle implements Focusable {
 
   get isFocusable(): boolean {
     return this.#state !== 'disabled';
-  }
-
-  activate() {
-    if (this.#state === 'disabled') {
-      return;
-    }
-
-    this.#setChecked(!this.#isChecked);
-    this.#onChange?.(this);
   }
 
   check() {
@@ -159,13 +153,23 @@ export class Toggle implements Focusable {
     this.view.cursor = 'default';
   }
 
+  activate() {
+    if (this.#state === 'disabled') {
+      return;
+    }
+
+    this.#setChecked(!this.#isChecked);
+    this.#onChange?.(this);
+  }
+
   #setChecked(checked: boolean) {
     if (this.#isChecked === checked) {
       return;
     }
 
     this.#isChecked = checked;
-    this.#swapBackground();
+
+    this.#updateBackground();
   }
 
   #setState(state: ToggleState) {
@@ -174,20 +178,15 @@ export class Toggle implements Focusable {
     }
 
     this.#state = state;
-    this.#swapBackground();
+
+    this.#updateBackground();
   }
 
-  destroy() {
-    this.#disposables.dispose();
-  }
+  #updateBackground() {
+    this.view.background =
+      this.#backgrounds[this.#state][this.#isChecked ? 'checked' : 'unchecked'];
 
-  #swapBackground() {
-    let nextBackground = this.#backgrounds[this.#state][this.#isChecked ? 'checked' : 'unchecked'];
-
-    // The layout system sizes and positions `view.background` to the computed
-    // layout box on each tick, so we only swap which sprite is displayed.
     this.view.containerMethods.removeChildren();
-    this.view.containerMethods.addChildAt(nextBackground, 0);
-    this.view.background = nextBackground;
+    this.view.containerMethods.addChildAt(this.view.background, 0);
   }
 }
