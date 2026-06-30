@@ -245,7 +245,10 @@ describe('World', () => {
           return () => world.removeEntityQuery(victim);
         },
       ],
-      ['addEventChannel', (world) => () => world.addEventChannel(new EventChannel({event: BarEvent}))],
+      [
+        'addEventChannel',
+        (world) => () => world.addEventChannel(new EventChannel({event: BarEvent})),
+      ],
       [
         'removeEventChannel',
         (world) => {

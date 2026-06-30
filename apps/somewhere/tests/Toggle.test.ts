@@ -17,7 +17,7 @@ vi.mock('@pixi/layout/components', () => ({
     background: unknown;
     hitArea: unknown;
     handlers: Record<string, (argument?: unknown) => void> = {};
-    containerMethods = {removeChild() {}, addChildAt() {}};
+    containerMethods = {removeChild() {}, removeChildren() {}, addChildAt() {}};
 
     #style: Record<string, unknown> = {};
 
