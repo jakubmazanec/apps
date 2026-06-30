@@ -188,7 +188,7 @@ export const mainScreen = new GameScreen({
     let hitCounter = new Text({
       text: 'Wall hits: 0',
       fontFamily: 'monogram-outline',
-      fontSize: 32,
+      fontSize: 48,
       fill: 0xffffff,
       layout: true,
     });
