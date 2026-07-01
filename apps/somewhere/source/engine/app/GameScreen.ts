@@ -1,6 +1,7 @@
 import {type EventEmitter} from 'eventemitter3';
 import * as pixi from 'pixi.js';
 
+import {Scheduler} from '../scheduler/Scheduler.js';
 import {type FocusRingOptions, UiRoot} from '../ui/UiRoot.js';
 import {type Game} from './Game.js';
 
@@ -36,6 +37,7 @@ export class GameScreen<
 
   readonly assetBundles: string[];
   readonly view: pixi.Container = new pixi.Container();
+  readonly scheduler = new Scheduler();
   state!: T; // TODO: maybe model this like in @jakubmazanec/carson's Workspace.packageJson, which can be null based on a type parameter
 
   readonly #onAdd?: (screen: GameScreen<T, Events>, game: Game) => T;
@@ -110,11 +112,15 @@ export class GameScreen<
   }
 
   update(ticker: pixi.Ticker) {
+    this.scheduler.update(ticker); // added: Pixi drives this every frame
     this.#onUpdate?.(ticker, this, this.game);
     this.#ui.update();
   }
 
   async show() {
+    // Register scheduler teardown on the (per-hide) disposables stack; re-armed each show because
+    // hide() disposes and replaces the stack. A single dispose() then cancels in-flight tweens/timers.
+    this.#disposables.defer(() => this.scheduler.clear());
     await this.#onShow?.(this, this.game);
   }
 

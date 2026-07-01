@@ -350,4 +350,60 @@ describe('World', () => {
       expect(systemEntitiesDuringAdd).toBe(0);
     });
   });
+
+  describe('World.update deferred structural changes', () => {
+    test('a system that removes an entity during its onUpdate applies the removal (no hang)', () => {
+      let target = new Entity({components: []});
+      let remover = new System({
+        components: [],
+        onUpdate: (ticker, system, world) => {
+          if (world.entities.includes(target)) {
+            world.removeEntity(target);
+          }
+        },
+      });
+      let world = new World({
+        onStart: (w) => {
+          w.addSystem(remover).addEntity(target);
+        },
+      });
+
+      world.start();
+
+      expect(world.entities).toContain(target);
+
+      world.update({deltaTime: 1} as never); // removal deferred during onUpdate, then flushed this frame
+
+      expect(world.entities).not.toContain(target);
+
+      world.stop();
+    }, 2000);
+
+    test('a system that adds an entity during its onUpdate applies the add (no hang)', () => {
+      let spawned = new Entity({components: []});
+      let hasSpawned = false;
+      let spawner = new System({
+        components: [],
+        onUpdate: (ticker, system, world) => {
+          if (!hasSpawned) {
+            hasSpawned = true;
+            world.addEntity(spawned);
+          }
+        },
+      });
+      let world = new World({
+        onStart: (w) => {
+          w.addSystem(spawner);
+        },
+      });
+
+      world.start();
+
+      world.update({deltaTime: 1} as never); // add deferred during onUpdate, then flushed at end of frame
+
+      expect(world.entities).toContain(spawned);
+
+      world.stop();
+    }, 2000);
+  });
 });

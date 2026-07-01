@@ -183,3 +183,27 @@ describe('GameScreen.destroy', () => {
     expect(() => screen.destroy()).not.toThrow();
   });
 });
+
+describe('GameScreen.scheduler', () => {
+  test('update advances scheduled tweens', () => {
+    let {screen} = createScreen();
+    let target = {alpha: 0};
+
+    screen.scheduler.tween({target, to: {alpha: 1}, duration: 100});
+    screen.update({deltaMS: 50} as pixiTypes.Ticker);
+
+    expect(target.alpha).toBeCloseTo(0.5);
+  });
+
+  test('hide() clears in-flight schedules so a pending wait resolves cancelled', async () => {
+    let {screen} = createScreen();
+
+    await screen.show();
+
+    let waitPromise = screen.scheduler.wait(100);
+
+    await screen.hide();
+
+    await expect(waitPromise).resolves.toEqual({cancelled: true});
+  });
+});

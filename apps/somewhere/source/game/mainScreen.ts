@@ -1,6 +1,7 @@
 import * as pixi from 'pixi.js';
 
 import {GameScreen} from '../engine/app/GameScreen.js';
+import {easeOutQuad} from '../engine/scheduler/easing.js';
 import {Button} from '../engine/ui/Button.js';
 import {Container} from '../engine/ui/Container.js';
 import {Panel} from '../engine/ui/Panel.js';
@@ -8,12 +9,18 @@ import {Text} from '../engine/ui/Text.js';
 import {TextInput} from '../engine/ui/TextInput.js';
 import {Toggle} from '../engine/ui/Toggle.js';
 import {game} from './game.js';
-import {uiEvents} from './uiEvents.js';
+import {type UIEventMap, uiEvents} from './uiEvents.js';
 import {world} from './world.js';
+
+type MainScreenState = {
+  bannerPanel: Panel;
+  hitCounter: Text;
+  newGameButton: Button;
+};
 
 let wallHitCount = 0;
 
-export const mainScreen = new GameScreen({
+export const mainScreen = new GameScreen<MainScreenState, UIEventMap>({
   assetBundles: ['default', 'game'],
   events: uiEvents,
   focusRing: {
@@ -24,7 +31,7 @@ export const mainScreen = new GameScreen({
     bottomHeight: 4,
     padding: 8,
   },
-  onAdd: () => {
+  onAdd: (screen): MainScreenState => {
     let title = new Text({
       text: 'Somewhere.',
       fontFamily: 'monogram',
@@ -184,6 +191,129 @@ export const mainScreen = new GameScreen({
 
     bannerPanel.addChild(demoToggleRow, enableToggleRow, demoInput);
     // --- END DEMO ---
+
+    // --- Reminder dialog: after a user-supplied delay, fade in a dismissable panel ---
+    // Exercises scheduler.after (the delay) and scheduler.tween (the fade in / out); if the screen
+    // hides mid-flight, GameScreen.hide()'s scheduler.clear() cancels the pending timer/tween.
+    let openReminder = () => {
+      // Forward-declared so the Close button's handler can fade out the panel that owns it.
+      let panel: Panel;
+
+      let closeButton = new Button({
+        backgrounds: {
+          normal: nineSlice('button-normal', buttonSlice),
+          hovered: nineSlice('button-hovered', buttonSlice),
+          active: nineSlice('button-active', buttonActiveSlice),
+          disabled: nineSlice('button-disabled', buttonSlice),
+        },
+        children: [
+          new Text({
+            text: 'Close',
+            fontFamily: 'monogram-outline',
+            fontSize: 48,
+            fill: 0xffffff,
+            layout: true,
+          }),
+        ],
+        pressOffset: 4,
+        onClick: () => {
+          // Fade out, then remove and destroy once fully transparent.
+          screen.scheduler.tween({
+            target: panel.view,
+            to: {alpha: 0},
+            duration: 200,
+            easing: easeOutQuad,
+            onComplete: () => {
+              screen.ui.removeChild(panel);
+              panel.destroy();
+            },
+          });
+        },
+        layout: {padding: 8},
+      });
+
+      panel = new Panel({
+        background: nineSlice('banner', {
+          leftWidth: 12,
+          topHeight: 4,
+          rightWidth: 12,
+          bottomHeight: 12,
+        }),
+        children: [
+          new Text({
+            text: 'Time is up!',
+            fontFamily: 'monogram-outline',
+            fontSize: 48,
+            fill: 0xffffff,
+            layout: true,
+          }),
+          closeButton,
+        ],
+        layout: {flexDirection: 'column', gap: 16, padding: 24, alignItems: 'center'},
+      });
+
+      // Start hidden and roughly centered on screen, then fade in.
+      panel.view.alpha = 0;
+      panel.view.position.set(
+        Math.round(game.app.screen.width / 2 - 160),
+        Math.round(game.app.screen.height / 2 - 80),
+      );
+      screen.ui.addChild(panel);
+      screen.scheduler.tween({
+        target: panel.view,
+        to: {alpha: 1},
+        duration: 200,
+        easing: easeOutQuad,
+      });
+    };
+
+    let delayInput = new TextInput({
+      backgrounds: {
+        normal: nineSlice('text-input-normal', inputSlice),
+        hovered: nineSlice('text-input-hovered', inputSlice),
+        disabled: nineSlice('text-input-disabled', inputSlice),
+      },
+      placeholder: 'delay in ms',
+      fontFamily: 'monogram',
+      fontSize: 48,
+      fill: 0xffffff,
+      maxLength: 6,
+      container: game.app.canvas.parentElement ?? document.body,
+      layout: {minWidth: 220, padding: 16},
+    });
+
+    let startButton = new Button({
+      backgrounds: {
+        normal: nineSlice('button-normal', buttonSlice),
+        hovered: nineSlice('button-hovered', buttonSlice),
+        active: nineSlice('button-active', buttonActiveSlice),
+        disabled: nineSlice('button-disabled', buttonSlice),
+      },
+      children: [
+        new Text({
+          text: 'Start reminder',
+          fontFamily: 'monogram-outline',
+          fontSize: 48,
+          fill: 0xffffff,
+          layout: true,
+        }),
+      ],
+      pressOffset: 4,
+      onClick: () => {
+        // TextInput is text-only, so parse and guard before scheduling.
+        let ms = Number(delayInput.value);
+
+        if (!Number.isFinite(ms) || ms <= 0) {
+          return;
+        }
+
+        screen.scheduler.after(ms, openReminder);
+      },
+      layout: {padding: 8},
+    });
+
+    bannerPanel.addChild(delayInput, startButton);
+    // --- END Reminder dialog ---
 
     let hitCounter = new Text({
       text: 'Wall hits: 0',

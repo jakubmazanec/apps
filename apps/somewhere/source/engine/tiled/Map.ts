@@ -94,11 +94,17 @@ export class Map {
     this.height = tilemap.rowCount * tilemap.tileHeight;
   }
 
-  addToLayer(view: pixi.Container) {
-    this.layers[1]?.view.addChild(view);
+  // The topmost tile layer; foreground effects (e.g. hit sparks) render here so they sit above
+  // the overhead ("air") layers instead of being occluded by them.
+  get topLayerIndex(): number {
+    return this.layers.length - 1;
   }
 
-  removeFromLayer(view: pixi.Container) {
-    this.layers[1]?.view.removeChild(view);
+  addToLayer(view: pixi.Container, layerIndex = 1) {
+    this.layers[layerIndex]?.view.addChild(view);
+  }
+
+  removeFromLayer(view: pixi.Container, layerIndex = 1) {
+    this.layers[layerIndex]?.view.removeChild(view);
   }
 }

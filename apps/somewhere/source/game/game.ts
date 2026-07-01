@@ -47,6 +47,10 @@ export const game = new Game({
           name: 'map',
           sources: ['map.json'],
         },
+        {
+          name: 'spark',
+          sources: ['spark.json'],
+        },
       ],
     },
   ],

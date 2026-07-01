@@ -46,17 +46,19 @@ export const graphicsSystem = new System({
   onAddEntity: (entity, system) => {
     let graphics = entity.getComponent(GraphicsComponent);
     let {map} = levelQuery.getFirst().getComponent(LevelComponent);
+    let layerIndex = graphics.overlay ? map.topLayerIndex : 1;
 
     for (let sprite of Object.values(graphics.sprite.sprites)) {
-      map.addToLayer(sprite);
+      map.addToLayer(sprite, layerIndex);
     }
   },
   onRemoveEntity: (entity, system) => {
     let graphics = entity.getComponent(GraphicsComponent);
     let {map} = levelQuery.getFirst().getComponent(LevelComponent);
+    let layerIndex = graphics.overlay ? map.topLayerIndex : 1;
 
     for (let sprite of Object.values(graphics.sprite.sprites)) {
-      map.removeFromLayer(sprite);
+      map.removeFromLayer(sprite, layerIndex);
     }
   },
 });

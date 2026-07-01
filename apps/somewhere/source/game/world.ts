@@ -1,5 +1,7 @@
 import {type Entity} from '../engine/ecs/Entity.js';
 import {World} from '../engine/ecs/World.js';
+import {timerSystem} from '../engine/scheduler/timerSystem.js';
+import {tweenSystem} from '../engine/scheduler/tweenSystem.js';
 import {camera} from './camera.js';
 import {CameraComponent} from './CameraComponent.js';
 import {cameraQuery} from './cameraQuery.js';
@@ -12,8 +14,11 @@ import {motionSystem} from './motionSystem.js';
 import {playerPool} from './playerPool.js';
 import {playersQuery} from './playersQuery.js';
 import {playerSystem} from './playerSystem.js';
+import {popupCleanupSystem} from './popupCleanupSystem.js';
+import {popupExpiredChannel} from './popupExpiredChannel.js';
 import {uiBridge} from './uiBridge.js';
 import {wallHitChannel} from './wallHitChannel.js';
+import {wallHitPopupSystem} from './wallHitPopupSystem.js';
 
 declare global {
   interface Window {
@@ -29,6 +34,7 @@ export const world = new World({
     camera.getComponent(CameraComponent).position.set(0, 0);
 
     world.addEventChannel(wallHitChannel);
+    world.addEventChannel(popupExpiredChannel);
 
     world.addEntityQuery(cameraQuery);
     world.addEntityQuery(levelQuery);
@@ -36,9 +42,13 @@ export const world = new World({
 
     world.addSystem(mapSystem);
     world.addSystem(motionSystem);
+    world.addSystem(wallHitPopupSystem); // spawn popups from the previous frame's wall hits
+    world.addSystem(popupCleanupSystem); // remove popups whose lifetime timer has expired
+    world.addSystem(timerSystem); // placement is free: timer events are buffered, seen next frame
     world.addSystem(uiBridge);
     world.addSystem(playerSystem);
     world.addSystem(cameraSystem);
+    world.addSystem(tweenSystem); // late, just before graphicsSystem: scripted motion is the last word
     world.addSystem(graphicsSystem);
 
     world.addEntity(camera);
