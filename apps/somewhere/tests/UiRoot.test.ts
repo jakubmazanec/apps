@@ -8,6 +8,7 @@ vi.mock('pixi.js', () => ({
     children: Container[] = [];
     parent: Container | null = null;
     visible = true;
+    destroyed = false;
     listeners: Record<string, (event: unknown) => void> = {};
 
     addChild(child: Container) {
@@ -45,6 +46,10 @@ vi.mock('pixi.js', () => ({
     }
 
     getBounds() {
+      if (this.destroyed) {
+        throw new TypeError('destroyed');
+      }
+
       return {x: 0, y: 0, width: 0, height: 0};
     }
 
@@ -52,7 +57,9 @@ vi.mock('pixi.js', () => ({
       return point;
     }
 
-    destroy() {}
+    destroy() {
+      this.destroyed = true;
+    }
   },
   NineSliceSprite: class NineSliceSprite {
     visible = true;
@@ -96,6 +103,7 @@ const FOCUS_RING = {
 type MockContainer = {
   addChild: (child: MockContainer) => MockContainer;
   children: MockContainer[];
+  destroyed: boolean;
   getBounds: () => {height: number; width: number; x: number; y: number};
   listeners: Record<string, (event: unknown) => void>;
 };
@@ -115,7 +123,15 @@ function focusable(bounds?: {height: number; width: number; x: number; y: number
   let resolvedBounds = bounds ?? {x: 0, y: 0, width: 10, height: 10};
   let view = new Container() as unknown as MockContainer;
 
-  view.getBounds = () => resolvedBounds;
+  // Destroyed pixi views null their internals, so getBounds() throws; the
+  // override still needs to reflect that instead of always returning fixed bounds.
+  view.getBounds = () => {
+    if (view.destroyed) {
+      throw new TypeError('destroyed');
+    }
+
+    return resolvedBounds;
+  };
 
   return {
     view: view as unknown as pixi.Container,
@@ -277,6 +293,20 @@ describe('UiRoot', () => {
       root.destroy();
 
       expect(removeSpy.mock.calls.filter(([type]) => type === 'pointerdown')).toHaveLength(1);
+    });
+
+    test('update() does not throw when the focused view was destroyed', () => {
+      let root = createRoot({focusRing: FOCUS_RING});
+      let button = focusable();
+
+      root.addChild(button);
+      root.focus(button);
+      root.focusNext(); // shows the ring so update() reaches getBounds()
+      button.view.destroy();
+
+      expect(() => {
+        root.update();
+      }).not.toThrow();
     });
   });
 
@@ -531,6 +561,17 @@ describe('UiRoot', () => {
       root.focusNext();
 
       expect(root.focused).toBe(b);
+    });
+
+    test('removeChild drops focus held inside the removed subtree', () => {
+      let a = focusable();
+      let modal = panel([a]);
+      let root = createRootWith(modal);
+
+      root.focus(a);
+      root.removeChild(modal);
+
+      expect(root.focused).toBeNull();
     });
   });
 

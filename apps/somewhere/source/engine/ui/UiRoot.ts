@@ -115,6 +115,12 @@ export class UiRoot implements UiParent {
       this.view.removeChild('view' in child ? child.view : child);
     }
 
+    // Stale focus (the component left with the removed subtree): drop it now,
+    // matching how the focus commands treat non-collectible components.
+    if (this.#focused !== null && !this.#collectFocusables().includes(this.#focused)) {
+      this.#focused = null;
+    }
+
     return this;
   }
 
@@ -204,7 +210,12 @@ export class UiRoot implements UiParent {
   update() {
     let focused = this.#focused;
 
-    if (this.#focusRing === undefined || !this.#isRingVisible || !focused?.isFocusable) {
+    if (
+      this.#focusRing === undefined ||
+      !this.#isRingVisible ||
+      !focused?.isFocusable ||
+      focused.view.destroyed
+    ) {
       if (this.#ring !== null) {
         this.#ring.visible = false;
       }
