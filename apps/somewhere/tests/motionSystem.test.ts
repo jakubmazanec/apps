@@ -39,26 +39,31 @@ function stubComponent<T extends Component>(ComponentClass: Constructor<T>, fiel
   return Object.assign(Object.create(ComponentClass.prototype as object) as T, fields);
 }
 
+function createWorldWithPlayerNearWall() {
+  let level = new Entity({components: [stubComponent(LevelComponent, {map: createMapStub()})]});
+  let motion = new MotionComponent({position: new Vector(20, 0), velocity: new Vector(4, 0)});
+  let player = new Entity({
+    components: [
+      motion,
+      stubComponent(GraphicsComponent, {boundingBox: {x: 0, y: 0, width: 8, height: 8}}),
+    ],
+  });
+  let world = new World({
+    onStart: (w) => {
+      w.addEventChannel(wallHitChannel)
+        .addEntityQuery(levelQuery)
+        .addSystem(motionSystem)
+        .addEntity(level)
+        .addEntity(player);
+    },
+  });
+
+  return {world, motion};
+}
+
 describe('motionSystem wall hits', () => {
   test('sustained contact fires exactly one WallHit; re-contact fires again', () => {
-    let map = createMapStub();
-    let level = new Entity({components: [stubComponent(LevelComponent, {map})]});
-    let motion = new MotionComponent({position: new Vector(20, 0), velocity: new Vector(4, 0)});
-    let player = new Entity({
-      components: [
-        motion,
-        stubComponent(GraphicsComponent, {boundingBox: {x: 0, y: 0, width: 8, height: 8}}),
-      ],
-    });
-    let world = new World({
-      onStart: (w) => {
-        w.addEventChannel(wallHitChannel)
-          .addEntityQuery(levelQuery)
-          .addSystem(motionSystem)
-          .addEntity(level)
-          .addEntity(player);
-      },
-    });
+    let {world, motion} = createWorldWithPlayerNearWall();
 
     world.start();
 
@@ -79,6 +84,42 @@ describe('motionSystem wall hits', () => {
     expect(wallHitChannel.events).toHaveLength(0);
 
     // walk away, then push again: a new contact episode fires a new event
+    motion.velocity.x = -4;
+    world.update(tick(1));
+    motion.velocity.x = 4;
+    world.update(tick(1));
+    motion.velocity.x = 4;
+    world.update(tick(1));
+
+    expect(wallHitChannel.events).toHaveLength(1);
+
+    world.stop();
+  });
+
+  test('resting flush against the wall keeps contact; pushing again fires no new WallHit', () => {
+    let {world, motion} = createWorldWithPlayerNearWall();
+
+    world.start();
+
+    // drive into the wall: contact begins on the second frame
+    motion.velocity.x = 4;
+    world.update(tick(1));
+    motion.velocity.x = 4;
+    world.update(tick(1));
+
+    expect(wallHitChannel.events).toHaveLength(1);
+
+    // rest flush against the wall: the system zeroed velocity, both passes skip
+    world.update(tick(1));
+    world.update(tick(1));
+
+    // push toward the same wall again: still the same contact episode
+    motion.velocity.x = 4;
+    world.update(tick(1));
+
+    expect(wallHitChannel.events).toHaveLength(0);
+
+    // walk away, then re-contact: a new episode fires exactly one new event
     motion.velocity.x = -4;
     world.update(tick(1));
     motion.velocity.x = 4;

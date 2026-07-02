@@ -40,6 +40,7 @@ export const motionSystem = new System({
       let deltaX = motion.velocity.x * deltaTime;
       let deltaY = motion.velocity.y * deltaTime;
       let contactTile;
+      let isMoving = deltaX !== 0 || deltaY !== 0;
 
       // X-axis pass: move only along X, clip against tile walls.
       if (deltaX !== 0) {
@@ -130,11 +131,14 @@ export const motionSystem = new System({
       }
 
       // Edge-trigger: one WallHit per contact episode, on the frame contact begins.
-      if (contactTile !== undefined && !motion.isTouchingWall) {
-        wallHitChannel.push(new WallHit({entity, tile: contactTile}));
-      }
+      // Idle frames keep the contact state, so resting flush against a wall stays one episode.
+      if (isMoving) {
+        if (contactTile !== undefined && !motion.isTouchingWall) {
+          wallHitChannel.push(new WallHit({entity, tile: contactTile}));
+        }
 
-      motion.isTouchingWall = contactTile !== undefined;
+        motion.isTouchingWall = contactTile !== undefined;
+      }
 
       // Map-boundary clamp: keep the visible bounding box inside the map.
       let finalX = Math.min(
