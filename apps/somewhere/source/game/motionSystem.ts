@@ -39,6 +39,7 @@ export const motionSystem = new System({
 
       let deltaX = motion.velocity.x * deltaTime;
       let deltaY = motion.velocity.y * deltaTime;
+      let contactTile;
 
       // X-axis pass: move only along X, clip against tile walls.
       if (deltaX !== 0) {
@@ -68,7 +69,7 @@ export const motionSystem = new System({
               playerBottom > tileY &&
               tileBottom > playerY
             ) {
-              wallHitChannel.push(new WallHit({entity, tile}));
+              contactTile ??= tile;
 
               if (deltaX > 0) {
                 // Guard against teleport-backward when already stuck inside a tile.
@@ -111,7 +112,7 @@ export const motionSystem = new System({
               playerBottom > tileY &&
               tileBottom > playerY
             ) {
-              wallHitChannel.push(new WallHit({entity, tile}));
+              contactTile ??= tile;
 
               if (deltaY > 0) {
                 tentativeY = Math.max(
@@ -127,6 +128,13 @@ export const motionSystem = new System({
 
         deltaY = tentativeY - motion.position.y;
       }
+
+      // Edge-trigger: one WallHit per contact episode, on the frame contact begins.
+      if (contactTile !== undefined && !motion.isTouchingWall) {
+        wallHitChannel.push(new WallHit({entity, tile: contactTile}));
+      }
+
+      motion.isTouchingWall = contactTile !== undefined;
 
       // Map-boundary clamp: keep the visible bounding box inside the map.
       let finalX = Math.min(

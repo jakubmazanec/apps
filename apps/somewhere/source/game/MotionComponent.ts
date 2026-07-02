@@ -10,6 +10,7 @@ export class MotionComponent extends Component {
   position: Vector;
   velocity: Vector;
   target: Vector | undefined;
+  isTouchingWall: boolean;
 
   constructor({position, velocity}: MotionComponentOptions) {
     super();
@@ -17,5 +18,6 @@ export class MotionComponent extends Component {
     this.position = position;
     this.velocity = velocity;
     this.target = undefined;
+    this.isTouchingWall = false;
   }
 }
