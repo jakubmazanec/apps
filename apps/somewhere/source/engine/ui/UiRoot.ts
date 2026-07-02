@@ -33,6 +33,13 @@ type FocusScope = {
 const PERPENDICULAR_PENALTY = 2;
 const OVERLAP_BONUS = 0.5;
 
+// Any tap that bubbles this far started on a UI element (panel padding,
+// labels, widgets); stop it here so it can't fall through to the game view
+// and move the player. Taps on the open world never route through this view.
+function stopTap(event: pixi.FederatedPointerEvent) {
+  event.stopPropagation();
+}
+
 export class UiRoot implements UiParent {
   readonly view: pixi.Container = new pixi.Container();
   readonly children: UiChild[] = [];
@@ -67,6 +74,12 @@ export class UiRoot implements UiParent {
 
     this.#disposables.defer(() => {
       this.view.removeEventListener('pointertap', handleTap, {capture: true});
+    });
+
+    this.view.addEventListener('pointertap', stopTap);
+
+    this.#disposables.defer(() => {
+      this.view.removeEventListener('pointertap', stopTap);
     });
 
     // Any pointer press hides the ring again (focus is kept); it reappears on

@@ -9,7 +9,8 @@ vi.mock('pixi.js', () => ({
     parent: Container | null = null;
     visible = true;
     destroyed = false;
-    listeners: Record<string, (event: unknown) => void> = {};
+    listeners: Record<string, Array<(event: unknown) => void>> = {};
+    captureListeners: Record<string, Array<(event: unknown) => void>> = {};
 
     addChild(child: Container) {
       // eslint-disable-next-line no-param-reassign -- mock mirrors Pixi's parent linkage
@@ -37,12 +38,24 @@ vi.mock('pixi.js', () => ({
       return child;
     }
 
-    addEventListener(type: string, listener: (event: unknown) => void) {
-      this.listeners[type] = listener;
+    addEventListener(
+      type: string,
+      listener: (event: unknown) => void,
+      options?: {capture?: boolean},
+    ) {
+      let store = options?.capture ? this.captureListeners : this.listeners;
+
+      (store[type] ??= []).push(listener);
     }
 
-    removeEventListener(type: string) {
-      delete this.listeners[type];
+    removeEventListener(
+      type: string,
+      listener: (event: unknown) => void,
+      options?: {capture?: boolean},
+    ) {
+      let store = options?.capture ? this.captureListeners : this.listeners;
+
+      store[type] = (store[type] ?? []).filter((existing) => existing !== listener);
     }
 
     getBounds() {
@@ -102,10 +115,11 @@ const FOCUS_RING = {
 
 type MockContainer = {
   addChild: (child: MockContainer) => MockContainer;
+  captureListeners: Record<string, Array<(event: unknown) => void>>;
   children: MockContainer[];
   destroyed: boolean;
   getBounds: () => {height: number; width: number; x: number; y: number};
-  listeners: Record<string, (event: unknown) => void>;
+  listeners: Record<string, Array<(event: unknown) => void>>;
 };
 
 let roots: Array<{destroy: () => void}> = [];
@@ -193,7 +207,7 @@ describe('UiRoot', () => {
       (component.view as unknown as MockContainer).addChild(inner as unknown as MockContainer);
       root.addChild(component);
 
-      view.listeners.pointertap?.({target: inner});
+      view.captureListeners.pointertap?.[0]?.({target: inner});
 
       expect(root.focused).toBe(component);
       expect(root.isRingVisible).toBeFalsy();
@@ -206,7 +220,7 @@ describe('UiRoot', () => {
 
       root.addChild(plain as unknown as pixi.Container);
 
-      view.listeners.pointertap?.({target: plain});
+      view.captureListeners.pointertap?.[0]?.({target: plain});
 
       expect(root.focused).toBeNull();
     });
@@ -219,9 +233,21 @@ describe('UiRoot', () => {
       component.isFocusable = false;
       root.addChild(component);
 
-      view.listeners.pointertap?.({target: component.view});
+      view.captureListeners.pointertap?.[0]?.({target: component.view});
 
       expect(root.focused).toBeNull();
+    });
+
+    test('a tap that bubbles to the UI root is stopped before reaching the game view', () => {
+      let root = createRoot();
+      let view = root.view as unknown as MockContainer;
+      let event = {target: null, stopPropagation: vi.fn()};
+
+      for (let listener of view.listeners.pointertap ?? []) {
+        listener(event);
+      }
+
+      expect(event.stopPropagation).toHaveBeenCalledTimes(1);
     });
   });
 
