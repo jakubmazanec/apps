@@ -51,6 +51,8 @@ export const graphicsSystem = new System({
     for (let sprite of Object.values(graphics.sprite.sprites)) {
       map.addToLayer(sprite, layerIndex);
     }
+
+    graphics.sprite.view.play();
   },
   onRemoveEntity: (entity, system) => {
     let graphics = entity.getComponent(GraphicsComponent);
@@ -60,5 +62,7 @@ export const graphicsSystem = new System({
     for (let sprite of Object.values(graphics.sprite.sprites)) {
       map.removeFromLayer(sprite, layerIndex);
     }
+
+    graphics.sprite.view.stop();
   },
 });

@@ -6,7 +6,7 @@ export const popupCleanupSystem = new System({
   displayName: 'Popup cleanup',
   onUpdate: (ticker, system, world) => {
     for (let {entity} of popupExpiredChannel.events) {
-      world.removeEntity(entity); // graphicsSystem.onRemoveEntity tears the sprite down
+      world.removeEntity(entity); // graphicsSystem.onRemoveEntity stops the sprite and detaches it from the map layer
     }
   },
 });
