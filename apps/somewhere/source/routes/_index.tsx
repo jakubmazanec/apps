@@ -13,7 +13,6 @@ export default function Index() {
   // TODO: do better handling of the async game init() than this useEffect, which is too imperative and contains too much boilerlate
   useEffect(() => {
     let controller = new AbortController();
-    let instance: Game | undefined;
 
     void (async () => {
       let [{game: importedGame}, {loadingScreen}, {mainScreen}] = await Promise.all([
@@ -21,8 +20,6 @@ export default function Index() {
         import('../game/loadingScreen.js'),
         import('../game/mainScreen.js'),
       ]);
-
-      instance = importedGame;
 
       if (controller.signal.aborted) {
         return;
@@ -43,7 +40,6 @@ export default function Index() {
 
     return () => {
       controller.abort();
-      instance?.destroy();
     };
   }, []);
 

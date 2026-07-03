@@ -314,4 +314,18 @@ describe('Game screen lifecycle', () => {
     expect(loading.show).toHaveBeenCalledTimes(1);
     expect(loading.hide).toHaveBeenCalledTimes(1);
   });
+
+  test('showScreen with the current screen resumes without a hide and show cycle', async () => {
+    let {game} = await createGame();
+    let screen = createFakeScreen();
+
+    game.currentScreen = null;
+    game.screens.push(screen as unknown as (typeof game.screens)[number]);
+
+    await game.showScreen(screen as never);
+    await game.showScreen(screen as never);
+
+    expect(screen.hide).not.toHaveBeenCalled();
+    expect(screen.show).toHaveBeenCalledTimes(1);
+  });
 });

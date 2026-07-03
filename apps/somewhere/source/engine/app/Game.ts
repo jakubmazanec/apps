@@ -399,6 +399,12 @@ export class Game {
       return this;
     }
 
+    // Re-showing the current screen (a React remount navigating back) resumes
+    // where the player left off; mounting only re-attaches the view.
+    if (this.currentScreen === screen) {
+      return this;
+    }
+
     if (this.screens.includes(screen)) {
       // if there is a screen already created, hide it
       if (this.currentScreen) {
