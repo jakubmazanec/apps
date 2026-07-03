@@ -45,6 +45,7 @@ export class TextInput implements Focusable {
   #state: TextInputState = 'normal';
   #value: string;
   #isEditing = false;
+  #isOwnPointerDown = false;
 
   constructor({
     backgrounds,
@@ -134,6 +135,7 @@ export class TextInput implements Focusable {
     this.view.on('pointerdown', (event) => {
       event.stopPropagation();
       event.preventDefault();
+      this.#isOwnPointerDown = true;
     });
 
     // Use pointerup rather than pointertap: on touch, a tap with slight finger
@@ -233,6 +235,14 @@ export class TextInput implements Focusable {
     // TODO: remove when linter config contains fix for this: https://github.com/sindresorhus/eslint-plugin-unicorn/issues/2088
     // eslint-disable-next-line unicorn/consistent-function-scoping -- false positive
     let handleBlur = () => {
+      // The tap landed on this input's own view (its federated pointerdown ran
+      // first); keep the edit alive so the soft keyboard doesn't flicker.
+      if (this.#isOwnPointerDown) {
+        this.#isOwnPointerDown = false;
+
+        return;
+      }
+
       this.stopEditing();
     };
 
@@ -255,7 +265,10 @@ export class TextInput implements Focusable {
     // starts editing fires pointerdown while #isEditing is still false (editing
     // starts on pointerup), so it does not immediately stop editing. This replaces
     // an earlier setTimeout (scheduled when editing started) whose timer id was
-    // never stored and so could never be cleared.
+    // never stored and so could never be cleared. Later in-field taps, while
+    // already editing, are covered by #isOwnPointerDown instead: the view's
+    // federated pointerdown runs first and sets it, so handleBlur bails out
+    // rather than closing the soft keyboard it just reopened.
     globalThis.addEventListener('pointerdown', handleBlur);
 
     this.#disposables.defer(() => {

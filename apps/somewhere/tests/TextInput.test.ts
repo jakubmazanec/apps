@@ -177,6 +177,43 @@ describe('TextInput', () => {
     expect(blurSpy).toHaveBeenCalledWith();
   });
 
+  test('a pointerdown on the input itself does not stop editing', () => {
+    let input = createInput();
+    let element = container.querySelector('input');
+
+    if (element === null) {
+      throw new Error('hidden input was not created');
+    }
+
+    let blurSpy = vi.spyOn(element, 'blur');
+    let view = input.view as unknown as {handlers: Record<string, (argument: unknown) => void>};
+
+    input.startEditing();
+
+    // The same native tap: the federated pointerdown reaches the view first,
+    // then the global listener runs for that same event.
+    view.handlers.pointerdown?.({stopPropagation() {}, preventDefault() {}});
+    globalThis.dispatchEvent(new Event('pointerdown'));
+
+    expect(blurSpy).not.toHaveBeenCalled();
+  });
+
+  test('a pointerdown elsewhere still stops editing', () => {
+    let input = createInput();
+    let element = container.querySelector('input');
+
+    if (element === null) {
+      throw new Error('hidden input was not created');
+    }
+
+    let blurSpy = vi.spyOn(element, 'blur');
+
+    input.startEditing();
+    globalThis.dispatchEvent(new Event('pointerdown'));
+
+    expect(blurSpy).toHaveBeenCalledWith();
+  });
+
   test('is focusable unless disabled', () => {
     let input = createInput();
 
