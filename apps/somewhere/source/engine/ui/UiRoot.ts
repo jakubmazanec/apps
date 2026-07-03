@@ -60,6 +60,12 @@ export class UiRoot implements UiParent {
 
     this.view.addChild(this.#overlay);
 
+    // pixi notifies listeners only on interactive containers, so the root
+    // must be static for the two pointertap listeners below to run. A plain
+    // container has no geometry of its own, so this adds no hit target and
+    // taps on the open world still reach the game view directly.
+    this.view.eventMode = 'static';
+
     // Tapping a focusable silently moves navigation focus to it (the ring
     // stays hidden), so Tab/arrows resume from where the user last clicked.
     // Capture phase: components stop propagation of their pointertap, which

@@ -249,6 +249,12 @@ describe('UiRoot', () => {
 
       expect(event.stopPropagation).toHaveBeenCalledTimes(1);
     });
+
+    test('the root view is interactive so pixi notifies its listeners', () => {
+      let root = createRoot();
+
+      expect(root.view.eventMode).toBe('static');
+    });
   });
 
   describe('focus ring', () => {
