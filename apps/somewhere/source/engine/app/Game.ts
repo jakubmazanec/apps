@@ -74,6 +74,113 @@ export class Game {
     this.app = new pixi.Application();
   }
 
+  readonly #handleResize = () => {
+    if (!this.ref?.current) {
+      return;
+    }
+
+    let cssWidth = Math.trunc(this.ref.current.clientWidth);
+    let cssHeight = Math.trunc(this.ref.current.clientHeight);
+    let pixelWidth = Math.round(cssWidth * window.devicePixelRatio);
+    let pixelHeight = Math.round(cssHeight * window.devicePixelRatio);
+
+    this.app.canvas.style.width = `${cssWidth}px`;
+    this.app.canvas.style.height = `${cssHeight}px`;
+
+    if (this.view.hitArea) {
+      let hitArea = this.view.hitArea as pixi.Rectangle;
+
+      hitArea.x = 0;
+      hitArea.y = 0;
+      hitArea.width = pixelWidth;
+      hitArea.height = pixelHeight;
+    }
+
+    window.scrollTo(0, 0);
+    this.app.renderer.resize(pixelWidth, pixelHeight);
+
+    this.view.layout = {width: this.app.screen.width, height: this.app.screen.height}; // muste be called after renderer.resize() call, apparently
+
+    if (this.currentScreen?.view.parent) {
+      this.currentScreen.resize();
+    }
+
+    if (this.loadingScreen?.view.parent) {
+      this.loadingScreen.resize();
+    }
+  };
+
+  // Focus commands are routed to the current screen's UI root. While a DOM
+  // input element has focus (a TextInput is editing), every key belongs to the
+  // input, so navigation is suspended without any per-component key hooks.
+  readonly #handleKeyDown = (event: KeyboardEvent) => {
+    if (event.target instanceof HTMLInputElement) {
+      return;
+    }
+
+    let command = this.#focusCommands.get(event.shiftKey ? `Shift+${event.code}` : event.code);
+
+    if (command === undefined) {
+      return;
+    }
+
+    // Only mapped keys are consumed; this keeps Tab from escaping to the
+    // browser while leaving every other key alone.
+    event.preventDefault();
+
+    if (!this.currentScreen?.view.parent) {
+      return;
+    }
+
+    let {ui} = this.currentScreen;
+
+    switch (command) {
+      case 'activate': {
+        ui.activate();
+
+        break;
+      }
+
+      case 'down': {
+        ui.moveFocus(command);
+
+        break;
+      }
+
+      case 'left': {
+        ui.moveFocus(command);
+
+        break;
+      }
+
+      case 'next': {
+        ui.focusNext();
+
+        break;
+      }
+
+      case 'previous': {
+        ui.focusPrevious();
+
+        break;
+      }
+
+      case 'right': {
+        ui.moveFocus(command);
+
+        break;
+      }
+
+      case 'up': {
+        ui.moveFocus(command);
+
+        break;
+      }
+
+      // no default
+    }
+  };
+
   async init() {
     if (this.#isRunning || this.#isDestroyed) {
       return;
@@ -108,6 +215,20 @@ export class Game {
     });
     await pixi.Assets.loadBundle(['default']);
     void pixi.Assets.backgroundLoadBundle(this.assetBundles.map((assetBundle) => assetBundle.name));
+
+    window.addEventListener('resize', this.#handleResize);
+    this.#disposables.defer(() => {
+      window.removeEventListener('resize', this.#handleResize);
+    });
+
+    // Without a focusKeys map the whole focus system is inert; no listener,
+    // zero cost for games that do not use it.
+    if (this.#focusCommands.size > 0) {
+      globalThis.addEventListener('keydown', this.#handleKeyDown);
+      this.#disposables.defer(() => {
+        globalThis.removeEventListener('keydown', this.#handleKeyDown);
+      });
+    }
 
     this.#isRunning = true;
 
@@ -209,126 +330,9 @@ export class Game {
     ref.current.append(this.app.canvas);
     this.app.canvas.style.imageRendering = 'pixelated';
 
-    let resize = () => {
-      if (!this.ref?.current) {
-        return;
-      }
-
-      let cssWidth = Math.trunc(this.ref.current.clientWidth);
-      let cssHeight = Math.trunc(this.ref.current.clientHeight);
-      let pixelWidth = Math.round(cssWidth * window.devicePixelRatio);
-      let pixelHeight = Math.round(cssHeight * window.devicePixelRatio);
-
-      this.app.canvas.style.width = `${cssWidth}px`;
-      this.app.canvas.style.height = `${cssHeight}px`;
-
-      if (this.view.hitArea) {
-        let hitArea = this.view.hitArea as pixi.Rectangle;
-
-        hitArea.x = 0;
-        hitArea.y = 0;
-        hitArea.width = pixelWidth;
-        hitArea.height = pixelHeight;
-      }
-
-      window.scrollTo(0, 0);
-      this.app.renderer.resize(pixelWidth, pixelHeight);
-
-      this.view.layout = {width: this.app.screen.width, height: this.app.screen.height}; // muste be called after renderer.resize() call, apparently
-
-      if (this.currentScreen?.view.parent) {
-        this.currentScreen.resize();
-      }
-
-      if (this.loadingScreen?.view.parent) {
-        this.loadingScreen.resize();
-      }
-    };
-
-    window.addEventListener('resize', resize);
-    this.#disposables.defer(() => window.removeEventListener('resize', resize));
-
-    // Without a focusKeys map the whole focus system is inert; no listener,
-    // zero cost for games that do not use it.
-    if (this.#focusCommands.size > 0) {
-      // Focus commands are routed to the current screen's UI root. While a DOM
-      // input element has focus (a TextInput is editing), every key belongs to the
-      // input, so navigation is suspended without any per-component key hooks.
-      let handleKeyDown = (event: KeyboardEvent) => {
-        if (event.target instanceof HTMLInputElement) {
-          return;
-        }
-
-        let command = this.#focusCommands.get(event.shiftKey ? `Shift+${event.code}` : event.code);
-
-        if (command === undefined) {
-          return;
-        }
-
-        // Only mapped keys are consumed; this keeps Tab from escaping to the
-        // browser while leaving every other key alone.
-        event.preventDefault();
-
-        if (!this.currentScreen?.view.parent) {
-          return;
-        }
-
-        let {ui} = this.currentScreen;
-
-        switch (command) {
-          case 'activate': {
-            ui.activate();
-
-            break;
-          }
-
-          case 'down': {
-            ui.moveFocus(command);
-
-            break;
-          }
-
-          case 'left': {
-            ui.moveFocus(command);
-
-            break;
-          }
-
-          case 'next': {
-            ui.focusNext();
-
-            break;
-          }
-
-          case 'previous': {
-            ui.focusPrevious();
-
-            break;
-          }
-
-          case 'right': {
-            ui.moveFocus(command);
-
-            break;
-          }
-
-          case 'up': {
-            ui.moveFocus(command);
-
-            break;
-          }
-
-          // no default
-        }
-      };
-
-      globalThis.addEventListener('keydown', handleKeyDown);
-      this.#disposables.defer(() => globalThis.removeEventListener('keydown', handleKeyDown));
-    }
-
     this.ref = ref;
 
-    resize();
+    this.#handleResize();
 
     return this;
   }

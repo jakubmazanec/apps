@@ -88,7 +88,11 @@ async function createGame(focusKeys?: typeof FOCUS_KEYS) {
     activate: vi.fn(),
   };
 
-  game.currentScreen = {view: {parent: {}}, ui} as unknown as (typeof game)['currentScreen'];
+  game.currentScreen = {
+    view: {parent: {}},
+    ui,
+    resize: vi.fn(),
+  } as unknown as (typeof game)['currentScreen'];
 
   return {game, ui};
 }
@@ -214,6 +218,38 @@ describe('Game focus key routing', () => {
     press('Tab');
 
     expect(ui.focusNext).not.toHaveBeenCalled();
+  });
+
+  test('addRef after removeRef does not stack duplicate keydown listeners', async () => {
+    let {game, ui} = await createGame(FOCUS_KEYS);
+    let element = document.createElement('div');
+
+    document.body.append(element);
+    game.removeRef();
+    game.addRef({current: element});
+
+    press('Tab');
+
+    expect(ui.focusNext).toHaveBeenCalledTimes(1);
+
+    element.remove();
+  });
+
+  test('addRef after removeRef does not stack duplicate resize handlers', async () => {
+    let {game} = await createGame();
+    let element = document.createElement('div');
+
+    document.body.append(element);
+    game.removeRef();
+    game.addRef({current: element});
+
+    let spy = vi.spyOn(game.app.renderer, 'resize');
+
+    globalThis.dispatchEvent(new Event('resize'));
+
+    expect(spy).toHaveBeenCalledTimes(1);
+
+    element.remove();
   });
 
   test('destroy disposes the pixi application', async () => {
