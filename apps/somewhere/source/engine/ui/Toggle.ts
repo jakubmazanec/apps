@@ -183,10 +183,16 @@ export class Toggle implements Focusable {
   }
 
   #updateBackground() {
-    this.view.background =
-      this.#backgrounds[this.#state][this.#isChecked ? 'checked' : 'unchecked'];
+    let previous = this.view.background;
+    let next = this.#backgrounds[this.#state][this.#isChecked ? 'checked' : 'unchecked'];
 
-    this.view.containerMethods.removeChildren();
-    this.view.containerMethods.addChildAt(this.view.background, 0);
+    if (next === previous) {
+      return;
+    }
+
+    this.view.containerMethods.removeChild(previous);
+    this.view.containerMethods.addChildAt(next, 0);
+    this.view.background = next;
+    next.setSize(previous.width, previous.height);
   }
 }

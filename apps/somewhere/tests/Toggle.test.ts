@@ -17,7 +17,24 @@ vi.mock('@pixi/layout/components', () => ({
     background: unknown;
     hitArea: unknown;
     handlers: Record<string, (argument?: unknown) => void> = {};
-    containerMethods = {removeChild() {}, removeChildren() {}, addChildAt() {}};
+    // Mirrors the LayoutContainer's own child list, which also holds
+    // `overflowContainer`, seeded here with a sentinel standing in for it.
+    internalChildren: unknown[] = [{isOverflowContainer: true}];
+    containerMethods = {
+      removeChild: (child: unknown) => {
+        let index = this.internalChildren.indexOf(child);
+
+        if (index !== -1) {
+          this.internalChildren.splice(index, 1);
+        }
+      },
+      removeChildren: () => {
+        this.internalChildren = [];
+      },
+      addChildAt: (child: unknown, index: number) => {
+        this.internalChildren.splice(index, 0, child);
+      },
+    };
 
     #style: Record<string, unknown> = {};
 
@@ -50,6 +67,7 @@ function background() {
     width: 32,
     height: 32,
     destroyed: false,
+    setSize() {},
     destroy() {},
   } as unknown as pixi.Container;
 }
@@ -68,6 +86,23 @@ describe('Toggle', () => {
     view.handlers.layout?.({computedLayout: {width: 32, height: 32}});
 
     expect(view.hitArea).toMatchObject({width: 32, height: 32});
+  });
+
+  // A background swap must remove only the previous background; wiping the
+  // whole child list would also strip the layout internals (overflowContainer,
+  // mask, stroke) that live alongside it.
+  test('background swap keeps the layout internals attached', () => {
+    let toggle = new Toggle({backgrounds: {unchecked: background(), checked: background()}});
+    let view = toggle.view as unknown as {internalChildren: unknown[]};
+    let internals = view.internalChildren.filter(
+      (child) => (child as {isOverflowContainer?: boolean}).isOverflowContainer,
+    );
+
+    toggle.activate();
+
+    for (let internal of internals) {
+      expect(view.internalChildren).toContain(internal);
+    }
   });
 });
 
