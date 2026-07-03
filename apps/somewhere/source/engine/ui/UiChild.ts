@@ -1,6 +1,6 @@
 import type * as pixi from 'pixi.js';
 
-export type UiChild = pixi.Container | {view: pixi.Container};
+export type UiChild = pixi.Container | {destroy?: () => void; view: pixi.Container};
 
 // A component that exposes the components added to it in a public children
 // array. Focus discovery recurses through these, so a focusable is only

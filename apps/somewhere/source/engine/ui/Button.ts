@@ -136,6 +136,12 @@ export class Button implements Focusable, UiParent {
   }
 
   destroy() {
+    for (let child of this.children) {
+      if ('view' in child) {
+        child.destroy?.();
+      }
+    }
+
     this.#disposables.dispose();
   }
 

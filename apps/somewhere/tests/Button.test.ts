@@ -143,6 +143,15 @@ describe('Button focus', () => {
     expect(button.children).toEqual([]);
   });
 
+  test('destroy() cascades to child components', () => {
+    let child = {view: {} as unknown as pixi.Container, destroy: vi.fn()};
+    let button = new Button({backgrounds: {normal: background()}, children: [child]});
+
+    button.destroy();
+
+    expect(child.destroy).toHaveBeenCalledTimes(1);
+  });
+
   test('is focusable unless disabled', () => {
     let button = new Button({backgrounds: {normal: background(), disabled: background()}});
 

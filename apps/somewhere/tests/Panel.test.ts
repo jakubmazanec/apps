@@ -38,4 +38,13 @@ describe('Panel children', () => {
 
     expect(panel.children).toEqual([second]);
   });
+
+  test('destroy() cascades to child components', () => {
+    let child = {view: {} as unknown as pixi.Container, destroy: vi.fn()};
+    let panel = new Panel({children: [child]});
+
+    panel.destroy();
+
+    expect(child.destroy).toHaveBeenCalledTimes(1);
+  });
 });

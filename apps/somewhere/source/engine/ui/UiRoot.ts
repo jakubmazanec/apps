@@ -254,6 +254,12 @@ export class UiRoot implements UiParent {
   }
 
   destroy() {
+    for (let child of this.children) {
+      if ('view' in child) {
+        child.destroy?.();
+      }
+    }
+
     this.#disposables.dispose();
   }
 

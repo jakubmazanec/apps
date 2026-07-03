@@ -321,6 +321,16 @@ describe('UiRoot', () => {
       expect(removeSpy.mock.calls.filter(([type]) => type === 'pointerdown')).toHaveLength(1);
     });
 
+    test('destroy() cascades to child components', () => {
+      let root = new UiRoot();
+      let child = {view: new Container() as unknown as pixi.Container, destroy: vi.fn()};
+
+      root.addChild(child);
+      root.destroy();
+
+      expect(child.destroy).toHaveBeenCalledTimes(1);
+    });
+
     test('update() does not throw when the focused view was destroyed', () => {
       let root = createRoot({focusRing: FOCUS_RING});
       let button = focusable();

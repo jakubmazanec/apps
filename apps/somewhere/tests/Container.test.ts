@@ -33,4 +33,13 @@ describe('Container children', () => {
 
     expect(container.children).toEqual([second]);
   });
+
+  test('destroy() cascades to child components', () => {
+    let child = {view: {} as unknown as pixi.Container, destroy: vi.fn()};
+    let container = new Container({children: [child]});
+
+    container.destroy();
+
+    expect(child.destroy).toHaveBeenCalledTimes(1);
+  });
 });
