@@ -200,15 +200,14 @@ describe('Game focus key routing', () => {
     expect(ui.focusNext).not.toHaveBeenCalled();
   });
 
-  test('removeRef keeps focus routing active until destroy', async () => {
+  test('removeRef detaches the keydown listener', async () => {
     let {game, ui} = await createGame(FOCUS_KEYS);
 
-    // The keydown listener now lives for the Game lifetime (#disposables runs
-    // init -> destroy), so detaching the canvas does not stop focus routing.
+    // Listeners pair with the canvas attachment, so a detached game is inert.
     game.removeRef();
     press('Tab');
 
-    expect(ui.focusNext).toHaveBeenCalledTimes(1);
+    expect(ui.focusNext).not.toHaveBeenCalled();
   });
 
   test('destroy detaches the keydown listener', async () => {

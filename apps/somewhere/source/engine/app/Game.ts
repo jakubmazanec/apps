@@ -53,9 +53,9 @@ export class Game {
   readonly #focusCommands = new Map<string, FocusCommand>();
 
   // Game-lifetime resources (the addRef listeners), disposed once in destroy().
-  // Game is one-shot (not restartable, unlike World) and a DisposableStack
-  // cannot be reused after disposal, so a single readonly stack is sufficient.
-  readonly #disposables = new DisposableStack();
+  // Teardown for the current canvas attachment. addRef replaces the stack
+  // after disposing it because a DisposableStack cannot be reused.
+  #disposables = new DisposableStack();
 
   #isRunning = false;
   #isDestroyed = false;
@@ -108,6 +108,106 @@ export class Game {
     });
     await pixi.Assets.loadBundle(['default']);
     void pixi.Assets.backgroundLoadBundle(this.assetBundles.map((assetBundle) => assetBundle.name));
+
+    this.#isRunning = true;
+
+    // // TODO: make better abstraction
+    // let filter = new CRTFilter({
+    //   lineWidth: 4,
+    //   lineContrast: 0.1,
+    //   noise: 0.1,
+    //   noiseSize: 0.1,
+    //   vignetting: 0,
+    //   time: 0,
+    // });
+
+    // app.stage.filters = [filter];
+
+    // app.ticker.add((delta) => {
+    //   filter.time += 0.5;
+
+    //   if (filter.time > 1000) {
+    //     filter.time = 0;
+    //   }
+    // });
+  }
+
+  on<T extends EventEmitter.EventNames<pixi.FederatedEventMap>>(
+    event: T,
+    fn: EventEmitter.EventListener<pixi.FederatedEventMap, T>,
+  ): this {
+    if (!this.#isRunning) {
+      return this;
+    }
+
+    this.view.on(event, fn, this);
+
+    return this;
+  }
+
+  once<T extends EventEmitter.EventNames<pixi.FederatedEventMap>>(
+    event: T,
+    fn: EventEmitter.EventListener<pixi.FederatedEventMap, T>,
+  ): this {
+    if (!this.#isRunning) {
+      return this;
+    }
+
+    this.view.once(event, fn, this);
+
+    return this;
+  }
+
+  off<T extends EventEmitter.EventNames<pixi.FederatedEventMap>>(
+    event: T,
+    fn?: EventEmitter.EventListener<pixi.FederatedEventMap, T>,
+  ): this {
+    if (!this.#isRunning) {
+      return this;
+    }
+
+    this.view.off(event, fn, this);
+
+    return this;
+  }
+
+  isAssetBundleLoaded(bundle: string) {
+    let assetBundle = this.assetBundles.find((b) => b.name === bundle);
+
+    if (!assetBundle) {
+      return false;
+    }
+
+    for (let asset of assetBundle.assets) {
+      if (!pixi.Assets.cache.has(asset.name)) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  areAssetBundlesLoaded(bundles: string[]) {
+    for (let name of bundles) {
+      if (!this.isAssetBundleLoaded(name)) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  addRef(ref: React.RefObject<HTMLElement | null>) {
+    if (!this.#isRunning) {
+      return this;
+    }
+
+    if (!ref.current) {
+      return this;
+    }
+
+    this.#disposables.dispose();
+    this.#disposables = new DisposableStack();
 
     let handleResize = () => {
       if (!this.ref?.current) {
@@ -230,111 +330,12 @@ export class Game {
       });
     }
 
-    this.#isRunning = true;
-
-    // // TODO: make better abstraction
-    // let filter = new CRTFilter({
-    //   lineWidth: 4,
-    //   lineContrast: 0.1,
-    //   noise: 0.1,
-    //   noiseSize: 0.1,
-    //   vignetting: 0,
-    //   time: 0,
-    // });
-
-    // app.stage.filters = [filter];
-
-    // app.ticker.add((delta) => {
-    //   filter.time += 0.5;
-
-    //   if (filter.time > 1000) {
-    //     filter.time = 0;
-    //   }
-    // });
-  }
-
-  on<T extends EventEmitter.EventNames<pixi.FederatedEventMap>>(
-    event: T,
-    fn: EventEmitter.EventListener<pixi.FederatedEventMap, T>,
-  ): this {
-    if (!this.#isRunning) {
-      return this;
-    }
-
-    this.view.on(event, fn, this);
-
-    return this;
-  }
-
-  once<T extends EventEmitter.EventNames<pixi.FederatedEventMap>>(
-    event: T,
-    fn: EventEmitter.EventListener<pixi.FederatedEventMap, T>,
-  ): this {
-    if (!this.#isRunning) {
-      return this;
-    }
-
-    this.view.once(event, fn, this);
-
-    return this;
-  }
-
-  off<T extends EventEmitter.EventNames<pixi.FederatedEventMap>>(
-    event: T,
-    fn?: EventEmitter.EventListener<pixi.FederatedEventMap, T>,
-  ): this {
-    if (!this.#isRunning) {
-      return this;
-    }
-
-    this.view.off(event, fn, this);
-
-    return this;
-  }
-
-  isAssetBundleLoaded(bundle: string) {
-    let assetBundle = this.assetBundles.find((b) => b.name === bundle);
-
-    if (!assetBundle) {
-      return false;
-    }
-
-    for (let asset of assetBundle.assets) {
-      if (!pixi.Assets.cache.has(asset.name)) {
-        return false;
-      }
-    }
-
-    return true;
-  }
-
-  areAssetBundlesLoaded(bundles: string[]) {
-    for (let name of bundles) {
-      if (!this.isAssetBundleLoaded(name)) {
-        return false;
-      }
-    }
-
-    return true;
-  }
-
-  addRef(ref: React.RefObject<HTMLElement | null>) {
-    if (!this.#isRunning) {
-      return this;
-    }
-
-    if (!ref.current) {
-      return this;
-    }
-
     ref.current.append(this.app.canvas);
     this.app.canvas.style.imageRendering = 'pixelated';
 
     this.ref = ref;
 
-    // The resize handler is local to init(); a synthetic event runs it now so
-    // the renderer sizes to the newly attached container.
-    globalThis.dispatchEvent(new Event('resize'));
+    handleResize();
 
     return this;
   }
@@ -343,6 +344,8 @@ export class Game {
     if (!this.#isRunning) {
       return this;
     }
+
+    this.#disposables.dispose();
 
     this.app.canvas.remove();
 
@@ -362,7 +365,6 @@ export class Game {
     }
 
     this.removeRef();
-    this.#disposables.dispose();
     this.app.stage.removeChild(this.view);
     this.app.destroy(true);
 
