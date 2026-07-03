@@ -66,6 +66,15 @@ const FOCUS_KEYS = {
 
 let cleanups: Array<() => void> = [];
 
+afterEach(() => {
+  for (let cleanup of cleanups) {
+    cleanup();
+  }
+
+  cleanups = [];
+  vi.restoreAllMocks();
+});
+
 async function createGame(focusKeys?: typeof FOCUS_KEYS) {
   let game = new Game({assetBundles: [], ...(focusKeys === undefined ? {} : {focusKeys})});
   let element = document.createElement('div');
@@ -93,6 +102,17 @@ async function createGame(focusKeys?: typeof FOCUS_KEYS) {
   return {game, ui};
 }
 
+function createFakeScreen(assetBundles: string[] = []) {
+  return {
+    assetBundles,
+    view: {},
+    update() {},
+    resize: vi.fn(),
+    show: vi.fn(async () => {}),
+    hide: vi.fn(async () => {}),
+  };
+}
+
 function press(code: string, init: KeyboardEventInit = {}) {
   let event = new KeyboardEvent('keydown', {code, cancelable: true, ...init});
 
@@ -102,15 +122,6 @@ function press(code: string, init: KeyboardEventInit = {}) {
 }
 
 describe('Game focus key routing', () => {
-  afterEach(() => {
-    for (let cleanup of cleanups) {
-      cleanup();
-    }
-
-    cleanups = [];
-    vi.restoreAllMocks();
-  });
-
   test('routes arrow keys to moveFocus', async () => {
     let {ui} = await createGame(FOCUS_KEYS);
 
@@ -255,5 +266,43 @@ describe('Game focus key routing', () => {
     game.addToView({view: {}, update() {}} as unknown as Parameters<(typeof game)['addToView']>[0]);
 
     expect(spy).not.toHaveBeenCalled();
+  });
+});
+
+describe('Game screen lifecycle', () => {
+  test('showScreen hides the outgoing screen before removing it', async () => {
+    let {game} = await createGame();
+    let first = createFakeScreen();
+    let second = createFakeScreen();
+
+    game.currentScreen = null; // createGame's ui fake has no hide()
+    game.screens.push(first as unknown as (typeof game.screens)[number]);
+    game.screens.push(second as unknown as (typeof game.screens)[number]);
+
+    await game.showScreen(first as never);
+
+    let removeSpy = vi.spyOn(game.app.ticker, 'remove');
+
+    await game.showScreen(second as never);
+
+    expect(first.hide).toHaveBeenCalledTimes(1);
+    expect(first.hide.mock.invocationCallOrder[0]!).toBeLessThan(
+      removeSpy.mock.invocationCallOrder[0]!,
+    );
+  });
+
+  test('showScreen routes the loading screen through hide()', async () => {
+    let {game} = await createGame();
+    let loading = createFakeScreen();
+    let screen = createFakeScreen(['game']); // not loaded, so the loading branch runs
+
+    game.currentScreen = null;
+    game.loadingScreen = loading as never;
+    game.screens.push(screen as unknown as (typeof game.screens)[number]);
+
+    await game.showScreen(screen as never);
+
+    expect(loading.show).toHaveBeenCalledTimes(1);
+    expect(loading.hide).toHaveBeenCalledTimes(1);
   });
 });

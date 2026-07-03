@@ -402,7 +402,10 @@ export class Game {
     if (this.screens.includes(screen)) {
       // if there is a screen already created, hide it
       if (this.currentScreen) {
-        this.removeFromView(this.currentScreen);
+        await this.hideScreen(this.currentScreen);
+        // Cleared so a failed asset load below cannot leave a stale pointer
+        // that would be hidden a second time on a later showScreen call.
+        this.currentScreen = null;
       }
 
       // load assets for the new screen, if available
@@ -419,7 +422,7 @@ export class Game {
 
         // hide loading screen, if exists
         if (this.loadingScreen) {
-          this.removeFromView(this.loadingScreen);
+          await this.hideScreen(this.loadingScreen);
         }
       }
 
