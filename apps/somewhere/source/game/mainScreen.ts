@@ -16,6 +16,7 @@ type MainScreenState = {
   bannerPanel: Panel;
   hitCounter: Text;
   newGameButton: Button;
+  openDialogs: Panel[];
 };
 
 let wallHitCount = 0;
@@ -224,6 +225,12 @@ export const mainScreen = new GameScreen<MainScreenState, UIEventMap>({
             duration: 200,
             easing: easeOutQuad,
             onComplete: () => {
+              let index = screen.state.openDialogs.indexOf(panel);
+
+              if (index !== -1) {
+                screen.state.openDialogs.splice(index, 1);
+              }
+
               screen.ui.removeChild(panel);
               panel.destroy();
             },
@@ -259,6 +266,7 @@ export const mainScreen = new GameScreen<MainScreenState, UIEventMap>({
         Math.round(game.app.screen.height / 2 - 80),
       );
       screen.ui.addChild(panel);
+      screen.state.openDialogs.push(panel);
       screen.scheduler.tween({
         target: panel.view,
         to: {alpha: 1},
@@ -327,6 +335,7 @@ export const mainScreen = new GameScreen<MainScreenState, UIEventMap>({
       bannerPanel,
       newGameButton,
       hitCounter,
+      openDialogs: [],
     };
   },
   onShow: (screen) => {
@@ -348,6 +357,14 @@ export const mainScreen = new GameScreen<MainScreenState, UIEventMap>({
     screen.removeFromView(world);
     screen.ui.removeChild(screen.state.bannerPanel);
     screen.ui.removeChild(screen.state.hitCounter);
+
+    for (let dialog of screen.state.openDialogs) {
+      screen.ui.removeChild(dialog);
+      dialog.destroy();
+    }
+
+    // eslint-disable-next-line no-param-reassign -- needed
+    screen.state.openDialogs.length = 0;
   },
   onResize: () => {},
   onUpdate: () => {},
