@@ -129,6 +129,28 @@ describe('Button press offset', () => {
     expect(view.layout.style.paddingTop).toBe(8);
     expect(view.layout.style.paddingBottom).toBe(8);
   });
+
+  test('pressOffset press and release keep explicit paddingTop/paddingBottom', () => {
+    let button = new Button({
+      backgrounds: {normal: background(), hovered: background(), active: background()},
+      pressOffset: 4,
+      layout: {paddingTop: 8, paddingBottom: 8, alignItems: 'center', justifyContent: 'center'},
+    });
+    let view = button.view as unknown as {
+      handlers: {pointerdown: () => void; pointerup: () => void};
+      layout: {style: {paddingTop?: number; paddingBottom?: number}};
+    };
+
+    view.handlers.pointerdown();
+
+    expect(view.layout.style.paddingTop).toBe(12);
+    expect(view.layout.style.paddingBottom).toBe(4);
+
+    view.handlers.pointerup();
+
+    expect(view.layout.style.paddingTop).toBe(8);
+    expect(view.layout.style.paddingBottom).toBe(8);
+  });
 });
 
 describe('Button focus', () => {

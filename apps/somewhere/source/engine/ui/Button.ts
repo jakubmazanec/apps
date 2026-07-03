@@ -30,6 +30,8 @@ export class Button implements Focusable, UiParent {
   #state: ButtonState = 'normal';
   readonly #backgrounds: Record<ButtonState, pixi.Container>;
   readonly #pressOffset: number;
+  readonly #basePaddingTop: number;
+  readonly #basePaddingBottom: number;
   readonly #disposables = new DisposableStack();
 
   constructor({backgrounds, children, onClick, layout, pressOffset = 0}: ButtonOptions) {
@@ -38,6 +40,19 @@ export class Button implements Focusable, UiParent {
     }
 
     this.#pressOffset = pressOffset;
+
+    let {
+      padding = 0,
+      paddingTop = padding,
+      paddingBottom = padding,
+    } = ((typeof layout === 'object' ? layout : undefined) ?? {}) as {
+      padding?: number;
+      paddingTop?: number;
+      paddingBottom?: number;
+    };
+
+    this.#basePaddingTop = paddingTop;
+    this.#basePaddingBottom = paddingBottom;
 
     this.#backgrounds = {
       normal: backgrounds.normal,
@@ -217,11 +232,14 @@ export class Button implements Focusable, UiParent {
     this.#state = state;
 
     if (this.#pressOffset !== 0) {
-      // The base padding stays readable in the merged styles even while the paddingTop/paddingBottom edges override it during a press.
-      let {padding = 0} = (this.view.layout?.style ?? {}) as {padding?: number};
+      // Layout assignments merge onto the current style, so restoring the base padding on
+      // release needs the value captured at construction rather than reading it back here.
       let shift = this.#state === 'active' ? this.#pressOffset : 0;
 
-      this.view.layout = {paddingTop: padding + shift, paddingBottom: padding - shift};
+      this.view.layout = {
+        paddingTop: this.#basePaddingTop + shift,
+        paddingBottom: this.#basePaddingBottom - shift,
+      };
     }
 
     if (previous === next) {
