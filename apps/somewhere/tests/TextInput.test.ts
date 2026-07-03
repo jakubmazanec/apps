@@ -73,13 +73,14 @@ const {TextInput} = await import('../source/engine/ui/TextInput.js');
 describe('TextInput', () => {
   let container: HTMLElement;
 
-  function createInput(layout?: object) {
+  function createInput(layout?: object, onChange?: () => void) {
     return new TextInput({
       backgrounds: {normal: {destroy() {}} as unknown as pixi.Container},
       container,
       fontFamily: 'monogram',
       fontSize: 16,
       ...(layout === undefined ? {} : {layout}),
+      ...(onChange === undefined ? {} : {onChange}),
     });
   }
 
@@ -259,7 +260,7 @@ describe('TextInput', () => {
 
   test('disable() during an edit blurs the field and mutes input', () => {
     let onChange = vi.fn();
-    let input = createInput({onChange});
+    let input = createInput(undefined, onChange);
     let element = container.querySelector('input');
 
     if (element === null) {
@@ -267,6 +268,12 @@ describe('TextInput', () => {
     }
 
     input.startEditing();
+
+    element.value = 'typed';
+    element.dispatchEvent(new Event('input'));
+
+    expect(onChange).toHaveBeenCalledTimes(1);
+
     input.disable();
 
     expect(document.activeElement).not.toBe(element);
@@ -274,6 +281,6 @@ describe('TextInput', () => {
     element.value = 'sneaky';
     element.dispatchEvent(new Event('input'));
 
-    expect(onChange).not.toHaveBeenCalled();
+    expect(onChange).toHaveBeenCalledTimes(1);
   });
 });
