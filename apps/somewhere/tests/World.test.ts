@@ -233,6 +233,7 @@ describe('World', () => {
         (world) => {
           let victim = new System({components: []});
           world.addSystem(victim);
+
           return () => world.removeSystem(victim);
         },
       ],
@@ -242,6 +243,7 @@ describe('World', () => {
         (world) => {
           let victim = new EntityQuery({components: []});
           world.addEntityQuery(victim);
+
           return () => world.removeEntityQuery(victim);
         },
       ],
@@ -254,6 +256,7 @@ describe('World', () => {
         (world) => {
           let victim = new EventChannel({event: BarEvent});
           world.addEventChannel(victim);
+
           return () => world.removeEventChannel(victim);
         },
       ],
@@ -402,6 +405,91 @@ describe('World', () => {
       world.update({deltaTime: 1} as never); // add deferred during onUpdate, then flushed at end of frame
 
       expect(world.entities).toContain(spawned);
+
+      world.stop();
+    }, 2000);
+
+    test('two systems removing the same entity in one update do not throw', () => {
+      let target = new Entity({components: []});
+      let makeRemover = () =>
+        new System({
+          components: [],
+          onUpdate: (ticker, system, world) => {
+            if (world.entities.includes(target)) {
+              world.removeEntity(target);
+            }
+          },
+        });
+      let world = new World({
+        onStart: (w) => {
+          w.addSystem(makeRemover()).addSystem(makeRemover()).addEntity(target);
+        },
+      });
+
+      world.start();
+
+      expect(() => {
+        world.update({deltaTime: 1} as never);
+      }).not.toThrow();
+      expect(world.entities).not.toContain(target);
+
+      world.stop();
+    }, 2000);
+
+    test('removing and re-adding the same entity in one update keeps it in the world', () => {
+      let target = new Entity({components: []});
+      let hasRecycled = false;
+      let recycler = new System({
+        components: [],
+        onUpdate: (ticker, system, world) => {
+          if (!hasRecycled) {
+            hasRecycled = true;
+            world.removeEntity(target);
+            world.addEntity(target);
+          }
+        },
+      });
+      let world = new World({
+        onStart: (w) => {
+          w.addSystem(recycler).addEntity(target);
+        },
+      });
+
+      world.start();
+
+      expect(() => {
+        world.update({deltaTime: 1} as never);
+      }).not.toThrow();
+      expect(world.entities).toContain(target);
+
+      world.stop();
+    }, 2000);
+
+    test('adding and immediately removing an entity in one update leaves it out', () => {
+      let spawned = new Entity({components: []});
+      let hasSpawned = false;
+      let spawner = new System({
+        components: [],
+        onUpdate: (ticker, system, world) => {
+          if (!hasSpawned) {
+            hasSpawned = true;
+            world.addEntity(spawned);
+            world.removeEntity(spawned);
+          }
+        },
+      });
+      let world = new World({
+        onStart: (w) => {
+          w.addSystem(spawner);
+        },
+      });
+
+      world.start();
+
+      expect(() => {
+        world.update({deltaTime: 1} as never);
+      }).not.toThrow();
+      expect(world.entities).not.toContain(spawned);
 
       world.stop();
     }, 2000);

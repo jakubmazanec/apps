@@ -25,8 +25,7 @@ export class World {
   readonly entityQueries: EntityQuery[] = [];
   readonly eventChannels: EventChannel[] = [];
 
-  readonly #entitiesToBeAdded: Entity[] = [];
-  readonly #entitiesToBeDeleted: Entity[] = [];
+  readonly #pendingChanges: Array<{entity: Entity; isRemoval: boolean}> = [];
 
   readonly #onStart?: (world: World) => void;
   readonly #onStop?: (world: World) => void;
@@ -99,8 +98,7 @@ export class World {
       }
     }
 
-    this.#entitiesToBeAdded.length = 0;
-    this.#entitiesToBeDeleted.length = 0;
+    this.#pendingChanges.length = 0;
 
     this.#isRunning = false;
   }
@@ -238,7 +236,7 @@ export class World {
 
   addEntity(entity: Entity) {
     if (this.#isUpdating) {
-      this.#entitiesToBeAdded.push(entity);
+      this.#pendingChanges.push({entity, isRemoval: false});
     } else {
       if (this.entities.includes(entity)) {
         throw new Error('Entity was already added to the world!');
@@ -264,7 +262,7 @@ export class World {
 
   removeEntity(entity: Entity) {
     if (this.#isUpdating) {
-      this.#entitiesToBeDeleted.push(entity);
+      this.#pendingChanges.push({entity, isRemoval: true});
     } else {
       let index = this.entities.indexOf(entity);
 
@@ -303,12 +301,21 @@ export class World {
     // here — an infinite loop.
     this.#isUpdating = false;
 
-    while (this.#entitiesToBeAdded.length) {
-      this.addEntity(this.#entitiesToBeAdded.shift() as Entity); // the type assertions is ok, because we checked `this.#entitiesToBeAdded.length`
-    }
+    while (this.#pendingChanges.length > 0) {
+      // the type assertion is ok, because we checked `this.#pendingChanges.length`
+      let {entity, isRemoval} = this.#pendingChanges.shift() as {
+        entity: Entity;
+        isRemoval: boolean;
+      };
 
-    while (this.#entitiesToBeDeleted.length) {
-      this.removeEntity(this.#entitiesToBeDeleted.shift() as Entity); // the type assertions is ok, because we checked `this.#entitiesToBeDeleted.length`
+      if (isRemoval) {
+        // Tolerate repeats: two systems may remove the same entity in one frame.
+        if (this.entities.includes(entity)) {
+          this.removeEntity(entity);
+        }
+      } else {
+        this.addEntity(entity);
+      }
     }
 
     for (let channel of this.eventChannels) {
