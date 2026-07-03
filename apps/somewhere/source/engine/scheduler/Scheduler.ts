@@ -24,6 +24,10 @@ export class Scheduler {
     let timerEntries = [...this.#timers];
 
     for (let entry of tweenEntries) {
+      if (!this.#tweens.has(entry)) {
+        continue;
+      }
+
       if (entry.tween.update(ticker)) {
         entry.onComplete?.();
         this.#tweens.delete(entry);
@@ -31,6 +35,10 @@ export class Scheduler {
     }
 
     for (let entry of timerEntries) {
+      if (!this.#timers.has(entry)) {
+        continue;
+      }
+
       if (entry.timer.update(ticker)) {
         entry.onComplete();
 

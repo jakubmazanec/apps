@@ -104,4 +104,39 @@ describe('Scheduler', () => {
 
     expect(second.x).toBeCloseTo(10);
   });
+
+  test('a completion that cancels other queued work keeps it from firing the same frame', () => {
+    let scheduler = new Scheduler();
+    let cancelled = vi.fn();
+    let cancelSecond = () => {};
+
+    scheduler.after(100, () => {
+      cancelSecond();
+    });
+    cancelSecond = scheduler.after(100, cancelled);
+
+    scheduler.update(tick(100));
+    scheduler.update(tick(1000));
+
+    expect(cancelled).not.toHaveBeenCalled();
+  });
+
+  test('a completion that clears the scheduler stops the remaining snapshot entries', () => {
+    let scheduler = new Scheduler();
+    let cb = vi.fn();
+
+    scheduler.tween({
+      target: {x: 0},
+      to: {x: 1},
+      duration: 100,
+      onComplete: () => {
+        scheduler.clear();
+      },
+    });
+    scheduler.after(100, cb);
+
+    scheduler.update(tick(100));
+
+    expect(cb).not.toHaveBeenCalled();
+  });
 });
