@@ -108,12 +108,12 @@ describe('Scheduler', () => {
   test('a completion that cancels other queued work keeps it from firing the same frame', () => {
     let scheduler = new Scheduler();
     let cancelled = vi.fn();
-    let cancelSecond = () => {};
+    let handles: {cancel?: () => void} = {};
 
     scheduler.after(100, () => {
-      cancelSecond();
+      handles.cancel?.();
     });
-    cancelSecond = scheduler.after(100, cancelled);
+    handles.cancel = scheduler.after(100, cancelled);
 
     scheduler.update(tick(100));
     scheduler.update(tick(1000));

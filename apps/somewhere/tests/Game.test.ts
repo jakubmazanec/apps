@@ -66,15 +66,6 @@ const FOCUS_KEYS = {
 
 let cleanups: Array<() => void> = [];
 
-afterEach(() => {
-  for (let cleanup of cleanups) {
-    cleanup();
-  }
-
-  cleanups = [];
-  vi.restoreAllMocks();
-});
-
 async function createGame(focusKeys?: typeof FOCUS_KEYS) {
   let game = new Game({assetBundles: [], ...(focusKeys === undefined ? {} : {focusKeys})});
   let element = document.createElement('div');
@@ -122,6 +113,15 @@ function press(code: string, init: KeyboardEventInit = {}) {
 }
 
 describe('Game focus key routing', () => {
+  afterEach(() => {
+    for (let cleanup of cleanups) {
+      cleanup();
+    }
+
+    cleanups = [];
+    vi.restoreAllMocks();
+  });
+
   test('routes arrow keys to moveFocus', async () => {
     let {ui} = await createGame(FOCUS_KEYS);
 
@@ -270,6 +270,15 @@ describe('Game focus key routing', () => {
 });
 
 describe('Game screen lifecycle', () => {
+  afterEach(() => {
+    for (let cleanup of cleanups) {
+      cleanup();
+    }
+
+    cleanups = [];
+    vi.restoreAllMocks();
+  });
+
   test('showScreen hides the outgoing screen before removing it', async () => {
     let {game} = await createGame();
     let first = createFakeScreen();
@@ -286,8 +295,8 @@ describe('Game screen lifecycle', () => {
     await game.showScreen(second as never);
 
     expect(first.hide).toHaveBeenCalledTimes(1);
-    expect(first.hide.mock.invocationCallOrder[0]!).toBeLessThan(
-      removeSpy.mock.invocationCallOrder[0]!,
+    expect(Math.min(...first.hide.mock.invocationCallOrder)).toBeLessThan(
+      Math.min(...removeSpy.mock.invocationCallOrder),
     );
   });
 
