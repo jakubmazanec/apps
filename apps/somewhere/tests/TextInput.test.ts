@@ -256,4 +256,24 @@ describe('TextInput', () => {
 
     expect(focusSpy).not.toHaveBeenCalled();
   });
+
+  test('disable() during an edit blurs the field and mutes input', () => {
+    let onChange = vi.fn();
+    let input = createInput({onChange});
+    let element = container.querySelector('input');
+
+    if (element === null) {
+      throw new Error('hidden input was not created');
+    }
+
+    input.startEditing();
+    input.disable();
+
+    expect(document.activeElement).not.toBe(element);
+
+    element.value = 'sneaky';
+    element.dispatchEvent(new Event('input'));
+
+    expect(onChange).not.toHaveBeenCalled();
+  });
 });

@@ -209,6 +209,10 @@ export class TextInput implements Focusable {
     this.#container.append(input);
 
     let handleInput = () => {
+      if (this.#state === 'disabled') {
+        return;
+      }
+
       let next = input.value;
 
       if (this.#maxLength !== undefined && next.length > this.#maxLength) {
@@ -397,6 +401,7 @@ export class TextInput implements Focusable {
 
     this.view.eventMode = 'none';
     this.view.cursor = 'default';
+    this.stopEditing();
   }
 
   destroy() {
