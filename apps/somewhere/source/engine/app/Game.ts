@@ -57,6 +57,11 @@ export class Game {
   // after disposing it because a DisposableStack cannot be reused.
   #disposables = new DisposableStack();
 
+  // Guards the async span of init() against re-entry (the game is a module
+  // singleton, so a route remount can call init() again mid-flight);
+  // #isRunning only flips once init() resolves, so it alone cannot stop a
+  // re-entrant call from re-running pixi.Application.init().
+  #isInitializing = false;
   #isRunning = false;
   #isDestroyed = false;
 
@@ -75,41 +80,52 @@ export class Game {
   }
 
   async init() {
-    if (this.#isRunning || this.#isDestroyed) {
+    if (this.#isInitializing || this.#isRunning || this.#isDestroyed) {
       return;
     }
 
-    await this.app.init({
-      resolution: 1,
-      backgroundColor: 0x000000,
-      antialias: false,
-      roundPixels: true,
-      eventMode: 'passive',
-      preference: 'webgl',
-    });
+    this.#isInitializing = true;
 
-    this.app.stage.addChild(this.view);
+    try {
+      await this.app.init({
+        resolution: 1,
+        backgroundColor: 0x000000,
+        antialias: false,
+        roundPixels: true,
+        eventMode: 'passive',
+        preference: 'webgl',
+      });
 
-    this.view.layout = {width: this.app.screen.width, height: this.app.screen.height};
-    this.view.eventMode = 'static';
-    this.view.hitArea = new pixi.Rectangle();
-    pixi.TextureSource.defaultOptions.scaleMode = 'nearest';
+      this.app.stage.addChild(this.view);
 
-    await pixi.Assets.init({
-      manifest: {
-        bundles: this.assetBundles.map(({name, assets}) => ({
-          name,
-          assets: assets.map(({name, sources}) => ({
-            alias: name,
-            src: sources,
+      this.view.layout = {width: this.app.screen.width, height: this.app.screen.height};
+      this.view.eventMode = 'static';
+      this.view.hitArea = new pixi.Rectangle();
+      pixi.TextureSource.defaultOptions.scaleMode = 'nearest';
+
+      await pixi.Assets.init({
+        manifest: {
+          bundles: this.assetBundles.map(({name, assets}) => ({
+            name,
+            assets: assets.map(({name, sources}) => ({
+              alias: name,
+              src: sources,
+            })),
           })),
-        })),
-      },
-    });
-    await pixi.Assets.loadBundle(['default']);
-    void pixi.Assets.backgroundLoadBundle(this.assetBundles.map((assetBundle) => assetBundle.name));
+        },
+      });
+      await pixi.Assets.loadBundle(['default']);
+      void pixi.Assets.backgroundLoadBundle(
+        this.assetBundles.map((assetBundle) => assetBundle.name),
+      );
 
-    this.#isRunning = true;
+      this.#isRunning = true;
+    } finally {
+      // On success #isRunning takes over the guard. On failure the reset only
+      // reopens the guard; nothing rolls back a partially initialized app, so
+      // a retry after app.init() succeeded would still double-init it.
+      this.#isInitializing = false;
+    }
 
     // // TODO: make better abstraction
     // let filter = new CRTFilter({

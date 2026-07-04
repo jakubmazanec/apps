@@ -284,6 +284,30 @@ describe('Game focus key routing', () => {
     expect(spy).not.toHaveBeenCalled();
   });
 
+  test('a second init() during the async span does not double-run initialization', async () => {
+    let game = new Game({assetBundles: []});
+    let spy = vi.spyOn(game.app, 'init');
+
+    cleanups.push(() => {
+      game.destroy();
+    });
+
+    // Both calls overlap: the second starts while the first is still awaiting,
+    // which is the route-remount re-entrancy the #isInitializing latch guards.
+    await Promise.all([game.init(), game.init()]);
+
+    expect(spy).toHaveBeenCalledTimes(1);
+  });
+
+  test('init after a successful init is a no-op', async () => {
+    let {game} = await createGame();
+    let spy = vi.spyOn(game.app, 'init');
+
+    await game.init();
+
+    expect(spy).not.toHaveBeenCalled();
+  });
+
   test('addRef before init is a no-op', () => {
     let game = new Game({assetBundles: []});
     let element = document.createElement('div');
