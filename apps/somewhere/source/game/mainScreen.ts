@@ -34,18 +34,18 @@ export const mainScreen = new GameScreen<MainScreenState, UIEventMap>({
   },
   onAdd: (screen): MainScreenState => {
     let title = new Text({
-      text: 'Somewhere.',
-      fontFamily: 'monogram',
-      fontSize: 48,
-      fill: 0xffffff,
-      layout: true,
-    });
-
-    let title2 = new Text({
       text: 'Somewhere',
       fontFamily: 'monogram-outline',
       fontSize: 48,
       // fill: 0xffff00,
+      layout: true,
+    });
+
+    let hitCounter = new Text({
+      text: 'Wall hits: 0',
+      fontFamily: 'monogram-outline',
+      fontSize: 48,
+      fill: 0xffffff,
       layout: true,
     });
 
@@ -59,7 +59,7 @@ export const mainScreen = new GameScreen<MainScreenState, UIEventMap>({
 
     let bannerPanel = new Panel({
       background: banner,
-      children: [title, title2],
+      children: [title, hitCounter],
       layout: {
         padding: 32,
         alignItems: 'center',
@@ -323,14 +323,6 @@ export const mainScreen = new GameScreen<MainScreenState, UIEventMap>({
     bannerPanel.addChild(delayInput, startButton);
     // --- END Reminder dialog ---
 
-    let hitCounter = new Text({
-      text: 'Wall hits: 0',
-      fontFamily: 'monogram-outline',
-      fontSize: 48,
-      fill: 0xffffff,
-      layout: true,
-    });
-
     return {
       bannerPanel,
       newGameButton,
@@ -345,7 +337,6 @@ export const mainScreen = new GameScreen<MainScreenState, UIEventMap>({
     wallHitCount = 0;
     screen.state.hitCounter.setText('Wall hits: 0');
     screen.ui.addChild(screen.state.bannerPanel);
-    screen.ui.addChild(screen.state.hitCounter);
 
     screen.subscribe('world:wallHit', () => {
       wallHitCount += 1;
@@ -356,7 +347,6 @@ export const mainScreen = new GameScreen<MainScreenState, UIEventMap>({
     world.stop();
     screen.removeFromView(world);
     screen.ui.removeChild(screen.state.bannerPanel);
-    screen.ui.removeChild(screen.state.hitCounter);
 
     for (let dialog of screen.state.openDialogs) {
       screen.ui.removeChild(dialog);
