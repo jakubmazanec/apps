@@ -94,26 +94,39 @@ describe('TextInput', () => {
     vi.restoreAllMocks();
   });
 
-  test('attaches the global pointerdown listener once, not per edit cycle', () => {
+  test('attaches the global pointerdown listener only while editing', () => {
     let addSpy = vi.spyOn(globalThis, 'addEventListener');
+    let removeSpy = vi.spyOn(globalThis, 'removeEventListener');
     let input = createInput();
+    let added = () => addSpy.mock.calls.filter(([type]) => type === 'pointerdown').length;
+    let removed = () => removeSpy.mock.calls.filter(([type]) => type === 'pointerdown').length;
 
-    expect(addSpy.mock.calls.filter(([type]) => type === 'pointerdown')).toHaveLength(1);
+    // An idle input holds no app-wide listener.
+    expect(added()).toBe(0);
 
     input.startEditing();
+
+    expect(added()).toBe(1);
+    expect(removed()).toBe(0);
+
     input.stopEditing();
+
+    expect(added()).toBe(1);
+    expect(removed()).toBe(1);
+
+    // A second edit cycle attaches and detaches again, staying balanced.
     input.startEditing();
     input.stopEditing();
 
-    expect(addSpy.mock.calls.filter(([type]) => type === 'pointerdown')).toHaveLength(1);
+    expect(added()).toBe(2);
+    expect(removed()).toBe(2);
   });
 
-  test('removes the global pointerdown listener on destroy', () => {
+  test('removes the global pointerdown listener when destroyed mid-edit', () => {
     let removeSpy = vi.spyOn(globalThis, 'removeEventListener');
     let input = createInput();
 
-    expect(removeSpy.mock.calls.filter(([type]) => type === 'pointerdown')).toHaveLength(0);
-
+    input.startEditing();
     input.destroy();
 
     expect(removeSpy.mock.calls.filter(([type]) => type === 'pointerdown')).toHaveLength(1);
@@ -199,6 +212,29 @@ describe('TextInput', () => {
     expect(blurSpy).not.toHaveBeenCalled();
   });
 
+  test('the opening tap does not suppress the first outside tap', () => {
+    let input = createInput();
+    let element = container.querySelector('input');
+
+    if (element === null) {
+      throw new Error('hidden input was not created');
+    }
+
+    let blurSpy = vi.spyOn(element, 'blur');
+    let view = input.view as unknown as {handlers: Record<string, (argument: unknown) => void>};
+
+    // The tap that opens the field sets #isOwnPointerDown via the view's
+    // federated pointerdown; editing then begins on pointerup. The window
+    // listener is only attached now, so startEditing must clear that flag or the
+    // next outside tap would be mistaken for the leftover opening tap.
+    view.handlers.pointerdown?.({stopPropagation() {}, preventDefault() {}});
+    input.startEditing();
+
+    globalThis.dispatchEvent(new Event('pointerdown'));
+
+    expect(blurSpy).toHaveBeenCalledWith();
+  });
+
   test('a pointerdown elsewhere still stops editing', () => {
     let input = createInput();
     let element = container.querySelector('input');
@@ -267,6 +303,8 @@ describe('TextInput', () => {
       throw new Error('hidden input was not created');
     }
 
+    let removeSpy = vi.spyOn(globalThis, 'removeEventListener');
+
     input.startEditing();
 
     element.value = 'typed';
@@ -276,6 +314,8 @@ describe('TextInput', () => {
 
     input.disable();
 
+    // disable() ends the edit via stopEditing(), so the window listener is gone.
+    expect(removeSpy.mock.calls.filter(([type]) => type === 'pointerdown')).toHaveLength(1);
     expect(document.activeElement).not.toBe(element);
 
     element.value = 'sneaky';

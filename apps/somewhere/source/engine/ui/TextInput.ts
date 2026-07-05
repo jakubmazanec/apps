@@ -236,47 +236,18 @@ export class TextInput implements Focusable {
       }
     };
 
-    // TODO: remove when linter config contains fix for this: https://github.com/sindresorhus/eslint-plugin-unicorn/issues/2088
-    // eslint-disable-next-line unicorn/consistent-function-scoping -- false positive
-    let handleBlur = () => {
-      // The tap landed on this input's own view (its federated pointerdown ran
-      // first); keep the edit alive so the soft keyboard doesn't flicker.
-      if (this.#isOwnPointerDown) {
-        this.#isOwnPointerDown = false;
-
-        return;
-      }
-
-      this.stopEditing();
-    };
-
     input.addEventListener('input', handleInput);
     input.addEventListener('keydown', handleKeyDown);
 
     // Keep our state in sync when the input loses focus on its own (e.g. the soft
     // keyboard is dismissed), so the field can be focused again afterwards.
-    input.addEventListener('blur', handleBlur);
+    input.addEventListener('blur', this.#handleBlur);
 
     this.#disposables.defer(() => {
       input.removeEventListener('input', handleInput);
       input.removeEventListener('keydown', handleKeyDown);
-      input.removeEventListener('blur', handleBlur);
+      input.removeEventListener('blur', this.#handleBlur);
       input.remove();
-    });
-
-    // Stay attached for the component lifetime; stopEditing() self-guards on
-    // #isEditing, so this is a no-op until the field is being edited. The tap that
-    // starts editing fires pointerdown while #isEditing is still false (editing
-    // starts on pointerup), so it does not immediately stop editing. This replaces
-    // an earlier setTimeout (scheduled when editing started) whose timer id was
-    // never stored and so could never be cleared. Later in-field taps, while
-    // already editing, are covered by #isOwnPointerDown instead: the view's
-    // federated pointerdown runs first and sets it, so handleBlur bails out
-    // rather than closing the soft keyboard it just reopened.
-    globalThis.addEventListener('pointerdown', handleBlur);
-
-    this.#disposables.defer(() => {
-      globalThis.removeEventListener('pointerdown', handleBlur);
     });
 
     let tick = 0;
@@ -307,6 +278,22 @@ export class TextInput implements Focusable {
 
     this.#refresh();
   }
+
+  // Closes the editor when a pointerdown lands outside this field. Doubles as the
+  // input's own DOM blur handler. A tap on this field's own view sets
+  // #isOwnPointerDown first (the view's federated pointerdown runs before this
+  // listener), so an in-field tap keeps the edit — and the soft keyboard — alive.
+  // As a window pointerdown listener it is attached only while editing (see
+  // startEditing/stopEditing), so idle inputs hold no app-wide listeners.
+  readonly #handleBlur = () => {
+    if (this.#isOwnPointerDown) {
+      this.#isOwnPointerDown = false;
+
+      return;
+    }
+
+    this.stopEditing();
+  };
 
   get value(): string {
     return this.#value;
@@ -347,6 +334,13 @@ export class TextInput implements Focusable {
 
     this.#isEditing = true;
 
+    // Watch for an outside tap only while editing, so idle inputs hold no
+    // app-wide listeners. Clear the own-pointer flag the opening tap set, so the
+    // first outside tap is recognized as outside (the constructor's always-on
+    // listener used to clear it; now nothing else does).
+    this.#isOwnPointerDown = false;
+    globalThis.addEventListener('pointerdown', this.#handleBlur);
+
     this.#input.value = this.#value;
 
     let {x, y} = this.view.getGlobalPosition();
@@ -373,6 +367,8 @@ export class TextInput implements Focusable {
     }
 
     this.#isEditing = false;
+
+    globalThis.removeEventListener('pointerdown', this.#handleBlur);
 
     this.#input.blur();
 

@@ -50,7 +50,9 @@ Findings are ranked most-severe first. CONFIRMED = demonstrable from the code; P
 
 **Fix:** mirror Button: set `eventMode = 'none'` in `disable()` / restore in `enable()`.
 
-### 6. Component-lifetime global pointerdown listeners, never destroyed — CONFIRMED
+### ~~6. Component-lifetime global pointerdown listeners, never destroyed — CONFIRMED~~ ✅ FIXED (partial — leak only)
+
+> **Resolved** in this commit (Option B — minimal): the window `pointerdown` listener now attaches in `TextInput.startEditing()` and detaches in `stopEditing()`, so at most one exists and only while editing; idle inputs and hidden screens hold no app-wide listeners. `startEditing()` clears `#isOwnPointerDown` so the first outside tap isn't mistaken for the opening tap. The fragile federated-vs-window ordering coupling was left as-is (the more invasive "Option A" centralization at UiRoot was deliberately deferred).
 
 `source/engine/ui/TextInput.ts:276` — each TextInput adds a `globalThis` pointerdown listener in its constructor, removed only by `destroy()` (278–280, 409). `GameScreen.hide()` only clears focus, and `mainScreen` never destroys `demoInput`/`delayInput`, so N inputs mean N window listeners firing on every tap app-wide, including from hidden screens. The "keep editing on in-field taps" fix depends on Pixi's federated pointerdown (135–139) setting `#isOwnPointerDown` before the window listener runs — a fragile ordering coupling.
 
