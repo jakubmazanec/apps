@@ -167,3 +167,59 @@ describe('Toggle focus', () => {
     expect(onChange).not.toHaveBeenCalled();
   });
 });
+
+describe('Toggle disabled interaction', () => {
+  test('disable stops pointer events and enable restores them', () => {
+    let toggle = new Toggle({backgrounds: {unchecked: background(), checked: background()}});
+    let view = toggle.view as unknown as {eventMode: string};
+
+    expect(view.eventMode).toBe('static');
+
+    toggle.disable();
+
+    expect(view.eventMode).toBe('none');
+
+    toggle.enable();
+
+    expect(view.eventMode).toBe('static');
+  });
+
+  // Regression: a disabled toggle used to stopPropagation() unconditionally,
+  // swallowing the tap so it neither toggled nor fell through to the UI root.
+  test('a tap on a disabled toggle is ignored, not swallowed', () => {
+    let onChange = vi.fn();
+    let toggle = new Toggle({
+      backgrounds: {unchecked: background(), checked: background()},
+      onChange,
+    });
+    let view = toggle.view as unknown as {
+      handlers: Record<string, (argument?: unknown) => void>;
+    };
+    let event = {stopPropagation: vi.fn()};
+
+    toggle.disable();
+    view.handlers.pointertap?.(event);
+
+    expect(event.stopPropagation).not.toHaveBeenCalled();
+    expect(toggle.isChecked).toBeFalsy();
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  test('a tap on an enabled toggle is handled and consumed', () => {
+    let onChange = vi.fn();
+    let toggle = new Toggle({
+      backgrounds: {unchecked: background(), checked: background()},
+      onChange,
+    });
+    let view = toggle.view as unknown as {
+      handlers: Record<string, (argument?: unknown) => void>;
+    };
+    let event = {stopPropagation: vi.fn()};
+
+    view.handlers.pointertap?.(event);
+
+    expect(event.stopPropagation).toHaveBeenCalledTimes(1);
+    expect(toggle.isChecked).toBeTruthy();
+    expect(onChange).toHaveBeenCalledWith(toggle);
+  });
+});

@@ -79,8 +79,10 @@ export class Toggle implements Focusable {
     });
 
     this.view.on('pointertap', (event) => {
-      event.stopPropagation();
-      this.activate();
+      if (this.#state !== 'disabled') {
+        event.stopPropagation();
+        this.activate();
+      }
     });
 
     this.#disposables.defer(() => this.view.destroy({children: true}));
@@ -140,6 +142,7 @@ export class Toggle implements Focusable {
 
     this.#setState('normal');
 
+    this.view.eventMode = 'static';
     this.view.cursor = 'pointer';
   }
 
@@ -150,6 +153,7 @@ export class Toggle implements Focusable {
 
     this.#setState('disabled');
 
+    this.view.eventMode = 'none';
     this.view.cursor = 'default';
   }
 

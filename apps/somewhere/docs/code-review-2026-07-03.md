@@ -10,31 +10,41 @@ Findings are ranked most-severe first. CONFIRMED = demonstrable from the code; P
 
 ## Findings
 
-### 1. `Game.init()` is re-entrant and double-initializes the renderer — CONFIRMED
+### ~~1. `Game.init()` is re-entrant and double-initializes the renderer — CONFIRMED~~ ✅ FIXED
+
+> **Resolved** in `7383738` + `c6a1d7f`: `init()` now guards on a single `#state` lifecycle machine, so a re-entrant call during the async span no-ops instead of re-running `Application.init()`.
 
 `source/engine/app/Game.ts:78` — `#isRunning` is set only after all awaits resolve (line 112), so a second `init()` call during the async span passes the guard and re-runs `pixi.Application.init()` on the same `Application`. The game is a module singleton shared across route remounts, and the `_index.tsx` effect cleanup only aborts the caller's continuation — nothing tracks the in-flight init. A remount (route navigation, dev HMR) while the first init awaits `Assets.loadBundle` produces a second canvas, duplicated ticker plugin state, and a leaked WebGL context; repeated remounts hit "too many active WebGL contexts".
 
 **Fix:** set an in-flight promise/flag at the top of `init()` and return it on re-entry.
 
-### 2. Uncaught `loadBundle` rejection strands the loading screen — CONFIRMED
+### ~~2. Uncaught `loadBundle` rejection strands the loading screen — CONFIRMED~~ ✅ FIXED
+
+> **Resolved** in `c6a1d7f`: the loading screen show + `loadBundle` are wrapped in `try/finally` so the spinner always hides, and the rejection now propagates out of `showScreen()`; the sole caller in `_index.tsx` catches and logs it. The transition state resets so the call is retriable.
 
 `source/engine/app/Game.ts:435` — `pixi.Assets.loadBundle` is awaited with no try/catch anywhere in `showScreen`, after the loading screen was attached (429–431) and `currentScreen` cleared to null (422). The only caller is `void importedGame.showScreen(mainScreen)` in `routes/_index.tsx:37` with no `.catch`. A network failure fetching a bundle leaves the spinner running forever and the error becomes an unhandled promise rejection.
 
 **Fix:** try/finally around the load so the loading screen always hides; surface or retry the error.
 
-### 3. Banner panel and hit counter both render at (0,0) and overlap — CONFIRMED
+### ~~3. Banner panel and hit counter both render at (0,0) and overlap — CONFIRMED~~ ✅ FIXED
+
+> **Resolved** in `5f99765`: the hit counter is now a child of the banner `Panel`, laid out below the "Somewhere" label by the panel's flex column, and the duplicate non-outline "Somewhere." label was deleted. Scope was limited to the overlap; repositioning the whole panel off (0,0) was intentionally deferred.
 
 `source/game/mainScreen.ts:347` — `bannerPanel` and `hitCounter` are added as siblings to `screen.ui`, but `UiRoot.view` is a plain `pixi.Container` with no `layout` (`UiRoot.ts:44`), as is `GameScreen.view` — the @pixi/layout chain from `Game.view` is broken. Neither child has position/margin layout options or assigned x/y, and `onResize` is empty. The "Wall hits" counter draws on top of the banner panel's top-left corner, pinned to the screen corner at every window size.
 
 **Fix:** give the UI root a layout (or position the two views explicitly in `onResize`).
 
-### 4. TextInput DOM container is always `document.body` — CONFIRMED
+### ~~4. TextInput DOM container is always `document.body` — CONFIRMED~~ ⏭️ WON'T FIX (deferred)
+
+> **Deferred** (2026-07-05): intentionally skipped for now at the maintainer's discretion.
 
 `source/game/mainScreen.ts:182` (and 289) — `container: game.app.canvas.parentElement ?? document.body` is evaluated in `onAdd`, which runs synchronously during `addScreen()` in `_index.tsx:36`, before `setGame()` re-renders and the `Renderer` effect appends the canvas (`Game.addRef`, `Game.ts:333`). `canvas.parentElement` is therefore always null. `TextInput` captures `#container` at construction (`TextInput.ts:71`) and uses it to append and position its hidden DOM input (lines 209, 358) — on any page where the canvas container is offset or scrolled, the input and the mobile IME focus target land at wrong viewport coordinates, and the inputs live outside the React root, surviving unmount.
 
 **Fix:** resolve the container lazily (at `startEditing` time) or pass it after mount.
 
-### 5. Disabled Toggle stays interactive and swallows taps — CONFIRMED
+### ~~5. Disabled Toggle stays interactive and swallows taps — CONFIRMED~~ ✅ FIXED
+
+> **Resolved** in this commit: `Toggle.disable()`/`enable()` now flip `view.eventMode` between `'none'` and `'static'` and the `pointertap` handler guards on `#state !== 'disabled'`, mirroring `Button`. A disabled toggle no longer swallows taps; regression covered in `tests/Toggle.test.ts`.
 
 `source/engine/ui/Toggle.ts:146` — `disable()` only sets state and cursor; `view.eventMode` stays `'static'` (line 54), unlike `Button.ts:216` and `TextInput.ts:402` which set `eventMode = 'none'`. The `pointertap` handler (Toggle.ts:81–84) has no disabled guard and unconditionally calls `stopPropagation()`, so taps on a disabled Toggle are swallowed — they neither fall through to elements beneath nor reach UiRoot's tap handlers — and hover events keep firing on a control reporting `isDisabled = true`.
 
