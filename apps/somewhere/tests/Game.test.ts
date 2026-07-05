@@ -53,6 +53,7 @@ vi.mock('../source/pixi-tools/tiledTilesetAsset.js', () => ({tiledTilesetAsset: 
 vi.mock('../source/pixi-tools/tiledTilemapAsset.js', () => ({tiledTilemapAsset: {}}));
 
 const {Game} = await import('../source/engine/app/Game.js');
+const pixi = await import('pixi.js');
 
 const FOCUS_KEYS = {
   up: ['ArrowUp'],
@@ -293,7 +294,7 @@ describe('Game focus key routing', () => {
     });
 
     // Both calls overlap: the second starts while the first is still awaiting,
-    // which is the route-remount re-entrancy the #isInitializing latch guards.
+    // which is the route-remount re-entrancy the initializing state guards.
     await Promise.all([game.init(), game.init()]);
 
     expect(spy).toHaveBeenCalledTimes(1);
@@ -385,6 +386,51 @@ describe('Game screen lifecycle', () => {
     await game.showScreen(screen as never);
 
     expect(screen.hide).not.toHaveBeenCalled();
+    expect(screen.show).toHaveBeenCalledTimes(1);
+  });
+
+  test('a failed bundle load rejects, hides the loading screen, and can be retried', async () => {
+    let {game} = await createGame();
+    let loading = createFakeScreen();
+    let screen = createFakeScreen(['game']);
+
+    game.currentScreen = null;
+    game.loadingScreen = loading as never;
+    game.screens.push(screen as unknown as (typeof game.screens)[number]);
+
+    vi.spyOn(pixi.Assets, 'loadBundle').mockRejectedValueOnce(new Error('network'));
+
+    await expect(game.showScreen(screen as never)).rejects.toThrow('network');
+
+    // The failed attempt left no stale state behind.
+    expect(loading.hide).toHaveBeenCalledTimes(1);
+    expect(game.currentScreen).toBeNull();
+    expect(screen.show).not.toHaveBeenCalled();
+
+    // The guard reopened, so the retry runs the whole transition again.
+    await game.showScreen(screen as never);
+
+    expect(game.currentScreen).toBe(screen);
+    expect(screen.show).toHaveBeenCalledTimes(1);
+    expect(loading.hide).toHaveBeenCalledTimes(2);
+  });
+
+  test('a second showScreen during an in-flight transition is a no-op', async () => {
+    let {game} = await createGame();
+    let loading = createFakeScreen();
+    let screen = createFakeScreen(['game']);
+    let spy = vi.spyOn(pixi.Assets, 'loadBundle');
+
+    game.currentScreen = null;
+    game.loadingScreen = loading as never;
+    game.screens.push(screen as unknown as (typeof game.screens)[number]);
+
+    // Both calls overlap: the second starts while the first is still awaiting
+    // the bundle load, which is the re-entrancy the transitioning state
+    // guards against.
+    await Promise.all([game.showScreen(screen as never), game.showScreen(screen as never)]);
+
+    expect(spy).toHaveBeenCalledTimes(1);
     expect(screen.show).toHaveBeenCalledTimes(1);
   });
 });

@@ -35,6 +35,8 @@ export type GameOptions = {
   focusKeys?: FocusKeys;
 };
 
+type GameState = 'created' | 'destroyed' | 'initializing' | 'running' | 'transitioning';
+
 export class Game {
   assetBundles: GameAssetBundle[];
 
@@ -57,13 +59,16 @@ export class Game {
   // after disposing it because a DisposableStack cannot be reused.
   #disposables = new DisposableStack();
 
-  // Guards the async span of init() against re-entry (the game is a module
-  // singleton, so a route remount can call init() again mid-flight);
-  // #isRunning only flips once init() resolves, so it alone cannot stop a
-  // re-entrant call from re-running pixi.Application.init().
-  #isInitializing = false;
-  #isRunning = false;
-  #isDestroyed = false;
+  // Lifecycle: created -> initializing -> running <-> transitioning ->
+  // destroyed; a failed init() returns to created. The intermediate states
+  // guard the async spans of init() and showScreen() against re-entry (the
+  // game is a module singleton, so a route remount can call them mid-flight).
+  #state: GameState = 'created';
+
+  // Shim so the guards below keep reading as a capability check.
+  get #isRunning() {
+    return this.#state === 'running' || this.#state === 'transitioning';
+  }
 
   constructor({assetBundles, focusKeys}: GameOptions) {
     this.assetBundles = assetBundles;
@@ -80,11 +85,11 @@ export class Game {
   }
 
   async init() {
-    if (this.#isInitializing || this.#isRunning || this.#isDestroyed) {
+    if (this.#state !== 'created') {
       return;
     }
 
-    this.#isInitializing = true;
+    this.#state = 'initializing';
 
     try {
       await this.app.init({
@@ -119,12 +124,14 @@ export class Game {
         this.assetBundles.map((assetBundle) => assetBundle.name),
       );
 
-      this.#isRunning = true;
+      this.#state = 'running';
     } finally {
-      // On success #isRunning takes over the guard. On failure the reset only
-      // reopens the guard; nothing rolls back a partially initialized app, so
-      // a retry after app.init() succeeded would still double-init it.
-      this.#isInitializing = false;
+      // Failure reopens the guard (success already moved on); nothing rolls
+      // back a partially initialized app, so a retry after app.init()
+      // succeeded would still double-init it.
+      if (this.#state === 'initializing') {
+        this.#state = 'created';
+      }
     }
 
     // // TODO: make better abstraction
@@ -384,8 +391,7 @@ export class Game {
     this.app.stage.removeChild(this.view);
     this.app.destroy(true);
 
-    this.#isRunning = false;
-    this.#isDestroyed = true;
+    this.#state = 'destroyed';
 
     return this;
   }
@@ -417,9 +423,11 @@ export class Game {
     return this;
   }
 
+  // A failed bundle load rejects; callers must catch. The game stays usable
+  // and the same call can be retried.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- needed
   async showScreen(screen: GameScreen<any, any>) {
-    if (!this.#isRunning) {
+    if (this.#state !== 'running') {
       return this;
     }
 
@@ -429,7 +437,13 @@ export class Game {
       return this;
     }
 
-    if (this.screens.includes(screen)) {
+    if (!this.screens.includes(screen)) {
+      return this;
+    }
+
+    this.#state = 'transitioning';
+
+    try {
       // if there is a screen already created, hide it
       if (this.currentScreen) {
         await this.hideScreen(this.currentScreen);
@@ -440,19 +454,22 @@ export class Game {
 
       // load assets for the new screen, if available
       if (screen.assetBundles.length && !this.areAssetBundlesLoaded(screen.assetBundles)) {
-        // if assets are not loaded yet, show loading screen, if there is one
-        if (this.loadingScreen) {
-          this.addToView(this.loadingScreen);
-          this.loadingScreen.resize();
-          await this.loadingScreen.show();
-        }
+        try {
+          // if assets are not loaded yet, show loading screen, if there is one
+          if (this.loadingScreen) {
+            this.addToView(this.loadingScreen);
+            this.loadingScreen.resize();
+            await this.loadingScreen.show();
+          }
 
-        // load all assets required by this new screen
-        await pixi.Assets.loadBundle(screen.assetBundles);
-
-        // hide loading screen, if exists
-        if (this.loadingScreen) {
-          await this.hideScreen(this.loadingScreen);
+          // load all assets required by this new screen
+          await pixi.Assets.loadBundle(screen.assetBundles);
+        } finally {
+          // hide loading screen, if exists; its own error is swallowed so it
+          // cannot mask a load failure
+          if (this.loadingScreen) {
+            await this.hideScreen(this.loadingScreen).catch(() => {});
+          }
         }
       }
 
@@ -462,6 +479,13 @@ export class Game {
       this.addToView(screen);
       screen.resize();
       await screen.show();
+    } finally {
+      // destroy() can land mid-transition; only a still-live transition
+      // returns to running.
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- destroy() can flip the state to 'destroyed' during the awaits above, so it is not statically 'transitioning' here
+      if (this.#state === 'transitioning') {
+        this.#state = 'running';
+      }
     }
 
     return this;

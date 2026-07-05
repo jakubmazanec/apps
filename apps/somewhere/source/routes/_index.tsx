@@ -34,7 +34,12 @@ export default function Index() {
 
       importedGame.addLoadingScreen(loadingScreen);
       importedGame.addScreen(mainScreen);
-      void importedGame.showScreen(mainScreen);
+      // showScreen() rejects when a bundle load fails; the game hid its
+      // loading screen and stays usable, so the error is only reported here.
+      importedGame.showScreen(mainScreen).catch((error: unknown) => {
+        // eslint-disable-next-line no-console -- no error UI exists yet
+        console.error(error);
+      });
       setGame(importedGame);
     })();
 
