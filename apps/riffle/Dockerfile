@@ -34,6 +34,9 @@ RUN npm ci --include=dev --ignore-scripts
 # Copy the workspace
 COPY --link . .
 
+# Apply dependency patches
+RUN npx patch-package
+
 # Build
 RUN npm run build -- --filter=riffle
 
