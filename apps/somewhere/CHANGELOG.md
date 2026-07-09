@@ -1,5 +1,14 @@
 # somewhere
 
+## 0.1.22
+
+### Patch Changes
+
+- [#273](https://github.com/jakubmazanec/apps/pull/273)
+  [`b2ed945`](https://github.com/jakubmazanec/apps/commit/b2ed945f115bf0f1b04f60e202ee6d69c92b1f9f)
+  ([@renovate](https://github.com/apps/renovate)) – Applies templates from
+  `@jakubmazanec/carson-templates` updated to version `^8.1.0`.
+
 ## 0.1.21
 
 ### Patch Changes
