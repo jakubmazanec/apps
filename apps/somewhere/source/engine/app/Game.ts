@@ -444,12 +444,11 @@ export class Game {
     this.#state = 'transitioning';
 
     try {
-      // if there is a screen already created, hide it
+      // if there is a screen already created, hide it; hideScreen also clears
+      // currentScreen, so a failed asset load below cannot leave a stale
+      // pointer that would be hidden a second time on a later showScreen call
       if (this.currentScreen) {
         await this.hideScreen(this.currentScreen);
-        // Cleared so a failed asset load below cannot leave a stale pointer
-        // that would be hidden a second time on a later showScreen call.
-        this.currentScreen = null;
       }
 
       // load assets for the new screen, if available
@@ -500,6 +499,15 @@ export class Game {
     await screen.hide();
 
     this.removeFromView(screen);
+
+    // Hiding the current screen must clear the pointer, or showScreen's
+    // resume early-return would leave the stage permanently blank on a
+    // re-show. Conditional because the loading screen is also hidden through
+    // here but is never the current screen, and an unconditional clear would
+    // wrongly null the real current screen.
+    if (this.currentScreen === screen) {
+      this.currentScreen = null;
+    }
 
     return this;
   }

@@ -66,7 +66,9 @@ Findings are ranked most-severe first. CONFIRMED = demonstrable from the code; P
 
 **Fix:** pin `pixi.js` to exactly `8.16.0`.
 
-### 8. `hideScreen` leaves `currentScreen` stale; re-show is impossible — PLAUSIBLE
+### ~~8. `hideScreen` leaves `currentScreen` stale; re-show is impossible — PLAUSIBLE~~ ✅ FIXED
+
+> **Resolved** in this commit (Option A — both parts): `Game.hideScreen()` now clears `currentScreen` — conditionally (`if (this.currentScreen === screen)`), because the loading screen is also hidden via `hideScreen` mid-transition but is never `currentScreen`, and an unconditional clear would wrongly null the real current screen. `GameScreen.hide()` is now idempotent via a private `#isShown` flag (set in `show()`, cleared in `hide()`): a double hide or a hide before any show is a no-op, protecting `onHide` side effects like `mainScreen`'s unconditional `world.stop()` from double invocation; `show()` was deliberately left unguarded to preserve the resume semantics. The now-redundant explicit `currentScreen = null` in `showScreen`'s internal transition path was removed. Regression tests: external `hideScreen(currentScreen)` clears the pointer and the same screen re-shows (no silent early-return); hiding the loading screen leaves `currentScreen` intact; double `hide()` runs `onHide` exactly once; `hide()` before `show()` is a no-op; `show()` after `hide()` re-arms `hide()`.
 
 `source/engine/app/Game.ts:412` — `showScreen` early-returns when `currentScreen === screen`, but public `hideScreen()` (455–465) never clears `currentScreen`. After an external `hideScreen(currentScreen)`: re-showing the same screen hits the early return (permanently blank stage, no error); showing a different screen re-hides the hidden one (419), where `GameScreen.hide` has no double-hide guard and `mainScreen.onHide` calls `world.stop()` unconditionally, which throws `'World is not running!'` (`World.ts:57`). No current caller invokes `hideScreen` externally — a latent trap in new public API.
 

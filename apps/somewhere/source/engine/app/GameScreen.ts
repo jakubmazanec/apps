@@ -34,6 +34,9 @@ export class GameScreen<
   // one-shot stacks it is reset on each hide so the screen can re-subscribe on the next show;
   // a DisposableStack cannot be reused after disposal.
   #disposables = new DisposableStack();
+  // Makes hide() idempotent: onHide side effects (e.g. world.stop()) must not
+  // run twice when an already-hidden screen is hidden again.
+  #isShown = false;
 
   readonly assetBundles: string[];
   readonly view: pixi.Container = new pixi.Container();
@@ -118,6 +121,8 @@ export class GameScreen<
   }
 
   async show() {
+    this.#isShown = true;
+
     // Register scheduler teardown on the (per-hide) disposables stack; re-armed each show because
     // hide() disposes and replaces the stack. A single dispose() then cancels in-flight tweens/timers.
     this.#disposables.defer(() => this.scheduler.clear());
@@ -137,6 +142,14 @@ export class GameScreen<
   }
 
   async hide() {
+    // No-op unless shown: a double hide (or a hide before any show) must not
+    // dispose anything or re-run onHide side effects.
+    if (!this.#isShown) {
+      return;
+    }
+
+    this.#isShown = false;
+
     this.#ui.clearFocus();
 
     this.#disposables.dispose();

@@ -389,6 +389,41 @@ describe('Game screen lifecycle', () => {
     expect(screen.show).toHaveBeenCalledTimes(1);
   });
 
+  test('an external hideScreen clears currentScreen so the same screen can be re-shown', async () => {
+    let {game} = await createGame();
+    let screen = createFakeScreen();
+
+    game.currentScreen = null;
+    game.screens.push(screen as unknown as (typeof game.screens)[number]);
+
+    await game.showScreen(screen as never);
+    await game.hideScreen(screen as never);
+
+    expect(game.currentScreen).toBeNull();
+
+    // Without the cleared pointer this would hit showScreen's resume
+    // early-return and leave the stage blank.
+    await game.showScreen(screen as never);
+
+    expect(game.currentScreen).toBe(screen);
+    expect(screen.show).toHaveBeenCalledTimes(2);
+  });
+
+  test('hiding a non-current screen (the loading screen) leaves currentScreen intact', async () => {
+    let {game} = await createGame();
+    let loading = createFakeScreen();
+    let screen = createFakeScreen();
+
+    game.currentScreen = null;
+    game.loadingScreen = loading as never;
+    game.screens.push(screen as unknown as (typeof game.screens)[number]);
+
+    await game.showScreen(screen as never);
+    await game.hideScreen(loading as never);
+
+    expect(game.currentScreen).toBe(screen);
+  });
+
   test('a failed bundle load rejects, hides the loading screen, and can be retried', async () => {
     let {game} = await createGame();
     let loading = createFakeScreen();

@@ -54,9 +54,9 @@ vi.mock('pixi.js', () => ({
 const {GameScreen} = await import('../source/engine/app/GameScreen.js');
 const {Container} = await import('pixi.js');
 
-function createScreen() {
+function createScreen(options: {onHide?: () => void} = {}) {
   let events = new EventEmitter<UIEventMap>();
-  let screen = new GameScreen({events});
+  let screen = new GameScreen({events, ...options});
 
   screen.setGame({
     app: {ticker: {add: vi.fn(), remove: vi.fn()}},
@@ -80,6 +80,7 @@ describe('GameScreen.subscribe', () => {
     let {screen, events} = createScreen();
     let spy = vi.fn();
 
+    await screen.show();
     screen.subscribe('world:wallHit', spy);
     events.emit('world:wallHit', {tile: null as unknown as MapTile});
     await screen.hide();
@@ -92,6 +93,7 @@ describe('GameScreen.subscribe', () => {
     let {screen, events} = createScreen();
     let spy = vi.fn();
 
+    await screen.show();
     screen.subscribe('world:wallHit', spy);
     await screen.hide();
     screen.subscribe('world:wallHit', spy);
@@ -142,6 +144,7 @@ describe('GameScreen.ui', () => {
     let {screen} = createScreen();
     let spy = vi.spyOn(screen.ui, 'clearFocus');
 
+    await screen.show();
     await screen.hide();
 
     expect(spy).toHaveBeenCalledTimes(1);
@@ -181,6 +184,39 @@ describe('GameScreen.destroy', () => {
     let {screen} = createScreen();
 
     expect(() => screen.destroy()).not.toThrow();
+  });
+});
+
+describe('GameScreen.hide idempotence', () => {
+  test('hide() called twice invokes onHide exactly once and does not throw', async () => {
+    let onHide = vi.fn();
+    let {screen} = createScreen({onHide});
+
+    await screen.show();
+    await screen.hide();
+
+    await expect(screen.hide()).resolves.toBeUndefined();
+    expect(onHide).toHaveBeenCalledTimes(1);
+  });
+
+  test('hide() before any show() is a no-op', async () => {
+    let onHide = vi.fn();
+    let {screen} = createScreen({onHide});
+
+    await expect(screen.hide()).resolves.toBeUndefined();
+    expect(onHide).not.toHaveBeenCalled();
+  });
+
+  test('show() after hide() re-arms hide()', async () => {
+    let onHide = vi.fn();
+    let {screen} = createScreen({onHide});
+
+    await screen.show();
+    await screen.hide();
+    await screen.show();
+    await screen.hide();
+
+    expect(onHide).toHaveBeenCalledTimes(2);
   });
 });
 
