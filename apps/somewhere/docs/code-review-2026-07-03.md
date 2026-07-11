@@ -130,7 +130,9 @@ Findings are ranked most-severe first. CONFIRMED = demonstrable from the code; P
 
 **Fix:** make init restartable after destroy, or fix the docstring and have `destroy()` hide the current screen.
 
-### 16. `on`/`once`/`off` silently no-op outside the running window — PLAUSIBLE
+### ~~16. `on`/`once`/`off` silently no-op outside the running window — PLAUSIBLE~~ ⏭️ WON'T FIX
+
+> **Won't fix** (2026-07-11): the silent `!#isRunning` no-op is the deliberate, uniform convention across the entire public Game API (added as a 12-guard sweep in `71f327e` and carried through the `#state` refactor) — dropping it on these three methods would make them the sole deviants. The hazard is fully latent: the only caller (`playerSystem`) provably subscribes and unsubscribes inside the running window, `destroy()` never routes an `off()` after teardown, and neither pre-init nor post-destroy forwarding could crash anyway (the view outlives `app.destroy` and eventemitter3 never throws).
 
 `source/engine/app/Game.ts:139` (also 152, 165) — `if (!this.#isRunning) return this;` silently drops any subscription made before `init()` resolves and any `off()` after `destroy()`; the old Game forwarded unconditionally, and `this.view` exists from the constructor so pre-init subscriptions would work fine. Current callers (playerSystem.ts:32, 36) provably run post-init — latent API hazard only.
 
