@@ -106,7 +106,9 @@ Findings are ranked most-severe first. CONFIRMED = demonstrable from the code; P
 
 **Fix:** a shared UiParent base/mixin with attach and post-remove hooks.
 
-### 13. Spark popups allocate 8 AnimatedSprites each and bypass ObjectPool — CONFIRMED
+### ~~13. Spark popups allocate 8 AnimatedSprites each and bypass ObjectPool — CONFIRMED~~ ⏭️ WON'T FIX (deferred)
+
+> **Deferred** (2026-07-11): part of the same unfinished collision/popup feature as issue 10 (this system is the direct consumer of `WallHit`) and will be reworked with it; a self-contained TODO was added in this commit above `SPARK_SPRITE_NAMES` in `wallHitPopupSystem.ts`, capturing the intended fix (graphicsSystem missing-animation fallback + `Sprite.show()` guard, single-sprite popup, optional pooling with its deferred-removal pitfalls). Analysis notes: the perf half is negligible today — `WallHit` is edge-triggered, one event per contact episode — the real defect is the render-API trap forcing every future non-character visual to fake all 8 character animation names or crash.
 
 `source/game/wallHitPopupSystem.ts:62` — every wall hit builds a fresh Entity whose Sprite constructs one `pixi.AnimatedSprite` per name in `SPARK_SPRITE_NAMES` (8), with `spark.json` duplicating the same 16×16 frame under all 8 directional keys — solely because `graphicsSystem` hardcodes character animation names. The popup's velocity is always `(0,0)`, so only `'standing-right'` is ever shown; 7 of 8 sprites are pure waste, re-created per hit and destroyed 400ms later, while `playerPool`/`mapPool` already demonstrate ObjectPool recycling. `Sprite.show()` with an unregistered name crashes (`Sprite.ts:52–55`), so every future non-character visual must repeat the 8-fake-names trick.
 
@@ -152,4 +154,6 @@ Findings are ranked most-severe first. CONFIRMED = demonstrable from the code; P
 
 ## Unverified side note
 
-`scripts/generate-spark-assets.mjs` hand-rolls a full PNG encoder (~60 lines of CRC32/chunk/IDAT) that duplicates `fast-png`'s `encode()`, which its two sibling scripts import — and `fast-png` is not declared in any package.json, so those sibling scripts cannot run as committed. (Untracked dev scripts; not part of the verified findings.)
+~~`scripts/generate-spark-assets.mjs` hand-rolls a full PNG encoder (~60 lines of CRC32/chunk/IDAT) that duplicates `fast-png`'s `encode()`, which its two sibling scripts import — and `fast-png` is not declared in any package.json, so those sibling scripts cannot run as committed. (Untracked dev scripts; not part of the verified findings.)~~
+
+> **Stale** (2026-07-11): the file no longer exists — no `scripts/` directory, no `generate-spark*` file, and no `fast-png` reference anywhere in the repo. Nothing to act on.

@@ -16,6 +16,24 @@ import {wallHitChannel} from './wallHitChannel.js';
 
 // All eight names so graphicsSystem's hardcoded sprite.show('standing-right' | ...) always resolves;
 // a zero-velocity popup renders as 'standing-right'.
+//
+// TODO: This is load-bearing waste. Every wall hit constructs 8 AnimatedSprites
+// (public/spark.json duplicates the same 16x16 frame under all 8 directional
+// keys) because the render path has no escape hatch for non-character visuals:
+// the Sprite constructor throws on any name missing from the spritesheet, and
+// graphicsSystem picks a name purely from velocity direction and crashes in
+// Sprite.show() on an unregistered one. Only 'standing-right' is ever shown
+// here (velocity is always zero); the other 7 sprites are constructed, added
+// to the layer, never displayed, and discarded ~400ms later. The intended fix:
+// add a missing-animation fallback (or opt-in directional mode) to
+// graphicsSystem plus a guard in Sprite.show(), then shrink this popup to a
+// single sprite name and spark.json to a single animation key. Optionally pool
+// the popup entities afterward (mind the deferred world.removeEntity: release
+// to the pool only once removal has actually flushed, and re-push fresh
+// tween/timer entries on reset so stale PopupExpired events cannot target a
+// re-acquired popup). Perf impact today is negligible (WallHit is
+// edge-triggered, one event per contact episode) — the trap for future
+// non-character visuals is the real defect.
 const SPARK_SPRITE_NAMES = [
   'standing-down',
   'walking-down',
