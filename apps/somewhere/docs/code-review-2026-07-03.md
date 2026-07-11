@@ -82,7 +82,9 @@ Findings are ranked most-severe first. CONFIRMED = demonstrable from the code; P
 
 **Fix:** start the load first, then show the loading screen, then await both; parallelize `app.init` with `Assets.init().then(() => loadBundle)`.
 
-### 10. Collision scans the full tile grid twice per entity per frame — CONFIRMED
+### ~~10. Collision scans the full tile grid twice per entity per frame — CONFIRMED~~ ⏭️ WON'T FIX (deferred)
+
+> **Deferred** (2026-07-11): the collision/motion logic is an unfinished feature and will be reworked later; a self-contained TODO comment was added in this commit at the top of the axis passes in `motionSystem.ts`, capturing the swept-range fix, the shared `sweepAxis` extraction, and the behavioral constraints to preserve (X-before-Y order, strict overlap test, first-hit `contactTile` order, boundingBox-fits-cell invariant). Analysis note: the real map is 40×40 (3,200 checks per moving entity per frame, only 8 solid tiles) and effectively only the player moves, so the waste is real but not currently user-visible.
 
 `source/game/motionSystem.ts:49` (and 92) — both the X and Y passes run `for (column…) for (row…)` over the entire map per moving entity, inside `onUpdate`. A 100×100 map is 20,000 tile checks per entity per frame at 60fps, nearly all on tiles with no `boundingBox`. The two passes are also ~40-line near-identical copies. Tiles are grid-aligned and `layer.tiles` is an indexed 2D array (`Map.ts:14`, 74–75), so the swept-box column/row range reduces each pass to a handful of tiles. Note: the inline overlap test is deliberately strict, unlike `utilities/doRectanglesIntersect.ts` (touching edges count), so reuse needs a strict option, not a drop-in call.
 

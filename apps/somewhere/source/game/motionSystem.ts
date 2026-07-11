@@ -42,6 +42,22 @@ export const motionSystem = new System({
       let contactTile;
       let isMoving = deltaX !== 0 || deltaY !== 0;
 
+      // TODO: Both axis passes below scan the entire tile grid per moving
+      // entity per frame (2 × columnCount × rowCount tile checks), even though
+      // almost no tiles have a boundingBox. Tiles are grid-aligned (64px) and
+      // layer.tiles is indexed [column][row], so each pass only needs the
+      // column/row range covered by the swept player box (union of current and
+      // tentative position, divided by tile size, clamped to grid bounds) —
+      // a handful of cells instead of the full grid. The two passes are also
+      // near-identical ~40-line copies differing only by axis; extract a
+      // shared sweepAxis helper when fixing. Constraints to preserve: X pass
+      // must run before Y (Y reads the clipped X), the overlap test is
+      // deliberately strict (touching edges don't collide, so the player can
+      // slide flush along walls), contactTile keeps the first hit in
+      // column-major order, and a tile boundingBox larger than its 64px cell
+      // would escape a naive swept range (all current boxes fit their cell;
+      // expand the range by a margin or assert the invariant).
+
       // X-axis pass: move only along X, clip against tile walls.
       if (deltaX !== 0) {
         let tentativeX = motion.position.x + deltaX;
