@@ -122,7 +122,9 @@ Findings are ranked most-severe first. CONFIRMED = demonstrable from the code; P
 
 **Fix:** `EntityQuery extends System` (a System without `onUpdate` is already inert), registered via `addSystem`.
 
-### 15. `destroy()` contradicts its documented StrictMode contract — PLAUSIBLE
+### ~~15. `destroy()` contradicts its documented StrictMode contract — PLAUSIBLE~~ ✅ FIXED
+
+> **Resolved** in this commit (docstring-only, option A): the false "reused across a dev StrictMode init->destroy->init cycle" claim is deleted — `destroyed` is a terminal state and `init()` never runs again, which a test deliberately pins. The docstring now also states accurately that the React unmount path never calls `destroy()` (it only detaches the canvas via `removeRef()`; StrictMode's dev double-mount stresses init/addRef re-entrancy, not destroy). Behavior is untouched: making destroy hide `currentScreen`/stop the world was considered and skipped as YAGNI — nothing calls `destroy()` in production, and full restartability would fight pixi's `Assets.init`/`Application` constraints for zero consumers.
 
 `source/engine/app/Game.ts:372` — `destroy()` sets `#isDestroyed`, making `init()` permanently no-op (line 78), while the docstring (357–361) promises screens are reused across a "dev StrictMode init→destroy→init cycle" — which can never happen. `destroy()` also never hides `currentScreen` or stops the world, so a hypothetical re-show would throw `'World is already running!'`. No production caller today; the docstring also calls Game a process-lifetime singleton.
 

@@ -391,10 +391,12 @@ export class Game {
   }
 
   // Terminal teardown counterpart to init(). Game is a process-lifetime
-  // singleton (it is not restartable like World), so destroy() exists for
-  // correctness, test isolation, and the React unmount path. The screens are
-  // module singletons reused across a dev StrictMode init->destroy->init cycle,
-  // so they are intentionally left intact.
+  // singleton (it is not restartable like World): 'destroyed' is a terminal
+  // state and init() never runs again afterward, so destroy() exists for
+  // correctness and test isolation — the React unmount path only detaches the
+  // canvas via removeRef(). The module-singleton screens are intentionally
+  // left intact; destroying them is not this method's job and nothing can
+  // show them again once the game is destroyed.
   destroy() {
     if (!this.#isRunning) {
       return this;
