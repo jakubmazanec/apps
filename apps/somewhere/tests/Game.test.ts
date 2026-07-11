@@ -450,6 +450,38 @@ describe('Game screen lifecycle', () => {
     expect(loading.hide).toHaveBeenCalledTimes(2);
   });
 
+  test('showScreen starts the bundle load before the loading screen finishes showing', async () => {
+    let {game} = await createGame();
+    let loading = createFakeScreen();
+    let screen = createFakeScreen(['game']);
+    let loadBundleSpy = vi.spyOn(pixi.Assets, 'loadBundle');
+    let resolveShow!: () => void;
+
+    vi.spyOn(loading, 'show').mockImplementation(
+      async () =>
+        new Promise<void>((resolve) => {
+          resolveShow = resolve;
+        }),
+    );
+
+    game.currentScreen = null;
+    game.loadingScreen = loading as never;
+    game.screens.push(screen as unknown as (typeof game.screens)[number]);
+
+    let transition = game.showScreen(screen as never);
+
+    // The bundle load must already be in flight while the loading screen's
+    // show is still pending; if this fails, the transition re-serialized.
+    expect(loading.show).toHaveBeenCalledTimes(1);
+    expect(loadBundleSpy).toHaveBeenCalledTimes(1);
+
+    resolveShow();
+    await transition;
+
+    expect(game.currentScreen).toBe(screen);
+    expect(loading.hide).toHaveBeenCalledTimes(1);
+  });
+
   test('a second showScreen during an in-flight transition is a no-op', async () => {
     let {game} = await createGame();
     let loading = createFakeScreen();
@@ -467,5 +499,63 @@ describe('Game screen lifecycle', () => {
 
     expect(spy).toHaveBeenCalledTimes(1);
     expect(screen.show).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('Game init pipeline overlap', () => {
+  afterEach(() => {
+    for (let cleanup of cleanups) {
+      cleanup();
+    }
+
+    cleanups = [];
+    vi.restoreAllMocks();
+  });
+
+  test('init starts the asset pipeline before app.init resolves', async () => {
+    let game = new Game({assetBundles: []});
+    let resolveAppInit!: () => void;
+
+    cleanups.push(() => {
+      game.destroy();
+    });
+
+    vi.spyOn(game.app, 'init').mockImplementation(
+      async () =>
+        new Promise<void>((resolve) => {
+          resolveAppInit = resolve;
+        }),
+    );
+
+    let assetsInitSpy = vi.spyOn(pixi.Assets, 'init');
+    let initPromise = game.init();
+
+    // Assets.init must already have been called while app.init is still
+    // pending; if this fails, the two pipelines re-serialized.
+    expect(assetsInitSpy).toHaveBeenCalledTimes(1);
+
+    resolveAppInit();
+    await initPromise;
+  });
+
+  test('scaleMode is nearest by the time the default bundle load starts', async () => {
+    let game = new Game({assetBundles: []});
+    let scaleModeAtLoad: unknown;
+
+    cleanups.push(() => {
+      game.destroy();
+    });
+
+    // defaultOptions is a module-global shared across tests; clearing it
+    // proves init() itself set scaleMode before the load, not a prior test.
+    (pixi.TextureSource.defaultOptions as {scaleMode?: unknown}).scaleMode = undefined;
+
+    vi.spyOn(pixi.Assets, 'loadBundle').mockImplementation(async () => {
+      scaleModeAtLoad = pixi.TextureSource.defaultOptions.scaleMode;
+    });
+
+    await game.init();
+
+    expect(scaleModeAtLoad).toBe('nearest');
   });
 });

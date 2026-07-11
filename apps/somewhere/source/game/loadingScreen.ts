@@ -21,7 +21,7 @@ export const loadingScreen = new GameScreen({
       label,
     };
   },
-  onShow: async (screen) => {
+  onShow: (screen) => {
     // eslint-disable-next-line no-param-reassign -- needed
     screen.view.layout = {
       width: '100%',
@@ -32,9 +32,6 @@ export const loadingScreen = new GameScreen({
 
     // screen.view.addChild(screen.state.spinner);
     screen.view.addChild(screen.state.label.view);
-    await new Promise((resolve) => {
-      setTimeout(resolve, 200);
-    });
   },
   onResize: () => {},
   onUpdate: () => {},

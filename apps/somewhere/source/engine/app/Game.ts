@@ -92,23 +92,13 @@ export class Game {
     this.#state = 'initializing';
 
     try {
-      await this.app.init({
-        resolution: 1,
-        backgroundColor: 0x000000,
-        antialias: false,
-        roundPixels: true,
-        eventMode: 'passive',
-        preference: 'webgl',
-      });
-
-      this.app.stage.addChild(this.view);
-
-      this.view.layout = {width: this.app.screen.width, height: this.app.screen.height};
-      this.view.eventMode = 'static';
-      this.view.hitArea = new pixi.Rectangle();
+      // Pixi-global static independent of app.init; it must be set before any
+      // texture load starts, or textures silently load linear-filtered.
       pixi.TextureSource.defaultOptions.scaleMode = 'nearest';
 
-      await pixi.Assets.init({
+      // Start the asset pipeline alongside app.init so the ~20-file default
+      // bundle fetch is not serialized behind WebGL context creation.
+      let assetsReady = pixi.Assets.init({
         manifest: {
           bundles: this.assetBundles.map(({name, assets}) => ({
             name,
@@ -118,8 +108,31 @@ export class Game {
             })),
           })),
         },
+      }).then(async () => {
+        await pixi.Assets.loadBundle(['default']);
       });
-      await pixi.Assets.loadBundle(['default']);
+
+      let appReady = this.app
+        .init({
+          resolution: 1,
+          backgroundColor: 0x000000,
+          antialias: false,
+          roundPixels: true,
+          eventMode: 'passive',
+          preference: 'webgl',
+        })
+        .then(() => {
+          // stage/view setup depends on the renderer, so it must wait for
+          // app.init — but not for the asset loads
+          this.app.stage.addChild(this.view);
+
+          this.view.layout = {width: this.app.screen.width, height: this.app.screen.height};
+          this.view.eventMode = 'static';
+          this.view.hitArea = new pixi.Rectangle();
+        });
+
+      await Promise.all([appReady, assetsReady]);
+
       void pixi.Assets.backgroundLoadBundle(
         this.assetBundles.map((assetBundle) => assetBundle.name),
       );
@@ -454,15 +467,26 @@ export class Game {
       // load assets for the new screen, if available
       if (screen.assetBundles.length && !this.areAssetBundlesLoaded(screen.assetBundles)) {
         try {
-          // if assets are not loaded yet, show loading screen, if there is one
+          // if assets are not loaded yet, show loading screen, if there is
+          // one; overlapping is safe because the loading screen's own font
+          // (monogram) comes from the always-preloaded 'default' bundle, so
+          // its rendering never depends on the bundle being fetched here
           if (this.loadingScreen) {
             this.addToView(this.loadingScreen);
             this.loadingScreen.resize();
-            await this.loadingScreen.show();
-          }
 
-          // load all assets required by this new screen
-          await pixi.Assets.loadBundle(screen.assetBundles);
+            // start the bundle fetch so it overlaps the loading screen's
+            // show animation instead of waiting behind it; created after the
+            // synchronous addToView/resize calls so a throw there cannot
+            // strand the promise without a handler, and inside this try so
+            // the finally below is already armed when a rejection can occur
+            await Promise.all([
+              this.loadingScreen.show(),
+              pixi.Assets.loadBundle(screen.assetBundles),
+            ]);
+          } else {
+            await pixi.Assets.loadBundle(screen.assetBundles);
+          }
         } finally {
           // hide loading screen, if exists; its own error is swallowed so it
           // cannot mask a load failure

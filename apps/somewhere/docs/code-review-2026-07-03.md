@@ -74,7 +74,9 @@ Findings are ranked most-severe first. CONFIRMED = demonstrable from the code; P
 
 **Fix:** clear `currentScreen` in `hideScreen()` (and guard double-hide).
 
-### 9. Loading screen show (incl. 200ms sleep) serializes ahead of asset loads — CONFIRMED
+### ~~9. Loading screen show (incl. 200ms sleep) serializes ahead of asset loads — CONFIRMED~~ ✅ FIXED
+
+> **Resolved** in this commit: `showScreen` now starts the bundle fetch before showing the loading screen and awaits both via `Promise.all`, so the fetch overlaps the show instead of waiting behind it (the error guarantees from the issue-2 fix are preserved: the `finally` still always hides the loading screen with its own hide error swallowed, a `loadBundle` rejection still propagates, and the transition stays retriable). `init()` now parallelizes `app.init` with the `Assets.init` → `loadBundle('default')` chain, with `TextureSource.defaultOptions.scaleMode = 'nearest'` moved ahead of the Assets chain (it must be set before any texture load or textures silently load linear-filtered); the renderer-dependent stage/view setup stays chained on `app.init` alone. The vestigial 200ms spinner delay in `loadingScreen.ts` was deleted outright (option C-i — the spinner it served is commented out). Overlapping is safe because the loading screen's own font (monogram) comes from the always-preloaded `default` bundle, so its rendering never depends on the bundle being fetched. Regression tests in `tests/Game.test.ts` pin the showScreen overlap, the init overlap, and the scaleMode-before-load ordering.
 
 `source/engine/app/Game.ts:431` — `showScreen` awaits `loadingScreen.show()` — whose `onShow` ends in an unconditional 200ms `setTimeout` (`loadingScreen.ts:35–37`) — before `Assets.loadBundle` starts (435), adding 200ms+ dead time to every asset-gated transition. `Game.init` similarly serializes `app.init` → `Assets.init` → `loadBundle(['default'])` (82, 98, 109), delaying the ~20-file default bundle fetch behind renderer init. Verified safe to overlap; one caveat: `TextureSource.defaultOptions.scaleMode = 'nearest'` (line 96) must move before any asset loading starts.
 
