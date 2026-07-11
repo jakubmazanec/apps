@@ -98,7 +98,9 @@ Findings are ranked most-severe first. CONFIRMED = demonstrable from the code; P
 
 **Fix:** shared `swapBackground`/`attachHitAreaSync` helpers or a common stateful-widget base in `engine/ui`.
 
-### 12. UiParent child bookkeeping duplicated four times — CONFIRMED
+### ~~12. UiParent child bookkeeping duplicated four times — CONFIRMED~~ ⏭️ WON'T FIX
+
+> **Won't fix** (2026-07-11): judged a non-issue at the maintainer's discretion — classic YAGNI over abstraction. The duplication is real but small (three byte-identical 30-line add/remove/destroy triads in `Container`/`Panel`/`Button`, plus a deviated copy in `UiRoot` whose focus-ring and stale-focus differences are pinned by tests), concentrated in trivial bookkeeping, and `UiRoot.removeChild` is about to change under issues 17/18 anyway. Deduplication machinery (shared helpers with UiRoot-only hooks, or the engine's first base class) would cost more than the ~60 duplicated lines it removes.
 
 `source/engine/ui/Container.ts:30` — `addChild`/`removeChild` and the destroy loop appear verbatim in Container.ts:30–61, Panel.ts:32–63, Button.ts:153–184, and near-verbatim in UiRoot.ts:116–144 + 262–270. UiRoot's two deviations (focus ring kept topmost via `addChildAt`, stale-focus revalidation after removal) are hookable extensions.
 
