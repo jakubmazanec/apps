@@ -1,7 +1,11 @@
 import {LayoutContainer} from '@pixi/layout/components';
-import * as pixi from 'pixi.js';
+import type * as pixi from 'pixi.js';
 
+import {adoptDetachedBackgrounds} from './adoptDetachedBackgrounds.js';
+import {attachHitArea} from './attachHitArea.js';
+import {attachHoverHandlers} from './attachHoverHandlers.js';
 import {type Focusable} from './Focusable.js';
+import {swapBackground} from './swapBackground.js';
 import {type UiChild, type UiParent} from './UiChild.js';
 
 export type ButtonState = 'active' | 'disabled' | 'hovered' | 'normal';
@@ -61,48 +65,19 @@ export class Button implements Focusable, UiParent {
       disabled: backgrounds.disabled ?? backgrounds.normal,
     };
 
-    // Inactive backgrounds are detached during swaps, so `{children: true}` does
-    // not reach them; destroy any that the view did not already take down.
-    for (let background of new Set(Object.values(this.#backgrounds))) {
-      this.#disposables.adopt(background, (b) => {
-        if (!b.destroyed) {
-          b.destroy();
-        }
-      });
-    }
+    adoptDetachedBackgrounds(this.#disposables, Object.values(this.#backgrounds));
 
     this.view = new LayoutContainer({background: this.#backgrounds.normal});
 
     this.view.eventMode = 'static';
     this.view.cursor = 'pointer';
 
-    // The state backgrounds are swapped in and out of the view, and a freshly
-    // attached child's transform is stale until the next render, which would
-    // let hits in that window fall through the view (e.g. a click whose
-    // pointerover and pointerdown arrive in the same frame). The hit area
-    // keeps hit testing independent of the background children.
-    this.view.hitArea = new pixi.Rectangle();
-
-    this.view.on('layout', ({computedLayout}) => {
-      (this.view.hitArea as pixi.Rectangle).width = computedLayout.width;
-      (this.view.hitArea as pixi.Rectangle).height = computedLayout.height;
-    });
-
-    this.view.on('pointerover', () => {
-      if (this.#state === 'disabled' || this.#state === 'hovered') {
-        return;
-      }
-
-      this.#setState('hovered');
-    });
-
-    this.view.on('pointerout', () => {
-      if (this.#state === 'disabled' || this.#state === 'normal') {
-        return;
-      }
-
-      this.#setState('normal');
-    });
+    attachHitArea(this.view);
+    attachHoverHandlers(
+      this.view,
+      () => this.#state,
+      (state) => this.#setState(state),
+    );
 
     this.view.on('pointerdown', () => {
       if (this.#state === 'disabled' || this.#state === 'active') {
@@ -246,9 +221,6 @@ export class Button implements Focusable, UiParent {
       return;
     }
 
-    this.view.containerMethods.removeChild(previous);
-    this.view.containerMethods.addChildAt(next, 0);
-    this.view.background = next;
-    next.setSize(previous.width, previous.height);
+    swapBackground(this.view, previous, next);
   }
 }

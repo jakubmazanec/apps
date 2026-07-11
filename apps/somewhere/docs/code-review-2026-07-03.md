@@ -90,7 +90,9 @@ Findings are ranked most-severe first. CONFIRMED = demonstrable from the code; P
 
 **Fix:** index the swept range; extract a shared `sweepAxis` helper.
 
-### 11. State-background machinery copy-pasted across Button/Toggle/TextInput — CONFIRMED
+### ~~11. State-background machinery copy-pasted across Button/Toggle/TextInput — CONFIRMED~~ ✅ FIXED
+
+> **Resolved** in this commit (Option A — free functions): the four verbatim blocks are extracted as module-level helpers in `engine/ui` — `swapBackground(view, previous, next)`, `attachHitArea(view)` (which now owns the single copy of the stale-transform hit-test comment), `attachHoverHandlers(view, getState, setState)`, and `adoptDetachedBackgrounds(disposables, backgrounds)`. Toggle's drift was normalized: its destroy bookkeeping now uses the same `adopt`-style disposer as Button/TextInput and registers the per-background disposers before the `view.destroy` defer (Toggle keeps its own `flatMap` over its checked/unchecked matrix). The genuinely divergent machinery deliberately stays per-widget (YAGNI): the `previous === next` state-lookup heads (Button/TextInput index by state, Toggle reads `view.background`), `disable()`/`enable()` (cursor and `stopEditing()` differ), and Button/Toggle's `pointertap` vs TextInput's `pointerdown`/`pointerup`. No base class was introduced, keeping Button's inheritance slot free for issue 12.
 
 `source/engine/ui/Button.ts:249` — the 4-line background swap is verbatim identical in Button.ts:249–252, Toggle.ts:193–196, TextInput.ts:422–425; likewise the hitArea + `'layout'` listener blocks (Button.ts:84–89, Toggle.ts:58–63, TextInput.ts:103–108), the guarded hover handlers, and the detached-background destroy bookkeeping. Toggle.ts:92 has already drifted (`disposables.defer` vs `adopt`). Any fix to the swap or the stale-transform hit-test workaround must be applied three times; the next stateful widget must copy four interacting guards correctly.
 

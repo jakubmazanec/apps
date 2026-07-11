@@ -1,7 +1,11 @@
 import {LayoutContainer} from '@pixi/layout/components';
-import * as pixi from 'pixi.js';
+import type * as pixi from 'pixi.js';
 
+import {adoptDetachedBackgrounds} from './adoptDetachedBackgrounds.js';
+import {attachHitArea} from './attachHitArea.js';
+import {attachHoverHandlers} from './attachHoverHandlers.js';
 import {type Focusable} from './Focusable.js';
+import {swapBackground} from './swapBackground.js';
 
 export type ToggleState = 'disabled' | 'hovered' | 'normal';
 
@@ -46,6 +50,11 @@ export class Toggle implements Focusable {
       },
     };
 
+    adoptDetachedBackgrounds(
+      this.#disposables,
+      Object.values(this.#backgrounds).flatMap((state) => [state.unchecked, state.checked]),
+    );
+
     this.#isChecked = checked;
     this.view = new LayoutContainer({
       background: this.#backgrounds.normal[checked ? 'checked' : 'unchecked'],
@@ -54,29 +63,12 @@ export class Toggle implements Focusable {
     this.view.eventMode = 'static';
     this.view.cursor = 'pointer';
 
-    // The hit area keeps hit testing independent of the background children (because they're are swapped in and out of the view, and a freshly attached child's transform is stale until the next render, which would let hits fall through)
-    this.view.hitArea = new pixi.Rectangle();
-
-    this.view.on('layout', ({computedLayout}) => {
-      (this.view.hitArea as pixi.Rectangle).width = computedLayout.width;
-      (this.view.hitArea as pixi.Rectangle).height = computedLayout.height;
-    });
-
-    this.view.on('pointerover', () => {
-      if (this.#state === 'disabled' || this.#state === 'hovered') {
-        return;
-      }
-
-      this.#setState('hovered');
-    });
-
-    this.view.on('pointerout', () => {
-      if (this.#state === 'disabled' || this.#state === 'normal') {
-        return;
-      }
-
-      this.#setState('normal');
-    });
+    attachHitArea(this.view);
+    attachHoverHandlers(
+      this.view,
+      () => this.#state,
+      (state) => this.#setState(state),
+    );
 
     this.view.on('pointertap', (event) => {
       if (this.#state !== 'disabled') {
@@ -86,17 +78,6 @@ export class Toggle implements Focusable {
     });
 
     this.#disposables.defer(() => this.view.destroy({children: true}));
-
-    // Inactive backgrounds are detached during swaps, so `{children: true}` does not work; this will destroy any that the view did not already take down.
-    for (let background of new Set(
-      Object.values(this.#backgrounds).flatMap((state) => [state.unchecked, state.checked]),
-    )) {
-      this.#disposables.defer(() => {
-        if (!background.destroyed) {
-          background.destroy();
-        }
-      });
-    }
   }
 
   destroy() {
@@ -194,9 +175,6 @@ export class Toggle implements Focusable {
       return;
     }
 
-    this.view.containerMethods.removeChild(previous);
-    this.view.containerMethods.addChildAt(next, 0);
-    this.view.background = next;
-    next.setSize(previous.width, previous.height);
+    swapBackground(this.view, previous, next);
   }
 }
