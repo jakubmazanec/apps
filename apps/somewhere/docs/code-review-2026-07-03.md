@@ -114,7 +114,9 @@ Findings are ranked most-severe first. CONFIRMED = demonstrable from the code; P
 
 **Fix:** missing-animation fallback (or opt-in directional mode) in graphicsSystem; pool the popups.
 
-### 14. EntityQuery duplicates System; World keeps a parallel registry — PLAUSIBLE
+### ~~14. EntityQuery duplicates System; World keeps a parallel registry — PLAUSIBLE~~ ❌ WON'T FIX (false positive)
+
+> **Rejected** (2026-07-11) at the maintainer's discretion: the two classes have different semantics — an `EntityQuery` is a passive membership view (no lifecycle callbacks, must never fire any), a `System` is a behavior unit — so the surface-level similarity of their bookkeeping is coincidental structure, not duplication to merge. World's separate registries encode deliberate, asymmetric ordering (queries sync before systems in `addEntity`/`removeEntity`, but drain after them in `stop()` so teardown callbacks can still read queries), which the proposed `EntityQuery extends System` merge would collapse onto an untested registration-order convention.
 
 `source/engine/ecs/EntityQuery.ts:14` — EntityQuery.ts:44–88 is System.ts:109–166 minus the callbacks, and World mirrors the whole registry (`addEntityQuery`/`removeEntityQuery` at World.ts:156–204 vs `addSystem`/`removeSystem` at 106–154) with duplicate membership loops in `addEntity` (247–257), `removeEntity` (275–285), and `stop` (85–91) — ~90 duplicated lines. Merge caveat: queries currently sync before all systems, and `graphicsSystem.onAddEntity` reads `levelQuery.getFirst()` — pin query registration order or document the invariant.
 
