@@ -58,7 +58,9 @@ Findings are ranked most-severe first. CONFIRMED = demonstrable from the code; P
 
 **Fix:** one outside-tap owner at the UiRoot/Game level (which already has a global pointerdown listener for focus) tracking the single active editor; removes both the leak and the ordering coupling.
 
-### 7. `pixi.js` semver range drifts from the pinned patch — PLAUSIBLE
+### ~~7. `pixi.js` semver range drifts from the pinned patch — PLAUSIBLE~~ ✅ FIXED
+
+> **Resolved** in this commit: pinned via npm `overrides` in the root `package.json` (`"overrides": {"pixi.js": "8.16.0"}`) — the caret range `^8.15.0` in `apps/somewhere/package.json` is kept as-is, per the chosen option B. Overrides are only honored in the workspace root, and a fresh-resolve test confirmed they force exactly 8.16.0 where `^8.15.0` alone would drift to 8.19.0, so lockfile regeneration (e.g. Renovate's `rangeStrategy: "bump"`) can no longer desync the version from the patch. Upstream check: the fix is NOT in any pixi.js release up to 8.19.0 — it lives in stalled open PR pixijs/pixijs#11665 (issue #10791) — so `patches/pixi.js+8.16.0.patch` must stay and the pin guards it.
 
 `package.json:38` (apps/somewhere) — declares `"pixi.js": "^8.15.0"` while the patch is `patches/pixi.js+8.16.0.patch`; only the lockfile (8.16.0) keeps them aligned. The Dockerfile does run `npx patch-package` after `npm ci --ignore-scripts`, so today's deploy is patched — the hazard is any future `npm update`/lockfile regeneration resolving 8.16.1+: patch-package then fails the build, or on a soft mismatch silently ships an unpatched bitmap-text pipe, vertically misaligning all Button/TextInput/Text labels.
 
