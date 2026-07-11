@@ -138,13 +138,17 @@ Findings are ranked most-severe first. CONFIRMED = demonstrable from the code; P
 
 **Fix:** drop the guard on on/once/off, or throw instead of silently ignoring.
 
-### 17. Focus scopes survive removal of their subtree — PLAUSIBLE
+### ~~17. Focus scopes survive removal of their subtree — PLAUSIBLE~~ ⏭️ WON'T FIX (investigate before first use)
+
+> **Deferred** (2026-07-11): `pushFocusScope`/`popFocusScope` have zero production callers — the scope API is entirely speculative surface, so fixing its removal semantics now doesn't clear the YAGNI bar. A self-contained investigate-further comment was added in this commit above `pushFocusScope` in `UiRoot.ts`, describing the trap (detached subtrees stay `visible`, so stale scopes keep their focusables collectible and even fool `removeChild`'s revalidation) and the three candidate resolutions (drop scopes in `removeChild`, self-heal in `#collectFocusables`, or delete the API) to be decided before the first real consumer (modal dialogs).
 
 `source/engine/ui/UiRoot.ts:139` — `removeChild` revalidates `#focused` but never touches `#scopes`; `#collectFocusables` walks from `#scopes.at(-1)?.root` (366) pruning only on `view.visible` (351). Removing a scoped dialog without `popFocusScope` leaves its detached-but-visible subtree focusable: Tab cycles invisible components, Enter fires the dismissed dialog's handlers. No in-repo `pushFocusScope` caller yet; screen teardown's `clearFocus()` empties scopes.
 
 **Fix:** `removeChild` should pop/invalidate scopes rooted in the removed subtree.
 
-### 18. Destroyed-but-childed views crash the focus walk — PLAUSIBLE
+### ~~18. Destroyed-but-childed views crash the focus walk — PLAUSIBLE~~ ✅ FIXED
+
+> **Resolved** in this commit (option A — prune in the walk): `#collectFocusables` now skips `view.destroyed` nodes, so a component destroyed while still in a `children` array can no longer reach the `getBounds()` calls in the spatial-navigation math. The pixi contract was verified against the installed source: a destroyed Container keeps `visible === true` (destroy never touches `localDisplayStatus`) while `getBounds()` throws a TypeError on the nulled `_scale`. Two regression tests pin the fix (Tab skips a destroyed-but-childed component; an arrow press doesn't throw); both fail without the prune.
 
 `source/engine/ui/UiRoot.ts:343` — `#collectFocusables` prunes only on `view.visible`; empirically (installed pixi v8) a destroyed Container still reports `visible: true` while `getBounds()` throws `TypeError`. A component destroyed without `UiRoot.removeChild` first is walked and crashes in `#nearestInDirection`/`#nearestTopLeft` (376, 393, 403) on the next Tab/arrow press; the `destroyed` guard at line 236 protects only the focus-ring render path. All current call sites obey the unwritten remove-then-destroy order (mainScreen.ts:234–235, 362–363).
 

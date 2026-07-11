@@ -208,6 +208,20 @@ export class UiRoot implements UiParent {
     this.#focused.activate();
   }
 
+  // TODO: Investigate further how focus scopes should interact with removal.
+  // removeChild revalidates #focused but never touches #scopes, so removing a
+  // scoped subtree (e.g. dismissing a modal dialog) without a matching
+  // popFocusScope leaves the scope pointing at the detached subtree — and a
+  // detached-but-not-destroyed pixi container still reports visible === true,
+  // so #collectFocusables keeps walking it: Tab reaches components that are no
+  // longer on stage and activate() fires their handlers. The revalidation in
+  // removeChild is also fooled for the same reason (the stale focused
+  // component stays collectible). Nothing calls pushFocusScope in production
+  // yet, so the trap is latent; before the first real consumer (modal
+  // dialogs), decide whether removeChild should drop scopes rooted in the
+  // removed subtree, whether #collectFocusables should self-heal by validating
+  // that the top scope's root is still attached, or whether the scope API
+  // should be removed.
   pushFocusScope(component: UiChild) {
     this.#scopes.push({root: component, previousFocus: this.#focused});
     this.#focused = null;
@@ -349,6 +363,14 @@ export class UiRoot implements UiParent {
       }
 
       if (!node.view.visible) {
+        return;
+      }
+
+      // A destroyed pixi container still reports visible === true, but its
+      // getBounds() throws; without this prune a component destroyed while
+      // still in a children array would crash the spatial-navigation math on
+      // the next Tab/arrow press.
+      if (node.view.destroyed) {
         return;
       }
 

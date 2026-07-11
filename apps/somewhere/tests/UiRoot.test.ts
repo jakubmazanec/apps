@@ -615,6 +615,42 @@ describe('UiRoot', () => {
 
       expect(root.focused).toBeNull();
     });
+
+    test('Tab skips a component destroyed while still childed', () => {
+      let a = focusable();
+      let b = focusable();
+      let c = focusable();
+      let root = createRootWith(a, b, c);
+
+      // Destroyed views stay visible === true and throw from getBounds(), so
+      // without pruning the walk this would crash or focus a dead component.
+      b.view.destroy();
+
+      root.focusNext();
+
+      expect(root.focused).toBe(a);
+
+      root.focusNext();
+
+      expect(root.focused).toBe(c);
+    });
+
+    test('an arrow command does not throw when a childed component was destroyed', () => {
+      let a = focusable({x: 0, y: 0, width: 10, height: 10});
+      let b = focusable({x: 0, y: 50, width: 10, height: 10});
+      let root = createRootWith(a, b);
+
+      root.focus(a);
+      b.view.destroy();
+
+      expect(() => {
+        root.moveFocus('down');
+      }).not.toThrow();
+
+      // The destroyed component below is pruned, so there is no candidate in
+      // that direction and focus stays put.
+      expect(root.focused).toBe(a);
+    });
   });
 
   describe('focus scopes', () => {
