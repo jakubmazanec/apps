@@ -4,39 +4,20 @@ import * as pixi from 'pixi.js';
 // import {CRTFilter} from 'pixi-filters';
 import {tiledTilemapAsset} from '../../pixi-tools/tiledTilemapAsset.js';
 import {tiledTilesetAsset} from '../../pixi-tools/tiledTilesetAsset.js';
+import {type FocusCommand} from './FocusCommand.js';
+import {type GameAssetBundle} from './GameAssetBundle.js';
+import {type GameOptions} from './GameOptions.js';
 import {type GameScreen, type Renderable} from './GameScreen.js';
+import {type GameState} from './GameState.js';
 
 import '@pixi/layout';
 
-// Tiled asset loaders are Pixi-library-global plugins (like the `@pixi/layout`
-// import above), not Game-instance state, so they are registered once at module
-// load rather than per Game.init().
 pixi.extensions.add(tiledTilesetAsset);
 pixi.extensions.add(tiledTilemapAsset);
 
-export type GameAssetBundleAsset = {
-  name: string;
-  sources: string[];
-};
-
-export type GameAssetBundle = {
-  name: string;
-  assets: GameAssetBundleAsset[];
-};
-
-export type FocusCommand = 'activate' | 'down' | 'left' | 'next' | 'previous' | 'right' | 'up';
-
-// Values are KeyboardEvent.code strings; a 'Shift+' prefix is the only
-// supported modifier syntax (e.g. 'Shift+Tab').
-export type FocusKeys = Partial<Record<FocusCommand, string[]>>;
-
-export type GameOptions = {
-  assetBundles: GameAssetBundle[];
-  focusKeys?: FocusKeys;
-};
-
-type GameState = 'created' | 'destroyed' | 'initializing' | 'running' | 'transitioning';
-
+/**
+ * A process-lifetime class used as a singleton that represents
+ */
 export class Game {
   assetBundles: GameAssetBundle[];
 
@@ -54,18 +35,12 @@ export class Game {
 
   readonly #focusCommands = new Map<string, FocusCommand>();
 
-  // Game-lifetime resources (the addRef listeners), disposed once in destroy().
-  // Teardown for the current canvas attachment. addRef replaces the stack
-  // after disposing it because a DisposableStack cannot be reused.
+  /** Stack to register disposers that cleanup resources when needed. */
   #disposables = new DisposableStack();
 
-  // Lifecycle: created -> initializing -> running <-> transitioning ->
-  // destroyed; a failed init() returns to created. The intermediate states
-  // guard the async spans of init() and showScreen() against re-entry (the
-  // game is a module singleton, so a route remount can call them mid-flight).
+  /** State of the Game instance; which aprt of its lifecycle it is currently in. */
   #state: GameState = 'created';
 
-  // Shim so the guards below keep reading as a capability check.
   get #isRunning() {
     return this.#state === 'running' || this.#state === 'transitioning';
   }
@@ -92,9 +67,7 @@ export class Game {
     this.#state = 'initializing';
 
     try {
-      // Pixi-global static independent of app.init; it must be set before any
-      // texture load starts, or textures silently load linear-filtered.
-      pixi.TextureSource.defaultOptions.scaleMode = 'nearest';
+      pixi.TextureSource.defaultOptions.scaleMode = 'nearest'; // Must be set before any texture load starts
 
       // Start the asset pipeline alongside app.init so the ~20-file default
       // bundle fetch is not serialized behind WebGL context creation.
@@ -382,7 +355,6 @@ export class Game {
     }
 
     this.#disposables.dispose();
-
     this.app.canvas.remove();
 
     this.ref = null;
@@ -390,13 +362,6 @@ export class Game {
     return this;
   }
 
-  // Terminal teardown counterpart to init(). Game is a process-lifetime
-  // singleton (it is not restartable like World): 'destroyed' is a terminal
-  // state and init() never runs again afterward, so destroy() exists for
-  // correctness and test isolation — the React unmount path only detaches the
-  // canvas via removeRef(). The module-singleton screens are intentionally
-  // left intact; destroying them is not this method's job and nothing can
-  // show them again once the game is destroyed.
   destroy() {
     if (!this.#isRunning) {
       return this;
@@ -446,13 +411,13 @@ export class Game {
       return this;
     }
 
-    // Re-showing the current screen (a React remount navigating back) resumes
-    // where the player left off; mounting only re-attaches the view.
-    if (this.currentScreen === screen) {
+    // Can't show screen that hasn't been added.
+    if (!this.screens.includes(screen)) {
       return this;
     }
 
-    if (!this.screens.includes(screen)) {
+    // Re-showing the current screen is no-op.
+    if (this.currentScreen === screen) {
       return this;
     }
 
@@ -526,11 +491,6 @@ export class Game {
 
     this.removeFromView(screen);
 
-    // Hiding the current screen must clear the pointer, or showScreen's
-    // resume early-return would leave the stage permanently blank on a
-    // re-show. Conditional because the loading screen is also hidden through
-    // here but is never the current screen, and an unconditional clear would
-    // wrongly null the real current screen.
     if (this.currentScreen === screen) {
       this.currentScreen = null;
     }
