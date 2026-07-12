@@ -108,7 +108,9 @@ Doc §3: *"`Sprite.pause()`/`resume()`… applied to all entities with a `Graphi
 
 **Fix:** §3 gains three sentences: enumeration mechanism (recommend `world.entities` filtered on `GraphicsComponent` + `mapEntity`'s `LevelComponent.map`), `Map` collects animated sprites at construction, `Sprite.pause()` records `#wasPlaying`.
 
-### 8. Escape listener: the prescribed "registers in `onShow`, disposes in `onHide`" has no supported mechanism, and the handler's guards are unstated — Important
+### ~~8. Escape listener: the prescribed "registers in `onShow`, disposes in `onHide`" has no supported mechanism, and the handler's guards are unstated — Important~~ ✅ FIXED (descoped)
+
+> **Resolved** in this commit by descoping: the Escape key is removed from the design entirely — the pause menu opens only via the corner button (keyboard users reach it through the focus system; Resume holds initial focus, so Enter closes). No keydown listener, so no disposal mechanism or guards to specify. Follow-on simplification: with no Escape, nothing can reopen the modal during its fade-out (every open trigger sits under the scrim until close completes), so the reopen-during-`closing` reversal from finding 2 was removed as dead spec — `open()` strictly requires `closed` and per-open construction has no exceptions. §§1/4/5/7 updated.
 
 Doc §4: *"a `keydown` listener the game screen registers in `onShow` and disposes in `onHide`."*
 
