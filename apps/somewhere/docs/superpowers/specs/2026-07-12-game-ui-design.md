@@ -18,7 +18,7 @@ Relevant engine facts (from exploration, 2026-07-12):
 ## Design sections
 
 1. Screen flow & lifecycle — **Resolved**
-2. Main menu screen — *Pending*
+2. Main menu screen — **Resolved**
 3. Pause mechanics (engine) — *Pending*
 4. Modal/overlay primitive + pause menu UI — *Pending*
 5. Options scope — *Pending*
@@ -45,7 +45,23 @@ Relevant engine facts (from exploration, 2026-07-12):
 
 ---
 
-## 2. Main menu screen (Pending)
+## 2. Main menu screen (Resolved)
+
+A new `mainMenuScreen` (`source/game/mainMenuScreen.ts`), shown right after boot.
+
+**Menu items:** **New Game** and **Options** — nothing else in v1. New Game calls `game.showScreen(gameScreen)`. Options behavior is decided in section 5. No Quit item (browser game; there is nothing meaningful for it to do). No Continue item (runs are ephemeral, section 1).
+
+**Composition:**
+
+- Solid background — the app's existing black (`Game` init background); no world running behind the menu, no static artwork. Uses only assets that already exist.
+- A centered banner `Panel` (existing banner nine-slice), column flex layout: game title `Text` ("Somewhere", `monogram-outline`, size 48), then a vertical stack of `Button`s (New Game, Options).
+- Centering via flex layout on the screen root (`width/height: 100%`, centered), the same pattern `loadingScreen` uses — no manual positioning, so window resize is handled for free by the existing root-layout resize path.
+
+**Assets:** only the `default` bundle is declared (`assetBundles: ['default']`); the `game` bundle is needed first by the game screen, and `Game.showScreen` already shows the loading screen for any not-yet-loaded bundle when New Game is pressed.
+
+**Input:** the existing focus system covers keyboard for free (arrows/Tab to move, Enter/Space to activate); initial focus lands on New Game via the focus walk's nearest-top-left rule. Pointer clicks work via the widgets' own handlers. Focus ring configured as on the current `mainScreen`.
+
+**Strings** stay hardcoded literals (consistent with the codebase; no i18n exists).
 
 ## 3. Pause mechanics — engine (Pending)
 
