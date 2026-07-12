@@ -1,7 +1,7 @@
 # Game UI Design — Main Menu, Game Screen, Pause Overlay
 
 **Date:** 2026-07-12
-**Status:** In progress — designed section by section; sections below are marked *Resolved* or *Pending*.
+**Status:** All sections resolved — awaiting final review before implementation planning.
 
 ## Context
 
@@ -21,9 +21,9 @@ Relevant engine facts (from exploration, 2026-07-12):
 2. Main menu screen — **Resolved**
 3. Pause mechanics (engine) — **Resolved**
 4. Modal/overlay primitive + pause menu UI — **Resolved**
-5. Options scope — **Resolved**
-6. Fate of the demo showcase — *Pending*
-7. Testing — *Pending*
+5. Options — **Resolved**
+6. Fate of the demo showcase — **Resolved**
+7. Testing — **Resolved**
 
 ---
 
@@ -33,7 +33,7 @@ Relevant engine facts (from exploration, 2026-07-12):
 
 - Boot: `game.init()` → loading screen → **main menu screen** (replaces booting into `mainScreen`).
 - **New Game** → `game.showScreen(gameScreen)`. The game screen's `onShow` attaches the world and calls `world.start()` (as `mainScreen.onShow` does today).
-- **Quit to menu** (from the pause overlay) → `world.stop()` + detach from view/ticker (full teardown, as `mainScreen.onHide` does today) → `game.showScreen(mainMenuScreen)`.
+- **Quit to menu** (from the pause overlay) → `game.showScreen(mainMenuScreen)`; hiding the game screen triggers its `onHide`, which performs the full teardown — `world.stop()` + detach from view/ticker (as `mainScreen.onHide` does today). Details in section 4.
 
 **Decisions:**
 
@@ -73,7 +73,7 @@ A new `mainMenuScreen` (`source/game/mainMenuScreen.ts`), shown right after boot
 - Guards: `pause()` requires running-and-unpaused, `resume()` requires paused. `stop()` remains callable while paused (the quit-to-menu flow stops a paused world) and resets the paused flag so the next `start()` begins unpaused.
 - New `onPause` / `onResume` options (like `onStart`/`onStop`), where the game wires animation freezing.
 
-**What freezes automatically:** all 10 systems, ECS timers/tweens (`timerSystem`/`tweenSystem` just don't run), and event-channel swaps (events pushed before pause stay buffered and deliver on the first resumed frame).
+**What freezes automatically:** all registered systems (currently 10), ECS timers/tweens (`timerSystem`/`tweenSystem` just don't run), and event-channel swaps (events pushed before pause stay buffered and deliver on the first resumed frame).
 
 **What needs explicit freezing — Pixi-clock animations:** `AnimatedSprite`s play on Pixi's shared ticker regardless of world updates. Two small engine additions, both called from the game's `onPause`/`onResume` wiring in `world.ts`:
 
@@ -120,6 +120,27 @@ Options opens a **`Modal`** (the primitive's second consumer) from the main menu
 
 **Settings storage:** a new tiny module `source/game/settings.ts` holding an in-memory object `{ playerName, soundEnabled }` with defaults. **In-memory only** — values reset on reload; the module carries a comment marking localStorage persistence as the intended future upgrade.
 
-## 6. Fate of the demo showcase (Pending)
+## 6. Fate of the demo showcase (Resolved)
 
-## 7. Testing (Pending)
+The current `mainScreen` is dismantled; every showcase piece either gets a real home or is deleted:
+
+- **Title "Somewhere"** → moves to the main menu (section 2).
+- **Wall-hit counter** → survives as a small HUD `Text` in the top-left corner of the game screen (the pause button takes the top-right), subscribed to `'world:wallHit'` exactly as today. It stays the live consumer of the ECS→UI bridge (`uiBridge` system + `wallHitChannel`), so that path keeps a real user.
+- **Name `TextInput`** → becomes the player-name setting in Options (section 5).
+- **"Sound" `Toggle`** → becomes the sound setting in Options (section 5).
+- **"Enable sound" meta-toggle** (existed only to demonstrate the disabled widget state) → deleted; disabled-state coverage lives in the widget unit tests.
+- **Reminder-dialog demo** (delay input + scheduled fading dialog) → deleted; the `Modal` primitive supersedes the pattern it demonstrated.
+- **`mainScreen.ts` itself** → deleted once `mainMenuScreen` and `gameScreen` exist; `routes/_index.tsx` boots into `mainMenuScreen` instead.
+
+## 7. Testing (Resolved)
+
+Vitest unit tests following the existing patterns in `tests/`; implementation proceeds test-first (TDD):
+
+- **`World` pause/resume:** systems don't update and channels don't swap while paused; events pushed before pause deliver on the first resumed frame; `pause()`/`resume()` guards throw appropriately; `stop()` on a paused world works and resets the flag; `onPause`/`onResume` hooks fire.
+- **`UiRoot` scope invalidation:** removing or destroying a subtree containing the active focus scope drops that scope (closes the deferred `f7c928d` gap; extends the existing `pushFocusScope` tests).
+- **`Modal`:** open adds scrim + content and pushes a focus scope; close pops it and restores prior focus; reentrancy guards; owning-screen hide/destroy cleans up an open modal.
+- **`Sprite.pause()/resume()` and `Map.pauseAnimations()/resumeAnimations()`:** animations stop holding the current frame and resume from it.
+- **Screens:** lifecycle tests mirroring the existing `Game`/`GameScreen` tests — New Game switches to the game screen; Escape/pause-button pauses the world and opens the modal; Resume unpauses; Quit-to-menu tears the world down and returns to the menu.
+- **`settings`:** defaults and mutation (trivial).
+
+Visual verification (layout, scrim, focus ring, fades) is manual: run the dev app and walk the menu → game → pause → resume → quit loop.
