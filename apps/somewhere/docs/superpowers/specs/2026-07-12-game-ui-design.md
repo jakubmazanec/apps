@@ -1,7 +1,7 @@
 # Game UI Design — Main Menu, Game Screen, Pause Overlay
 
 **Date:** 2026-07-12
-**Status:** All sections resolved — awaiting final review before implementation planning.
+**Status:** Reviewed — all findings from `docs/design-review-2026-07-12-game-ui.md` resolved; ready for implementation planning.
 
 ## Context
 
@@ -60,7 +60,7 @@ A new `mainMenuScreen` (`source/game/mainMenuScreen.ts`), shown right after boot
 
 **Assets:** only the `default` bundle is declared (`assetBundles: ['default']`); the `game` bundle is needed first by the game screen, and `Game.showScreen` already shows the loading screen for any not-yet-loaded bundle when New Game is pressed.
 
-**Input:** the existing focus system covers keyboard for free (arrows/Tab to move, Enter/Space to activate); initial focus lands on New Game via the focus walk's nearest-top-left rule. Pointer clicks work via the widgets' own handlers. Focus ring configured as on the current `mainScreen`.
+**Input:** the existing focus system covers keyboard for free (arrows/Tab to move, Enter/Space to activate); nothing is focused on show — focus appears on the first focus command. Pointer clicks work via the widgets' own handlers. Focus ring configured as on the current `mainScreen`.
 
 **Strings** stay hardcoded literals (consistent with the codebase; no i18n exists).
 

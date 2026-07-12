@@ -178,7 +178,9 @@ Doc §1: *"Boot: `game.init()` → loading screen → main menu screen."* `init(
 
 Delivery requires a swap between push and pause (`World.ts:321-323`). A test that pushes then immediately pauses (no intervening `update`) sees delivery on the *second* resumed update — a red test failing for the wrong reason under the doc's own Red-Green rule. Specify: push → update → pause → resume → update.
 
-### 17. "Initial focus lands on New Game via the focus walk's nearest-top-left rule" is imprecise — Minor
+### ~~17. "Initial focus lands on New Game via the focus walk's nearest-top-left rule" is imprecise — Minor~~ ✅ FIXED
+
+> **Resolved** in this commit by deletion rather than elaboration: the mechanism claim was incorrect and irrelevant to implementation (nothing is built for menu focus). §2 now says only what matters — nothing is focused on show; focus appears on the first focus command.
 
 Nearest-top-left is the arrow-key path (`UiRoot.ts:176-179`); Tab uses DFS order (`UiRoot.ts:335-338`). Both land on New Game here, but note there is no focus at all until the first focus command — nothing is focused on show. Reword to avoid a planner adding an unneeded "set initial focus" task (contrast with the modal, which *does* set focus explicitly — finding 3).
 
@@ -187,3 +189,7 @@ Nearest-top-left is the arrow-key path (`UiRoot.ts:176-179`); Tab uses DFS order
 ## Assessment
 
 **Ready for implementation planning? With fixes.** The doc's exploration was real — its engine claims verify almost uniformly — but the `Modal` primitive is specified at the concept level, not the contract level: findings 1–3 are interlocking lifecycle gaps that a plan would inherit directly, and findings 4–6 each hide a mechanism the codebase doesn't yet have. Resolving 1–6 in the doc (a paragraph each) unblocks the plan; 7–13 are one-to-three-sentence pins; 14–17 are wording.
+
+---
+
+**Final status (2026-07-12):** all 17 findings processed — 16 fixed in the design doc, 1 rejected as won't-fix (finding 4). Along the way the design itself was simplified by maintainer decisions: the pause axiom (finding 7) deleted the `onPause`/`onResume` hooks and made animations world-driven, and dropping the Escape key (finding 8) removed the keydown listener and the reopen-during-`closing` state-machine carve-out. **The design doc is ready for implementation planning.**
