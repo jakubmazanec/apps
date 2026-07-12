@@ -142,6 +142,8 @@ The current `mainScreen` is dismantled; every showcase piece either gets a real 
 - **Reminder-dialog demo** (delay input + scheduled fading dialog) → deleted; the `Modal` primitive supersedes the pattern it demonstrated.
 - **`mainScreen.ts` itself** → deleted once `mainMenuScreen` and `gameScreen` exist; `routes/_index.tsx` boots into `mainMenuScreen` and registers all screens in one place (section 1).
 
+**`gameScreen` construction** (`source/game/gameScreen.ts`): `assetBundles: ['default', 'game']` as today's `mainScreen` (`default` for the HUD/pause-menu widgets, `game` for world assets — this is what makes New Game show the loading screen on a cold `game` bundle); the same `focusRing` object as the current `mainScreen` (required for visible keyboard navigation inside the pause modal); `events: uiEvents` (the wall-hit subscription); state `{hitCounter: Text, pauseButton: Button, openModal: Modal | null}` — the pieces `onShow`/`onHide` and the pause handlers reference.
+
 ## 7. Testing (Resolved)
 
 Vitest unit tests following the existing patterns in `tests/`. Implementation follows the **Red-Green TDD workflow**: for each behavior, first write a failing test and run it to confirm it fails for the expected reason (red), then write the minimal implementation to make it pass (green), then refactor with the test staying green. No implementation code is written before its failing test exists.

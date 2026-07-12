@@ -134,7 +134,9 @@ Doc §§1/6 say only *"`routes/_index.tsx` boots into `mainMenuScreen` instead."
 
 **Fix:** state in §1: `_index.tsx` imports and registers all three screens (`addLoadingScreen` + `addScreen` × 2), then `showScreen(mainMenuScreen)`; and either accept the cycle with a comment or break it (e.g. only `gameScreen` imports `mainMenuScreen`, and the menu's New Game resolves `gameScreen` via the registered `game.screens` / a tiny registry module).
 
-### 11. `gameScreen` constructor config is entirely unstated — Important
+### ~~11. `gameScreen` constructor config is entirely unstated — Important~~ ✅ FIXED
+
+> **Resolved** in this commit: §6 now pins the file (`source/game/gameScreen.ts`), `assetBundles: ['default', 'game']`, the `focusRing` object (same as current `mainScreen`), `events: uiEvents`, and the state shape `{hitCounter, pauseButton, openModal}`.
 
 The doc pins the menu's `assetBundles` and focus ring but for the game screen only describes behavior. The planner must invent: `assetBundles` (presumably `['default', 'game']` as today, `mainScreen.ts:25`), `focusRing` (needed for keyboard navigation in the pause modal; §2's sentence covers only the menu), `events: uiEvents` (needed for the wall-hit `subscribe`), and the state shape (`hitCounter`, `pauseButton`, `openModal`, …). Also the file path is never named (`source/game/gameScreen.ts` by convention).
 
