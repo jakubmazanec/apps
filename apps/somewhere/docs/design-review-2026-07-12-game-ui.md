@@ -172,7 +172,9 @@ Only `mainMenuScreen.ts`, `Modal.ts`, `settings.ts` get explicit paths. The game
 
 Doc §1: *"Boot: `game.init()` → loading screen → main menu screen."* `init()` already awaits `loadBundle(['default'])` (`Game.ts:84-86`) and the menu declares only `default`, so `showScreen(mainMenuScreen)` skips the loading branch (`Game.ts:435`). Loading appears only on New Game (if the background load of `game` hasn't finished). Faster boot — but the flow text should match.
 
-### 16. §7 test wording: "events pushed before pause deliver on the first resumed frame" needs sequencing — Minor
+### ~~16. §7 test wording: "events pushed before pause deliver on the first resumed frame" needs sequencing — Minor~~ ✅ FIXED
+
+> **Resolved** in this commit: §7's World bullet now pins the test sequence (push → update → pause → resume → update, asserting delivery on that update) and notes that a push with no intervening update delivers one update later.
 
 Delivery requires a swap between push and pause (`World.ts:321-323`). A test that pushes then immediately pauses (no intervening `update`) sees delivery on the *second* resumed update — a red test failing for the wrong reason under the doc's own Red-Green rule. Specify: push → update → pause → resume → update.
 
