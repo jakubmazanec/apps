@@ -19,7 +19,7 @@ Relevant engine facts (from exploration, 2026-07-12):
 
 1. Screen flow & lifecycle — **Resolved**
 2. Main menu screen — **Resolved**
-3. Pause mechanics (engine) — *Pending*
+3. Pause mechanics (engine) — **Resolved**
 4. Modal/overlay primitive + pause menu UI — *Pending*
 5. Options scope — *Pending*
 6. Fate of the demo showcase — *Pending*
@@ -63,7 +63,28 @@ A new `mainMenuScreen` (`source/game/mainMenuScreen.ts`), shown right after boot
 
 **Strings** stay hardcoded literals (consistent with the codebase; no i18n exists).
 
-## 3. Pause mechanics — engine (Pending)
+## 3. Pause mechanics — engine (Resolved)
+
+**Approach: explicit `world.pause()` / `world.resume()`** — chosen over ticker-detach (leaves pause state implicit, needs a detach-update-only mechanism) and a `timeScale` indirection (more general than v1 needs).
+
+**`World` changes (`source/engine/ecs/World.ts`):**
+
+- New `#isPaused` flag, `pause()`, `resume()`, and an `isPaused` getter. `World.update` returns early while paused: no system updates, no pending-change flush, no event-channel swaps. The world stays attached to the ticker, so its view keeps rendering the frozen frame behind the pause overlay.
+- Guards: `pause()` requires running-and-unpaused, `resume()` requires paused. `stop()` remains callable while paused (the quit-to-menu flow stops a paused world) and resets the paused flag so the next `start()` begins unpaused.
+- New `onPause` / `onResume` options (like `onStart`/`onStop`), where the game wires animation freezing.
+
+**What freezes automatically:** all 10 systems, ECS timers/tweens (`timerSystem`/`tweenSystem` just don't run), and event-channel swaps (events pushed before pause stay buffered and deliver on the first resumed frame).
+
+**What needs explicit freezing — Pixi-clock animations:** `AnimatedSprite`s play on Pixi's shared ticker regardless of world updates. Two small engine additions, both called from the game's `onPause`/`onResume` wiring in `world.ts`:
+
+- `Map.pauseAnimations()` / `resumeAnimations()` — stop/play the animated tile sprites (stop holds the current frame).
+- `Sprite.pause()` / `resume()` on the engine `Sprite` wrapper — stop/play the currently shown animation without resetting the frame. Applied to all entities with a `GraphicsComponent`.
+
+**What deliberately keeps running:** the screen-level `GameScreen.scheduler`, which drives UI animations (the pause overlay's own fade needs it). Design rule going forward: gameplay timing must live in ECS timers/tweens, never on the screen scheduler.
+
+**Input while paused:** click-to-move is blocked for free — the overlay's full-screen scrim is a UI element, and `UiRoot` already stops `pointertap` bubbling from UI to the game view, so the `playerSystem` handler never fires. Focus-key navigation keeps working (needed to operate the pause menu).
+
+**Deferred (explicitly out of v1):** auto-pause on `visibilitychange` (the documented backgrounded-tab simulation jump stays as-is), and any `timeScale` support.
 
 ## 4. Modal/overlay primitive + pause menu UI (Pending)
 
