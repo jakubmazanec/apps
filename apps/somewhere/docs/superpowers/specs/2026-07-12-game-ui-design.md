@@ -97,7 +97,9 @@ A reusable modal, the engine-review's planned "modal/dialog primitive on top of 
 - **Focus trapping:** `open()` calls `ui.pushFocusScope(content)` and sets initial focus to the modal's first focusable; `close()` calls `popFocusScope()`, which restores the previously focused widget. Tab/arrow navigation is therefore confined to the modal while open.
 - **Required bug fix:** `UiRoot.removeChild` revalidates focus but never invalidates `#scopes`, so removing a scoped subtree without popping leaves detached widgets focusable (the gap deferred in commit `f7c928d` "until its first real consumer"). As part of this work, `UiRoot` drops any focus scopes whose root lives in a removed/destroyed subtree.
 - **Animation:** optional fade-in/out driven by the screen `Scheduler` (which deliberately keeps running while the world is paused), following the existing reminder-dialog tween precedent.
-- **Lifecycle safety:** `open()`/`close()` are reentrancy-guarded (`isOpen`); the owning screen's `onHide` must close and destroy any open modal (as `mainScreen.onHide` does for `openDialogs` today).
+- **Creation lifecycle:** a `Modal` is constructed **per open** (the pattern the reminder dialogs use today), by whatever handler opens it; the owning screen's state tracks the currently open instance (`openModal: Modal | null`). Nothing modal-related is built in `onAdd`, so re-showing the screen never meets a stale or destroyed modal.
+- **`close()` vs `destroy()`:** `close()` is the user-facing path — pops the focus scope, runs the optional fade-out, and removes + destroys the views on completion. `destroy()` is the teardown path — synchronous removal + destruction, no animation, tolerant of an already-empty focus-scope stack. Both are reentrancy-guarded.
+- **Lifecycle safety:** the owning screen's `onHide` calls `destroy()` only, never the animated `close()`. Rationale: `GameScreen.hide()` runs `ui.clearFocus()` (which wipes the focus-scope stack — the scope pop inside teardown is then a benign no-op, not a bug) and the deferred `scheduler.clear()` **before** `onHide`, so a fade scheduled from `onHide` would survive the clear, freeze when the screen leaves the ticker, and resume against destroyed views on the next show.
 
 ### Pause menu (game screen)
 
@@ -106,7 +108,7 @@ A reusable modal, the engine-review's planned "modal/dialog primitive on top of 
 - **Behavior:**
   - Open: `world.pause()` then `modal.open()`.
   - **Resume** (or Escape while paused — Escape toggles): `modal.close()` then `world.resume()`.
-  - **Quit to menu:** `game.showScreen(mainMenuScreen)`; the game screen's `onHide` closes the modal and does the world teardown (`world.stop()` works on a paused world and resets the paused flag, section 3).
+  - **Quit to menu:** `game.showScreen(mainMenuScreen)`; the game screen's `onHide` destroys the modal (synchronous `destroy()`, never the animated `close()` — see Lifecycle safety above) and does the world teardown (`world.stop()` works on a paused world and resets the paused flag, section 3).
 
 ## 5. Options (Resolved)
 
