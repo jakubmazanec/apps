@@ -65,20 +65,22 @@ A new `mainMenuScreen` (`source/game/mainMenuScreen.ts`), shown right after boot
 
 ## 3. Pause mechanics — engine (Resolved)
 
+**Design axiom: pausing the world means exactly one thing — a guard in `World.update()`.** If the world is paused, `update()` doesn't propagate. Everything that animates or advances must be driven by `world.update()`, so the guard freezes it inherently. There are no pause hooks and no per-object pause APIs; anything that would need them is instead moved onto the world's update path.
+
 **Approach: explicit `world.pause()` / `world.resume()`** — chosen over ticker-detach (leaves pause state implicit, needs a detach-update-only mechanism) and a `timeScale` indirection (more general than v1 needs).
 
 **`World` changes (`source/engine/ecs/World.ts`):**
 
 - New `#isPaused` flag, `pause()`, `resume()`, and an `isPaused` getter. `World.update` returns early while paused: no system updates, no pending-change flush, no event-channel swaps. The world stays attached to the ticker, so its view keeps rendering the frozen frame behind the pause overlay.
 - Guards: `pause()` requires running-and-unpaused, `resume()` requires paused. `stop()` remains callable while paused (the quit-to-menu flow stops a paused world) and resets the paused flag so the next `start()` begins unpaused.
-- New `onPause` / `onResume` options (like `onStart`/`onStop`), where the game wires animation freezing.
 
-**What freezes automatically:** all registered systems (currently 10), ECS timers/tweens (`timerSystem`/`tweenSystem` just don't run), and event-channel swaps (events pushed before pause stay buffered and deliver on the first resumed frame).
+**What freezes — everything, by construction:** all registered systems (currently 10), ECS timers/tweens (`timerSystem`/`tweenSystem` just don't run), and event-channel swaps (events pushed before pause stay buffered and deliver on the first resumed frame).
 
-**What needs explicit freezing — Pixi-clock animations:** `AnimatedSprite`s play on Pixi's shared ticker regardless of world updates. Two small engine additions, both called from the game's `onPause`/`onResume` wiring in `world.ts`:
+**Prerequisite — animations become world-driven:** `AnimatedSprite`s currently play on Pixi's shared ticker, autonomously, outside `world.update()` — a violation of the axiom, removed as part of this work:
 
-- `Map.pauseAnimations()` / `resumeAnimations()` — stop/play the animated tile sprites (stop holds the current frame).
-- `Sprite.pause()` / `resume()` on the engine `Sprite` wrapper — stop/play the currently shown animation without resetting the frame. Applied to all entities with a `GraphicsComponent`.
+- The engine `Sprite` wrapper constructs its `AnimatedSprite`s with `autoUpdate: false`; `graphicsSystem` — which already iterates every entity it owns each frame — advances the current sprite's animation in its `onUpdate` (`sprite.view.update(ticker)`).
+- `Map` constructs its animated tile sprites with `autoUpdate: false`, collects them into an internal array at construction, and exposes an advance method (`map.update(ticker)`-style) that `mapSystem` calls each frame.
+- Consequence beyond pause: animations now advance on world time uniformly — they also hold whenever the world isn't updating at all (invisible today, since the map and player are destroyed on `world.stop()`), and this is the substrate future `timeScale` work would want anyway.
 
 **What deliberately keeps running:** the screen-level `GameScreen.scheduler`, which drives UI animations (the pause overlay's own fade needs it). Design rule going forward: gameplay timing must live in ECS timers/tweens, never on the screen scheduler.
 
@@ -146,10 +148,10 @@ Vitest unit tests following the existing patterns in `tests/`. Implementation fo
 
 Coverage:
 
-- **`World` pause/resume:** systems don't update and channels don't swap while paused; events pushed before pause deliver on the first resumed frame; `pause()`/`resume()` guards throw appropriately; `stop()` on a paused world works and resets the flag; `onPause`/`onResume` hooks fire.
+- **`World` pause/resume:** systems don't update and channels don't swap while paused; events pushed before pause deliver on the first resumed frame; `pause()`/`resume()` guards throw appropriately; `stop()` on a paused world works and resets the flag.
 - **`UiRoot` scope invalidation:** after removing or destroying a subtree containing the active focus scope, the **next focus command** prunes that scope and restores its `previousFocus` if still collectible (lazy self-heal — assertions run after a focus command, not right after the mutation; closes the deferred `f7c928d` gap; extends the existing `pushFocusScope` tests).
 - **`Modal`:** `open(ui)` adds the modal as the last UI child and pushes a focus scope (scope root = the modal); `initialFocus` is applied on open, nothing is focused when omitted; a completed close pops the scope (before `removeChild`) and restores prior focus; `resize()` sizes the root layout and redraws the scrim; the `layout` option passes through verbatim; state-machine reentrancy (`open()` no-op unless `closed`, `close()` no-op while `closing`/`closed`); toggling mid-fade cancels the running tween and replaces it with one starting from the current alpha (close during `opening`; reopen of the same instance during `closing`); `destroy()` cancels any in-flight tween from any state; owning-screen hide/destroy cleans up an open modal.
-- **`Sprite.pause()/resume()` and `Map.pauseAnimations()/resumeAnimations()`:** animations stop holding the current frame and resume from it.
+- **World-driven animations:** with `autoUpdate: false`, sprite and tile animations advance only when their owning system's update runs — frames advance across `world.update()` calls, hold when updates stop (paused world), and resume from the held frame.
 - **Screens:** no real-screen integration harness — no test today imports a real screen module (the `game`/`world` singletons do import-time pixi/asset work, and the current mocks don't cover the widget classes), and none is built for this work. Screen-level logic worth unit-testing — the Escape toggle branch, the quit-to-menu ordering — is extracted into small functions that take their collaborators (`{world, modal, …}`) and is tested with fakes, following the suite's existing unit boundary. The full menu → game → pause → resume → quit loop is covered by the manual visual pass below.
 - **`settings`:** defaults and mutation (trivial).
 

@@ -96,7 +96,9 @@ Doc §4: *"`UiRoot` drops any focus scopes whose root lives in a removed/destroy
 
 **Fix:** pick one in §4 (recommend lazy pruning from the top of `#scopes` of any scope whose root view is destroyed or unreachable from `ui.view`, restoring the last pruned scope's `previousFocus` if still collectible, plus the eager direct-child check in `removeChild`) and state the mid-stack rule.
 
-### 7. Pause wiring reach: how `onPause` enumerates sprites and reaches the `Map` — neither has the bookkeeping — Important
+### ~~7. Pause wiring reach: how `onPause` enumerates sprites and reaches the `Map` — neither has the bookkeeping — Important~~ ✅ FIXED
+
+> **Resolved** in this commit — superseded by a design axiom rather than any of the offered options: pausing the world means exactly one thing, a guard in `World.update()`; everything that advances must be driven by `world.update()`. Design doc §3 rewritten accordingly: `onPause`/`onResume` hooks, `Sprite.pause()/resume()`, and `Map.pauseAnimations()/resumeAnimations()` are all deleted from the design. Instead, `AnimatedSprite`s are constructed with `autoUpdate: false` and advanced from world systems (`graphicsSystem` for entity sprites, `mapSystem` via a `map.update(ticker)`-style method over an internal sprite array collected at construction — the one surviving piece of this finding). The enumeration question dissolves; §7's animation test bullet updated; finding 9's hook-ordering questions evaporate with the hooks.
 
 Doc §3: *"`Sprite.pause()`/`resume()`… applied to all entities with a `GraphicsComponent`"*; *"`Map.pauseAnimations()`/`resumeAnimations()` — stop/play the animated tile sprites."*
 
