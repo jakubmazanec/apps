@@ -76,7 +76,9 @@ On the game screen it's riskier: `screen.view` also contains `world.view`; nothi
 
 **Fix:** §2/§6 should state the actual mechanism. Recommend: menu — a full-size centered layout container inside `ui` holding the banner; game screen — a full-screen non-interactive layout container inside `ui` for the two HUD corners, `screen.view` left un-layouted so the world is untouched; note the @pixi/layout-vs-plain-children assumption must be verified (or fall back to manual `onResize` positioning, the reminder-dialog precedent).
 
-### 5. The "Screens" tests don't mirror existing test patterns — the promised harness doesn't exist, and Red-Green TDD needs the boundary decided first — Blocker
+### ~~5. The "Screens" tests don't mirror existing test patterns — the promised harness doesn't exist, and Red-Green TDD needs the boundary decided first — Blocker~~ ✅ FIXED
+
+> **Resolved** in this commit (Option B — unit boundary): design doc §7's Screens bullet now states no real-screen integration harness exists or will be built; screen-level logic (Escape toggle branch, quit-to-menu ordering) is extracted into small functions tested with fakes, and the full menu → game → pause → resume → quit loop stays in the manual visual pass.
 
 Doc §7: *"Screens: lifecycle tests mirroring the existing `Game`/`GameScreen` tests…"*
 
