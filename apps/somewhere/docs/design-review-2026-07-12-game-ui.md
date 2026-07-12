@@ -118,7 +118,9 @@ Doc §4: *"a `keydown` listener the game screen registers in `onShow` and dispos
 
 **Fix:** one sentence choosing (a) (recommended — no engine change) with the `HTMLInputElement` guard and no `preventDefault`, or explicitly adding `screen.defer()` to the engine work list.
 
-### 9. `World.pause()` micro-semantics — Important
+### ~~9. `World.pause()` micro-semantics — Important~~ ✅ FIXED
+
+> **Resolved** in this commit: §3 now pins the paused early-return as the first statement of `update()` (before `#isUpdating` is set), and §7's World bullet adds a test that forces it (entity add/remove + `stop()` after a paused update). The finding's hook-ordering questions became moot when finding 7's axiom deleted `onPause`/`onResume`; `stop()`-resets-flag and the `resume()` guard were already specified.
 
 Doc §3 specifies guards but not: (a) **early-return placement** — if placed after `this.#isUpdating = true` (`World.ts:292`) without resetting it, every later `addEntity`/`removeEntity` defers into `#pendingChanges` forever and `stop()` throws (`World.ts:61-63`); the return must be the first statement (the §7 test list doesn't force this distinction). (b) **Hook ordering** — do `onPause`/`onResume` fire before or after the flag flips (matters if a hook reads `world.isPaused`)? (c) **`stop()` on a paused world must not fire `onResume`** when it resets the flag — the game's `onResume` would `play()` sprites that `onStop` is about to destroy; the doc is silent. (d) Should `resume()` also require `isRunning`?
 
