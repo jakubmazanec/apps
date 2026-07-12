@@ -64,7 +64,9 @@ Doc §4 describes structure and behavior but no API. The planner must invent:
 
 **Fix:** pin the API in §4, e.g. `new Modal({ui, scheduler, content, getSize, alpha?, fadeDuration?, initialFocus?})`, `Modal implements UiChild`, methods `open()/close()/destroy()/resize()`.
 
-### 4. "Centering via flex layout on the screen root, the same pattern `loadingScreen` uses" is half-true — the pattern doesn't reach focusable widgets, and no mechanism is given for the HUD corners — Blocker
+### ~~4. "Centering via flex layout on the screen root, the same pattern `loadingScreen` uses" is half-true — the pattern doesn't reach focusable widgets, and no mechanism is given for the HUD corners — Blocker~~ ⏭️ WON'T FIX
+
+> **Won't fix** (2026-07-12): rejected at the maintainer's discretion. Menu/HUD positioning stays as written in the design doc; any wiring specifics are left to implementation time.
 
 Doc §2 (menu centering, "window resize handled for free") and §6 (*"HUD `Text` in the top-left corner… the pause button takes the top-right"*).
 
