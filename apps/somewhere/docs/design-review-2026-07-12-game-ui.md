@@ -126,7 +126,9 @@ Doc §3 specifies guards but not: (a) **early-return placement** — if placed a
 
 **Fix:** four sentences in §3: early-return first statement of `update()`; `pause()` = guard → flag → `#onPause`; `resume()` = guard (running + paused) → flag → `#onResume`; `stop()` clears `#isPaused` silently.
 
-### 10. Boot wiring: exact `_index.tsx` changes, screen registration, and the menu ↔ game import cycle — Important
+### ~~10. Boot wiring: exact `_index.tsx` changes, screen registration, and the menu ↔ game import cycle — Important~~ ✅ FIXED
+
+> **Resolved** in this commit (Option A): §1 now specifies that all three screens are registered in one place in `routes/_index.tsx` at boot (screens are static for the process lifetime; `showScreen` silently no-ops on unregistered screens), and that the menu ↔ game import cycle is accepted with an import-site comment — safe because each module reads the other's binding only inside event handlers. §6's `mainScreen.ts` bullet cross-references it.
 
 Doc §§1/6 say only *"`routes/_index.tsx` boots into `mainMenuScreen` instead."* `Game.showScreen` silently no-ops for unregistered screens (`Game.ts:414-417`), so someone must `addScreen(gameScreen)` too — where? And the described flow creates a static import cycle: `mainMenuScreen.ts` needs `gameScreen` (New Game) and `gameScreen.ts` needs `mainMenuScreen` (Quit to menu). Runtime-safe in ESM (both used lazily in handlers), but the planner shouldn't discover it mid-implementation.
 

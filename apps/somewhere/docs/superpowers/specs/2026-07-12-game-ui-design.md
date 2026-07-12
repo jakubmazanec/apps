@@ -42,6 +42,7 @@ Relevant engine facts (from exploration, 2026-07-12):
 - **The pause overlay is not a screen.** It is a modal layer inside the game screen, so no screen-stacking machinery is needed. Pausing never triggers `showScreen`.
 - **Pause is opened one way:** an **on-screen button in a corner** of the game screen. There is no Escape-key handling in v1 (dropped — it required a new screen-scoped keydown mechanism that isn't worth it); keyboard users reach the button through the focus system (Tab/arrows + Enter), and close via the Resume button, which holds initial focus.
 - **Screen split.** The current `mainScreen` is dismantled into two new screens: `mainMenuScreen` and `gameScreen`. What happens to its demo-showcase widgets is decided in section 6.
+- **All screens are registered in one place.** Screens are static for the rest of the game process, so `routes/_index.tsx` imports all three and registers them at boot — `addLoadingScreen(loadingScreen)`, `addScreen(mainMenuScreen)`, `addScreen(gameScreen)` — before `showScreen(mainMenuScreen)`. This matters because `Game.showScreen` silently no-ops on unregistered screens. The `mainMenuScreen` ↔ `gameScreen` static import cycle (New Game and Quit-to-menu handlers reference each other's screen) is accepted and documented with a comment at the import site: it is safe because each module reads the other's binding only inside event handlers, long after module evaluation.
 
 ---
 
@@ -139,7 +140,7 @@ The current `mainScreen` is dismantled; every showcase piece either gets a real 
 - **"Sound" `Toggle`** → becomes the sound setting in Options (section 5).
 - **"Enable sound" meta-toggle** (existed only to demonstrate the disabled widget state) → deleted; disabled-state coverage lives in the widget unit tests.
 - **Reminder-dialog demo** (delay input + scheduled fading dialog) → deleted; the `Modal` primitive supersedes the pattern it demonstrated.
-- **`mainScreen.ts` itself** → deleted once `mainMenuScreen` and `gameScreen` exist; `routes/_index.tsx` boots into `mainMenuScreen` instead.
+- **`mainScreen.ts` itself** → deleted once `mainMenuScreen` and `gameScreen` exist; `routes/_index.tsx` boots into `mainMenuScreen` and registers all screens in one place (section 1).
 
 ## 7. Testing (Resolved)
 
