@@ -20,7 +20,7 @@ Relevant engine facts (from exploration, 2026-07-12):
 1. Screen flow & lifecycle — **Resolved**
 2. Main menu screen — **Resolved**
 3. Pause mechanics (engine) — **Resolved**
-4. Modal/overlay primitive + pause menu UI — *Pending*
+4. Modal/overlay primitive + pause menu UI — **Resolved**
 5. Options scope — *Pending*
 6. Fate of the demo showcase — *Pending*
 7. Testing — *Pending*
@@ -86,7 +86,27 @@ A new `mainMenuScreen` (`source/game/mainMenuScreen.ts`), shown right after boot
 
 **Deferred (explicitly out of v1):** auto-pause on `visibilitychange` (the documented backgrounded-tab simulation jump stays as-is), and any `timeScale` support.
 
-## 4. Modal/overlay primitive + pause menu UI (Pending)
+## 4. Modal/overlay primitive + pause menu UI (Resolved)
+
+### Engine `Modal` primitive (`source/engine/ui/Modal.ts`)
+
+A reusable modal, the engine-review's planned "modal/dialog primitive on top of the existing focus scopes"; the pause menu is its first consumer.
+
+- **Structure:** a full-screen **scrim** (`pixi.Graphics` black rectangle, ~50% alpha — no art asset needed) plus a centered **content panel** (any `Panel`/`UiChild` supplied by the caller). Sized to the screen; re-sized via the screen's resize path.
+- **Input blocking:** the scrim is interactive, so every pointer event lands on UI; `UiRoot` already stops taps on UI from reaching the game view, which blocks click-to-move for free (section 3).
+- **Focus trapping:** `open()` calls `ui.pushFocusScope(content)` and sets initial focus to the modal's first focusable; `close()` calls `popFocusScope()`, which restores the previously focused widget. Tab/arrow navigation is therefore confined to the modal while open.
+- **Required bug fix:** `UiRoot.removeChild` revalidates focus but never invalidates `#scopes`, so removing a scoped subtree without popping leaves detached widgets focusable (the gap deferred in commit `f7c928d` "until its first real consumer"). As part of this work, `UiRoot` drops any focus scopes whose root lives in a removed/destroyed subtree.
+- **Animation:** optional fade-in/out driven by the screen `Scheduler` (which deliberately keeps running while the world is paused), following the existing reminder-dialog tween precedent.
+- **Lifecycle safety:** `open()`/`close()` are reentrancy-guarded (`isOpen`); the owning screen's `onHide` must close and destroy any open modal (as `mainScreen.onHide` does for `openDialogs` today).
+
+### Pause menu (game screen)
+
+- **Content:** banner `Panel` with a "Paused" title `Text` and two `Button`s: **Resume** and **Quit to menu**. Initial focus on Resume.
+- **Open paths:** the **Escape key** (a `keydown` listener the game screen registers in `onShow` and disposes in `onHide` — Escape is not a focus command, so it doesn't belong in `focusKeys`) and a **pause `Button` in the top-right corner** of the game screen (text label, e.g. "Pause" — no icon asset exists yet; art can replace it later). While the modal is open the corner button sits under the scrim and is unreachable.
+- **Behavior:**
+  - Open: `world.pause()` then `modal.open()`.
+  - **Resume** (or Escape while paused — Escape toggles): `modal.close()` then `world.resume()`.
+  - **Quit to menu:** `game.showScreen(mainMenuScreen)`; the game screen's `onHide` closes the modal and does the world teardown (`world.stop()` works on a paused world and resets the paused flag, section 3).
 
 ## 5. Options scope (Pending)
 
