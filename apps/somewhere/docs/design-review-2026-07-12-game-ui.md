@@ -142,7 +142,9 @@ The doc pins the menu's `assetBundles` and focus ring but for the game screen on
 
 **Fix:** one sentence in §1 or §6 enumerating the constructor options and the file name.
 
-### 12. Options modal: per-open value refresh, DOM-input host, and initial focus — Important
+### ~~12. Options modal: per-open value refresh, DOM-input host, and initial focus — Important~~ ✅ FIXED
+
+> **Resolved** in this commit: §5 now states the widgets are constructed per open with the current `settings` values (`value: settings.playerName`, `checked: settings.soundEnabled` — no re-sync code), pins `container: game.app.canvas.parentElement ?? document.body` (correctly resolved at click time under per-open construction, healing the deferred 2026-07-03 container finding), and passes no `initialFocus` (nothing focused on open; the first focus command lands via the normal walk).
 
 Doc §5. If the modal content is rebuilt per open (finding 1's recommendation), `TextInput` takes `value: settings.playerName` and `Toggle` takes `checked: settings.soundEnabled` at construction — but the doc never picked the lifecycle, so it also never says reopening must re-sync (`setValue()` / `check()`/`uncheck()` exist). The `container` element should be stated (`game.app.canvas.parentElement ?? document.body`, `mainScreen.ts:182` — note code-review-2026-07-03 finding 4 deferred the fact that this resolves to `document.body`; the menu screen inherits that deferral). Initial focus inside the Options modal is unspecified (pause menu got "initial focus on Resume"; Options got nothing).
 

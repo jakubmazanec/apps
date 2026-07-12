@@ -120,12 +120,12 @@ A reusable modal, the engine-review's planned "modal/dialog primitive on top of 
 
 ## 5. Options (Resolved)
 
-Options opens a **`Modal`** (the primitive's second consumer) from the main menu; the pause menu deliberately has no Options item (section 4).
+Options opens a **`Modal`** (the primitive's second consumer) from the main menu; the pause menu deliberately has no Options item (section 4). The content is constructed per open (section 4), so the widgets read the current `settings` values at build time — no re-sync code exists or is needed. No `initialFocus` is passed: nothing is focused on open, and the first focus command lands on a widget via the normal focus walk.
 
 **Content:** an "Options" title `Text`, then two labeled rows and a close action:
 
-- **Player name** — a `TextInput` (the existing widget; it needs its hidden-DOM-input host element, same as the demo today). Writes `settings.playerName`.
-- **Sound** — a single on/off `Toggle` writing `settings.soundEnabled`. **No-op for now**: nothing consumes the value until a sound system exists (none does today; the engine review lists audio as missing).
+- **Player name** — a `TextInput` (the existing widget) constructed with `value: settings.playerName`; its hidden-DOM-input host is `container: game.app.canvas.parentElement ?? document.body`, which under per-open construction is evaluated on the Options click — after the canvas is mounted — so it resolves correctly (healing the always-`document.body` issue deferred in the 2026-07-03 code review). Writes `settings.playerName` on change.
+- **Sound** — a single on/off `Toggle` constructed with `checked: settings.soundEnabled`, writing `settings.soundEnabled`. **No-op for now**: nothing consumes the value until a sound system exists (none does today; the engine review lists audio as missing).
 - **Close** — a `Button` that closes the modal (focus returns to the Options menu item via the focus-scope pop). Escape-to-close for modals is deferred; no Escape handling exists anywhere in v1.
 
 **Settings storage:** a new tiny module `source/game/settings.ts` holding an in-memory object `{ playerName, soundEnabled }` with defaults. **In-memory only** — values reset on reload; the module carries a comment marking localStorage persistence as the intended future upgrade.
