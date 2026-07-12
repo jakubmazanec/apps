@@ -21,7 +21,7 @@ Relevant engine facts (from exploration, 2026-07-12):
 2. Main menu screen — **Resolved**
 3. Pause mechanics (engine) — **Resolved**
 4. Modal/overlay primitive + pause menu UI — **Resolved**
-5. Options scope — *Pending*
+5. Options scope — **Resolved**
 6. Fate of the demo showcase — *Pending*
 7. Testing — *Pending*
 
@@ -108,7 +108,17 @@ A reusable modal, the engine-review's planned "modal/dialog primitive on top of 
   - **Resume** (or Escape while paused — Escape toggles): `modal.close()` then `world.resume()`.
   - **Quit to menu:** `game.showScreen(mainMenuScreen)`; the game screen's `onHide` closes the modal and does the world teardown (`world.stop()` works on a paused world and resets the paused flag, section 3).
 
-## 5. Options scope (Pending)
+## 5. Options (Resolved)
+
+Options opens a **`Modal`** (the primitive's second consumer) from the main menu; the pause menu deliberately has no Options item (section 4).
+
+**Content:** an "Options" title `Text`, then two labeled rows and a close action:
+
+- **Player name** — a `TextInput` (the existing widget; it needs its hidden-DOM-input host element, same as the demo today). Writes `settings.playerName`.
+- **Sound** — a single on/off `Toggle` writing `settings.soundEnabled`. **No-op for now**: nothing consumes the value until a sound system exists (none does today; the engine review lists audio as missing).
+- **Close** — a `Button` that closes the modal (focus returns to the Options menu item via the focus-scope pop). Escape-to-close for modals in general is deferred; Escape semantics stay a game-screen concern (pause toggle).
+
+**Settings storage:** a new tiny module `source/game/settings.ts` holding an in-memory object `{ playerName, soundEnabled }` with defaults. **In-memory only** — values reset on reload; the module carries a comment marking localStorage persistence as the intended future upgrade.
 
 ## 6. Fate of the demo showcase (Pending)
 
