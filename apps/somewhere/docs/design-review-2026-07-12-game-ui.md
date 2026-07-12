@@ -150,7 +150,9 @@ Doc §5. If the modal content is rebuilt per open (finding 1's recommendation), 
 
 **Fix:** three sentences in §5 once finding 1 is decided.
 
-### 13. `settings.ts`: default values, export shape, and whether `playerName` has any consumer — Important
+### ~~13. `settings.ts`: default values, export shape, and whether `playerName` has any consumer — Important~~ ✅ FIXED
+
+> **Resolved** in this commit: §5 now pins `export const settings = {playerName: '', soundEnabled: true};` (plain mutable object, localStorage TODO comment). Per the maintainer's direction, `playerName` gets a real consumer instead of being write-only: a new player-name HUD `Text` on the game screen (§6, top-left alongside the wall-hit counter, text set in `onShow` — always fresh since Options is menu-only and runs are ephemeral). `soundEnabled` stays a no-op; `playerPool`'s hardcoded entity name stays untouched. The §6 gameScreen state pin gained `nameLabel: Text`.
 
 Doc §5 gives the module and fields but not the **defaults** (`playerName: ''`? `soundEnabled: true`?), the export shape (mutable exported object vs getters — §7 promises "defaults and mutation" tests), or whether `settings.playerName` feeds `PlayerComponent` (currently hardcoded `'Jakub'`, `playerPool.ts:20`). Sound is explicitly "no-op for now"; playerName gets no such sentence, leaving an unplanned wiring question through `playerPool`.
 

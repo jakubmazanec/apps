@@ -128,7 +128,7 @@ Options opens a **`Modal`** (the primitive's second consumer) from the main menu
 - **Sound** — a single on/off `Toggle` constructed with `checked: settings.soundEnabled`, writing `settings.soundEnabled`. **No-op for now**: nothing consumes the value until a sound system exists (none does today; the engine review lists audio as missing).
 - **Close** — a `Button` that closes the modal (focus returns to the Options menu item via the focus-scope pop). Escape-to-close for modals is deferred; no Escape handling exists anywhere in v1.
 
-**Settings storage:** a new tiny module `source/game/settings.ts` holding an in-memory object `{ playerName, soundEnabled }` with defaults. **In-memory only** — values reset on reload; the module carries a comment marking localStorage persistence as the intended future upgrade.
+**Settings storage:** a new tiny module `source/game/settings.ts`: `export const settings = {playerName: '', soundEnabled: true};` — a plain mutable object, no getter/setter ceremony. **In-memory only** — values reset on reload; the module carries a comment marking localStorage persistence as the intended future upgrade. **Consumers:** `soundEnabled` has none (no-op until a sound system exists); `playerName` is displayed on the game screen's HUD (section 6) — read in the screen's `onShow`, which is always fresh, since Options is reachable only from the main menu and runs are ephemeral, so the name cannot change mid-run. The hardcoded entity name in `playerPool` stays untouched.
 
 ## 6. Fate of the demo showcase (Resolved)
 
@@ -137,12 +137,13 @@ The current `mainScreen` is dismantled; every showcase piece either gets a real 
 - **Title "Somewhere"** → moves to the main menu (section 2).
 - **Wall-hit counter** → survives as a small HUD `Text` in the top-left corner of the game screen (the pause button takes the top-right), subscribed to `'world:wallHit'` exactly as today. It stays the live consumer of the ECS→UI bridge (`uiBridge` system + `wallHitChannel`), so that path keeps a real user.
 - **Name `TextInput`** → becomes the player-name setting in Options (section 5).
+- **Player-name HUD label** (new) → a small `Text` in the top-left area of the game screen alongside the wall-hit counter, showing `settings.playerName`; its text is set in `onShow` (an empty name renders an empty label).
 - **"Sound" `Toggle`** → becomes the sound setting in Options (section 5).
 - **"Enable sound" meta-toggle** (existed only to demonstrate the disabled widget state) → deleted; disabled-state coverage lives in the widget unit tests.
 - **Reminder-dialog demo** (delay input + scheduled fading dialog) → deleted; the `Modal` primitive supersedes the pattern it demonstrated.
 - **`mainScreen.ts` itself** → deleted once `mainMenuScreen` and `gameScreen` exist; `routes/_index.tsx` boots into `mainMenuScreen` and registers all screens in one place (section 1).
 
-**`gameScreen` construction** (`source/game/gameScreen.ts`): `assetBundles: ['default', 'game']` as today's `mainScreen` (`default` for the HUD/pause-menu widgets, `game` for world assets — this is what makes New Game show the loading screen on a cold `game` bundle); the same `focusRing` object as the current `mainScreen` (required for visible keyboard navigation inside the pause modal); `events: uiEvents` (the wall-hit subscription); state `{hitCounter: Text, pauseButton: Button, openModal: Modal | null}` — the pieces `onShow`/`onHide` and the pause handlers reference.
+**`gameScreen` construction** (`source/game/gameScreen.ts`): `assetBundles: ['default', 'game']` as today's `mainScreen` (`default` for the HUD/pause-menu widgets, `game` for world assets — this is what makes New Game show the loading screen on a cold `game` bundle); the same `focusRing` object as the current `mainScreen` (required for visible keyboard navigation inside the pause modal); `events: uiEvents` (the wall-hit subscription); state `{hitCounter: Text, nameLabel: Text, pauseButton: Button, openModal: Modal | null}` — the pieces `onShow`/`onHide` and the pause handlers reference.
 
 ## 7. Testing (Resolved)
 
