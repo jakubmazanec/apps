@@ -86,7 +86,9 @@ Existing `Game` tests use hand-rolled **fake screens** under a fully mocked `pix
 
 **Fix:** §7 must name the seam. Options: (a) a shared `tests/mocks/pixi.ts` (+ `@pixi/layout` stub) and real screens driven through a stubbed game (keydown via `globalThis.dispatchEvent` — precedent at `tests/Game.test.ts:112-118`); or (b) test extracted handlers (pause toggle, quit) with injected fakes and keep full menu→game→pause loops in the manual visual pass. Each choice yields a different task list; the plan can't sequence TDD without it.
 
-### 6. `UiRoot` scope-invalidation fix: no containment test is specified, and none is trivially available — Blocker
+### ~~6. `UiRoot` scope-invalidation fix: no containment test is specified, and none is trivially available — Blocker~~ ✅ FIXED
+
+> **Resolved** in this commit (Option A — lazy self-heal): design doc §4 now specifies that `#collectFocusables` prunes dead scopes from the top of the stack (root view `destroyed` or detached, checked via the pixi `view.parent` chain), restoring the last-pruned scope's `previousFocus` if still collectible; dead scopes below a live top scope wait until they surface. §7's test bullet now asserts after a focus command rather than after the mutation.
 
 Doc §4: *"`UiRoot` drops any focus scopes whose root lives in a removed/destroyed subtree."*
 
