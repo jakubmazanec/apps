@@ -158,7 +158,9 @@ Doc §5 gives the module and fields but not the **defaults** (`playerName: ''`? 
 
 **Fix:** give the literal object (recommend `{playerName: '', soundEnabled: true}`) and mirror the Sound bullet: playerName is write-only in v1, `playerPool` untouched.
 
-### 14. File inventory gaps + test-file case collision — Minor
+### ~~14. File inventory gaps + test-file case collision — Minor~~ ✅ FIXED
+
+> **Resolved** in this commit: §7 pins the extracted-handler test file as `tests/pauseFlow.test.ts` (avoiding the case-only collision with `tests/GameScreen.test.ts` on macOS checkouts), and §6 requires the `mainScreen.ts` deletion and the `_index.tsx` import flip to land in the same task so the app boots at every intermediate commit. All new source files were already named by earlier findings; the full file manifest is left to the implementation plan.
 
 Only `mainMenuScreen.ts`, `Modal.ts`, `settings.ts` get explicit paths. The game screen's natural test file `tests/gameScreen.test.ts` differs from the existing engine test `tests/GameScreen.test.ts` **only by case** — a collision on case-insensitive filesystems (macOS checkouts). New test file names and the `mainScreen.ts` deletion ordering (imports in `_index.tsx` must flip in the same task to keep the app booting mid-plan) are unstated.
 
