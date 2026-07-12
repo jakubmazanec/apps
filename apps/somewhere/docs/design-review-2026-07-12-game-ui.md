@@ -166,7 +166,9 @@ Only `mainMenuScreen.ts`, `Modal.ts`, `settings.ts` get explicit paths. The game
 
 **Fix:** the plan should open with a full file manifest; pick a distinct game-screen test name.
 
-### 15. Boot flow line is wrong: the loading screen will not appear at boot — Minor
+### ~~15. Boot flow line is wrong: the loading screen will not appear at boot — Minor~~ ✅ FIXED
+
+> **Resolved** in this commit: §1's boot line now reads `game.init()` → main menu screen, noting the menu's only bundle is loaded by `init()` itself and the loading screen appears on New Game if the `game` bundle's background load hasn't finished.
 
 Doc §1: *"Boot: `game.init()` → loading screen → main menu screen."* `init()` already awaits `loadBundle(['default'])` (`Game.ts:84-86`) and the menu declares only `default`, so `showScreen(mainMenuScreen)` skips the loading branch (`Game.ts:435`). Loading appears only on New Game (if the background load of `game` hasn't finished). Faster boot — but the flow text should match.
 

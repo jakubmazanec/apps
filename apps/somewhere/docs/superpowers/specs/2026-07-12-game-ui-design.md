@@ -31,7 +31,7 @@ Relevant engine facts (from exploration, 2026-07-12):
 
 **Flow:**
 
-- Boot: `game.init()` → loading screen → **main menu screen** (replaces booting into `mainScreen`).
+- Boot: `game.init()` → **main menu screen** (replaces booting into `mainScreen`). No loading screen at boot — the menu's only bundle (`default`) is loaded by `init()` itself; the loading screen appears on New Game if the `game` bundle's background load hasn't finished.
 - **New Game** → `game.showScreen(gameScreen)`. The game screen's `onShow` attaches the world and calls `world.start()` (as `mainScreen.onShow` does today).
 - **Quit to menu** (from the pause overlay) → `game.showScreen(mainMenuScreen)`; hiding the game screen triggers its `onHide`, which performs the full teardown — `world.stop()` + detach from view/ticker (as `mainScreen.onHide` does today). Details in section 4.
 
