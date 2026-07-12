@@ -134,7 +134,9 @@ The current `mainScreen` is dismantled; every showcase piece either gets a real 
 
 ## 7. Testing (Resolved)
 
-Vitest unit tests following the existing patterns in `tests/`; implementation proceeds test-first (TDD):
+Vitest unit tests following the existing patterns in `tests/`. Implementation follows the **Red-Green TDD workflow**: for each behavior, first write a failing test and run it to confirm it fails for the expected reason (red), then write the minimal implementation to make it pass (green), then refactor with the test staying green. No implementation code is written before its failing test exists.
+
+Coverage:
 
 - **`World` pause/resume:** systems don't update and channels don't swap while paused; events pushed before pause deliver on the first resumed frame; `pause()`/`resume()` guards throw appropriately; `stop()` on a paused world works and resets the flag; `onPause`/`onResume` hooks fire.
 - **`UiRoot` scope invalidation:** removing or destroying a subtree containing the active focus scope drops that scope (closes the deferred `f7c928d` gap; extends the existing `pushFocusScope` tests).
