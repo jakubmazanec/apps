@@ -49,7 +49,9 @@ Also unstated: what the Escape handler branches on — `world.isPaused` or `moda
 
 **Fix:** pick one in the doc: (a) **no fade for the pause modal in v1** (simplest; makes `isOpen` binary and Escape spam trivially safe), or (b) a three-state modal (`closed`/`open`/`closing`) where toggling cancels the in-flight tween (`Scheduler.tween` returns a cancel handle, `Scheduler.ts:52-58`) and Escape is ignored while `closing`. State the toggle's branch condition explicitly.
 
-### 3. Modal API shape is missing: constructor, `UiChild`-ness, initial-focus mechanism, centering, resize, z-order — Blocker
+### ~~3. Modal API shape is missing: constructor, `UiChild`-ness, initial-focus mechanism, centering, resize, z-order — Blocker~~ ✅ FIXED
+
+> **Resolved** in this commit (Shape 1 — `Container`-idiom widget, after rejecting an earlier over-abstracted framing): design doc §4 now specifies `Modal implements UiParent` (flat, no inheritance) with options `{children?, layout?, scrimAlpha?, scheduler? + fadeDuration?, initialFocus?}`. Placement is entirely caller-designed via the verbatim `layout` passthrough (no centering opinion in the primitive — the "centering" question from this finding was a non-decision once placement moved to the caller). Pinned: scrim is a raw out-of-flow pixi child excluded from `children` (invisible to the focus walk); `open(ui)` takes the `UiRoot` as a parameter, adds the modal as the last UI child (above HUD, under the focus-ring overlay) and applies the explicit `initialFocus` via `ui.focus()` — the unimplementable "first focusable" language is gone; `resize(width, height)` is dumb plumbing called by the owning screen (after open + from `onResize`); scope pop happens **before** `removeChild` on close-completion/destroy. §7's Modal test bullet updated to match.
 
 Doc §4 describes structure and behavior but no API. The planner must invent:
 
