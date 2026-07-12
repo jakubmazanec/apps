@@ -37,7 +37,9 @@ Two ordering facts inside `GameScreen.hide()` (`GameScreen.ts:144-158`) make the
 
 **Fix:** one paragraph in §4 deciding: (1) creation point — recommend per-open construction (matches the precedent); (2) API split — animated `close()` (pops scope, removes+destroys on tween complete) vs synchronous `destroy()` (no tween, tolerates an empty scope stack), with `onHide` calling only `destroy()`.
 
-### 2. "Reentrancy-guarded (`isOpen`)" does not cover Escape-toggle during fades — Blocker
+### ~~2. "Reentrancy-guarded (`isOpen`)" does not cover Escape-toggle during fades — Blocker~~ ✅ FIXED
+
+> **Resolved** in this commit (Option B, with cancel-and-replace instead of tween reversal): design doc §4 now defines a `closed → opening → open → closing → closed` state machine; toggling mid-fade cancels the running tween (via the handle `Scheduler.tween()` returns) and starts a **new** tween that picks up from the current alpha (`Tween` captures from-values at construction — verified in `Tween.ts:31-35`). Reopen during `closing` reuses the closing instance (the one exception to per-open construction); the focus-scope pop moved to close-**completion** so reversal needs no re-push; the Escape handler branches on `world.isPaused`; `world.resume()` fires at close-start; `destroy()` cancels in-flight tweens from any state. §7's Modal test bullet now covers the spam cases.
 
 Doc §4: *"`open()`/`close()` are reentrancy-guarded (`isOpen`)"*; *"Escape toggles."*
 
