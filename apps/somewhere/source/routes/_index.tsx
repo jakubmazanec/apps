@@ -15,11 +15,13 @@ export default function Index() {
     let controller = new AbortController();
 
     void (async () => {
-      let [{game: importedGame}, {loadingScreen}, {mainScreen}] = await Promise.all([
-        import('../game/game.js'),
-        import('../game/loadingScreen.js'),
-        import('../game/mainScreen.js'),
-      ]);
+      let [{game: importedGame}, {loadingScreen}, {mainMenuScreen}, {gameScreen}] =
+        await Promise.all([
+          import('../game/game.js'),
+          import('../game/loadingScreen.js'),
+          import('../game/mainMenuScreen.js'),
+          import('../game/gameScreen.js'),
+        ]);
 
       if (controller.signal.aborted) {
         return;
@@ -32,11 +34,15 @@ export default function Index() {
         return;
       }
 
+      // All screens are registered in one place at boot: screens are static for
+      // the rest of the game process, and Game.showScreen silently no-ops on an
+      // unregistered screen — gameScreen must be known before New Game.
       importedGame.addLoadingScreen(loadingScreen);
-      importedGame.addScreen(mainScreen);
+      importedGame.addScreen(mainMenuScreen);
+      importedGame.addScreen(gameScreen);
       // showScreen() rejects when a bundle load fails; the game hid its
       // loading screen and stays usable, so the error is only reported here.
-      importedGame.showScreen(mainScreen).catch((error: unknown) => {
+      importedGame.showScreen(mainMenuScreen).catch((error: unknown) => {
         // eslint-disable-next-line no-console -- no error UI exists yet
         console.error(error);
       });
