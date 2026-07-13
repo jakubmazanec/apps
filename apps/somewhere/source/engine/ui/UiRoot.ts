@@ -23,6 +23,8 @@ export type UiRootOptions = {
 type FocusScope = {
   previousFocus: Focusable | null;
   root: UiChild;
+  isTopLevel: boolean;
+  hadViewParent: boolean;
 };
 
 // Spatial scoring: distance along the movement axis plus a weighted penalty
@@ -208,22 +210,20 @@ export class UiRoot implements UiParent {
     this.#focused.activate();
   }
 
-  // TODO: Investigate further how focus scopes should interact with removal.
-  // removeChild revalidates #focused but never touches #scopes, so removing a
-  // scoped subtree (e.g. dismissing a modal dialog) without a matching
-  // popFocusScope leaves the scope pointing at the detached subtree — and a
-  // detached-but-not-destroyed pixi container still reports visible === true,
-  // so #collectFocusables keeps walking it: Tab reaches components that are no
-  // longer on stage and activate() fires their handlers. The revalidation in
-  // removeChild is also fooled for the same reason (the stale focused
-  // component stays collectible). Nothing calls pushFocusScope in production
-  // yet, so the trap is latent; before the first real consumer (modal
-  // dialogs), decide whether removeChild should drop scopes rooted in the
-  // removed subtree, whether #collectFocusables should self-heal by validating
-  // that the top scope's root is still attached, or whether the scope API
-  // should be removed.
+  // Scope/removal interplay: nothing forces a matching popFocusScope before a
+  // scoped subtree is removed or destroyed. #collectFocusables lazily
+  // self-heals at the focus choke point instead — see the prune step there.
+  // Modal pops its scope properly in all designed flows; the self-heal is the
+  // safety net for out-of-band removals.
   pushFocusScope(component: UiChild) {
-    this.#scopes.push({root: component, previousFocus: this.#focused});
+    let scopeView = 'view' in component ? component.view : component;
+
+    this.#scopes.push({
+      root: component,
+      previousFocus: this.#focused,
+      isTopLevel: this.children.includes(component),
+      hadViewParent: scopeView.parent !== null,
+    });
     this.#focused = null;
   }
 
@@ -234,8 +234,13 @@ export class UiRoot implements UiParent {
       return;
     }
 
+    // Don't prune during pop; pruning happens during focus commands. This lets
+    // pruning restores focus, then the command moves from that restored focus.
+    let focusables = this.#collectFocusables(false);
+
+    // Always restore based on this scope's previousFocus
     this.#focused =
-      scope.previousFocus !== null && this.#collectFocusables().includes(scope.previousFocus) ?
+      scope.previousFocus !== null && focusables.includes(scope.previousFocus) ?
         scope.previousFocus
       : null;
   }
@@ -354,7 +359,58 @@ export class UiRoot implements UiParent {
   // Depth-first order over the component hierarchy is the Tab order. Raw Pixi
   // containers are leaves (components are only discoverable through public
   // children arrays), and subtrees whose view is hidden are pruned.
-  #collectFocusables(): Focusable[] {
+  //
+  // Before walking, dead scopes are pruned from the top of #scopes: a scope
+  // whose root view is destroyed or no longer attached under this root was
+  // removed out-of-band (direct removal, deep removal e.g. via
+  // Panel.removeChild, or a plain destroy()). Without this, the stale scope
+  // keeps detached-but-not-destroyed widgets focusable: Tab reaches components
+  // that are no longer on stage and activate() fires their handlers. Pruning
+  // mirrors popFocusScope by restoring the last-pruned scope's previousFocus
+  // when still collectible. Dead scopes below a live top scope wait until they
+  // surface; staleness between the mutation and the next focus command is
+  // unobservable (nothing reads the stack in between).
+  #collectFocusables(shouldPrune = true): Focusable[] {
+    let pruned: FocusScope | null = null;
+
+    if (shouldPrune) {
+      while (this.#scopes.length > 0) {
+        // the type assertion is ok, because we checked `this.#scopes.length`
+        let scope = this.#scopes.at(-1) as FocusScope;
+        let scopeView = 'view' in scope.root ? scope.root.view : scope.root;
+
+        if (scopeView.destroyed) {
+          this.#scopes.pop();
+          pruned = scope;
+
+          continue;
+        }
+
+        // A scope is dead if it was removed out-of-band (direct removal via
+        // root.removeChild, deep removal via parent.removeChild, or destroy()).
+        // Top-level scopes (added to root.children initially) are pruned if
+        // detached from the root's pixi hierarchy. Nested scopes are pruned if
+        // they're no longer reachable in the component hierarchy.
+        if (scope.isTopLevel && !this.#isAttached(scopeView)) {
+          // Top-level scope that's no longer attached to root: removed out-of-band
+          this.#scopes.pop();
+          pruned = scope;
+
+          continue;
+        }
+
+        if (!scope.isTopLevel && !this.#isReachable(scope.root)) {
+          // Nested scope that's no longer reachable in the component hierarchy
+          this.#scopes.pop();
+          pruned = scope;
+
+          continue;
+        }
+
+        break; // Live scope (either in root or nested, still valid)
+      }
+    }
+
     let result: Focusable[] = [];
 
     let walk = (node: UiChild) => {
@@ -387,7 +443,59 @@ export class UiRoot implements UiParent {
 
     walk(this.#scopes.at(-1)?.root ?? this);
 
+    if (pruned !== null) {
+      this.#focused =
+        pruned.previousFocus !== null && result.includes(pruned.previousFocus) ?
+          pruned.previousFocus
+        : null;
+    }
+
     return result;
+  }
+
+  // Attachment is checked via the pixi view.parent chain — component-level
+  // parent pointers don't exist.
+  #isAttached(view: pixi.Container): boolean {
+    let current: pixi.Container | null = view;
+
+    while (current !== null) {
+      if (current === this.view) {
+        return true;
+      }
+
+      current = current.parent;
+    }
+
+    return false;
+  }
+
+  // Check if a component is still reachable in the hierarchy (for nested scopes).
+  #isReachable(component: UiChild): boolean {
+    let walk = (node: UiChild): boolean => {
+      if (node === component) {
+        return true;
+      }
+
+      if (!('children' in node)) {
+        return false;
+      }
+
+      for (let child of node.children) {
+        if (walk(child)) {
+          return true;
+        }
+      }
+
+      return false;
+    };
+
+    for (let child of this.children) {
+      if (walk(child)) {
+        return true;
+      }
+    }
+
+    return false;
   }
 
   #nearestTopLeft(focusables: Focusable[]): Focusable | null {

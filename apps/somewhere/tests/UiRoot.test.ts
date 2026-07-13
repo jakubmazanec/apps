@@ -33,6 +33,8 @@ vi.mock('pixi.js', () => ({
 
       if (index !== -1) {
         this.children.splice(index, 1);
+        // eslint-disable-next-line no-param-reassign -- mock mirrors Pixi's parent linkage
+        child.parent = null;
       }
 
       return child;
@@ -117,9 +119,11 @@ type MockContainer = {
   addChild: (child: MockContainer) => MockContainer;
   captureListeners: Record<string, Array<(event: unknown) => void>>;
   children: MockContainer[];
+  destroy: () => void;
   destroyed: boolean;
   getBounds: () => {height: number; width: number; x: number; y: number};
   listeners: Record<string, Array<(event: unknown) => void>>;
+  removeChild: (child: MockContainer) => MockContainer;
 };
 
 let roots: Array<{destroy: () => void}> = [];
@@ -756,6 +760,108 @@ describe('UiRoot', () => {
       root.focusNext();
 
       expect(root.focused).toBe(a);
+    });
+  });
+
+  describe('focus scope self-heal (out-of-band removal)', () => {
+    test('removing the scoped subtree without a pop: the next focus command prunes the scope and restores previous focus', () => {
+      let a = focusable();
+      let b = focusable();
+      let modal = panel([b]);
+      let root = createRootWith(a, modal);
+
+      root.focus(a);
+      root.pushFocusScope(modal);
+      root.removeChild(modal); // dismissed without a matching popFocusScope
+
+      root.focusNext(); // assertions run after a focus command, not right after the mutation
+
+      // The dead scope was pruned (b is unreachable) and the scope's
+      // previousFocus (a) was restored; the command then moved from a and
+      // wrapped back to it as the only focusable left.
+      expect(root.focused).toBe(a);
+    });
+
+    test('destroying the scoped subtree in place is healed the same way', () => {
+      let a = focusable();
+      let b = focusable();
+      let modal = panel([b]);
+      let root = createRootWith(a, modal);
+
+      root.focus(a);
+      root.pushFocusScope(modal);
+      (modal.view as unknown as MockContainer).destroy(); // plain destroy(), no removal
+
+      root.focusNext();
+
+      expect(root.focused).toBe(a);
+    });
+
+    test('deep removal (subtree detached below the ui root) is healed the same way', () => {
+      let a = focusable();
+      let b = focusable();
+      let inner = panel([b]);
+      let outer = panel([inner]);
+      let root = createRootWith(a, outer);
+
+      root.focus(a);
+      root.pushFocusScope(inner);
+
+      // Panel.removeChild-style deep removal: inner leaves outer's children
+      // and view; UiRoot.removeChild is never involved.
+      outer.children.splice(0, 1);
+      (outer.view as unknown as MockContainer).removeChild(inner.view as unknown as MockContainer);
+
+      root.focusNext();
+
+      expect(root.focused).toBe(a);
+    });
+
+    test('a previousFocus that left with the subtree is dropped, not restored', () => {
+      let outside = focusable();
+      let a = focusable();
+      let b = focusable();
+      let modal = panel([a, b]);
+      let root = createRootWith(outside, modal);
+
+      root.focus(a); // the previously focused component sits inside the modal itself
+      root.pushFocusScope(modal);
+      root.removeChild(modal);
+
+      root.focusNext();
+
+      // previousFocus (a) is no longer collectible, so the heal cleared focus
+      // and the command started over from the first focusable.
+      expect(root.focused).toBe(outside);
+    });
+
+    test('a dead scope below a live top scope waits until it surfaces', () => {
+      let a = focusable();
+      let b = focusable();
+      let c = focusable();
+      let lower = panel([b]);
+      let top = panel([c]);
+      let root = createRootWith(a, lower, top);
+
+      root.focus(a);
+      root.pushFocusScope(lower);
+      root.pushFocusScope(top);
+      root.removeChild(lower); // the lower scope is dead; the top scope is live
+
+      root.focusNext();
+
+      expect(root.focused).toBe(c); // traversal still confined to the live top scope
+
+      root.popFocusScope(); // the dead scope surfaces (top's previousFocus was null)
+
+      expect(root.focused).toBeNull();
+
+      root.focusNext(); // the next focus command prunes it and restores a as the start point
+
+      // Restoration is observable through where the command moved FROM: with a
+      // restored (focusables are [a, c]) the command lands on c; had the heal
+      // dropped focus instead, it would have started over and landed on a.
+      expect(root.focused).toBe(c);
     });
   });
 });
