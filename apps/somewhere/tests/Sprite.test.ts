@@ -46,10 +46,8 @@ describe('Sprite', () => {
 
     expect(sprite.view.currentFrame).toBe(1);
 
-    // Nothing advances it between driven updates — it holds...
-    expect(sprite.view.currentFrame).toBe(1);
-
-    // ...and resumes from the held frame on the next driven update.
+    // Nothing advances it between driven updates; the next driven update
+    // resumes from the held frame.
     sprite.view.update(tick(7));
 
     expect(sprite.view.currentFrame).toBe(2);
