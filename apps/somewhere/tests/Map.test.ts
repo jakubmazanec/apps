@@ -16,7 +16,7 @@ function tick(deltaTime: number): pixi.Ticker {
 }
 
 // Map resolves its Tilemap (and the Tilemap its Tilesets) through Assets.get
-// and checks them with instanceof, so the stubs are real instances: a 2x1 map
+// and checks them with instanceof, so the stubs are real instances: a 1x2 map
 // whose first tile is static and second is animated.
 function stubAssets() {
   let tileset = new Tileset({
