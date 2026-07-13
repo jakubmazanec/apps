@@ -494,4 +494,208 @@ describe('World', () => {
       world.stop();
     }, 2000);
   });
+
+  describe('pause/resume (game UI design §3)', () => {
+    const TICK = {deltaTime: 1} as const as never;
+
+    test('isPaused reflects pause() and resume()', () => {
+      let world = new World();
+
+      world.start();
+
+      expect(world.isPaused).toBeFalsy();
+
+      world.pause();
+
+      expect(world.isPaused).toBeTruthy();
+
+      world.resume();
+
+      expect(world.isPaused).toBeFalsy();
+
+      world.stop();
+    });
+
+    test('update() while paused runs no systems', () => {
+      let updates = 0;
+      let world = new World();
+
+      world.addSystem(
+        new System({
+          components: [],
+          onUpdate: () => {
+            updates += 1;
+          },
+        }),
+      );
+      world.start();
+      world.update(TICK);
+
+      expect(updates).toBe(1);
+
+      world.pause();
+      world.update(TICK);
+      world.update(TICK);
+
+      expect(updates).toBe(1);
+
+      world.resume();
+      world.update(TICK);
+
+      expect(updates).toBe(2);
+
+      world.stop();
+    });
+
+    test('events pushed before pause deliver on the first resumed update', () => {
+      let seen: number[][] = [];
+      let channel = new EventChannel({event: BarEvent});
+      let world = new World();
+
+      world.addEventChannel(channel);
+      world.addSystem(
+        new System({
+          components: [],
+          onUpdate: () => {
+            seen.push(channel.events.map((event) => event.value));
+          },
+        }),
+      );
+      world.start();
+
+      channel.push(new BarEvent({value: 1}));
+      // A push with no intervening update delivers one update later: the swap
+      // at the END of this update stages the event as current.
+      world.update(TICK);
+
+      expect(seen).toEqual([[]]);
+
+      world.pause();
+      world.resume();
+      world.update(TICK);
+
+      expect(seen).toEqual([[], [1]]);
+
+      world.stop();
+    });
+
+    test('a paused update() does not swap channels, so staged events survive the pause', () => {
+      let seen: number[][] = [];
+      let channel = new EventChannel({event: BarEvent});
+      let world = new World();
+
+      world.addEventChannel(channel);
+      world.addSystem(
+        new System({
+          components: [],
+          onUpdate: () => {
+            seen.push(channel.events.map((event) => event.value));
+          },
+        }),
+      );
+      world.start();
+
+      channel.push(new BarEvent({value: 1}));
+      world.update(TICK); // stages the event
+
+      world.pause();
+      world.update(TICK); // paused: no system run, and no swap that would drop the staged event
+      world.resume();
+      world.update(TICK);
+
+      expect(seen).toEqual([[], [1]]);
+
+      world.stop();
+    });
+
+    test('pause() throws when the world is not running', () => {
+      let world = new World();
+
+      expect(() => {
+        world.pause();
+      }).toThrow('World is not running!');
+    });
+
+    test('pause() throws when already paused', () => {
+      let world = new World();
+
+      world.start();
+      world.pause();
+
+      expect(() => {
+        world.pause();
+      }).toThrow('World is already paused!');
+
+      world.stop();
+    });
+
+    test('resume() throws when not paused', () => {
+      let world = new World();
+
+      world.start();
+
+      expect(() => {
+        world.resume();
+      }).toThrow('World is not paused!');
+
+      world.stop();
+    });
+
+    test('stop() works on a paused world and the next start() begins unpaused', () => {
+      let updates = 0;
+      let world = new World({
+        onStart: (w) => {
+          w.addSystem(
+            new System({
+              components: [],
+              onUpdate: () => {
+                updates += 1;
+              },
+            }),
+          );
+        },
+      });
+
+      world.start();
+      world.pause();
+
+      expect(() => {
+        world.stop();
+      }).not.toThrow();
+
+      world.start();
+
+      expect(world.isPaused).toBeFalsy();
+
+      world.update(TICK);
+
+      expect(updates).toBe(1);
+
+      world.stop();
+    });
+
+    test('a paused update() leaves entity changes synchronous and stop() callable', () => {
+      let world = new World();
+
+      world.start();
+      world.pause();
+      // Must return before #isUpdating is set: a return after the flag would
+      // wedge the world (deferred changes forever, stop() throwing).
+      world.update(TICK);
+
+      let entity = new Entity({components: []});
+
+      world.addEntity(entity);
+
+      expect(world.entities).toContain(entity); // synchronous path, not deferred
+
+      world.removeEntity(entity);
+
+      expect(world.entities).not.toContain(entity);
+
+      expect(() => {
+        world.stop();
+      }).not.toThrow();
+    });
+  });
 });

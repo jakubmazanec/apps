@@ -17,6 +17,7 @@ export type WorldOptions = {
 export class World {
   #isUpdating = false;
   #isRunning = false;
+  #isPaused = false;
 
   readonly view: pixi.Container = new pixi.Container();
 
@@ -42,6 +43,30 @@ export class World {
 
   get isRunning(): boolean {
     return this.#isRunning;
+  }
+
+  get isPaused(): boolean {
+    return this.#isPaused;
+  }
+
+  pause() {
+    if (!this.#isRunning) {
+      throw new Error('World is not running!');
+    }
+
+    if (this.#isPaused) {
+      throw new Error('World is already paused!');
+    }
+
+    this.#isPaused = true;
+  }
+
+  resume() {
+    if (!this.#isPaused) {
+      throw new Error('World is not paused!');
+    }
+
+    this.#isPaused = false;
   }
 
   start() {
@@ -100,6 +125,9 @@ export class World {
 
     this.#pendingChanges.length = 0;
 
+    // A paused world can be stopped (the quit-to-menu flow); the next start()
+    // begins unpaused.
+    this.#isPaused = false;
     this.#isRunning = false;
   }
 
@@ -289,6 +317,16 @@ export class World {
   }
 
   update(ticker: pixi.Ticker) {
+    // Pausing the world means exactly one thing: update() doesn't propagate —
+    // no system updates, no pending-change flush, no event-channel swaps. The
+    // early return sits BEFORE #isUpdating so a paused frame leaves no updating
+    // flag behind: entity adds/removals keep their synchronous path and stop()
+    // stays callable. The world stays attached to the ticker, so its view keeps
+    // rendering the frozen frame behind the pause overlay.
+    if (this.#isPaused) {
+      return;
+    }
+
     this.#isUpdating = true;
 
     for (let system of this.systems) {
