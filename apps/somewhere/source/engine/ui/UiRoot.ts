@@ -23,8 +23,6 @@ export type UiRootOptions = {
 type FocusScope = {
   previousFocus: Focusable | null;
   root: UiChild;
-  isTopLevel: boolean;
-  hadViewParent: boolean;
 };
 
 // Spatial scoring: distance along the movement axis plus a weighted penalty
@@ -216,14 +214,7 @@ export class UiRoot implements UiParent {
   // Modal pops its scope properly in all designed flows; the self-heal is the
   // safety net for out-of-band removals.
   pushFocusScope(component: UiChild) {
-    let scopeView = 'view' in component ? component.view : component;
-
-    this.#scopes.push({
-      root: component,
-      previousFocus: this.#focused,
-      isTopLevel: this.children.includes(component),
-      hadViewParent: scopeView.parent !== null,
-    });
+    this.#scopes.push({root: component, previousFocus: this.#focused});
     this.#focused = null;
   }
 
@@ -234,13 +225,8 @@ export class UiRoot implements UiParent {
       return;
     }
 
-    // Don't prune during pop; pruning happens during focus commands. This lets
-    // pruning restores focus, then the command moves from that restored focus.
-    let focusables = this.#collectFocusables(false);
-
-    // Always restore based on this scope's previousFocus
     this.#focused =
-      scope.previousFocus !== null && focusables.includes(scope.previousFocus) ?
+      scope.previousFocus !== null && this.#collectFocusables().includes(scope.previousFocus) ?
         scope.previousFocus
       : null;
   }
@@ -370,45 +356,20 @@ export class UiRoot implements UiParent {
   // when still collectible. Dead scopes below a live top scope wait until they
   // surface; staleness between the mutation and the next focus command is
   // unobservable (nothing reads the stack in between).
-  #collectFocusables(shouldPrune = true): Focusable[] {
+  #collectFocusables(): Focusable[] {
     let pruned: FocusScope | null = null;
 
-    if (shouldPrune) {
-      while (this.#scopes.length > 0) {
-        // the type assertion is ok, because we checked `this.#scopes.length`
-        let scope = this.#scopes.at(-1) as FocusScope;
-        let scopeView = 'view' in scope.root ? scope.root.view : scope.root;
+    while (this.#scopes.length > 0) {
+      // the type assertion is ok, because we checked `this.#scopes.length`
+      let scope = this.#scopes.at(-1) as FocusScope;
+      let scopeView = 'view' in scope.root ? scope.root.view : scope.root;
 
-        if (scopeView.destroyed) {
-          this.#scopes.pop();
-          pruned = scope;
-
-          continue;
-        }
-
-        // A scope is dead if it was removed out-of-band (direct removal via
-        // root.removeChild, deep removal via parent.removeChild, or destroy()).
-        // Top-level scopes (added to root.children initially) are pruned if
-        // detached from the root's pixi hierarchy. Nested scopes are pruned if
-        // they're no longer reachable in the component hierarchy.
-        if (scope.isTopLevel && !this.#isAttached(scopeView)) {
-          // Top-level scope that's no longer attached to root: removed out-of-band
-          this.#scopes.pop();
-          pruned = scope;
-
-          continue;
-        }
-
-        if (!scope.isTopLevel && !this.#isReachable(scope.root)) {
-          // Nested scope that's no longer reachable in the component hierarchy
-          this.#scopes.pop();
-          pruned = scope;
-
-          continue;
-        }
-
-        break; // Live scope (either in root or nested, still valid)
+      if (!scopeView.destroyed && this.#isAttached(scopeView)) {
+        break;
       }
+
+      this.#scopes.pop();
+      pruned = scope;
     }
 
     let result: Focusable[] = [];
@@ -464,35 +425,6 @@ export class UiRoot implements UiParent {
       }
 
       current = current.parent;
-    }
-
-    return false;
-  }
-
-  // Check if a component is still reachable in the hierarchy (for nested scopes).
-  #isReachable(component: UiChild): boolean {
-    let walk = (node: UiChild): boolean => {
-      if (node === component) {
-        return true;
-      }
-
-      if (!('children' in node)) {
-        return false;
-      }
-
-      for (let child of node.children) {
-        if (walk(child)) {
-          return true;
-        }
-      }
-
-      return false;
-    };
-
-    for (let child of this.children) {
-      if (walk(child)) {
-        return true;
-      }
     }
 
     return false;

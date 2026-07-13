@@ -158,9 +158,16 @@ function focusable(bounds?: {height: number; width: number; x: number; y: number
   };
 }
 
-// A non-focusable container component (a Panel-like stub).
+// A non-focusable container component (a Panel-like stub). Children's views
+// are attached into the panel's view, mirroring the real Panel.
 function panel(children: UiChild[]) {
-  return {view: new Container() as unknown as pixi.Container, children};
+  let view = new Container() as unknown as MockContainer;
+
+  for (let child of children) {
+    view.addChild(('view' in child ? child.view : child) as unknown as MockContainer);
+  }
+
+  return {view: view as unknown as pixi.Container, children};
 }
 
 function createRootWith(...children: UiChild[]) {
