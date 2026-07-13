@@ -1,9 +1,12 @@
+import type * as pixi from 'pixi.js';
 import {describe, expect, test, vi} from 'vitest';
 
 import {type Component} from '../source/engine/ecs/Component.js';
 import {Entity} from '../source/engine/ecs/Entity.js';
 import {World} from '../source/engine/ecs/World.js';
 import {Vector} from '../source/engine/utilities/Vector.js';
+import {CameraComponent} from '../source/game/CameraComponent.js';
+import {cameraQuery} from '../source/game/cameraQuery.js';
 import {GraphicsComponent} from '../source/game/GraphicsComponent.js';
 import {graphicsSystem} from '../source/game/graphicsSystem.js';
 import {LevelComponent} from '../source/game/LevelComponent.js';
@@ -12,10 +15,22 @@ import {MotionComponent} from '../source/game/MotionComponent.js';
 import {type Constructor} from '../source/utilities/Constructor.js';
 
 function createSpriteStub() {
-  let view = {playing: true, play: vi.fn(), stop: vi.fn()};
+  let view = {
+    playing: true,
+    play: vi.fn(),
+    stop: vi.fn(),
+    update: vi.fn(),
+    position: {x: 0, y: 0},
+    zIndex: 0,
+  };
 
-  // eslint-disable-next-line @typescript-eslint/naming-convention -- kebab-case animation name from the spritesheet
-  return {view, sprites: {'standing-down': view}, currentSpriteName: 'standing-down'};
+  return {
+    view,
+    // eslint-disable-next-line @typescript-eslint/naming-convention -- kebab-case animation name from the spritesheet
+    sprites: {'standing-down': view},
+    currentSpriteName: 'standing-down',
+    show: vi.fn(),
+  };
 }
 
 // GraphicsComponent/LevelComponent build a real Sprite/Map from an asset name in their
@@ -56,6 +71,47 @@ describe('graphicsSystem sprite lifecycle', () => {
     world.addEntity(popup);
 
     expect(sprite.view.play).toHaveBeenCalledTimes(2); // once from start(), once from this resume
+
+    world.stop();
+  });
+
+  test('onUpdate advances the current sprite animation on the world update path', () => {
+    let sprite = createSpriteStub();
+    let map = {
+      addToLayer: vi.fn(),
+      removeFromLayer: vi.fn(),
+      topLayerIndex: 2,
+      view: {x: 0, y: 0},
+    };
+    let level = new Entity({components: [stubComponent(LevelComponent, {map})]});
+    let cameraEntity = new Entity({
+      components: [new CameraComponent({position: new Vector(0, 0)})],
+    });
+    let player = new Entity({
+      components: [
+        new MotionComponent({position: new Vector(0, 0), velocity: new Vector(0, 0)}),
+        stubComponent(GraphicsComponent, {sprite, boundingBox: {x: 0, y: 0, width: 8, height: 8}}),
+      ],
+    });
+    let world = new World({
+      onStart: (w) => {
+        w.addEntityQuery(levelQuery)
+          .addEntityQuery(cameraQuery)
+          .addSystem(graphicsSystem)
+          .addEntity(level)
+          .addEntity(cameraEntity)
+          .addEntity(player);
+      },
+    });
+
+    world.start();
+
+    let ticker = {deltaTime: 1} as unknown as pixi.Ticker;
+
+    world.update(ticker);
+
+    expect(sprite.view.update).toHaveBeenCalledTimes(1);
+    expect(sprite.view.update).toHaveBeenCalledWith(ticker);
 
     world.stop();
   });

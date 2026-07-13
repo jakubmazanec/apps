@@ -41,6 +41,11 @@ export const graphicsSystem = new System({
       sprite.view.position.x = Math.round(motion.position.x - cameraPosition.x - map.view.x);
       sprite.view.position.y = Math.round(motion.position.y - cameraPosition.y - map.view.y);
       sprite.view.zIndex = sprite.view.position.y + boundingBox.y + boundingBox.height;
+
+      // Advance the current sprite's animation on world time (sprites are
+      // constructed with autoUpdate: false); a paused world freezes it because
+      // this system simply doesn't run.
+      sprite.view.update(ticker);
     }
   },
   onAddEntity: (entity, system) => {

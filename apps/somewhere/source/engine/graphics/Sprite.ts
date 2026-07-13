@@ -31,7 +31,10 @@ export class Sprite<const N extends readonly string[] = string[]> {
         );
       }
 
-      sprites[spriteName] = new pixi.AnimatedSprite(spritesheet.animations[spriteName]);
+      // Off Pixi's shared clock: graphicsSystem advances the current sprite via
+      // view.update(ticker) on the world's update path, so a paused world
+      // freezes it by construction (game UI design §3).
+      sprites[spriteName] = new pixi.AnimatedSprite(spritesheet.animations[spriteName], false);
       sprites[spriteName].visible = false;
       sprites[spriteName].animationSpeed = 0.15;
     }
