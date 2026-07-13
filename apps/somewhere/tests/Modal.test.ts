@@ -280,7 +280,7 @@ describe('Modal', () => {
     );
     expect(root.focused).toBe(outside);
     expect(root.children).not.toContain(modal);
-    expect((modal.view as unknown as MockContainer).destroyed).toBe(true);
+    expect((modal.view as unknown as MockContainer).destroyed).toBeTruthy();
     expect(modal.state).toBe('closed');
   });
 
@@ -291,8 +291,8 @@ describe('Modal', () => {
 
     modal.open(root);
 
-    expect(modal.close()).toBe(true);
-    expect(modal.close()).toBe(false);
+    expect(modal.close()).toBeTruthy();
+    expect(modal.close()).toBeFalsy();
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
@@ -310,7 +310,7 @@ describe('Modal', () => {
     modal.destroy();
 
     expect(root.children).not.toContain(modal);
-    expect((modal.view as unknown as MockContainer).destroyed).toBe(true);
+    expect((modal.view as unknown as MockContainer).destroyed).toBeTruthy();
     expect(root.focused).toBe(outside);
     expect(modal.state).toBe('closed');
     expect(onClose).not.toHaveBeenCalled();
@@ -408,7 +408,7 @@ describe('Modal', () => {
       modal.open(root);
       scheduler.update(tick(100)); // mid fade-in, alpha 0.75
 
-      expect(modal.close()).toBe(true);
+      expect(modal.close()).toBeTruthy();
       expect(modal.state).toBe('closing');
       expect(view.alpha).toBeCloseTo(0.75); // no jump at close-start
       expect(root.children).toContain(modal); // still attached while fading out
@@ -436,8 +436,8 @@ describe('Modal', () => {
       modal.open(root);
       scheduler.update(tick(200)); // open
 
-      expect(modal.close()).toBe(true);
-      expect(modal.close()).toBe(false);
+      expect(modal.close()).toBeTruthy();
+      expect(modal.close()).toBeFalsy();
 
       scheduler.update(tick(200));
 
@@ -457,7 +457,7 @@ describe('Modal', () => {
 
       expect(modal.state).toBe('closed');
       expect(root.children).not.toContain(modal);
-      expect(view.destroyed).toBe(true);
+      expect(view.destroyed).toBeTruthy();
 
       let alphaAtDestroy = view.alpha;
 

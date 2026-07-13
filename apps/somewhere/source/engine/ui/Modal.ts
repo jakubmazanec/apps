@@ -24,7 +24,10 @@ export type ModalOptions = {
   // Both or neither — enables the open/close fade, driven by the owning
   // screen's Scheduler (which deliberately keeps running while the world is
   // paused).
-} & ({fadeDuration: number; scheduler: Scheduler} | {fadeDuration?: undefined; scheduler?: undefined});
+} & (
+  | {fadeDuration: number; scheduler: Scheduler}
+  | {fadeDuration?: undefined; scheduler?: undefined}
+);
 
 // A reusable modal: a flat widget in the existing Container/Panel idiom (public
 // `children` + `view`, no inheritance). Constructed per open by whatever
@@ -64,7 +67,7 @@ export class Modal implements UiParent {
       this.#onClose = onClose;
     }
 
-    if (scheduler !== undefined && fadeDuration !== undefined) {
+    if (scheduler !== undefined) {
       this.#scheduler = scheduler;
       this.#fadeDuration = fadeDuration;
     }
