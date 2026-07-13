@@ -18,9 +18,10 @@ import {BANNER_SLICE, createButton, FOCUS_RING, INPUT_SLICE, nineSlice} from './
 
 // Each Toggle owns and destroys its background sprites, so build a fresh set
 // per toggle rather than sharing instances.
-let toggleSprite = (name: string) => new pixi.Sprite(pixi.Assets.get(name));
-
 function toggleBackgrounds() {
+  // eslint-disable-next-line unicorn/consistent-function-scoping -- single-use builder kept local to the only function that needs it
+  let toggleSprite = (name: string) => new pixi.Sprite(pixi.Assets.get(name));
+
   return {
     unchecked: toggleSprite('toggle-unchecked'),
     checked: toggleSprite('toggle-checked'),
