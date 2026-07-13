@@ -6,11 +6,16 @@ import {LevelComponent} from './LevelComponent.js';
 export const mapSystem = new System({
   displayName: 'Map system',
   components: [LevelComponent],
-  onUpdate: (delta, system) => {
+  onUpdate: (ticker, system) => {
     let {position: cameraPosition} = cameraQuery.getFirst().getComponent(CameraComponent);
 
     for (let entity of system.entities) {
       let {map} = entity.getComponent(LevelComponent);
+
+      // Advance animated tiles on world time (they are constructed with
+      // autoUpdate: false); a paused world freezes them because this system
+      // simply doesn't run.
+      map.update(ticker);
 
       map.view.position.x = map.position.x - cameraPosition.x;
       map.view.position.y = map.position.y - cameraPosition.y;

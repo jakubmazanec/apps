@@ -25,6 +25,8 @@ export class Map {
 
   readonly layers: MapLayer[];
 
+  readonly #animatedSprites: pixi.AnimatedSprite[] = [];
+
   readonly columnCount: number;
   readonly rowCount: number;
 
@@ -54,12 +56,16 @@ export class Map {
           if (tilesetTile.textures.length <= 1) {
             tile.view.addChild(new pixi.Sprite(tilesetTile.textures[0]));
           } else {
-            let animatedSprite = new pixi.AnimatedSprite(tilesetTile.textures);
+            // Off Pixi's shared clock: mapSystem drives these via map.update()
+            // on the world's update path, so a paused world freezes them by
+            // construction (game UI design §3).
+            let animatedSprite = new pixi.AnimatedSprite(tilesetTile.textures, false);
 
             animatedSprite.animationSpeed = 0.15;
 
             animatedSprite.play();
 
+            this.#animatedSprites.push(animatedSprite);
             tile.view.addChild(animatedSprite);
           }
 
@@ -106,5 +112,12 @@ export class Map {
 
   removeFromLayer(view: pixi.Container, layerIndex = 1) {
     this.layers[layerIndex]?.view.removeChild(view);
+  }
+
+  /** Advance the animated tile sprites on world time; `mapSystem` calls this once per frame. */
+  update(ticker: pixi.Ticker) {
+    for (let sprite of this.#animatedSprites) {
+      sprite.update(ticker);
+    }
   }
 }
