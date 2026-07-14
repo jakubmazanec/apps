@@ -39,7 +39,12 @@ export class Timer {
     }
 
     if (this.#repeat) {
-      this.#elapsed -= this.#duration;
+      // Drain the whole surplus, not one period: under sustained sub-period
+      // frames `-=` banks time without bound, then fires every frame until
+      // the surplus drains once the frame rate recovers. `%=` keeps the
+      // residual below one period — effective cadence max(period, frame
+      // time), phase realigned after a hitch.
+      this.#elapsed %= this.#duration;
     } else {
       this.#finished = true;
     }

@@ -26,7 +26,25 @@ describe('Timer', () => {
   test('fires at most once per update even across several periods', () => {
     let timer = new Timer({duration: 100, repeat: true});
 
-    expect(timer.update(tick(350))).toBeTruthy(); // single fire, surplus carried
+    expect(timer.update(tick(350))).toBeTruthy(); // single fire; residual is 350 % 100 = 50, not 250 banked
+  });
+
+  test('sustained sub-period frames keep a bounded residual — no burst after the frame rate recovers', () => {
+    let timer = new Timer({duration: 10, repeat: true});
+
+    // 100 slow frames (35ms > the 10ms period): fires exactly once per frame,
+    // and the surplus past one period is discarded instead of banked.
+    for (let i = 0; i < 100; i++) {
+      expect(timer.update(tick(35))).toBeTruthy();
+    }
+
+    // Frame rate recovers: with `-=` the ~2,500ms banked surplus would fire
+    // every 1ms frame for seconds; drained, the next fire needs a full period.
+    for (let i = 0; i < 9; i++) {
+      expect(timer.update(tick(1))).toBeFalsy();
+    }
+
+    expect(timer.update(tick(1))).toBeTruthy();
   });
 
   test('repeats getter reflects the option', () => {
