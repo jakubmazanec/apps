@@ -102,6 +102,16 @@ export class Game {
           this.view.layout = {width: this.app.screen.width, height: this.app.screen.height};
           this.view.eventMode = 'static';
           this.view.hitArea = new pixi.Rectangle();
+
+          // Engine contract: one frame advances world time by at most 100 ms
+          // (maxElapsedMS = 1000 / minFPS), no matter how long the tab sat
+          // backgrounded (rAF stops firing there) or how badly a frame
+          // hitched. Pixi's Ticker defaults to minFPS = 10 already — pinned
+          // explicitly so a ticker config change can't silently remove the
+          // clamp. Timers fire at most once per update and tweens snap to
+          // their end values, so a single 100 ms step is benign. (T1.9 moves
+          // this into a world-level time object when timeScale lands.)
+          this.app.ticker.minFPS = 10;
         });
 
       await Promise.all([appReady, assetsReady]);

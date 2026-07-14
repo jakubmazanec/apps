@@ -559,3 +559,26 @@ describe('Game init pipeline overlap', () => {
     expect(scaleModeAtLoad).toBe('nearest');
   });
 });
+
+describe('Game ticker configuration', () => {
+  afterEach(() => {
+    for (let cleanup of cleanups) {
+      cleanup();
+    }
+
+    cleanups = [];
+    vi.restoreAllMocks();
+  });
+
+  test('init pins the ticker clamp: minFPS = 10 caps one frame step at 100 ms', async () => {
+    let game = new Game({assetBundles: []});
+
+    cleanups.push(() => {
+      game.destroy();
+    });
+
+    await game.init();
+
+    expect(game.app.ticker.minFPS).toBe(10);
+  });
+});
