@@ -74,9 +74,13 @@ silently broken.
    ✅ **Decided** — Option A (loud failures: DEV-throw/prod-warn on all unsupported inputs
    incl. flip bits; flip rendering stays T1.7, durations stay T1.3), see
    [engine-fixes-design-2026-07-14.md](engine-fixes-design-2026-07-14.md).
-4. **Still open from `code-review-2026-07-03.md`**: full-grid collision scans per entity per
+4. ~~**Still open from `code-review-2026-07-03.md`**: full-grid collision scans per entity per
    frame (deferred with a TODO in `motionSystem.ts`; fix tracked in T3.23) and the `TextInput`
-   always-`document.body` container (won't fix/deferred).
+   always-`document.body` container (won't fix/deferred).~~
+   ✅ **Decided** — Option A: both deferrals re-affirmed. Collision scan stays with T3.23 (the
+   `motionSystem.ts` TODO is the spec); the TextInput premise is stale since the screen split
+   (container now resolves correctly; won't-fix stands). See
+   [engine-fixes-design-2026-07-14.md](engine-fixes-design-2026-07-14.md).
 5. **Engine correctness details**: repeating `Timer` drifts and can't catch up when period <
    frame time; event channels pushed to but never registered on the world grow unbounded;
    `Tween` snapshots `from` at construction (stale-origin footgun); deferred double-add of an

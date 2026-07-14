@@ -174,3 +174,54 @@ Scope notes:
   with T1.7 (which relaxes the flip-bit check to actual support).
 - The messages should say what to change in the Tiled export settings (e.g. "re-export with
   CSV tile layer format", "use an external tileset").
+
+---
+
+## 4. Carried-over code-review items: collision scan + TextInput container
+
+### Findings
+
+This item is a tracking pointer to two items `code-review-2026-07-03.md` already adjudicated
+(collision scan: deferred 2026-07-11; TextInput: won't-fix 2026-07-05), not a new defect.
+
+- **Collision scan**: confirmed as described — both axis passes in `motionSystem.ts` iterate
+  the full 40×40 grid per moving entity per frame (~3,200 index+guard iterations), though
+  only the player moves and ~8 tiles carry collision boxes. Microseconds per frame;
+  invisible to a profiler at demo scale. The TODO at `motionSystem.ts:45-59` is a complete
+  implementation spec: bounded swept column/row window over the existing `[column][row]`
+  index, shared `sweepAxis` helper extraction, and the four behavioral constraints to
+  preserve (X before Y; strict overlap for flush wall-sliding; `contactTile` first-hit
+  column-major order; boundingBox-larger-than-cell caveat).
+- **TextInput container — the review's premise is stale.** The old claim ("the container is
+  *always* `document.body`" because construction happened in `onAdd`, before canvas mount)
+  no longer holds: since the `mainScreen` → `mainMenuScreen`/`gameScreen` split, the only
+  TextInput is built in `openOptionsModal` on the Options *click*, after mount, so
+  `game.app.canvas.parentElement` resolves to the real container (`mainMenuScreen.ts:62`);
+  `?? document.body` is a never-taken fallback. What remains is latent only: `TextInput`
+  captures its container once at construction (`TextInput.ts:75`) and reads its
+  `getBoundingClientRect()` in `startEditing` — mis-positioning would occur only if the
+  canvas ever sat inside an offset/scrolled wrapper, which the app has no path to today
+  (single full-viewport canvas at (0,0)).
+
+### Options considered
+
+- **A — re-affirm both deferrals, correct the record.** Pro: both items have owners and
+  written rationale; neither is user-visible; overriding a fresh won't-fix without new
+  evidence is churn. Con: the wasteful loop and 40-line copy-paste live on until Tier 3.
+- **B — fix the collision scan now** (the TODO is a ready spec; wall-hit tests exist as the
+  safety net; it is T3.23's tile half). Con: contradicts the still-valid "motion will be
+  reworked" deferral — movement code gets touched heavily when T1.1 input replaces
+  click-to-move anyway.
+- **C — fix both** (also make `container` a thunk resolved at `startEditing`). Con: hardens
+  a path the app cannot reach, against an explicit maintainer won't-fix.
+
+### Decision
+
+**Option A.** No code changes.
+
+- The collision fix remains deferred to T3.23; the in-code TODO at `motionSystem.ts:45-59`
+  is its authoritative spec.
+- The TextInput won't-fix is re-affirmed with the premise correction above. Revisit
+  condition: the canvas gets embedded in an offset/scrolled page layout (then resolve the
+  container lazily at `startEditing`, e.g. a `() => HTMLElement` option) — natural home is
+  the T2.13 widget work if it ever comes up.
