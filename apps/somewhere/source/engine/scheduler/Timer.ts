@@ -12,8 +12,9 @@ export class Timer {
   #finished = false;
 
   constructor({duration, repeat = false}: TimerOptions) {
-    // Guard `duration <= 0`: a non-positive period fires every frame (a `repeat` timer would
-    // `#elapsed -= 0` and re-arm instantly), so reject it as a programmer error at construction.
+    // Guard `duration <= 0`: a non-positive period fires every frame (a `repeat` timer's
+    // `#elapsed %= 0` yields NaN, and `NaN < duration` is false, so every update fires), so
+    // reject it as a programmer error at construction.
     if (duration <= 0) {
       throw new RangeError('Timer duration must be > 0');
     }

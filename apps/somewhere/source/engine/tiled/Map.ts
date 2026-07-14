@@ -102,9 +102,12 @@ export class Map {
     // below, overhead "air" above). The `false` writes are not redundant —
     // Pixi's addChild auto-flips sortableChildren on any container receiving
     // a child with nonzero zIndex (Container.addChild re-triggers
-    // depthOfChildModified), so every layer with a row >= 1 tile arrives here
-    // already flipped true. T1.6 later replaces the mechanism with a
-    // dedicated y-sorted RenderLayer without changing the sort key; T2.16
+    // depthOfChildModified), so any layer with a nonzero-zIndex tile (row >= 1,
+    // or row 0 with a collision box) arrives here already flipped true. The
+    // reset holds only while a layer's children keep their zIndex: once
+    // graphicsSystem writes an overlay sprite's zIndex (e.g. a wall-hit popup
+    // in the top layer), Pixi re-flips that layer's flag and it sorts again.
+    // T1.6's dedicated y-sorted RenderLayer is the durable fix; T2.16
     // addresses the per-frame sort cost over all layer-1 tiles.
     for (let [index, layer] of layers.entries()) {
       layer.view.sortableChildren = index === 1;
