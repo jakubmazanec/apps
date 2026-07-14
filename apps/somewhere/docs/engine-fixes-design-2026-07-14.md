@@ -114,3 +114,63 @@ Scope notes:
   a correctness clamp.
 - The review's Tier 0 bullet "Clamp `deltaMS` at the engine level" is re-scoped by this
   decision to "pin the Pixi ticker clamp"; annotated in the review doc.
+
+---
+
+## 3. Tiled footguns: silent drops, stripped flip flags, ignored durations
+
+### Findings
+
+- The drop site is `Tilemap.from` (`Tilemap.ts:47-68`): only **finite, CSV-encoded tile
+  layers with external tilesets** survive. Infinite maps (tiles live in `chunks`, never
+  read), base64/compressed layers (`data` is a string), embedded tilesets, and
+  object/image/group layers are validated by the zod schemas, then silently skipped — no
+  warn, no throw. A schema *parse* failure does reject `loadBundle` (callers `console.error`
+  it), but a silent drop produces no rejection at all.
+- **Flip flags**: `getGid()` masks all four flag bits off at `Tilemap.ts:62`; the flags are
+  discarded, not stashed. Decoder helpers (`getHorizontalFlip.ts` etc.) and a
+  `TileGidWithFlags` type already exist as dead code — flag handling was intended, never
+  wired up.
+- **Frame durations**: the schema parses per-frame `duration`, but `Tileset.from` discards it
+  at `Tileset.ts:57-61` (keeps only frame-name strings); `animationSpeed = 0.15` is
+  hardcoded at `Map.ts:64` and `Sprite.ts:39`. A real fix means `Texture[]` →
+  `FrameObject[]` (`{texture, time}`) — T1.3 (animation component) territory.
+- DEV-invariant precedent: `ObjectPool.destroy` — `if (import.meta.env.DEV && bad) throw` —
+  the only DEV guard in `source/`; no shared `invariant()` helper.
+- The demo map exercises none of these paths (finite, CSV, external tileset, no flipped
+  GIDs, no animations). `Tilemap.from`/`Tileset.from` have **no direct tests**.
+
+### Options considered
+
+- **A — loud failures only**: DEV-throw/prod-warn on every unsupported input, including flip
+  bits; defer flip *rendering* to T1.7 and durations to T1.3. Pro: the designed Tier-0
+  scope; converts all three footguns from silent to loud or explicitly deferred. Con: flips
+  and durations remain unimplemented until their features.
+- **B — loud failures + implement flips now**: also store flags and apply mirror/rotation in
+  `Map`. Pro: fixes real wrongness. Con: the apply half is fiddly (center-anchor mirroring,
+  diagonal = rotate+mirror), T1.7 owns it, and no shipped asset exercises it.
+- **C — fix all three now**: also `FrameObject[]` durations. Con: front-runs T1.3's
+  animation-component design and breaks the 0.15-keyed `Map`/`Sprite` tests as collateral.
+
+### Decision
+
+**Option A.** In `Tilemap.from`, detect and fail loud on every unsupported input, matching
+the `ObjectPool.destroy` precedent (throw in DEV, `console.warn` in production — a warn
+alone gets missed and reproduces the empty-layer bug):
+
+- `infinite: true` maps;
+- string layer `data` (base64 and/or compressed encodings);
+- embedded (unsourced) tilesets;
+- `objectgroup`, `imagelayer`, and `group` layers;
+- any layer GID carrying flip/rotation bits (so "mirrored tiles render un-mirrored" becomes
+  loud in DEV instead of silent until T1.7 implements rendering them).
+
+Scope notes:
+
+- Add the missing `Tilemap.from`/`Tileset.from` unit tests, covering each unsupported input
+  (DEV throw) alongside the happy path.
+- Ignored frame durations stay silent by choice: an animation still plays, just at a fixed
+  tempo — degraded, not broken; T1.3 implements durations properly. Flip rendering lands
+  with T1.7 (which relaxes the flip-bit check to actual support).
+- The messages should say what to change in the Tiled export settings (e.g. "re-export with
+  CSV tile layer format", "use an external tileset").

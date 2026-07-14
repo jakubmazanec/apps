@@ -66,11 +66,14 @@ silently broken.
    default (`minFPS = 10`), so the worst case is a 100 ms step. Option A (pin the clamp
    explicitly in `Game.init` + test); `timeScale`/`visibilitychange` remain T1.9. See
    [engine-fixes-design-2026-07-14.md](engine-fixes-design-2026-07-14.md).
-3. **Tiled footguns**: infinite maps, base64/compressed layers, embedded tilesets, and object
+3. ~~**Tiled footguns**: infinite maps, base64/compressed layers, embedded tilesets, and object
    layers are all *validated* by the schemas but silently dropped at runtime
    (`Tilemap.ts:49-67`) — an exported map can produce empty layers with no error. Tile flip
    flags are stripped and never re-applied, so mirrored tiles render un-mirrored. Tiled frame
-   durations are ignored (fixed `animationSpeed = 0.15` everywhere).
+   durations are ignored (fixed `animationSpeed = 0.15` everywhere).~~
+   ✅ **Decided** — Option A (loud failures: DEV-throw/prod-warn on all unsupported inputs
+   incl. flip bits; flip rendering stays T1.7, durations stay T1.3), see
+   [engine-fixes-design-2026-07-14.md](engine-fixes-design-2026-07-14.md).
 4. **Still open from `code-review-2026-07-03.md`**: full-grid collision scans per entity per
    frame (deferred with a TODO in `motionSystem.ts`; fix tracked in T3.23) and the `TextInput`
    always-`document.body` container (won't fix/deferred).
