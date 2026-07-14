@@ -12,11 +12,15 @@ let entity = new Entity({components: []});
 
 function withBridge(run: (world: World) => void) {
   let world = new World();
+
+  world.addEventChannel(wallHitChannel);
   world.addSystem(uiBridge);
+
   try {
     run(world);
   } finally {
     world.removeSystem(uiBridge);
+    world.removeEventChannel(wallHitChannel);
   }
 }
 
@@ -34,10 +38,9 @@ describe('uiBridge', () => {
       received.push(payload);
     });
 
-    wallHitChannel.push(new WallHit({entity, tile}));
-    wallHitChannel.swap();
-
     withBridge((world) => {
+      wallHitChannel.push(new WallHit({entity, tile}));
+      wallHitChannel.swap();
       world.update({deltaTime: 1} as never);
     });
 
@@ -54,11 +57,10 @@ describe('uiBridge', () => {
       received.push(payload);
     });
 
-    wallHitChannel.push(new WallHit({entity, tile: tileA}));
-    wallHitChannel.push(new WallHit({entity, tile: tileB}));
-    wallHitChannel.swap();
-
     withBridge((world) => {
+      wallHitChannel.push(new WallHit({entity, tile: tileA}));
+      wallHitChannel.push(new WallHit({entity, tile: tileB}));
+      wallHitChannel.swap();
       world.update({deltaTime: 1} as never);
     });
 

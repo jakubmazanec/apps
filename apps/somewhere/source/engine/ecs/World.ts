@@ -241,6 +241,7 @@ export class World {
     }
 
     this.eventChannels.push(channel as unknown as EventChannel);
+    (channel as unknown as EventChannel).setRegistered(true);
 
     return this;
   }
@@ -257,6 +258,7 @@ export class World {
     }
 
     (channel as unknown as EventChannel).clear();
+    (channel as unknown as EventChannel).setRegistered(false);
     this.eventChannels.splice(index, 1);
 
     return this;

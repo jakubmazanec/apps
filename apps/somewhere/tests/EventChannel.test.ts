@@ -11,6 +11,7 @@ describe('EventChannel', () => {
   // (a) swap latency: a pushed event is invisible via `events` until one swap()
   test('pushed event is invisible until swap, then visible the frame after', () => {
     let channel = new EventChannel({event: FooEvent, displayName: 'Foo'});
+    channel.setRegistered(true); // driven by hand below; a real world sets this in addEventChannel
     let ev = new FooEvent({value: 42});
 
     channel.push(ev);
@@ -26,6 +27,7 @@ describe('EventChannel', () => {
   // (b) FIFO order preserved across a swap
   test('events appear in push order after swap', () => {
     let channel = new EventChannel({event: FooEvent, displayName: 'Foo'});
+    channel.setRegistered(true); // driven by hand below; a real world sets this in addEventChannel
     let evA = new FooEvent({value: 1});
     let evB = new FooEvent({value: 2});
 
@@ -41,6 +43,7 @@ describe('EventChannel', () => {
   // (c) clear() empties both buffers
   test('clear() empties both buffers so nothing surfaces on a subsequent swap', () => {
     let channel = new EventChannel({event: FooEvent, displayName: 'Foo'});
+    channel.setRegistered(true); // driven by hand below; a real world sets this in addEventChannel
 
     channel.push(new FooEvent({value: 1}));
     channel.swap();
@@ -55,6 +58,7 @@ describe('EventChannel', () => {
   // (f) re-entrancy: pushing while iterating events does not mutate the current snapshot
   test('pushing during iteration does not mutate the current snapshot', () => {
     let channel = new EventChannel({event: FooEvent, displayName: 'Foo'});
+    channel.setRegistered(true); // driven by hand below; a real world sets this in addEventChannel
 
     channel.push(new FooEvent({value: 1}));
     channel.swap();
@@ -72,6 +76,14 @@ describe('EventChannel', () => {
 
     expect(channel.events).toHaveLength(1);
     expect(channel.events[0]).toMatchObject({value: 99});
+  });
+
+  test('push on an unregistered channel throws in DEV', () => {
+    let channel = new EventChannel({event: FooEvent, displayName: 'Foo'});
+
+    expect(() => {
+      channel.push(new FooEvent({value: 1}));
+    }).toThrow('Cannot push to the unregistered event channel "Foo"');
   });
 });
 
@@ -165,5 +177,43 @@ describe('World event channel integration', () => {
     world.update({deltaTime: 1} as never); // frame 2: recorder reads [ev]
 
     expect(seen).toContain(ev); // delivered the following frame, not lost
+  });
+
+  test('registration lifecycle: addEventChannel enables push, removeEventChannel disables it', () => {
+    let world = new World();
+    let channel = new EventChannel({event: FooEvent, displayName: 'Foo'});
+
+    expect(channel.isRegistered).toBeFalsy();
+
+    world.addEventChannel(channel);
+
+    expect(channel.isRegistered).toBeTruthy();
+    expect(() => {
+      channel.push(new FooEvent({value: 1}));
+    }).not.toThrow();
+
+    world.removeEventChannel(channel);
+
+    expect(channel.isRegistered).toBeFalsy();
+    expect(() => {
+      channel.push(new FooEvent({value: 2}));
+    }).toThrow(/unregistered event channel/);
+  });
+
+  test('stop() unregisters channels, so a push after stop is loud (the T1.2 trap)', () => {
+    let channel = new EventChannel({event: FooEvent, displayName: 'Foo'});
+    let world = new World({
+      onStart: (w) => {
+        w.addEventChannel(channel);
+      },
+    });
+
+    world.start();
+
+    expect(channel.isRegistered).toBeTruthy();
+
+    world.stop();
+
+    expect(channel.isRegistered).toBeFalsy();
   });
 });
