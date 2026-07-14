@@ -23,6 +23,17 @@ export type TilemapOptions = {
   layers: TilemapLayer[];
 };
 
+// DEV-throw / prod-warn on unsupported Tiled input (the ObjectPool.destroy
+// precedent): a silent drop reproduces as an inexplicably empty map layer,
+// and a warn alone gets missed in development.
+function failUnsupported(message: string): void {
+  if (import.meta.env.DEV) {
+    throw new Error(message);
+  }
+
+  console.warn(message);
+}
+
 export class Tilemap {
   readonly tileWidth: number;
   readonly tileHeight: number;
@@ -44,6 +55,12 @@ export class Tilemap {
   static async from(source: unknown) {
     let tiledTilemap = tiledTilemapSchema.parse(source);
 
+    if (tiledTilemap.infinite) {
+      failUnsupported(
+        'Infinite tilemaps are not supported! Re-export the map from Tiled with "Infinite" turned off (Map > Map Properties).',
+      );
+    }
+
     let tilesets: TilemapTileset[] = [];
 
     for (let tiledTilemapTileset of tiledTilemap.tilesets) {
@@ -52,19 +69,50 @@ export class Tilemap {
           assetName: tiledTilemapTileset.source,
           firstTileGid: toTileGid(tiledTilemapTileset.firstgid),
         });
+      } else {
+        failUnsupported(
+          'Embedded tilesets are not supported! Export the tileset to its own file in Tiled and reference it from the map as an external tileset.',
+        );
       }
     }
 
     let layers: TilemapLayer[] = [];
 
     for (let tiledTilemapLayer of tiledTilemap.layers) {
-      if (tiledTilemapLayer.type === 'tilelayer' && Array.isArray(tiledTilemapLayer.data)) {
-        let tileGids = tiledTilemapLayer.data.map((gid) => getGid(toTileGid(gid)));
+      if (tiledTilemapLayer.type !== 'tilelayer') {
+        failUnsupported(
+          `Layer "${tiledTilemapLayer.name}" has unsupported type "${tiledTilemapLayer.type}"! Only tile layers are supported; remove object, image, and group layers from the map.`,
+        );
 
-        layers.push({
-          tileGids,
-        });
+        continue;
       }
+
+      if (typeof tiledTilemapLayer.data === 'string') {
+        failUnsupported(
+          `Tile layer "${tiledTilemapLayer.name}" uses base64 (and/or compressed) data! Re-export the map from Tiled with "Tile Layer Format: CSV" (Map > Map Properties).`,
+        );
+
+        continue;
+      }
+
+      // Flip/rotation flags are stripped below, so a flipped tile would
+      // silently render un-flipped — loud until T1.7 implements flip
+      // rendering (T1.7 relaxes this check to actual support).
+      let flaggedIndex = tiledTilemapLayer.data.findIndex(
+        (gid) => getGid(toTileGid(gid)) !== gid,
+      );
+
+      if (flaggedIndex >= 0) {
+        failUnsupported(
+          `Tile layer "${tiledTilemapLayer.name}" has a flipped or rotated tile (first at tile index ${flaggedIndex})! Flipped tiles render un-flipped; remove the flips/rotations in Tiled.`,
+        );
+      }
+
+      let tileGids = tiledTilemapLayer.data.map((gid) => getGid(toTileGid(gid)));
+
+      layers.push({
+        tileGids,
+      });
     }
 
     return new this({
