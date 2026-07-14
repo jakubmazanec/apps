@@ -225,3 +225,72 @@ This item is a tracking pointer to two items `code-review-2026-07-03.md` already
   condition: the canvas gets embedded in an offset/scrolled page layout (then resolve the
   container lazily at `startEditing`, e.g. a `() => HTMLElement` option) — natural home is
   the T2.13 widget work if it ever comes up.
+
+---
+
+## 5. Engine correctness details (Timer, EventChannel, Tween, deferred add/remove)
+
+Four independent sub-defects; decided individually.
+
+### 5a. Repeating `Timer` drifts and can't catch up
+
+**Findings.** On fire, `Timer.update` subtracts exactly one period and returns a boolean
+(`Timer.ts:42`), so it fires at most once per frame (documented contract, pinned by a test).
+When the period is shorter than the frame time, each frame adds more than it subtracts, so
+`#elapsed` grows without bound — and when the frame rate recovers, the timer fires every
+frame until the banked surplus drains (a burst that can last minutes after a slow stretch).
+No production caller uses repeating timers yet; latent but real.
+
+**Decision: drain the surplus on fire.** Change `#elapsed -= duration` to
+`#elapsed %= duration`. Effective cadence becomes `max(period, frame time)`, the residual is
+always bounded below one period, no post-hitch bursts, phase realigns. The "at most once per
+update" contract is unchanged. Add a test (repeat timer under sustained sub-period frames
+keeps a bounded residual). True catch-up (`update()` returning a fire count, `Scheduler.every`
+/ `timerSystem` firing N times) was considered and deferred: an API change nothing needs
+today; add as a feature if a game ships a sub-frame cadence.
+
+### 5b. Unregistered event channels grow unbounded
+
+**Findings.** `push()` appends to `#nextEvents`; only `World.update` calls `swap()`, and only
+for channels registered via `world.addEventChannel`. A pushed-but-never-registered channel
+leaks every event forever (payloads hold live `Entity`/`MapTile` refs) while consumers read
+an always-empty snapshot. Registration is a manual step separate from construction; both
+current channels are registered (latent), but T1.2 audio adds more channels and the review
+flags this exact trap for it.
+
+**Decision: loud unregistered push.** `EventChannel` gets a registered flag that
+`World.addEventChannel`/`removeEventChannel`/`stop` set and clear; `push()` on an
+unregistered channel throws in DEV and warns once in production — the `ObjectPool.destroy` /
+item-3 loud-failure pattern. Auto-registration was rejected (couples module-singleton
+channels to a world; machinery). Add tests for the flag lifecycle and the DEV throw.
+
+### 5c. `Tween` snapshots `from` at construction
+
+**Findings.** Not a defect — a load-bearing, documented contract. `Modal`'s mid-fade
+cancel-and-replace explicitly relies on capture-at-construction ("the replacement picks up
+from the current alpha with no visual jump", `Modal.ts:154-158`), as do two design docs.
+Every production caller constructs its tween at the moment it should start; there is no
+delay option, so the stale-origin case has no current path. The existing test never covers
+the stale case.
+
+**Decision: document the contract and pin it.** Add a doc comment on `Tween` stating the
+axiom — *`from` is captured at construction; construct tweens at the moment they should
+start* — plus a test that constructs, mutates the target, then advances, pinning the capture
+timing. No behavior change; the review item is reclassified from defect to documented
+contract. Lazy capture on first update was considered and rejected: it silently changes a
+semantics three documents describe as intentional, for the benefit of no current caller.
+
+### 5d. Deferred double-add throws while double-remove is tolerated
+
+**Findings.** In the post-update flush (`World.ts:340-357`), queued removals are guarded
+(`if (this.entities.includes(entity))`, comment: "Tolerate repeats") but queued adds
+re-enter `addEntity` unguarded and hit the synchronous double-add throw (`World.ts:269`) —
+mid-flush, after systems ran, with a stack trace far from the offending call. Tests pin
+idempotent double-remove and remove-then-re-add; deferred double-add is unpinned.
+
+**Decision: symmetric idempotence.** Guard the flush-site add the same way (skip if already
+present) and add the missing test. The axiom: *synchronous structural calls are strict
+(throw on misuse); deferred structural changes are idempotent* — two systems expressing the
+same intent converge to the same state. Remove-then-re-add keeps working (FIFO flush).
+Enqueue-time duplicate detection (throw at the call site) was considered and rejected: it
+needs effective-membership bookkeeping just to preserve a throw of debatable value.

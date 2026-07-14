@@ -81,10 +81,14 @@ silently broken.
    `motionSystem.ts` TODO is the spec); the TextInput premise is stale since the screen split
    (container now resolves correctly; won't-fix stands). See
    [engine-fixes-design-2026-07-14.md](engine-fixes-design-2026-07-14.md).
-5. **Engine correctness details**: repeating `Timer` drifts and can't catch up when period <
+5. ~~**Engine correctness details**: repeating `Timer` drifts and can't catch up when period <
    frame time; event channels pushed to but never registered on the world grow unbounded;
    `Tween` snapshots `from` at construction (stale-origin footgun); deferred double-add of an
-   entity throws while deferred double-remove is tolerated.
+   entity throws while deferred double-remove is tolerated.~~
+   ✅ **Decided** — Timer: drain surplus via modulo; channels: DEV-throw/prod-warn on
+   unregistered push; Tween: reclassified as documented load-bearing contract (doc + test);
+   add/remove: symmetric idempotent deferred changes. See
+   [engine-fixes-design-2026-07-14.md](engine-fixes-design-2026-07-14.md).
 
 ### Structural limitations to be aware of
 
