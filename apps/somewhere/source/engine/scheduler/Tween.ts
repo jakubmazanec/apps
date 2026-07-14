@@ -14,6 +14,15 @@ export type TweenOptions<T> = {
   easing?: Easing;
 };
 
+/**
+ * Interpolates the numeric properties named in `to` from their current values
+ * toward the target values over `duration` milliseconds.
+ *
+ * Axiom: `from` is captured at construction, NOT at the first update —
+ * construct a tween at the moment it should start. This is load-bearing:
+ * cancel-and-replace flows (e.g. Modal's mid-fade close) rely on a new tween
+ * picking up from the target's current value with no visual jump.
+ */
 export class Tween<T = Record<string, number>> {
   readonly #target: T;
   readonly #to: Partial<Pick<T, NumericKeys<T>>>;

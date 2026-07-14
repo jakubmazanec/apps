@@ -60,4 +60,19 @@ describe('Tween', () => {
     expect(target.x).toBe(100);
     expect(Number.isNaN(target.x)).toBeFalsy();
   });
+
+  test('from is captured at construction, not at the first update (load-bearing contract)', () => {
+    let target = {x: 10};
+    let tween = new Tween({target, to: {x: 20}, duration: 100});
+
+    // Mutating the target between construction and the first update must not
+    // move the tween's origin: it interpolates 10 -> 20, not 999 -> 20.
+    // Modal's mid-fade cancel-and-replace relies on exactly this capture
+    // timing for jump-free fades (Modal.ts).
+    target.x = 999;
+
+    tween.update(tick(50));
+
+    expect(target.x).toBeCloseTo(15);
+  });
 });
