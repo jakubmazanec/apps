@@ -348,12 +348,16 @@ export class World {
         isRemoval: boolean;
       };
 
+      // Deferred structural changes are idempotent — two systems expressing
+      // the same intent in one frame converge to the same state (synchronous
+      // calls stay strict and throw on misuse). Without the add guard, a
+      // repeated deferred add re-entered addEntity's synchronous double-add
+      // throw mid-flush, far from the offending call site.
       if (isRemoval) {
-        // Tolerate repeats: two systems may remove the same entity in one frame.
         if (this.entities.includes(entity)) {
           this.removeEntity(entity);
         }
-      } else {
+      } else if (!this.entities.includes(entity)) {
         this.addEntity(entity);
       }
     }

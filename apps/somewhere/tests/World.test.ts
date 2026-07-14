@@ -436,6 +436,35 @@ describe('World', () => {
       world.stop();
     }, 2000);
 
+    test('two systems adding the same entity in one update do not throw (deferred adds are idempotent)', () => {
+      let spawned = new Entity({components: []});
+      let makeSpawner = () =>
+        new System({
+          components: [],
+          onUpdate: (ticker, system, world) => {
+            if (!world.entities.includes(spawned)) {
+              world.addEntity(spawned);
+            }
+          },
+        });
+      let world = new World({
+        onStart: (w) => {
+          w.addSystem(makeSpawner()).addSystem(makeSpawner());
+        },
+      });
+
+      world.start();
+
+      // Both systems see the entity absent (adds defer during the update), so
+      // both enqueue it; the flush must apply the first and skip the repeat.
+      expect(() => {
+        world.update({deltaTime: 1} as never);
+      }).not.toThrow();
+      expect(world.entities.filter((each) => each === spawned)).toHaveLength(1);
+
+      world.stop();
+    }, 2000);
+
     test('removing and re-adding the same entity in one update keeps it in the world', () => {
       let target = new Entity({components: []});
       let hasRecycled = false;
