@@ -93,6 +93,23 @@ export class Map {
       });
     }
 
+    // Layer 1 is the entity layer (addToLayer's default): entity sprites are
+    // inserted as siblings of its tiles, and both write the same y-sort key
+    // to zIndex — the bottom edge of the collision box (tiles at construction
+    // above, entities per frame in graphicsSystem). This flag makes Pixi
+    // actually sort by it, so an entity can walk behind scenery. Other layers
+    // keep insertion order: their stacking is layer-level by design (ground
+    // below, overhead "air" above). The `false` writes are not redundant —
+    // Pixi's addChild auto-flips sortableChildren on any container receiving
+    // a child with nonzero zIndex (Container.addChild re-triggers
+    // depthOfChildModified), so every layer with a row >= 1 tile arrives here
+    // already flipped true. T1.6 later replaces the mechanism with a
+    // dedicated y-sorted RenderLayer without changing the sort key; T2.16
+    // addresses the per-frame sort cost over all layer-1 tiles.
+    for (let [index, layer] of layers.entries()) {
+      layer.view.sortableChildren = index === 1;
+    }
+
     this.layers = layers;
     this.columnCount = tilemap.columnCount;
     this.rowCount = tilemap.rowCount;

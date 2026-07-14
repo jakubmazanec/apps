@@ -43,6 +43,41 @@ function stubAssets() {
     name === 'map' ? tilemap : tileset) as never);
 }
 
+// A 1x2 map with two layers: layer 0 (ground) and layer 1 (the entity layer,
+// addToLayer's default). Layer 1's row-1 tile carries a collision box, so its
+// zIndex sort key is row * tileHeight + boundingBox.y + boundingBox.height
+// = 16 + 8 + 8 = 32.
+function stubDepthSortAssets() {
+  let tileset = new Tileset({
+    tileWidth: 16,
+    tileHeight: 16,
+    columnCount: 1,
+    rowCount: 2,
+    tiles: [
+      {id: toTileId(0), textures: [pixi.Texture.WHITE]},
+      {
+        id: toTileId(1),
+        textures: [pixi.Texture.WHITE],
+        boundingBox: new pixi.Rectangle(0, 8, 16, 8),
+      },
+    ],
+  });
+  let tilemap = new Tilemap({
+    tileWidth: 16,
+    tileHeight: 16,
+    columnCount: 1,
+    rowCount: 2,
+    tilesets: [{assetName: 'tileset', firstTileGid: toTileGid(1)}],
+    layers: [
+      {tileGids: [toTileGid(1), toTileGid(1)]}, // ground
+      {tileGids: [toTileGid(1), toTileGid(2)]}, // entity layer; row 1 has the collision-box tile
+    ],
+  });
+
+  vi.spyOn(pixi.Assets, 'get').mockImplementation(((name: string) =>
+    name === 'map' ? tilemap : tileset) as never);
+}
+
 describe('Map', () => {
   afterEach(() => {
     vi.restoreAllMocks();
@@ -86,5 +121,51 @@ describe('Map', () => {
     map.update(tick(7));
 
     expect(animated.currentFrame).toBe(2);
+  });
+});
+
+describe('Map depth sorting (entity layer)', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  test('only the entity layer (index 1) sorts its children by zIndex', () => {
+    stubDepthSortAssets();
+
+    let map = new Map({assetName: 'map'});
+
+    expect(map.layers[1]!.view.sortableChildren).toBeTruthy();
+    expect(map.layers[0]!.view.sortableChildren).toBeFalsy();
+  });
+
+  test('an entity draws behind a tile while its feet are above the tile collision-box bottom, in front once below', () => {
+    stubDepthSortAssets();
+
+    let map = new Map({assetName: 'map'});
+    let layer = map.layers[1]!;
+    let tileView = layer.tiles[0]![1]!.view; // row 1: zIndex 16 + 8 + 8 = 32
+
+    // The entity enters the same container graphicsSystem uses and writes the
+    // same sort key: position.y + boundingBox.y + boundingBox.height.
+    let entityView = new pixi.Container();
+    let boundingBox = new pixi.Rectangle(0, 12, 16, 4);
+
+    map.addToLayer(entityView);
+
+    // Feet at 12 + 12 + 4 = 28 < 32: renders behind the tile.
+    entityView.position.y = 12;
+    entityView.zIndex = entityView.position.y + boundingBox.y + boundingBox.height;
+    layer.view.sortChildren();
+
+    expect(layer.view.getChildIndex(entityView)).toBeLessThan(layer.view.getChildIndex(tileView));
+
+    // Feet at 20 + 12 + 4 = 36 > 32: renders in front.
+    entityView.position.y = 20;
+    entityView.zIndex = entityView.position.y + boundingBox.y + boundingBox.height;
+    layer.view.sortChildren();
+
+    expect(layer.view.getChildIndex(entityView)).toBeGreaterThan(
+      layer.view.getChildIndex(tileView),
+    );
   });
 });
