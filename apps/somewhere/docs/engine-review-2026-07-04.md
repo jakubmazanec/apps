@@ -55,9 +55,11 @@ silently broken.
 
 ### Broken or misleading today (fix before adding features)
 
-1. **Depth sorting does nothing.** `Map.ts:82-83` and `graphicsSystem.ts:43` compute y-sort
+1. ~~**Depth sorting does nothing.** `Map.ts:82-83` and `graphicsSystem.ts:43` compute y-sort
    `zIndex` values, but `sortableChildren` is never set on any container, so in Pixi v8 draw
-   order is insertion order. Characters will not walk behind/in front of scenery.
+   order is insertion order. Characters will not walk behind/in front of scenery.~~
+   ✅ **Decided** — Option A (enable `sortableChildren` on the entity layer), see
+   [engine-fixes-design-2026-07-14.md](engine-fixes-design-2026-07-14.md).
 2. **A backgrounded tab produces a simulation jump.** There is no engine-level `deltaMS` clamp
    (only `motionSystem` caps it locally), no `timeScale`, and no `visibilitychange` handling.
 3. **Tiled footguns**: infinite maps, base64/compressed layers, embedded tilesets, and object
