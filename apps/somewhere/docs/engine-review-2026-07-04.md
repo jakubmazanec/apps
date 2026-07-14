@@ -60,8 +60,12 @@ silently broken.
    order is insertion order. Characters will not walk behind/in front of scenery.~~
    ✅ **Decided** — Option A (enable `sortableChildren` on the entity layer), see
    [engine-fixes-design-2026-07-14.md](engine-fixes-design-2026-07-14.md).
-2. **A backgrounded tab produces a simulation jump.** There is no engine-level `deltaMS` clamp
-   (only `motionSystem` caps it locally), no `timeScale`, and no `visibilitychange` handling.
+2. ~~**A backgrounded tab produces a simulation jump.** There is no engine-level `deltaMS` clamp
+   (only `motionSystem` caps it locally), no `timeScale`, and no `visibilitychange` handling.~~
+   ✅ **Decided** — premise partly wrong: Pixi's `Ticker` already clamps `deltaMS` to 100 ms by
+   default (`minFPS = 10`), so the worst case is a 100 ms step. Option A (pin the clamp
+   explicitly in `Game.init` + test); `timeScale`/`visibilitychange` remain T1.9. See
+   [engine-fixes-design-2026-07-14.md](engine-fixes-design-2026-07-14.md).
 3. **Tiled footguns**: infinite maps, base64/compressed layers, embedded tilesets, and object
    layers are all *validated* by the schemas but silently dropped at runtime
    (`Tilemap.ts:49-67`) — an exported map can produce empty layers with no error. Tile flip
@@ -114,7 +118,8 @@ guidance, regular device testing) waits until a specific game targets phones.
 
 - Fix depth sorting via explicit render layers (see T1.6); `sortableChildren` appears nowhere
   in `source/`.
-- Clamp `deltaMS` at the engine level.
+- Clamp `deltaMS` at the engine level. *(Re-scoped 2026-07-14: Pixi's ticker already clamps
+  to 100 ms by default — pin it explicitly instead; see the fixes design doc, item 2.)*
 - Make unsupported Tiled inputs **loud**: throw in DEV and warn in production on
   infinite/compressed/embedded-tileset maps instead of yielding empty layers, matching the
   existing `ObjectPool.destroy` DEV-invariant precedent. A `console.warn` alone gets missed
