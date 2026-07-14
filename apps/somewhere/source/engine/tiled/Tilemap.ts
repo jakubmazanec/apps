@@ -31,6 +31,7 @@ function failUnsupported(message: string): void {
     throw new Error(message);
   }
 
+  // eslint-disable-next-line no-console -- loud failure in production builds (DEV throws)
   console.warn(message);
 }
 
@@ -98,9 +99,7 @@ export class Tilemap {
       // Flip/rotation flags are stripped below, so a flipped tile would
       // silently render un-flipped — loud until T1.7 implements flip
       // rendering (T1.7 relaxes this check to actual support).
-      let flaggedIndex = tiledTilemapLayer.data.findIndex(
-        (gid) => getGid(toTileGid(gid)) !== gid,
-      );
+      let flaggedIndex = tiledTilemapLayer.data.findIndex((gid) => getGid(toTileGid(gid)) !== gid);
 
       if (flaggedIndex >= 0) {
         failUnsupported(

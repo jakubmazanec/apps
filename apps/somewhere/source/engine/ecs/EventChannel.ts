@@ -38,6 +38,7 @@ export class EventChannel<const T extends Constructor<Event> = Constructor<Event
       // unbounded growth this guard exists to prevent.
       if (!this.#hasWarnedUnregistered) {
         this.#hasWarnedUnregistered = true;
+        // eslint-disable-next-line no-console -- loud failure in production builds (DEV throws)
         console.warn(message);
       }
 
