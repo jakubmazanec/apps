@@ -8,6 +8,11 @@ import {wallHitChannel} from './wallHitChannel.js';
 
 const MAX_DELTA_TIME = 2;
 
+// Shared with playerSystem's keyboard path so keyboard speed and this clamp
+// cannot drift apart — the clamp only runs when motion.target is set, so the
+// keyboard path must carry the same value itself.
+export const MAX_SPEED = 4;
+
 export const motionSystem = new System({
   components: [MotionComponent, GraphicsComponent],
   onUpdate: (ticker, system) => {
@@ -29,8 +34,8 @@ export const motionSystem = new System({
           motion.velocity.y = 0;
         }
 
-        if (motion.velocity.length > 4) {
-          motion.velocity.length = 4;
+        if (motion.velocity.length > MAX_SPEED) {
+          motion.velocity.length = MAX_SPEED;
         }
       }
 

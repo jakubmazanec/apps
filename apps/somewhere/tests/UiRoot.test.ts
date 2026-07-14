@@ -266,6 +266,19 @@ describe('UiRoot', () => {
 
       expect(root.view.eventMode).toBe('static');
     });
+
+    test('the focus-ring overlay is transparent to hit-testing so it never steals a tap from the widget beneath it', () => {
+      // The overlay sits on top of every widget and, once focused, the ring
+      // covers the focused widget. Left hit-testable, pixi resolves a tap on the
+      // covered widget to the ring's nearest interactive ancestor (the root view)
+      // and never reaches the widget, so its onClick never fires. 'none' prunes
+      // the overlay subtree from hit-testing, letting the tap fall through.
+      let root = createRoot();
+      let view = root.view as unknown as MockContainer;
+      let overlay = view.children[0] as unknown as {eventMode: string};
+
+      expect(overlay.eventMode).toBe('none');
+    });
   });
 
   describe('focus ring', () => {

@@ -58,6 +58,15 @@ export class UiRoot implements UiParent {
       this.#focusRing = focusRing;
     }
 
+    // The overlay draws the focus ring on top of every widget, and once a
+    // widget is focused the ring's bounds cover it. Pixi hit-tests front-to-back
+    // and would reach the ring first; because the ring only carries the default
+    // (hit-testable) event mode, pixi resolves the tap to the ring's nearest
+    // interactive ancestor — this view — and stops, never descending to the
+    // widget beneath. 'none' prunes the whole overlay subtree from hit-testing
+    // so taps fall through to the focused widget and its onClick still fires.
+    this.#overlay.eventMode = 'none';
+
     this.view.addChild(this.#overlay);
 
     // pixi notifies listeners only on interactive containers, so the root

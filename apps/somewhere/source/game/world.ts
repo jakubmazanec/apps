@@ -1,5 +1,6 @@
 import {type Entity} from '../engine/ecs/Entity.js';
 import {World} from '../engine/ecs/World.js';
+import {inputSystem} from '../engine/input/inputSystem.js';
 import {timerSystem} from '../engine/scheduler/timerSystem.js';
 import {tweenSystem} from '../engine/scheduler/tweenSystem.js';
 import {camera} from './camera.js';
@@ -7,6 +8,8 @@ import {CameraComponent} from './CameraComponent.js';
 import {cameraQuery} from './cameraQuery.js';
 import {cameraSystem} from './cameraSystem.js';
 import {graphicsSystem} from './graphicsSystem.js';
+import {inputEntity} from './input.js';
+import {inputQuery} from './inputQuery.js';
 import {levelQuery} from './levelQuery.js';
 import {mapPool} from './mapPool.js';
 import {mapSystem} from './mapSystem.js';
@@ -37,21 +40,24 @@ export const world = new World({
     world.addEventChannel(popupExpiredChannel);
 
     world.addEntityQuery(cameraQuery);
+    world.addEntityQuery(inputQuery);
     world.addEntityQuery(levelQuery);
     world.addEntityQuery(playersQuery);
 
+    world.addSystem(inputSystem); // first: every system this frame reads the same freshly-advanced input
     world.addSystem(mapSystem);
+    world.addSystem(playerSystem); // before motionSystem: it writes velocity that motionSystem consumes this frame
     world.addSystem(motionSystem);
     world.addSystem(wallHitPopupSystem); // spawn popups from the previous frame's wall hits
     world.addSystem(popupCleanupSystem); // remove popups whose lifetime timer has expired
     world.addSystem(timerSystem); // placement is free: timer events are buffered, seen next frame
     world.addSystem(uiBridge);
-    world.addSystem(playerSystem);
     world.addSystem(cameraSystem);
     world.addSystem(tweenSystem); // late, just before graphicsSystem: scripted motion is the last word
     world.addSystem(graphicsSystem);
 
     world.addEntity(camera);
+    world.addEntity(inputEntity);
 
     // Map must be added before player so graphicsSystem.onAddEntity can read levelQuery.
     mapEntity = mapPool.create();

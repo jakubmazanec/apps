@@ -5,6 +5,7 @@ import {Modal} from '../engine/ui/Modal.js';
 import {Panel} from '../engine/ui/Panel.js';
 import {Text} from '../engine/ui/Text.js';
 import {game} from './game.js';
+import {input} from './input.js';
 // The gameScreen <-> mainMenuScreen static import cycle is deliberate and safe:
 // each module reads the other's binding only inside event handlers (Quit to
 // menu here, New Game there), long after both modules have evaluated.
@@ -151,6 +152,7 @@ export const gameScreen = new GameScreen<GameScreenState, UIEventMap>({
   },
   onShow: (screen) => {
     screen.addToView(world);
+    input.attach(game.view);
     world.start();
 
     wallHitCount = 0;
@@ -173,6 +175,7 @@ export const gameScreen = new GameScreen<GameScreenState, UIEventMap>({
         screen.removeFromView(world);
       },
     });
+    input.detach();
     // eslint-disable-next-line no-param-reassign -- needed
     screen.state.openModal = null;
   },

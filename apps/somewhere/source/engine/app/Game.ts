@@ -4,6 +4,7 @@ import * as pixi from 'pixi.js';
 // import {CRTFilter} from 'pixi-filters';
 import {tiledTilemapAsset} from '../../pixi-tools/tiledTilemapAsset.js';
 import {tiledTilesetAsset} from '../../pixi-tools/tiledTilesetAsset.js';
+import {isTextEntryTarget} from '../ui/isTextEntryTarget.js';
 import {type FocusCommand} from './FocusCommand.js';
 import {type GameAssetBundle} from './GameAssetBundle.js';
 import {type GameOptions} from './GameOptions.js';
@@ -276,7 +277,7 @@ export class Game {
       // input element has focus (a TextInput is editing), every key belongs to the
       // input, so navigation is suspended without any per-component key hooks.
       let handleKeyDown = (event: KeyboardEvent) => {
-        if (event.target instanceof HTMLInputElement) {
+        if (isTextEntryTarget(event)) {
           return;
         }
 
