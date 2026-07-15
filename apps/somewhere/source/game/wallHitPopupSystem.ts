@@ -1,5 +1,6 @@
 import * as pixi from 'pixi.js';
 
+import {PlaySound} from '../engine/audio/PlaySound.js';
 import {Entity} from '../engine/ecs/Entity.js';
 import {System} from '../engine/ecs/System.js';
 import {easeOutQuad} from '../engine/scheduler/easing.js';
@@ -8,6 +9,7 @@ import {TimerComponent} from '../engine/scheduler/TimerComponent.js';
 import {Tween} from '../engine/scheduler/Tween.js';
 import {TweenComponent} from '../engine/scheduler/TweenComponent.js';
 import {Vector} from '../engine/utilities/Vector.js';
+import {playSoundChannel} from './audio.js';
 import {GraphicsComponent} from './GraphicsComponent.js';
 import {MotionComponent} from './MotionComponent.js';
 import {PopupExpired} from './PopupExpired.js';
@@ -54,6 +56,10 @@ export const wallHitPopupSystem = new System({
   onUpdate: (ticker, system, world) => {
     // `WallHit` carries `{entity, tile}`: the tile that was hit and the entity (the player) that hit it.
     for (let {entity, tile} of wallHitChannel.events) {
+      // Gameplay SFX for the wall hit, alongside the popup this system already
+      // spawns — no separate audio-bridge system. audioSystem plays it on `sfx`.
+      playSoundChannel.push(new PlaySound({name: 'bump'}));
+
       let box = tile.boundingBox;
       let tileX = tile.view.x + (box?.x ?? 0);
       let tileY = tile.view.y + (box?.y ?? 0);

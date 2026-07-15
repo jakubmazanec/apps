@@ -51,6 +51,7 @@ vi.mock('pixi.js', () => ({
 vi.mock('@pixi/layout', () => ({}));
 vi.mock('../source/pixi-tools/tiledTilesetAsset.js', () => ({tiledTilesetAsset: {}}));
 vi.mock('../source/pixi-tools/tiledTilemapAsset.js', () => ({tiledTilemapAsset: {}}));
+vi.mock('../source/pixi-tools/audioBufferAsset.js', () => ({audioBufferAsset: {}}));
 
 const {Game} = await import('../source/engine/app/Game.js');
 const pixi = await import('pixi.js');

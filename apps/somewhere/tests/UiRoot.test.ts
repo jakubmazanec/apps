@@ -783,6 +783,74 @@ describe('UiRoot', () => {
     });
   });
 
+  describe('focus events', () => {
+    test('fires a move event when focus lands on a new component', () => {
+      let onFocusEvent = vi.fn();
+      let root = createRoot({onFocusEvent});
+      let a = focusable({x: 0, y: 0, width: 10, height: 10});
+      let b = focusable({x: 0, y: 20, width: 10, height: 10});
+
+      root.addChild(a, b);
+
+      root.moveFocus('down'); // null → nearest (a)
+
+      expect(onFocusEvent).toHaveBeenLastCalledWith({type: 'move'});
+      expect(root.focused).toBe(a);
+
+      root.moveFocus('down'); // a → b
+
+      expect(onFocusEvent).toHaveBeenLastCalledWith({type: 'move'});
+      expect(root.focused).toBe(b);
+      expect(onFocusEvent).toHaveBeenCalledTimes(2);
+    });
+
+    test('fires a move event from focusNext', () => {
+      let onFocusEvent = vi.fn();
+      let root = createRoot({onFocusEvent});
+      let a = focusable({x: 0, y: 0, width: 10, height: 10});
+      let b = focusable({x: 0, y: 20, width: 10, height: 10});
+
+      root.addChild(a, b);
+
+      root.focusNext(); // null → focusables[0] (a)
+      root.focusNext(); // a → b
+
+      expect(onFocusEvent).toHaveBeenCalledTimes(2);
+      expect(onFocusEvent).toHaveBeenLastCalledWith({type: 'move'});
+    });
+
+    test('fires a reject event when a directional move finds no candidate', () => {
+      let onFocusEvent = vi.fn();
+      let root = createRoot({onFocusEvent});
+      let a = focusable({x: 0, y: 0, width: 10, height: 10});
+
+      root.addChild(a);
+
+      root.moveFocus('down'); // null → a (move)
+
+      expect(onFocusEvent).toHaveBeenLastCalledWith({type: 'move'});
+
+      root.moveFocus('down'); // a has nothing below → reject
+
+      expect(onFocusEvent).toHaveBeenLastCalledWith({type: 'reject'});
+      expect(root.focused).toBe(a); // focus unchanged on reject
+    });
+
+    test('a tap that silently moves focus fires neither event', () => {
+      let onFocusEvent = vi.fn();
+      let root = createRoot({onFocusEvent});
+      let view = root.view as unknown as MockContainer;
+      let component = focusable();
+
+      root.addChild(component);
+
+      view.captureListeners.pointertap?.[0]?.({target: component.view});
+
+      expect(root.focused).toBe(component);
+      expect(onFocusEvent).not.toHaveBeenCalled();
+    });
+  });
+
   describe('focus scope self-heal (out-of-band removal)', () => {
     test('removing the scoped subtree without a pop: the next focus command prunes the scope and restores previous focus', () => {
       let a = focusable();

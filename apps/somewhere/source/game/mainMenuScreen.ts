@@ -7,6 +7,7 @@ import {Panel} from '../engine/ui/Panel.js';
 import {Text} from '../engine/ui/Text.js';
 import {TextInput} from '../engine/ui/TextInput.js';
 import {Toggle} from '../engine/ui/Toggle.js';
+import {audio, playFocusSound} from './audio.js';
 import {game} from './game.js';
 // The mainMenuScreen <-> gameScreen static import cycle is deliberate and safe:
 // each module reads the other's binding only inside event handlers (New Game
@@ -62,6 +63,7 @@ function openOptionsModal(screen: GameScreen<MainMenuScreenState>) {
     container: game.app.canvas.parentElement ?? document.body,
     onChange: (input) => {
       settings.playerName = input.value;
+      audio.play(pixi.Assets.get<AudioBuffer>('ui-key'), {bus: 'ui'});
     },
     layout: {minWidth: 220, padding: 16},
   });
@@ -82,10 +84,14 @@ function openOptionsModal(screen: GameScreen<MainMenuScreenState>) {
   let soundToggle = new Toggle({
     backgrounds: toggleBackgrounds(),
     checked: settings.soundEnabled,
-    // Writing the value is a no-op for now: nothing consumes it until a sound
-    // system exists (none does today).
     onChange: (toggle) => {
-      settings.soundEnabled = toggle.isChecked;
+      let enabled = toggle.isChecked;
+
+      settings.soundEnabled = enabled;
+      // Set mute first so an enabling toggle unmutes before its own click plays
+      // (an audible confirmation); a disabling toggle mutes and stays silent.
+      audio.setMuted('master', !enabled);
+      audio.play(pixi.Assets.get<AudioBuffer>('ui-click'), {bus: 'ui'});
     },
   });
   let soundRow = new Container({
@@ -148,6 +154,12 @@ export const mainMenuScreen = new GameScreen<MainMenuScreenState>({
   // for any not-yet-loaded bundle when New Game is pressed.
   assetBundles: ['default'],
   focusRing: FOCUS_RING,
+  onFocusEvent: playFocusSound,
+  onShow: () => {
+    // Music is driven by direct mixer calls from the screen context (never the
+    // world, never auto-stopped by pause). playMusic replaces the current voice.
+    audio.playMusic(pixi.Assets.get<AudioBuffer>('menu-music'));
+  },
   onAdd: (screen): MainMenuScreenState => {
     // Solid background is the app's existing black (Game init background); no
     // world runs behind the menu. Centering via flex on the root layout path

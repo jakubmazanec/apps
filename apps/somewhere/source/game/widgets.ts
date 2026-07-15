@@ -3,6 +3,7 @@ import * as pixi from 'pixi.js';
 import {Button} from '../engine/ui/Button.js';
 import {Text} from '../engine/ui/Text.js';
 import {type FocusRingOptions} from '../engine/ui/UiRoot.js';
+import {audio} from './audio.js';
 
 // Nine-slice insets for the shared widget art in the `default` bundle.
 export const BUTTON_SLICE = {leftWidth: 4, topHeight: 8, rightWidth: 4, bottomHeight: 8};
@@ -55,7 +56,10 @@ export function createButton({label, onClick, fontSize = 48, layout}: CreateButt
       }),
     ],
     pressOffset: 4,
-    onClick,
+    onClick: () => {
+      audio.play(pixi.Assets.get<AudioBuffer>('ui-click'), {bus: 'ui'});
+      onClick();
+    },
     layout: {padding: 8, ...(typeof layout === 'object' ? layout : undefined)},
   });
 }

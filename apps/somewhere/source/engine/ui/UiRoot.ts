@@ -5,6 +5,8 @@ import {type UiChild, type UiParent} from './UiChild.js';
 
 export type FocusDirection = 'down' | 'left' | 'right' | 'up';
 
+export type UiFocusEvent = {type: 'move'} | {type: 'reject'};
+
 export type FocusRingOptions = {
   assetName: string;
   bottomHeight: number;
@@ -18,6 +20,10 @@ export type FocusRingOptions = {
 
 export type UiRootOptions = {
   focusRing?: FocusRingOptions;
+  // Semantic focus feedback (the game maps it to a sound). `move` fires when a
+  // focus command lands on a different component; `reject` when a directional
+  // move finds no candidate. Tap-driven silent focus fires nothing.
+  onFocusEvent?: (event: UiFocusEvent) => void;
 };
 
 type FocusScope = {
@@ -47,15 +53,20 @@ export class UiRoot implements UiParent {
   readonly #overlay: pixi.Container = new pixi.Container();
   readonly #scopes: FocusScope[] = [];
   readonly #focusRing?: FocusRingOptions;
+  readonly #onFocusEvent?: (event: UiFocusEvent) => void;
   readonly #disposables = new DisposableStack();
 
   #focused: Focusable | null = null;
   #isRingVisible = false;
   #ring: pixi.NineSliceSprite | null = null;
 
-  constructor({focusRing}: UiRootOptions = {}) {
+  constructor({focusRing, onFocusEvent}: UiRootOptions = {}) {
     if (focusRing !== undefined) {
       this.#focusRing = focusRing;
+    }
+
+    if (onFocusEvent !== undefined) {
+      this.#onFocusEvent = onFocusEvent;
     }
 
     // The overlay draws the focus ring on top of every widget, and once a
@@ -180,10 +191,12 @@ export class UiRoot implements UiParent {
 
     this.#isRingVisible = true;
 
+    let previous = this.#focused;
     let current = this.#focused;
 
     if (current === null) {
       this.#focused = this.#nearestTopLeft(focusables);
+      this.#emitFocusChange(previous);
 
       return;
     }
@@ -198,8 +211,12 @@ export class UiRoot implements UiParent {
 
     let next = this.#nearestInDirection(current, focusables, direction);
 
-    if (next !== null) {
+    if (next === null) {
+      // Arrow-key navigation hit a wall: the clean, detectable negative-feedback case.
+      this.#onFocusEvent?.({type: 'reject'});
+    } else {
       this.#focused = next;
+      this.#emitFocusChange(previous);
     }
   }
 
@@ -330,10 +347,12 @@ export class UiRoot implements UiParent {
 
     this.#isRingVisible = true;
 
+    let previous = this.#focused;
     let current = this.#focused;
 
     if (current === null) {
       this.#focused = focusables[0] ?? null;
+      this.#emitFocusChange(previous);
 
       return;
     }
@@ -349,6 +368,7 @@ export class UiRoot implements UiParent {
     }
 
     this.#focused = focusables[(index + step + focusables.length) % focusables.length] ?? null;
+    this.#emitFocusChange(previous);
   }
 
   // Depth-first order over the component hierarchy is the Tab order. Raw Pixi
@@ -454,6 +474,14 @@ export class UiRoot implements UiParent {
     }
 
     return best;
+  }
+
+  // Fire `move` only when the focus actually changed to a different component
+  // (a single-focusable focusNext wraps to itself and stays silent).
+  #emitFocusChange(previous: Focusable | null) {
+    if (this.#focused !== null && this.#focused !== previous) {
+      this.#onFocusEvent?.({type: 'move'});
+    }
   }
 
   #nearestInDirection(

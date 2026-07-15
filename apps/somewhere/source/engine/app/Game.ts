@@ -2,6 +2,7 @@ import {type EventEmitter} from 'eventemitter3';
 import * as pixi from 'pixi.js';
 
 // import {CRTFilter} from 'pixi-filters';
+import {audioBufferAsset} from '../../pixi-tools/audioBufferAsset.js';
 import {tiledTilemapAsset} from '../../pixi-tools/tiledTilemapAsset.js';
 import {tiledTilesetAsset} from '../../pixi-tools/tiledTilesetAsset.js';
 import {isTextEntryTarget} from '../ui/isTextEntryTarget.js';
@@ -15,6 +16,7 @@ import '@pixi/layout';
 
 pixi.extensions.add(tiledTilesetAsset);
 pixi.extensions.add(tiledTilemapAsset);
+pixi.extensions.add(audioBufferAsset);
 
 /**
  * A process-lifetime class used as a singleton that represents

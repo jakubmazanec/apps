@@ -21,6 +21,9 @@ export default function Index() {
           import('../game/loadingScreen.js'),
           import('../game/mainMenuScreen.js'),
           import('../game/gameScreen.js'),
+          // Eval audio bootstrap (decode context + first-gesture unlock) before
+          // init() below loads the default bundle's audio assets.
+          import('../game/audio.js'),
         ]);
 
       if (controller.signal.aborted) {

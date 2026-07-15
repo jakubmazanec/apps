@@ -1,9 +1,12 @@
+import * as pixi from 'pixi.js';
+
 import {GameScreen} from '../engine/app/GameScreen.js';
 import {type Button} from '../engine/ui/Button.js';
 import {Container} from '../engine/ui/Container.js';
 import {Modal} from '../engine/ui/Modal.js';
 import {Panel} from '../engine/ui/Panel.js';
 import {Text} from '../engine/ui/Text.js';
+import {audio, playFocusSound} from './audio.js';
 import {game} from './game.js';
 import {input} from './input.js';
 // The gameScreen <-> mainMenuScreen static import cycle is deliberate and safe:
@@ -91,6 +94,7 @@ export const gameScreen = new GameScreen<GameScreenState, UIEventMap>({
   assetBundles: ['default', 'game'],
   events: uiEvents,
   focusRing: FOCUS_RING,
+  onFocusEvent: playFocusSound,
   onAdd: (screen): GameScreenState => {
     // Full-screen flex row: HUD texts top-left, pause button top-right. The
     // percentages resolve against game.view's root layout, so window resize is
@@ -166,6 +170,11 @@ export const gameScreen = new GameScreen<GameScreenState, UIEventMap>({
       wallHitCount += 1;
       screen.state.hitCounter.setText(`Wall hits: ${wallHitCount}`);
     });
+
+    // Swap to the in-game track; the menu track (still playing through the
+    // loading screen) is replaced by this single music voice — no silent gap,
+    // no explicit stop. Music is not stopped on pause or onHide in the demo.
+    audio.playMusic(pixi.Assets.get<AudioBuffer>('game-music'));
   },
   onHide: (screen) => {
     teardownGameScreen({

@@ -2,7 +2,12 @@ import {type EventEmitter} from 'eventemitter3';
 import * as pixi from 'pixi.js';
 
 import {Scheduler} from '../scheduler/Scheduler.js';
-import {type FocusRingOptions, UiRoot} from '../ui/UiRoot.js';
+import {
+  type FocusRingOptions,
+  type UiFocusEvent,
+  UiRoot,
+  type UiRootOptions,
+} from '../ui/UiRoot.js';
 import {type Game} from './Game.js';
 
 export type Renderable = {
@@ -14,6 +19,7 @@ export type GameScreenOptions<T, E extends EventEmitter.ValidEventTypes = Record
   assetBundles?: string[] | undefined;
   events?: EventEmitter<E> | undefined;
   focusRing?: FocusRingOptions | undefined;
+  onFocusEvent?: ((event: UiFocusEvent) => void) | undefined;
   onShow?: ((screen: GameScreen<T, E>, game: Game) => Promise<void> | void) | undefined;
   onHide?: ((screen: GameScreen<T, E>, game: Game) => Promise<void> | void) | undefined;
   onUpdate?: ((ticker: pixi.Ticker, screen: GameScreen<T, E>, game: Game) => void) | undefined;
@@ -30,6 +36,7 @@ export class GameScreen<
   #ui!: UiRoot;
   readonly #events?: EventEmitter<Events>;
   readonly #focusRing?: FocusRingOptions;
+  readonly #onFocusEvent?: (event: UiFocusEvent) => void;
   // Engine teardown idiom (DisposableStack + defer), like Game/Button/UiRoot. Unlike those
   // one-shot stacks it is reset on each hide so the screen can re-subscribe on the next show;
   // a DisposableStack cannot be reused after disposal.
@@ -54,6 +61,7 @@ export class GameScreen<
     events,
     focusRing,
     onAdd,
+    onFocusEvent,
     onShow,
     onHide,
     onUpdate,
@@ -67,6 +75,10 @@ export class GameScreen<
 
     if (focusRing !== undefined) {
       this.#focusRing = focusRing;
+    }
+
+    if (onFocusEvent !== undefined) {
+      this.#onFocusEvent = onFocusEvent;
     }
 
     if (onAdd !== undefined) {
@@ -104,7 +116,18 @@ export class GameScreen<
     }
 
     this.#game = game;
-    this.#ui = new UiRoot(this.#focusRing === undefined ? {} : {focusRing: this.#focusRing});
+
+    let uiRootOptions: UiRootOptions = {};
+
+    if (this.#focusRing !== undefined) {
+      uiRootOptions.focusRing = this.#focusRing;
+    }
+
+    if (this.#onFocusEvent !== undefined) {
+      uiRootOptions.onFocusEvent = this.#onFocusEvent;
+    }
+
+    this.#ui = new UiRoot(uiRootOptions);
     this.view.addChild(this.#ui.view);
     // `as T` is sound: `onAdd` is required whenever `T` is not `undefined`.
     this.state = this.#onAdd?.(this, game) as T;

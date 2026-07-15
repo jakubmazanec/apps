@@ -1,8 +1,10 @@
+import {audioSystem} from '../engine/audio/audioSystem.js';
 import {type Entity} from '../engine/ecs/Entity.js';
 import {World} from '../engine/ecs/World.js';
 import {inputSystem} from '../engine/input/inputSystem.js';
 import {timerSystem} from '../engine/scheduler/timerSystem.js';
 import {tweenSystem} from '../engine/scheduler/tweenSystem.js';
+import {audioEntity, playSoundChannel} from './audio.js';
 import {camera} from './camera.js';
 import {CameraComponent} from './CameraComponent.js';
 import {cameraQuery} from './cameraQuery.js';
@@ -38,6 +40,7 @@ export const world = new World({
 
     world.addEventChannel(wallHitChannel);
     world.addEventChannel(popupExpiredChannel);
+    world.addEventChannel(playSoundChannel);
 
     world.addEntityQuery(cameraQuery);
     world.addEntityQuery(inputQuery);
@@ -49,6 +52,7 @@ export const world = new World({
     world.addSystem(playerSystem); // before motionSystem: it writes velocity that motionSystem consumes this frame
     world.addSystem(motionSystem);
     world.addSystem(wallHitPopupSystem); // spawn popups from the previous frame's wall hits
+    world.addSystem(audioSystem); // placement is free: PlaySound events are buffered, seen next frame
     world.addSystem(popupCleanupSystem); // remove popups whose lifetime timer has expired
     world.addSystem(timerSystem); // placement is free: timer events are buffered, seen next frame
     world.addSystem(uiBridge);
@@ -58,6 +62,7 @@ export const world = new World({
 
     world.addEntity(camera);
     world.addEntity(inputEntity);
+    world.addEntity(audioEntity);
 
     // Map must be added before player so graphicsSystem.onAddEntity can read levelQuery.
     mapEntity = mapPool.create();
