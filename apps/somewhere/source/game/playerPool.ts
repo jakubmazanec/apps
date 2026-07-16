@@ -7,8 +7,8 @@ import {GraphicsComponent} from './GraphicsComponent.js';
 import {MotionComponent} from './MotionComponent.js';
 import {PlayerComponent} from './PlayerComponent.js';
 
-const initialX = 64 * 9;
-const initialY = 64 * 10;
+const initialX = 16 * 9;
+const initialY = 16 * 10;
 
 // Requires the 'game' asset bundle to be loaded before .create() is called.
 export const playerPool = new ObjectPool({
@@ -34,7 +34,7 @@ export const playerPool = new ObjectPool({
               'walking-right',
             ],
           },
-          boundingBox: new pixi.Rectangle(0, 40, 64, 40),
+          boundingBox: new pixi.Rectangle(0, 10, 16, 10),
         }),
       ],
     }),

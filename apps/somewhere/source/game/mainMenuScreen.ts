@@ -15,13 +15,13 @@ import {game} from './game.js';
 // eslint-disable-next-line import/no-cycle -- see comment above: the cycle only resolves inside event handlers, long after both modules evaluate
 import {gameScreen} from './gameScreen.js';
 import {settings} from './settings.js';
-import {BANNER_SLICE, createButton, FOCUS_RING, INPUT_SLICE, nineSlice} from './widgets.js';
+import {createButton, nineSlice, uiTexture} from './widgets.js';
 
 // Each Toggle owns and destroys its background sprites, so build a fresh set
 // per toggle rather than sharing instances.
 function toggleBackgrounds() {
   // eslint-disable-next-line unicorn/consistent-function-scoping -- single-use builder kept local to the only function that needs it
-  let toggleSprite = (name: string) => new pixi.Sprite(pixi.Assets.get(name));
+  let toggleSprite = (name: string) => new pixi.Sprite(uiTexture(name));
 
   return {
     unchecked: toggleSprite('toggle-unchecked'),
@@ -41,21 +41,21 @@ function openOptionsModal(screen: GameScreen<MainMenuScreenState>) {
   let title = new Text({
     text: 'Options',
     fontFamily: 'monogram-outline',
-    fontSize: 48,
+    fontSize: 12,
     fill: 0xffffff,
     layout: true,
   });
 
   let nameInput = new TextInput({
     backgrounds: {
-      normal: nineSlice('text-input-normal', INPUT_SLICE),
-      hovered: nineSlice('text-input-hovered', INPUT_SLICE),
-      disabled: nineSlice('text-input-disabled', INPUT_SLICE),
+      normal: nineSlice('text-input-normal'),
+      hovered: nineSlice('text-input-hovered'),
+      disabled: nineSlice('text-input-disabled'),
     },
     value: settings.playerName,
     placeholder: 'Name...',
     fontFamily: 'monogram',
-    fontSize: 48,
+    fontSize: 12,
     fill: 0xffffff,
     maxLength: 16,
     // Evaluated on the Options click — after the canvas is mounted — so it
@@ -65,20 +65,20 @@ function openOptionsModal(screen: GameScreen<MainMenuScreenState>) {
       settings.playerName = input.value;
       audio.play(pixi.Assets.get<AudioBuffer>('ui-key'), {bus: 'ui'});
     },
-    layout: {minWidth: 220, padding: 16},
+    layout: {minWidth: 55, padding: 4},
   });
   let nameRow = new Container({
     children: [
       new Text({
         text: 'Player name',
         fontFamily: 'monogram-outline',
-        fontSize: 48,
+        fontSize: 12,
         fill: 0xffffff,
         layout: true,
       }),
       nameInput,
     ],
-    layout: {gap: 12},
+    layout: {gap: 3},
   });
 
   let soundToggle = new Toggle({
@@ -99,13 +99,13 @@ function openOptionsModal(screen: GameScreen<MainMenuScreenState>) {
       new Text({
         text: 'Sound',
         fontFamily: 'monogram-outline',
-        fontSize: 48,
+        fontSize: 12,
         fill: 0xffffff,
         layout: true,
       }),
       soundToggle,
     ],
-    layout: {gap: 12},
+    layout: {gap: 3},
   });
 
   let closeButton = createButton({
@@ -117,13 +117,13 @@ function openOptionsModal(screen: GameScreen<MainMenuScreenState>) {
   });
 
   let panel = new Panel({
-    background: nineSlice('banner', BANNER_SLICE),
+    background: nineSlice('banner'),
     children: [title, nameRow, soundRow, closeButton],
     layout: {
-      padding: 32,
+      padding: 8,
       alignItems: 'center',
       flexDirection: 'column',
-      gap: 16,
+      gap: 4,
     },
   });
 
@@ -141,7 +141,7 @@ function openOptionsModal(screen: GameScreen<MainMenuScreenState>) {
   // eslint-disable-next-line no-param-reassign -- needed
   screen.state.openModal = modal;
   modal.open(screen.ui);
-  modal.resize(game.app.screen.width, game.app.screen.height);
+  modal.resize(game.app.screen.width / game.pixelScale, game.app.screen.height / game.pixelScale);
 }
 
 type MainMenuScreenState = {
@@ -153,7 +153,7 @@ export const mainMenuScreen = new GameScreen<MainMenuScreenState>({
   // needed by gameScreen, and Game.showScreen already shows the loading screen
   // for any not-yet-loaded bundle when New Game is pressed.
   assetBundles: ['default'],
-  focusRing: FOCUS_RING,
+  focusRing: () => ({texture: uiTexture('focus-ring'), padding: 2}),
   onFocusEvent: playFocusSound,
   onShow: () => {
     // Music is driven by direct mixer calls from the screen context (never the
@@ -178,7 +178,7 @@ export const mainMenuScreen = new GameScreen<MainMenuScreenState>({
     let title = new Text({
       text: 'Somewhere',
       fontFamily: 'monogram-outline',
-      fontSize: 48,
+      fontSize: 12,
       layout: true,
     });
 
@@ -202,13 +202,13 @@ export const mainMenuScreen = new GameScreen<MainMenuScreenState>({
     });
 
     let bannerPanel = new Panel({
-      background: nineSlice('banner', BANNER_SLICE),
+      background: nineSlice('banner'),
       children: [title, newGameButton, optionsButton],
       layout: {
-        padding: 32,
+        padding: 8,
         alignItems: 'center',
         flexDirection: 'column',
-        gap: 16,
+        gap: 4,
       },
     });
 
@@ -224,6 +224,9 @@ export const mainMenuScreen = new GameScreen<MainMenuScreenState>({
     screen.state.openModal = null;
   },
   onResize: (screen) => {
-    screen.state.openModal?.resize(screen.game.app.screen.width, screen.game.app.screen.height);
+    screen.state.openModal?.resize(
+      screen.game.app.screen.width / screen.game.pixelScale,
+      screen.game.app.screen.height / screen.game.pixelScale,
+    );
   },
 });

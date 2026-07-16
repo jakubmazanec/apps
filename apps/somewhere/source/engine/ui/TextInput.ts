@@ -28,7 +28,9 @@ export type TextInputOptions = {
   layout?: pixi.ContainerOptions['layout'];
 };
 
-const CARET_WIDTH = 2;
+// 1 art px — part of the migration's flagged caret change (grid-consistent,
+// slightly thicker at ×4 than the old 2 device px), as is the 1-art-px margin.
+const CARET_WIDTH = 1;
 
 export class TextInput implements Focusable {
   readonly view: LayoutContainer;
@@ -111,7 +113,7 @@ export class TextInput implements Focusable {
 
     this.#caret = new pixi.Sprite(pixi.Texture.WHITE);
     this.#caret.tint = fill ?? 0xffffff;
-    this.#caret.layout = {width: CARET_WIDTH, height: Math.round(fontSize * 0.8), marginLeft: 2};
+    this.#caret.layout = {width: CARET_WIDTH, height: Math.round(fontSize * 0.8), marginLeft: 1};
 
     // Cancel the native pointerdown so the browser does not generate the
     // compatibility mouse events whose default action moves focus to the canvas,

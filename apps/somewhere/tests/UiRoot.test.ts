@@ -100,19 +100,14 @@ vi.mock('pixi.js', () => ({
       this.height = height;
     }
   },
-  Assets: {get: vi.fn(() => ({}))},
 }));
 
 const {UiRoot} = await import('../source/engine/ui/UiRoot.js');
 const {Container} = await import('pixi.js');
 
 const FOCUS_RING = {
-  assetName: 'focus-ring',
-  bottomHeight: 4,
-  leftWidth: 4,
+  texture: {} as unknown as pixi.Texture,
   padding: 8,
-  rightWidth: 4,
-  topHeight: 4,
 };
 
 type MockContainer = {

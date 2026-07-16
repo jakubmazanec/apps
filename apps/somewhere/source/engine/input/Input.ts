@@ -63,9 +63,10 @@ export class Input {
   }
 
   /**
-   * Position of the last latched tap, in view coordinates (device px). Changes
-   * only at the step boundary, so a pointer move between the tap and the next
-   * `update()` cannot retarget it.
+   * Position of the last latched tap, in view-local coordinates (art px — the
+   * root pixelScale transform is already divided out). Changes only at the
+   * step boundary, so a pointer move between the tap and the next `update()`
+   * cannot retarget it.
    */
   get tapPosition(): Vector {
     return this.#tapPosition;
@@ -113,8 +114,10 @@ export class Input {
     let handlePointerTap = (event: pixi.FederatedPointerEvent) => {
       // Multiple taps in one frame collapse to one, last position wins. Copy
       // the position: pixi reuses federated event objects after handlers return.
+      let local = event.getLocalPosition(view);
+
       this.#hasBufferedTap = true;
-      this.#bufferedTapPosition.set(event.global.x, event.global.y);
+      this.#bufferedTapPosition.set(local.x, local.y);
     };
 
     globalThis.addEventListener('keydown', handleKeyDown);

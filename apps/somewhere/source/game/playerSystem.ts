@@ -35,10 +35,10 @@ export const playerSystem = new System({
         let {position: cameraPosition} = cameraQuery.getFirst().getComponent(CameraComponent);
 
         motion.target = new Vector(
-          // TODO: 32 comes from the bounding box; extract it as a constant instead of using the value directly
-          input.tapPosition.x + cameraPosition.x - 32,
-          // TODO: 60 comes from the bounding box; extract it as a constant instead of using the value directly
-          input.tapPosition.y + cameraPosition.y - 60,
+          // TODO: 8 comes from the bounding box; extract it as a constant instead of using the value directly
+          input.tapPosition.x + cameraPosition.x - 8,
+          // TODO: 15 comes from the bounding box; extract it as a constant instead of using the value directly
+          input.tapPosition.y + cameraPosition.y - 15,
         );
         motion.velocity.x = 0;
         motion.velocity.y = 0;

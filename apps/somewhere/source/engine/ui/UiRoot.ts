@@ -8,14 +8,12 @@ export type FocusDirection = 'down' | 'left' | 'right' | 'up';
 export type UiFocusEvent = {type: 'move'} | {type: 'reject'};
 
 export type FocusRingOptions = {
-  assetName: string;
-  bottomHeight: number;
-  leftWidth: number;
   // Extra space between the focused component's bounds and the outside of the
-  // ring, in screen pixels.
+  // ring, in art px.
   padding: number;
-  rightWidth: number;
-  topHeight: number;
+  // Resolved nine-slice texture; the insets come from `texture.defaultBorders`
+  // (set by the ui spritesheet's per-frame `borders`).
+  texture: pixi.Texture;
 };
 
 export type UiRootOptions = {
@@ -301,13 +299,7 @@ export class UiRoot implements UiParent {
   }
 
   #createRing(options: FocusRingOptions): pixi.NineSliceSprite {
-    this.#ring = new pixi.NineSliceSprite({
-      texture: pixi.Assets.get(options.assetName),
-      leftWidth: options.leftWidth,
-      topHeight: options.topHeight,
-      rightWidth: options.rightWidth,
-      bottomHeight: options.bottomHeight,
-    });
+    this.#ring = new pixi.NineSliceSprite({texture: options.texture});
     this.#overlay.addChild(this.#ring);
 
     return this.#ring;

@@ -18,7 +18,11 @@ export type Renderable = {
 export type GameScreenOptions<T, E extends EventEmitter.ValidEventTypes = Record<never, never>> = {
   assetBundles?: string[] | undefined;
   events?: EventEmitter<E> | undefined;
-  focusRing?: FocusRingOptions | undefined;
+  // A thunk, not a value: screens are module-level consts constructed before
+  // assets load, and a resolved ring texture exists only afterwards. Called
+  // once in setGame — the boot flow reaches addScreen only after init() has
+  // loaded the default bundle.
+  focusRing?: (() => FocusRingOptions) | undefined;
   onFocusEvent?: ((event: UiFocusEvent) => void) | undefined;
   onShow?: ((screen: GameScreen<T, E>, game: Game) => Promise<void> | void) | undefined;
   onHide?: ((screen: GameScreen<T, E>, game: Game) => Promise<void> | void) | undefined;
@@ -35,7 +39,7 @@ export class GameScreen<
   // Created eagerly in `setGame` (when the screen is wired into a game); present for the whole active lifetime.
   #ui!: UiRoot;
   readonly #events?: EventEmitter<Events>;
-  readonly #focusRing?: FocusRingOptions;
+  readonly #focusRing?: () => FocusRingOptions;
   readonly #onFocusEvent?: (event: UiFocusEvent) => void;
   // Engine teardown idiom (DisposableStack + defer), like Game/Button/UiRoot. Unlike those
   // one-shot stacks it is reset on each hide so the screen can re-subscribe on the next show;
@@ -120,7 +124,7 @@ export class GameScreen<
     let uiRootOptions: UiRootOptions = {};
 
     if (this.#focusRing !== undefined) {
-      uiRootOptions.focusRing = this.#focusRing;
+      uiRootOptions.focusRing = this.#focusRing();
     }
 
     if (this.#onFocusEvent !== undefined) {

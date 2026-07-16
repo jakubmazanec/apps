@@ -3,7 +3,12 @@ import {afterEach, describe, expect, test, vi} from 'vitest';
 vi.mock('pixi.js', () => ({
   Application: class Application {
     canvas = document.createElement('canvas');
-    renderer = {resize() {}};
+    renderer = {
+      resize: (width: number, height: number) => {
+        this.screen.width = width;
+        this.screen.height = height;
+      },
+    };
     screen = {width: 0, height: 0};
     stage = {addChild() {}, removeChild() {}};
     ticker = {add() {}, remove() {}};
@@ -22,7 +27,26 @@ vi.mock('pixi.js', () => ({
   Container: class Container {
     eventMode = 'auto';
     hitArea: unknown;
-    layout: unknown;
+
+    #layout: Record<string, unknown> | undefined;
+
+    get layout() {
+      return this.#layout;
+    }
+
+    set layout(value: Record<string, unknown> | undefined) {
+      // Real @pixi/layout merges each assignment onto the current style.
+      this.#layout = value === undefined ? undefined : {...this.#layout, ...value};
+    }
+
+    scale = {
+      x: 1,
+      y: 1,
+      set(value: number) {
+        this.x = value;
+        this.y = value;
+      },
+    };
 
     addChild() {}
 
@@ -55,6 +79,7 @@ vi.mock('../source/pixi-tools/audioBufferAsset.js', () => ({audioBufferAsset: {}
 
 const {Game} = await import('../source/engine/app/Game.js');
 const pixi = await import('pixi.js');
+const {defaultChoosePixelScale} = await import('../source/engine/app/ChoosePixelScale.js');
 
 const FOCUS_KEYS = {
   up: ['ArrowUp'],
@@ -581,5 +606,136 @@ describe('Game ticker configuration', () => {
     await game.init();
 
     expect(game.app.ticker.minFPS).toBe(10);
+  });
+});
+
+describe('Game pixelScale', () => {
+  afterEach(() => {
+    for (let cleanup of cleanups) {
+      cleanup();
+    }
+
+    cleanups = [];
+    vi.restoreAllMocks();
+  });
+
+  test('pixelScale access before init throws', () => {
+    let game = new Game({assetBundles: []});
+
+    expect(() => game.pixelScale).toThrow('pixelScale is not available before init()!');
+  });
+
+  test('init runs the chooser exactly once with the device-px viewport', async () => {
+    let chooser = vi.fn(() => 5);
+    let game = new Game({assetBundles: [], choosePixelScale: chooser});
+
+    cleanups.push(() => {
+      game.destroy();
+    });
+
+    await game.init();
+    await game.init(); // init after init is a no-op: no second chooser run
+
+    expect(chooser).toHaveBeenCalledTimes(1);
+    expect(chooser).toHaveBeenCalledWith({
+      width: window.innerWidth * window.devicePixelRatio,
+      height: window.innerHeight * window.devicePixelRatio,
+    });
+    expect(game.pixelScale).toBe(5);
+  });
+
+  test('a non-integer chooser result rejects init and pixelScale stays unset', async () => {
+    let game = new Game({assetBundles: [], choosePixelScale: () => 2.5});
+
+    await expect(game.init()).rejects.toThrow(
+      'Invalid pixelScale "2.5": the chooser must return an integer >= 1!',
+    );
+    expect(() => game.pixelScale).toThrow('pixelScale is not available before init()!');
+  });
+
+  test('a chooser result below 1 rejects init', async () => {
+    let game = new Game({assetBundles: [], choosePixelScale: () => 0});
+
+    await expect(game.init()).rejects.toThrow('Invalid pixelScale "0"');
+  });
+
+  test('without an override the engine default policy applies', async () => {
+    let game = new Game({assetBundles: []});
+
+    cleanups.push(() => {
+      game.destroy();
+    });
+
+    await game.init();
+
+    expect(game.pixelScale).toBe(
+      defaultChoosePixelScale({
+        width: window.innerWidth * window.devicePixelRatio,
+        height: window.innerHeight * window.devicePixelRatio,
+      }),
+    );
+  });
+});
+
+describe('Game scaled root', () => {
+  afterEach(() => {
+    for (let cleanup of cleanups) {
+      cleanup();
+    }
+
+    cleanups = [];
+    vi.restoreAllMocks();
+  });
+
+  test('init applies pixelScale as the root view scale', async () => {
+    let game = new Game({assetBundles: [], choosePixelScale: () => 4});
+
+    cleanups.push(() => {
+      game.destroy();
+    });
+
+    await game.init();
+
+    expect(game.view.scale.x).toBe(4);
+    expect(game.view.scale.y).toBe(4);
+  });
+
+  test('init pins the root transform origin to the top-left corner', async () => {
+    let game = new Game({assetBundles: [], choosePixelScale: () => 4});
+
+    cleanups.push(() => {
+      game.destroy();
+    });
+
+    await game.init();
+
+    // Without this the scaled root composes about @pixi/layout's default 50%
+    // transform origin and the whole scene shifts by (1 - pixelScale)/2 of the box.
+    expect(game.view.layout).toMatchObject({transformOrigin: 0});
+  });
+
+  test('handleResize lays out the view and hit area in art px', async () => {
+    let game = new Game({assetBundles: [], choosePixelScale: () => 4});
+    let element = document.createElement('div');
+
+    // happy-dom elements have no layout; pin the client box the resize reads.
+    Object.defineProperty(element, 'clientWidth', {value: 800});
+    Object.defineProperty(element, 'clientHeight', {value: 600});
+    document.body.append(element);
+
+    await game.init();
+    game.addRef({current: element});
+    cleanups.push(() => {
+      game.destroy();
+      element.remove();
+    });
+
+    // 800×600 CSS at DPR 1 → renderer 800×600 device px → 200×150 art px.
+    expect(game.view.layout).toMatchObject({width: 200, height: 150, transformOrigin: 0});
+
+    let hitArea = game.view.hitArea as unknown as {width: number; height: number};
+
+    expect(hitArea.width).toBe(200);
+    expect(hitArea.height).toBe(150);
   });
 });

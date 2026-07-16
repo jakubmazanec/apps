@@ -11,7 +11,7 @@ const MAX_DELTA_TIME = 2;
 // Shared with playerSystem's keyboard path so keyboard speed and this clamp
 // cannot drift apart — the clamp only runs when motion.target is set, so the
 // keyboard path must carry the same value itself.
-export const MAX_SPEED = 4;
+export const MAX_SPEED = 1;
 
 export const motionSystem = new System({
   components: [MotionComponent, GraphicsComponent],
@@ -26,11 +26,11 @@ export const motionSystem = new System({
         motion.velocity.x = motion.target.x - motion.position.x;
         motion.velocity.y = motion.target.y - motion.position.y;
 
-        if (Math.abs(motion.velocity.x) < 0.1) {
+        if (Math.abs(motion.velocity.x) < 0.025) {
           motion.velocity.x = 0;
         }
 
-        if (Math.abs(motion.velocity.y) < 0.1) {
+        if (Math.abs(motion.velocity.y) < 0.025) {
           motion.velocity.y = 0;
         }
 
@@ -49,7 +49,7 @@ export const motionSystem = new System({
 
       // TODO: Both axis passes below scan the entire tile grid per moving
       // entity per frame (2 × columnCount × rowCount tile checks), even though
-      // almost no tiles have a boundingBox. Tiles are grid-aligned (64px) and
+      // almost no tiles have a boundingBox. Tiles are grid-aligned (16 art px) and
       // layer.tiles is indexed [column][row], so each pass only needs the
       // column/row range covered by the swept player box (union of current and
       // tentative position, divided by tile size, clamped to grid bounds) —
@@ -59,7 +59,7 @@ export const motionSystem = new System({
       // must run before Y (Y reads the clipped X), the overlap test is
       // deliberately strict (touching edges don't collide, so the player can
       // slide flush along walls), contactTile keeps the first hit in
-      // column-major order, and a tile boundingBox larger than its 64px cell
+      // column-major order, and a tile boundingBox larger than its 16-art-px cell
       // would escape a naive swept range (all current boxes fit their cell;
       // expand the range by a margin or assert the invariant).
 

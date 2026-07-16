@@ -17,7 +17,7 @@ import {mainMenuScreen} from './mainMenuScreen.js';
 import {openPauseMenu, resumeFromPause, teardownGameScreen} from './pauseFlow.js';
 import {settings} from './settings.js';
 import {type UIEventMap, uiEvents} from './uiEvents.js';
-import {BANNER_SLICE, createButton, FOCUS_RING, nineSlice} from './widgets.js';
+import {createButton, nineSlice, uiTexture} from './widgets.js';
 import {world} from './world.js';
 
 type GameScreenState = {
@@ -55,12 +55,12 @@ function buildPauseModal(screen: GameScreen<GameScreenState, UIEventMap>): Modal
     },
   });
   let panel = new Panel({
-    background: nineSlice('banner', BANNER_SLICE),
+    background: nineSlice('banner'),
     children: [
       new Text({
         text: 'Paused',
         fontFamily: 'monogram-outline',
-        fontSize: 48,
+        fontSize: 12,
         fill: 0xffffff,
         layout: true,
       }),
@@ -68,10 +68,10 @@ function buildPauseModal(screen: GameScreen<GameScreenState, UIEventMap>): Modal
       quitButton,
     ],
     layout: {
-      padding: 32,
+      padding: 8,
       alignItems: 'center',
       flexDirection: 'column',
-      gap: 16,
+      gap: 4,
     },
   });
 
@@ -93,7 +93,7 @@ export const gameScreen = new GameScreen<GameScreenState, UIEventMap>({
   // what makes New Game show the loading screen while the game bundle is cold.
   assetBundles: ['default', 'game'],
   events: uiEvents,
-  focusRing: FOCUS_RING,
+  focusRing: () => ({texture: uiTexture('focus-ring'), padding: 2}),
   onFocusEvent: playFocusSound,
   onAdd: (screen): GameScreenState => {
     // Full-screen flex row: HUD texts top-left, pause button top-right. The
@@ -109,32 +109,31 @@ export const gameScreen = new GameScreen<GameScreenState, UIEventMap>({
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'flex-start',
-      padding: 16,
+      padding: 4,
     };
 
     let nameLabel = new Text({
       text: '',
       fontFamily: 'monogram-outline',
-      fontSize: 24,
+      fontSize: 12,
       fill: 0xffffff,
       layout: true,
     });
     let hitCounter = new Text({
       text: 'Wall hits: 0',
       fontFamily: 'monogram-outline',
-      fontSize: 24,
+      fontSize: 12,
       fill: 0xffffff,
       layout: true,
     });
     let hud = new Container({
       children: [nameLabel, hitCounter],
-      layout: {flexDirection: 'column', alignItems: 'flex-start', gap: 4},
+      layout: {flexDirection: 'column', alignItems: 'flex-start', gap: 1},
     });
 
     let pauseButton = createButton({
       // Text label — no icon asset exists yet; art can replace it later.
       label: 'Pause',
-      fontSize: 24,
       onClick: () => {
         openPauseMenu({
           world,
@@ -144,7 +143,10 @@ export const gameScreen = new GameScreen<GameScreenState, UIEventMap>({
             // eslint-disable-next-line no-param-reassign -- needed
             screen.state.openModal = modal;
             modal.open(screen.ui);
-            modal.resize(screen.game.app.screen.width, screen.game.app.screen.height);
+            modal.resize(
+              screen.game.app.screen.width / screen.game.pixelScale,
+              screen.game.app.screen.height / screen.game.pixelScale,
+            );
           },
         });
       },
@@ -189,6 +191,9 @@ export const gameScreen = new GameScreen<GameScreenState, UIEventMap>({
     screen.state.openModal = null;
   },
   onResize: (screen) => {
-    screen.state.openModal?.resize(screen.game.app.screen.width, screen.game.app.screen.height);
+    screen.state.openModal?.resize(
+      screen.game.app.screen.width / screen.game.pixelScale,
+      screen.game.app.screen.height / screen.game.pixelScale,
+    );
   },
 });

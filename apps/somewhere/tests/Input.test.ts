@@ -3,13 +3,15 @@ import {afterEach, describe, expect, test} from 'vitest';
 
 import {Input} from '../source/engine/input/Input.js';
 
-// Input's only pixi surface is `view.on`/`view.off`, so a recording fake
-// stands in for a real container.
+// Input's pixi surface is `view.on`/`view.off` plus per-event
+// `getLocalPosition`, so a recording fake stands in for a real container.
+// `scale` mimics the pixelScale root transform that getLocalPosition inverts.
 function createView() {
   let handlers: Record<string, Array<(event: unknown) => void>> = {};
 
   return {
     handlers,
+    scale: 2,
     on(event: string, handler: (event: unknown) => void) {
       (handlers[event] ??= []).push(handler);
 
@@ -23,7 +25,14 @@ function createView() {
     // Simulates pixi dispatching 'pointertap' and returns the event object so
     // tests can mutate it afterwards (pixi reuses federated events).
     tap(x: number, y: number) {
-      let event = {global: {x, y}};
+      let event = {
+        global: {x, y},
+        // Mirrors pixi: view-local is derived from the live `global` at call
+        // time by inverting the view's world transform.
+        getLocalPosition(view: {scale: number}) {
+          return {x: this.global.x / view.scale, y: this.global.y / view.scale};
+        },
+      };
 
       for (let handler of handlers.pointertap ?? []) {
         handler(event);
@@ -266,13 +275,23 @@ describe('Input taps', () => {
     expect(input.pressed('move-to')).toBeTruthy();
     expect(input.released('move-to')).toBeTruthy();
     expect(input.held('move-to')).toBeFalsy();
-    expect(input.tapPosition.x).toBe(10);
-    expect(input.tapPosition.y).toBe(20);
+    expect(input.tapPosition.x).toBe(5);
+    expect(input.tapPosition.y).toBe(10);
 
     input.update();
 
     expect(input.pressed('move-to')).toBeFalsy();
     expect(input.released('move-to')).toBeFalsy();
+  });
+
+  test('tapPosition is view-local: the root scale is divided out at latch time', () => {
+    let {input, view} = createAttachedInput(TAP_BINDINGS);
+
+    view.tap(10, 20);
+    input.update();
+
+    expect(input.tapPosition.x).toBe(10 / view.scale);
+    expect(input.tapPosition.y).toBe(20 / view.scale);
   });
 
   test('multiple taps in one step collapse to one edge, last position wins', () => {
@@ -283,8 +302,8 @@ describe('Input taps', () => {
     input.update();
 
     expect(input.pressed('move-to')).toBeTruthy();
-    expect(input.tapPosition.x).toBe(3);
-    expect(input.tapPosition.y).toBe(4);
+    expect(input.tapPosition.x).toBe(1.5);
+    expect(input.tapPosition.y).toBe(2);
 
     input.update();
 
@@ -302,8 +321,8 @@ describe('Input taps', () => {
     event.global.y = 999;
     input.update();
 
-    expect(input.tapPosition.x).toBe(10);
-    expect(input.tapPosition.y).toBe(20);
+    expect(input.tapPosition.x).toBe(5);
+    expect(input.tapPosition.y).toBe(10);
   });
 
   test('taps do not leak into key-only actions; a dual-bound action unions both sources', () => {

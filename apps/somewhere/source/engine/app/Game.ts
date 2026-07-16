@@ -6,6 +6,7 @@ import {audioBufferAsset} from '../../pixi-tools/audioBufferAsset.js';
 import {tiledTilemapAsset} from '../../pixi-tools/tiledTilemapAsset.js';
 import {tiledTilesetAsset} from '../../pixi-tools/tiledTilesetAsset.js';
 import {isTextEntryTarget} from '../ui/isTextEntryTarget.js';
+import {type ChoosePixelScale, defaultChoosePixelScale} from './ChoosePixelScale.js';
 import {type FocusCommand} from './FocusCommand.js';
 import {type GameAssetBundle} from './GameAssetBundle.js';
 import {type GameOptions} from './GameOptions.js';
@@ -37,6 +38,8 @@ export class Game {
   ref: React.RefObject<HTMLElement | null> | null = null;
 
   readonly #focusCommands = new Map<string, FocusCommand>();
+  readonly #choosePixelScale: ChoosePixelScale;
+  #pixelScale: number | null = null;
 
   /** Stack to register disposers that cleanup resources when needed. */
   #disposables = new DisposableStack();
@@ -48,8 +51,18 @@ export class Game {
     return this.#state === 'running' || this.#state === 'transitioning';
   }
 
-  constructor({assetBundles, focusKeys}: GameOptions) {
+  /** Integer render scale chosen for this session; device px = art px × pixelScale. */
+  get pixelScale(): number {
+    if (this.#pixelScale === null) {
+      throw new Error('pixelScale is not available before init()!');
+    }
+
+    return this.#pixelScale;
+  }
+
+  constructor({assetBundles, choosePixelScale, focusKeys}: GameOptions) {
     this.assetBundles = assetBundles;
+    this.#choosePixelScale = choosePixelScale ?? defaultChoosePixelScale;
 
     for (let [command, codes] of Object.entries(focusKeys ?? {}) as Array<
       [FocusCommand, string[]]
@@ -70,6 +83,23 @@ export class Game {
     this.#state = 'initializing';
 
     try {
+      // The canvas has no real size until the DOM ref attaches, long after init();
+      // the viewport is available immediately and cannot be 0-sized the way a
+      // hidden container can. Fixed per session: later resizes and DPR changes do
+      // not re-run the chooser.
+      let pixelScale = this.#choosePixelScale({
+        width: window.innerWidth * window.devicePixelRatio,
+        height: window.innerHeight * window.devicePixelRatio,
+      });
+
+      if (!Number.isInteger(pixelScale) || pixelScale < 1) {
+        throw new Error(
+          `Invalid pixelScale "${pixelScale}": the chooser must return an integer >= 1!`,
+        );
+      }
+
+      this.#pixelScale = pixelScale;
+
       pixi.TextureSource.defaultOptions.scaleMode = 'nearest'; // Must be set before any texture load starts
 
       // Start the asset pipeline alongside app.init so the ~20-file default
@@ -102,7 +132,20 @@ export class Game {
           // app.init — but not for the asset loads
           this.app.stage.addChild(this.view);
 
-          this.view.layout = {width: this.app.screen.width, height: this.app.screen.height};
+          // Everything inside the root (screens, world, UI) operates in art px;
+          // device px exists only outside it.
+          this.view.scale.set(this.pixelScale);
+
+          this.view.layout = {
+            width: this.app.screen.width / this.pixelScale,
+            height: this.app.screen.height / this.pixelScale,
+            // @pixi/layout composes a layout container's transform about its
+            // transformOrigin, which defaults to '50%': a scaled root would
+            // shift the whole scene by (1 - pixelScale)/2 of the box. Scale
+            // about the top-left corner instead; the later width/height-only
+            // assignments merge onto the style and keep this.
+            transformOrigin: 0,
+          };
           this.view.eventMode = 'static';
           this.view.hitArea = new pixi.Rectangle();
 
@@ -244,19 +287,23 @@ export class Game {
       this.app.canvas.style.width = `${cssWidth}px`;
       this.app.canvas.style.height = `${cssHeight}px`;
 
+      // The hit area and layout live in the view's local space — art px.
       if (this.view.hitArea) {
         let hitArea = this.view.hitArea as pixi.Rectangle;
 
         hitArea.x = 0;
         hitArea.y = 0;
-        hitArea.width = pixelWidth;
-        hitArea.height = pixelHeight;
+        hitArea.width = pixelWidth / this.pixelScale;
+        hitArea.height = pixelHeight / this.pixelScale;
       }
 
       window.scrollTo(0, 0);
       this.app.renderer.resize(pixelWidth, pixelHeight);
 
-      this.view.layout = {width: this.app.screen.width, height: this.app.screen.height}; // muste be called after renderer.resize() call, apparently
+      this.view.layout = {
+        width: this.app.screen.width / this.pixelScale,
+        height: this.app.screen.height / this.pixelScale,
+      }; // muste be called after renderer.resize() call, apparently
 
       if (this.currentScreen?.view.parent) {
         this.currentScreen.resize();

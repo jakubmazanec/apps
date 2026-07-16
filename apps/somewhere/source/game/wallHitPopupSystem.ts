@@ -20,7 +20,7 @@ import {wallHitChannel} from './wallHitChannel.js';
 // a zero-velocity popup renders as 'standing-right'.
 //
 // TODO: This is load-bearing waste. Every wall hit constructs 8 AnimatedSprites
-// (public/spark.json duplicates the same 16x16 frame under all 8 directional
+// (public/spark.json duplicates the same 4x4 frame under all 8 directional
 // keys) because the render path has no escape hatch for non-character visuals:
 // the Sprite constructor throws on any name missing from the spritesheet, and
 // graphicsSystem picks a name purely from velocity direction and crashes in
@@ -47,8 +47,8 @@ const SPARK_SPRITE_NAMES = [
   'walking-right',
 ] as const;
 
-// The spark spritesheet frame is 16x16 (see public/spark.json).
-const SPARK_SIZE = 16;
+// The spark spritesheet frame is 4x4 (see public/spark.json).
+const SPARK_SIZE = 4;
 
 export const wallHitPopupSystem = new System({
   components: [],
@@ -102,7 +102,7 @@ export const wallHitPopupSystem = new System({
       popup.getComponent(TweenComponent).tweens.push({
         tween: new Tween({
           target: motion.position,
-          to: {y: y - 24},
+          to: {y: y - 6},
           duration: 400,
           easing: easeOutQuad,
         }),

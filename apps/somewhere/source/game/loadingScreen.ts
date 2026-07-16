@@ -9,7 +9,7 @@ export const loadingScreen = new GameScreen({
     let label = new Text({
       text: 'Loading...',
       fontFamily: 'monogram',
-      fontSize: 48,
+      fontSize: 12,
       fill: 0xffffff,
       layout: true,
     });

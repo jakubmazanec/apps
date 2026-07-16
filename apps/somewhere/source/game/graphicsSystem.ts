@@ -37,9 +37,11 @@ export const graphicsSystem = new System({
         sprite.show('standing-up');
       }
 
-      // we add the sprite to the map view, and positions are relative to a parent container
-      sprite.view.position.x = Math.round(motion.position.x - cameraPosition.x - map.view.x);
-      sprite.view.position.y = Math.round(motion.position.y - cameraPosition.y - map.view.y);
+      // we add the sprite to the map view, and positions are relative to a parent container;
+      // fractional art positions pass through raw — the renderer's roundPixels snaps them to
+      // whole device px at render time, keeping today's 1-device-px movement granularity
+      sprite.view.position.x = motion.position.x - cameraPosition.x - map.view.x;
+      sprite.view.position.y = motion.position.y - cameraPosition.y - map.view.y;
       sprite.view.zIndex = sprite.view.position.y + boundingBox.y + boundingBox.height;
 
       // Advance the current sprite's animation on world time (sprites are

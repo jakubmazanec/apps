@@ -115,4 +115,42 @@ describe('graphicsSystem sprite lifecycle', () => {
 
     world.stop();
   });
+
+  test('sprite positions pass through unrounded: roundPixels owns device-px snapping', () => {
+    let sprite = createSpriteStub();
+    let map = {
+      addToLayer: vi.fn(),
+      removeFromLayer: vi.fn(),
+      topLayerIndex: 2,
+      view: {x: 0, y: 0},
+    };
+    let level = new Entity({components: [stubComponent(LevelComponent, {map})]});
+    let cameraEntity = new Entity({
+      components: [new CameraComponent({position: new Vector(0.75, 0)})],
+    });
+    let player = new Entity({
+      components: [
+        new MotionComponent({position: new Vector(1.25, 2.5), velocity: new Vector(0, 0)}),
+        stubComponent(GraphicsComponent, {sprite, boundingBox: {x: 0, y: 0, width: 8, height: 8}}),
+      ],
+    });
+    let world = new World({
+      onStart: (w) => {
+        w.addEntityQuery(levelQuery)
+          .addEntityQuery(cameraQuery)
+          .addSystem(graphicsSystem)
+          .addEntity(level)
+          .addEntity(cameraEntity)
+          .addEntity(player);
+      },
+    });
+
+    world.start();
+    world.update({deltaTime: 1} as unknown as pixi.Ticker);
+
+    expect(sprite.view.position.x).toBe(0.5);
+    expect(sprite.view.position.y).toBe(2.5);
+
+    world.stop();
+  });
 });

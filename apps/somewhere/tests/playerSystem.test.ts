@@ -111,9 +111,9 @@ describe('playerSystem', () => {
     motion.velocity.set(3, 3);
     world.update(tick());
 
-    // 10 + 100 - 32, 20 + 50 - 60 (camera at (100, 50), bounding-box offsets).
-    expect(motion.target?.x).toBe(78);
-    expect(motion.target?.y).toBe(10);
+    // 10 + 100 - 8, 20 + 50 - 15 (camera at (100, 50), bounding-box offsets).
+    expect(motion.target?.x).toBe(102);
+    expect(motion.target?.y).toBe(55);
     expect(motion.velocity.x).toBe(0);
     expect(motion.velocity.y).toBe(0);
 
