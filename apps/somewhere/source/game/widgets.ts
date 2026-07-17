@@ -13,7 +13,9 @@ export function nineSlice(name: string): pixi.NineSliceSprite {
 }
 
 export type CreateButtonOptions = {
-  label: string;
+  // A string gets the standard monogram-outline label; a prebuilt Text lets
+  // the caller keep the reference (e.g. to flip the label as click feedback).
+  label: Text | string;
   onClick: () => void;
   fontSize?: number;
   layout?: pixi.ContainerOptions['layout'];
@@ -31,13 +33,15 @@ export function createButton({label, onClick, fontSize = 12, layout}: CreateButt
       disabled: nineSlice('button-disabled'),
     },
     children: [
-      new Text({
-        text: label,
-        fontFamily: 'monogram-outline',
-        fontSize,
-        fill: 0xffffff,
-        layout: true,
-      }),
+      typeof label === 'string' ?
+        new Text({
+          text: label,
+          fontFamily: 'monogram-outline',
+          fontSize,
+          fill: 0xffffff,
+          layout: true,
+        })
+      : label,
     ],
     pressOffset: 1,
     onClick: () => {

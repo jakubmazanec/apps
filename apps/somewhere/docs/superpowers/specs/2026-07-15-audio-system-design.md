@@ -1,8 +1,8 @@
 # Audio System Design — Mixer, Bus Graph, Two Consumers, Demo Wiring
 
-Implements T1.2 of [engine-review-2026-07-04.md](../../engine-review-2026-07-04.md): the engine
-has zero audio code today — no dependency, no playback, nothing. This design adds an in-house Web
-Audio wrapper and wires it to both audio consumers the engine has: the UI/screen layer and the
+Implements T1.2 of [engine-review-2026-07-04.md](../../engine-review-2026-07-04.md): the engine has
+zero audio code today — no dependency, no playback, nothing. This design adds an in-house Web Audio
+wrapper and wires it to both audio consumers the engine has: the UI/screen layer and the
 ECS/gameplay layer.
 
 Scope decisions made during brainstorming:
@@ -11,22 +11,22 @@ Scope decisions made during brainstorming:
   2024-07, and the needed surface is small. (Confirming the review's call.)
 - **Two consumers, one mixer.** UI/menu audio calls the mixer directly (must work with no world,
   e.g. the main menu); gameplay SFX flow through an ECS event channel. See §1.
-- **Four buses**: `master → {music, sfx, ui}`, so UI, music, and SFX route separately. Only
-  `master` mute is wired to a control this cycle; independent per-bus level is a ready seam.
+- **Four buses**: `master → {music, sfx, ui}`, so UI, music, and SFX route separately. Only `master`
+  mute is wired to a control this cycle; independent per-bus level is a ready seam.
 - **Minimal engine hook added now**: `UiRoot` emits semantic focus events (`move`/`reject`) so
   focus-navigation and error sounds have somewhere to attach. The engine UI toolkit stays
   audio-agnostic.
 - **Persistence deferred**, seam named — the T1.8a validated-storage wrapper does not exist yet;
   mute reads from the in-memory `settings` object this cycle.
-- **Demo is the acceptance test** (audio barely unit-tests): SFX on wall-hit, menu/game music,
-  and the full UI-sound set.
+- **Demo is the acceptance test** (audio barely unit-tests): SFX on wall-hit, menu/game music, and
+  the full UI-sound set.
 
 ## Context
 
 `source/` contains no audio code, no dependency, no playback. Two facts shape the design:
 
-1. **The main menu has no ECS world.** `mainMenuScreen` runs widgets and (will) play menu music
-   with no `World` in sight. So UI/menu audio cannot route through an ECS system — there is no
+1. **The main menu has no ECS world.** `mainMenuScreen` runs widgets and (will) play menu music with
+   no `World` in sight. So UI/menu audio cannot route through an ECS system — there is no
    `world.update` to drain it. This forces the two-consumer split below.
 2. **The engine just shipped an Input system** (T1.1,
    [2026-07-14-input-system-design.md](2026-07-14-input-system-design.md)) whose structure this
@@ -40,25 +40,25 @@ Audio has two consumers with different native shapes — exactly the split the i
 but unlike input they share **one output**: a single `AudioContext`, one master volume, one pair of
 speakers. The shared resource is the `AudioMixer`; the two consumers reach it through two idioms.
 
-|                    | UI / screen layer                          | Gameplay / ECS layer                        |
-| ------------------ | ------------------------------------------ | ------------------------------------------- |
-| Consumer           | Widgets, screens, focus system             | ECS systems                                 |
-| Trigger shape      | Event handlers → **direct mixer calls**    | Polled per-frame → `PlaySound` events       |
-| Works with no world? | **Yes** (the menu has no world)          | No (needs `world.update`)                   |
-| On pause           | Still plays (UI stays live while paused)   | Frozen for free (no new SFX)                |
-| Reaches the mixer  | Imports the `audio` singleton directly     | `audioSystem` holds the mixer via a component |
-| Bus                | `ui` (and `music` for menu/context tracks) | `sfx`                                        |
+|                      | UI / screen layer                          | Gameplay / ECS layer                          |
+| -------------------- | ------------------------------------------ | --------------------------------------------- |
+| Consumer             | Widgets, screens, focus system             | ECS systems                                   |
+| Trigger shape        | Event handlers → **direct mixer calls**    | Polled per-frame → `PlaySound` events         |
+| Works with no world? | **Yes** (the menu has no world)            | No (needs `world.update`)                     |
+| On pause             | Still plays (UI stays live while paused)   | Frozen for free (no new SFX)                  |
+| Reaches the mixer    | Imports the `audio` singleton directly     | `audioSystem` holds the mixer via a component |
+| Bus                  | `ui` (and `music` for menu/context tracks) | `sfx`                                         |
 
-**Boundary rule.** Sounds triggered by UI interactions (clicks, typing, focus movement, errors)
-and context music (menu vs. battle) belong to the UI/screen layer and call the mixer directly.
-Sounds triggered by the simulation (a wall hit, a pickup, a hit-spark) belong to the ECS layer and
-are emitted as `PlaySound` events. The two never cross: an ECS system never plays a UI click; a
-widget never emits a `PlaySound` event.
+**Boundary rule.** Sounds triggered by UI interactions (clicks, typing, focus movement, errors) and
+context music (menu vs. battle) belong to the UI/screen layer and call the mixer directly. Sounds
+triggered by the simulation (a wall hit, a pickup, a hit-spark) belong to the ECS layer and are
+emitted as `PlaySound` events. The two never cross: an ECS system never plays a UI click; a widget
+never emits a `PlaySound` event.
 
 **Why the split is forced, not stylistic.** SFX must freeze on pause and the menu must make sound
 with no world — a single mechanism cannot do both. Routing gameplay SFX through the world buys
-"frozen on pause" for free (the review's T1.9 rule: *anything that must freeze with the world runs
-through the world*), while the direct UI path is the only thing that works before a world exists.
+"frozen on pause" for free (the review's T1.9 rule: _anything that must freeze with the world runs
+through the world_), while the direct UI path is the only thing that works before a world exists.
 
 **The one deliberate asymmetry — music.** Music is neither of the above: it must survive pause and
 outlive individual screens (audio lives outside world time). So music is driven by **direct mixer
@@ -132,17 +132,15 @@ Semantics:
   routing points. Per-bus **volume** — a stored 0..1 level plus `setVolume` — arrives with the
   slider UI (§8), not built now since nothing adjusts it.
 - **`play` is fire-and-forget.** SFX and UI sounds are short and uncounted; the mixer returns no
-  handle (the review: *systems don't hold audio handles*). The source node is created, connected to
+  handle (the review: _systems don't hold audio handles_). The source node is created, connected to
   the bus, started, and drops its own connection on `ended` (GC reclaims it). Overlapping plays are
   independent nodes — correct for rapid SFX.
-- **Music is a single voice.** `playMusic` stops the current `#musicSource` (if any) before
-  starting the new one, so a screen/context switch cleanly swaps tracks. Buffer-sourced looping is
-  fine for short loops; a streaming `MediaElementAudioSourceNode` path for long tracks is a named
-  seam (§8).
+- **Music is a single voice.** `playMusic` stops the current `#musicSource` (if any) before starting
+  the new one, so a screen/context switch cleanly swaps tracks. Buffer-sourced looping is fine for
+  short loops; a streaming `MediaElementAudioSourceNode` path for long tracks is a named seam (§8).
 - **Unlock.** The `AudioContext` starts `suspended` under the browser autoplay policy. `unlock()`
-  resumes it on the first user gesture anywhere (pointer or key) and then removes its listeners.
-  iOS quirks beyond first-gesture unlock (silent switch, low-power mode) are a known limitation
-  (§8).
+  resumes it on the first user gesture anywhere (pointer or key) and then removes its listeners. iOS
+  quirks beyond first-gesture unlock (silent switch, low-power mode) are a known limitation (§8).
 - **House style:** options-object constructor, `#`-private fields, `DisposableStack` for listener
   cleanup, strict lifecycle throws.
 
@@ -181,9 +179,9 @@ leaking.
 
 ## 3. Asset loading — through pixi `Assets`, nothing bespoke
 
-Sounds load through the existing pixi `Assets` pipeline exactly like textures, fonts, and Tiled
-maps — same bundles, same loading screen, same per-screen load/unload lifecycle, same `Assets.get`.
-Audio adds only a parser and some bundle entries.
+Sounds load through the existing pixi `Assets` pipeline exactly like textures, fonts, and Tiled maps
+— same bundles, same loading screen, same per-screen load/unload lifecycle, same `Assets.get`. Audio
+adds only a parser and some bundle entries.
 
 ### `audioBufferAsset` (`source/pixi-tools/audioBufferAsset.ts`)
 
@@ -215,15 +213,15 @@ Audio entries sit alongside the current asset entries, in the same bundles that 
 {name: 'game-music', sources: ['game-music.ogg']},
 ```
 
-Retrieval is plain `Assets.get<AudioBuffer>(name)` at the call sites (§2, §4). This is *why* the
+Retrieval is plain `Assets.get<AudioBuffer>(name)` at the call sites (§2, §4). This is _why_ the
 mixer takes `AudioBuffer`s, not names: the bundle system owns loading/caching/unloading; the mixer
 stays a pure Web Audio primitive.
 
 ## 4. New engine hook — `UiRoot` focus events
 
 To give focus-navigation and error sounds somewhere to attach, `UiRoot` gains a semantic focus-event
-callback. It stays **audio-agnostic**: it emits the *event* (focus moved / navigation rejected); the
-game maps the event to a *sound* (the design principle: primitives own semantics, not presentation).
+callback. It stays **audio-agnostic**: it emits the _event_ (focus moved / navigation rejected); the
+game maps the event to a _sound_ (the design principle: primitives own semantics, not presentation).
 
 ```ts
 type UiFocusEvent = {type: 'move'} | {type: 'reject'};
@@ -263,8 +261,8 @@ Mirrors the input/camera wiring pattern file-for-file on the ECS side.
     `onClick` / `onChange`. One central place, so no call site re-types it.
   - **Typing** — `TextInput`'s existing `onChange` (fires per keystroke) plays `ui-key`; `onEnter`
     plays an accept clip (may reuse `ui-click`).
-  - **Focus move / error** — the shared `onFocusEvent` callback (§4): `move` reuses `ui-click`
-    (no separate blip asset), `reject → ui-error`.
+  - **Focus move / error** — the shared `onFocusEvent` callback (§4): `move` reuses `ui-click` (no
+    separate blip asset), `reject → ui-error`.
 - **Gameplay SFX (ECS):** the existing `wallHitPopupSystem` pushes `PlaySound{name: 'bump'}` onto
   `playSoundChannel` on each wall hit, alongside the popup it already spawns — no separate
   audio-bridge system. `audioSystem` plays it on the `sfx` bus.
@@ -272,8 +270,8 @@ Mirrors the input/camera wiring pattern file-for-file on the ECS side.
   `gameScreen.onShow` → `audio.playMusic(Assets.get('game-music'))`. Hard-cut swap for v1; a
   gain-ramp crossfade is a named seam (§8). Music is **not** stopped on pause or on `onHide` in the
   demo: every screen sets its own track on show and `playMusic` replaces the current voice, so the
-  menu track simply carries through the loading screen until `gameScreen` replaces it (no silent gap,
-  no explicit stop). `stopMusic()` stays available for a game that wants deliberate silence.
+  menu track simply carries through the loading screen until `gameScreen` replaces it (no silent
+  gap, no explicit stop). `stopMusic()` stays available for a game that wants deliberate silence.
 
 ### 5.1 Settings + persistence seam
 
@@ -296,9 +294,9 @@ same `setMuted` path.
 Two-ish placeholder categories in `public/`: UI clips (`ui-click`, `ui-key`, `ui-error`), a **bump**
 SFX, and two **music** loops (`menu-music`, `game-music`). Sourcing preference: **CC0 /
 public-domain first** (e.g. Kenney's audio packs) to avoid attribution burden; a small throwaway
-synthesis script is the fallback if a suitable clip isn't found. Format `.ogg` (broad support, small).
-Actual sourcing happens at implementation; the design only fixes the filenames, formats, and bundle
-placement above.
+synthesis script is the fallback if a suitable clip isn't found. Format `.ogg` (broad support,
+small). Actual sourcing happens at implementation; the design only fixes the filenames, formats, and
+bundle placement above.
 
 ## 7. Testing
 

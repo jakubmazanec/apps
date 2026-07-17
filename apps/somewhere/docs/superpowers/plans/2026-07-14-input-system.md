@@ -1,56 +1,78 @@
 # Input System Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development
+> (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use
+> checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** An action-mapping input layer (`Input` + `inputSystem` + `InputComponent`) that translates keyboard/pointer events into per-frame polled state for ECS systems, with the demo's `playerSystem` migrated to WASD movement plus the existing tap-to-move.
+**Goal:** An action-mapping input layer (`Input` + `inputSystem` + `InputComponent`) that translates
+keyboard/pointer events into per-frame polled state for ECS systems, with the demo's `playerSystem`
+migrated to WASD movement plus the existing tap-to-move.
 
-**Architecture:** A new `source/engine/input/` module holds a double-buffered `Input` class (live listener state snapshotted once per sim step by `inputSystem`, the first system in world order), discovered by game systems through a singleton entity + query — mirroring the camera pattern file-for-file. The existing UI/focus keyboard stack is untouched except that its inline text-entry check moves into a shared `isTextEntryTarget` predicate.
+**Architecture:** A new `source/engine/input/` module holds a double-buffered `Input` class (live
+listener state snapshotted once per sim step by `inputSystem`, the first system in world order),
+discovered by game systems through a singleton entity + query — mirroring the camera pattern
+file-for-file. The existing UI/focus keyboard stack is untouched except that its inline text-entry
+check moves into a shared `isTextEntryTarget` predicate.
 
-**Tech Stack:** TypeScript (strict), pixi.js 8 (types + `pointertap` only), vitest + happy-dom, no new dependencies.
+**Tech Stack:** TypeScript (strict), pixi.js 8 (types + `pointertap` only), vitest + happy-dom, no
+new dependencies.
 
 **Spec:** `docs/superpowers/specs/2026-07-14-input-system-design.md` (T1.1 of the engine review).
 
 ## Global Constraints
 
 - All commands run from `apps/somewhere/` (the package root; Node `^24.5.0`, npm).
-- Single-file tests: `npx vitest run tests/<file>.test.ts`. Full gates before every commit: `npm test`, `npm run typecheck`, `npm run lint`.
-- House style (copy the neighboring files, not generic TS style): `let` for locals (even when never reassigned), options-object constructors, `#`-private fields, import specifiers end in `.js`, error messages end with `!`, one class/system/component/query per file, module-level `System`/`EntityQuery` singletons.
-- Commit messages are plain imperative sentences with no conventional-commit prefix (e.g. `Make deferred entity adds idempotent`).
-- Binding grammar: bare `KeyboardEvent.code` values only; any code containing `+` throws at construction (the focusKeys `Shift+` grammar is deliberately NOT supported here).
-- Demo bindings (exact names): `move-up`/`move-down`/`move-left`/`move-right` = `KeyW`/`KeyS`/`KeyA`/`KeyD`, `move-to` = pointer tap. WASD only — arrow keys stay with UI focus navigation.
-- `MAX_SPEED = 4`, exported from `source/game/motionSystem.ts`, used by both the target-path clamp and the keyboard path.
+- Single-file tests: `npx vitest run tests/<file>.test.ts`. Full gates before every commit:
+  `npm test`, `npm run typecheck`, `npm run lint`.
+- House style (copy the neighboring files, not generic TS style): `let` for locals (even when never
+  reassigned), options-object constructors, `#`-private fields, import specifiers end in `.js`,
+  error messages end with `!`, one class/system/component/query per file, module-level
+  `System`/`EntityQuery` singletons.
+- Commit messages are plain imperative sentences with no conventional-commit prefix (e.g.
+  `Make deferred entity adds idempotent`).
+- Binding grammar: bare `KeyboardEvent.code` values only; any code containing `+` throws at
+  construction (the focusKeys `Shift+` grammar is deliberately NOT supported here).
+- Demo bindings (exact names): `move-up`/`move-down`/`move-left`/`move-right` =
+  `KeyW`/`KeyS`/`KeyA`/`KeyD`, `move-to` = pointer tap. WASD only — arrow keys stay with UI focus
+  navigation.
+- `MAX_SPEED = 4`, exported from `source/game/motionSystem.ts`, used by both the target-path clamp
+  and the keyboard path.
 - `inputSystem` has `displayName: 'Input system'` and is added **first** in world system order.
-- Do not touch `source/game/pauseFlow.ts`, the focus-navigation logic in `Game.ts` (beyond the one predicate swap), or `EventChannel` — taps deliberately do not flow through event channels.
+- Do not touch `source/game/pauseFlow.ts`, the focus-navigation logic in `Game.ts` (beyond the one
+  predicate swap), or `EventChannel` — taps deliberately do not flow through event channels.
 
 ## File Structure
 
-| File | Responsibility |
-| --- | --- |
-| Create `source/engine/ui/isTextEntryTarget.ts` | Shared predicate: does a keyboard event target a text-entry element? Lives in `ui/` next to `TextInput` (the module that creates the hidden `<input>`), in its own file so `Input` doesn't drag `TextInput`'s pixi imports into its module graph. |
-| Modify `source/engine/app/Game.ts` | focusKeys handler calls the predicate instead of its inline `instanceof` check. |
-| Create `source/engine/input/Input.ts` | `InputBinding` type + `Input` class: listeners, double-buffered snapshots, tap latch, `pressed`/`held`/`released`/`tapPosition`. |
-| Create `source/engine/input/InputComponent.ts` | `defineComponent<{input: Input}>()` — discoverability only. |
-| Create `source/engine/input/inputSystem.ts` | Calls `input.update()` exactly once per world update. |
-| Create `source/game/input.ts` | Demo `Input` instance + `inputEntity` (mirrors `camera.ts`). |
-| Create `source/game/inputQuery.ts` | Mirrors `cameraQuery.ts`. |
-| Modify `source/game/world.ts` | Register query/system/entity; `inputSystem` first; `playerSystem` before `motionSystem`. |
-| Modify `source/game/gameScreen.ts` | `attach` on show, `detach` on hide. |
-| Modify `source/game/motionSystem.ts` | Export `MAX_SPEED`, use it in the clamp. |
-| Modify `source/game/playerSystem.ts` | Delete listener plumbing; poll input in `onUpdate`. |
-| Create `tests/isTextEntryTarget.test.ts`, `tests/Input.test.ts`, `tests/inputSystem.test.ts`, `tests/playerSystem.test.ts` | One test file per module, top-level `tests/`, matching the suite. |
+| File                                                                                                                       | Responsibility                                                                                                                                                                                                                                    |
+| -------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Create `source/engine/ui/isTextEntryTarget.ts`                                                                             | Shared predicate: does a keyboard event target a text-entry element? Lives in `ui/` next to `TextInput` (the module that creates the hidden `<input>`), in its own file so `Input` doesn't drag `TextInput`'s pixi imports into its module graph. |
+| Modify `source/engine/app/Game.ts`                                                                                         | focusKeys handler calls the predicate instead of its inline `instanceof` check.                                                                                                                                                                   |
+| Create `source/engine/input/Input.ts`                                                                                      | `InputBinding` type + `Input` class: listeners, double-buffered snapshots, tap latch, `pressed`/`held`/`released`/`tapPosition`.                                                                                                                  |
+| Create `source/engine/input/InputComponent.ts`                                                                             | `defineComponent<{input: Input}>()` — discoverability only.                                                                                                                                                                                       |
+| Create `source/engine/input/inputSystem.ts`                                                                                | Calls `input.update()` exactly once per world update.                                                                                                                                                                                             |
+| Create `source/game/input.ts`                                                                                              | Demo `Input` instance + `inputEntity` (mirrors `camera.ts`).                                                                                                                                                                                      |
+| Create `source/game/inputQuery.ts`                                                                                         | Mirrors `cameraQuery.ts`.                                                                                                                                                                                                                         |
+| Modify `source/game/world.ts`                                                                                              | Register query/system/entity; `inputSystem` first; `playerSystem` before `motionSystem`.                                                                                                                                                          |
+| Modify `source/game/gameScreen.ts`                                                                                         | `attach` on show, `detach` on hide.                                                                                                                                                                                                               |
+| Modify `source/game/motionSystem.ts`                                                                                       | Export `MAX_SPEED`, use it in the clamp.                                                                                                                                                                                                          |
+| Modify `source/game/playerSystem.ts`                                                                                       | Delete listener plumbing; poll input in `onUpdate`.                                                                                                                                                                                               |
+| Create `tests/isTextEntryTarget.test.ts`, `tests/Input.test.ts`, `tests/inputSystem.test.ts`, `tests/playerSystem.test.ts` | One test file per module, top-level `tests/`, matching the suite.                                                                                                                                                                                 |
 
 ---
 
 ### Task 1: `isTextEntryTarget` predicate + `Game` migration
 
 **Files:**
+
 - Create: `source/engine/ui/isTextEntryTarget.ts`
 - Modify: `source/engine/app/Game.ts:276-281`
 - Test: `tests/isTextEntryTarget.test.ts` (new), `tests/Game.test.ts` (existing, must stay green)
 
 **Interfaces:**
+
 - Consumes: nothing.
-- Produces: `isTextEntryTarget(event: Event): boolean` — imported later by `Input` (Task 2) as `../ui/isTextEntryTarget.js`.
+- Produces: `isTextEntryTarget(event: Event): boolean` — imported later by `Input` (Task 2) as
+  `../ui/isTextEntryTarget.js`.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -88,8 +110,8 @@ describe('isTextEntryTarget', () => {
 
 - [ ] **Step 2: Run the test to verify it fails**
 
-Run: `npx vitest run tests/isTextEntryTarget.test.ts`
-Expected: FAIL — `Cannot find module` / failed to resolve `source/engine/ui/isTextEntryTarget.js`.
+Run: `npx vitest run tests/isTextEntryTarget.test.ts` Expected: FAIL — `Cannot find module` / failed
+to resolve `source/engine/ui/isTextEntryTarget.js`.
 
 - [ ] **Step 3: Write the implementation**
 
@@ -111,12 +133,12 @@ export function isTextEntryTarget(event: Event): boolean {
 
 - [ ] **Step 4: Run the test to verify it passes**
 
-Run: `npx vitest run tests/isTextEntryTarget.test.ts`
-Expected: PASS (2 tests).
+Run: `npx vitest run tests/isTextEntryTarget.test.ts` Expected: PASS (2 tests).
 
 - [ ] **Step 5: Migrate the focusKeys handler in `Game.ts`**
 
-In `source/engine/app/Game.ts`, add the import after the pixi-tools imports (around line 6; `npm run lint` confirms exact ordering):
+In `source/engine/app/Game.ts`, add the import after the pixi-tools imports (around line 6;
+`npm run lint` confirms exact ordering):
 
 ```ts
 import {isTextEntryTarget} from '../ui/isTextEntryTarget.js';
@@ -144,13 +166,12 @@ Keep the existing comment above the handler unchanged.
 
 - [ ] **Step 6: Run the Game tests**
 
-Run: `npx vitest run tests/Game.test.ts`
-Expected: PASS — the existing test `ignores keys while a DOM input element has focus` now exercises the predicate.
+Run: `npx vitest run tests/Game.test.ts` Expected: PASS — the existing test
+`ignores keys while a DOM input element has focus` now exercises the predicate.
 
 - [ ] **Step 7: Full gates**
 
-Run: `npm test && npm run typecheck && npm run lint`
-Expected: all green.
+Run: `npm test && npm run typecheck && npm run lint` Expected: all green.
 
 - [ ] **Step 8: Commit**
 
@@ -164,14 +185,29 @@ git commit -m "Share the text-entry guard between focus keys and future input co
 ### Task 2: `Input` class — keyboard core
 
 **Files:**
+
 - Create: `source/engine/input/Input.ts`
 - Test: `tests/Input.test.ts`
 
 **Interfaces:**
-- Consumes: `isTextEntryTarget` (Task 1), `Vector` (`source/engine/utilities/Vector.ts`).
-- Produces: `type InputBinding = {keys?: string[]}` (Task 3 adds `pointerTap`), `class Input` with `constructor({bindings}: {bindings: Record<string, InputBinding>})`, `attach(view: pixi.Container): void`, `detach(): void`, `update(): void`, `pressed(action: string): boolean`, `held(action: string): boolean`, `released(action: string): boolean`. Task 4's `InputComponent` stores an `Input`; Task 6's `playerSystem` polls it.
 
-Semantics being implemented (spec §2): listeners maintain a **live** down-set that may mutate at any moment; `update()` is the step boundary — it shifts current → previous and snapshots the live set (the `EventChannel.swap()` double-buffer flip, reusing the retired set so there is no per-step allocation). Reads diff the snapshots, never the live set: `held` = in current; `pressed` = in current ∧ not in previous (action-level: *any* bound key); `released` = the reverse. Pressing-and-releasing entirely between two steps therefore yields no edge — that is what makes pause resumption correct for free. `blur` clears the live set (released edges next step). Keyboard events are ignored when `isTextEntryTarget(event)` is true. `preventDefault()` fires only for bound codes.
+- Consumes: `isTextEntryTarget` (Task 1), `Vector` (`source/engine/utilities/Vector.ts`).
+- Produces: `type InputBinding = {keys?: string[]}` (Task 3 adds `pointerTap`), `class Input` with
+  `constructor({bindings}: {bindings: Record<string, InputBinding>})`,
+  `attach(view: pixi.Container): void`, `detach(): void`, `update(): void`,
+  `pressed(action: string): boolean`, `held(action: string): boolean`,
+  `released(action: string): boolean`. Task 4's `InputComponent` stores an `Input`; Task 6's
+  `playerSystem` polls it.
+
+Semantics being implemented (spec §2): listeners maintain a **live** down-set that may mutate at any
+moment; `update()` is the step boundary — it shifts current → previous and snapshots the live set
+(the `EventChannel.swap()` double-buffer flip, reusing the retired set so there is no per-step
+allocation). Reads diff the snapshots, never the live set: `held` = in current; `pressed` = in
+current ∧ not in previous (action-level: _any_ bound key); `released` = the reverse.
+Pressing-and-releasing entirely between two steps therefore yields no edge — that is what makes
+pause resumption correct for free. `blur` clears the live set (released edges next step). Keyboard
+events are ignored when `isTextEntryTarget(event)` is true. `preventDefault()` fires only for bound
+codes.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -213,7 +249,9 @@ const DEFAULT_BINDINGS = {
 // exercise detach themselves must not use the helper.
 let attachedInputs: Input[] = [];
 
-function createAttachedInput(bindings: ConstructorParameters<typeof Input>[0]['bindings'] = DEFAULT_BINDINGS) {
+function createAttachedInput(
+  bindings: ConstructorParameters<typeof Input>[0]['bindings'] = DEFAULT_BINDINGS,
+) {
   let view = createView();
   let input = new Input({bindings});
 
@@ -318,7 +356,9 @@ describe('Input keyboard edges', () => {
     let field = document.createElement('input');
 
     document.body.append(field);
-    field.dispatchEvent(new KeyboardEvent('keydown', {code: 'KeyW', bubbles: true, cancelable: true}));
+    field.dispatchEvent(
+      new KeyboardEvent('keydown', {code: 'KeyW', bubbles: true, cancelable: true}),
+    );
     input.update();
 
     expect(input.held('move-up')).toBe(false);
@@ -382,8 +422,8 @@ describe('Input keyboard edges', () => {
 
 - [ ] **Step 2: Run the tests to verify they fail**
 
-Run: `npx vitest run tests/Input.test.ts`
-Expected: FAIL — cannot resolve `source/engine/input/Input.js`.
+Run: `npx vitest run tests/Input.test.ts` Expected: FAIL — cannot resolve
+`source/engine/input/Input.js`.
 
 - [ ] **Step 3: Write the implementation**
 
@@ -555,20 +595,23 @@ export class Input {
 ```
 
 Notes for the implementer:
-- `DisposableStack` is a global in Node 24 / the browser targets; `TextInput.ts` already uses it bare — no import.
-- `globalThis.addEventListener` matches the `Game.ts` keydown precedent (`globalThis` IS `window` in the browser; the spec's "window keydown/keyup/blur" is the same thing without lint churn).
-- The guard applies to both `keydown` and `keyup` — the spec says keyboard *events* are ignored while a text-entry element is targeted.
-- `pixi.Container` is a type-only import; nothing in this module touches pixi at runtime, which is what lets the tests use a plain fake view.
+
+- `DisposableStack` is a global in Node 24 / the browser targets; `TextInput.ts` already uses it
+  bare — no import.
+- `globalThis.addEventListener` matches the `Game.ts` keydown precedent (`globalThis` IS `window` in
+  the browser; the spec's "window keydown/keyup/blur" is the same thing without lint churn).
+- The guard applies to both `keydown` and `keyup` — the spec says keyboard _events_ are ignored
+  while a text-entry element is targeted.
+- `pixi.Container` is a type-only import; nothing in this module touches pixi at runtime, which is
+  what lets the tests use a plain fake view.
 
 - [ ] **Step 4: Run the tests to verify they pass**
 
-Run: `npx vitest run tests/Input.test.ts`
-Expected: PASS (8 tests).
+Run: `npx vitest run tests/Input.test.ts` Expected: PASS (8 tests).
 
 - [ ] **Step 5: Full gates**
 
-Run: `npm test && npm run typecheck && npm run lint`
-Expected: all green.
+Run: `npm test && npm run typecheck && npm run lint` Expected: all green.
 
 - [ ] **Step 6: Commit**
 
@@ -582,44 +625,55 @@ git commit -m "Add the Input action map with double-buffered keyboard edges"
 ### Task 3: `Input` class — pointer-tap support
 
 **Files:**
+
 - Modify: `source/engine/input/Input.ts`
 - Test: `tests/Input.test.ts` (append a describe block)
 
 **Interfaces:**
-- Consumes: Task 2's `Input`.
-- Produces: `InputBinding.pointerTap?: boolean`; `readonly tapPosition: Vector` (getter) on `Input`; tap semantics folded into `pressed`/`released`. Task 6's `playerSystem` reads `input.tapPosition` after `input.pressed('move-to')`.
 
-Semantics (spec §2): the `pointertap` listener buffers the tap **position by copy** (pixi reuses federated event objects); multiple taps in one frame collapse to one, last position wins. `update()` drains the buffer into a per-step latch and sets `tapPosition`. On the latched step a `pointerTap`-bound action reads `pressed = true`, `released = true`, `held = false` — the tap never enters the down-set. An action bound to both `keys` and `pointerTap` needs no special rule: the definitions already union the two sources. `attach()` registers **no** `pointermove`/`pointerdown` listeners.
+- Consumes: Task 2's `Input`.
+- Produces: `InputBinding.pointerTap?: boolean`; `readonly tapPosition: Vector` (getter) on `Input`;
+  tap semantics folded into `pressed`/`released`. Task 6's `playerSystem` reads `input.tapPosition`
+  after `input.pressed('move-to')`.
+
+Semantics (spec §2): the `pointertap` listener buffers the tap **position by copy** (pixi reuses
+federated event objects); multiple taps in one frame collapse to one, last position wins. `update()`
+drains the buffer into a per-step latch and sets `tapPosition`. On the latched step a
+`pointerTap`-bound action reads `pressed = true`, `released = true`, `held = false` — the tap never
+enters the down-set. An action bound to both `keys` and `pointerTap` needs no special rule: the
+definitions already union the two sources. `attach()` registers **no** `pointermove`/`pointerdown`
+listeners.
 
 - [ ] **Step 1: Write the failing tests**
 
-Append to `tests/Input.test.ts`. First extend the fake view with a `tap` helper — replace `createView`'s returned object with:
+Append to `tests/Input.test.ts`. First extend the fake view with a `tap` helper — replace
+`createView`'s returned object with:
 
 ```ts
-  return {
-    handlers,
-    on(event: string, handler: (event: unknown) => void) {
-      (handlers[event] ??= []).push(handler);
+return {
+  handlers,
+  on(event: string, handler: (event: unknown) => void) {
+    (handlers[event] ??= []).push(handler);
 
-      return this;
-    },
-    off(event: string, handler: (event: unknown) => void) {
-      handlers[event] = (handlers[event] ?? []).filter((existing) => existing !== handler);
+    return this;
+  },
+  off(event: string, handler: (event: unknown) => void) {
+    handlers[event] = (handlers[event] ?? []).filter((existing) => existing !== handler);
 
-      return this;
-    },
-    // Simulates pixi dispatching 'pointertap' and returns the event object so
-    // tests can mutate it afterwards (pixi reuses federated events).
-    tap(x: number, y: number) {
-      let event = {global: {x, y}};
+    return this;
+  },
+  // Simulates pixi dispatching 'pointertap' and returns the event object so
+  // tests can mutate it afterwards (pixi reuses federated events).
+  tap(x: number, y: number) {
+    let event = {global: {x, y}};
 
-      for (let handler of handlers['pointertap'] ?? []) {
-        handler(event);
-      }
+    for (let handler of handlers['pointertap'] ?? []) {
+      handler(event);
+    }
 
-      return event;
-    },
-  };
+    return event;
+  },
+};
 ```
 
 Then add the describe block:
@@ -628,7 +682,7 @@ Then add the describe block:
 const TAP_BINDINGS = {
   'move-up': {keys: ['KeyW']},
   'move-to': {pointerTap: true},
-  'interact': {keys: ['KeyE'], pointerTap: true},
+  interact: {keys: ['KeyE'], pointerTap: true},
 };
 
 describe('Input taps', () => {
@@ -710,8 +764,8 @@ describe('Input taps', () => {
 
 - [ ] **Step 2: Run the tests to verify they fail**
 
-Run: `npx vitest run tests/Input.test.ts`
-Expected: FAIL — TS error on `pointerTap` in `TAP_BINDINGS` / `tapPosition` missing; the new tests all fail, Task 2's still pass.
+Run: `npx vitest run tests/Input.test.ts` Expected: FAIL — TS error on `pointerTap` in
+`TAP_BINDINGS` / `tapPosition` missing; the new tests all fail, Task 2's still pass.
 
 - [ ] **Step 3: Extend the implementation**
 
@@ -759,46 +813,47 @@ Add the getter (after the constructor):
   }
 ```
 
-In `attach()`, add the handler and registration (before the `#disposables.defer` call), and extend the defer:
+In `attach()`, add the handler and registration (before the `#disposables.defer` call), and extend
+the defer:
 
 ```ts
-    let handlePointerTap = (event: pixi.FederatedPointerEvent) => {
-      // Multiple taps in one frame collapse to one, last position wins. Copy
-      // the position: pixi reuses federated event objects after handlers return.
-      this.#hasBufferedTap = true;
-      this.#bufferedTapPosition.set(event.global.x, event.global.y);
-    };
+let handlePointerTap = (event: pixi.FederatedPointerEvent) => {
+  // Multiple taps in one frame collapse to one, last position wins. Copy
+  // the position: pixi reuses federated event objects after handlers return.
+  this.#hasBufferedTap = true;
+  this.#bufferedTapPosition.set(event.global.x, event.global.y);
+};
 
-    globalThis.addEventListener('keydown', handleKeyDown);
-    globalThis.addEventListener('keyup', handleKeyUp);
-    globalThis.addEventListener('blur', handleBlur);
-    view.on('pointertap', handlePointerTap);
+globalThis.addEventListener('keydown', handleKeyDown);
+globalThis.addEventListener('keyup', handleKeyUp);
+globalThis.addEventListener('blur', handleBlur);
+view.on('pointertap', handlePointerTap);
 
-    this.#disposables.defer(() => {
-      globalThis.removeEventListener('keydown', handleKeyDown);
-      globalThis.removeEventListener('keyup', handleKeyUp);
-      globalThis.removeEventListener('blur', handleBlur);
-      view.off('pointertap', handlePointerTap);
-    });
+this.#disposables.defer(() => {
+  globalThis.removeEventListener('keydown', handleKeyDown);
+  globalThis.removeEventListener('keyup', handleKeyUp);
+  globalThis.removeEventListener('blur', handleBlur);
+  view.off('pointertap', handlePointerTap);
+});
 ```
 
 In `detach()`, add to the state clearing:
 
 ```ts
-    this.#hasBufferedTap = false;
-    this.#isTapLatched = false;
+this.#hasBufferedTap = false;
+this.#isTapLatched = false;
 ```
 
 At the end of `update()`, drain the buffer into the latch:
 
 ```ts
-    // Drain the tap buffer into the per-step latch.
-    this.#isTapLatched = this.#hasBufferedTap;
+// Drain the tap buffer into the per-step latch.
+this.#isTapLatched = this.#hasBufferedTap;
 
-    if (this.#hasBufferedTap) {
-      this.#tapPosition.set(this.#bufferedTapPosition.x, this.#bufferedTapPosition.y);
-      this.#hasBufferedTap = false;
-    }
+if (this.#hasBufferedTap) {
+  this.#tapPosition.set(this.#bufferedTapPosition.x, this.#bufferedTapPosition.y);
+  this.#hasBufferedTap = false;
+}
 ```
 
 Fold taps into the edge reads — `pressed` and `released` become:
@@ -839,13 +894,11 @@ Add the private helper next to `#isDown`:
 
 - [ ] **Step 4: Run the tests to verify they pass**
 
-Run: `npx vitest run tests/Input.test.ts`
-Expected: PASS (13 tests).
+Run: `npx vitest run tests/Input.test.ts` Expected: PASS (13 tests).
 
 - [ ] **Step 5: Full gates**
 
-Run: `npm test && npm run typecheck && npm run lint`
-Expected: all green.
+Run: `npm test && npm run typecheck && npm run lint` Expected: all green.
 
 - [ ] **Step 6: Commit**
 
@@ -859,13 +912,19 @@ git commit -m "Add pointer-tap latching to Input"
 ### Task 4: `InputComponent` + `inputSystem`
 
 **Files:**
+
 - Create: `source/engine/input/InputComponent.ts`
 - Create: `source/engine/input/inputSystem.ts`
 - Test: `tests/inputSystem.test.ts`
 
 **Interfaces:**
-- Consumes: `Input` (Tasks 2–3), `defineComponent` (`source/engine/ecs/Component.ts`), `System` (`source/engine/ecs/System.ts`).
-- Produces: `InputComponent` (construct with `new InputComponent({input})`; read with `entity.getComponent(InputComponent).input`) and `inputSystem` (module-level `System`, `displayName: 'Input system'`). Task 5 registers both in the demo world; Task 6 reads the component through `inputQuery`.
+
+- Consumes: `Input` (Tasks 2–3), `defineComponent` (`source/engine/ecs/Component.ts`), `System`
+  (`source/engine/ecs/System.ts`).
+- Produces: `InputComponent` (construct with `new InputComponent({input})`; read with
+  `entity.getComponent(InputComponent).input`) and `inputSystem` (module-level `System`,
+  `displayName: 'Input system'`). Task 5 registers both in the demo world; Task 6 reads the
+  component through `inputQuery`.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -1009,8 +1068,8 @@ describe('inputSystem', () => {
 
 - [ ] **Step 2: Run the tests to verify they fail**
 
-Run: `npx vitest run tests/inputSystem.test.ts`
-Expected: FAIL — cannot resolve `InputComponent.js` / `inputSystem.js`.
+Run: `npx vitest run tests/inputSystem.test.ts` Expected: FAIL — cannot resolve `InputComponent.js`
+/ `inputSystem.js`.
 
 - [ ] **Step 3: Write the implementation**
 
@@ -1048,13 +1107,11 @@ export const inputSystem = new System({
 
 - [ ] **Step 4: Run the tests to verify they pass**
 
-Run: `npx vitest run tests/inputSystem.test.ts`
-Expected: PASS (4 tests).
+Run: `npx vitest run tests/inputSystem.test.ts` Expected: PASS (4 tests).
 
 - [ ] **Step 5: Full gates**
 
-Run: `npm test && npm run typecheck && npm run lint`
-Expected: all green.
+Run: `npm test && npm run typecheck && npm run lint` Expected: all green.
 
 - [ ] **Step 6: Commit**
 
@@ -1068,16 +1125,25 @@ git commit -m "Add InputComponent and inputSystem for ECS input discovery"
 ### Task 5: Demo wiring (`input.ts`, `inputQuery.ts`, `world.ts`, `gameScreen.ts`)
 
 **Files:**
+
 - Create: `source/game/input.ts`
 - Create: `source/game/inputQuery.ts`
 - Modify: `source/game/world.ts:32-62` (`onStart`) + imports
 - Modify: `source/game/gameScreen.ts:152-178` (`onShow`/`onHide`) + imports
 
 **Interfaces:**
-- Consumes: `Input`, `InputComponent`, `inputSystem` (Tasks 2–4), `EntityQuery`, `Entity`, `game` (`source/game/game.ts`), `world`.
-- Produces: `input` and `inputEntity` exports from `source/game/input.ts`; `inputQuery` export from `source/game/inputQuery.ts`. Task 6's `playerSystem` reads `inputQuery.getFirst().getComponent(InputComponent).input`.
 
-No new tests: this task is registration/lifecycle wiring; its pieces are unit-covered by Tasks 2–4 and its behavior is exercised end-to-end in Task 7. The gate is the full suite + typecheck + lint staying green, and the demo still running exactly as before (`playerSystem` still uses its old `pointertap` path until Task 6 — both layers acting on a tap in the interim is harmless and invisible since nothing polls `move-to` yet).
+- Consumes: `Input`, `InputComponent`, `inputSystem` (Tasks 2–4), `EntityQuery`, `Entity`, `game`
+  (`source/game/game.ts`), `world`.
+- Produces: `input` and `inputEntity` exports from `source/game/input.ts`; `inputQuery` export from
+  `source/game/inputQuery.ts`. Task 6's `playerSystem` reads
+  `inputQuery.getFirst().getComponent(InputComponent).input`.
+
+No new tests: this task is registration/lifecycle wiring; its pieces are unit-covered by Tasks 2–4
+and its behavior is exercised end-to-end in Task 7. The gate is the full suite + typecheck + lint
+staying green, and the demo still running exactly as before (`playerSystem` still uses its old
+`pointertap` path until Task 6 — both layers acting on a tap in the interim is harmless and
+invisible since nothing polls `move-to` yet).
 
 - [ ] **Step 1: Create `source/game/input.ts`**
 
@@ -1126,33 +1192,34 @@ import {inputQuery} from './inputQuery.js';
 In `onStart`, add the query alongside the others:
 
 ```ts
-    world.addEntityQuery(cameraQuery);
-    world.addEntityQuery(inputQuery);
-    world.addEntityQuery(levelQuery);
-    world.addEntityQuery(playersQuery);
+world.addEntityQuery(cameraQuery);
+world.addEntityQuery(inputQuery);
+world.addEntityQuery(levelQuery);
+world.addEntityQuery(playersQuery);
 ```
 
-Replace the `addSystem` block with (changes: `inputSystem` added first, `playerSystem` moved from after `uiBridge` to before `motionSystem`; every other line and comment kept verbatim):
+Replace the `addSystem` block with (changes: `inputSystem` added first, `playerSystem` moved from
+after `uiBridge` to before `motionSystem`; every other line and comment kept verbatim):
 
 ```ts
-    world.addSystem(inputSystem); // first: every system this frame reads the same freshly-advanced input
-    world.addSystem(mapSystem);
-    world.addSystem(playerSystem); // before motionSystem: it writes velocity that motionSystem consumes this frame
-    world.addSystem(motionSystem);
-    world.addSystem(wallHitPopupSystem); // spawn popups from the previous frame's wall hits
-    world.addSystem(popupCleanupSystem); // remove popups whose lifetime timer has expired
-    world.addSystem(timerSystem); // placement is free: timer events are buffered, seen next frame
-    world.addSystem(uiBridge);
-    world.addSystem(cameraSystem);
-    world.addSystem(tweenSystem); // late, just before graphicsSystem: scripted motion is the last word
-    world.addSystem(graphicsSystem);
+world.addSystem(inputSystem); // first: every system this frame reads the same freshly-advanced input
+world.addSystem(mapSystem);
+world.addSystem(playerSystem); // before motionSystem: it writes velocity that motionSystem consumes this frame
+world.addSystem(motionSystem);
+world.addSystem(wallHitPopupSystem); // spawn popups from the previous frame's wall hits
+world.addSystem(popupCleanupSystem); // remove popups whose lifetime timer has expired
+world.addSystem(timerSystem); // placement is free: timer events are buffered, seen next frame
+world.addSystem(uiBridge);
+world.addSystem(cameraSystem);
+world.addSystem(tweenSystem); // late, just before graphicsSystem: scripted motion is the last word
+world.addSystem(graphicsSystem);
 ```
 
 Add the entity alongside the camera:
 
 ```ts
-    world.addEntity(camera);
-    world.addEntity(inputEntity);
+world.addEntity(camera);
+world.addEntity(inputEntity);
 ```
 
 - [ ] **Step 4: Wire the screen lifecycle**
@@ -1193,12 +1260,14 @@ In `onHide`, detach after `teardownGameScreen(...)` (before the `openModal` rese
 
 - [ ] **Step 5: Full gates**
 
-Run: `npm test && npm run typecheck && npm run lint`
-Expected: all green (no behavior change yet — nothing polls the new input).
+Run: `npm test && npm run typecheck && npm run lint` Expected: all green (no behavior change yet —
+nothing polls the new input).
 
 - [ ] **Step 6: Quick smoke (optional but cheap)**
 
-Run: `npm run develop`, open http://localhost:5000, start a game: tap-to-move still works (old path), pause/resume still works, quitting to menu and starting a new game does not throw (attach/detach balance across screen swaps). Stop the server.
+Run: `npm run develop`, open http://localhost:5000, start a game: tap-to-move still works (old
+path), pause/resume still works, quitting to menu and starting a new game does not throw
+(attach/detach balance across screen swaps). Stop the server.
 
 - [ ] **Step 7: Commit**
 
@@ -1212,18 +1281,27 @@ git commit -m "Wire the input system into the demo world and game screen"
 ### Task 6: `playerSystem` migration + `MAX_SPEED`
 
 **Files:**
+
 - Modify: `source/game/motionSystem.ts:9,32-34`
 - Modify: `source/game/playerSystem.ts` (full rewrite)
 - Test: `tests/playerSystem.test.ts` (new), `tests/motionSystem.test.ts` (existing, must stay green)
 
 **Interfaces:**
-- Consumes: `inputQuery` + `InputComponent` (`input.held/pressed/tapPosition`), `cameraQuery`/`CameraComponent`, `MotionComponent`, `MAX_SPEED` (created here).
-- Produces: `MAX_SPEED = 4` exported from `motionSystem.ts`; `playerSystem` with no `onAdd`/`onRemove` and no `game` import.
+
+- Consumes: `inputQuery` + `InputComponent` (`input.held/pressed/tapPosition`),
+  `cameraQuery`/`CameraComponent`, `MotionComponent`, `MAX_SPEED` (created here).
+- Produces: `MAX_SPEED = 4` exported from `motionSystem.ts`; `playerSystem` with no
+  `onAdd`/`onRemove` and no `game` import.
 
 Rules (spec §5), in priority order — keys beat taps in a same-frame tie because rule 1 runs first:
-1. Any movement key held → clear `motion.target`, velocity = held direction normalized to `MAX_SPEED` (diagonals not faster; opposite keys cancel to a zero vector, which `Vector.normalize` leaves at zero).
-2. Else `pressed('move-to')` → set `motion.target` from `tapPosition` + camera position − the existing `-32`/`-60` bounding-box offsets (TODOs stay; T1.4/T1.5 territory), zero velocity.
-3. Else no target → zero velocity. (An active tap target with no key input is left alone — `motionSystem` owns steering toward it.)
+
+1. Any movement key held → clear `motion.target`, velocity = held direction normalized to
+   `MAX_SPEED` (diagonals not faster; opposite keys cancel to a zero vector, which
+   `Vector.normalize` leaves at zero).
+2. Else `pressed('move-to')` → set `motion.target` from `tapPosition` + camera position − the
+   existing `-32`/`-60` bounding-box offsets (TODOs stay; T1.4/T1.5 territory), zero velocity.
+3. Else no target → zero velocity. (An active tap target with no key input is left alone —
+   `motionSystem` owns steering toward it.)
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -1400,8 +1478,9 @@ describe('playerSystem', () => {
 
 - [ ] **Step 2: Run the tests to verify they fail**
 
-Run: `npx vitest run tests/playerSystem.test.ts`
-Expected: FAIL — `MAX_SPEED` is not exported from `motionSystem.js`, and once that resolves, the behavior assertions fail against the old listener-based `playerSystem`.
+Run: `npx vitest run tests/playerSystem.test.ts` Expected: FAIL — `MAX_SPEED` is not exported from
+`motionSystem.js`, and once that resolves, the behavior assertions fail against the old
+listener-based `playerSystem`.
 
 - [ ] **Step 3: Export `MAX_SPEED` from `motionSystem.ts`**
 
@@ -1417,9 +1496,9 @@ export const MAX_SPEED = 4;
 and replace the clamp (currently lines 32–34):
 
 ```ts
-        if (motion.velocity.length > MAX_SPEED) {
-          motion.velocity.length = MAX_SPEED;
-        }
+if (motion.velocity.length > MAX_SPEED) {
+  motion.velocity.length = MAX_SPEED;
+}
 ```
 
 - [ ] **Step 4: Rewrite `playerSystem.ts`**
@@ -1478,17 +1557,18 @@ export const playerSystem = new System({
 });
 ```
 
-Deleted along the way: the `pointerTapHandler` module variable, `onAdd`/`onRemove`, the empty `onAddEntity`, and the `game`/`pixi` imports (the system no longer touches the pixi event surface at all).
+Deleted along the way: the `pointerTapHandler` module variable, `onAdd`/`onRemove`, the empty
+`onAddEntity`, and the `game`/`pixi` imports (the system no longer touches the pixi event surface at
+all).
 
 - [ ] **Step 5: Run the tests to verify they pass**
 
-Run: `npx vitest run tests/playerSystem.test.ts tests/motionSystem.test.ts`
-Expected: PASS (7 new + 2 existing).
+Run: `npx vitest run tests/playerSystem.test.ts tests/motionSystem.test.ts` Expected: PASS (7 new +
+2 existing).
 
 - [ ] **Step 6: Full gates**
 
-Run: `npm test && npm run typecheck && npm run lint`
-Expected: all green.
+Run: `npm test && npm run typecheck && npm run lint` Expected: all green.
 
 - [ ] **Step 7: Commit**
 
@@ -1505,21 +1585,36 @@ git commit -m "Drive player movement from the input action map"
 
 Spec §6's manual checklist. Run `npm run develop` and open http://localhost:5000, start a game.
 
-- [ ] **WASD feel:** W/A/S/D move the player in all four directions; holding two perpendicular keys moves diagonally at visibly the same speed as cardinal movement; releasing all keys stops the player immediately.
-- [ ] **Arbitration:** arrow keys move the HUD focus ring, not the player (WASD-only bindings; arrows stay UI).
-- [ ] **Tap-to-move intact:** clicking/tapping the map walks the player to the tapped spot, stopping at walls exactly as before; pressing a movement key mid-walk cancels the tap target and takes over.
-- [ ] **Hold-W-through-pause:** hold W, open the pause menu (world freezes; player stops), keep holding W, resume — the player keeps moving with no stutter or double-edge.
+- [ ] **WASD feel:** W/A/S/D move the player in all four directions; holding two perpendicular keys
+      moves diagonally at visibly the same speed as cardinal movement; releasing all keys stops the
+      player immediately.
+- [ ] **Arbitration:** arrow keys move the HUD focus ring, not the player (WASD-only bindings;
+      arrows stay UI).
+- [ ] **Tap-to-move intact:** clicking/tapping the map walks the player to the tapped spot, stopping
+      at walls exactly as before; pressing a movement key mid-walk cancels the tap target and takes
+      over.
+- [ ] **Hold-W-through-pause:** hold W, open the pause menu (world freezes; player stops), keep
+      holding W, resume — the player keeps moving with no stutter or double-edge.
 - [ ] **Release-during-pause:** hold W, pause, release W, resume — the player stops (no stuck key).
-- [ ] **Pause taps stay UI:** while paused, clicking the map area (the modal scrim) does not queue a `move-to` — after resume the player stays put.
-- [ ] **Screen-swap lifecycle:** Quit to menu, start a New Game, WASD and taps still work (attach/detach balance held).
+- [ ] **Pause taps stay UI:** while paused, clicking the map area (the modal scrim) does not queue a
+      `move-to` — after resume the player stays put.
+- [ ] **Screen-swap lifecycle:** Quit to menu, start a New Game, WASD and taps still work
+      (attach/detach balance held).
 - [ ] **Gates one last time:** `npm test && npm run typecheck && npm run lint` all green.
 
-If anything fails: use superpowers:systematic-debugging, fix, and commit the fix with a plain imperative message before ticking the box.
+If anything fails: use superpowers:systematic-debugging, fix, and commit the fix with a plain
+imperative message before ticking the box.
 
 ---
 
 ## Execution notes
 
-- Tasks are strictly ordered: 1 → 2 → 3 → 4 → 5 → 6 → 7. Every task leaves the demo working (Task 5 wires the new stack in while the old `playerSystem` path still drives movement; Task 6 swaps the driver).
-- `tests/Input.test.ts`, `tests/inputSystem.test.ts`, and `tests/playerSystem.test.ts` all rely on module-singleton hygiene: any test that starts a world must stop it, and any test that attaches an `Input` must detach it — otherwise the *next* test fails with a confusing "already set/attached" throw.
-- Out of scope (spec §7 — do not add these): gamepad, axes, hover/`pointermove` tracking, typed action names, world resources, runtime rebinding, virtual joystick, Escape-to-pause.
+- Tasks are strictly ordered: 1 → 2 → 3 → 4 → 5 → 6 → 7. Every task leaves the demo working (Task 5
+  wires the new stack in while the old `playerSystem` path still drives movement; Task 6 swaps the
+  driver).
+- `tests/Input.test.ts`, `tests/inputSystem.test.ts`, and `tests/playerSystem.test.ts` all rely on
+  module-singleton hygiene: any test that starts a world must stop it, and any test that attaches an
+  `Input` must detach it — otherwise the _next_ test fails with a confusing "already set/attached"
+  throw.
+- Out of scope (spec §7 — do not add these): gamepad, axes, hover/`pointermove` tracking, typed
+  action names, world resources, runtime rebinding, virtual joystick, Escape-to-pause.

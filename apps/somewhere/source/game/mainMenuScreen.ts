@@ -1,6 +1,7 @@
 import * as pixi from 'pixi.js';
 
 import {GameScreen} from '../engine/app/GameScreen.js';
+import {type Button} from '../engine/ui/Button.js';
 import {Container} from '../engine/ui/Container.js';
 import {Modal} from '../engine/ui/Modal.js';
 import {Panel} from '../engine/ui/Panel.js';
@@ -15,7 +16,8 @@ import {game} from './game.js';
 // here, Quit to menu there), long after both modules have evaluated.
 // eslint-disable-next-line import/no-cycle -- see comment above: the cycle only resolves inside event handlers, long after both modules evaluate
 import {gameScreen} from './gameScreen.js';
-import {settings} from './settings.js';
+import {clearStagedSave, loadSave, stageContinue} from './save.js';
+import {saveSettings, settings} from './settings.js';
 import {createButton, nineSlice} from './widgets.js';
 
 // Each Toggle owns and destroys its background sprites, so build a fresh set
@@ -64,6 +66,7 @@ function openOptionsModal(screen: GameScreen<MainMenuScreenState>) {
     container: game.app.canvas.parentElement ?? document.body,
     onChange: (input) => {
       settings.playerName = input.value;
+      saveSettings();
       audio.play(assets.sound('ui-key'), {bus: 'ui'});
     },
     layout: {minWidth: 55, padding: 4},
@@ -89,6 +92,7 @@ function openOptionsModal(screen: GameScreen<MainMenuScreenState>) {
       let enabled = toggle.isChecked;
 
       settings.soundEnabled = enabled;
+      saveSettings();
       // Set mute first so an enabling toggle unmutes before its own click plays
       // (an audible confirmation); a disabling toggle mutes and stays silent.
       audio.setMuted('master', !enabled);
@@ -146,7 +150,11 @@ function openOptionsModal(screen: GameScreen<MainMenuScreenState>) {
 }
 
 type MainMenuScreenState = {
+  bannerPanel: Panel;
+  continueButton: Button;
+  newGameButton: Button;
   openModal: Modal | null;
+  optionsButton: Button;
 };
 
 export const mainMenuScreen = new GameScreen<MainMenuScreenState>({
@@ -156,7 +164,23 @@ export const mainMenuScreen = new GameScreen<MainMenuScreenState>({
   assetBundles: ['default'],
   focusRing: () => ({texture: assets.texture('ui', 'focus-ring'), padding: 2}),
   onFocusEvent: playFocusSound,
-  onShow: () => {
+  onShow: (screen) => {
+    // Recomputed per show: the menu object lives across shows, and quitting a
+    // run creates a save while it is hidden.
+    let {bannerPanel, continueButton, newGameButton, optionsButton} = screen.state;
+    let hasSave = loadSave() !== null;
+    let isContinueShown = bannerPanel.children.includes(continueButton);
+
+    if (hasSave && !isContinueShown) {
+      // Panel.addChild only appends, so re-add the tail to slot Continue
+      // between the title and New Game.
+      bannerPanel.removeChild(newGameButton, optionsButton);
+      bannerPanel.addChild(continueButton, newGameButton, optionsButton);
+    } else if (!hasSave && isContinueShown) {
+      // Dropping it from the panel also drops it from the focus order.
+      bannerPanel.removeChild(continueButton);
+    }
+
     // Music is driven by direct mixer calls from the screen context (never the
     // world, never auto-stopped by pause). playMusic replaces the current voice.
     audio.playMusic(assets.sound('menu-music'));
@@ -183,11 +207,28 @@ export const mainMenuScreen = new GameScreen<MainMenuScreenState>({
       layout: true,
     });
 
+    let continueButton = createButton({
+      label: 'Continue',
+      onClick: () => {
+        // Stage before the swap so gameScreen.onShow can apply it after
+        // world.start(). showScreen rejects when a bundle load fails; no
+        // recovery UI exists yet, so the rejection is only logged.
+        stageContinue();
+        game.showScreen(gameScreen).catch((error: unknown) => {
+          // eslint-disable-next-line no-console -- no error UI exists yet
+          console.error(error);
+        });
+      },
+    });
+
     let newGameButton = createButton({
       label: 'New Game',
       onClick: () => {
-        // showScreen rejects when a bundle load fails; the game stays usable
-        // and the click can be retried.
+        // A stale stage from a failed Continue transition must never leak
+        // into a fresh run.
+        clearStagedSave();
+        // showScreen rejects when a bundle load fails; no recovery UI exists
+        // yet, so the rejection is only logged.
         game.showScreen(gameScreen).catch((error: unknown) => {
           // eslint-disable-next-line no-console -- no error UI exists yet
           console.error(error);
@@ -204,6 +245,8 @@ export const mainMenuScreen = new GameScreen<MainMenuScreenState>({
 
     let bannerPanel = new Panel({
       background: nineSlice('banner'),
+      // Continue is added/removed per show according to whether a save
+      // exists; see onShow.
       children: [title, newGameButton, optionsButton],
       layout: {
         padding: 8,
@@ -215,7 +258,7 @@ export const mainMenuScreen = new GameScreen<MainMenuScreenState>({
 
     screen.ui.addChild(bannerPanel);
 
-    return {openModal: null};
+    return {bannerPanel, continueButton, newGameButton, openModal: null, optionsButton};
   },
   onHide: (screen) => {
     // Owning-screen teardown rule: synchronous destroy(), never the animated

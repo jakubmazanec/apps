@@ -14,6 +14,7 @@ import {input} from './input.js';
 // eslint-disable-next-line import/no-cycle -- see comment above: the cycle only resolves inside event handlers, long after both modules evaluate
 import {mainMenuScreen} from './mainMenuScreen.js';
 import {openPauseMenu, resumeFromPause, teardownGameScreen} from './pauseFlow.js';
+import {applyStagedSave, writeSave} from './save.js';
 import {settings} from './settings.js';
 import {type UIEventMap, uiEvents} from './uiEvents.js';
 import {createButton, nineSlice} from './widgets.js';
@@ -24,6 +25,7 @@ type GameScreenState = {
   nameLabel: Text;
   openModal: Modal | null;
   pauseButton: Button;
+  visibilityDisposables: DisposableStack | null;
 };
 
 let wallHitCount = 0;
@@ -39,6 +41,23 @@ function buildPauseModal(screen: GameScreen<GameScreenState, UIEventMap>): Modal
       if (modal !== null) {
         resumeFromPause({world, modal});
       }
+    },
+  });
+  let saveLabel = new Text({
+    text: 'Save',
+    fontFamily: 'monogram-outline',
+    fontSize: 12,
+    fill: 0xffffff,
+    layout: true,
+  });
+  let saveButton = createButton({
+    label: saveLabel,
+    onClick: () => {
+      // Manual save under the pause modal: capture works on a paused world.
+      writeSave();
+      // Feedback on the kept reference (the hitCounter idiom); the modal is
+      // rebuilt per open, so the label resets naturally.
+      saveLabel.setText('Saved');
     },
   });
   let quitButton = createButton({
@@ -64,6 +83,7 @@ function buildPauseModal(screen: GameScreen<GameScreenState, UIEventMap>): Modal
         layout: true,
       }),
       resumeButton,
+      saveButton,
       quitButton,
     ],
     layout: {
@@ -153,12 +173,16 @@ export const gameScreen = new GameScreen<GameScreenState, UIEventMap>({
 
     screen.ui.addChild(hud, pauseButton);
 
-    return {hitCounter, nameLabel, openModal: null, pauseButton};
+    return {hitCounter, nameLabel, openModal: null, pauseButton, visibilityDisposables: null};
   },
   onShow: (screen) => {
     screen.addToView(world);
     input.attach(game.view);
     world.start();
+    // Safe directly after start(): addEntity outside an update applies
+    // synchronously, so playersQuery is already populated. A no-op without a
+    // staged save (New Game).
+    applyStagedSave();
 
     wallHitCount = 0;
     screen.state.hitCounter.setText('Wall hits: 0');
@@ -176,8 +200,32 @@ export const gameScreen = new GameScreen<GameScreenState, UIEventMap>({
     // loading screen) is replaced by this single music voice — no silent gap,
     // no explicit stop. Music is not stopped on pause or onHide in the demo.
     audio.playMusic(assets.sound('game-music'));
+
+    // Auto-save at the last reliable lifecycle moment on mobile: covers tab
+    // close, tab switch and app backgrounding. Firing while the pause modal
+    // is open is fine — capture works on a paused world.
+    let disposables = new DisposableStack();
+    let handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        writeSave();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    disposables.defer(() => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    });
+    // eslint-disable-next-line no-param-reassign -- needed
+    screen.state.visibilityDisposables = disposables;
   },
   onHide: (screen) => {
+    // Auto-save before teardown: the world must still be alive when the
+    // position is captured. This one choke point covers Quit-to-menu and any
+    // future path away from the screen.
+    writeSave();
+    screen.state.visibilityDisposables?.dispose();
+    // eslint-disable-next-line no-param-reassign -- needed
+    screen.state.visibilityDisposables = null;
     teardownGameScreen({
       world,
       modal: screen.state.openModal,

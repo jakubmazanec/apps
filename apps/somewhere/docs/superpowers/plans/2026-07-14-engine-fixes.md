@@ -1,10 +1,18 @@
 # Engine Repairs (2026-07-14 Design) Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development
+> (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use
+> checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Implement the seven decided fixes from `docs/engine-fixes-design-2026-07-14.md`: activate depth sorting, pin the Pixi ticker clamp, make unsupported Tiled inputs fail loud, drain repeating-timer surplus, guard unregistered event-channel pushes, pin the Tween capture contract, and make deferred entity adds idempotent.
+**Goal:** Implement the seven decided fixes from `docs/engine-fixes-design-2026-07-14.md`: activate
+depth sorting, pin the Pixi ticker clamp, make unsupported Tiled inputs fail loud, drain
+repeating-timer surplus, guard unregistered event-channel pushes, pin the Tween capture contract,
+and make deferred entity adds idempotent.
 
-**Architecture:** Seven independent, small repairs to existing engine classes (`Map`, `Game`, `Tilemap`, `Timer`, `EventChannel`/`World`, `Tween`, `World`), each with pinning unit tests. No new files in `source/`; two new test files (`tests/Tilemap.test.ts`, `tests/Tileset.test.ts`). No behavior redesigns — each change enables, guards, or documents what the code already intends.
+**Architecture:** Seven independent, small repairs to existing engine classes (`Map`, `Game`,
+`Tilemap`, `Timer`, `EventChannel`/`World`, `Tween`, `World`), each with pinning unit tests. No new
+files in `source/`; two new test files (`tests/Tilemap.test.ts`, `tests/Tileset.test.ts`). No
+behavior redesigns — each change enables, guards, or documents what the code already intends.
 
 **Tech Stack:** TypeScript, Pixi.js 8.16, zod 4, vitest 4 + happy-dom.
 
@@ -12,53 +20,79 @@
 
 - Run all commands from `/workspaces/apps/apps/somewhere`.
 - Work on the current branch `somewhere-update`. One commit per task.
-- Commit message style (match `git log`): imperative sentence case, **no** `feat:`/`fix:` prefix — e.g. `Enable depth sorting on the entity layer`.
-- Loud-failure pattern (the `ObjectPool.destroy` precedent, `source/engine/utilities/ObjectPool.ts:47`): `if (import.meta.env.DEV) { throw new Error(message); } console.warn(message);`. Keep helpers module-local — do NOT create a shared `invariant()` utility (per `docs/…` design principles: axioms over mechanisms).
-- Under vitest, `import.meta.env.DEV` is `true`, so tests exercise the DEV-throw path. The prod-warn path is not unit-tested.
-- Bare `console.warn`/`console.error` is allowed (see `source/game/gameScreen.ts:49`). If eslint still flags a new call, add `// eslint-disable-next-line no-console -- loud failure in production builds (DEV throws)` directly above it.
-- Do NOT change: the two zIndex formulas (`Map.ts`, `graphicsSystem.ts`), `motionSystem`'s `MAX_DELTA_TIME = 2`, the hardcoded `animationSpeed = 0.15`, frame-duration handling (stays silent by design — T1.3 owns it), or anything for design-doc item 4 (no code changes — both deferrals re-affirmed, already committed).
-- The review doc `docs/engine-review-2026-07-04.md` already has all five items struck through — no doc edits in this plan.
-- Code style: `let` over `const` for locals, `#private` class fields, `.js` suffix on relative imports, tests use `test()` + `toBeTruthy()`/`toBeFalsy()`, fixtures built by plain functions.
-- Run a single test file with: `npx vitest run tests/<File>.test.ts` (the full `npm test` recreates coverage and runs everything — save it for the final task).
+- Commit message style (match `git log`): imperative sentence case, **no** `feat:`/`fix:` prefix —
+  e.g. `Enable depth sorting on the entity layer`.
+- Loud-failure pattern (the `ObjectPool.destroy` precedent,
+  `source/engine/utilities/ObjectPool.ts:47`):
+  `if (import.meta.env.DEV) { throw new Error(message); } console.warn(message);`. Keep helpers
+  module-local — do NOT create a shared `invariant()` utility (per `docs/…` design principles:
+  axioms over mechanisms).
+- Under vitest, `import.meta.env.DEV` is `true`, so tests exercise the DEV-throw path. The prod-warn
+  path is not unit-tested.
+- Bare `console.warn`/`console.error` is allowed (see `source/game/gameScreen.ts:49`). If eslint
+  still flags a new call, add
+  `// eslint-disable-next-line no-console -- loud failure in production builds (DEV throws)`
+  directly above it.
+- Do NOT change: the two zIndex formulas (`Map.ts`, `graphicsSystem.ts`), `motionSystem`'s
+  `MAX_DELTA_TIME = 2`, the hardcoded `animationSpeed = 0.15`, frame-duration handling (stays silent
+  by design — T1.3 owns it), or anything for design-doc item 4 (no code changes — both deferrals
+  re-affirmed, already committed).
+- The review doc `docs/engine-review-2026-07-04.md` already has all five items struck through — no
+  doc edits in this plan.
+- Code style: `let` over `const` for locals, `#private` class fields, `.js` suffix on relative
+  imports, tests use `test()` + `toBeTruthy()`/`toBeFalsy()`, fixtures built by plain functions.
+- Run a single test file with: `npx vitest run tests/<File>.test.ts` (the full `npm test` recreates
+  coverage and runs everything — save it for the final task).
 
 ## File Structure
 
-| File | Change |
-|---|---|
-| `source/engine/tiled/Map.ts` | Task 1: set `sortableChildren` on the entity layer (index 1) |
-| `tests/Map.test.ts` | Task 1: depth-sorting tests (new stub + describe block) |
-| `source/engine/app/Game.ts` | Task 2: pin `app.ticker.minFPS = 10` in `init()` |
-| `tests/Game.test.ts` | Task 2: ticker-configuration test |
-| `source/engine/tiled/Tilemap.ts` | Task 3: `failUnsupported` helper + five loud-failure checks in `from()` |
-| `tests/Tilemap.test.ts` | Task 3: NEW — happy path + seven DEV-throw tests |
-| `tests/Tileset.test.ts` | Task 4: NEW — `Tileset.from` happy-path tests (no production change) |
-| `source/engine/scheduler/Timer.ts` | Task 5: `#elapsed %= duration` on repeat fire |
-| `tests/Timer.test.ts` | Task 5: bounded-residual test + one stale comment fix |
-| `source/engine/ecs/EventChannel.ts` | Task 6: registered flag, loud unregistered `push()` |
-| `source/engine/ecs/World.ts` | Task 6: set/clear the flag in `addEventChannel`/`removeEventChannel`; Task 8: idempotent deferred add in the flush |
-| `tests/EventChannel.test.ts` | Task 6: register standalone channels; lifecycle + DEV-throw tests |
-| `tests/uiBridge.test.ts` | Task 6: register `wallHitChannel` through the world in `withBridge` |
-| `source/engine/scheduler/Tween.ts` | Task 7: contract doc comment (no behavior change) |
-| `tests/Tween.test.ts` | Task 7: capture-timing pin test |
-| `tests/World.test.ts` | Task 8: deferred double-add test |
+| File                                | Change                                                                                                             |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `source/engine/tiled/Map.ts`        | Task 1: set `sortableChildren` on the entity layer (index 1)                                                       |
+| `tests/Map.test.ts`                 | Task 1: depth-sorting tests (new stub + describe block)                                                            |
+| `source/engine/app/Game.ts`         | Task 2: pin `app.ticker.minFPS = 10` in `init()`                                                                   |
+| `tests/Game.test.ts`                | Task 2: ticker-configuration test                                                                                  |
+| `source/engine/tiled/Tilemap.ts`    | Task 3: `failUnsupported` helper + five loud-failure checks in `from()`                                            |
+| `tests/Tilemap.test.ts`             | Task 3: NEW — happy path + seven DEV-throw tests                                                                   |
+| `tests/Tileset.test.ts`             | Task 4: NEW — `Tileset.from` happy-path tests (no production change)                                               |
+| `source/engine/scheduler/Timer.ts`  | Task 5: `#elapsed %= duration` on repeat fire                                                                      |
+| `tests/Timer.test.ts`               | Task 5: bounded-residual test + one stale comment fix                                                              |
+| `source/engine/ecs/EventChannel.ts` | Task 6: registered flag, loud unregistered `push()`                                                                |
+| `source/engine/ecs/World.ts`        | Task 6: set/clear the flag in `addEventChannel`/`removeEventChannel`; Task 8: idempotent deferred add in the flush |
+| `tests/EventChannel.test.ts`        | Task 6: register standalone channels; lifecycle + DEV-throw tests                                                  |
+| `tests/uiBridge.test.ts`            | Task 6: register `wallHitChannel` through the world in `withBridge`                                                |
+| `source/engine/scheduler/Tween.ts`  | Task 7: contract doc comment (no behavior change)                                                                  |
+| `tests/Tween.test.ts`               | Task 7: capture-timing pin test                                                                                    |
+| `tests/World.test.ts`               | Task 8: deferred double-add test                                                                                   |
 
-Tasks are independent of each other; only Task 6 spans two source files (the flag and its call sites are one reviewable unit).
+Tasks are independent of each other; only Task 6 spans two source files (the flag and its call sites
+are one reviewable unit).
 
 ---
 
 ### Task 1: Enable depth sorting on the entity layer
 
-Design-doc item 1, Option A. Both zIndex writes already compute the correct y-sort key (bottom of collision box); nothing ever sorts. Setting `sortableChildren = true` on the entity layer container (layer index 1 — `addToLayer`'s default, where `graphicsSystem` puts entity sprites as siblings of tiles) activates the existing design. Other layers keep insertion order on purpose.
+Design-doc item 1, Option A. Both zIndex writes already compute the correct y-sort key (bottom of
+collision box); nothing ever sorts. Setting `sortableChildren = true` on the entity layer container
+(layer index 1 — `addToLayer`'s default, where `graphicsSystem` puts entity sprites as siblings of
+tiles) activates the existing design. Other layers keep insertion order on purpose.
 
 **Files:**
+
 - Modify: `source/engine/tiled/Map.ts:89-96` (after the layer loop, before `this.layers = layers`)
 - Test: `tests/Map.test.ts`
 
 **Interfaces:**
+
 - Consumes: nothing new.
 - Produces: no API change — `map.layers[1].view.sortableChildren` is now `true` after construction.
 
-**Pixi 8.16 caveat for the implementer:** pixi's `zIndex` setter auto-sets `parent.sortableChildren = true` when a *parented* child's zIndex *changes* (`sortMixin.mjs`, `depthOfChildModified`). Tiles set zIndex before `addChild`, so construction does NOT trip it — the constructor-flag test below is the real fail-first pin. The draw-order test may pass even before the change (the test's own zIndex write trips the auto-flag); it pins the sort-key convention end-to-end and guards against pixi changing that accidental behavior.
+**Pixi 8.16 caveat for the implementer:** pixi's `zIndex` setter auto-sets
+`parent.sortableChildren = true` when a _parented_ child's zIndex _changes_ (`sortMixin.mjs`,
+`depthOfChildModified`). Tiles set zIndex before `addChild`, so construction does NOT trip it — the
+constructor-flag test below is the real fail-first pin. The draw-order test may pass even before the
+change (the test's own zIndex write trips the auto-flag); it pins the sort-key convention end-to-end
+and guards against pixi changing that accidental behavior.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -153,34 +187,36 @@ describe('Map depth sorting (entity layer)', () => {
 
 - [ ] **Step 2: Run the tests to verify the flag test fails**
 
-Run: `npx vitest run tests/Map.test.ts`
-Expected: `only the entity layer (index 1) sorts its children by zIndex` FAILS with `expected false to be truthy`. (The draw-order test may already pass — see the pixi 8.16 caveat above; that is fine.) All pre-existing tests still pass.
+Run: `npx vitest run tests/Map.test.ts` Expected:
+`only the entity layer (index 1) sorts its children by zIndex` FAILS with
+`expected false to be truthy`. (The draw-order test may already pass — see the pixi 8.16 caveat
+above; that is fine.) All pre-existing tests still pass.
 
 - [ ] **Step 3: Implement the change**
 
-In `source/engine/tiled/Map.ts`, insert between the end of the layer loop and `this.layers = layers;`:
+In `source/engine/tiled/Map.ts`, insert between the end of the layer loop and
+`this.layers = layers;`:
 
 ```ts
-    // Layer 1 is the entity layer (addToLayer's default): entity sprites are
-    // inserted as siblings of its tiles, and both write the same y-sort key
-    // to zIndex — the bottom edge of the collision box (tiles at construction
-    // above, entities per frame in graphicsSystem). This flag makes Pixi
-    // actually sort by it, so an entity can walk behind scenery. Other layers
-    // keep insertion order: their stacking is layer-level by design (ground
-    // below, overhead "air" above). T1.6 later replaces the mechanism with a
-    // dedicated y-sorted RenderLayer without changing the sort key; T2.16
-    // addresses the per-frame sort cost over all layer-1 tiles.
-    let entityLayer = layers[1];
+// Layer 1 is the entity layer (addToLayer's default): entity sprites are
+// inserted as siblings of its tiles, and both write the same y-sort key
+// to zIndex — the bottom edge of the collision box (tiles at construction
+// above, entities per frame in graphicsSystem). This flag makes Pixi
+// actually sort by it, so an entity can walk behind scenery. Other layers
+// keep insertion order: their stacking is layer-level by design (ground
+// below, overhead "air" above). T1.6 later replaces the mechanism with a
+// dedicated y-sorted RenderLayer without changing the sort key; T2.16
+// addresses the per-frame sort cost over all layer-1 tiles.
+let entityLayer = layers[1];
 
-    if (entityLayer) {
-      entityLayer.view.sortableChildren = true;
-    }
+if (entityLayer) {
+  entityLayer.view.sortableChildren = true;
+}
 ```
 
 - [ ] **Step 4: Run the tests to verify they pass**
 
-Run: `npx vitest run tests/Map.test.ts`
-Expected: PASS (all tests in the file).
+Run: `npx vitest run tests/Map.test.ts` Expected: PASS (all tests in the file).
 
 - [ ] **Step 5: Commit**
 
@@ -193,19 +229,25 @@ git commit -m "Enable depth sorting on the entity layer"
 
 ### Task 2: Pin the Pixi ticker clamp in Game.init
 
-Design-doc item 2, Option A. Pixi's `Ticker` already clamps elapsed time to 100 ms (`minFPS = 10` default) — the guarantee is an undocumented third-party default. Pin it explicitly with a contract comment; zero behavior change.
+Design-doc item 2, Option A. Pixi's `Ticker` already clamps elapsed time to 100 ms (`minFPS = 10`
+default) — the guarantee is an undocumented third-party default. Pin it explicitly with a contract
+comment; zero behavior change.
 
 **Files:**
+
 - Modify: `source/engine/app/Game.ts:88-105` (the `appReady` `.then()` block)
 - Test: `tests/Game.test.ts`
 
 **Interfaces:**
+
 - Consumes: nothing new.
 - Produces: no API change — `game.app.ticker.minFPS === 10` after `init()`.
 
 - [ ] **Step 1: Write the failing test**
 
-Add a new describe block at the end of `tests/Game.test.ts` (the file's pixi mock gives `Application` a plain `ticker = {add() {}, remove() {}}` object, so the property assignment is observable):
+Add a new describe block at the end of `tests/Game.test.ts` (the file's pixi mock gives
+`Application` a plain `ticker = {add() {}, remove() {}}` object, so the property assignment is
+observable):
 
 ```ts
 describe('Game ticker configuration', () => {
@@ -234,31 +276,32 @@ describe('Game ticker configuration', () => {
 
 - [ ] **Step 2: Run the test to verify it fails**
 
-Run: `npx vitest run tests/Game.test.ts`
-Expected: the new test FAILS with `expected undefined to be 10`. All pre-existing tests pass.
+Run: `npx vitest run tests/Game.test.ts` Expected: the new test FAILS with
+`expected undefined to be 10`. All pre-existing tests pass.
 
 - [ ] **Step 3: Implement the change**
 
-In `source/engine/app/Game.ts`, inside the `appReady` `.then(() => { … })` callback, after `this.view.hitArea = new pixi.Rectangle();` add:
+In `source/engine/app/Game.ts`, inside the `appReady` `.then(() => { … })` callback, after
+`this.view.hitArea = new pixi.Rectangle();` add:
 
 ```ts
-          // Engine contract: one frame advances world time by at most 100 ms
-          // (maxElapsedMS = 1000 / minFPS), no matter how long the tab sat
-          // backgrounded (rAF stops firing there) or how badly a frame
-          // hitched. Pixi's Ticker defaults to minFPS = 10 already — pinned
-          // explicitly so a ticker config change can't silently remove the
-          // clamp. Timers fire at most once per update and tweens snap to
-          // their end values, so a single 100 ms step is benign. (T1.9 moves
-          // this into a world-level time object when timeScale lands.)
-          this.app.ticker.minFPS = 10;
+// Engine contract: one frame advances world time by at most 100 ms
+// (maxElapsedMS = 1000 / minFPS), no matter how long the tab sat
+// backgrounded (rAF stops firing there) or how badly a frame
+// hitched. Pixi's Ticker defaults to minFPS = 10 already — pinned
+// explicitly so a ticker config change can't silently remove the
+// clamp. Timers fire at most once per update and tweens snap to
+// their end values, so a single 100 ms step is benign. (T1.9 moves
+// this into a world-level time object when timeScale lands.)
+this.app.ticker.minFPS = 10;
 ```
 
-(The ticker only exists after `app.init()` resolves — pixi's TickerPlugin creates it — which is why the assignment lives in this `.then()` and not the constructor.)
+(The ticker only exists after `app.init()` resolves — pixi's TickerPlugin creates it — which is why
+the assignment lives in this `.then()` and not the constructor.)
 
 - [ ] **Step 4: Run the test to verify it passes**
 
-Run: `npx vitest run tests/Game.test.ts`
-Expected: PASS (all tests in the file).
+Run: `npx vitest run tests/Game.test.ts` Expected: PASS (all tests in the file).
 
 - [ ] **Step 5: Commit**
 
@@ -271,15 +314,22 @@ git commit -m "Pin the Pixi ticker clamp as an explicit engine contract"
 
 ### Task 3: Fail loud on unsupported Tiled inputs in Tilemap.from
 
-Design-doc item 3, Option A. `Tilemap.from` silently drops everything that isn't a finite, CSV-encoded tile layer with an external tileset, and silently strips flip/rotation flags. Each unsupported input now throws in DEV and warns in production, with a message saying what to change in Tiled.
+Design-doc item 3, Option A. `Tilemap.from` silently drops everything that isn't a finite,
+CSV-encoded tile layer with an external tileset, and silently strips flip/rotation flags. Each
+unsupported input now throws in DEV and warns in production, with a message saying what to change in
+Tiled.
 
 **Files:**
+
 - Modify: `source/engine/tiled/Tilemap.ts:44-78` (the `from` method + a module-local helper)
 - Test: Create `tests/Tilemap.test.ts`
 
 **Interfaces:**
-- Consumes: `getGid` (`source/engine/tiled/getGid.ts`), `toTileGid`, `FLIPPED_HORIZONTALLY_FLAG` (`source/engine/tiled/constants.ts`) — all existing.
-- Produces: no API change. In DEV, `Tilemap.from` now rejects on unsupported input; in production it warns and keeps the current skip/strip behavior.
+
+- Consumes: `getGid` (`source/engine/tiled/getGid.ts`), `toTileGid`, `FLIPPED_HORIZONTALLY_FLAG`
+  (`source/engine/tiled/constants.ts`) — all existing.
+- Produces: no API change. In DEV, `Tilemap.from` now rejects on unsupported input; in production it
+  warns and keeps the current skip/strip behavior.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -451,8 +501,9 @@ describe('Tilemap.from', () => {
 
 - [ ] **Step 2: Run the tests to verify the seven throw tests fail**
 
-Run: `npx vitest run tests/Tilemap.test.ts`
-Expected: the happy-path test PASSES; the seven `throws in DEV …` tests FAIL with `promise resolved … instead of rejecting` (today's code silently skips these inputs).
+Run: `npx vitest run tests/Tilemap.test.ts` Expected: the happy-path test PASSES; the seven
+`throws in DEV …` tests FAIL with `promise resolved … instead of rejecting` (today's code silently
+skips these inputs).
 
 - [ ] **Step 3: Implement the change**
 
@@ -548,17 +599,17 @@ Replace the body of `static async from(source: unknown)` with:
   }
 ```
 
-(Production keeps the current behavior after the warn: unsupported tilesets/layers are skipped, flags are stripped, an infinite map proceeds degraded.)
+(Production keeps the current behavior after the warn: unsupported tilesets/layers are skipped,
+flags are stripped, an infinite map proceeds degraded.)
 
 - [ ] **Step 4: Run the tests to verify they pass**
 
-Run: `npx vitest run tests/Tilemap.test.ts`
-Expected: PASS (all 8 tests).
+Run: `npx vitest run tests/Tilemap.test.ts` Expected: PASS (all 8 tests).
 
 - [ ] **Step 5: Run the map-consuming tests to catch regressions**
 
-Run: `npx vitest run tests/Map.test.ts tests/mapSystem.test.ts`
-Expected: PASS (these stub `Assets.get` with already-constructed `Tilemap` instances, so they bypass `from` — but verify).
+Run: `npx vitest run tests/Map.test.ts tests/mapSystem.test.ts` Expected: PASS (these stub
+`Assets.get` with already-constructed `Tilemap` instances, so they bypass `from` — but verify).
 
 - [ ] **Step 6: Commit**
 
@@ -571,12 +622,17 @@ git commit -m "Fail loud on unsupported Tiled inputs in Tilemap.from"
 
 ### Task 4: Add the missing Tileset.from unit tests
 
-Design-doc item 3 scope note: `Tileset.from` has no direct tests. These are characterization tests of the happy path (frames, animations, collision boxes) — **no production change**, so they should pass on first run. The approach (real `Spritesheet.parse()` against a stubbed in-memory texture) was verified to work headless under happy-dom.
+Design-doc item 3 scope note: `Tileset.from` has no direct tests. These are characterization tests
+of the happy path (frames, animations, collision boxes) — **no production change**, so they should
+pass on first run. The approach (real `Spritesheet.parse()` against a stubbed in-memory texture) was
+verified to work headless under happy-dom.
 
 **Files:**
+
 - Test: Create `tests/Tileset.test.ts`
 
 **Interfaces:**
+
 - Consumes: `Tileset`, `toTileId` — existing.
 - Produces: nothing — test-only task.
 
@@ -704,8 +760,9 @@ describe('Tileset.getTile', () => {
 
 - [ ] **Step 2: Run the tests**
 
-Run: `npx vitest run tests/Tileset.test.ts`
-Expected: PASS (4 tests) — characterization of existing behavior, so no fail-first cycle. If anything fails, the fixture is wrong (zod parse error) — fix the fixture, not `Tileset`.
+Run: `npx vitest run tests/Tileset.test.ts` Expected: PASS (4 tests) — characterization of existing
+behavior, so no fail-first cycle. If anything fails, the fixture is wrong (zod parse error) — fix
+the fixture, not `Tileset`.
 
 - [ ] **Step 3: Commit**
 
@@ -718,13 +775,18 @@ git commit -m "Add Tileset.from unit tests"
 
 ### Task 5: Drain the repeating Timer surplus on fire
 
-Design-doc item 5a. `#elapsed -= duration` banks unbounded surplus when the period is shorter than the frame time, then bursts (fires every frame) once the frame rate recovers. `#elapsed %= duration` keeps the residual below one period: effective cadence `max(period, frame time)`, no post-hitch burst. The "fires at most once per update" contract is unchanged.
+Design-doc item 5a. `#elapsed -= duration` banks unbounded surplus when the period is shorter than
+the frame time, then bursts (fires every frame) once the frame rate recovers. `#elapsed %= duration`
+keeps the residual below one period: effective cadence `max(period, frame time)`, no post-hitch
+burst. The "fires at most once per update" contract is unchanged.
 
 **Files:**
+
 - Modify: `source/engine/scheduler/Timer.ts:41-43`
 - Test: `tests/Timer.test.ts`
 
 **Interfaces:**
+
 - Consumes: nothing new.
 - Produces: no API change — `Timer.update` still returns `boolean`.
 
@@ -733,69 +795,71 @@ Design-doc item 5a. `#elapsed -= duration` banks unbounded surplus when the peri
 Add to the `describe('Timer', …)` block in `tests/Timer.test.ts`:
 
 ```ts
-  test('sustained sub-period frames keep a bounded residual — no burst after the frame rate recovers', () => {
-    let timer = new Timer({duration: 10, repeat: true});
+test('sustained sub-period frames keep a bounded residual — no burst after the frame rate recovers', () => {
+  let timer = new Timer({duration: 10, repeat: true});
 
-    // 100 slow frames (35ms > the 10ms period): fires exactly once per frame,
-    // and the surplus past one period is discarded instead of banked.
-    for (let i = 0; i < 100; i++) {
-      expect(timer.update(tick(35))).toBeTruthy();
-    }
+  // 100 slow frames (35ms > the 10ms period): fires exactly once per frame,
+  // and the surplus past one period is discarded instead of banked.
+  for (let i = 0; i < 100; i++) {
+    expect(timer.update(tick(35))).toBeTruthy();
+  }
 
-    // Frame rate recovers: with `-=` the ~2,500ms banked surplus would fire
-    // every 1ms frame for seconds; drained, the next fire needs a full period.
-    for (let i = 0; i < 9; i++) {
-      expect(timer.update(tick(1))).toBeFalsy();
-    }
+  // Frame rate recovers: with `-=` the ~2,500ms banked surplus would fire
+  // every 1ms frame for seconds; drained, the next fire needs a full period.
+  for (let i = 0; i < 9; i++) {
+    expect(timer.update(tick(1))).toBeFalsy();
+  }
 
-    expect(timer.update(tick(1))).toBeTruthy();
-  });
+  expect(timer.update(tick(1))).toBeTruthy();
+});
 ```
 
 - [ ] **Step 2: Run the test to verify it fails**
 
-Run: `npx vitest run tests/Timer.test.ts`
-Expected: the new test FAILS on the first `toBeFalsy()` in the recovery loop with `expected true to be falsy` (the banked surplus keeps it firing). All pre-existing tests pass.
+Run: `npx vitest run tests/Timer.test.ts` Expected: the new test FAILS on the first `toBeFalsy()` in
+the recovery loop with `expected true to be falsy` (the banked surplus keeps it firing). All
+pre-existing tests pass.
 
 - [ ] **Step 3: Implement the change**
 
 In `source/engine/scheduler/Timer.ts`, replace:
 
 ```ts
-    if (this.#repeat) {
-      this.#elapsed -= this.#duration;
-    } else {
-      this.#finished = true;
-    }
+if (this.#repeat) {
+  this.#elapsed -= this.#duration;
+} else {
+  this.#finished = true;
+}
 ```
 
 with:
 
 ```ts
-    if (this.#repeat) {
-      // Drain the whole surplus, not one period: under sustained sub-period
-      // frames `-=` banks time without bound, then fires every frame until
-      // the surplus drains once the frame rate recovers. `%=` keeps the
-      // residual below one period — effective cadence max(period, frame
-      // time), phase realigned after a hitch.
-      this.#elapsed %= this.#duration;
-    } else {
-      this.#finished = true;
-    }
+if (this.#repeat) {
+  // Drain the whole surplus, not one period: under sustained sub-period
+  // frames `-=` banks time without bound, then fires every frame until
+  // the surplus drains once the frame rate recovers. `%=` keeps the
+  // residual below one period — effective cadence max(period, frame
+  // time), phase realigned after a hitch.
+  this.#elapsed %= this.#duration;
+} else {
+  this.#finished = true;
+}
 ```
 
 - [ ] **Step 4: Fix the now-stale comment in the existing test**
 
-In `tests/Timer.test.ts`, the test `fires at most once per update even across several periods` — change:
+In `tests/Timer.test.ts`, the test `fires at most once per update even across several periods` —
+change:
 
 ```ts
-    expect(timer.update(tick(350))).toBeTruthy(); // single fire, surplus carried
+expect(timer.update(tick(350))).toBeTruthy(); // single fire, surplus carried
 ```
 
 to:
 
 ```ts
-    expect(timer.update(tick(350))).toBeTruthy(); // single fire; residual is 350 % 100 = 50, not 250 banked
+expect(timer.update(tick(350))).toBeTruthy(); // single fire; residual is 350 % 100 = 50, not 250 banked
 ```
 
 - [ ] **Step 5: Run the tests to verify they pass**
@@ -814,87 +878,101 @@ git commit -m "Drain the repeating Timer surplus on fire"
 
 ### Task 6: Fail loud when pushing to an unregistered event channel
 
-Design-doc item 5b. A pushed-but-never-registered channel leaks every event forever (only `World.update` calls `swap()`, and only for registered channels) while consumers read an always-empty snapshot. `EventChannel` gets a registered flag that `World.addEventChannel`/`removeEventChannel` set and clear (`World.stop()` clears it too — it removes every channel via `removeEventChannel`); `push()` on an unregistered channel throws in DEV, warns once and drops the event in production.
+Design-doc item 5b. A pushed-but-never-registered channel leaks every event forever (only
+`World.update` calls `swap()`, and only for registered channels) while consumers read an
+always-empty snapshot. `EventChannel` gets a registered flag that
+`World.addEventChannel`/`removeEventChannel` set and clear (`World.stop()` clears it too — it
+removes every channel via `removeEventChannel`); `push()` on an unregistered channel throws in DEV,
+warns once and drops the event in production.
 
 **Files:**
+
 - Modify: `source/engine/ecs/EventChannel.ts`
 - Modify: `source/engine/ecs/World.ts:234-263` (`addEventChannel`, `removeEventChannel`)
 - Test: `tests/EventChannel.test.ts`, `tests/uiBridge.test.ts`
 
 **Interfaces:**
-- Consumes: nothing new.
-- Produces: `EventChannel.setRegistered(isRegistered: boolean): void` (`@internal`, called by `World`) and `get isRegistered(): boolean`. Tests that drive a channel standalone (calling `swap()` by hand) must now also call `setRegistered(true)` — or register through a real world.
 
-**Blast radius (checked):** `tests/EventChannel.test.ts` has four standalone-push tests and `tests/uiBridge.test.ts` pushes to the never-registered `wallHitChannel` — both updated below. `tests/popupCleanupSystem.test.ts`, `tests/timerSystem.test.ts`, `tests/motionSystem.test.ts`, and `tests/World.test.ts` all register their channels via `addEventChannel` before pushing — no changes needed. Production pushers (`motionSystem`, `timerSystem`/`tweenSystem` emits) run only during `world.update` on channels registered in `world.ts` `onStart` — no changes needed.
+- Consumes: nothing new.
+- Produces: `EventChannel.setRegistered(isRegistered: boolean): void` (`@internal`, called by
+  `World`) and `get isRegistered(): boolean`. Tests that drive a channel standalone (calling
+  `swap()` by hand) must now also call `setRegistered(true)` — or register through a real world.
+
+**Blast radius (checked):** `tests/EventChannel.test.ts` has four standalone-push tests and
+`tests/uiBridge.test.ts` pushes to the never-registered `wallHitChannel` — both updated below.
+`tests/popupCleanupSystem.test.ts`, `tests/timerSystem.test.ts`, `tests/motionSystem.test.ts`, and
+`tests/World.test.ts` all register their channels via `addEventChannel` before pushing — no changes
+needed. Production pushers (`motionSystem`, `timerSystem`/`tweenSystem` emits) run only during
+`world.update` on channels registered in `world.ts` `onStart` — no changes needed.
 
 - [ ] **Step 1: Write the failing tests**
 
 Add to the `describe('EventChannel', …)` block in `tests/EventChannel.test.ts`:
 
 ```ts
-  test('push on an unregistered channel throws in DEV', () => {
-    let channel = new EventChannel({event: FooEvent, displayName: 'Foo'});
+test('push on an unregistered channel throws in DEV', () => {
+  let channel = new EventChannel({event: FooEvent, displayName: 'Foo'});
 
-    expect(() => {
-      channel.push(new FooEvent({value: 1}));
-    }).toThrow('Cannot push to the unregistered event channel "Foo"');
-  });
+  expect(() => {
+    channel.push(new FooEvent({value: 1}));
+  }).toThrow('Cannot push to the unregistered event channel "Foo"');
+});
 ```
 
 Add to the `describe('World event channel integration', …)` block:
 
 ```ts
-  test('registration lifecycle: addEventChannel enables push, removeEventChannel disables it', () => {
-    let world = new World();
-    let channel = new EventChannel({event: FooEvent, displayName: 'Foo'});
+test('registration lifecycle: addEventChannel enables push, removeEventChannel disables it', () => {
+  let world = new World();
+  let channel = new EventChannel({event: FooEvent, displayName: 'Foo'});
 
-    expect(channel.isRegistered).toBeFalsy();
+  expect(channel.isRegistered).toBeFalsy();
 
-    world.addEventChannel(channel);
+  world.addEventChannel(channel);
 
-    expect(channel.isRegistered).toBeTruthy();
-    expect(() => {
-      channel.push(new FooEvent({value: 1}));
-    }).not.toThrow();
+  expect(channel.isRegistered).toBeTruthy();
+  expect(() => {
+    channel.push(new FooEvent({value: 1}));
+  }).not.toThrow();
 
-    world.removeEventChannel(channel);
+  world.removeEventChannel(channel);
 
-    expect(channel.isRegistered).toBeFalsy();
-    expect(() => {
-      channel.push(new FooEvent({value: 2}));
-    }).toThrow(/unregistered event channel/);
+  expect(channel.isRegistered).toBeFalsy();
+  expect(() => {
+    channel.push(new FooEvent({value: 2}));
+  }).toThrow(/unregistered event channel/);
+});
+
+test('stop() unregisters channels, so a push after stop is loud (the T1.2 trap)', () => {
+  let channel = new EventChannel({event: FooEvent, displayName: 'Foo'});
+  let world = new World({
+    onStart: (w) => {
+      w.addEventChannel(channel);
+    },
   });
 
-  test('stop() unregisters channels, so a push after stop is loud (the T1.2 trap)', () => {
-    let channel = new EventChannel({event: FooEvent, displayName: 'Foo'});
-    let world = new World({
-      onStart: (w) => {
-        w.addEventChannel(channel);
-      },
-    });
+  world.start();
 
-    world.start();
+  expect(channel.isRegistered).toBeTruthy();
 
-    expect(channel.isRegistered).toBeTruthy();
+  world.stop();
 
-    world.stop();
-
-    expect(channel.isRegistered).toBeFalsy();
-  });
+  expect(channel.isRegistered).toBeFalsy();
+});
 ```
 
 - [ ] **Step 2: Run the tests to verify they fail**
 
-Run: `npx vitest run tests/EventChannel.test.ts`
-Expected: the three new tests FAIL (`isRegistered` is undefined / push does not throw). Pre-existing tests still pass (no production change yet).
+Run: `npx vitest run tests/EventChannel.test.ts` Expected: the three new tests FAIL (`isRegistered`
+is undefined / push does not throw). Pre-existing tests still pass (no production change yet).
 
 - [ ] **Step 3: Implement the EventChannel change**
 
 In `source/engine/ecs/EventChannel.ts`, add two private fields after `#currentEvents`:
 
 ```ts
-  #isRegistered = false;
-  #hasWarnedUnregistered = false;
+#isRegistered = false;
+#hasWarnedUnregistered = false;
 ```
 
 Add after the `events` getter:
@@ -939,38 +1017,44 @@ Replace the `push` method (keep its doc comment, extended):
 
 - [ ] **Step 4: Implement the World change**
 
-In `source/engine/ecs/World.ts`, in `addEventChannel`, after `this.eventChannels.push(channel as unknown as EventChannel);` add:
+In `source/engine/ecs/World.ts`, in `addEventChannel`, after
+`this.eventChannels.push(channel as unknown as EventChannel);` add:
 
 ```ts
-    (channel as unknown as EventChannel).setRegistered(true);
+(channel as unknown as EventChannel).setRegistered(true);
 ```
 
 In `removeEventChannel`, change:
 
 ```ts
-    (channel as unknown as EventChannel).clear();
-    this.eventChannels.splice(index, 1);
+(channel as unknown as EventChannel).clear();
+this.eventChannels.splice(index, 1);
 ```
 
 to:
 
 ```ts
-    (channel as unknown as EventChannel).clear();
-    (channel as unknown as EventChannel).setRegistered(false);
-    this.eventChannels.splice(index, 1);
+(channel as unknown as EventChannel).clear();
+(channel as unknown as EventChannel).setRegistered(false);
+this.eventChannels.splice(index, 1);
 ```
 
 - [ ] **Step 5: Update the standalone-channel tests**
 
-In `tests/EventChannel.test.ts`, the four standalone tests in `describe('EventChannel', …)` — `pushed event is invisible until swap…`, `events appear in push order after swap`, `clear() empties both buffers…`, and `pushing during iteration…` — each construct a channel and drive it by hand (they already call the `@internal` `swap()` directly). In each, add this line immediately after the `new EventChannel(…)` construction:
+In `tests/EventChannel.test.ts`, the four standalone tests in `describe('EventChannel', …)` —
+`pushed event is invisible until swap…`, `events appear in push order after swap`,
+`clear() empties both buffers…`, and `pushing during iteration…` — each construct a channel and
+drive it by hand (they already call the `@internal` `swap()` directly). In each, add this line
+immediately after the `new EventChannel(…)` construction:
 
 ```ts
-    channel.setRegistered(true); // driven by hand below; a real world sets this in addEventChannel
+channel.setRegistered(true); // driven by hand below; a real world sets this in addEventChannel
 ```
 
 - [ ] **Step 6: Update tests/uiBridge.test.ts**
 
-The file pushes to the module-singleton `wallHitChannel` without any world registration. Register it through the world in `withBridge` and move the pushes inside. Replace the `withBridge` helper with:
+The file pushes to the module-singleton `wallHitChannel` without any world registration. Register it
+through the world in `withBridge` and move the pushes inside. Replace the `withBridge` helper with:
 
 ```ts
 function withBridge(run: (world: World) => void) {
@@ -991,52 +1075,53 @@ function withBridge(run: (world: World) => void) {
 In the first test, replace:
 
 ```ts
-    wallHitChannel.push(new WallHit({entity, tile}));
-    wallHitChannel.swap();
+wallHitChannel.push(new WallHit({entity, tile}));
+wallHitChannel.swap();
 
-    withBridge((world) => {
-      world.update({deltaTime: 1} as never);
-    });
+withBridge((world) => {
+  world.update({deltaTime: 1} as never);
+});
 ```
 
 with:
 
 ```ts
-    withBridge((world) => {
-      wallHitChannel.push(new WallHit({entity, tile}));
-      wallHitChannel.swap();
-      world.update({deltaTime: 1} as never);
-    });
+withBridge((world) => {
+  wallHitChannel.push(new WallHit({entity, tile}));
+  wallHitChannel.swap();
+  world.update({deltaTime: 1} as never);
+});
 ```
 
 In the second test, replace:
 
 ```ts
-    wallHitChannel.push(new WallHit({entity, tile: tileA}));
-    wallHitChannel.push(new WallHit({entity, tile: tileB}));
-    wallHitChannel.swap();
+wallHitChannel.push(new WallHit({entity, tile: tileA}));
+wallHitChannel.push(new WallHit({entity, tile: tileB}));
+wallHitChannel.swap();
 
-    withBridge((world) => {
-      world.update({deltaTime: 1} as never);
-    });
+withBridge((world) => {
+  world.update({deltaTime: 1} as never);
+});
 ```
 
 with:
 
 ```ts
-    withBridge((world) => {
-      wallHitChannel.push(new WallHit({entity, tile: tileA}));
-      wallHitChannel.push(new WallHit({entity, tile: tileB}));
-      wallHitChannel.swap();
-      world.update({deltaTime: 1} as never);
-    });
+withBridge((world) => {
+  wallHitChannel.push(new WallHit({entity, tile: tileA}));
+  wallHitChannel.push(new WallHit({entity, tile: tileB}));
+  wallHitChannel.swap();
+  world.update({deltaTime: 1} as never);
+});
 ```
 
 (The third test pushes nothing — unchanged.)
 
 - [ ] **Step 7: Run the affected test files**
 
-Run: `npx vitest run tests/EventChannel.test.ts tests/uiBridge.test.ts tests/World.test.ts tests/popupCleanupSystem.test.ts tests/timerSystem.test.ts tests/motionSystem.test.ts tests/pauseFlow.test.ts`
+Run:
+`npx vitest run tests/EventChannel.test.ts tests/uiBridge.test.ts tests/World.test.ts tests/popupCleanupSystem.test.ts tests/timerSystem.test.ts tests/motionSystem.test.ts tests/pauseFlow.test.ts`
 Expected: PASS (all).
 
 - [ ] **Step 8: Commit**
@@ -1050,13 +1135,17 @@ git commit -m "Fail loud when pushing to an unregistered event channel"
 
 ### Task 7: Document and pin Tween's capture-at-construction contract
 
-Design-doc item 5c. Not a defect — a load-bearing contract (`Modal.ts:154-158` relies on it for jump-free mid-fade cancel-and-replace). Add the doc comment and a pinning test. **No behavior change.**
+Design-doc item 5c. Not a defect — a load-bearing contract (`Modal.ts:154-158` relies on it for
+jump-free mid-fade cancel-and-replace). Add the doc comment and a pinning test. **No behavior
+change.**
 
 **Files:**
+
 - Modify: `source/engine/scheduler/Tween.ts:17` (doc comment above the class)
 - Test: `tests/Tween.test.ts`
 
 **Interfaces:**
+
 - Consumes / Produces: nothing — documentation and a pin test only.
 
 - [ ] **Step 1: Write the pinning test**
@@ -1064,30 +1153,32 @@ Design-doc item 5c. Not a defect — a load-bearing contract (`Modal.ts:154-158`
 Add to `tests/Tween.test.ts`:
 
 ```ts
-  test('from is captured at construction, not at the first update (load-bearing contract)', () => {
-    let target = {x: 10};
-    let tween = new Tween({target, to: {x: 20}, duration: 100});
+test('from is captured at construction, not at the first update (load-bearing contract)', () => {
+  let target = {x: 10};
+  let tween = new Tween({target, to: {x: 20}, duration: 100});
 
-    // Mutating the target between construction and the first update must not
-    // move the tween's origin: it interpolates 10 -> 20, not 999 -> 20.
-    // Modal's mid-fade cancel-and-replace relies on exactly this capture
-    // timing for jump-free fades (Modal.ts).
-    target.x = 999;
+  // Mutating the target between construction and the first update must not
+  // move the tween's origin: it interpolates 10 -> 20, not 999 -> 20.
+  // Modal's mid-fade cancel-and-replace relies on exactly this capture
+  // timing for jump-free fades (Modal.ts).
+  target.x = 999;
 
-    tween.update(tick(50));
+  tween.update(tick(50));
 
-    expect(target.x).toBeCloseTo(15);
-  });
+  expect(target.x).toBeCloseTo(15);
+});
 ```
 
 - [ ] **Step 2: Run the test — expected to pass immediately**
 
-Run: `npx vitest run tests/Tween.test.ts`
-Expected: PASS. This is a pin of existing intended behavior, not a fail-first cycle. If it fails, STOP — the contract three documents describe is broken; do not "fix" the test.
+Run: `npx vitest run tests/Tween.test.ts` Expected: PASS. This is a pin of existing intended
+behavior, not a fail-first cycle. If it fails, STOP — the contract three documents describe is
+broken; do not "fix" the test.
 
 - [ ] **Step 3: Add the doc comment**
 
-In `source/engine/scheduler/Tween.ts`, directly above `export class Tween<T = Record<string, number>> {` add:
+In `source/engine/scheduler/Tween.ts`, directly above
+`export class Tween<T = Record<string, number>> {` add:
 
 ```ts
 /**
@@ -1103,8 +1194,7 @@ In `source/engine/scheduler/Tween.ts`, directly above `export class Tween<T = Re
 
 - [ ] **Step 4: Run the tests**
 
-Run: `npx vitest run tests/Tween.test.ts`
-Expected: PASS (all).
+Run: `npx vitest run tests/Tween.test.ts` Expected: PASS (all).
 
 - [ ] **Step 5: Commit**
 
@@ -1117,91 +1207,99 @@ git commit -m "Document and pin Tween's capture-at-construction contract"
 
 ### Task 8: Make deferred entity adds idempotent
 
-Design-doc item 5d. In the post-update flush, queued removals are guarded (`Tolerate repeats`) but queued adds re-enter `addEntity` unguarded and hit the synchronous double-add throw mid-flush — after systems ran, with a stack trace far from the offending call. Guard the flush-site add the same way. Axiom: synchronous structural calls are strict; deferred structural changes are idempotent. Remove-then-re-add keeps working (FIFO flush).
+Design-doc item 5d. In the post-update flush, queued removals are guarded (`Tolerate repeats`) but
+queued adds re-enter `addEntity` unguarded and hit the synchronous double-add throw mid-flush —
+after systems ran, with a stack trace far from the offending call. Guard the flush-site add the same
+way. Axiom: synchronous structural calls are strict; deferred structural changes are idempotent.
+Remove-then-re-add keeps working (FIFO flush).
 
 **Files:**
+
 - Modify: `source/engine/ecs/World.ts:342-357` (the pending-changes flush in `update`)
 - Test: `tests/World.test.ts`
 
 **Interfaces:**
+
 - Consumes / Produces: no API change.
 
 - [ ] **Step 1: Write the failing test**
 
-Add to the `describe('World.update deferred structural changes', …)` block in `tests/World.test.ts`, after the `two systems removing the same entity…` test:
+Add to the `describe('World.update deferred structural changes', …)` block in `tests/World.test.ts`,
+after the `two systems removing the same entity…` test:
 
 ```ts
-    test('two systems adding the same entity in one update do not throw (deferred adds are idempotent)', () => {
-      let spawned = new Entity({components: []});
-      let makeSpawner = () =>
-        new System({
-          components: [],
-          onUpdate: (ticker, system, world) => {
-            if (!world.entities.includes(spawned)) {
-              world.addEntity(spawned);
-            }
-          },
-        });
-      let world = new World({
-        onStart: (w) => {
-          w.addSystem(makeSpawner()).addSystem(makeSpawner());
-        },
-      });
+test('two systems adding the same entity in one update do not throw (deferred adds are idempotent)', () => {
+  let spawned = new Entity({components: []});
+  let makeSpawner = () =>
+    new System({
+      components: [],
+      onUpdate: (ticker, system, world) => {
+        if (!world.entities.includes(spawned)) {
+          world.addEntity(spawned);
+        }
+      },
+    });
+  let world = new World({
+    onStart: (w) => {
+      w.addSystem(makeSpawner()).addSystem(makeSpawner());
+    },
+  });
 
-      world.start();
+  world.start();
 
-      // Both systems see the entity absent (adds defer during the update), so
-      // both enqueue it; the flush must apply the first and skip the repeat.
-      expect(() => {
-        world.update({deltaTime: 1} as never);
-      }).not.toThrow();
-      expect(world.entities.filter((each) => each === spawned)).toHaveLength(1);
+  // Both systems see the entity absent (adds defer during the update), so
+  // both enqueue it; the flush must apply the first and skip the repeat.
+  expect(() => {
+    world.update({deltaTime: 1} as never);
+  }).not.toThrow();
+  expect(world.entities.filter((each) => each === spawned)).toHaveLength(1);
 
-      world.stop();
-    }, 2000);
+  world.stop();
+}, 2000);
 ```
 
 - [ ] **Step 2: Run the test to verify it fails**
 
-Run: `npx vitest run tests/World.test.ts`
-Expected: the new test FAILS — the update throws `Entity was already added to the world!`. All pre-existing tests pass.
+Run: `npx vitest run tests/World.test.ts` Expected: the new test FAILS — the update throws
+`Entity was already added to the world!`. All pre-existing tests pass.
 
 - [ ] **Step 3: Implement the change**
 
 In `source/engine/ecs/World.ts`, inside `update`'s flush loop, replace:
 
 ```ts
-      if (isRemoval) {
-        // Tolerate repeats: two systems may remove the same entity in one frame.
-        if (this.entities.includes(entity)) {
-          this.removeEntity(entity);
-        }
-      } else {
-        this.addEntity(entity);
-      }
+if (isRemoval) {
+  // Tolerate repeats: two systems may remove the same entity in one frame.
+  if (this.entities.includes(entity)) {
+    this.removeEntity(entity);
+  }
+} else {
+  this.addEntity(entity);
+}
 ```
 
 with:
 
 ```ts
-      // Deferred structural changes are idempotent — two systems expressing
-      // the same intent in one frame converge to the same state (synchronous
-      // calls stay strict and throw on misuse). Without the add guard, a
-      // repeated deferred add re-entered addEntity's synchronous double-add
-      // throw mid-flush, far from the offending call site.
-      if (isRemoval) {
-        if (this.entities.includes(entity)) {
-          this.removeEntity(entity);
-        }
-      } else if (!this.entities.includes(entity)) {
-        this.addEntity(entity);
-      }
+// Deferred structural changes are idempotent — two systems expressing
+// the same intent in one frame converge to the same state (synchronous
+// calls stay strict and throw on misuse). Without the add guard, a
+// repeated deferred add re-entered addEntity's synchronous double-add
+// throw mid-flush, far from the offending call site.
+if (isRemoval) {
+  if (this.entities.includes(entity)) {
+    this.removeEntity(entity);
+  }
+} else if (!this.entities.includes(entity)) {
+  this.addEntity(entity);
+}
 ```
 
 - [ ] **Step 4: Run the tests to verify they pass**
 
-Run: `npx vitest run tests/World.test.ts`
-Expected: PASS (all — including the existing `removing and re-adding the same entity…` test, which pins that remove-then-re-add still works through the FIFO flush).
+Run: `npx vitest run tests/World.test.ts` Expected: PASS (all — including the existing
+`removing and re-adding the same entity…` test, which pins that remove-then-re-add still works
+through the FIFO flush).
 
 - [ ] **Step 5: Commit**
 
@@ -1214,22 +1312,24 @@ git commit -m "Make deferred entity adds idempotent"
 
 ### Task 9: Full-suite verification
 
-Cross-cutting check: Task 6 in particular touches a module-singleton channel used across several test files; run everything.
+Cross-cutting check: Task 6 in particular touches a module-singleton channel used across several
+test files; run everything.
 
 - [ ] **Step 1: Run the full test suite**
 
-Run: `npm test`
-Expected: all test files pass (coverage report prints; no thresholds are configured, so pass/fail is the tests themselves).
+Run: `npm test` Expected: all test files pass (coverage report prints; no thresholds are configured,
+so pass/fail is the tests themselves).
 
 - [ ] **Step 2: Typecheck**
 
-Run: `npm run typecheck`
-Expected: exits 0, no output errors.
+Run: `npm run typecheck` Expected: exits 0, no output errors.
 
 - [ ] **Step 3: Lint**
 
-Run: `npm run lint`
-Expected: exits 0. If `no-console` flags the new `console.warn` calls (Tasks 3 and 6), add `// eslint-disable-next-line no-console -- loud failure in production builds (DEV throws)` above each and re-run.
+Run: `npm run lint` Expected: exits 0. If `no-console` flags the new `console.warn` calls (Tasks 3
+and 6), add
+`// eslint-disable-next-line no-console -- loud failure in production builds (DEV throws)` above
+each and re-run.
 
 - [ ] **Step 4: Commit (only if Steps 1-3 required fixes)**
 
