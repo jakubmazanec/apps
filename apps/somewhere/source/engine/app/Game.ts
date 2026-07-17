@@ -2,29 +2,20 @@ import {type EventEmitter} from 'eventemitter3';
 import * as pixi from 'pixi.js';
 
 // import {CRTFilter} from 'pixi-filters';
-import {audioBufferAsset} from '../../pixi-tools/audioBufferAsset.js';
-import {tiledTilemapAsset} from '../../pixi-tools/tiledTilemapAsset.js';
-import {tiledTilesetAsset} from '../../pixi-tools/tiledTilesetAsset.js';
 import {isTextEntryTarget} from '../ui/isTextEntryTarget.js';
 import {type ChoosePixelScale, defaultChoosePixelScale} from './ChoosePixelScale.js';
 import {type FocusCommand} from './FocusCommand.js';
-import {type GameAssetBundle} from './GameAssetBundle.js';
+import {type GameAssets} from './GameAssets.js';
 import {type GameOptions} from './GameOptions.js';
 import {type GameScreen, type Renderable} from './GameScreen.js';
 import {type GameState} from './GameState.js';
 
 import '@pixi/layout';
 
-pixi.extensions.add(tiledTilesetAsset);
-pixi.extensions.add(tiledTilemapAsset);
-pixi.extensions.add(audioBufferAsset);
-
 /**
  * A process-lifetime class used as a singleton that represents
  */
 export class Game {
-  assetBundles: GameAssetBundle[];
-
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- needed
   screens: Array<GameScreen<any, any>> = [];
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- needed
@@ -39,6 +30,7 @@ export class Game {
 
   readonly #focusCommands = new Map<string, FocusCommand>();
   readonly #choosePixelScale: ChoosePixelScale;
+  readonly #assets: GameAssets;
   #pixelScale: number | null = null;
 
   /** Stack to register disposers that cleanup resources when needed. */
@@ -60,8 +52,8 @@ export class Game {
     return this.#pixelScale;
   }
 
-  constructor({assetBundles, choosePixelScale, focusKeys}: GameOptions) {
-    this.assetBundles = assetBundles;
+  constructor({assets, choosePixelScale, focusKeys}: GameOptions) {
+    this.#assets = assets;
     this.#choosePixelScale = choosePixelScale ?? defaultChoosePixelScale;
 
     for (let [command, codes] of Object.entries(focusKeys ?? {}) as Array<
@@ -104,18 +96,8 @@ export class Game {
 
       // Start the asset pipeline alongside app.init so the ~20-file default
       // bundle fetch is not serialized behind WebGL context creation.
-      let assetsReady = pixi.Assets.init({
-        manifest: {
-          bundles: this.assetBundles.map(({name, assets}) => ({
-            name,
-            assets: assets.map(({name, sources}) => ({
-              alias: name,
-              src: sources,
-            })),
-          })),
-        },
-      }).then(async () => {
-        await pixi.Assets.loadBundle(['default']);
+      let assetsReady = this.#assets.init().then(async () => {
+        await this.#assets.loadBundles(['default']);
       });
 
       let appReady = this.app
@@ -162,9 +144,7 @@ export class Game {
 
       await Promise.all([appReady, assetsReady]);
 
-      void pixi.Assets.backgroundLoadBundle(
-        this.assetBundles.map((assetBundle) => assetBundle.name),
-      );
+      this.#assets.backgroundLoadAll();
 
       this.#state = 'running';
     } finally {
@@ -234,32 +214,6 @@ export class Game {
     this.view.off(event, fn, this);
 
     return this;
-  }
-
-  isAssetBundleLoaded(bundle: string) {
-    let assetBundle = this.assetBundles.find((b) => b.name === bundle);
-
-    if (!assetBundle) {
-      return false;
-    }
-
-    for (let asset of assetBundle.assets) {
-      if (!pixi.Assets.cache.has(asset.name)) {
-        return false;
-      }
-    }
-
-    return true;
-  }
-
-  areAssetBundlesLoaded(bundles: string[]) {
-    for (let name of bundles) {
-      if (!this.isAssetBundleLoaded(name)) {
-        return false;
-      }
-    }
-
-    return true;
   }
 
   addRef(ref: React.RefObject<HTMLElement | null>) {
@@ -492,7 +446,7 @@ export class Game {
       }
 
       // load assets for the new screen, if available
-      if (screen.assetBundles.length && !this.areAssetBundlesLoaded(screen.assetBundles)) {
+      if (screen.assetBundles.length && !this.#assets.areBundlesLoaded(screen.assetBundles)) {
         try {
           // if assets are not loaded yet, show loading screen, if there is
           // one; overlapping is safe because the loading screen's own font
@@ -509,10 +463,10 @@ export class Game {
             // the finally below is already armed when a rejection can occur
             await Promise.all([
               this.loadingScreen.show(),
-              pixi.Assets.loadBundle(screen.assetBundles),
+              this.#assets.loadBundles(screen.assetBundles),
             ]);
           } else {
-            await pixi.Assets.loadBundle(screen.assetBundles);
+            await this.#assets.loadBundles(screen.assetBundles);
           }
         } finally {
           // hide loading screen, if exists; its own error is swallowed so it

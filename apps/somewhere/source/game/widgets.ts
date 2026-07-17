@@ -2,23 +2,14 @@ import * as pixi from 'pixi.js';
 
 import {Button} from '../engine/ui/Button.js';
 import {Text} from '../engine/ui/Text.js';
+import {assets} from './assets.js';
 import {audio} from './audio.js';
 
 // All widget art lives in the `ui` spritesheet (default bundle, 1× art px).
 // Nine-slice insets ship as per-frame `borders` in the atlas JSON and land on
 // `texture.defaultBorders`, so consumers never pass insets in code.
-export function uiTexture(name: string): pixi.Texture {
-  let texture = pixi.Assets.get<pixi.Spritesheet>('ui').textures[name];
-
-  if (!texture) {
-    throw new Error(`Texture "${name}" not found in the "ui" spritesheet!`);
-  }
-
-  return texture;
-}
-
 export function nineSlice(name: string): pixi.NineSliceSprite {
-  return new pixi.NineSliceSprite({texture: uiTexture(name)});
+  return new pixi.NineSliceSprite({texture: assets.texture('ui', name)});
 }
 
 export type CreateButtonOptions = {
@@ -50,7 +41,7 @@ export function createButton({label, onClick, fontSize = 12, layout}: CreateButt
     ],
     pressOffset: 1,
     onClick: () => {
-      audio.play(pixi.Assets.get<AudioBuffer>('ui-click'), {bus: 'ui'});
+      audio.play(assets.sound('ui-click'), {bus: 'ui'});
       onClick();
     },
     layout: {padding: 2, ...(typeof layout === 'object' ? layout : undefined)},

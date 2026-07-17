@@ -7,6 +7,7 @@ import {Panel} from '../engine/ui/Panel.js';
 import {Text} from '../engine/ui/Text.js';
 import {TextInput} from '../engine/ui/TextInput.js';
 import {Toggle} from '../engine/ui/Toggle.js';
+import {assets} from './assets.js';
 import {audio, playFocusSound} from './audio.js';
 import {game} from './game.js';
 // The mainMenuScreen <-> gameScreen static import cycle is deliberate and safe:
@@ -15,13 +16,13 @@ import {game} from './game.js';
 // eslint-disable-next-line import/no-cycle -- see comment above: the cycle only resolves inside event handlers, long after both modules evaluate
 import {gameScreen} from './gameScreen.js';
 import {settings} from './settings.js';
-import {createButton, nineSlice, uiTexture} from './widgets.js';
+import {createButton, nineSlice} from './widgets.js';
 
 // Each Toggle owns and destroys its background sprites, so build a fresh set
 // per toggle rather than sharing instances.
 function toggleBackgrounds() {
   // eslint-disable-next-line unicorn/consistent-function-scoping -- single-use builder kept local to the only function that needs it
-  let toggleSprite = (name: string) => new pixi.Sprite(uiTexture(name));
+  let toggleSprite = (name: string) => new pixi.Sprite(assets.texture('ui', name));
 
   return {
     unchecked: toggleSprite('toggle-unchecked'),
@@ -63,7 +64,7 @@ function openOptionsModal(screen: GameScreen<MainMenuScreenState>) {
     container: game.app.canvas.parentElement ?? document.body,
     onChange: (input) => {
       settings.playerName = input.value;
-      audio.play(pixi.Assets.get<AudioBuffer>('ui-key'), {bus: 'ui'});
+      audio.play(assets.sound('ui-key'), {bus: 'ui'});
     },
     layout: {minWidth: 55, padding: 4},
   });
@@ -91,7 +92,7 @@ function openOptionsModal(screen: GameScreen<MainMenuScreenState>) {
       // Set mute first so an enabling toggle unmutes before its own click plays
       // (an audible confirmation); a disabling toggle mutes and stays silent.
       audio.setMuted('master', !enabled);
-      audio.play(pixi.Assets.get<AudioBuffer>('ui-click'), {bus: 'ui'});
+      audio.play(assets.sound('ui-click'), {bus: 'ui'});
     },
   });
   let soundRow = new Container({
@@ -153,12 +154,12 @@ export const mainMenuScreen = new GameScreen<MainMenuScreenState>({
   // needed by gameScreen, and Game.showScreen already shows the loading screen
   // for any not-yet-loaded bundle when New Game is pressed.
   assetBundles: ['default'],
-  focusRing: () => ({texture: uiTexture('focus-ring'), padding: 2}),
+  focusRing: () => ({texture: assets.texture('ui', 'focus-ring'), padding: 2}),
   onFocusEvent: playFocusSound,
   onShow: () => {
     // Music is driven by direct mixer calls from the screen context (never the
     // world, never auto-stopped by pause). playMusic replaces the current voice.
-    audio.playMusic(pixi.Assets.get<AudioBuffer>('menu-music'));
+    audio.playMusic(assets.sound('menu-music'));
   },
   onAdd: (screen): MainMenuScreenState => {
     // Solid background is the app's existing black (Game init background); no

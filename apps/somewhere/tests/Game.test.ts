@@ -9,6 +9,7 @@ vi.mock('pixi.js', () => ({
         this.screen.height = height;
       },
     };
+
     screen = {width: 0, height: 0};
     stage = {addChild() {}, removeChild() {}};
     ticker = {add() {}, remove() {}};
@@ -23,6 +24,7 @@ vi.mock('pixi.js', () => ({
     init: async () => {},
     loadBundle: async () => {},
     backgroundLoadBundle: async () => {},
+    cache: {has: (): boolean => false},
   },
   Container: class Container {
     eventMode = 'auto';
@@ -78,6 +80,7 @@ vi.mock('../source/pixi-tools/tiledTilemapAsset.js', () => ({tiledTilemapAsset: 
 vi.mock('../source/pixi-tools/audioBufferAsset.js', () => ({audioBufferAsset: {}}));
 
 const {Game} = await import('../source/engine/app/Game.js');
+const {GameAssets} = await import('../source/engine/app/GameAssets.js');
 const pixi = await import('pixi.js');
 const {defaultChoosePixelScale} = await import('../source/engine/app/ChoosePixelScale.js');
 
@@ -94,7 +97,12 @@ const FOCUS_KEYS = {
 let cleanups: Array<() => void> = [];
 
 async function createGame(focusKeys?: typeof FOCUS_KEYS) {
-  let game = new Game({assetBundles: [], ...(focusKeys === undefined ? {} : {focusKeys})});
+  let game = new Game({
+    assets: new GameAssets({
+      bundles: [{name: 'default'}, {name: 'game', sounds: {bump: ['bump.wav']}}],
+    }),
+    ...(focusKeys === undefined ? {} : {focusKeys}),
+  });
   let element = document.createElement('div');
 
   // init() owns the #disposables stack that addRef defers its listeners into,
@@ -138,7 +146,7 @@ function createFakeScreen(assetBundles: string[] = []) {
 function press(code: string, init: KeyboardEventInit = {}) {
   let event = new KeyboardEvent('keydown', {code, cancelable: true, ...init});
 
-  window.dispatchEvent(event);
+  globalThis.dispatchEvent(event);
 
   return event;
 }
@@ -296,7 +304,7 @@ describe('Game focus key routing', () => {
   });
 
   test('destroy before init is a safe no-op', () => {
-    let game = new Game({assetBundles: []});
+    let game = new Game({assets: new GameAssets({bundles: [{name: 'default'}]})});
 
     expect(() => game.destroy()).not.toThrow();
   });
@@ -312,7 +320,7 @@ describe('Game focus key routing', () => {
   });
 
   test('a second init() during the async span does not double-run initialization', async () => {
-    let game = new Game({assetBundles: []});
+    let game = new Game({assets: new GameAssets({bundles: [{name: 'default'}]})});
     let spy = vi.spyOn(game.app, 'init');
 
     cleanups.push(() => {
@@ -336,7 +344,7 @@ describe('Game focus key routing', () => {
   });
 
   test('addRef before init is a no-op', () => {
-    let game = new Game({assetBundles: []});
+    let game = new Game({assets: new GameAssets({bundles: [{name: 'default'}]})});
     let element = document.createElement('div');
 
     game.addRef({current: element});
@@ -539,14 +547,15 @@ describe('Game init pipeline overlap', () => {
   });
 
   test('init starts the asset pipeline before app.init resolves', async () => {
-    let game = new Game({assetBundles: []});
+    let game = new Game({assets: new GameAssets({bundles: [{name: 'default'}]})});
     let resolveAppInit!: () => void;
+    let appInitStartedAtBundleLoad: boolean | null = null;
 
     cleanups.push(() => {
       game.destroy();
     });
 
-    vi.spyOn(game.app, 'init').mockImplementation(
+    let appInitSpy = vi.spyOn(game.app, 'init').mockImplementation(
       async () =>
         new Promise<void>((resolve) => {
           resolveAppInit = resolve;
@@ -554,6 +563,11 @@ describe('Game init pipeline overlap', () => {
     );
 
     let assetsInitSpy = vi.spyOn(pixi.Assets, 'init');
+
+    vi.spyOn(pixi.Assets, 'loadBundle').mockImplementation(async () => {
+      appInitStartedAtBundleLoad = appInitSpy.mock.calls.length > 0;
+    });
+
     let initPromise = game.init();
 
     // Assets.init must already have been called while app.init is still
@@ -562,10 +576,14 @@ describe('Game init pipeline overlap', () => {
 
     resolveAppInit();
     await initPromise;
+
+    // And app.init must already have started when the asset chain reached its
+    // bundle load; if this fails, assets were serialized ahead of app.init.
+    expect(appInitStartedAtBundleLoad).toBeTruthy();
   });
 
   test('scaleMode is nearest by the time the default bundle load starts', async () => {
-    let game = new Game({assetBundles: []});
+    let game = new Game({assets: new GameAssets({bundles: [{name: 'default'}]})});
     let scaleModeAtLoad: unknown;
 
     cleanups.push(() => {
@@ -597,7 +615,7 @@ describe('Game ticker configuration', () => {
   });
 
   test('init pins the ticker clamp: minFPS = 10 caps one frame step at 100 ms', async () => {
-    let game = new Game({assetBundles: []});
+    let game = new Game({assets: new GameAssets({bundles: [{name: 'default'}]})});
 
     cleanups.push(() => {
       game.destroy();
@@ -620,14 +638,17 @@ describe('Game pixelScale', () => {
   });
 
   test('pixelScale access before init throws', () => {
-    let game = new Game({assetBundles: []});
+    let game = new Game({assets: new GameAssets({bundles: [{name: 'default'}]})});
 
     expect(() => game.pixelScale).toThrow('pixelScale is not available before init()!');
   });
 
   test('init runs the chooser exactly once with the device-px viewport', async () => {
     let chooser = vi.fn(() => 5);
-    let game = new Game({assetBundles: [], choosePixelScale: chooser});
+    let game = new Game({
+      assets: new GameAssets({bundles: [{name: 'default'}]}),
+      choosePixelScale: chooser,
+    });
 
     cleanups.push(() => {
       game.destroy();
@@ -645,7 +666,10 @@ describe('Game pixelScale', () => {
   });
 
   test('a non-integer chooser result rejects init and pixelScale stays unset', async () => {
-    let game = new Game({assetBundles: [], choosePixelScale: () => 2.5});
+    let game = new Game({
+      assets: new GameAssets({bundles: [{name: 'default'}]}),
+      choosePixelScale: () => 2.5,
+    });
 
     await expect(game.init()).rejects.toThrow(
       'Invalid pixelScale "2.5": the chooser must return an integer >= 1!',
@@ -654,13 +678,16 @@ describe('Game pixelScale', () => {
   });
 
   test('a chooser result below 1 rejects init', async () => {
-    let game = new Game({assetBundles: [], choosePixelScale: () => 0});
+    let game = new Game({
+      assets: new GameAssets({bundles: [{name: 'default'}]}),
+      choosePixelScale: () => 0,
+    });
 
     await expect(game.init()).rejects.toThrow('Invalid pixelScale "0"');
   });
 
   test('without an override the engine default policy applies', async () => {
-    let game = new Game({assetBundles: []});
+    let game = new Game({assets: new GameAssets({bundles: [{name: 'default'}]})});
 
     cleanups.push(() => {
       game.destroy();
@@ -688,7 +715,10 @@ describe('Game scaled root', () => {
   });
 
   test('init applies pixelScale as the root view scale', async () => {
-    let game = new Game({assetBundles: [], choosePixelScale: () => 4});
+    let game = new Game({
+      assets: new GameAssets({bundles: [{name: 'default'}]}),
+      choosePixelScale: () => 4,
+    });
 
     cleanups.push(() => {
       game.destroy();
@@ -701,7 +731,10 @@ describe('Game scaled root', () => {
   });
 
   test('init pins the root transform origin to the top-left corner', async () => {
-    let game = new Game({assetBundles: [], choosePixelScale: () => 4});
+    let game = new Game({
+      assets: new GameAssets({bundles: [{name: 'default'}]}),
+      choosePixelScale: () => 4,
+    });
 
     cleanups.push(() => {
       game.destroy();
@@ -715,7 +748,10 @@ describe('Game scaled root', () => {
   });
 
   test('handleResize lays out the view and hit area in art px', async () => {
-    let game = new Game({assetBundles: [], choosePixelScale: () => 4});
+    let game = new Game({
+      assets: new GameAssets({bundles: [{name: 'default'}]}),
+      choosePixelScale: () => 4,
+    });
     let element = document.createElement('div');
 
     // happy-dom elements have no layout; pin the client box the resize reads.

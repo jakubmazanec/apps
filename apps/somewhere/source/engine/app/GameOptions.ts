@@ -1,9 +1,9 @@
 import {ChoosePixelScale} from './ChoosePixelScale';
 import {FocusKeys} from './FocusKeys';
-import {GameAssetBundle} from './GameAssetBundle';
+import {GameAssets} from './GameAssets';
 
 export type GameOptions = {
-  assetBundles: GameAssetBundle[];
+  assets: GameAssets;
   choosePixelScale?: ChoosePixelScale;
   focusKeys?: FocusKeys;
 };

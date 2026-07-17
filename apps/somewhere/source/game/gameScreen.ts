@@ -1,11 +1,10 @@
-import * as pixi from 'pixi.js';
-
 import {GameScreen} from '../engine/app/GameScreen.js';
 import {type Button} from '../engine/ui/Button.js';
 import {Container} from '../engine/ui/Container.js';
 import {Modal} from '../engine/ui/Modal.js';
 import {Panel} from '../engine/ui/Panel.js';
 import {Text} from '../engine/ui/Text.js';
+import {assets} from './assets.js';
 import {audio, playFocusSound} from './audio.js';
 import {game} from './game.js';
 import {input} from './input.js';
@@ -17,7 +16,7 @@ import {mainMenuScreen} from './mainMenuScreen.js';
 import {openPauseMenu, resumeFromPause, teardownGameScreen} from './pauseFlow.js';
 import {settings} from './settings.js';
 import {type UIEventMap, uiEvents} from './uiEvents.js';
-import {createButton, nineSlice, uiTexture} from './widgets.js';
+import {createButton, nineSlice} from './widgets.js';
 import {world} from './world.js';
 
 type GameScreenState = {
@@ -93,7 +92,7 @@ export const gameScreen = new GameScreen<GameScreenState, UIEventMap>({
   // what makes New Game show the loading screen while the game bundle is cold.
   assetBundles: ['default', 'game'],
   events: uiEvents,
-  focusRing: () => ({texture: uiTexture('focus-ring'), padding: 2}),
+  focusRing: () => ({texture: assets.texture('ui', 'focus-ring'), padding: 2}),
   onFocusEvent: playFocusSound,
   onAdd: (screen): GameScreenState => {
     // Full-screen flex row: HUD texts top-left, pause button top-right. The
@@ -176,7 +175,7 @@ export const gameScreen = new GameScreen<GameScreenState, UIEventMap>({
     // Swap to the in-game track; the menu track (still playing through the
     // loading screen) is replaced by this single music voice — no silent gap,
     // no explicit stop. Music is not stopped on pause or onHide in the demo.
-    audio.playMusic(pixi.Assets.get<AudioBuffer>('game-music'));
+    audio.playMusic(assets.sound('game-music'));
   },
   onHide: (screen) => {
     teardownGameScreen({

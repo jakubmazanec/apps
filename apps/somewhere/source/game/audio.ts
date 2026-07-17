@@ -1,5 +1,3 @@
-import * as pixi from 'pixi.js';
-
 import {AudioComponent} from '../engine/audio/AudioComponent.js';
 import {AudioMixer} from '../engine/audio/AudioMixer.js';
 import {PlaySound} from '../engine/audio/PlaySound.js';
@@ -7,6 +5,7 @@ import {Entity} from '../engine/ecs/Entity.js';
 import {EventChannel} from '../engine/ecs/EventChannel.js';
 import {type UiFocusEvent} from '../engine/ui/UiRoot.js';
 import {setAudioDecodeContext} from '../pixi-tools/audioBufferAsset.js';
+import {assets} from './assets.js';
 import {settings} from './settings.js';
 
 // The one mixer for the whole app. The UI/screen layer imports `audio` and
@@ -31,9 +30,9 @@ audio.setMuted('master', !settings.soundEnabled);
 // the click clip (no separate blip asset); `reject` is the error clip.
 export function playFocusSound(event: UiFocusEvent): void {
   if (event.type === 'move') {
-    audio.play(pixi.Assets.get<AudioBuffer>('ui-click'), {bus: 'ui'});
+    audio.play(assets.sound('ui-click'), {bus: 'ui'});
   } else {
-    audio.play(pixi.Assets.get<AudioBuffer>('ui-error'), {bus: 'ui'});
+    audio.play(assets.sound('ui-error'), {bus: 'ui'});
   }
 }
 
