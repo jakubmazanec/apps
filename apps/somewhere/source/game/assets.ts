@@ -18,7 +18,7 @@ export const assets = new GameAssets({
       name: 'game',
       spritesheets: {character: ['character.json'], spark: ['spark.json']},
       tilemaps: {map: ['map.json']},
-      sounds: {bump: ['bump.wav'], 'game-music': ['game-music.wav']},
+      sounds: {bump: ['bump.wav'], chime: ['chime.wav'], 'game-music': ['game-music.wav']},
     },
   ],
 });

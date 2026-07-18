@@ -7,9 +7,6 @@ import {GraphicsComponent} from './GraphicsComponent.js';
 import {MotionComponent} from './MotionComponent.js';
 import {PlayerComponent} from './PlayerComponent.js';
 
-const initialX = 16 * 9;
-const initialY = 16 * 10;
-
 // Requires the 'game' asset bundle to be loaded before .create() is called.
 export const playerPool = new ObjectPool({
   onCreate: () =>
@@ -17,7 +14,7 @@ export const playerPool = new ObjectPool({
       components: [
         new PlayerComponent({name: 'Jakub'}),
         new MotionComponent({
-          position: new Vector(initialX, initialY),
+          position: new Vector(0, 0),
           velocity: new Vector(0, 0),
         }),
         new GraphicsComponent({
@@ -41,7 +38,8 @@ export const playerPool = new ObjectPool({
   onReset: (entity) => {
     let motion = entity.getComponent(MotionComponent);
 
-    motion.position.set(initialX, initialY);
+    // The spawn factory (or the map-center fallback) positions the entity
+    // after create().
     motion.velocity.set(0, 0);
     motion.target = undefined;
 

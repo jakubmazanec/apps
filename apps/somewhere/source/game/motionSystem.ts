@@ -1,3 +1,5 @@
+import * as pixi from 'pixi.js';
+
 import {System} from '../engine/ecs/System.js';
 import {GraphicsComponent} from './GraphicsComponent.js';
 import {LevelComponent} from './LevelComponent.js';
@@ -40,16 +42,17 @@ export const motionSystem = new System({
       }
 
       let {boundingBox} = entity.getComponent(GraphicsComponent);
-      let layer = map.layers[1]!;
+      let layer = map.layers[map.entityLayerIndex]!;
 
       let deltaX = motion.velocity.x * deltaTime;
       let deltaY = motion.velocity.y * deltaTime;
       let contactTile;
+      let contactBox;
       let isMoving = deltaX !== 0 || deltaY !== 0;
 
       // TODO: Both axis passes below scan the entire tile grid per moving
       // entity per frame (2 × columnCount × rowCount tile checks), even though
-      // almost no tiles have a boundingBox. Tiles are grid-aligned (16 art px) and
+      // almost no tiles have collision boxes. Tiles are grid-aligned (16 art px) and
       // layer.tiles is indexed [column][row], so each pass only needs the
       // column/row range covered by the swept player box (union of current and
       // tentative position, divided by tile size, clamped to grid bounds) —
@@ -59,7 +62,7 @@ export const motionSystem = new System({
       // must run before Y (Y reads the clipped X), the overlap test is
       // deliberately strict (touching edges don't collide, so the player can
       // slide flush along walls), contactTile keeps the first hit in
-      // column-major order, and a tile boundingBox larger than its 16-art-px cell
+      // column-major order, and a tile collision box larger than its 16-art-px cell
       // would escape a naive swept range (all current boxes fit their cell;
       // expand the range by a margin or assert the invariant).
 
@@ -71,33 +74,37 @@ export const motionSystem = new System({
           for (let row = 0; row < map.rowCount; row++) {
             let tile = layer.tiles[column]![row]!;
 
-            if (!tile.boundingBox) {
-              continue;
-            }
+            for (let box of tile.collisionBoxes) {
+              let tileX = tile.view.x + box.x;
+              let tileY = tile.view.y + box.y;
+              let tileRight = tileX + box.width;
+              let tileBottom = tileY + box.height;
+              let playerX = tentativeX + boundingBox.x;
+              let playerY = motion.position.y + boundingBox.y;
+              let playerRight = playerX + boundingBox.width;
+              let playerBottom = playerY + boundingBox.height;
 
-            let tileX = tile.view.x + tile.boundingBox.x;
-            let tileY = tile.view.y + tile.boundingBox.y;
-            let tileRight = tileX + tile.boundingBox.width;
-            let tileBottom = tileY + tile.boundingBox.height;
-            let playerX = tentativeX + boundingBox.x;
-            let playerY = motion.position.y + boundingBox.y;
-            let playerRight = playerX + boundingBox.width;
-            let playerBottom = playerY + boundingBox.height;
+              // Strict overlap: touching edges don't count, so the player can slide flush along a wall.
+              if (
+                playerRight > tileX &&
+                tileRight > playerX &&
+                playerBottom > tileY &&
+                tileBottom > playerY
+              ) {
+                if (contactTile === undefined) {
+                  contactTile = tile;
+                  contactBox = new pixi.Rectangle(tileX, tileY, box.width, box.height);
+                }
 
-            // Strict overlap: touching edges don't count, so the player can slide flush along a wall.
-            if (
-              playerRight > tileX &&
-              tileRight > playerX &&
-              playerBottom > tileY &&
-              tileBottom > playerY
-            ) {
-              contactTile ??= tile;
-
-              if (deltaX > 0) {
-                // Guard against teleport-backward when already stuck inside a tile.
-                tentativeX = Math.max(motion.position.x, tileX - boundingBox.x - boundingBox.width);
-              } else {
-                tentativeX = Math.min(motion.position.x, tileRight - boundingBox.x);
+                if (deltaX > 0) {
+                  // Guard against teleport-backward when already stuck inside a tile.
+                  tentativeX = Math.max(
+                    motion.position.x,
+                    tileX - boundingBox.x - boundingBox.width,
+                  );
+                } else {
+                  tentativeX = Math.min(motion.position.x, tileRight - boundingBox.x);
+                }
               }
             }
           }
@@ -114,35 +121,36 @@ export const motionSystem = new System({
           for (let row = 0; row < map.rowCount; row++) {
             let tile = layer.tiles[column]![row]!;
 
-            if (!tile.boundingBox) {
-              continue;
-            }
+            for (let box of tile.collisionBoxes) {
+              let tileX = tile.view.x + box.x;
+              let tileY = tile.view.y + box.y;
+              let tileRight = tileX + box.width;
+              let tileBottom = tileY + box.height;
+              let playerX = motion.position.x + deltaX + boundingBox.x;
+              let playerY = tentativeY + boundingBox.y;
+              let playerRight = playerX + boundingBox.width;
+              let playerBottom = playerY + boundingBox.height;
 
-            let tileX = tile.view.x + tile.boundingBox.x;
-            let tileY = tile.view.y + tile.boundingBox.y;
-            let tileRight = tileX + tile.boundingBox.width;
-            let tileBottom = tileY + tile.boundingBox.height;
-            let playerX = motion.position.x + deltaX + boundingBox.x;
-            let playerY = tentativeY + boundingBox.y;
-            let playerRight = playerX + boundingBox.width;
-            let playerBottom = playerY + boundingBox.height;
+              // Strict overlap: touching edges don't count, so the player can slide flush along a wall.
+              if (
+                playerRight > tileX &&
+                tileRight > playerX &&
+                playerBottom > tileY &&
+                tileBottom > playerY
+              ) {
+                if (contactTile === undefined) {
+                  contactTile = tile;
+                  contactBox = new pixi.Rectangle(tileX, tileY, box.width, box.height);
+                }
 
-            // Strict overlap: touching edges don't count, so the player can slide flush along a wall.
-            if (
-              playerRight > tileX &&
-              tileRight > playerX &&
-              playerBottom > tileY &&
-              tileBottom > playerY
-            ) {
-              contactTile ??= tile;
-
-              if (deltaY > 0) {
-                tentativeY = Math.max(
-                  motion.position.y,
-                  tileY - boundingBox.y - boundingBox.height,
-                );
-              } else {
-                tentativeY = Math.min(motion.position.y, tileBottom - boundingBox.y);
+                if (deltaY > 0) {
+                  tentativeY = Math.max(
+                    motion.position.y,
+                    tileY - boundingBox.y - boundingBox.height,
+                  );
+                } else {
+                  tentativeY = Math.min(motion.position.y, tileBottom - boundingBox.y);
+                }
               }
             }
           }
@@ -154,8 +162,8 @@ export const motionSystem = new System({
       // Edge-trigger: one WallHit per contact episode, on the frame contact begins.
       // Idle frames keep the contact state, so resting flush against a wall stays one episode.
       if (isMoving) {
-        if (contactTile !== undefined && !motion.isTouchingWall) {
-          wallHitChannel.push(new WallHit({entity, tile: contactTile}));
+        if (contactTile !== undefined && contactBox !== undefined && !motion.isTouchingWall) {
+          wallHitChannel.push(new WallHit({entity, tile: contactTile, box: contactBox}));
         }
 
         motion.isTouchingWall = contactTile !== undefined;

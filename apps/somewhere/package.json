@@ -17,6 +17,7 @@
     "codegen": "react-router typegen",
     "deploy": "flyctl deploy ../.. --config apps/somewhere/fly.toml",
     "develop": "react-router dev --port 5000",
+    "export-assets": "node scripts/export-assets.mjs",
     "format": "prettier . --write --ignore-unknown",
     "lint": "eslint .",
     "start": "cross-env NODE_ENV=production PORT=5000 react-router-serve ./build/server/index.js",

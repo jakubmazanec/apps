@@ -1,12 +1,13 @@
 import {Assets, Rectangle, Spritesheet, type SpritesheetFrameData, Texture} from 'pixi.js';
 
 import {tiledUnsourcedTilesetSchema} from '../../tiled-tools/TiledTileset.js';
+import {failUnsupported} from '../utilities/failUnsupported.js';
 import {type TileId, toTileId} from './TileId.js';
 
 export type TilesetTile = {
   id: TileId;
   textures: Texture[];
-  boundingBox?: Rectangle;
+  collisionBoxes: Rectangle[]; // empty = no collision
 };
 
 export type TilesetOptions = {
@@ -85,6 +86,7 @@ export class Tileset {
       let tile: TilesetTile = {
         id: tileId,
         textures: [texture],
+        collisionBoxes: [],
       };
 
       let textures = spritesheet.animations[i];
@@ -98,14 +100,26 @@ export class Tileset {
 
     if (tiledTileset.tiles) {
       for (let tilemapTile of tiledTileset.tiles) {
-        let object = tilemapTile.objectgroup?.objects[0];
+        for (let object of tilemapTile.objectgroup?.objects ?? []) {
+          if (
+            object.ellipse ||
+            object.polygon ||
+            object.polyline ||
+            object.text ||
+            object.point ||
+            object.gid !== undefined ||
+            (object.rotation ?? 0) !== 0
+          ) {
+            failUnsupported(
+              `Tile ${tilemapTile.id} has a non-rectangle shape in its collision group! Only unrotated rectangles are supported; the rectangles are kept.`,
+            );
 
-        if (object) {
-          tiles[tilemapTile.id]!.boundingBox = new Rectangle(0, 0, 0, 0);
-          tiles[tilemapTile.id]!.boundingBox!.x = object.x;
-          tiles[tilemapTile.id]!.boundingBox!.y = object.y;
-          tiles[tilemapTile.id]!.boundingBox!.width = object.width;
-          tiles[tilemapTile.id]!.boundingBox!.height = object.height;
+            continue;
+          }
+
+          tiles[tilemapTile.id]!.collisionBoxes.push(
+            new Rectangle(object.x, object.y, object.width, object.height),
+          );
         }
       }
     }

@@ -6,8 +6,9 @@ import {
   ROTATED_HEXAGONAL_120_FLAG,
 } from './constants.js';
 import {type TileGid} from './TileGid.js';
+import {type TileGidWithFlags} from './TileGidWithFlags.js';
 
-export function getGid(gid: TileGid): TileGid {
+export function getGid(gid: TileGidWithFlags): TileGid {
   return (gid &
     ~(
       FLIPPED_HORIZONTALLY_FLAG |

@@ -1,6 +1,7 @@
 import type * as pixi from 'pixi.js';
 import {describe, expect, test} from 'vitest';
 
+import {type Component} from '../source/engine/ecs/Component.js';
 import {Entity} from '../source/engine/ecs/Entity.js';
 import {World} from '../source/engine/ecs/World.js';
 import {type Input} from '../source/engine/input/Input.js';
@@ -8,14 +9,24 @@ import {InputComponent} from '../source/engine/input/InputComponent.js';
 import {Vector} from '../source/engine/utilities/Vector.js';
 import {CameraComponent} from '../source/game/CameraComponent.js';
 import {cameraQuery} from '../source/game/cameraQuery.js';
+import {GraphicsComponent} from '../source/game/GraphicsComponent.js';
 import {inputQuery} from '../source/game/inputQuery.js';
 import {MotionComponent} from '../source/game/MotionComponent.js';
 import {MAX_SPEED} from '../source/game/motionSystem.js';
 import {PlayerComponent} from '../source/game/PlayerComponent.js';
 import {playerSystem} from '../source/game/playerSystem.js';
+import {type Constructor} from '../source/utilities/Constructor.js';
 
 function tick(deltaTime = 1): pixi.Ticker {
   return {deltaTime} as unknown as pixi.Ticker;
+}
+
+// GraphicsComponent builds a real Sprite from an asset name in its constructor, which needs
+// pixi.Assets to already have a loaded spritesheet. Bypass the constructor and assign the stub
+// fields onto the real prototype instead, so `entity.getComponent` (keyed by `.constructor`)
+// still resolves it as the real component class.
+function stubComponent<T extends Component>(ComponentClass: Constructor<T>, fields: object): T {
+  return Object.assign(Object.create(ComponentClass.prototype as object) as T, fields);
 }
 
 type FakeInputState = {
@@ -39,7 +50,13 @@ function createFakeInput(state: FakeInputState): Input {
 // world.stop() so the next test can register them again.
 function createWorld(state: FakeInputState) {
   let motion = new MotionComponent({position: new Vector(0, 0), velocity: new Vector(0, 0)});
-  let player = new Entity({components: [new PlayerComponent({name: 'Test'}), motion]});
+  let player = new Entity({
+    components: [
+      new PlayerComponent({name: 'Test'}),
+      motion,
+      stubComponent(GraphicsComponent, {boundingBox: {x: 0, y: 10, width: 16, height: 10}}),
+    ],
+  });
   let inputEntity = new Entity({
     components: [new InputComponent({input: createFakeInput(state)})],
   });
@@ -111,7 +128,8 @@ describe('playerSystem', () => {
     motion.velocity.set(3, 3);
     world.update(tick());
 
-    // 10 + 100 - 8, 20 + 50 - 15 (camera at (100, 50), bounding-box offsets).
+    // Tap (10, 20) + camera (100, 50) = (110, 70), centered on the box (0, 10, 16, 10):
+    // 110 - 0 - 8, 70 - 10 - 5.
     expect(motion.target?.x).toBe(102);
     expect(motion.target?.y).toBe(55);
     expect(motion.velocity.x).toBe(0);

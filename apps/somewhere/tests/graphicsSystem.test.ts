@@ -48,6 +48,7 @@ describe('graphicsSystem sprite lifecycle', () => {
       addToLayer: vi.fn(),
       removeFromLayer: vi.fn(),
       topLayerIndex: 2,
+      entityLayerIndex: 1,
     };
     let level = new Entity({components: [stubComponent(LevelComponent, {map})]});
     let popup = new Entity({
@@ -82,6 +83,7 @@ describe('graphicsSystem sprite lifecycle', () => {
       removeFromLayer: vi.fn(),
       topLayerIndex: 2,
       view: {x: 0, y: 0},
+      entityLayerIndex: 1,
     };
     let level = new Entity({components: [stubComponent(LevelComponent, {map})]});
     let cameraEntity = new Entity({
@@ -123,6 +125,7 @@ describe('graphicsSystem sprite lifecycle', () => {
       removeFromLayer: vi.fn(),
       topLayerIndex: 2,
       view: {x: 0, y: 0},
+      entityLayerIndex: 1,
     };
     let level = new Entity({components: [stubComponent(LevelComponent, {map})]});
     let cameraEntity = new Entity({

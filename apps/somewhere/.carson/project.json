@@ -11,7 +11,7 @@
     },
     "eslintConfig": [
       {
-        "ignores": ["$/**"]
+        "ignores": ["$/**", "assets/**"]
       },
       {
         "rules": {

@@ -54,26 +54,20 @@ export const wallHitPopupSystem = new System({
   components: [],
   displayName: 'Wall-hit popup spawner',
   onUpdate: (ticker, system, world) => {
-    // `WallHit` carries `{entity, tile}`: the tile that was hit and the entity (the player) that hit it.
-    for (let {entity, tile} of wallHitChannel.events) {
+    // `WallHit` carries `{entity, tile, box}`: the map-space box that clipped the movement and the entity (the player) that hit it.
+    for (let {entity, box} of wallHitChannel.events) {
       // Gameplay SFX for the wall hit, alongside the popup this system already
       // spawns — no separate audio-bridge system. audioSystem plays it on `sfx`.
       playSoundChannel.push(new PlaySound({name: 'bump'}));
 
-      let box = tile.boundingBox;
-      let tileX = tile.view.x + (box?.x ?? 0);
-      let tileY = tile.view.y + (box?.y ?? 0);
-      let tileWidth = box?.width ?? 0;
-      let tileHeight = box?.height ?? 0;
-
-      // Spawn the spark where the player actually makes contact: the point on the tile's collision
+      // Spawn the spark where the player actually makes contact: the point on the hit collision
       // box nearest the player's center (the player entity that hit the wall carries both components).
       let playerMotion = entity.getComponent(MotionComponent);
       let playerBox = entity.getComponent(GraphicsComponent).boundingBox;
       let playerCenterX = playerMotion.position.x + playerBox.x + playerBox.width / 2;
       let playerCenterY = playerMotion.position.y + playerBox.y + playerBox.height / 2;
-      let contactX = Math.max(tileX, Math.min(playerCenterX, tileX + tileWidth));
-      let contactY = Math.max(tileY, Math.min(playerCenterY, tileY + tileHeight));
+      let contactX = Math.max(box.x, Math.min(playerCenterX, box.x + box.width));
+      let contactY = Math.max(box.y, Math.min(playerCenterY, box.y + box.height));
 
       // `graphicsSystem` pins the sprite's top-left to `motion.position`, so offset by half the
       // spark's own size to center it on the contact point.

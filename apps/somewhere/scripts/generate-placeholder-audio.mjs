@@ -77,6 +77,9 @@ let files = {
   'ui-key.wav': blip({freq: 660, ms: 40, volume: 0.3}),
   'ui-error.wav': blip({freq: 220, ms: 180, volume: 0.5}),
   'bump.wav': blip({freq: 140, ms: 120, volume: 0.6}),
+  // Zone-enter chime: a bright two-note ding, unmistakable next to the low
+  // wall-hit bump.
+  'chime.wav': loop({notes: [1047, 1568], noteMs: 120, repeats: 1}),
   'menu-music.wav': loop({notes: [523, 659, 784, 659], noteMs: 220, repeats: 8}),
   'game-music.wav': loop({notes: [392, 523, 494, 587], noteMs: 180, repeats: 10}),
 };

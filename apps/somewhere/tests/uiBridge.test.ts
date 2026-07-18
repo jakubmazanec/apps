@@ -1,3 +1,4 @@
+import type * as pixi from 'pixi.js';
 import {afterEach, describe, expect, test} from 'vitest';
 
 import {Entity} from '../source/engine/ecs/Entity.js';
@@ -9,6 +10,7 @@ import {WallHit} from '../source/game/WallHit.js';
 import {wallHitChannel} from '../source/game/wallHitChannel.js';
 
 let entity = new Entity({components: []});
+let box = {} as unknown as pixi.Rectangle;
 
 function withBridge(run: (world: World) => void) {
   let world = new World();
@@ -39,7 +41,7 @@ describe('uiBridge', () => {
     });
 
     withBridge((world) => {
-      wallHitChannel.push(new WallHit({entity, tile}));
+      wallHitChannel.push(new WallHit({entity, tile, box}));
       wallHitChannel.swap();
       world.update({deltaTime: 1} as never);
     });
@@ -58,8 +60,8 @@ describe('uiBridge', () => {
     });
 
     withBridge((world) => {
-      wallHitChannel.push(new WallHit({entity, tile: tileA}));
-      wallHitChannel.push(new WallHit({entity, tile: tileB}));
+      wallHitChannel.push(new WallHit({entity, tile: tileA, box}));
+      wallHitChannel.push(new WallHit({entity, tile: tileB, box}));
       wallHitChannel.swap();
       world.update({deltaTime: 1} as never);
     });

@@ -53,7 +53,7 @@ export const graphicsSystem = new System({
   onAddEntity: (entity, system) => {
     let graphics = entity.getComponent(GraphicsComponent);
     let {map} = levelQuery.getFirst().getComponent(LevelComponent);
-    let layerIndex = graphics.overlay ? map.topLayerIndex : 1;
+    let layerIndex = graphics.overlay ? map.topLayerIndex : map.entityLayerIndex;
 
     for (let sprite of Object.values(graphics.sprite.sprites)) {
       map.addToLayer(sprite, layerIndex);
@@ -64,7 +64,7 @@ export const graphicsSystem = new System({
   onRemoveEntity: (entity, system) => {
     let graphics = entity.getComponent(GraphicsComponent);
     let {map} = levelQuery.getFirst().getComponent(LevelComponent);
-    let layerIndex = graphics.overlay ? map.topLayerIndex : 1;
+    let layerIndex = graphics.overlay ? map.topLayerIndex : map.entityLayerIndex;
 
     for (let sprite of Object.values(graphics.sprite.sprites)) {
       map.removeFromLayer(sprite, layerIndex);

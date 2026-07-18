@@ -44,6 +44,17 @@ function createTiledTileset(): Record<string, unknown> {
               x: 0,
               y: 8,
             },
+            {
+              height: 4,
+              id: 2,
+              name: '',
+              rotation: 0,
+              type: '',
+              visible: true,
+              width: 6,
+              x: 10,
+              y: 0,
+            },
           ],
           opacity: 1,
           type: 'objectgroup',
@@ -90,13 +101,36 @@ describe('Tileset.from', () => {
     expect(tileset.getTile(1).textures).toHaveLength(2);
   });
 
-  test('a collision object becomes the tile bounding box; tiles without one stay unset', async () => {
+  test('every collision rectangle is collected; tiles without an objectgroup get an empty array', async () => {
     stubImage();
 
     let tileset = await Tileset.from(createTiledTileset());
 
-    expect(tileset.getTile(1).boundingBox).toMatchObject({x: 0, y: 8, width: 16, height: 8});
-    expect(tileset.getTile(0).boundingBox).toBeUndefined();
+    expect(tileset.getTile(1).collisionBoxes).toHaveLength(2);
+    expect(tileset.getTile(1).collisionBoxes[0]).toMatchObject({x: 0, y: 8, width: 16, height: 8});
+    expect(tileset.getTile(1).collisionBoxes[1]).toMatchObject({x: 10, y: 0, width: 6, height: 4});
+    expect(tileset.getTile(0).collisionBoxes).toEqual([]);
+  });
+
+  test('throws in DEV on a non-rectangle shape in a collision group', async () => {
+    stubImage();
+
+    let source = createTiledTileset() as {tiles: Array<{objectgroup: {objects: unknown[]}}>};
+
+    source.tiles[0]!.objectgroup.objects.push({
+      ellipse: true,
+      height: 8,
+      id: 3,
+      name: '',
+      rotation: 0,
+      type: '',
+      visible: true,
+      width: 8,
+      x: 0,
+      y: 0,
+    });
+
+    await expect(Tileset.from(source)).rejects.toThrow(/collision group/);
   });
 });
 
@@ -107,7 +141,7 @@ describe('Tileset.getTile', () => {
       tileHeight: 16,
       columnCount: 1,
       rowCount: 1,
-      tiles: [{id: toTileId(0), textures: [pixi.Texture.WHITE]}],
+      tiles: [{id: toTileId(0), textures: [pixi.Texture.WHITE], collisionBoxes: []}],
     });
 
     expect(() => tileset.getTile(1)).toThrow('Tile with ID "1" not found!');

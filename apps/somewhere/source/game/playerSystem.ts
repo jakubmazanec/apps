@@ -3,6 +3,8 @@ import {InputComponent} from '../engine/input/InputComponent.js';
 import {Vector} from '../engine/utilities/Vector.js';
 import {CameraComponent} from './CameraComponent.js';
 import {cameraQuery} from './cameraQuery.js';
+import {getPositionForBoundingBoxCenter} from './getPositionForBoundingBoxCenter.js';
+import {GraphicsComponent} from './GraphicsComponent.js';
 import {inputQuery} from './inputQuery.js';
 import {MotionComponent} from './MotionComponent.js';
 import {MAX_SPEED} from './motionSystem.js';
@@ -10,7 +12,7 @@ import {PlayerComponent} from './PlayerComponent.js';
 
 export const playerSystem = new System({
   displayName: 'Player system',
-  components: [PlayerComponent, MotionComponent],
+  components: [PlayerComponent, MotionComponent, GraphicsComponent],
   onUpdate: (delta, system) => {
     let {input} = inputQuery.getFirst().getComponent(InputComponent);
 
@@ -33,12 +35,14 @@ export const playerSystem = new System({
         motion.velocity.set(directionX, directionY).normalize(MAX_SPEED);
       } else if (input.pressed('move-to')) {
         let {position: cameraPosition} = cameraQuery.getFirst().getComponent(CameraComponent);
+        let {boundingBox} = entity.getComponent(GraphicsComponent);
 
-        motion.target = new Vector(
-          // TODO: 8 comes from the bounding box; extract it as a constant instead of using the value directly
-          input.tapPosition.x + cameraPosition.x - 8,
-          // TODO: 15 comes from the bounding box; extract it as a constant instead of using the value directly
-          input.tapPosition.y + cameraPosition.y - 15,
+        motion.target = getPositionForBoundingBoxCenter(
+          new Vector(
+            input.tapPosition.x + cameraPosition.x,
+            input.tapPosition.y + cameraPosition.y,
+          ),
+          boundingBox,
         );
         motion.velocity.x = 0;
         motion.velocity.y = 0;
