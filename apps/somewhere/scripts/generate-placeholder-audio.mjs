@@ -77,6 +77,8 @@ let files = {
   'ui-key.wav': blip({freq: 660, ms: 40, volume: 0.3}),
   'ui-error.wav': blip({freq: 220, ms: 180, volume: 0.5}),
   'bump.wav': blip({freq: 140, ms: 120, volume: 0.6}),
+  // Typewriter blip: short and quiet; it fires on every third revealed glyph.
+  'blip.wav': blip({freq: 990, ms: 30, volume: 0.25}),
   // Zone-enter chime: a bright two-note ding, unmistakable next to the low
   // wall-hit bump.
   'chime.wav': loop({notes: [1047, 1568], noteMs: 120, repeats: 1}),

@@ -1,6 +1,7 @@
 import {z} from 'zod';
 
 import {PersistedStore} from '../engine/storage/PersistedStore.js';
+import {flags} from './flags.js';
 import {MotionComponent} from './MotionComponent.js';
 import {playersQuery} from './playersQuery.js';
 
@@ -16,6 +17,10 @@ const saveSchema = z.object({
   // numbers are finite-only, the camera clamps to the map, and the worst case
   // is walking back out.
   player: z.object({x: z.number(), y: z.number()}),
+  // Dialogue flags. Mid-dialogue state is never persisted: completion flags
+  // go on terminal nodes' onEnter, so quitting mid-conversation only loses
+  // what was not reached, never records what did not happen.
+  flags: z.object({metMira: z.boolean()}),
 });
 
 export type SaveData = z.infer<typeof saveSchema>;
@@ -45,7 +50,7 @@ export function loadSave(): SaveData | null {
 export function writeSave(): void {
   let {position} = playersQuery.getFirst().getComponent(MotionComponent);
 
-  saveStore.save({player: {x: position.x, y: position.y}});
+  saveStore.save({player: {x: position.x, y: position.y}, flags: {...flags}});
 }
 
 /** Stages the stored save for the next gameScreen show (the Continue click). */
@@ -75,5 +80,6 @@ export function applyStagedSave(): void {
   let {position} = playersQuery.getFirst().getComponent(MotionComponent);
 
   position.set(stagedSave.player.x, stagedSave.player.y);
+  Object.assign(flags, stagedSave.flags);
   stagedSave = null;
 }

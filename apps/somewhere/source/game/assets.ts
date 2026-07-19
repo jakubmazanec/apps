@@ -16,9 +16,20 @@ export const assets = new GameAssets({
     },
     {
       name: 'game',
-      spritesheets: {character: ['character.json'], spark: ['spark.json']},
+      spritesheets: {
+        character: ['character.json'],
+        spark: ['spark.json'],
+        portraits: ['portraits.json'],
+        npc: ['npc.json'],
+        'prompt-bubble': ['prompt-bubble.json'],
+      },
       tilemaps: {map: ['map.json']},
-      sounds: {bump: ['bump.wav'], chime: ['chime.wav'], 'game-music': ['game-music.wav']},
+      sounds: {
+        bump: ['bump.wav'],
+        chime: ['chime.wav'],
+        blip: ['blip.wav'],
+        'game-music': ['game-music.wav'],
+      },
     },
   ],
 });

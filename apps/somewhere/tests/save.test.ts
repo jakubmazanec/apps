@@ -3,6 +3,7 @@ import {afterEach, describe, expect, test, vi} from 'vitest';
 import {Entity} from '../source/engine/ecs/Entity.js';
 import {World} from '../source/engine/ecs/World.js';
 import {Vector} from '../source/engine/utilities/Vector.js';
+import {flags, resetFlags} from '../source/game/flags.js';
 import {MotionComponent} from '../source/game/MotionComponent.js';
 import {PlayerComponent} from '../source/game/PlayerComponent.js';
 import {playersQuery} from '../source/game/playersQuery.js';
@@ -45,6 +46,7 @@ function createWorld(x: number, y: number) {
 describe('save', () => {
   afterEach(() => {
     clearStagedSave();
+    resetFlags();
     localStorage.clear();
     activeWorld?.stop();
     activeWorld = null;
@@ -56,8 +58,11 @@ describe('save', () => {
     world.start();
     writeSave();
 
-    expect(JSON.parse(localStorage.getItem(SAVE_KEY) ?? '')).toEqual({player: {x: 42, y: 27}});
-    expect(loadSave()).toEqual({player: {x: 42, y: 27}});
+    expect(JSON.parse(localStorage.getItem(SAVE_KEY) ?? '')).toEqual({
+      player: {x: 42, y: 27},
+      flags: {metMira: false},
+    });
+    expect(loadSave()).toEqual({player: {x: 42, y: 27}, flags: {metMira: false}});
   });
 
   test('writeSave works on a paused world', () => {
@@ -67,7 +72,7 @@ describe('save', () => {
     world.pause();
     writeSave();
 
-    expect(loadSave()).toEqual({player: {x: 3, y: 4}});
+    expect(loadSave()).toEqual({player: {x: 3, y: 4}, flags: {metMira: false}});
   });
 
   test('loadSave returns null when nothing is stored', () => {
@@ -86,7 +91,7 @@ describe('save', () => {
   });
 
   test('stageContinue then applyStagedSave restores the position and consumes the stage', () => {
-    localStorage.setItem(SAVE_KEY, JSON.stringify({player: {x: 5, y: 6}}));
+    localStorage.setItem(SAVE_KEY, JSON.stringify({player: {x: 5, y: 6}, flags: {metMira: false}}));
     stageContinue();
 
     let {world, motion} = createWorld(144, 160);
@@ -106,7 +111,7 @@ describe('save', () => {
   });
 
   test('clearStagedSave prevents a later apply', () => {
-    localStorage.setItem(SAVE_KEY, JSON.stringify({player: {x: 5, y: 6}}));
+    localStorage.setItem(SAVE_KEY, JSON.stringify({player: {x: 5, y: 6}, flags: {metMira: false}}));
     stageContinue();
     clearStagedSave();
 
@@ -127,5 +132,29 @@ describe('save', () => {
 
     expect(motion.position.x).toBe(144);
     expect(motion.position.y).toBe(160);
+  });
+
+  test('flags round-trip through the save blob', () => {
+    let {world} = createWorld(1, 2);
+
+    world.start();
+    flags.metMira = true;
+    writeSave();
+
+    resetFlags();
+    stageContinue();
+    applyStagedSave();
+
+    expect(flags.metMira).toBeTruthy();
+  });
+
+  test('an old save without flags is schema-rejected and resets', () => {
+    let warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    localStorage.setItem(SAVE_KEY, JSON.stringify({player: {x: 5, y: 6}}));
+
+    expect(loadSave()).toBeNull();
+
+    warn.mockRestore();
   });
 });

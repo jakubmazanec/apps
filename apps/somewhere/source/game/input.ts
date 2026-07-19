@@ -12,6 +12,14 @@ export const input = new Input({
     'move-left': {keys: ['KeyA']},
     'move-right': {keys: ['KeyD']},
     'move-to': {pointerTap: true},
+    // KeyE only (the arbitration precedent): Space and Enter stay with the
+    // focus layer. No pointerTap here; all pointer input reaches dialogue
+    // through pixi objects on the box and the prompt.
+    interact: {keys: ['KeyE']},
+    // Space and Enter page through an open dialogue box; dialogueInputSystem
+    // gates the command on an active dialogue, so with no box on screen both
+    // keys still belong to the focus layer (the arbitration rule above).
+    advance: {keys: ['Enter', 'Space']},
   },
 });
 

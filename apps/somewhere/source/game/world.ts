@@ -14,7 +14,15 @@ import {camera} from './camera.js';
 import {CameraComponent} from './CameraComponent.js';
 import {cameraQuery} from './cameraQuery.js';
 import {cameraSystem} from './cameraSystem.js';
+import {dialogueEntity} from './dialogue.js';
+import {dialogueBoxSystem} from './dialogueBoxSystem.js';
+import {dialogueCommandChannel} from './dialogueCommandChannel.js';
+import {DialogueComponent} from './DialogueComponent.js';
+import {dialogueInputSystem} from './dialogueInputSystem.js';
+import {dialogueQuery} from './dialogueQuery.js';
+import {dialogueSystem} from './dialogueSystem.js';
 import {doorSystem} from './doorSystem.js';
+import {resetFlags} from './flags.js';
 import {getPositionForBoundingBoxCenter} from './getPositionForBoundingBoxCenter.js';
 import {GraphicsComponent} from './GraphicsComponent.js';
 import {graphicsSystem} from './graphicsSystem.js';
@@ -53,18 +61,28 @@ export const world = new World({
   onStart: (world) => {
     camera.getComponent(CameraComponent).position.set(0, 0);
 
+    // Module state outlives the world: flags reset to defaults before
+    // applyStagedSave runs, and a mid-dialogue Quit left `active` set on the
+    // singleton that outlives the run.
+    resetFlags();
+    dialogueEntity.getComponent(DialogueComponent).active = null;
+
     world.addEventChannel(wallHitChannel);
     world.addEventChannel(popupExpiredChannel);
     world.addEventChannel(playSoundChannel);
     world.addEventChannel(triggerEnterChannel);
     world.addEventChannel(triggerExitChannel);
+    world.addEventChannel(dialogueCommandChannel);
 
     world.addEntityQuery(cameraQuery);
+    world.addEntityQuery(dialogueQuery);
     world.addEntityQuery(inputQuery);
     world.addEntityQuery(levelQuery);
     world.addEntityQuery(playersQuery);
 
     world.addSystem(inputSystem); // first: every system this frame reads the same freshly-advanced input
+    world.addSystem(dialogueInputSystem); // right after inputSystem: translates the freshly advanced edges into commands
+    world.addSystem(dialogueSystem); // before playerSystem: starts/advances on last frame's commands and enters, ticks, and playerSystem sees `active` and locks the same frame
     world.addSystem(mapSystem);
     world.addSystem(playerSystem); // before motionSystem: it writes velocity that motionSystem consumes this frame
     world.addSystem(motionSystem);
@@ -79,10 +97,12 @@ export const world = new World({
     world.addSystem(cameraSystem);
     world.addSystem(tweenSystem); // late, just before graphicsSystem: scripted motion is the last word
     world.addSystem(graphicsSystem);
+    world.addSystem(dialogueBoxSystem); // after graphicsSystem: renders the just-ticked dialogue state into its own layer above the map
 
     world.addEntity(camera);
     world.addEntity(inputEntity);
     world.addEntity(audioEntity);
+    world.addEntity(dialogueEntity);
 
     // Map must be added before player so graphicsSystem.onAddEntity can read levelQuery.
     mapEntity = mapPool.create();

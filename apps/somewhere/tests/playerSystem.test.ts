@@ -1,6 +1,7 @@
 import type * as pixi from 'pixi.js';
 import {describe, expect, test} from 'vitest';
 
+import {Dialogue} from '../source/engine/dialogue/Dialogue.js';
 import {type Component} from '../source/engine/ecs/Component.js';
 import {Entity} from '../source/engine/ecs/Entity.js';
 import {World} from '../source/engine/ecs/World.js';
@@ -9,6 +10,9 @@ import {InputComponent} from '../source/engine/input/InputComponent.js';
 import {Vector} from '../source/engine/utilities/Vector.js';
 import {CameraComponent} from '../source/game/CameraComponent.js';
 import {cameraQuery} from '../source/game/cameraQuery.js';
+import {DialogueComponent} from '../source/game/DialogueComponent.js';
+import {dialogueQuery} from '../source/game/dialogueQuery.js';
+import {flags} from '../source/game/flags.js';
 import {GraphicsComponent} from '../source/game/GraphicsComponent.js';
 import {inputQuery} from '../source/game/inputQuery.js';
 import {MotionComponent} from '../source/game/MotionComponent.js';
@@ -46,8 +50,8 @@ function createFakeInput(state: FakeInputState): Input {
   } as unknown as Input;
 }
 
-// cameraQuery/inputQuery/playerSystem are module singletons: every test must
-// world.stop() so the next test can register them again.
+// cameraQuery/inputQuery/dialogueQuery/playerSystem are module singletons:
+// every test must world.stop() so the next test can register them again.
 function createWorld(state: FakeInputState) {
   let motion = new MotionComponent({position: new Vector(0, 0), velocity: new Vector(0, 0)});
   let player = new Entity({
@@ -61,18 +65,21 @@ function createWorld(state: FakeInputState) {
     components: [new InputComponent({input: createFakeInput(state)})],
   });
   let camera = new Entity({components: [new CameraComponent({position: new Vector(100, 50)})]});
+  let dialogueEntity = new Entity({components: [new DialogueComponent({active: null})]});
   let world = new World({
     onStart: (w) => {
       w.addEntityQuery(inputQuery)
         .addEntityQuery(cameraQuery)
+        .addEntityQuery(dialogueQuery)
         .addSystem(playerSystem)
         .addEntity(inputEntity)
         .addEntity(camera)
+        .addEntity(dialogueEntity)
         .addEntity(player);
     },
   });
 
-  return {world, motion};
+  return {world, motion, dialogueComponent: dialogueEntity.getComponent(DialogueComponent)};
 }
 
 describe('playerSystem', () => {
@@ -177,6 +184,66 @@ describe('playerSystem', () => {
 
     expect(motion.target).toBeUndefined();
     expect(motion.velocity.x).toBe(-MAX_SPEED);
+    expect(motion.velocity.y).toBe(0);
+
+    world.stop();
+  });
+
+  test('an active dialogue locks movement: keys and taps are ignored', () => {
+    let {world, motion, dialogueComponent} = createWorld({
+      heldActions: ['move-right'],
+      pressedActions: ['move-to'],
+      tapPosition: new Vector(10, 20),
+    });
+
+    world.start();
+    dialogueComponent.active = new Dialogue({script: {start: {text: 'Hi.'}}, context: flags});
+    world.update(tick());
+
+    expect(motion.velocity.x).toBe(0);
+    expect(motion.velocity.y).toBe(0);
+    expect(motion.target).toBeUndefined();
+
+    world.stop();
+  });
+
+  test('an active dialogue locks a tap on its own: no target is set, velocity stays zero', () => {
+    let {world, motion, dialogueComponent} = createWorld({
+      pressedActions: ['move-to'],
+      tapPosition: new Vector(10, 20),
+    });
+
+    world.start();
+    dialogueComponent.active = new Dialogue({script: {start: {text: 'Hi.'}}, context: flags});
+    world.update(tick());
+
+    expect(motion.target).toBeUndefined();
+    expect(motion.velocity.x).toBe(0);
+    expect(motion.velocity.y).toBe(0);
+
+    world.stop();
+  });
+
+  test('clearing the dialogue restores movement: the same tap lands once it ends', () => {
+    let {world, motion, dialogueComponent} = createWorld({
+      pressedActions: ['move-to'],
+      tapPosition: new Vector(10, 20),
+    });
+
+    world.start();
+    dialogueComponent.active = new Dialogue({script: {start: {text: 'Hi.'}}, context: flags});
+    world.update(tick());
+
+    expect(motion.target).toBeUndefined();
+
+    dialogueComponent.active = null;
+    world.update(tick());
+
+    // Tap (10, 20) + camera (100, 50) = (110, 70), centered on the box (0, 10, 16, 10):
+    // 110 - 0 - 8, 70 - 10 - 5.
+    expect(motion.target?.x).toBe(102);
+    expect(motion.target?.y).toBe(55);
+    expect(motion.velocity.x).toBe(0);
     expect(motion.velocity.y).toBe(0);
 
     world.stop();

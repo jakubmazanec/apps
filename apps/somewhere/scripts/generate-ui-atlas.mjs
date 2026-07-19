@@ -164,6 +164,24 @@ function buildRing() {
   return cells;
 }
 
+// Advance marker: a 5×3 down-pointing triangle; dialogue box chrome, so it
+// ships in the ui sheet (default bundle) like the other widget art.
+function buildMarker() {
+  let cells = [];
+
+  for (let row = 0; row < 3; row++) {
+    let cols = [];
+
+    for (let col = 0; col < 5; col++) {
+      cols.push(col >= row && col <= 4 - row ? palette.icon : palette.transparent);
+    }
+
+    cells.push(cols);
+  }
+
+  return cells;
+}
+
 // Render a cell grid at 1 art px per cell.
 function renderCells(cells) {
   let height = cells.length;
@@ -298,6 +316,7 @@ let frames = [
     borders: BOX_BORDERS,
   },
   {name: 'focus-ring', image: renderCells(buildRing()), borders: BOX_BORDERS},
+  {name: 'advance-marker', image: renderCells(buildMarker())},
 ];
 
 // Single-column shelf packing: trivially correct, and at art-px sizes the

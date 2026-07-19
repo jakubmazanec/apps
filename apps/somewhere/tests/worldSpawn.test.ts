@@ -1,8 +1,12 @@
 import * as pixi from 'pixi.js';
 import {afterEach, describe, expect, test, vi} from 'vitest';
 
+import {Dialogue} from '../source/engine/dialogue/Dialogue.js';
 import {toTileGid} from '../source/engine/tiled/TileGid.js';
 import {Tilemap, type TilemapObject} from '../source/engine/tiled/Tilemap.js';
+import {dialogueEntity} from '../source/game/dialogue.js';
+import {DialogueComponent} from '../source/game/DialogueComponent.js';
+import {flags} from '../source/game/flags.js';
 import {MotionComponent} from '../source/game/MotionComponent.js';
 import {playerPool} from '../source/game/playerPool.js';
 import {playersQuery} from '../source/game/playersQuery.js';
@@ -168,5 +172,22 @@ describe('world spawn loop', () => {
     expect(() => {
       world.start();
     }).toThrow(/dangling target/);
+  });
+
+  test('world start resets flags and clears a leftover active dialogue', () => {
+    stubAssets([spawnObject()]);
+
+    // Module state outliving the previous run: a finished playthrough set the
+    // flag, a mid-dialogue Quit left the runner assigned.
+    flags.metMira = true;
+    dialogueEntity.getComponent(DialogueComponent).active = new Dialogue({
+      script: {start: {text: 'stale'}},
+      context: flags,
+    });
+
+    world.start();
+
+    expect(flags.metMira).toBeFalsy();
+    expect(dialogueEntity.getComponent(DialogueComponent).active).toBeNull();
   });
 });

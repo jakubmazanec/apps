@@ -173,6 +173,14 @@
         "right": 1,
         "bottom": 1
       }
+    },
+    "advance-marker": {
+      "frame": {
+        "x": 0,
+        "y": 121,
+        "w": 5,
+        "h": 3
+      }
     }
   },
   "meta": {
