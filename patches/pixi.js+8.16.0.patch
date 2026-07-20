@@ -1,0 +1,240 @@
+diff --git a/node_modules/pixi.js/lib/scene/text-bitmap/AbstractBitmapTextPipe.js b/node_modules/pixi.js/lib/scene/text-bitmap/AbstractBitmapTextPipe.js
+index f17ebd8..bcfe776 100644
+--- a/node_modules/pixi.js/lib/scene/text-bitmap/AbstractBitmapTextPipe.js
++++ b/node_modules/pixi.js/lib/scene/text-bitmap/AbstractBitmapTextPipe.js
+@@ -59,28 +59,28 @@ class AbstractBitmapTextPipe {
+     }
+     const chars = CanvasTextMetrics.CanvasTextMetrics.graphemeSegmenter(bitmapText.text);
+     const style = bitmapText._style;
+-    let currentY = bitmapFont.baseLineOffset;
+     const bitmapTextLayout = getBitmapTextLayout.getBitmapTextLayout(chars, style, bitmapFont, true);
+     const padding = style.padding;
+     const scale = bitmapTextLayout.scale;
+     let tx = bitmapTextLayout.width;
+-    let ty = bitmapTextLayout.height + bitmapTextLayout.offsetY;
++    let ty = bitmapTextLayout.height;
+     if (style._stroke) {
+       tx += style._stroke.width / scale;
+       ty += style._stroke.width / scale;
+     }
+     context.translate(-bitmapText._anchor._x * tx - padding, -bitmapText._anchor._y * ty - padding).scale(scale, scale);
+     const tint = bitmapFont.applyFillAsTint ? style._fill.color : 16777215;
+-    let fontSize = bitmapFont.fontMetrics.fontSize;
+     let lineHeight = bitmapFont.lineHeight;
+     if (style.lineHeight) {
+-      fontSize = style.fontSize / scale;
+       lineHeight = style.lineHeight / scale;
+     }
+-    let linePositionYShift = (lineHeight - fontSize) / 2;
+-    if (linePositionYShift - bitmapFont.baseLineOffset < 0) {
+-      linePositionYShift = 0;
++    const ascent = bitmapFont.fontMetrics.ascent;
++    const baselineFromTop = BitmapFontManager.BitmapFontManager.getBaselineOffset(bitmapText.text, style, lineHeight);
++    let baselineDelta = baselineFromTop - ascent;
++    if (bitmapFont.distanceField?.type && bitmapFont.distanceField.type !== "none") {
++      baselineDelta -= bitmapFont.distanceField.range;
+     }
++    let currentY = 0;
+     for (let i = 0; i < bitmapTextLayout.lines.length; i++) {
+       const line = bitmapTextLayout.lines[i];
+       for (let j = 0; j < line.charPositions.length; j++) {
+@@ -91,8 +91,8 @@ class AbstractBitmapTextPipe {
+           context.texture(
+             texture,
+             tint,
+-            Math.round(line.charPositions[j] + charData.xOffset),
+-            Math.round(currentY + charData.yOffset + linePositionYShift),
++            line.charPositions[j] + charData.xOffset,
++            currentY + charData.yOffset + baselineDelta,
+             texture.orig.width,
+             texture.orig.height
+           );
+diff --git a/node_modules/pixi.js/lib/scene/text-bitmap/AbstractBitmapTextPipe.mjs b/node_modules/pixi.js/lib/scene/text-bitmap/AbstractBitmapTextPipe.mjs
+index 9a34fd3..ac78244 100644
+--- a/node_modules/pixi.js/lib/scene/text-bitmap/AbstractBitmapTextPipe.mjs
++++ b/node_modules/pixi.js/lib/scene/text-bitmap/AbstractBitmapTextPipe.mjs
+@@ -57,28 +57,28 @@ class AbstractBitmapTextPipe {
+     }
+     const chars = CanvasTextMetrics.graphemeSegmenter(bitmapText.text);
+     const style = bitmapText._style;
+-    let currentY = bitmapFont.baseLineOffset;
+     const bitmapTextLayout = getBitmapTextLayout(chars, style, bitmapFont, true);
+     const padding = style.padding;
+     const scale = bitmapTextLayout.scale;
+     let tx = bitmapTextLayout.width;
+-    let ty = bitmapTextLayout.height + bitmapTextLayout.offsetY;
++    let ty = bitmapTextLayout.height;
+     if (style._stroke) {
+       tx += style._stroke.width / scale;
+       ty += style._stroke.width / scale;
+     }
+     context.translate(-bitmapText._anchor._x * tx - padding, -bitmapText._anchor._y * ty - padding).scale(scale, scale);
+     const tint = bitmapFont.applyFillAsTint ? style._fill.color : 16777215;
+-    let fontSize = bitmapFont.fontMetrics.fontSize;
+     let lineHeight = bitmapFont.lineHeight;
+     if (style.lineHeight) {
+-      fontSize = style.fontSize / scale;
+       lineHeight = style.lineHeight / scale;
+     }
+-    let linePositionYShift = (lineHeight - fontSize) / 2;
+-    if (linePositionYShift - bitmapFont.baseLineOffset < 0) {
+-      linePositionYShift = 0;
++    const ascent = bitmapFont.fontMetrics.ascent;
++    const baselineFromTop = BitmapFontManager.getBaselineOffset(bitmapText.text, style, lineHeight);
++    let baselineDelta = baselineFromTop - ascent;
++    if (bitmapFont.distanceField?.type && bitmapFont.distanceField.type !== "none") {
++      baselineDelta -= bitmapFont.distanceField.range;
+     }
++    let currentY = 0;
+     for (let i = 0; i < bitmapTextLayout.lines.length; i++) {
+       const line = bitmapTextLayout.lines[i];
+       for (let j = 0; j < line.charPositions.length; j++) {
+@@ -89,8 +89,8 @@ class AbstractBitmapTextPipe {
+           context.texture(
+             texture,
+             tint,
+-            Math.round(line.charPositions[j] + charData.xOffset),
+-            Math.round(currentY + charData.yOffset + linePositionYShift),
++            line.charPositions[j] + charData.xOffset,
++            currentY + charData.yOffset + baselineDelta,
+             texture.orig.width,
+             texture.orig.height
+           );
+diff --git a/node_modules/pixi.js/lib/scene/text-bitmap/BitmapFont.js b/node_modules/pixi.js/lib/scene/text-bitmap/BitmapFont.js
+index ef86152..5754de5 100644
+--- a/node_modules/pixi.js/lib/scene/text-bitmap/BitmapFont.js
++++ b/node_modules/pixi.js/lib/scene/text-bitmap/BitmapFont.js
+@@ -47,8 +47,8 @@ class BitmapFont extends AbstractBitmapFont.AbstractBitmapFont {
+     this.baseRenderedFontSize = data.fontSize;
+     this.baseMeasurementFontSize = data.fontSize;
+     this.fontMetrics = {
+-      ascent: 0,
+-      descent: 0,
++      ascent: data.lineHeight - data.baseLineOffset,
++      descent: data.baseLineOffset,
+       fontSize: data.fontSize
+     };
+     this.baseLineOffset = data.baseLineOffset;
+diff --git a/node_modules/pixi.js/lib/scene/text-bitmap/BitmapFont.mjs b/node_modules/pixi.js/lib/scene/text-bitmap/BitmapFont.mjs
+index 6de8a2a..250938c 100644
+--- a/node_modules/pixi.js/lib/scene/text-bitmap/BitmapFont.mjs
++++ b/node_modules/pixi.js/lib/scene/text-bitmap/BitmapFont.mjs
+@@ -45,8 +45,8 @@ class BitmapFont extends AbstractBitmapFont {
+     this.baseRenderedFontSize = data.fontSize;
+     this.baseMeasurementFontSize = data.fontSize;
+     this.fontMetrics = {
+-      ascent: 0,
+-      descent: 0,
++      ascent: data.lineHeight - data.baseLineOffset,
++      descent: data.baseLineOffset,
+       fontSize: data.fontSize
+     };
+     this.baseLineOffset = data.baseLineOffset;
+diff --git a/node_modules/pixi.js/lib/scene/text-bitmap/BitmapFontManager.js b/node_modules/pixi.js/lib/scene/text-bitmap/BitmapFontManager.js
+index 5c7a242..a71252f 100644
+--- a/node_modules/pixi.js/lib/scene/text-bitmap/BitmapFontManager.js
++++ b/node_modules/pixi.js/lib/scene/text-bitmap/BitmapFontManager.js
+@@ -117,6 +117,28 @@ class BitmapFontManagerClass {
+   measureText(text, style, trimEnd = true) {
+     return this.getLayout(text, style, trimEnd);
+   }
++  getBaselineOffset(text, style, effectiveLineHeight) {
++    const font = this.getFont(text, style);
++    const lineHeight = effectiveLineHeight ?? font.lineHeight;
++    const naturalLineHeight = font.fontMetrics.fontSize;
++    const extraLineHeight = lineHeight - naturalLineHeight;
++    const lineHightAdjustment = extraLineHeight > 0 ? extraLineHeight / 2 : 0;
++    switch (style.textBaseline) {
++      case "top":
++        return lineHightAdjustment;
++      case "bottom":
++        return font.fontMetrics.fontSize + lineHightAdjustment;
++      case "middle":
++        return font.fontMetrics.fontSize / 2 + lineHightAdjustment;
++      case "ideographic":
++        return lineHeight - font.fontMetrics.descent + lineHightAdjustment;
++      case "hanging":
++        return Math.max(0, lineHeight * 0.2) + lineHightAdjustment;
++      case "alphabetic":
++      default:
++        return font.fontMetrics.ascent + lineHightAdjustment;
++    }
++  }
+   // eslint-disable-next-line max-len
+   install(...args) {
+     let options = args[0];
+diff --git a/node_modules/pixi.js/lib/scene/text-bitmap/BitmapFontManager.mjs b/node_modules/pixi.js/lib/scene/text-bitmap/BitmapFontManager.mjs
+index e42ce97..a1b088a 100644
+--- a/node_modules/pixi.js/lib/scene/text-bitmap/BitmapFontManager.mjs
++++ b/node_modules/pixi.js/lib/scene/text-bitmap/BitmapFontManager.mjs
+@@ -115,6 +115,28 @@ class BitmapFontManagerClass {
+   measureText(text, style, trimEnd = true) {
+     return this.getLayout(text, style, trimEnd);
+   }
++  getBaselineOffset(text, style, effectiveLineHeight) {
++    const font = this.getFont(text, style);
++    const lineHeight = effectiveLineHeight ?? font.lineHeight;
++    const naturalLineHeight = font.fontMetrics.fontSize;
++    const extraLineHeight = lineHeight - naturalLineHeight;
++    const lineHightAdjustment = extraLineHeight > 0 ? extraLineHeight / 2 : 0;
++    switch (style.textBaseline) {
++      case "top":
++        return lineHightAdjustment;
++      case "bottom":
++        return font.fontMetrics.fontSize + lineHightAdjustment;
++      case "middle":
++        return font.fontMetrics.fontSize / 2 + lineHightAdjustment;
++      case "ideographic":
++        return lineHeight - font.fontMetrics.descent + lineHightAdjustment;
++      case "hanging":
++        return Math.max(0, lineHeight * 0.2) + lineHightAdjustment;
++      case "alphabetic":
++      default:
++        return font.fontMetrics.ascent + lineHightAdjustment;
++    }
++  }
+   // eslint-disable-next-line max-len
+   install(...args) {
+     let options = args[0];
+diff --git a/node_modules/pixi.js/lib/scene/text-bitmap/BitmapText.js b/node_modules/pixi.js/lib/scene/text-bitmap/BitmapText.js
+index e11b3b8..2fa9c37 100644
+--- a/node_modules/pixi.js/lib/scene/text-bitmap/BitmapText.js
++++ b/node_modules/pixi.js/lib/scene/text-bitmap/BitmapText.js
+@@ -33,7 +33,6 @@ class BitmapText extends AbstractText.AbstractText {
+     const anchor = this._anchor;
+     const bitmapMeasurement = BitmapFontManager.BitmapFontManager.measureText(this.text, this._style);
+     const scale = bitmapMeasurement.scale;
+-    const offset = bitmapMeasurement.offsetY * scale;
+     let width = bitmapMeasurement.width * scale;
+     let height = bitmapMeasurement.height * scale;
+     const stroke = this._style._stroke;
+@@ -43,7 +42,7 @@ class BitmapText extends AbstractText.AbstractText {
+     }
+     bounds.minX = -anchor._x * width;
+     bounds.maxX = bounds.minX + width;
+-    bounds.minY = -anchor._y * (height + offset);
++    bounds.minY = -anchor._y * height;
+     bounds.maxY = bounds.minY + height;
+   }
+   /**
+diff --git a/node_modules/pixi.js/lib/scene/text-bitmap/BitmapText.mjs b/node_modules/pixi.js/lib/scene/text-bitmap/BitmapText.mjs
+index ea8ce8f..c4579b6 100644
+--- a/node_modules/pixi.js/lib/scene/text-bitmap/BitmapText.mjs
++++ b/node_modules/pixi.js/lib/scene/text-bitmap/BitmapText.mjs
+@@ -31,7 +31,6 @@ class BitmapText extends AbstractText {
+     const anchor = this._anchor;
+     const bitmapMeasurement = BitmapFontManager.measureText(this.text, this._style);
+     const scale = bitmapMeasurement.scale;
+-    const offset = bitmapMeasurement.offsetY * scale;
+     let width = bitmapMeasurement.width * scale;
+     let height = bitmapMeasurement.height * scale;
+     const stroke = this._style._stroke;
+@@ -41,7 +40,7 @@ class BitmapText extends AbstractText {
+     }
+     bounds.minX = -anchor._x * width;
+     bounds.maxX = bounds.minX + width;
+-    bounds.minY = -anchor._y * (height + offset);
++    bounds.minY = -anchor._y * height;
+     bounds.maxY = bounds.minY + height;
+   }
+   /**

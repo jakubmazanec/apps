@@ -1,13 +1,38 @@
 // import * as pixi from 'pixi.js';
 
-import {GameScreen} from '../engine/GameScreen.js';
-import {game} from './game.js';
+import {GameScreen} from '../engine/app/GameScreen.js';
+import {Text} from '../engine/ui/Text.js';
 
 export const loadingScreen = new GameScreen({
-  game,
   assetBundles: ['default'],
-  onInit: (screen) => {},
-  onUpdate: (delta, screen) => {},
-});
+  onAdd: () => {
+    let label = new Text({
+      text: 'Loading...',
+      fontFamily: 'monogram',
+      fontSize: 12,
+      fill: 0xffffff,
+      layout: true,
+    });
 
-game.addLoadingScreen(loadingScreen);
+    return {
+      // spinner: new pixi.Graphics()
+      //   .arc(0, 0, 30, 0, Math.PI * 1.5)
+      //   .stroke({width: 4, color: 0xffffff}),
+      label,
+    };
+  },
+  onShow: (screen) => {
+    // eslint-disable-next-line no-param-reassign -- needed
+    screen.view.layout = {
+      width: '100%',
+      height: '100%',
+      justifyContent: 'center',
+      alignItems: 'center',
+    };
+
+    // screen.view.addChild(screen.state.spinner);
+    screen.view.addChild(screen.state.label.view);
+  },
+  onResize: () => {},
+  onUpdate: () => {},
+});

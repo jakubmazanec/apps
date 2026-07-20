@@ -28,4 +28,12 @@ export default [
       '.react-router/**',
     ],
   },
+  {
+    ignores: ['$/**', 'assets/**'],
+  },
+  {
+    rules: {
+      'unicorn/prefer-dom-node-remove': 'off',
+    },
+  },
 ];

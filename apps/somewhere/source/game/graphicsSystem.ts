@@ -1,24 +1,16 @@
-import {CameraComponent} from '../engine/CameraComponent.js';
-import {GraphicsComponent} from '../engine/GraphicsComponent.js';
-import {LevelComponent} from '../engine/LevelComponent.js';
-import {MotionComponent} from '../engine/MotionComponent.js';
-import {System} from '../engine/System.js';
+import {System} from '../engine/ecs/System.js';
+import {CameraComponent} from './CameraComponent.js';
 import {cameraQuery} from './cameraQuery.js';
+import {GraphicsComponent} from './GraphicsComponent.js';
+import {LevelComponent} from './LevelComponent.js';
 import {levelQuery} from './levelQuery.js';
-import {world} from './world.js';
+import {MotionComponent} from './MotionComponent.js';
 
 export const graphicsSystem = new System({
-  world,
   components: [MotionComponent, GraphicsComponent],
-  entityQueries: {
-    cameras: cameraQuery,
-    level: levelQuery,
-  },
   onUpdate: (ticker, system) => {
     let {map} = levelQuery.getFirst().getComponent(LevelComponent);
-    let {position: cameraPosition} = system.entityQueries.cameras
-      .getFirst()
-      .getComponent(CameraComponent);
+    let {position: cameraPosition} = cameraQuery.getFirst().getComponent(CameraComponent);
 
     for (let entity of system.entities) {
       let motion = entity.getComponent(MotionComponent);
@@ -45,20 +37,39 @@ export const graphicsSystem = new System({
         sprite.show('standing-up');
       }
 
-      // we add the sprite to the map view, and positions are relative to a parent container
-      sprite.view.position.x = Math.round(motion.position.x - cameraPosition.x - map.view.x);
-      sprite.view.position.y = Math.round(motion.position.y - cameraPosition.y - map.view.y);
+      // we add the sprite to the map view, and positions are relative to a parent container;
+      // fractional art positions pass through raw — the renderer's roundPixels snaps them to
+      // whole device px at render time, keeping today's 1-device-px movement granularity
+      sprite.view.position.x = motion.position.x - cameraPosition.x - map.view.x;
+      sprite.view.position.y = motion.position.y - cameraPosition.y - map.view.y;
       sprite.view.zIndex = sprite.view.position.y + boundingBox.y + boundingBox.height;
+
+      // Advance the current sprite's animation on world time (sprites are
+      // constructed with autoUpdate: false); a paused world freezes it because
+      // this system simply doesn't run.
+      sprite.view.update(ticker);
     }
   },
   onAddEntity: (entity, system) => {
     let graphics = entity.getComponent(GraphicsComponent);
     let {map} = levelQuery.getFirst().getComponent(LevelComponent);
+    let layerIndex = graphics.overlay ? map.topLayerIndex : map.entityLayerIndex;
 
     for (let sprite of Object.values(graphics.sprite.sprites)) {
-      map.addToLayer(sprite);
+      map.addToLayer(sprite, layerIndex);
     }
+
+    graphics.sprite.view.play();
+  },
+  onRemoveEntity: (entity, system) => {
+    let graphics = entity.getComponent(GraphicsComponent);
+    let {map} = levelQuery.getFirst().getComponent(LevelComponent);
+    let layerIndex = graphics.overlay ? map.topLayerIndex : map.entityLayerIndex;
+
+    for (let sprite of Object.values(graphics.sprite.sprites)) {
+      map.removeFromLayer(sprite, layerIndex);
+    }
+
+    graphics.sprite.view.stop();
   },
 });
-
-world.addSystem(graphicsSystem);

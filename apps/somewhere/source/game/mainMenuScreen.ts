@@ -1,0 +1,276 @@
+import * as pixi from 'pixi.js';
+
+import {GameScreen} from '../engine/app/GameScreen.js';
+import {type Button} from '../engine/ui/Button.js';
+import {Container} from '../engine/ui/Container.js';
+import {Modal} from '../engine/ui/Modal.js';
+import {Panel} from '../engine/ui/Panel.js';
+import {Text} from '../engine/ui/Text.js';
+import {TextInput} from '../engine/ui/TextInput.js';
+import {Toggle} from '../engine/ui/Toggle.js';
+import {assets} from './assets.js';
+import {audio, playFocusSound} from './audio.js';
+import {game} from './game.js';
+// The mainMenuScreen <-> gameScreen static import cycle is deliberate and safe:
+// each module reads the other's binding only inside event handlers (New Game
+// here, Quit to menu there), long after both modules have evaluated.
+// eslint-disable-next-line import/no-cycle -- see comment above: the cycle only resolves inside event handlers, long after both modules evaluate
+import {gameScreen} from './gameScreen.js';
+import {clearStagedSave, loadSave, stageContinue} from './save.js';
+import {saveSettings, settings} from './settings.js';
+import {createButton, nineSlice} from './widgets.js';
+
+// Each Toggle owns and destroys its background sprites, so build a fresh set
+// per toggle rather than sharing instances.
+function toggleBackgrounds() {
+  // eslint-disable-next-line unicorn/consistent-function-scoping -- single-use builder kept local to the only function that needs it
+  let toggleSprite = (name: string) => new pixi.Sprite(assets.texture('ui', name));
+
+  return {
+    unchecked: toggleSprite('toggle-unchecked'),
+    checked: toggleSprite('toggle-checked'),
+    hovered: toggleSprite('toggle-hovered'),
+    hoveredChecked: toggleSprite('toggle-hovered-checked'),
+    disabled: toggleSprite('toggle-disabled'),
+    disabledChecked: toggleSprite('toggle-disabled-checked'),
+  };
+}
+
+// The Options modal is constructed per open, so the widgets read the current
+// settings values at build time — no re-sync code exists or is needed. No
+// initialFocus: nothing is focused on open; the first focus command lands via
+// the normal focus walk.
+function openOptionsModal(screen: GameScreen<MainMenuScreenState>) {
+  let title = new Text({
+    text: 'Options',
+    fontFamily: 'monogram-outline',
+    fontSize: 12,
+    fill: 0xffffff,
+    layout: true,
+  });
+
+  let nameInput = new TextInput({
+    backgrounds: {
+      normal: nineSlice('text-input-normal'),
+      hovered: nineSlice('text-input-hovered'),
+      disabled: nineSlice('text-input-disabled'),
+    },
+    value: settings.playerName,
+    placeholder: 'Name...',
+    fontFamily: 'monogram',
+    fontSize: 12,
+    fill: 0xffffff,
+    maxLength: 16,
+    // Evaluated on the Options click — after the canvas is mounted — so it
+    // resolves to the real canvas container.
+    container: game.app.canvas.parentElement ?? document.body,
+    onChange: (input) => {
+      settings.playerName = input.value;
+      saveSettings();
+      audio.play(assets.sound('ui-key'), {bus: 'ui'});
+    },
+    layout: {minWidth: 55, padding: 4},
+  });
+  let nameRow = new Container({
+    children: [
+      new Text({
+        text: 'Player name',
+        fontFamily: 'monogram-outline',
+        fontSize: 12,
+        fill: 0xffffff,
+        layout: true,
+      }),
+      nameInput,
+    ],
+    layout: {gap: 3},
+  });
+
+  let soundToggle = new Toggle({
+    backgrounds: toggleBackgrounds(),
+    checked: settings.soundEnabled,
+    onChange: (toggle) => {
+      let enabled = toggle.isChecked;
+
+      settings.soundEnabled = enabled;
+      saveSettings();
+      // Set mute first so an enabling toggle unmutes before its own click plays
+      // (an audible confirmation); a disabling toggle mutes and stays silent.
+      audio.setMuted('master', !enabled);
+      audio.play(assets.sound('ui-click'), {bus: 'ui'});
+    },
+  });
+  let soundRow = new Container({
+    children: [
+      new Text({
+        text: 'Sound',
+        fontFamily: 'monogram-outline',
+        fontSize: 12,
+        fill: 0xffffff,
+        layout: true,
+      }),
+      soundToggle,
+    ],
+    layout: {gap: 3},
+  });
+
+  let closeButton = createButton({
+    label: 'Close',
+    onClick: () => {
+      // Focus returns to the Options menu item via the focus-scope pop.
+      screen.state.openModal?.close();
+    },
+  });
+
+  let panel = new Panel({
+    background: nineSlice('banner'),
+    children: [title, nameRow, soundRow, closeButton],
+    layout: {
+      padding: 8,
+      alignItems: 'center',
+      flexDirection: 'column',
+      gap: 4,
+    },
+  });
+
+  let modal = new Modal({
+    children: [panel],
+    layout: {justifyContent: 'center', alignItems: 'center'},
+    scheduler: screen.scheduler,
+    fadeDuration: 200,
+    onClose: () => {
+      // eslint-disable-next-line no-param-reassign -- needed
+      screen.state.openModal = null;
+    },
+  });
+
+  // eslint-disable-next-line no-param-reassign -- needed
+  screen.state.openModal = modal;
+  modal.open(screen.ui);
+  modal.resize(game.app.screen.width / game.pixelScale, game.app.screen.height / game.pixelScale);
+}
+
+type MainMenuScreenState = {
+  bannerPanel: Panel;
+  continueButton: Button;
+  newGameButton: Button;
+  openModal: Modal | null;
+  optionsButton: Button;
+};
+
+export const mainMenuScreen = new GameScreen<MainMenuScreenState>({
+  // Only the always-preloaded `default` bundle: the `game` bundle is first
+  // needed by gameScreen, and Game.showScreen already shows the loading screen
+  // for any not-yet-loaded bundle when New Game is pressed.
+  assetBundles: ['default'],
+  focusRing: () => ({texture: assets.texture('ui', 'focus-ring'), padding: 2}),
+  onFocusEvent: playFocusSound,
+  onShow: (screen) => {
+    // Recomputed per show: the menu object lives across shows, and quitting a
+    // run creates a save while it is hidden.
+    let {bannerPanel, continueButton, newGameButton, optionsButton} = screen.state;
+    let hasSave = loadSave() !== null;
+    let isContinueShown = bannerPanel.children.includes(continueButton);
+
+    if (hasSave && !isContinueShown) {
+      // Panel.addChild only appends, so re-add the tail to slot Continue
+      // between the title and New Game.
+      bannerPanel.removeChild(newGameButton, optionsButton);
+      bannerPanel.addChild(continueButton, newGameButton, optionsButton);
+    } else if (!hasSave && isContinueShown) {
+      // Dropping it from the panel also drops it from the focus order.
+      bannerPanel.removeChild(continueButton);
+    }
+
+    // Music is driven by direct mixer calls from the screen context (never the
+    // world, never auto-stopped by pause). playMusic replaces the current voice.
+    audio.playMusic(assets.sound('menu-music'));
+  },
+  onAdd: (screen): MainMenuScreenState => {
+    // Solid background is the app's existing black (Game init background); no
+    // world runs behind the menu. Centering via flex on the root layout path
+    // (the same pattern loadingScreen uses): the percentages resolve against
+    // game.view, so window resize is handled for free.
+    // eslint-disable-next-line no-param-reassign -- needed
+    screen.view.layout = {width: '100%', height: '100%'};
+    // eslint-disable-next-line no-param-reassign -- needed
+    screen.ui.view.layout = {
+      width: '100%',
+      height: '100%',
+      justifyContent: 'center',
+      alignItems: 'center',
+    };
+
+    let title = new Text({
+      text: 'Somewhere',
+      fontFamily: 'monogram-outline',
+      fontSize: 12,
+      layout: true,
+    });
+
+    let continueButton = createButton({
+      label: 'Continue',
+      onClick: () => {
+        // Stage before the swap so gameScreen.onShow can apply it after
+        // world.start(). showScreen rejects when a bundle load fails; no
+        // recovery UI exists yet, so the rejection is only logged.
+        stageContinue();
+        game.showScreen(gameScreen).catch((error: unknown) => {
+          // eslint-disable-next-line no-console -- no error UI exists yet
+          console.error(error);
+        });
+      },
+    });
+
+    let newGameButton = createButton({
+      label: 'New Game',
+      onClick: () => {
+        // A stale stage from a failed Continue transition must never leak
+        // into a fresh run.
+        clearStagedSave();
+        // showScreen rejects when a bundle load fails; no recovery UI exists
+        // yet, so the rejection is only logged.
+        game.showScreen(gameScreen).catch((error: unknown) => {
+          // eslint-disable-next-line no-console -- no error UI exists yet
+          console.error(error);
+        });
+      },
+    });
+
+    let optionsButton = createButton({
+      label: 'Options',
+      onClick: () => {
+        openOptionsModal(screen);
+      },
+    });
+
+    let bannerPanel = new Panel({
+      background: nineSlice('banner'),
+      // Continue is added/removed per show according to whether a save
+      // exists; see onShow.
+      children: [title, newGameButton, optionsButton],
+      layout: {
+        padding: 8,
+        alignItems: 'center',
+        flexDirection: 'column',
+        gap: 4,
+      },
+    });
+
+    screen.ui.addChild(bannerPanel);
+
+    return {bannerPanel, continueButton, newGameButton, openModal: null, optionsButton};
+  },
+  onHide: (screen) => {
+    // Owning-screen teardown rule: synchronous destroy(), never the animated
+    // close() — the scheduler was already cleared before onHide.
+    screen.state.openModal?.destroy();
+    // eslint-disable-next-line no-param-reassign -- needed
+    screen.state.openModal = null;
+  },
+  onResize: (screen) => {
+    screen.state.openModal?.resize(
+      screen.game.app.screen.width / screen.game.pixelScale,
+      screen.game.app.screen.height / screen.game.pixelScale,
+    );
+  },
+});

@@ -1,7 +1,7 @@
 /* eslint-disable no-param-reassign -- TODO */
 import {describe, expect, test} from 'vitest';
 
-import {ObjectPool} from '../source/engine/ObjectPool.js';
+import {ObjectPool} from '../source/engine/utilities/ObjectPool.js';
 
 // class Foo {
 //   value: number | null = null;
@@ -71,5 +71,24 @@ describe('ObjectPool', () => {
     let object = pool.create(42);
 
     expect(object.value).toBe(42);
+  });
+
+  test('throws on double destroy (H3)', () => {
+    let pool = new ObjectPool({
+      onCreate: () => ({
+        foo: true,
+      }),
+      onReset: (object) => {
+        object.foo = true;
+
+        return object;
+      },
+    });
+
+    let object = pool.create();
+
+    pool.destroy(object);
+
+    expect(() => pool.destroy(object)).toThrow('Object was already destroyed!');
   });
 });

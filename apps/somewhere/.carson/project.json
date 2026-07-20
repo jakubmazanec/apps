@@ -8,6 +8,22 @@
       "build": {
         "target": "ES2022"
       }
+    },
+    "eslintConfig": [
+      {
+        "ignores": ["$/**", "assets/**"]
+      },
+      {
+        "rules": {
+          "unicorn/prefer-dom-node-remove": "off"
+        }
+      }
+    ],
+    "tsconfig": {
+      "compilerOptions": {
+        "module": "preserve",
+        "moduleResolution": "bundler"
+      }
     }
   }
 }
