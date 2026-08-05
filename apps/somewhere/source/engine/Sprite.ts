@@ -36,7 +36,7 @@ export class Sprite<const N extends readonly string[] = string[]> {
       sprites[spriteName].animationSpeed = 0.15;
     }
 
-    this.sprites = sprites as Record<N[number], pixi.AnimatedSprite>;
+    this.sprites = sprites;
     this.view = this.sprites[spriteNames[0] as N[number]];
     this.currentSpriteName = spriteNames[0] as N[number];
   }

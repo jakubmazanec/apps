@@ -1,4 +1,3 @@
-/* eslint-disable no-param-reassign -- TODO */
 import {describe, expect, test} from 'vitest';
 
 import {ObjectPool} from '../source/engine/ObjectPool.js';
@@ -11,7 +10,7 @@ import {ObjectPool} from '../source/engine/ObjectPool.js';
 //   }
 // }
 
-describe('ObjectPool', () => {
+describe(ObjectPool, () => {
   test('preallocates objects', () => {
     let pool = new ObjectPool({
       onCreate: () => ({
@@ -53,7 +52,7 @@ describe('ObjectPool', () => {
 
     object = pool.create();
 
-    expect(object.foo).toBeTruthy();
+    expect(object.foo).toBe(true);
   });
 
   test('create object with parameters', () => {

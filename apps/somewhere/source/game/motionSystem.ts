@@ -61,14 +61,12 @@ export const motionSystem = new System({
               let w2 = boundingBox.width;
               let h2 = boundingBox.height;
 
-              if (
-                !(
-                  x1 + w1 <= x2 - Number.EPSILON ||
-                  x2 + w2 <= x1 - Number.EPSILON ||
-                  y1 + h1 <= y2 - Number.EPSILON ||
-                  y2 + h2 <= y1 - Number.EPSILON
-                )
-              ) {
+              if (!(
+                x1 + w1 <= x2 - Number.EPSILON ||
+                x2 + w2 <= x1 - Number.EPSILON ||
+                y1 + h1 <= y2 - Number.EPSILON ||
+                y2 + h2 <= y1 - Number.EPSILON
+              )) {
                 if (motion.velocity.x > 0) {
                   let newDeltaX = deltaX - (x2 + w2 - x1);
 
