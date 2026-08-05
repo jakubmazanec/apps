@@ -4,7 +4,6 @@
 # headwind
 
 Age of Sail rogue-like deck-building game.
-
 </div>
 <!-- header -->
 

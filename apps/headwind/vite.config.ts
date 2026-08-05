@@ -20,11 +20,11 @@ export default defineConfig(
       },
       plugins: [tailwindcss(), !process.env.VITEST && reactRouter()],
       test: {
-        environment: 'happy-dom',
-        setupFiles: ['tests/setup.ts'],
         coverage: {
           include: ['source/**'],
         },
+        environment: 'node',
+        include: ['tests/**/*.test.?(c|m)[jt]s?(x)'],
       },
     },
     {},

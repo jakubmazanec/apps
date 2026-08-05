@@ -4,7 +4,6 @@
 # dram
 
 Whisky tasting notes app.
-
 </div>
 <!-- header -->
 

@@ -27,7 +27,7 @@
     "@types/node": "^24.2.1",
     "@types/semver": "^7.0.0",
     "del-cli": "^7.0.0",
-    "execa": "^9.0.0",
+    "execa": "^10.0.0",
     "lodash": "^4.17.21",
     "patch-package": "^8.0.0",
     "prettier": "^3.6.2",
@@ -35,7 +35,7 @@
     "semver": "^7.0.0",
     "tsx": "^4.20.5",
     "turbo": "^2.5.6",
-    "typescript": "^5.9.2"
+    "typescript": "^6.0.0"
   },
   "packageManager": "npm@11.4.2",
   "engines": {
