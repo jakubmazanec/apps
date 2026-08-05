@@ -41,5 +41,9 @@
   "engines": {
     "node": "^24.5.0",
     "npm": "^11.4.2"
+  },
+  "allowScripts": {
+    "esbuild@0.25.9": true,
+    "unrs-resolver@1.11.1": true
   }
 }
