@@ -149,7 +149,7 @@ export class Game {
       return this;
     }
 
-    ref.current.appendChild(this.app.canvas as unknown as Node);
+    ref.current.appendChild(this.app.canvas);
     window.addEventListener('resize', this.resize);
 
     this.ref = ref;
@@ -160,7 +160,7 @@ export class Game {
   }
 
   removeRef() {
-    this.ref?.current?.removeChild(this.app.canvas as unknown as Node);
+    this.ref?.current?.removeChild(this.app.canvas);
     window.removeEventListener('resize', this.resize);
 
     this.ref = null;

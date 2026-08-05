@@ -4,7 +4,6 @@
 # somewhere
 
 Location-based game.
-
 </div>
 <!-- header -->
 

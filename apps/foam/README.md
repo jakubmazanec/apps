@@ -4,7 +4,6 @@
 # foam
 
 A resource management adventure game about single night in Brno.
-
 </div>
 <!-- header -->
 

@@ -2,7 +2,7 @@ import {describe, expect, test} from 'vitest';
 
 import {doRectanglesIntersect} from '../source/utilities/doRectanglesIntersect.js';
 
-describe('doRectanglesIntersect', () => {
+describe(doRectanglesIntersect, () => {
   test.each([
     // Rectangles intersect
     {

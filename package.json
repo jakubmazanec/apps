@@ -22,12 +22,12 @@
   "devDependencies": {
     "@changesets/cli": "^2.29.6",
     "@jakubmazanec/carson": "^3.0.2",
-    "@jakubmazanec/carson-templates": "^8.1.0",
+    "@jakubmazanec/carson-templates": "^9.0.0",
     "@jakubmazanec/changesets-changelog": "^2.0.13",
     "@types/node": "^24.2.1",
     "@types/semver": "^7.0.0",
     "del-cli": "^7.0.0",
-    "execa": "^9.0.0",
+    "execa": "^10.0.0",
     "lodash": "^4.17.21",
     "patch-package": "^8.0.0",
     "prettier": "^3.6.2",
@@ -35,11 +35,15 @@
     "semver": "^7.0.0",
     "tsx": "^4.20.5",
     "turbo": "^2.5.6",
-    "typescript": "^5.9.2"
+    "typescript": "^6.0.0"
   },
   "packageManager": "npm@11.4.2",
   "engines": {
     "node": "^24.5.0",
     "npm": "^11.4.2"
+  },
+  "allowScripts": {
+    "esbuild@0.25.9": true,
+    "unrs-resolver@1.11.1": true
   }
 }
