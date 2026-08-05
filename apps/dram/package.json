@@ -39,7 +39,7 @@
     "zod": "^4.1.8"
   },
   "devDependencies": {
-    "@gel/generate": "^0.6.4",
+    "@gel/generate": "^0.7.1",
     "@jakubmazanec/eslint-config": "^5.0.0",
     "@react-router/dev": "^8.0.0",
     "@tailwindcss/vite": "^4.3.3",
