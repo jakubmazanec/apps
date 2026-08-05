@@ -24,43 +24,43 @@
     "typecheck": "tsc --project tsconfig.typecheck.json"
   },
   "dependencies": {
-    "@jakubmazanec/ts-utils": "^3.0.15",
-    "@react-router/fs-routes": "^8.0.0",
-    "@react-router/node": "^8.0.0",
-    "@react-router/serve": "^8.0.0",
-    "cross-env": "^10.0.0",
-    "eventemitter3": "^5.0.1",
-    "isbot": "^5.1.30",
-    "lodash": "^4.17.21",
+    "@jakubmazanec/ts-utils": "^3.0.18",
+    "@react-router/fs-routes": "^8.3.0",
+    "@react-router/node": "^8.3.0",
+    "@react-router/serve": "^8.3.0",
+    "cross-env": "^10.1.0",
+    "eventemitter3": "^5.0.4",
+    "isbot": "^5.2.1",
+    "lodash": "^4.18.1",
     "pixi-filters": "^5.3.0",
-    "pixi.js": "^8.15.0",
+    "pixi.js": "^8.19.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
-    "react-router": "^8.0.0",
-    "zod": "^4.1.8"
+    "react-router": "^8.3.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@jakubmazanec/eslint-config": "^5.0.0",
-    "@react-router/dev": "^8.0.0",
+    "@react-router/dev": "^8.3.0",
     "@tailwindcss/vite": "^4.3.3",
-    "@types/lodash": "^4.17.20",
-    "@types/node": "^24.2.1",
+    "@types/lodash": "^4.17.24",
+    "@types/node": "^24.13.3",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
-    "@vitest/coverage-v8": "^4.0.0",
+    "@vitest/coverage-v8": "^4.1.10",
     "del-cli": "^7.0.0",
-    "eslint": "^9.35.0",
-    "prettier": "^3.6.2",
-    "prettier-plugin-packagejson": "^2.5.19",
+    "eslint": "^9.39.5",
+    "prettier": "^3.9.6",
+    "prettier-plugin-packagejson": "^2.5.22",
     "prettier-plugin-tailwindcss": "^0.6.14",
     "tailwindcss": "^4.3.3",
-    "typescript": "^6.0.0",
-    "vite": "^8.0.0",
-    "vitest": "^4.0.0"
+    "typescript": "^6.0.3",
+    "vite": "^8.1.5",
+    "vitest": "^4.1.10"
   },
-  "packageManager": "npm@11.4.2",
+  "packageManager": "npm@11.18.0",
   "engines": {
-    "node": "^24.5.0",
-    "npm": "^11.4.2"
+    "node": "^24.18.0",
+    "npm": "^11.18.0"
   }
 }

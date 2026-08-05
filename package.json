@@ -20,27 +20,27 @@
     "uninstall": "del-cli ./**/node_modules ./package-lock.json"
   },
   "devDependencies": {
-    "@changesets/cli": "^2.29.6",
+    "@changesets/cli": "^2.31.1",
     "@jakubmazanec/carson": "^3.0.2",
     "@jakubmazanec/carson-templates": "^9.0.0",
-    "@jakubmazanec/changesets-changelog": "^2.0.13",
-    "@types/node": "^24.2.1",
-    "@types/semver": "^7.0.0",
+    "@jakubmazanec/changesets-changelog": "^2.0.16",
+    "@types/node": "^24.13.3",
+    "@types/semver": "^7.7.1",
     "del-cli": "^7.0.0",
     "execa": "^10.0.0",
-    "lodash": "^4.17.21",
-    "patch-package": "^8.0.0",
-    "prettier": "^3.6.2",
-    "prettier-plugin-packagejson": "^2.5.19",
-    "semver": "^7.0.0",
-    "tsx": "^4.20.5",
+    "lodash": "^4.18.1",
+    "patch-package": "^8.0.1",
+    "prettier": "^3.9.6",
+    "prettier-plugin-packagejson": "^2.5.22",
+    "semver": "^7.8.5",
+    "tsx": "^4.23.1",
     "turbo": "^2.5.6",
-    "typescript": "^6.0.0"
+    "typescript": "^6.0.3"
   },
-  "packageManager": "npm@11.4.2",
+  "packageManager": "npm@11.18.0",
   "engines": {
-    "node": "^24.5.0",
-    "npm": "^11.4.2"
+    "node": "^24.18.0",
+    "npm": "^11.18.0"
   },
   "allowScripts": {
     "esbuild@0.25.9": true,
