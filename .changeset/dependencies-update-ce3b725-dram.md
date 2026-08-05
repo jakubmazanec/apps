@@ -1,0 +1,4 @@
+---
+'dram': patch
+---
+Dependency `@tailwindcss/vite` updated to version `^4.3.3`. Dependency `tailwindcss` updated to version `^4.3.3`.
