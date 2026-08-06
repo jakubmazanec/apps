@@ -18,5 +18,10 @@ export default function Renderer() {
     };
   }, [game]);
 
-  return <div ref={ref} className="h-screen w-full" />;
+  // The height unit is load-bearing: 100vh is the LARGE viewport, the height
+  // the page gets with the mobile browser UI retracted, so on Android Chrome a
+  // 100vh canvas runs under the toolbar and hides its own bottom edge -- where
+  // the dialogue box lives. 100dvh tracks the visible viewport instead, and
+  // adoptResize already re-lays the game out on the resizes that come with it.
+  return <div ref={ref} className="h-dvh w-full" />;
 }
