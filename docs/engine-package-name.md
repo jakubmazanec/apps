@@ -17,7 +17,10 @@ persisted storage, and a React `GameProvider` shell.
 **How availability was checked** (2026-08-06):
 
 - npm package — `https://registry.npmjs.org/<name>` → 404 means free.
-- npm org / scope — `https://registry.npmjs.org/-/org/<name>/package` → 404 means free.
+- npm org / scope — `https://registry.npmjs.org/-/org/<name>/package` → 404 (`Scope not found`) means free.
+  Validated that this covers *user*-owned scopes too: `sindresorhus` (a user, not an org) returns 200.
+  The dedicated user endpoint (`/-/user/org.couchdb.user:<name>`) now returns 401 for everyone, so this
+  is the only anonymous scope check.
 - GitHub — `gh api users/<name>` → 404 means free (covers both users and orgs; they share one namespace).
 - Domains — `https://rdap.org/domain/<domain>` **with redirects followed** → 404 means unregistered.
 
@@ -116,3 +119,35 @@ Common single-syllable nouns are exhausted on npm. Verified taken: `loom`, `flin
 `flue`, `stoke`, `glaze`, `grog`, `bisque`, `muffle`, `clinker`, `raku`, `firebox`, `refractory`,
 `cadence`, `tessera`, `diorama`, `mote`, `gantry`, `plinth`, `stagecraft`, `pawl`, `corbel`,
 `armature`, `scrim`, `zoetrope`, `mainspring`, `orrery`, `heddle`.
+
+---
+
+## Batch 2 — checked 2026-08-06 (later the same day)
+
+46 new words swept (mechanism, letterpress, weaving, water-mill, optical-toy, nautical vocabulary).
+Ten survived with npm package **and** npm scope free; two of those are clean on bare GitHub as well —
+the first full sweeps found across both batches.
+
+| Name | What it is | npm package | npm scope | GitHub | GitHub squatter |
+| --- | --- | --- | --- | --- | --- |
+| `mutoscope` | hand-cranked flip-book movie machine (penny-arcade cabinet) | ✅ free | ✅ free | ✅ **free** | — |
+| `praxinoscope` | Reynaud's spinning-mirror animation toy | ✅ free | ✅ free | ✅ **free** | — |
+| `treadle` | foot-lever that powers a loom / lathe / sewing machine | ✅ free | ✅ free | ❌ | org, 2022, 4 repos |
+| `frisket` | letterpress mask that holds the sheet, masks non-printing areas | ✅ free | ✅ free | ❌ | empty user, 2013 |
+| `reglet` | thin letterpress spacing strip | ✅ free | ✅ free | ❌ | empty user, 2010 |
+| `tympan` | padded packing layer on a press platen | ✅ free | ✅ free | ❌ | **active** org (Tympan hearing-aid project, 24 repos, 81 followers) |
+| `squinch` | corner arch that seats a round dome on a square tower | ✅ free | ✅ free | ❌ | user, 2018, 1 repo |
+| `bandalore` | the 18th-century word for a yo-yo | ✅ free | ✅ free | ❌ | empty user, 2020 |
+| `gudgeon` | socket bearing a pintle pivots in (rudder hinges); also a small fish | ✅ free | ✅ free | ❌ | user, 2013, 1 repo |
+| `trunnion` | side pivots a cannon or engine cylinder rocks on | ✅ free | ✅ free | ❌ | org, 2020, 3 repos |
+
+The `<name>js` GitHub fallback is free for all eight names whose bare name is taken.
+
+Also fully npm-clean but weaker fits, kept as spares: `girandole` (revolving firework / branched
+candelabrum), `taffrail` (ship's stern rail), `travisher` (chairmaker's curved shave).
+
+Dead this round — package free but scope taken: `epicycle`, `fairlead`, `ferrule`, `finial`, `froe`,
+`lucet`, `tailrace`, `teetotum`. Package taken: `gnomon`, `trammel`, `pantograph`, `clepsydra`,
+`binnacle`, `bobbin`, `capstan`, `deadeye`, `deckle`, `burin`, `flywheel`, `gimbal`, `leat`,
+`marlinspike`, `millrace`, `newel`, `oriel`, `penstock`, `quire`, `sluice`, `swage`, `transom`,
+`whirligig`, `windlass`.
