@@ -61,6 +61,8 @@ export type DialogueBoxOptions = {
 
 const SELECTED_PREFIX = '▶ ';
 const UNSELECTED_PREFIX = '  ';
+// Inner padding of a choice button; #getChoicesHeight budgets against it.
+const CHOICE_PADDING = 1;
 
 /**
  * The dialogue display widget in the Modal idiom: a flat class owning a view,
@@ -81,6 +83,9 @@ export class DialogueBox implements UiParent {
   /** TBD */
   #box: Panel | null = null;
 
+  /** The bar's current height: the authored height, grown to fit the content. */
+  #boxHeight = 0;
+
   /** TBD */
   #breaks: number[] = [];
 
@@ -89,6 +94,9 @@ export class DialogueBox implements UiParent {
 
   /** TBD */
   #choiceLabels: Text[] = [];
+
+  /** Wrap width for a choice label: the text column inside the button's padding. */
+  #choiceLabelWidth = 1;
 
   /** TBD */
   #choicesPanel: Panel | null = null;
@@ -128,6 +136,9 @@ export class DialogueBox implements UiParent {
 
   /** TBD */
   #revealedCount = 0;
+
+  /** TBD */
+  #screenHeight = 0;
 
   /** TBD */
   #screenWidth = 0;
@@ -248,14 +259,21 @@ export class DialogueBox implements UiParent {
    */
   resize(width: number, height: number): void {
     this.#screenWidth = width;
-    this.view.position.set(
-      this.#metrics.margin,
-      height - this.#metrics.height - this.#metrics.margin,
-    );
+    this.#screenHeight = height;
 
-    if (this.#node !== null) {
-      this.#rebuild();
+    if (this.#node === null) {
+      // Nothing to measure yet, so the bar sits at its authored height; the
+      // rebuild repositions it once a node arrives.
+      this.#boxHeight = this.#metrics.height;
+      this.view.position.set(
+        this.#metrics.margin,
+        height - this.#metrics.height - this.#metrics.margin,
+      );
+
+      return;
     }
+
+    this.#rebuild();
   }
 
   /** Per-frame call; mutates only on an actual change. */
@@ -269,7 +287,11 @@ export class DialogueBox implements UiParent {
   setChoices(texts: string[], selectedIndex: number): void {
     this.#choiceTexts = [...texts];
     this.#selectedIndex = selectedIndex;
-    this.#buildChoices();
+    // A full rebuild, not just #buildChoices: the choice column is extra
+    // content, so the bar has to grow to fit it. The line budget does not
+    // depend on the choice count, so the breaks the owner already pushed to
+    // the runner come back identical.
+    this.#rebuild();
   }
 
   /** Per-frame call; mutates only on an actual change. */
@@ -324,7 +346,7 @@ export class DialogueBox implements UiParent {
     for (let [index, label] of this.#choiceLabels.entries()) {
       let prefix = index === this.#selectedIndex ? SELECTED_PREFIX : UNSELECTED_PREFIX;
 
-      label.setText(prefix + (this.#choiceTexts[index] ?? ''));
+      label.setText(this.#wrapChoice(index, prefix));
     }
 
     // Focus follows the selection (programmatic, no ring), so hover, W/S and
@@ -349,9 +371,11 @@ export class DialogueBox implements UiParent {
 
     this.#choiceLabels = [];
 
-    let buttons = this.#choiceTexts.map((text, index) => {
+    let buttons = [...this.#choiceTexts.keys()].map((index) => {
       let label = new Text({
-        text: UNSELECTED_PREFIX + text,
+        // #applySelected overwrites this a few lines down; wrapping here keeps
+        // the label from ever existing at its unwrapped width.
+        text: this.#wrapChoice(index, UNSELECTED_PREFIX),
         fontFamily: this.#font.fontFamily,
         fontSize: this.#font.fontSize,
         fill: this.#font.fill,
@@ -367,7 +391,7 @@ export class DialogueBox implements UiParent {
           this.#onChooseTap(index);
         },
         layout: {
-          padding: 1,
+          padding: CHOICE_PADDING,
           minHeight: this.#metrics.choiceMinHeight,
           justifyContent: 'flex-start',
         },
@@ -393,8 +417,9 @@ export class DialogueBox implements UiParent {
 
   /** TBD */
   #buildPanels(node: DialogueBoxNode, boxWidth: number, textPanelWidth: number): void {
-    let {padding, gap, height, portraitSize} = this.#metrics;
+    let {padding, gap, portraitSize} = this.#metrics;
     let font = this.#font;
+    let height = this.#boxHeight;
 
     this.#box?.destroy();
     this.#choicesPanel = null;
@@ -494,6 +519,34 @@ export class DialogueBox implements UiParent {
     this.view.addChild(this.#marker);
   }
 
+  /** The natural height of the choice column, 0 when the node offers no choices. */
+  #getChoicesHeight(): number {
+    let count = this.#choiceTexts.length;
+
+    if (count === 0) {
+      return 0;
+    }
+
+    let {choiceMinHeight, choiceGap} = this.#metrics;
+    let total = (count - 1) * choiceGap;
+
+    for (let index of this.#choiceTexts.keys()) {
+      // The selected and unselected prefixes are the same width in a
+      // monospaced font, but budgeting the taller of the two means a font that
+      // breaks that assumption costs a spare line rather than an overlap.
+      let lines = Math.max(
+        this.#wrapChoice(index, SELECTED_PREFIX).split('\n').length,
+        this.#wrapChoice(index, UNSELECTED_PREFIX).split('\n').length,
+      );
+
+      // The button box model #buildChoices asks for: the label's lines plus the
+      // button's own padding, floored by the tap-target minimum.
+      total += Math.max(choiceMinHeight, lines * this.#font.fontSize + 2 * CHOICE_PADDING);
+    }
+
+    return total;
+  }
+
   /** TBD */
   #rebuild(): void {
     let node = this.#node;
@@ -512,6 +565,9 @@ export class DialogueBox implements UiParent {
     let textWidth = Math.max(1, textPanelWidth - 2 * padding);
 
     this.#wrapped = wrapText(node.page, textWidth, this.#measure);
+    // A choice label wraps inside the button, which sits in the same column as
+    // the page text and adds its own padding.
+    this.#choiceLabelWidth = Math.max(1, textWidth - 2 * CHOICE_PADDING);
 
     // Window the wrapped lines into the panel's line budget; the offset just
     // after the newline ending each full window becomes a runner break (the
@@ -536,11 +592,43 @@ export class DialogueBox implements UiParent {
       }
     }
 
+    // The authored height budgets the header and the windowed text; a node's
+    // choices stack UNDER them, so the bar grows upward to fit rather than
+    // overflowing. Overflow here is not clipping: yoga shrinks the children to
+    // fit the fixed height, and a Text leaf renders at native glyph size
+    // (objectFit 'none'), so a shrunk text box spills its lines over the first
+    // choice button while the last button lands off the bottom of the screen.
+    let choicesHeight = this.#getChoicesHeight();
+
+    this.#boxHeight = Math.max(
+      height,
+      2 * padding +
+        (hasHeader ? lineHeight + gap : 0) +
+        lineBudget * lineHeight +
+        (choicesHeight === 0 ? 0 : gap + choicesHeight),
+    );
+
+    this.view.position.set(margin, this.#screenHeight - this.#boxHeight - margin);
+
     this.#buildPanels(node, boxWidth, textPanelWidth);
     this.#applyRevealed();
 
     if (this.#choiceTexts.length > 0) {
       this.#buildChoices();
     }
+  }
+
+  /**
+   * A choice label wrapped to the button's inner width. Long choices wrap onto
+   * another line instead of running past the edge of the bar: like the page
+   * text, a label is an objectFit:'none' leaf, so yoga narrowing its box would
+   * not narrow the glyphs.
+   */
+  #wrapChoice(index: number, prefix: string): string {
+    return wrapText(
+      prefix + (this.#choiceTexts[index] ?? ''),
+      this.#choiceLabelWidth,
+      this.#measure,
+    );
   }
 }
