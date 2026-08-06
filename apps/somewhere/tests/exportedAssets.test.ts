@@ -46,7 +46,7 @@ describe('exported assets', () => {
   ])('public/%s parses with the runtime Spriteset schema', (fileName) => {
     let spriteset = spritesetSchema.parse(readJson(`../public/${fileName}`));
 
-    expect(spriteset.image).toBe(true);
+    expect(spriteset.image).toBe(fileName.replace(/\.json$/, '.png'));
   });
 
   test("public/character.json's spin animation kept its migrated frames, speed, and one-shot loop", () => {
