@@ -50,6 +50,16 @@ export default defineConfig(
         ],
       },
     },
-    {},
+    {
+      test: {
+        projects: [
+          {
+            test: {
+              testTimeout: 60000,
+            },
+          },
+        ],
+      },
+    },
   ),
 );

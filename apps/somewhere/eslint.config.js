@@ -126,4 +126,12 @@ export default [
       ],
     },
   },
+  {
+    files: ['tools/**/*.ts'],
+    languageOptions: {
+      parserOptions: {
+        project: 'tools/tsconfig.json',
+      },
+    },
+  },
 ];

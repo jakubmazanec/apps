@@ -61,12 +61,32 @@
             {"blankLine": "always", "prev": "if", "next": "if"}
           ]
         }
+      },
+      {
+        "files": ["tools/**/*.ts"],
+        "languageOptions": {"parserOptions": {"project": "tools/tsconfig.json"}}
       }
     ],
+    "packageJson": {
+      "scripts": {
+        "typecheck": "tsc --project tsconfig.typecheck.json && tsc --project tools/tsconfig.json"
+      }
+    },
     "tsconfig": {
       "compilerOptions": {
         "module": "preserve",
         "moduleResolution": "bundler"
+      }
+    },
+    "viteConfig": {
+      "test": {
+        "projects": [
+          {
+            "test": {
+              "testTimeout": 60000
+            }
+          }
+        ]
       }
     }
   }

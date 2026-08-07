@@ -23,9 +23,11 @@ function flippedTile(
   };
 }
 
-// Three-frame animation at the engine's 0.15 animation speed: a deltaTime of 7
-// advances 7 * 0.15 = 1.05 — exactly one frame per update() call.
+// Three-frame animation at 100 ms per frame. Pixi converts a ticker delta to
+// milliseconds as `animationSpeed * deltaTime / 60 * 1000`, so at the default
+// animationSpeed of 1 a deltaTime of 6 is exactly one frame.
 const FRAMES = [pixi.Texture.WHITE, pixi.Texture.WHITE, pixi.Texture.WHITE];
+const FRAME_DURATIONS = [100, 100, 100];
 
 function tick(deltaTime: number): pixi.Ticker {
   return {deltaTime} as unknown as pixi.Ticker;
@@ -42,7 +44,7 @@ function stubAssets() {
     rowCount: 2,
     tiles: [
       {id: toTileId(0), textures: [pixi.Texture.WHITE], collisionBoxes: []},
-      {id: toTileId(1), textures: FRAMES, collisionBoxes: []},
+      {id: toTileId(1), textures: FRAMES, frameDurations: FRAME_DURATIONS, collisionBoxes: []},
     ],
   });
   let tilemap = new Tilemap({
@@ -124,7 +126,7 @@ describe(Map, () => {
     expect(staticTile).not.toBeInstanceOf(pixi.AnimatedSprite);
   });
 
-  test('update() advances animated tiles; without it they hold, then resume', () => {
+  test('update() advances animated tiles on their authored durations', () => {
     stubAssets();
 
     let map = new Map({assetName: 'map'});
@@ -132,15 +134,25 @@ describe(Map, () => {
 
     expect(animated.currentFrame).toBe(0);
 
-    map.update(tick(7));
+    // 6 deltaTime = 100 ms = exactly one authored frame.
+    map.update(tick(6));
 
     expect(animated.currentFrame).toBe(1);
 
     // Holds between driven updates; the next driven update resumes from the
     // held frame.
-    map.update(tick(7));
+    map.update(tick(6));
 
     expect(animated.currentFrame).toBe(2);
+  });
+
+  test('the engine does not scale authored durations by an animationSpeed', () => {
+    stubAssets();
+
+    let map = new Map({assetName: 'map'});
+    let animated = map.layers[0]!.tiles[0]![1]!.view.children[0] as pixi.AnimatedSprite;
+
+    expect(animated.animationSpeed).toBe(1);
   });
 });
 
