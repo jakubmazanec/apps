@@ -1,0 +1,28 @@
+{
+  "tilesets": [
+    {
+      "name": "tileset",
+      "source": "assets/tileset.tsx",
+      "image": "assets/tileset.png",
+      "output": "public/tileset.json",
+      "outputImage": "public/tileset.png",
+      "solidAlphaThreshold": 255,
+      "collision": {
+        "default": "bbox"
+      },
+      "animations": {
+        "minimumFrameDifference": 0.7,
+        "regions": [
+          {"start": 353, "frames": 6, "duration": 150},
+          {"start": 417, "frames": 6, "duration": 150},
+          {"start": 481, "frames": 6, "duration": 150},
+          {"start": 545, "frames": 6, "duration": 150}
+        ]
+      }
+    }
+  ],
+  "analysis": {
+    "maps": ["assets/map.tmx"],
+    "collisionLayerClasses": ["entities"]
+  }
+}

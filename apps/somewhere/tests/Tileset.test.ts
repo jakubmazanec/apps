@@ -101,6 +101,15 @@ describe('Tileset.from', () => {
     expect(tileset.getTile(1).textures).toHaveLength(2);
   });
 
+  test('an animated tile keeps its per-frame durations; a static tile has none', async () => {
+    stubImage();
+
+    let tileset = await Tileset.from(createTiledTileset());
+
+    expect(tileset.getTile(1).frameDurations).toStrictEqual([100, 100]);
+    expect(tileset.getTile(0).frameDurations).toBeUndefined();
+  });
+
   test('every collision rectangle is collected; tiles without an objectgroup get an empty array', async () => {
     stubImage();
 

@@ -90,10 +90,18 @@ export class Map {
           } else {
             // Off Pixi's shared clock: mapSystem drives these via map.update()
             // on the world's update path, so a paused world freezes them by
-            // construction (game UI design §3).
-            let animatedSprite = new pixi.AnimatedSprite(tilesetTile.textures, false);
-
-            animatedSprite.animationSpeed = 0.15;
+            // construction (game UI design §3). animationSpeed is deliberately
+            // left at 1: Pixi scales the duration path by it
+            // (`lag += animationSpeed * deltaTime / 60 * 1e3`), so any other
+            // value would play every authored duration at the wrong rate.
+            let frames =
+              tilesetTile.frameDurations ?
+                tilesetTile.textures.map((texture, frameIndex) => ({
+                  texture,
+                  time: tilesetTile.frameDurations![frameIndex]!,
+                }))
+              : tilesetTile.textures;
+            let animatedSprite = new pixi.AnimatedSprite(frames, false);
 
             animatedSprite.play();
 

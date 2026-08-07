@@ -7,6 +7,7 @@ import {type TileId, toTileId} from './TileId.js';
 export type TilesetTile = {
   id: TileId;
   textures: Texture[];
+  frameDurations?: number[]; // parallel to textures; absent on static tiles
   collisionBoxes: Rectangle[]; // empty = no collision
 };
 
@@ -63,9 +64,12 @@ export class Tileset {
       };
     }
 
+    let frameDurations: Record<number, number[]> = {};
+
     for (let tiledTile of tiledTileset.tiles ?? []) {
       if (tiledTile.animation) {
         animations[tiledTile.id] = tiledTile.animation.map((animation) => `${animation.tileid}`);
+        frameDurations[tiledTile.id] = tiledTile.animation.map((animation) => animation.duration);
       }
     }
 
@@ -97,9 +101,14 @@ export class Tileset {
         collisionBoxes: [],
       };
       let textures = spritesheet.animations[i];
+      let durations = frameDurations[i];
 
       if (textures) {
         tile.textures = textures;
+      }
+
+      if (durations) {
+        tile.frameDurations = durations;
       }
 
       tiles.push(tile);

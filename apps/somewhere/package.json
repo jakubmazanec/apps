@@ -21,8 +21,9 @@
     "format": "prettier . --write --ignore-unknown",
     "lint": "eslint .",
     "start": "cross-env NODE_ENV=production PORT=5000 react-router-serve ./build/server/index.js",
+    "sync-tilesets": "tsx tools/sync-tilesets.ts",
     "test": "del-cli coverage && vitest run --coverage --passWithNoTests",
-    "typecheck": "tsc --project tsconfig.typecheck.json"
+    "typecheck": "tsc --project tsconfig.typecheck.json && tsc --project tools/tsconfig.json"
   },
   "dependencies": {
     "@jakubmazanec/ts-utils": "^3.0.18",
@@ -54,6 +55,7 @@
     "del-cli": "^7.0.0",
     "eslint": "^9.39.5",
     "fast-png": "^8.0.0",
+    "fast-xml-parser": "^5.10.1",
     "playwright": "^1.60.0",
     "prettier": "^3.9.6",
     "prettier-plugin-packagejson": "^2.5.22",
