@@ -6,7 +6,7 @@
   "overrides": {
     "viteConfig": {
       "build": {
-        "target": "ES2022"
+        "target": "es2022"
       }
     },
     "eslintConfig": [
