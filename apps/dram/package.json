@@ -51,7 +51,7 @@
     "@vitest/coverage-v8": "^4.1.10",
     "del-cli": "^7.0.0",
     "eslint": "^9.39.5",
-    "fs-extra": "^11.3.6",
+    "fs-extra": "^11.4.0",
     "p-map": "^7.0.6",
     "prettier": "^3.9.6",
     "prettier-plugin-packagejson": "^2.5.22",
