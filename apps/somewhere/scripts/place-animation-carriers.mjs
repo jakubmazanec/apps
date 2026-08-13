@@ -22,7 +22,7 @@ const CARRIERS = [
 function patchTmx(text) {
   let newline = text.includes('\r\n') ? '\r\n' : '\n';
 
-  return text.replace(/<layer\b([^>]*)>([\s\S]*?)<\/layer>/gu, (whole, attributes, body) => {
+  return text.replaceAll(/<layer\b([^>]*)>([\s\S]*?)<\/layer>/gu, (whole, attributes, body) => {
     let name = /name="([^"]*)"/u.exec(attributes)?.[1];
     let data = new RegExp(`<data encoding="csv">${newline}([\\s\\S]*?)${newline}</data>`, 'u').exec(
       body,

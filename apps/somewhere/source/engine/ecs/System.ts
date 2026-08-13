@@ -115,7 +115,8 @@ export class System<
     }
 
     this.#world = world;
-    // symmetric with `detach`: `onAttach` fires with `world.entities` populated but `system.entities` not yet synced in
+    // symmetric with `detach`: `onAttach` fires with `world.entities` populated but
+    // `system.entities` not yet synced in
     this.#onAttach?.(this, this.#world);
   }
 
@@ -125,8 +126,11 @@ export class System<
       throw new Error('System is not attached to a world!');
     }
 
-    // events "hug" the state of the thing they belong to, i.e. starting events run after something is done, and ending events run before something is done
-    // concretely `onDetach` fires with the world still attached and `world.entities` populated, but `system.entities` already drained — per-entity teardown belongs in `onRemoveEntity`. `World.stop` removes systems before entities so this holds there too, matching a standalone `removeSystem`. (M1)
+    // events "hug" the state of the thing they belong to, i.e. starting events run after something
+    // is done, and ending events run before something is done concretely `onDetach` fires with the
+    // world still attached and `world.entities` populated, but `system.entities` already drained —
+    // per-entity teardown belongs in `onRemoveEntity`. `World.stop` removes systems before entities
+    // so this holds there too, matching a standalone `removeSystem`. (M1)
     try {
       this.#onDetach?.(this, this.#world);
     } finally {

@@ -57,7 +57,8 @@ describe(defineDialogueScript, () => {
       nodes: {
         greeting: {
           text: 'hi',
-          // @ts-expect-error -- a dangling `next` errors at the offending literal, not on the valid nodes
+          // @ts-expect-error -- a dangling `next` errors at the offending literal, not on the
+          // valid nodes
           next: 'missing',
         },
       },
