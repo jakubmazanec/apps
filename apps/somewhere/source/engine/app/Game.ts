@@ -33,7 +33,7 @@ export class Game {
   /** Loading scree. */
   loadingScreen?: AnyGameScreen;
 
-  /** Integer  */
+  /** Integer representing how much is the rendering scaled up. */
   readonly pixelScale: number = getPixelScale(window.innerHeight * window.devicePixelRatio);
 
   /** Ref pointing to parent HTML element. */
