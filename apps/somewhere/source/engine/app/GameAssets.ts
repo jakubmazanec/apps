@@ -36,7 +36,8 @@ export type GameAssetsOptions<Bundles extends readonly GameAssetBundle[]> = {
 };
 
 /**
- * A process-lifetime class used as a singleton that handles all assets loading ansd is used for getting assets to their consumers.
+ * A process-lifetime class used as a singleton that handles all assets loading ansd is used for
+ * getting assets to their consumers.
  */
 export class GameAssets<
   const Bundles extends readonly GameAssetBundle[] = readonly GameAssetBundle[],

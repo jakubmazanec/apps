@@ -108,7 +108,8 @@ export const motionSystem = new System({
               let playerRight = playerX + boundingBox.width;
               let playerBottom = playerY + boundingBox.height;
 
-              // Strict overlap: touching edges don't count, so the player can slide flush along a wall.
+              // Strict overlap: touching edges don't count, so the player can slide flush along a
+              // wall.
               if (
                 playerRight > tileX &&
                 tileRight > playerX &&
@@ -155,7 +156,8 @@ export const motionSystem = new System({
               let playerRight = playerX + boundingBox.width;
               let playerBottom = playerY + boundingBox.height;
 
-              // Strict overlap: touching edges don't count, so the player can slide flush along a wall.
+              // Strict overlap: touching edges don't count, so the player can slide flush along a
+              // wall.
               if (
                 playerRight > tileX &&
                 tileRight > playerX &&

@@ -58,7 +58,10 @@ function isModifierDown(modifier: Modifier, codes: ReadonlySet<string>): boolean
 }
 
 export type InputBinding = {
-  /** `KeyboardEvent.code` values, each optionally prefixed with `Shift+`, `Ctrl+`, `Alt+` or `Meta+`. */
+  /**
+   * `KeyboardEvent.code` values, each optionally prefixed with `Shift+`, `Ctrl+`, `Alt+` or
+   * `Meta+`.
+   */
   keys?: string[];
 
   /** Bound to pixi `pointertap` on the attached view. */

@@ -10,7 +10,8 @@ export const meta: MetaFunction = () => [{title: 'Somewhere'}];
 export default function Index() {
   let [game, setGame] = useState<Game | undefined>(undefined);
 
-  // TODO: do better handling of the async game init() than this useEffect, which is too imperative and contains too much boilerlate
+  // TODO: do better handling of the async game init() than this useEffect, which is too imperative
+  // and contains too much boilerlate
   useEffect(() => {
     let controller = new AbortController();
 

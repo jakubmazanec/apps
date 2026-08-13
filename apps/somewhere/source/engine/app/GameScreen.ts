@@ -218,7 +218,8 @@ export class GameScreen<
     this.#state = 'shown';
 
     // Register scheduler teardown on the (per-hide) disposables stack; re-armed each show because
-    // hide() disposes and replaces the stack. A single dispose() then cancels in-flight tweens/timers.
+    // hide() disposes and replaces the stack. A single dispose() then cancels in-flight
+    // tweens/timers.
     this.#disposables.defer(() => this.scheduler.clear());
     await this.#onShow?.(this, this.game);
   }

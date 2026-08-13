@@ -43,7 +43,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@jakubmazanec/eslint-config": "^5.0.0",
+    "@jakubmazanec/eslint-config": "6.0.0-unstable.72f063e3",
     "@react-router/dev": "^8.3.0",
     "@tailwindcss/vite": "^4.3.3",
     "@types/lodash": "^4.17.24",

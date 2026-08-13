@@ -2,7 +2,8 @@ import {type UiTheme, type UiThemeDescription} from '../ui/UiTheme.js';
 import {type GameAssets} from './GameAssets.js';
 
 /**
- * A UI theme with a two-phase lifecycle: created from a description that only names atlas frames (safe to evaluate at module load), then resolved into textures once assets are loaded.
+ * A UI theme with a two-phase lifecycle: created from a description that only names atlas frames
+ * (safe to evaluate at module load), then resolved into textures once assets are loaded.
  */
 export class GameTheme {
   /** Description to resolve; released after resolution so it can be garbage collected. */
@@ -24,7 +25,10 @@ export class GameTheme {
     return this.#resolved;
   }
 
-  /** Resolves the description into textures. Used after the default bundle loads, so every frame named in the description must live in that bundle. */
+  /**
+   * Resolves the description into textures. Used after the default bundle loads, so every frame
+   * named in the description must live in that bundle.
+   */
   resolve(assets: GameAssets): this {
     if (this.#description === null) {
       throw new Error('Theme is already resolved!');

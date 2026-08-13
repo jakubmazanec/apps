@@ -36,7 +36,10 @@ export class EventChannel<const T extends Constructor<Event> = Constructor<Event
     }
   }
 
-  /** This frame's events — a stable snapshot for the whole frame (parallels `EntityQuery.entities`). */
+  /**
+   * This frame's events — a stable snapshot for the whole frame (parallels
+   * `EntityQuery.entities`).
+   */
   get events(): ReadonlyArray<InstanceType<T>> {
     return this.#currentEvents;
   }
@@ -70,7 +73,13 @@ export class EventChannel<const T extends Constructor<Event> = Constructor<Event
     this.#world = null;
   }
 
-  /** Push one or more events onto the channel. Becomes current (visible via `events`) next frame. Safe to call mid-update. Off-cycle pushes are batched into the next swap (readable the following frame), never dropped. The channel must be attached (`world.addEventChannel`): only attached channels get their `swap()` called, so a detached push would buffer — and leak — forever while consumers read an always-empty snapshot. */
+  /**
+   * Push one or more events onto the channel. Becomes current (visible via `events`) next frame.
+   * Safe to call mid-update. Off-cycle pushes are batched into the next swap (readable the
+   * following frame), never dropped. The channel must be attached (`world.addEventChannel`): only
+   * attached channels get their `swap()` called, so a detached push would buffer — and leak —
+   * forever while consumers read an always-empty snapshot.
+   */
   push(...events: Array<InstanceType<T>>): void {
     if (!this.#world) {
       let message = `Cannot push to the detached event channel "${this.displayName}" — events would never be delivered! Add it to a world with world.addEventChannel() first.`;

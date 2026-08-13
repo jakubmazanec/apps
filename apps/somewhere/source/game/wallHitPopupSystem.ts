@@ -30,14 +30,16 @@ export const wallHitPopupSystem = new System({
   components: [],
   displayName: 'Wall-hit popup spawner',
   onUpdate: (ticker, system, world) => {
-    // `WallHit` carries `{entity, tile, box}`: the map-space box that clipped the movement and the entity (the player) that hit it.
+    // `WallHit` carries `{entity, tile, box}`: the map-space box that clipped the movement and the
+    // entity (the player) that hit it.
     for (let {entity, box} of wallHitChannel.events) {
       // Gameplay SFX for the wall hit, alongside the popup this system already
       // spawns — no separate audio-bridge system. audioSystem plays it on `sfx`.
       playSoundChannel.push(new PlaySound({name: 'bump'}));
 
       // Spawn the spark where the player actually makes contact: the point on the hit collision
-      // box nearest the player's center (the player entity that hit the wall carries both components).
+      // box nearest the player's center (the player entity that hit the wall carries both
+      // components).
       let playerMotion = entity.getComponent(MotionComponent);
       let playerBox = entity.getComponent(GraphicsComponent).boundingBox;
       let playerCenterX = playerMotion.position.x + playerBox.x + playerBox.width / 2;
