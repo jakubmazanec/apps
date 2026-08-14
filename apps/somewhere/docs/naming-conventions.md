@@ -1,0 +1,8 @@
+# Examples
+
+```
+// BAD
+
+
+// GOOD
+```
