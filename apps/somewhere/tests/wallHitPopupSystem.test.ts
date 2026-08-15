@@ -1,11 +1,12 @@
 import * as pixi from 'pixi.js';
-import {afterEach, describe, expect, test} from 'vitest';
+import {afterEach, describe, expect, test, vitest} from 'vitest';
 
 import {Entity} from '../source/engine/ecs/Entity.js';
 import {World} from '../source/engine/ecs/World.js';
 import {Spriteset} from '../source/engine/graphics/Spriteset.js';
 import {type MapTile} from '../source/engine/tiled/Map.js';
 import {Vector} from '../source/engine/utilities/Vector.js';
+import {assets} from '../source/game/assets.js';
 import {playSoundChannel} from '../source/game/audio.js';
 import {GraphicsComponent} from '../source/game/GraphicsComponent.js';
 import {MotionComponent} from '../source/game/MotionComponent.js';
@@ -20,28 +21,32 @@ function tick(deltaTime: number): pixi.Ticker {
 
 describe('wallHitPopupSystem', () => {
   afterEach(() => {
-    pixi.Assets.cache.remove('spark');
-    pixi.Assets.cache.remove('character');
+    vitest.restoreAllMocks();
   });
 
   test('spawns a single-sprite, non-directional popup', () => {
     let t = () => pixi.Texture.WHITE;
+    let sparkSpriteset = new Spriteset({
+      textures: {},
+      animations: {spark: {textures: [t()], speed: 0.15, loop: true}},
+    });
+    let characterSpriteset = new Spriteset({
+      textures: {},
+      // eslint-disable-next-line @typescript-eslint/naming-convention -- kebab-case animation name from the spritesheet
+      animations: {'standing-down': {textures: [t()], speed: 0.15, loop: true}},
+    });
 
-    pixi.Assets.cache.set(
-      'spark',
-      new Spriteset({
-        textures: {},
-        animations: {spark: {textures: [t()], speed: 0.15, loop: true}},
-      }),
-    );
-    pixi.Assets.cache.set(
-      'character',
-      new Spriteset({
-        textures: {},
-        // eslint-disable-next-line @typescript-eslint/naming-convention -- kebab-case animation name from the spritesheet
-        animations: {'standing-down': {textures: [t()], speed: 0.15, loop: true}},
-      }),
-    );
+    vitest.spyOn(assets, 'spriteset').mockImplementation((name: string) => {
+      if (name === 'spark') {
+        return sparkSpriteset;
+      }
+
+      if (name === 'character') {
+        return characterSpriteset;
+      }
+
+      throw new Error(`Unknown spriteset: ${name}`);
+    });
 
     let player = new Entity({
       components: [

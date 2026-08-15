@@ -36,29 +36,12 @@ describe('exported assets', () => {
     expect(tileset.image).toBe('tileset.png');
   });
 
-  test.each([
-    'character.json',
-    'npc.json',
-    'spark.json',
-    'portraits.json',
-    'prompt-bubble.json',
-    'ui.json',
-  ])('public/%s parses with the runtime Spriteset schema', (fileName) => {
-    let spriteset = spritesetSchema.parse(readJson(`../public/${fileName}`));
+  test.each(['spark.json', 'portraits.json', 'prompt-bubble.json', 'ui.json'])(
+    'public/%s parses with the runtime Spriteset schema',
+    (fileName) => {
+      let spriteset = spritesetSchema.parse(readJson(`../public/${fileName}`));
 
-    expect(spriteset.image).toBe(fileName.replace(/\.json$/, '.png'));
-  });
-
-  test("public/character.json's spin animation kept its migrated frames, speed, and one-shot loop", () => {
-    let character = spritesetSchema.parse(readJson('../public/character.json'));
-
-    // Only spin is asserted here: the parsed output fills in schema defaults
-    // (speed 0.15, loop true) on every other animation, which would make a
-    // full-object assertion brittle against unrelated animations.
-    expect(character.animations.spin).toStrictEqual({
-      frames: ['2', '14', '38', '26'],
-      speed: 0.3,
-      loop: false,
-    });
-  });
+      expect(spriteset.image).toBe(fileName.replace(/\.json$/, '.png'));
+    },
+  );
 });

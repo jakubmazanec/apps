@@ -29,6 +29,17 @@ export const triggerSystem = new System({
 
     for (let entity of system.entities) {
       let trigger = entity.getComponent(TriggerComponent);
+      // A strolling NPC carries its talk zone: re-anchor the rect to the
+      // just-resolved position (this system runs right after motionSystem, so
+      // tracking is exact within the frame). Doors and zones have no
+      // MotionComponent and keep their authored rect.
+      let motion = entity.getComponent(MotionComponent);
+
+      if (motion !== undefined) {
+        trigger.rect.x = motion.position.x + trigger.rectOffsetX;
+        trigger.rect.y = motion.position.y + trigger.rectOffsetY;
+      }
+
       let isInside = doRectanglesOverlap(
         playerX,
         playerY,

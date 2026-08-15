@@ -7,6 +7,7 @@ import {World} from '../source/engine/ecs/World.js';
 import {Spriteset} from '../source/engine/graphics/Spriteset.js';
 import {type Map} from '../source/engine/tiled/Map.js';
 import {Vector} from '../source/engine/utilities/Vector.js';
+import {assets} from '../source/game/assets.js';
 import {camera} from '../source/game/camera.js';
 import {CameraComponent} from '../source/game/CameraComponent.js';
 import {cameraQuery} from '../source/game/cameraQuery.js';
@@ -180,38 +181,42 @@ describe(pickDirectionalSpriteName, () => {
 
 describe('graphicsSystem directional flag', () => {
   afterEach(() => {
-    pixi.Assets.cache.remove('character');
-    pixi.Assets.cache.remove('spark');
+    vitest.restoreAllMocks();
   });
 
   test('directional: false skips name selection but still positions the sprite', () => {
     let t = () => pixi.Texture.WHITE;
+    let characterSpriteset = new Spriteset({
+      textures: {},
+      animations: Object.fromEntries(
+        [
+          'standing-down',
+          'walking-down',
+          'standing-left',
+          'walking-left',
+          'standing-up',
+          'walking-up',
+          'standing-right',
+          'walking-right',
+        ].map((name) => [name, {textures: [t()], speed: 0.15, loop: true}]),
+      ),
+    });
+    let sparkSpriteset = new Spriteset({
+      textures: {},
+      animations: {spark: {textures: [t()], speed: 0.15, loop: true}},
+    });
 
-    pixi.Assets.cache.set(
-      'character',
-      new Spriteset({
-        textures: {},
-        animations: Object.fromEntries(
-          [
-            'standing-down',
-            'walking-down',
-            'standing-left',
-            'walking-left',
-            'standing-up',
-            'walking-up',
-            'standing-right',
-            'walking-right',
-          ].map((name) => [name, {textures: [t()], speed: 0.15, loop: true}]),
-        ),
-      }),
-    );
-    pixi.Assets.cache.set(
-      'spark',
-      new Spriteset({
-        textures: {},
-        animations: {spark: {textures: [t()], speed: 0.15, loop: true}},
-      }),
-    );
+    vitest.spyOn(assets, 'spriteset').mockImplementation((name: string) => {
+      if (name === 'character') {
+        return characterSpriteset;
+      }
+
+      if (name === 'spark') {
+        return sparkSpriteset;
+      }
+
+      throw new Error(`Unknown spriteset: ${name}`);
+    });
 
     let fakeMap = {
       view: {x: 0, y: 0},

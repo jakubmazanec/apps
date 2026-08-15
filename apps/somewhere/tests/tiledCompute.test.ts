@@ -25,7 +25,16 @@ beforeEach(() => {
   cpSync(join(realAppRoot, 'assets/tileset.png'), join(appRoot, 'assets/tileset.png'));
   cpSync(join(realAppRoot, 'public/tileset.json'), join(appRoot, 'public/tileset.json'));
   cpSync(join(realAppRoot, 'public/tileset.png'), join(appRoot, 'public/tileset.png'));
-  cpSync(join(realAppRoot, 'tilesets.config.json'), join(appRoot, 'tilesets.config.json'));
+
+  // Only the canonical tileset's files are materialized in this fixture, so
+  // the copied config is narrowed to that entry; tilesetArtifacts.test.ts
+  // covers the full committed config against the real app root.
+  let config = JSON.parse(readFileSync(join(realAppRoot, 'tilesets.config.json'), 'utf8')) as {
+    tilesets: Array<{name: string}>;
+  };
+
+  config.tilesets = config.tilesets.filter((tileset) => tileset.name === 'tileset');
+  writeFileSync(join(appRoot, 'tilesets.config.json'), `${JSON.stringify(config, null, 2)}\n`);
 });
 
 // eslint-disable-next-line vitest/require-top-level-describe -- global afterEach shared by all describe blocks

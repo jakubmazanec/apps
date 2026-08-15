@@ -4,6 +4,7 @@ import {afterEach, describe, expect, test, vitest} from 'vitest';
 import {Spriteset} from '../source/engine/graphics/Spriteset.js';
 import {type TilemapObject} from '../source/engine/tiled/Tilemap.js';
 import {assets} from '../source/game/assets.js';
+import {BehaviorComponent} from '../source/game/BehaviorComponent.js';
 import {MotionComponent} from '../source/game/MotionComponent.js';
 import {objectFactories} from '../source/game/objectFactories.js';
 import {playerPool} from '../source/game/playerPool.js';
@@ -131,6 +132,31 @@ describe('objectFactories', () => {
     expect(motion.velocity.y).toBe(0);
   });
 
+  test('npc uses the spriteset named by its sprite property', () => {
+    stubSpritesheetAssets();
+
+    objectFactories.npc!(
+      createObject({
+        id: 9,
+        name: 'mira',
+        type: 'npc',
+        properties: {dialogue: 'mira', sprite: 'mira'},
+      }),
+    );
+
+    expect(vitest.mocked(assets.spriteset)).toHaveBeenCalledWith('mira');
+  });
+
+  test('npc without a sprite property falls back to the generic npc character', () => {
+    stubSpritesheetAssets();
+
+    objectFactories.npc!(
+      createObject({id: 9, name: 'mira', type: 'npc', properties: {dialogue: 'mira'}}),
+    );
+
+    expect(vitest.mocked(assets.spriteset)).toHaveBeenCalledWith('npc');
+  });
+
   test('npc with a missing dialogue property throws in DEV (spawns inert in prod)', () => {
     stubSpritesheetAssets();
 
@@ -147,5 +173,106 @@ describe('objectFactories', () => {
         createObject({id: 9, name: 'mira', type: 'npc', properties: {dialogue: 'ghost'}}),
       ),
     ).toThrow(/unregistered/);
+  });
+
+  test('npc with stroll properties attaches a stroll behavior', () => {
+    stubSpritesheetAssets();
+    vitest.spyOn(Math, 'random').mockReturnValue(0.5);
+
+    let npc = objectFactories.npc!(
+      createObject({
+        id: 9,
+        name: 'mira',
+        type: 'npc',
+        x: 240,
+        y: 176,
+        width: 24,
+        height: 28,
+        properties: {dialogue: 'mira', 'stroll-x': 3, 'stroll-y': 0},
+      }),
+    );
+    let {behavior} = npc.getComponent(BehaviorComponent);
+    let {position} = npc.getComponent(MotionComponent);
+
+    expect(behavior.type).toBe('stroll');
+    expect(behavior.goal).toBe('destination');
+    expect(behavior.phase).toBe('waiting');
+    // Home is the spawn position by value, not the same (mutating) vector.
+    expect(behavior.home).not.toBe(position);
+    expect(behavior.home.x).toBe(244);
+    expect(behavior.home.y).toBe(180);
+    // Destination = home + (3, 0) tiles × 16 px.
+    expect(behavior.destination.x).toBe(292);
+    expect(behavior.destination.y).toBe(180);
+    expect(behavior.waitRemaining).toBe(5500); // 3000 + 0.5 × 5000
+  });
+
+  test('npc without stroll properties stays static: no BehaviorComponent', () => {
+    stubSpritesheetAssets();
+
+    let npc = objectFactories.npc!(
+      createObject({id: 9, name: 'mira', type: 'npc', properties: {dialogue: 'mira'}}),
+    );
+
+    expect(npc.hasComponent(BehaviorComponent)).toBe(false);
+  });
+
+  test('npc with only one stroll property throws in DEV (static in prod)', () => {
+    stubSpritesheetAssets();
+
+    expect(() =>
+      objectFactories.npc!(
+        createObject({
+          id: 9,
+          name: 'mira',
+          type: 'npc',
+          properties: {dialogue: 'mira', 'stroll-x': 3},
+        }),
+      ),
+    ).toThrow(/stroll/);
+  });
+
+  test('npc with a non-numeric stroll property throws in DEV', () => {
+    stubSpritesheetAssets();
+
+    expect(() =>
+      objectFactories.npc!(
+        createObject({
+          id: 9,
+          name: 'mira',
+          type: 'npc',
+          properties: {dialogue: 'mira', 'stroll-x': '3', 'stroll-y': 0},
+        }),
+      ),
+    ).toThrow(/stroll/);
+  });
+
+  test('npc records the rect offset from the entity position', () => {
+    stubSpritesheetAssets();
+
+    let npc = objectFactories.npc!(
+      createObject({
+        id: 9,
+        name: 'mira',
+        type: 'npc',
+        x: 240,
+        y: 176,
+        width: 24,
+        height: 28,
+        properties: {dialogue: 'mira'},
+      }),
+    );
+    let trigger = npc.getComponent(TriggerComponent);
+
+    // Authored rect (240, 176) minus entity position (244, 180).
+    expect(trigger.rectOffsetX).toBe(-4);
+    expect(trigger.rectOffsetY).toBe(-4);
+  });
+
+  test('door triggers default the rect offsets to zero', () => {
+    let door = objectFactories.door!(createObject({id: 7, type: 'door', x: 176, y: 176}));
+
+    expect(door.getComponent(TriggerComponent).rectOffsetX).toBe(0);
+    expect(door.getComponent(TriggerComponent).rectOffsetY).toBe(0);
   });
 });

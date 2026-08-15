@@ -13,12 +13,533 @@
       "animations": {
         "minimumFrameDifference": 0.7,
         "regions": [
-          {"start": 353, "frames": 6, "duration": 150},
-          {"start": 417, "frames": 6, "duration": 150},
-          {"start": 481, "frames": 6, "duration": 150},
-          {"start": 545, "frames": 6, "duration": 150}
+          {
+            "start": 353,
+            "frames": 6,
+            "duration": 150
+          },
+          {
+            "start": 417,
+            "frames": 6,
+            "duration": 150
+          },
+          {
+            "start": 481,
+            "frames": 6,
+            "duration": 150
+          },
+          {
+            "start": 545,
+            "frames": 6,
+            "duration": 150
+          }
         ]
       }
+    },
+    {
+      "name": "interior-tileset",
+      "source": "assets/interior-tileset.tsx",
+      "image": "assets/interior-tileset.png",
+      "output": "public/interior-tileset.json",
+      "outputImage": "public/interior-tileset.png",
+      "animations": {
+        "regions": [
+          {
+            "start": 9,
+            "frames": 7,
+            "duration": 150
+          },
+          {
+            "start": 19,
+            "frames": 3,
+            "duration": 150
+          },
+          {
+            "start": 57,
+            "frames": 5,
+            "duration": 150
+          },
+          {
+            "start": 108,
+            "frames": 3,
+            "duration": 150
+          },
+          {
+            "start": 164,
+            "frames": 3,
+            "duration": 150
+          },
+          {
+            "start": 195,
+            "frames": 3,
+            "duration": 150
+          },
+          {
+            "start": 248,
+            "frames": 3,
+            "duration": 150
+          },
+          {
+            "start": 315,
+            "frames": 3,
+            "duration": 150
+          },
+          {
+            "start": 320,
+            "frames": 3,
+            "duration": 150
+          },
+          {
+            "start": 356,
+            "frames": 3,
+            "duration": 150
+          },
+          {
+            "start": 404,
+            "frames": 3,
+            "duration": 150
+          },
+          {
+            "start": 460,
+            "frames": 3,
+            "duration": 150
+          },
+          {
+            "start": 492,
+            "frames": 5,
+            "duration": 150
+          },
+          {
+            "start": 497,
+            "frames": 3,
+            "duration": 150
+          },
+          {
+            "start": 507,
+            "frames": 3,
+            "duration": 150
+          },
+          {
+            "start": 598,
+            "frames": 3,
+            "duration": 150
+          },
+          {
+            "start": 601,
+            "frames": 3,
+            "duration": 150
+          },
+          {
+            "start": 642,
+            "frames": 3,
+            "duration": 150
+          },
+          {
+            "start": 696,
+            "frames": 3,
+            "duration": 150
+          },
+          {
+            "start": 699,
+            "frames": 5,
+            "duration": 150
+          },
+          {
+            "start": 735,
+            "frames": 3,
+            "duration": 150
+          }
+        ]
+      }
+    },
+    {
+      "name": "exterior-tileset",
+      "source": "assets/exterior-tileset.tsx",
+      "image": "assets/extracted/exterior-pack-full-version/atlas.png",
+      "output": "public/exterior-tileset.json",
+      "outputImage": "public/exterior-tileset.png",
+      "animations": {
+        "regions": [
+          {
+            "start": 59,
+            "frames": 3,
+            "duration": 150
+          },
+          {
+            "start": 149,
+            "frames": 3,
+            "duration": 150
+          },
+          {
+            "start": 173,
+            "frames": 3,
+            "duration": 150
+          },
+          {
+            "start": 217,
+            "frames": 3,
+            "duration": 150
+          },
+          {
+            "start": 265,
+            "frames": 5,
+            "duration": 150
+          },
+          {
+            "start": 315,
+            "frames": 4,
+            "duration": 150
+          },
+          {
+            "start": 345,
+            "frames": 3,
+            "duration": 150
+          },
+          {
+            "start": 355,
+            "frames": 3,
+            "duration": 150
+          },
+          {
+            "start": 389,
+            "frames": 3,
+            "duration": 150
+          },
+          {
+            "start": 402,
+            "frames": 6,
+            "duration": 150
+          },
+          {
+            "start": 437,
+            "frames": 3,
+            "duration": 150
+          },
+          {
+            "start": 450,
+            "frames": 6,
+            "duration": 150
+          },
+          {
+            "start": 461,
+            "frames": 3,
+            "duration": 150
+          },
+          {
+            "start": 483,
+            "frames": 4,
+            "duration": 150
+          },
+          {
+            "start": 501,
+            "frames": 3,
+            "duration": 150
+          },
+          {
+            "start": 597,
+            "frames": 3,
+            "duration": 150
+          },
+          {
+            "start": 645,
+            "frames": 3,
+            "duration": 150
+          },
+          {
+            "start": 693,
+            "frames": 3,
+            "duration": 150
+          },
+          {
+            "start": 732,
+            "frames": 4,
+            "duration": 150
+          },
+          {
+            "start": 880,
+            "frames": 3,
+            "duration": 150
+          },
+          {
+            "start": 928,
+            "frames": 3,
+            "duration": 150
+          },
+          {
+            "start": 976,
+            "frames": 3,
+            "duration": 150
+          },
+          {
+            "start": 980,
+            "frames": 3,
+            "duration": 150
+          },
+          {
+            "start": 1073,
+            "frames": 3,
+            "duration": 150
+          },
+          {
+            "start": 1169,
+            "frames": 3,
+            "duration": 150
+          },
+          {
+            "start": 1465,
+            "frames": 4,
+            "duration": 150
+          },
+          {
+            "start": 1513,
+            "frames": 4,
+            "duration": 150
+          }
+        ]
+      }
+    },
+    {
+      "name": "exterior-odyssey-tileset",
+      "source": "assets/exterior-odyssey-tileset.tsx",
+      "image": "assets/extracted/super-retro-odyssey-exterior-pack-week4/atlas_16x.png",
+      "output": "public/exterior-odyssey-tileset.json",
+      "outputImage": "public/exterior-odyssey-tileset.png",
+      "animations": {
+        "regions": [
+          {
+            "start": 50,
+            "frames": 4,
+            "duration": 150
+          },
+          {
+            "start": 59,
+            "frames": 3,
+            "duration": 150
+          },
+          {
+            "start": 64,
+            "frames": 6,
+            "duration": 150
+          },
+          {
+            "start": 72,
+            "frames": 6,
+            "duration": 150
+          },
+          {
+            "start": 98,
+            "frames": 4,
+            "duration": 150
+          },
+          {
+            "start": 116,
+            "frames": 4,
+            "duration": 150
+          },
+          {
+            "start": 124,
+            "frames": 4,
+            "duration": 150
+          },
+          {
+            "start": 164,
+            "frames": 4,
+            "duration": 150
+          },
+          {
+            "start": 172,
+            "frames": 4,
+            "duration": 150
+          },
+          {
+            "start": 291,
+            "frames": 3,
+            "duration": 150
+          },
+          {
+            "start": 339,
+            "frames": 5,
+            "duration": 150
+          },
+          {
+            "start": 387,
+            "frames": 4,
+            "duration": 150
+          },
+          {
+            "start": 435,
+            "frames": 3,
+            "duration": 150
+          },
+          {
+            "start": 441,
+            "frames": 3,
+            "duration": 150
+          },
+          {
+            "start": 533,
+            "frames": 3,
+            "duration": 150
+          },
+          {
+            "start": 580,
+            "frames": 4,
+            "duration": 150
+          },
+          {
+            "start": 627,
+            "frames": 5,
+            "duration": 150
+          },
+          {
+            "start": 672,
+            "frames": 3,
+            "duration": 150
+          },
+          {
+            "start": 676,
+            "frames": 4,
+            "duration": 150
+          },
+          {
+            "start": 690,
+            "frames": 3,
+            "duration": 150
+          },
+          {
+            "start": 698,
+            "frames": 3,
+            "duration": 150
+          },
+          {
+            "start": 713,
+            "frames": 3,
+            "duration": 150
+          },
+          {
+            "start": 724,
+            "frames": 3,
+            "duration": 150
+          },
+          {
+            "start": 738,
+            "frames": 3,
+            "duration": 150
+          },
+          {
+            "start": 828,
+            "frames": 3,
+            "duration": 150
+          },
+          {
+            "start": 835,
+            "frames": 3,
+            "duration": 150
+          },
+          {
+            "start": 838,
+            "frames": 3,
+            "duration": 150
+          },
+          {
+            "start": 886,
+            "frames": 4,
+            "duration": 150
+          },
+          {
+            "start": 890,
+            "frames": 3,
+            "duration": 150
+          },
+          {
+            "start": 928,
+            "frames": 3,
+            "duration": 150
+          },
+          {
+            "start": 1010,
+            "frames": 5,
+            "duration": 150
+          },
+          {
+            "start": 1036,
+            "frames": 4,
+            "duration": 150
+          },
+          {
+            "start": 1056,
+            "frames": 3,
+            "duration": 150
+          },
+          {
+            "start": 1080,
+            "frames": 3,
+            "duration": 150
+          },
+          {
+            "start": 1155,
+            "frames": 3,
+            "duration": 150
+          },
+          {
+            "start": 1159,
+            "frames": 7,
+            "duration": 150
+          },
+          {
+            "start": 1180,
+            "frames": 3,
+            "duration": 150
+          },
+          {
+            "start": 1203,
+            "frames": 4,
+            "duration": 150
+          },
+          {
+            "start": 1220,
+            "frames": 3,
+            "duration": 150
+          },
+          {
+            "start": 1257,
+            "frames": 6,
+            "duration": 150
+          },
+          {
+            "start": 1267,
+            "frames": 4,
+            "duration": 150
+          },
+          {
+            "start": 1352,
+            "frames": 3,
+            "duration": 150
+          },
+          {
+            "start": 1404,
+            "frames": 3,
+            "duration": 150
+          },
+          {
+            "start": 1410,
+            "frames": 3,
+            "duration": 150
+          },
+          {
+            "start": 1448,
+            "frames": 3,
+            "duration": 150
+          }
+        ]
+      }
+    },
+    {
+      "name": "character-tileset",
+      "source": "assets/character-tileset.tsx",
+      "image": "assets/character-tileset.png",
+      "output": "public/character-tileset.json",
+      "outputImage": "public/character-tileset.png"
     }
   ],
   "analysis": {

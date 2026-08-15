@@ -62,6 +62,54 @@ function createWorld(playerAt: {x: number; y: number}, rect: pixi.Rectangle) {
   return {world, motion, player, trigger};
 }
 
+// An NPC-shaped trigger: rect authored at (240, 176, 24, 28), entity position
+// (244, 180) — the real Mira numbers, so offsets are (−4, −4).
+function createNpcWorld() {
+  let playerMotion = new MotionComponent({
+    position: new Vector(0, 0),
+    velocity: new Vector(0, 0),
+  });
+  let player = new Entity({
+    components: [
+      new PlayerComponent({name: 'Test'}),
+      playerMotion,
+      stubComponent(GraphicsComponent, {boundingBox: {x: 0, y: 0, width: 8, height: 8}}),
+    ],
+  });
+  let npcMotion = new MotionComponent({
+    position: new Vector(244, 180),
+    velocity: new Vector(0, 0),
+  });
+  let npc = new Entity({
+    components: [
+      new TriggerComponent({
+        id: 5,
+        name: 'mira',
+        type: 'npc',
+        rect: new pixi.Rectangle(240, 176, 24, 28),
+        properties: {},
+        rectOffsetX: -4,
+        rectOffsetY: -4,
+      }),
+      npcMotion,
+    ],
+  });
+  let world = new World({
+    onStart: (w) => {
+      w.addEventChannel(triggerEnterChannel)
+        .addEventChannel(triggerExitChannel)
+        .addEntityQuery(playersQuery)
+        .addSystem(triggerSystem)
+        .addEntity(player)
+        .addEntity(npc);
+    },
+  });
+
+  activeWorld = world;
+
+  return {world, playerMotion, npcMotion, trigger: npc.getComponent(TriggerComponent)};
+}
+
 describe('triggerSystem', () => {
   afterEach(() => {
     activeWorld?.stop();
@@ -137,5 +185,39 @@ describe('triggerSystem', () => {
     world.update(tick());
 
     expect(triggerEnterChannel.events).toHaveLength(1);
+  });
+
+  test('the rect tracks a moved NPC via its offsets', () => {
+    let {world, npcMotion, trigger} = createNpcWorld();
+
+    world.start();
+    npcMotion.position.set(292, 180); // strolled 3 tiles east
+    world.update(tick());
+
+    expect(trigger.rect.x).toBe(288); // 292 − 4
+    expect(trigger.rect.y).toBe(176); // 180 − 4
+    expect(trigger.rect.width).toBe(24); // size untouched
+    expect(trigger.rect.height).toBe(28);
+  });
+
+  test('the moved talk zone is what enter fires against', () => {
+    let {world, npcMotion} = createNpcWorld();
+
+    world.start();
+    world.update(tick()); // seeds: outside
+
+    npcMotion.position.set(4, 4); // rect re-anchors to (0, 0): onto the player
+    world.update(tick());
+
+    expect(triggerEnterChannel.events).toHaveLength(1);
+  });
+
+  test('a motionless trigger keeps its authored rect', () => {
+    let {world, trigger} = createWorld({x: 0, y: 0}, new pixi.Rectangle(16, 0, 16, 16));
+
+    world.start();
+    world.update(tick());
+
+    expect(trigger.getComponent(TriggerComponent).rect).toMatchObject({x: 16, y: 0});
   });
 });
