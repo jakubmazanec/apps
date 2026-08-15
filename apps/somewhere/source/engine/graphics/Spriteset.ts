@@ -1,6 +1,8 @@
 import * as pixi from 'pixi.js';
 import {z} from 'zod';
 
+import {type Tileset} from '../tiled/Tileset.js';
+
 const spritesetBordersSchema = z.strictObject({
   left: z.number().int().nonnegative(),
   top: z.number().int().nonnegative(),
@@ -65,6 +67,33 @@ export const spritesetSchema = z
     }
   });
 
+// The SuperRetroWorld character pack's fixed layout: 8 characters per
+// combined sheet (4 across, 2 down), 4 sheets stacked vertically by
+// scripts/stitch-character-atlas.mjs into public/character-tileset.png.
+// Each character is a 3-wide x 4-tall block of the tileset's 16x20 tiles.
+const CHARACTERS_PER_SHEET = 8;
+const CHARACTER_BLOCKS_PER_SHEET_ROW = 4;
+const CHARACTER_BLOCK_WIDTH = 3; // tiles
+const CHARACTER_BLOCK_HEIGHT = 4; // tiles
+// Row order within a character's block, top to bottom. Verified against
+// public/character-tileset.png and today's mira.json frame numbering.
+const CHARACTER_DIRECTIONS = ['down', 'left', 'right', 'up'] as const;
+
+function characterBlockOrigin(packIndex: number): {tileRow: number; tileCol: number} {
+  let index = packIndex - 1;
+  let sheet = Math.floor(index / CHARACTERS_PER_SHEET);
+  let withinSheet = index % CHARACTERS_PER_SHEET;
+  let colBlock = withinSheet % CHARACTER_BLOCKS_PER_SHEET_ROW;
+  let rowBlock = Math.floor(withinSheet / CHARACTER_BLOCKS_PER_SHEET_ROW);
+
+  return {
+    tileCol: colBlock * CHARACTER_BLOCK_WIDTH,
+    tileRow:
+      sheet * (CHARACTERS_PER_SHEET / CHARACTER_BLOCKS_PER_SHEET_ROW) * CHARACTER_BLOCK_HEIGHT +
+      rowBlock * CHARACTER_BLOCK_HEIGHT,
+  };
+}
+
 export type SpritesetData = z.infer<typeof spritesetSchema>;
 
 export type SpritesetAnimation = {
@@ -125,5 +154,63 @@ export class Spriteset {
     }
 
     return new this({textures: spritesheet.textures, animations});
+  }
+
+  /**
+   * Builds a Spriteset for one character by slicing its block out of an
+   * already-loaded character-tileset — no per-character file, generated or
+   * hand-authored. `packIndex` is the character's 1-based position in the
+   * SuperRetroWorld pack (see characterBlockOrigin).
+   */
+  static fromTileset(tileset: Tileset, packIndex: number): Spriteset {
+    let expectedColumnCount = CHARACTER_BLOCKS_PER_SHEET_ROW * CHARACTER_BLOCK_WIDTH;
+
+    // The block-origin math below only holds for a 12-column atlas of 4
+    // sheets x 8 characters; anything else either indexes the wrong
+    // character silently or throws a confusing indirect error from deep
+    // inside Tileset.getTile.
+    if (!Number.isInteger(packIndex) || packIndex < 1 || packIndex > 32) {
+      throw new Error(`Character packIndex must be 1-32, got ${packIndex}!`);
+    }
+
+    if (tileset.columnCount !== expectedColumnCount) {
+      throw new Error(
+        `Character tileset must have ${expectedColumnCount} columns for the SuperRetroWorld pack layout, got ${tileset.columnCount}!`,
+      );
+    }
+
+    let {tileRow, tileCol} = characterBlockOrigin(packIndex);
+    let textures: Record<string, pixi.Texture> = {};
+    let animations: Record<string, SpritesetAnimation> = {};
+
+    CHARACTER_DIRECTIONS.forEach((direction, rowOffset) => {
+      let row = tileRow + rowOffset;
+      let walkTextures = [0, 1, 2].map((columnOffset) => {
+        let tileId = row * tileset.columnCount + tileCol + columnOffset;
+        let texture = tileset.getTile(tileId).textures[0]!;
+
+        textures[`${direction}-${columnOffset}`] = texture;
+
+        return texture;
+      });
+
+      animations[`standing-${direction}`] = {textures: [walkTextures[1]!], speed: 0.15, loop: true};
+      animations[`walking-${direction}`] = {textures: walkTextures, speed: 0.15, loop: true};
+    });
+
+    // The 4-frame player "spin" action (playerActionSystem.ts): the same
+    // clip character.json hand-authored, now derived instead of authored.
+    animations.spin = {
+      textures: [
+        animations['standing-down']!.textures[0]!,
+        animations['standing-left']!.textures[0]!,
+        animations['standing-up']!.textures[0]!,
+        animations['standing-right']!.textures[0]!,
+      ],
+      speed: 0.3,
+      loop: false,
+    };
+
+    return new this({textures, animations});
   }
 }

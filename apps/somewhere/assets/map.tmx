@@ -199,6 +199,9 @@
   <object id="5" name="mira" type="npc" x="240" y="176" width="24" height="28">
    <properties>
     <property name="dialogue" value="mira"/>
+    <property name="sprite" value="mira"/>
+    <property name="stroll-x" type="int" value="3"/>
+    <property name="stroll-y" type="int" value="0"/>
    </properties>
   </object>
   <object id="6" name="keep-out-sign" type="zone" x="192" y="160" width="16" height="14">

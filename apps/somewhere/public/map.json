@@ -6536,6 +6536,21 @@
               "name": "dialogue",
               "type": "string",
               "value": "mira"
+            },
+            {
+              "name": "sprite",
+              "type": "string",
+              "value": "mira"
+            },
+            {
+              "name": "stroll-x",
+              "type": "int",
+              "value": 3
+            },
+            {
+              "name": "stroll-y",
+              "type": "int",
+              "value": 0
             }
           ],
           "rotation": 0,

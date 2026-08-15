@@ -9,6 +9,7 @@ import {Tilemap} from '../engine/tiled/Tilemap.js';
 import {failUnsupported} from '../engine/utilities/failUnsupported.js';
 import {Vector} from '../engine/utilities/Vector.js';
 import {audioEntity, playSoundChannel} from './audio.js';
+import {behaviorSystem} from './behaviorSystem.js';
 import {camera} from './camera.js';
 import {CameraComponent} from './CameraComponent.js';
 import {cameraQuery} from './cameraQuery.js';
@@ -86,6 +87,7 @@ export const world = new World({
     world.addSystem(dialogueSystem); // before playerSystem: starts/advances on last frame's commands and enters, ticks, and playerSystem sees `active` and locks the same frame
     world.addSystem(mapSystem);
     world.addSystem(playerSystem); // before motionSystem: it writes velocity that motionSystem consumes this frame
+    world.addSystem(behaviorSystem); // right after playerSystem, same reason: writes motion.target that motionSystem consumes this frame, and honors the same dialogue lock
     world.addSystem(playerActionSystem); // after playerSystem: same input snapshot, and its one-shot show() wins over graphicsSystem later this frame by the one-shot precedence rule
     world.addSystem(motionSystem);
     world.addSystem(triggerSystem); // right after motionSystem: overlap tests read the just-resolved position

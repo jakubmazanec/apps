@@ -1,5 +1,5 @@
 import * as pixi from 'pixi.js';
-import {afterEach, describe, expect, test} from 'vitest';
+import {afterEach, describe, expect, test, vitest} from 'vitest';
 
 import {Entity} from '../source/engine/ecs/Entity.js';
 import {World} from '../source/engine/ecs/World.js';
@@ -7,6 +7,7 @@ import {Spriteset} from '../source/engine/graphics/Spriteset.js';
 import {type GameInput} from '../source/engine/input/GameInput.js';
 import {InputComponent} from '../source/engine/input/InputComponent.js';
 import {Vector} from '../source/engine/utilities/Vector.js';
+import {assets} from '../source/game/assets.js';
 import {playSoundChannel} from '../source/game/audio.js';
 import {DialogueComponent} from '../source/game/DialogueComponent.js';
 import {dialogueQuery} from '../source/game/dialogueQuery.js';
@@ -23,23 +24,21 @@ function tick(deltaTime: number): pixi.Ticker {
 
 describe('playerActionSystem', () => {
   afterEach(() => {
-    pixi.Assets.cache.remove('character');
+    vitest.restoreAllMocks();
   });
 
   test('spin press plays the one-shot; completion emits and chimes', () => {
     let t = () => pixi.Texture.WHITE;
+    let characterSpriteset = new Spriteset({
+      textures: {},
+      animations: {
+        // eslint-disable-next-line @typescript-eslint/naming-convention -- kebab-case animation name from the spritesheet
+        'standing-down': {textures: [t()], speed: 0.15, loop: true},
+        spin: {textures: [t(), t()], speed: 0.5, loop: false},
+      },
+    });
 
-    pixi.Assets.cache.set(
-      'character',
-      new Spriteset({
-        textures: {},
-        animations: {
-          // eslint-disable-next-line @typescript-eslint/naming-convention -- kebab-case animation name from the spritesheet
-          'standing-down': {textures: [t()], speed: 0.15, loop: true},
-          spin: {textures: [t(), t()], speed: 0.5, loop: false},
-        },
-      }),
-    );
+    vitest.spyOn(assets, 'spriteset').mockReturnValue(characterSpriteset);
 
     let isSpinPressed = true;
     let fakeInput = {
@@ -95,18 +94,16 @@ describe('playerActionSystem', () => {
 
   test('an active dialogue locks out the spin action', () => {
     let t = () => pixi.Texture.WHITE;
+    let characterSpriteset = new Spriteset({
+      textures: {},
+      animations: {
+        // eslint-disable-next-line @typescript-eslint/naming-convention -- kebab-case animation name from the spritesheet
+        'standing-down': {textures: [t()], speed: 0.15, loop: true},
+        spin: {textures: [t(), t()], speed: 0.5, loop: false},
+      },
+    });
 
-    pixi.Assets.cache.set(
-      'character',
-      new Spriteset({
-        textures: {},
-        animations: {
-          // eslint-disable-next-line @typescript-eslint/naming-convention -- kebab-case animation name from the spritesheet
-          'standing-down': {textures: [t()], speed: 0.15, loop: true},
-          spin: {textures: [t(), t()], speed: 0.5, loop: false},
-        },
-      }),
-    );
+    vitest.spyOn(assets, 'spriteset').mockReturnValue(characterSpriteset);
 
     let fakeInput = {
       pressed: (name: string) => name === 'spin',

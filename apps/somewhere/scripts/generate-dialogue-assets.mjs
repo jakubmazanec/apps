@@ -1,8 +1,5 @@
 // Generates placeholder dialogue art at 1 art px:
 //   public/portraits.png + portraits.json  - one 32x32 'mira' frame
-//   public/npc.png + npc.json              - one 16x20 frame under all eight
-//                                            clip names (the spark-sheet
-//                                            workaround until T1.3)
 //   public/prompt-bubble.png + prompt-bubble.json - one 8x8 'bubble' frame
 // Hand-authored art can overwrite the same files later; no code changes.
 //
@@ -56,34 +53,6 @@ fillRect(portrait, 13, 21, 6, 1, palette.outline);
 writeSheet('portraits', portrait, {
   frames: {mira: {frame: {x: 0, y: 0, w: 32, h: 32}}},
   meta: {image: 'portraits.png'},
-});
-
-// NPC: a 16x20 villager silhouette, character-sheet footprint.
-let npc = createImage(16, 20);
-
-fillRect(npc, 4, 0, 8, 4, palette.hair);
-fillRect(npc, 4, 4, 8, 6, palette.skin);
-fillRect(npc, 5, 6, 2, 1, palette.outline);
-fillRect(npc, 9, 6, 2, 1, palette.outline);
-fillRect(npc, 3, 10, 10, 8, palette.shirt);
-fillRect(npc, 5, 18, 2, 2, palette.outline);
-fillRect(npc, 9, 18, 2, 2, palette.outline);
-
-let npcSpriteNames = [
-  'standing-down',
-  'walking-down',
-  'standing-left',
-  'walking-left',
-  'standing-up',
-  'walking-up',
-  'standing-right',
-  'walking-right',
-];
-
-writeSheet('npc', npc, {
-  frames: {1: {frame: {x: 0, y: 0, w: 16, h: 20}}},
-  meta: {image: 'npc.png'},
-  animations: Object.fromEntries(npcSpriteNames.map((name) => [name, ['1']])),
 });
 
 // Prompt bubble: an 8x8 speech bubble with a tail and a dot.

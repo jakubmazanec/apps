@@ -8,6 +8,11 @@ export type TriggerComponentOptions = {
   type: string;
   rect: pixi.Rectangle; // map-space art px
   properties: Record<string, boolean | number | string>;
+  // The rect's authored offset from the owning entity's position. Only the
+  // npc factory passes these; doors and zones have no entity position to
+  // follow and keep the 0 default.
+  rectOffsetX?: number;
+  rectOffsetY?: number;
 };
 
 export class TriggerComponent extends Component {
@@ -19,10 +24,19 @@ export class TriggerComponent extends Component {
   name: string;
   properties: Record<string, boolean | number | string>;
   rect: pixi.Rectangle;
-
+  rectOffsetX: number;
+  rectOffsetY: number;
   type: string;
 
-  constructor({id, name, type, rect, properties}: TriggerComponentOptions) {
+  constructor({
+    id,
+    name,
+    type,
+    rect,
+    properties,
+    rectOffsetX = 0,
+    rectOffsetY = 0,
+  }: TriggerComponentOptions) {
     super();
 
     this.id = id;
@@ -30,5 +44,7 @@ export class TriggerComponent extends Component {
     this.type = type;
     this.rect = rect;
     this.properties = properties;
+    this.rectOffsetX = rectOffsetX;
+    this.rectOffsetY = rectOffsetY;
   }
 }

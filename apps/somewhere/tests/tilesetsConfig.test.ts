@@ -84,8 +84,13 @@ describe('the committed tilesets.config.json', () => {
     let config = loadConfig(appRoot);
     let tileset = config.tilesets[0]!;
 
-    expect(config.tilesets).toHaveLength(1);
-    expect(tileset.name).toBe('tileset');
+    expect(config.tilesets.map((entry) => entry.name)).toStrictEqual([
+      'tileset',
+      'interior-tileset',
+      'exterior-tileset',
+      'exterior-odyssey-tileset',
+      'character-tileset',
+    ]);
     expect(tileset.source).toBe('assets/tileset.tsx');
     expect(tileset.output).toBe('public/tileset.json');
   });
