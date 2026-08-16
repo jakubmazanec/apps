@@ -17,9 +17,7 @@ import {type Renderable} from './Renderable.js';
 
 import '@pixi/layout';
 
-/**
- * A process-lifetime class used as a singleton that represents the game.
- */
+/** A process-lifetime class used as a singleton that represents the game. */
 export class Game {
   /** Underlying Pixi.js app. */
   readonly app: pixi.Application = new pixi.Application();
