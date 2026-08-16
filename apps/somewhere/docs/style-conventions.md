@@ -1,7 +1,7 @@
 - # Examples
 
 ```
-/** This is documentation comment. It uses sentence case. It intended to be used by tools like TypeDoc. */
+/** This is documentation comment (used by tools like TypeDoc). It uses sentence case. */
 ```
 
 ```
@@ -10,7 +10,8 @@
 
 ```
 /**
- * Multi-line documentation comments are used only when some parameter or property needs to be described which cannot be described by its own single-line documentation comment.
- * Not all such parameters must be described, e.g. if their meaning and usage is self-evident.
+ * Multi-line documentation comments are used only when ESLint rule flags too long comment, or some
+ * parameter or property cannot be described by its own single-line documentation comment. Not all
+ * such parameters must be described, e.g. if their meaning and usage is self-evident.
  */
 ```
