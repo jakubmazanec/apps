@@ -324,7 +324,7 @@ export class Game {
     return this;
   }
 
-  /** TBD */
+  /** Hides screen. */
   async #hideScreen(screen: AnyGameScreen) {
     await screen.hide();
     this.removeFromView(screen);
@@ -336,7 +336,7 @@ export class Game {
     return this;
   }
 
-  /** TBD */
+  /** Shows screen. */
   async #showScreen(screen: AnyGameScreen, ...promisesToAwait: Array<Promise<unknown>>) {
     this.currentScreen = screen;
 

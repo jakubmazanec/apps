@@ -145,4 +145,63 @@ describe('playerActionSystem', () => {
 
     world.stop();
   });
+
+  test('a prefixed player shows the prefixed spin name', () => {
+    let t = () => pixi.Texture.WHITE;
+    let charactersSpriteset = new Spriteset({
+      textures: {},
+      animations: {
+        // eslint-disable-next-line @typescript-eslint/naming-convention -- kebab-case animation name from the spritesheet
+        'character-standing-down': {textures: [t()], speed: 0.15, loop: true},
+        // eslint-disable-next-line @typescript-eslint/naming-convention -- kebab-case animation name from the spritesheet
+        'character-spin': {textures: [t(), t()], speed: 0.5, loop: false},
+      },
+    });
+
+    vitest.spyOn(assets, 'spriteset').mockReturnValue(charactersSpriteset);
+
+    let fakeInput = {
+      pressed: (name: string) => name === 'spin',
+      held: () => false,
+    } as unknown as GameInput;
+    let inputEntity = new Entity({components: [new InputComponent({input: fakeInput})]});
+    let dialogueEntity = new Entity({
+      components: [new DialogueComponent({active: null})],
+    });
+    let player = new Entity({
+      components: [
+        new PlayerComponent({name: 'Test'}),
+        new MotionComponent({position: new Vector(0, 0), velocity: new Vector(0, 0)}),
+        new GraphicsComponent({
+          spriteOptions: {
+            assetName: 'characters',
+            character: 'character',
+            spriteNames: ['standing-down', 'spin'],
+          },
+          boundingBox: new pixi.Rectangle(0, 10, 16, 10),
+        }),
+      ],
+    });
+    let world = new World({
+      onStart: (w) => {
+        w.addEventChannel(playerActionFinishedChannel)
+          .addEventChannel(playSoundChannel)
+          .addEntityQuery(inputQuery)
+          .addEntityQuery(dialogueQuery)
+          .addSystem(playerActionSystem)
+          .addEntity(inputEntity)
+          .addEntity(dialogueEntity)
+          .addEntity(player);
+      },
+    });
+
+    world.start();
+    world.update(tick(16)); // spin pressed: show('character-spin', {emit})
+
+    let {sprite} = player.getComponent(GraphicsComponent);
+
+    expect(sprite.currentSpriteName).toBe('character-spin');
+
+    world.stop();
+  });
 });

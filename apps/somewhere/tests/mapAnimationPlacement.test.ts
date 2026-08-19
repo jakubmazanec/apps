@@ -40,11 +40,13 @@ const HEARTHS = [
 ];
 // The hut roofs and walls the first placement run wrongly overwrote with
 // carriers: left/middle/right slices of one drawing, not animation frames.
-// They must stay static, distinct gids.
+// They must stay static, distinct gids. The middle gid is the door: it was
+// moved here from the air layer (which Map.ts never y-sorts) so the player
+// can render in front of it, same as any other entities-layer object.
 const STRUCTURES = [
   {
     layer: 'stuff',
-    gids: [193, 194, 195],
+    gids: [193, 1306, 195],
     anchors: [
       {x: 10, y: 10},
       {x: 29, y: 29},

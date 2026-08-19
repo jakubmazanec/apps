@@ -34,6 +34,7 @@ export default [
   {
     rules: {
       'unicorn/prefer-dom-node-remove': 'off',
+      '@typescript-eslint/no-redeclare': 'off',
     },
   },
   {

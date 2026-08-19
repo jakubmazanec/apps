@@ -48,16 +48,16 @@ const uiSpriteset = new Spriteset({
 // because the real exports carry those parsers and this stub deliberately does not.
 const assetStub = vitest.hoisted(() => ({extension: 'asset'}));
 
-vitest.mock(import('../source/pixi-tools/tiledTilesetAsset.js'), () => ({
+vitest.mock(import('../source/engine/pixi-tools/tiledTilesetAsset.js'), () => ({
   tiledTilesetAsset: assetStub as never,
 }));
-vitest.mock(import('../source/pixi-tools/tiledTilemapAsset.js'), () => ({
+vitest.mock(import('../source/engine/pixi-tools/tiledTilemapAsset.js'), () => ({
   tiledTilemapAsset: assetStub as never,
 }));
-vitest.mock(import('../source/pixi-tools/audioBufferAsset.js'), () => ({
+vitest.mock(import('../source/engine/pixi-tools/audioBufferAsset.js'), () => ({
   audioBufferAsset: assetStub as never,
 }));
-vitest.mock(import('../source/pixi-tools/spritesetAsset.js'), () => ({
+vitest.mock(import('../source/engine/pixi-tools/spritesetAsset.js'), () => ({
   spritesetAsset: assetStub as never,
 }));
 

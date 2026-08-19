@@ -4,6 +4,7 @@ import {describe, expect, test} from 'vitest';
 import {type Component} from '../source/engine/ecs/Component.js';
 import {Entity} from '../source/engine/ecs/Entity.js';
 import {World} from '../source/engine/ecs/World.js';
+import {type Constructor} from '../source/engine/utilities/Constructor.js';
 import {Vector} from '../source/engine/utilities/Vector.js';
 import {GraphicsComponent} from '../source/game/GraphicsComponent.js';
 import {LevelComponent} from '../source/game/LevelComponent.js';
@@ -11,7 +12,6 @@ import {levelQuery} from '../source/game/levelQuery.js';
 import {MotionComponent} from '../source/game/MotionComponent.js';
 import {motionSystem} from '../source/game/motionSystem.js';
 import {wallHitChannel} from '../source/game/wallHitChannel.js';
-import {type Constructor} from '../source/utilities/Constructor.js';
 
 function tick(deltaTime: number): pixi.Ticker {
   return {deltaTime} as unknown as pixi.Ticker;

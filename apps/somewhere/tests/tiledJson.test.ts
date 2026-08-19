@@ -1,7 +1,7 @@
 import {readFileSync} from 'node:fs';
 import {describe, expect, test} from 'vitest';
 
-import {tiledUnsourcedTilesetSchema} from '../source/tiled-tools/TiledTileset.js';
+import {tiledUnsourcedTilesetSchema} from '../source/engine/tiled-tools/TiledTileset.js';
 import {formatJson, type JsonValue, toTilesetJson} from '../tools/tiled-pipeline/json.js';
 import {parseTsx} from '../tools/tiled-pipeline/tsx.js';
 

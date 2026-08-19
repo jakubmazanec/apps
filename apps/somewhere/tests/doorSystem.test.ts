@@ -4,6 +4,7 @@ import {afterEach, describe, expect, test} from 'vitest';
 import {type Component} from '../source/engine/ecs/Component.js';
 import {Entity} from '../source/engine/ecs/Entity.js';
 import {World} from '../source/engine/ecs/World.js';
+import {type Constructor} from '../source/engine/utilities/Constructor.js';
 import {Vector} from '../source/engine/utilities/Vector.js';
 import {doorSystem} from '../source/game/doorSystem.js';
 import {GraphicsComponent} from '../source/game/GraphicsComponent.js';
@@ -15,7 +16,6 @@ import {TriggerEnter} from '../source/game/TriggerEnter.js';
 import {triggerEnterChannel} from '../source/game/triggerEnterChannel.js';
 import {triggerExitChannel} from '../source/game/triggerExitChannel.js';
 import {triggerSystem} from '../source/game/triggerSystem.js';
-import {type Constructor} from '../source/utilities/Constructor.js';
 
 function tick(deltaTime = 1): pixi.Ticker {
   return {deltaTime} as unknown as pixi.Ticker;

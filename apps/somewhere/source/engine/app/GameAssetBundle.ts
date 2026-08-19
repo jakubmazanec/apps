@@ -1,18 +1,23 @@
-export type GameAssetSources = Record<string, string[]>; // asset name → source URLs
+/** TBD */
+export type GameAssetSources = Record<string, string[]>;
 
-// Picks the packIndex-th character out of the named tileset (see
-// Spriteset.fromTileset).
-export type CharacterSpritesetEntry = {tileset: string; packIndex: number};
-
+/** TBD */
 export type GameAssetBundle = {
+  /** TBD */
   name: string;
+
+  /** TBD */
   fonts?: GameAssetSources;
+
+  /** TBD */
   sounds?: GameAssetSources;
+
+  /** TBD */
   spritesets?: GameAssetSources;
+
+  /** TBD */
   tilemaps?: GameAssetSources;
+
+  /** TBD */
   tilesets?: GameAssetSources;
-  // Spritesets built at runtime from a shared tileset instead of their own
-  // file: not part of the pixi manifest — nothing is fetched separately for
-  // these.
-  characterSpritesets?: Record<string, CharacterSpritesetEntry>;
 };

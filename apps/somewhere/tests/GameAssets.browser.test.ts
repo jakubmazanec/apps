@@ -4,7 +4,6 @@ import {afterEach, describe, expect, test, vitest} from 'vitest';
 
 import {GameAssets, type GameAssets as GameAssetsClass} from '../source/engine/app/GameAssets.js';
 import {Spriteset} from '../source/engine/graphics/Spriteset.js';
-import {Tileset} from '../source/engine/tiled/Tileset.js';
 
 // An extension descriptor with no cache/loader, so GameAssets' module-level
 // `pixi.extensions.add` calls register nothing. The literal 'asset' rather than
@@ -13,16 +12,16 @@ import {Tileset} from '../source/engine/tiled/Tileset.js';
 // because the real exports carry those parsers and this stub deliberately does not.
 const assetStub = vitest.hoisted(() => ({extension: 'asset'}));
 
-vitest.mock(import('../source/pixi-tools/tiledTilesetAsset.js'), () => ({
+vitest.mock(import('../source/engine/pixi-tools/tiledTilesetAsset.js'), () => ({
   tiledTilesetAsset: assetStub as never,
 }));
-vitest.mock(import('../source/pixi-tools/tiledTilemapAsset.js'), () => ({
+vitest.mock(import('../source/engine/pixi-tools/tiledTilemapAsset.js'), () => ({
   tiledTilemapAsset: assetStub as never,
 }));
-vitest.mock(import('../source/pixi-tools/audioBufferAsset.js'), () => ({
+vitest.mock(import('../source/engine/pixi-tools/audioBufferAsset.js'), () => ({
   audioBufferAsset: assetStub as never,
 }));
-vitest.mock(import('../source/pixi-tools/spritesetAsset.js'), () => ({
+vitest.mock(import('../source/engine/pixi-tools/spritesetAsset.js'), () => ({
   spritesetAsset: assetStub as never,
 }));
 
@@ -166,111 +165,6 @@ describe('GameAssets accessors', () => {
     let bare: GameAssetsClass = createAssets();
 
     expect(bare).toBeInstanceOf(GameAssets);
-  });
-});
-
-function createAssetsWithCharacterSpritesets() {
-  return new GameAssets({
-    bundles: [
-      {
-        name: 'game',
-        tilesets: {'character-tileset': ['character-tileset.json']},
-        characterSpritesets: {mira: {tileset: 'character-tileset', packIndex: 14}},
-      },
-    ],
-  });
-}
-
-function fakeTileset(): Tileset {
-  return new Tileset({tileWidth: 16, tileHeight: 20, columnCount: 12, rowCount: 32, tiles: []});
-}
-
-describe('GameAssets characterSpritesets', () => {
-  afterEach(() => {
-    pixi.Assets.cache.reset();
-    vitest.restoreAllMocks();
-  });
-
-  test('spriteset builds it from the backing tileset via Spriteset.fromTileset', () => {
-    let assets = createAssetsWithCharacterSpritesets();
-    let tileset = fakeTileset();
-    let built = fakeSpriteset({});
-    let spy = vitest.spyOn(Spriteset, 'fromTileset').mockReturnValue(built);
-
-    pixi.Assets.cache.set('character-tileset', tileset);
-
-    expect(assets.spriteset('mira')).toBe(built);
-    expect(spy).toHaveBeenCalledWith(tileset, 14);
-  });
-
-  test('spriteset caches the built spriteset instead of rebuilding it', () => {
-    let assets = createAssetsWithCharacterSpritesets();
-    let spy = vitest.spyOn(Spriteset, 'fromTileset').mockReturnValue(fakeSpriteset({}));
-
-    pixi.Assets.cache.set('character-tileset', fakeTileset());
-
-    assets.spriteset('mira');
-    assets.spriteset('mira');
-
-    expect(spy).toHaveBeenCalledTimes(1);
-  });
-
-  test('spriteset throws when the backing tileset is not loaded yet', () => {
-    let assets = createAssetsWithCharacterSpritesets();
-
-    expect(() => assets.spriteset('mira')).toThrow(`Tileset "character-tileset" wasn't loaded!`);
-  });
-
-  test('spriteset throws when the backing asset is not a tileset', () => {
-    let assets = createAssetsWithCharacterSpritesets();
-
-    pixi.Assets.cache.set('character-tileset', {});
-
-    expect(() => assets.spriteset('mira')).toThrow('Asset "character-tileset" is not a tileset!');
-  });
-
-  test('areBundlesLoaded checks a characterSpritesets entry via its backing tileset', () => {
-    let assets = createAssetsWithCharacterSpritesets();
-
-    expect(assets.areBundlesLoaded(['game'])).toBe(false);
-
-    pixi.Assets.cache.set('character-tileset', fakeTileset());
-
-    expect(assets.areBundlesLoaded(['game'])).toBe(true);
-  });
-
-  test('constructor throws when a characterSpritesets entry references an undeclared tileset', () => {
-    expect(
-      () =>
-        new GameAssets({
-          bundles: [
-            {
-              name: 'game',
-              tilesets: {'character-tileset': ['character-tileset.json']},
-              characterSpritesets: {mira: {tileset: 'nope', packIndex: 14}},
-            },
-          ],
-        }),
-    ).toThrow('Character spriteset "mira" in bundle "game" references unknown tileset "nope"!');
-  });
-
-  test('constructor does not throw when every characterSpritesets entry references a declared tileset', () => {
-    expect(() => createAssetsWithCharacterSpritesets()).not.toThrow();
-  });
-
-  test('constructor resolves a characterSpritesets tileset declared in a different bundle', () => {
-    expect(
-      () =>
-        new GameAssets({
-          bundles: [
-            {name: 'shared', tilesets: {'character-tileset': ['character-tileset.json']}},
-            {
-              name: 'game',
-              characterSpritesets: {mira: {tileset: 'character-tileset', packIndex: 14}},
-            },
-          ],
-        }),
-    ).not.toThrow();
   });
 });
 

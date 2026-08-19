@@ -3,8 +3,8 @@ import {AUDIO_BUSES, AudioMixer} from '../engine/audio/AudioMixer.js';
 import {PlaySound} from '../engine/audio/PlaySound.js';
 import {Entity} from '../engine/ecs/Entity.js';
 import {EventChannel} from '../engine/ecs/EventChannel.js';
+import {setAudioDecodeContext} from '../engine/pixi-tools/audioBufferAsset.js';
 import {type UiFocusEvent} from '../engine/ui/UiRoot.js';
-import {setAudioDecodeContext} from '../pixi-tools/audioBufferAsset.js';
 import {assets} from './assets.js';
 import {settings} from './settings.js';
 

@@ -1,7 +1,7 @@
 import * as pixi from 'pixi.js';
 import {describe, expect, test} from 'vitest';
 
-import {spritesetAsset} from '../source/pixi-tools/spritesetAsset.js';
+import {spritesetAsset} from '../source/engine/pixi-tools/spritesetAsset.js';
 
 describe('spritesetAsset.loader.testParse', () => {
   test('accepts Spriteset-format JSON', async () => {

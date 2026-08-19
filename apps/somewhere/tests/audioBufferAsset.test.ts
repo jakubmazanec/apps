@@ -1,6 +1,9 @@
 import {afterEach, describe, expect, test, vitest} from 'vitest';
 
-import {audioBufferAsset, setAudioDecodeContext} from '../source/pixi-tools/audioBufferAsset.js';
+import {
+  audioBufferAsset,
+  setAudioDecodeContext,
+} from '../source/engine/pixi-tools/audioBufferAsset.js';
 
 describe('audioBufferAsset.loader.test', () => {
   test('matches audio extensions and rejects others', () => {
@@ -42,7 +45,7 @@ describe('audioBufferAsset.loader.load', () => {
   test('throws when no decode context has been set', async () => {
     vitest.resetModules();
 
-    let {audioBufferAsset: fresh} = await import('../source/pixi-tools/audioBufferAsset.js');
+    let {audioBufferAsset: fresh} = await import('../source/engine/pixi-tools/audioBufferAsset.js');
 
     await expect(fresh.loader.load!('sounds/ui-click.ogg')).rejects.toThrow(
       'Audio decode context is not set',

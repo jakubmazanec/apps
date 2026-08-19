@@ -116,8 +116,7 @@ function readArchiveFiles(archivePath: string): ArchiveFile[] | null {
   try {
     return Object.entries(unzipSync(readFileSync(archivePath)))
       .filter(
-        ([name]) =>
-          !name.endsWith('/') && !name.split(/[/\\]/).some((segment) => segment === '..'),
+        ([name]) => !name.endsWith('/') && !name.split(/[/\\]/).some((segment) => segment === '..'),
       )
       .map(([name, contents]) => ({name, contents}))
       .sort((a, b) =>

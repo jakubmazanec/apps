@@ -7,6 +7,7 @@ import {Entity} from '../source/engine/ecs/Entity.js';
 import {World} from '../source/engine/ecs/World.js';
 import {type GameInput} from '../source/engine/input/GameInput.js';
 import {InputComponent} from '../source/engine/input/InputComponent.js';
+import {type Constructor} from '../source/engine/utilities/Constructor.js';
 import {Vector} from '../source/engine/utilities/Vector.js';
 import {CameraComponent} from '../source/game/CameraComponent.js';
 import {cameraQuery} from '../source/game/cameraQuery.js';
@@ -19,7 +20,6 @@ import {MotionComponent} from '../source/game/MotionComponent.js';
 import {MAX_SPEED} from '../source/game/motionSystem.js';
 import {PlayerComponent} from '../source/game/PlayerComponent.js';
 import {playerSystem} from '../source/game/playerSystem.js';
-import {type Constructor} from '../source/utilities/Constructor.js';
 
 function tick(deltaTime = 1): pixi.Ticker {
   return {deltaTime} as unknown as pixi.Ticker;

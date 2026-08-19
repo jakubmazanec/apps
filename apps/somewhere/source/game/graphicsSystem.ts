@@ -39,10 +39,11 @@ export const graphicsSystem = new System({
 
     for (let entity of system.entities) {
       let motion = entity.getComponent(MotionComponent);
-      let {sprite, boundingBox, directional} = entity.getComponent(GraphicsComponent);
+      let {sprite, boundingBox, directional, spriteNamePrefix} =
+        entity.getComponent(GraphicsComponent);
 
       if (directional) {
-        sprite.show(pickDirectionalSpriteName(motion.velocity));
+        sprite.show(spriteNamePrefix + pickDirectionalSpriteName(motion.velocity));
       }
 
       // we add the sprite to the map view, and positions are relative to a parent container;

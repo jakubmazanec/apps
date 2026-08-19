@@ -1,6 +1,6 @@
 import * as pixi from 'pixi.js';
 
-import {Spriteset, spritesetSchema} from '../engine/graphics/Spriteset.js';
+import {Spriteset, spritesetSchema} from '../graphics/Spriteset.js';
 
 function getCacheableAssets(keys: string[], asset: Spriteset) {
   const cacheableAssets: Record<string, unknown> = {};

@@ -1,6 +1,6 @@
 import type * as pixi from 'pixi.js';
 
-import {type Constructor} from '../../utilities/Constructor';
+import {type Constructor} from '../utilities/Constructor';
 import {type Component} from './Component';
 import {type Entity} from './Entity';
 import {type System} from './System';

@@ -4,12 +4,12 @@ import {describe, expect, test, vitest} from 'vitest';
 import {type Component} from '../source/engine/ecs/Component.js';
 import {Entity} from '../source/engine/ecs/Entity.js';
 import {World} from '../source/engine/ecs/World.js';
+import {type Constructor} from '../source/engine/utilities/Constructor.js';
 import {Vector} from '../source/engine/utilities/Vector.js';
 import {CameraComponent} from '../source/game/CameraComponent.js';
 import {cameraQuery} from '../source/game/cameraQuery.js';
 import {LevelComponent} from '../source/game/LevelComponent.js';
 import {mapSystem} from '../source/game/mapSystem.js';
-import {type Constructor} from '../source/utilities/Constructor.js';
 
 // LevelComponent builds a real Map from an asset name in its constructor;
 // bypass it and assign stub fields onto the real prototype instead (same

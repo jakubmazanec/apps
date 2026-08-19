@@ -1,43 +1,19 @@
 import * as pixi from 'pixi.js';
 
-import {audioBufferAsset} from '../../pixi-tools/audioBufferAsset.js';
-import {spritesetAsset} from '../../pixi-tools/spritesetAsset.js';
-import {tiledTilemapAsset} from '../../pixi-tools/tiledTilemapAsset.js';
-import {tiledTilesetAsset} from '../../pixi-tools/tiledTilesetAsset.js';
 import {Spriteset} from '../graphics/Spriteset.js';
-import {Tileset} from '../tiled/Tileset.js';
-import {type CharacterSpritesetEntry, type GameAssetBundle} from './GameAssetBundle.js';
+import {audioBufferAsset} from '../pixi-tools/audioBufferAsset.js';
+import {spritesetAsset} from '../pixi-tools/spritesetAsset.js';
+import {tiledTilemapAsset} from '../pixi-tools/tiledTilemapAsset.js';
+import {tiledTilesetAsset} from '../pixi-tools/tiledTilesetAsset.js';
+import {type GameAssetBundle} from './GameAssetBundle.js';
+import {GameAssetGroup} from './GameAssetGroup.js';
+import {type GameAssetNames} from './GameAssetNames.js';
+import {type GameAssetsOptions} from './GameAssetsOptions.js';
 
 pixi.extensions.add(tiledTilesetAsset);
 pixi.extensions.add(tiledTilemapAsset);
 pixi.extensions.add(audioBufferAsset);
 pixi.extensions.add(spritesetAsset);
-
-type GameAssetGroup = Exclude<keyof GameAssetBundle, 'name'>;
-
-const ASSET_GROUPS = [
-  'fonts',
-  'sounds',
-  'spritesets',
-  'tilemaps',
-  'tilesets',
-] as const satisfies readonly GameAssetGroup[];
-
-// Distributes over the bundle union so each bundle contributes its own keys.
-type BundleAssetNames<Bundle, Group extends GameAssetGroup> =
-  Bundle extends GameAssetBundle ? keyof NonNullable<Bundle[Group]> & string : never;
-
-type AssetNames<
-  Bundles extends readonly GameAssetBundle[],
-  Group extends GameAssetGroup,
-> = BundleAssetNames<Bundles[number], Group>;
-
-type SpritesetAssetNames<Bundles extends readonly GameAssetBundle[]> =
-  AssetNames<Bundles, 'characterSpritesets'> | AssetNames<Bundles, 'spritesets'>;
-
-export type GameAssetsOptions<Bundles extends readonly GameAssetBundle[]> = {
-  bundles: Bundles;
-};
 
 /**
  * A process-lifetime class used as a singleton that handles all assets loading ansd is used for
@@ -52,30 +28,9 @@ export class GameAssets<
   /** TBD */
   readonly #bundles: Bundles;
 
-  /** TBD */
-  readonly #characterSpritesetCache = new Map<string, Spriteset>();
-
   constructor({bundles}: GameAssetsOptions<Bundles>) {
     this.#bundles = bundles;
     this.#bundleNames = new Set(bundles.map((bundle) => bundle.name));
-
-    // Looked up globally (like #resolveTileset), not bundle-scoped: a
-    // characterSpriteset's backing tileset can live in a different bundle.
-    // Caught here, loudly, instead of leaving a typo'd name to spin
-    // areBundlesLoaded forever with no error.
-    let tilesetNames = new Set(bundles.flatMap((bundle) => Object.keys(bundle.tilesets ?? {})));
-
-    for (let bundle of bundles) {
-      for (let [characterSpritesetName, entry] of Object.entries(
-        bundle.characterSpritesets ?? {},
-      )) {
-        if (!tilesetNames.has(entry.tileset)) {
-          throw new Error(
-            `Character spriteset "${characterSpritesetName}" in bundle "${bundle.name}" references unknown tileset "${entry.tileset}"!`,
-          );
-        }
-      }
-    }
   }
 
   /** TBD */
@@ -91,17 +46,11 @@ export class GameAssets<
         return false;
       }
 
-      for (let group of ASSET_GROUPS) {
+      for (let group of GameAssetGroup) {
         for (let assetName of Object.keys(bundle[group] ?? {})) {
           if (!pixi.Assets.cache.has(assetName)) {
             return false;
           }
-        }
-      }
-
-      for (let entry of Object.values(bundle.characterSpritesets ?? {})) {
-        if (!pixi.Assets.cache.has(entry.tileset)) {
-          return false;
         }
       }
     }
@@ -109,13 +58,14 @@ export class GameAssets<
     return true;
   }
 
+  // TODO: find if linter rule can be set up so init is always after constructor
   /** TBD */
   async init(): Promise<void> {
     await pixi.Assets.init({
       manifest: {
         bundles: this.#bundles.map((bundle) => ({
           name: bundle.name,
-          assets: ASSET_GROUPS.flatMap((group) =>
+          assets: GameAssetGroup.flatMap((group) =>
             Object.entries(bundle[group] ?? {}).map(([alias, src]) => ({alias, src})),
           ),
         })),
@@ -140,7 +90,7 @@ export class GameAssets<
   }
 
   /** TBD */
-  sound(name: AssetNames<Bundles, 'sounds'>): AudioBuffer {
+  sound(name: GameAssetNames<Bundles[number], 'sounds'>): AudioBuffer {
     if (!pixi.Assets.cache.has(name)) {
       throw new Error(`Sound "${name}" wasn't loaded!`);
     }
@@ -155,12 +105,12 @@ export class GameAssets<
   }
 
   /** TBD */
-  spriteset(name: SpritesetAssetNames<Bundles>): Spriteset {
+  spriteset(name: GameAssetNames<Bundles[number], 'spritesets'>): Spriteset {
     return this.#resolveSpriteset(name);
   }
 
   /** TBD */
-  texture(spriteset: SpritesetAssetNames<Bundles>, frame: string): pixi.Texture {
+  texture(spriteset: GameAssetNames<Bundles[number], 'spritesets'>, frame: string): pixi.Texture {
     let texture = this.#resolveSpriteset(spriteset).textures[frame];
 
     if (!texture) {
@@ -170,40 +120,10 @@ export class GameAssets<
     return texture;
   }
 
-  /** TBD */
-  #findCharacterSpriteset(name: string): CharacterSpritesetEntry | undefined {
-    for (let bundle of this.#bundles) {
-      let entry = bundle.characterSpritesets?.[name];
-
-      if (entry) {
-        return entry;
-      }
-    }
-
-    return undefined;
-  }
-
   // The cache check precedes Assets.get so a miss never triggers pixi's cache
   // warning.
   /** TBD */
   #resolveSpriteset(name: string): Spriteset {
-    let cached = this.#characterSpritesetCache.get(name);
-
-    if (cached) {
-      return cached;
-    }
-
-    let characterEntry = this.#findCharacterSpriteset(name);
-
-    if (characterEntry) {
-      let tileset = this.#resolveTileset(characterEntry.tileset);
-      let spriteset = Spriteset.fromTileset(tileset, characterEntry.packIndex);
-
-      this.#characterSpritesetCache.set(name, spriteset);
-
-      return spriteset;
-    }
-
     if (!pixi.Assets.cache.has(name)) {
       throw new Error(`Spriteset "${name}" wasn't loaded!`);
     }
@@ -212,21 +132,6 @@ export class GameAssets<
 
     if (!(asset instanceof Spriteset)) {
       throw new Error(`Asset "${name}" is not a spriteset!`);
-    }
-
-    return asset;
-  }
-
-  /** TBD */
-  #resolveTileset(name: string): Tileset {
-    if (!pixi.Assets.cache.has(name)) {
-      throw new Error(`Tileset "${name}" wasn't loaded!`);
-    }
-
-    let asset = pixi.Assets.get<unknown>(name);
-
-    if (!(asset instanceof Tileset)) {
-      throw new Error(`Asset "${name}" is not a tileset!`);
     }
 
     return asset;
