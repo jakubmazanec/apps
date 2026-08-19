@@ -1,6 +1,6 @@
 import {Assets, Rectangle, Spritesheet, type SpritesheetFrameData, Texture} from 'pixi.js';
 
-import {tiledUnsourcedTilesetSchema} from '../../tiled-tools/TiledTileset.js';
+import {tiledUnsourcedTilesetSchema} from '../tiled-tools/TiledTileset.js';
 import {failUnsupported} from '../utilities/failUnsupported.js';
 import {type TileId, toTileId} from './TileId.js';
 

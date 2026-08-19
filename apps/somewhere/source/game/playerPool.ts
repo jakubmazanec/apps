@@ -19,7 +19,8 @@ export const playerPool = new ObjectPool({
         }),
         new GraphicsComponent({
           spriteOptions: {
-            assetName: 'character',
+            assetName: 'characters',
+            character: 'character',
             spriteNames: [
               'standing-down',
               'walking-down',

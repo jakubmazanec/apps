@@ -1,7 +1,7 @@
 import * as pixi from 'pixi.js';
 
-import {to2dArray} from '../../utilities/to2dArray.js';
 import {failUnsupported} from '../utilities/failUnsupported.js';
+import {to2dArray} from '../utilities/to2dArray.js';
 import {Vector} from '../utilities/Vector.js';
 import {Tilemap} from './Tilemap.js';
 

@@ -2,8 +2,8 @@ import {readFileSync} from 'node:fs';
 import {describe, expect, test} from 'vitest';
 
 import {spritesetSchema} from '../source/engine/graphics/Spriteset.js';
-import {tiledTilemapSchema} from '../source/tiled-tools/TiledTilemap.js';
-import {tiledUnsourcedTilesetSchema} from '../source/tiled-tools/TiledTileset.js';
+import {tiledTilemapSchema} from '../source/engine/tiled-tools/TiledTilemap.js';
+import {tiledUnsourcedTilesetSchema} from '../source/engine/tiled-tools/TiledTileset.js';
 
 // The export script runs this file after every re-export; it also runs in
 // every `npm test`, so a drifted hand edit fails just as loudly.
@@ -30,6 +30,43 @@ describe('exported assets', () => {
     expect(map.tilesets[0]?.source).toBe('tileset.json');
   });
 
+  test('the door graphic sits on the sortable entities layer, not the always-on-top air layer', () => {
+    let map = tiledTilemapSchema.parse(readJson('../public/map.json'));
+    let entitiesLayer = map.layers.find((layer) => layer.class === 'entities');
+    let airLayer = map.layers.find((layer) => layer.name === 'air');
+    let objectLayer = map.layers.find((layer) => layer.type === 'objectgroup');
+
+    if (entitiesLayer?.type !== 'tilelayer' || airLayer?.type !== 'tilelayer') {
+      throw new Error('Expected "entities" and "air" to be tile layers!');
+    }
+
+    if (objectLayer?.type !== 'objectgroup') {
+      throw new Error('Expected an object layer!');
+    }
+
+    let doors = objectLayer.objects.filter((object) => object.type === 'door');
+
+    expect(doors.length).toBeGreaterThan(0);
+
+    let entitiesData = entitiesLayer.data as number[];
+    let airData = airLayer.data as number[];
+
+    for (let door of doors) {
+      let column = door.x / map.tilewidth;
+      // The door's own art sits one row above its walkable trigger tile.
+      let doorRow = door.y / map.tileheight - 1;
+      let index = doorRow * map.width + column;
+
+      // Map.ts never y-sorts the air layer (by design, for overhead roofs),
+      // so a door there always occludes the player regardless of position.
+      expect(airData[index]).toBe(0);
+      // The door's actual graphic (gid 1306), moved from air onto the
+      // sortable entities layer, replacing the plain wall tile that used to
+      // sit there.
+      expect(entitiesData[index]).toBe(1306);
+    }
+  });
+
   test('public/tileset.json parses with the runtime schema and references the public image', () => {
     let tileset = tiledUnsourcedTilesetSchema.parse(readJson('../public/tileset.json'));
 
@@ -44,4 +81,19 @@ describe('exported assets', () => {
       expect(spriteset.image).toBe(fileName.replace(/\.json$/, '.png'));
     },
   );
+
+  test('public/characters.json parses with the runtime Spriteset schema', () => {
+    let spriteset = spritesetSchema.parse(readJson('../public/characters.json'));
+
+    expect(spriteset.image).toBe('character-tileset.png');
+
+    for (let character of ['character', 'mira', 'npc']) {
+      for (let direction of ['down', 'left', 'right', 'up']) {
+        expect(spriteset.animations[`${character}-standing-${direction}`]).toBeDefined();
+        expect(spriteset.animations[`${character}-walking-${direction}`]).toBeDefined();
+      }
+    }
+
+    expect(spriteset.animations['character-spin']).toMatchObject({loop: false, speed: 0.3});
+  });
 });

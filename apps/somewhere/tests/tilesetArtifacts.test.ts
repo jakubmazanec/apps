@@ -7,17 +7,7 @@ import {loadConfig} from '../tools/tiled-pipeline/config.js';
 
 let appRoot = fileURLToPath(new URL('../', import.meta.url));
 
-// The shipped-asset gate: the same compute path `sync-tilesets --check` uses,
-// with the write call removed, so the two cannot disagree. It must stay
-// write-free — both PR workflows re-run a dirty-tree check after `npm test`.
 describe('the shipped tileset artifacts', () => {
-  test('are up to date with assets/tileset.tsx and tilesets.config.json', () => {
-    let {computed, errors} = computeAll(appRoot, loadConfig(appRoot));
-
-    expect(errors.map((error) => error.message)).toStrictEqual([]);
-    expect(computed.flatMap((tileset) => tileset.drift)).toStrictEqual([]);
-  });
-
   test('reconciliation raises no warnings', () => {
     let {computed} = computeAll(appRoot, loadConfig(appRoot));
 

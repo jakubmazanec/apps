@@ -1,4 +1,4 @@
-import {type Constructor} from '../../utilities/Constructor.js';
+import {type Constructor} from '../utilities/Constructor.js';
 import {type Event} from './Event.js';
 import {type World} from './World.js';
 

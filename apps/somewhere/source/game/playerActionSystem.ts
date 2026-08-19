@@ -30,7 +30,9 @@ export const playerActionSystem = new System({
 
     if (input.pressed('spin')) {
       for (let entity of system.entities) {
-        entity.getComponent(GraphicsComponent).sprite.show('spin', {
+        let {sprite, spriteNamePrefix} = entity.getComponent(GraphicsComponent);
+
+        sprite.show(`${spriteNamePrefix}spin`, {
           emit: {
             channel: playerActionFinishedChannel,
             event: new PlayerActionFinished({entity}),

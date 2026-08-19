@@ -156,7 +156,12 @@ async function startWorldOnRealMap() {
   let spriteBag = new Spriteset({
     textures: {},
     animations: Object.fromEntries(
-      SPRITE_NAMES.map((name) => [name, {textures: [pixi.Texture.WHITE], speed: 0.15, loop: true}]),
+      ['character', 'mira', 'npc'].flatMap((character) =>
+        SPRITE_NAMES.map((name) => [
+          `${character}-${name}`,
+          {textures: [pixi.Texture.WHITE], speed: 0.15, loop: true},
+        ]),
+      ),
     ),
   });
 

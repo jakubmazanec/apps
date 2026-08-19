@@ -5,6 +5,7 @@ import {Spriteset} from '../source/engine/graphics/Spriteset.js';
 import {type TilemapObject} from '../source/engine/tiled/Tilemap.js';
 import {assets} from '../source/game/assets.js';
 import {BehaviorComponent} from '../source/game/BehaviorComponent.js';
+import {GraphicsComponent} from '../source/game/GraphicsComponent.js';
 import {MotionComponent} from '../source/game/MotionComponent.js';
 import {objectFactories} from '../source/game/objectFactories.js';
 import {playerPool} from '../source/game/playerPool.js';
@@ -22,13 +23,20 @@ const SPRITE_NAMES = [
   'spin',
 ];
 
-// playerPool and the npc factory build real Sprites from a spriteset; a
-// minimal animations bag satisfies the Sprite constructor for any sheet name.
+// playerPool and the npc factory build real Sprites from the shared
+// 'characters' spriteset, prefixed per character (GraphicsComponent); a
+// minimal animations bag covering every character this suite spawns
+// satisfies the Sprite constructor regardless of prefix.
 function stubSpritesheetAssets() {
   let sheet = new Spriteset({
     textures: {},
     animations: Object.fromEntries(
-      SPRITE_NAMES.map((name) => [name, {textures: [pixi.Texture.WHITE], speed: 0.15, loop: true}]),
+      ['character', 'mira', 'npc'].flatMap((character) =>
+        SPRITE_NAMES.map((name) => [
+          `${character}-${name}`,
+          {textures: [pixi.Texture.WHITE], speed: 0.15, loop: true},
+        ]),
+      ),
     ),
   });
 
@@ -132,10 +140,10 @@ describe('objectFactories', () => {
     expect(motion.velocity.y).toBe(0);
   });
 
-  test('npc uses the spriteset named by its sprite property', () => {
+  test('npc uses the character named by its sprite property', () => {
     stubSpritesheetAssets();
 
-    objectFactories.npc!(
+    let npc = objectFactories.npc!(
       createObject({
         id: 9,
         name: 'mira',
@@ -144,17 +152,19 @@ describe('objectFactories', () => {
       }),
     );
 
-    expect(vitest.mocked(assets.spriteset)).toHaveBeenCalledWith('mira');
+    expect(vitest.mocked(assets.spriteset)).toHaveBeenCalledWith('characters');
+    expect(npc.getComponent(GraphicsComponent).spriteNamePrefix).toBe('mira-');
   });
 
   test('npc without a sprite property falls back to the generic npc character', () => {
     stubSpritesheetAssets();
 
-    objectFactories.npc!(
+    let npc = objectFactories.npc!(
       createObject({id: 9, name: 'mira', type: 'npc', properties: {dialogue: 'mira'}}),
     );
 
-    expect(vitest.mocked(assets.spriteset)).toHaveBeenCalledWith('npc');
+    expect(vitest.mocked(assets.spriteset)).toHaveBeenCalledWith('characters');
+    expect(npc.getComponent(GraphicsComponent).spriteNamePrefix).toBe('npc-');
   });
 
   test('npc with a missing dialogue property throws in DEV (spawns inert in prod)', () => {

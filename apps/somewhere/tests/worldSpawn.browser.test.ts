@@ -72,8 +72,8 @@ function zoneObject(id: number): TilemapObject {
 
 // A real 4x4 all-empty Tilemap (gid 0 renders nothing and Map.getTile never
 // touches the tileset asset), one entities-class layer, plus the given
-// objects. 'character' resolves to a minimal Spriteset for the Sprite
-// constructor.
+// objects. The player's 'character-' prefixed names resolve to a minimal
+// Spriteset for the Sprite constructor.
 function stubAssets(objects: TilemapObject[]) {
   let tilemap = new Tilemap({
     tileWidth: 16,
@@ -97,7 +97,10 @@ function stubAssets(objects: TilemapObject[]) {
   let character = new Spriteset({
     textures: {},
     animations: Object.fromEntries(
-      SPRITE_NAMES.map((name) => [name, {textures: [pixi.Texture.WHITE], speed: 0.15, loop: true}]),
+      SPRITE_NAMES.map((name) => [
+        `character-${name}`,
+        {textures: [pixi.Texture.WHITE], speed: 0.15, loop: true},
+      ]),
     ),
   });
 

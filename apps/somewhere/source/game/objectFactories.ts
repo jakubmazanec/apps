@@ -16,7 +16,8 @@ import {TriggerComponent} from './TriggerComponent.js';
 // All eight names so graphicsSystem's directional sprite.show always
 // resolves; the zero-velocity path shows 'standing-right'. The unnamed
 // generic NPC (no "sprite" property) gets a real 8-direction sheet like
-// every other character, via the "npc" characterSpriteset (assets.ts).
+// every other character, via the "npc" prefix into the shared characters
+// spriteset (assets.ts).
 const NPC_SPRITE_NAMES = [
   'standing-down',
   'walking-down',
@@ -79,12 +80,14 @@ export const objectFactories: Record<string, (object: TilemapObject) => Entity> 
     }
 
     let graphics = new GraphicsComponent({
-      // A per-NPC spriteset (registered in assets.ts) comes from the
-      // object's optional "sprite" property; an unknown name fails loudly
-      // at spawn inside assets.spriteset(). Without the property, the NPC
-      // falls back to the generic "npc" character (assets.ts).
+      // A per-NPC character (a prefix into the shared characters spriteset,
+      // assets.ts) comes from the object's optional "sprite" property; an
+      // unknown name fails loudly at spawn inside the Sprite constructor.
+      // Without the property, the NPC falls back to the generic "npc"
+      // character (assets.ts).
       spriteOptions: {
-        assetName: typeof sprite === 'string' ? sprite : 'npc',
+        assetName: 'characters',
+        character: typeof sprite === 'string' ? sprite : 'npc',
         spriteNames: [...NPC_SPRITE_NAMES],
       },
       boundingBox: new pixi.Rectangle(0, 0, NPC_WIDTH, NPC_HEIGHT),

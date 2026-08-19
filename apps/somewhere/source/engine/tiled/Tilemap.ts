@@ -1,7 +1,7 @@
 import * as pixi from 'pixi.js';
 
-import {type TiledProperty} from '../../tiled-tools/TiledProperty.js';
-import {tiledTilemapSchema} from '../../tiled-tools/TiledTilemap.js';
+import {type TiledProperty} from '../tiled-tools/TiledProperty.js';
+import {tiledTilemapSchema} from '../tiled-tools/TiledTilemap.js';
 import {failUnsupported} from '../utilities/failUnsupported.js';
 import {getDiagonalFlip} from './getDiagonalFlip.js';
 import {getGid} from './getGid.js';

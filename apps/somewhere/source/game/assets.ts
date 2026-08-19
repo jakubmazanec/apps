@@ -20,12 +20,7 @@ export const assets = new GameAssets({
         spark: ['spark.json'],
         portraits: ['portraits.json'],
         'prompt-bubble': ['prompt-bubble.json'],
-      },
-      tilesets: {'character-tileset': ['character-tileset.json']},
-      characterSpritesets: {
-        character: {tileset: 'character-tileset', packIndex: 27},
-        mira: {tileset: 'character-tileset', packIndex: 14},
-        npc: {tileset: 'character-tileset', packIndex: 8},
+        characters: ['characters.json'],
       },
       tilemaps: {map: ['map.json']},
       sounds: {

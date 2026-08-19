@@ -6,6 +6,7 @@ import {Entity} from '../source/engine/ecs/Entity.js';
 import {World} from '../source/engine/ecs/World.js';
 import {Spriteset} from '../source/engine/graphics/Spriteset.js';
 import {type Map} from '../source/engine/tiled/Map.js';
+import {type Constructor} from '../source/engine/utilities/Constructor.js';
 import {Vector} from '../source/engine/utilities/Vector.js';
 import {assets} from '../source/game/assets.js';
 import {camera} from '../source/game/camera.js';
@@ -16,7 +17,6 @@ import {graphicsSystem, pickDirectionalSpriteName} from '../source/game/graphics
 import {LevelComponent} from '../source/game/LevelComponent.js';
 import {levelQuery} from '../source/game/levelQuery.js';
 import {MotionComponent} from '../source/game/MotionComponent.js';
-import {type Constructor} from '../source/utilities/Constructor.js';
 
 function tick(deltaTime: number): pixi.Ticker {
   return {deltaTime} as unknown as pixi.Ticker;
@@ -287,6 +287,85 @@ describe('graphicsSystem directional flag', () => {
     expect(popupSprite.currentSpriteName).toBe('spark');
     expect(popupSprite.view.position.x).toBe(5);
     expect(popupSprite.view.position.y).toBe(6);
+
+    world.stop();
+  });
+});
+
+describe('graphicsSystem character prefix', () => {
+  afterEach(() => {
+    vitest.restoreAllMocks();
+  });
+
+  test('a component built with a character prefixes the directional sprite name', () => {
+    let t = () => pixi.Texture.WHITE;
+    let charactersSpriteset = new Spriteset({
+      textures: {},
+      animations: Object.fromEntries(
+        [
+          'standing-down',
+          'walking-down',
+          'standing-left',
+          'walking-left',
+          'standing-up',
+          'walking-up',
+          'standing-right',
+          'walking-right',
+        ].map((name) => [`mira-${name}`, {textures: [t()], speed: 0.15, loop: true}]),
+      ),
+    });
+
+    vitest.spyOn(assets, 'spriteset').mockReturnValue(charactersSpriteset);
+
+    let fakeMap = {
+      view: {x: 0, y: 0},
+      addToLayer: () => {},
+      removeFromLayer: () => {},
+      entityLayerIndex: 0,
+      topLayerIndex: 1,
+    } as unknown as Map;
+    let level = new Entity({
+      components: [
+        Object.assign(Object.create(LevelComponent.prototype) as LevelComponent, {map: fakeMap}),
+      ],
+    });
+    let mira = new Entity({
+      components: [
+        new MotionComponent({position: new Vector(0, 0), velocity: new Vector(0, 1)}),
+        new GraphicsComponent({
+          spriteOptions: {
+            assetName: 'characters',
+            character: 'mira',
+            spriteNames: [
+              'standing-down',
+              'walking-down',
+              'standing-left',
+              'walking-left',
+              'standing-up',
+              'walking-up',
+              'standing-right',
+              'walking-right',
+            ],
+          },
+          boundingBox: new pixi.Rectangle(0, 0, 16, 20),
+        }),
+      ],
+    });
+    let world = new World({
+      onStart: (w) => {
+        w.addEntityQuery(levelQuery)
+          .addEntityQuery(cameraQuery)
+          .addSystem(graphicsSystem)
+          .addEntity(camera)
+          .addEntity(level)
+          .addEntity(mira);
+      },
+    });
+
+    world.start();
+    world.update(tick(16));
+
+    expect(mira.getComponent(GraphicsComponent).sprite.currentSpriteName).toBe('mira-walking-down');
 
     world.stop();
   });
