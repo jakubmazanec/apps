@@ -1,11 +1,10 @@
-import * as pixi from 'pixi.js';
-
 import {type Entity} from '../engine/ecs/Entity.js';
 import {type World} from '../engine/ecs/World.js';
-import {Tilemap, type TilemapObject} from '../engine/tiled/Tilemap.js';
+import {type TilemapObject} from '../engine/tiled/Tilemap.js';
 import {doRectanglesOverlap} from '../engine/utilities/doRectanglesOverlap.js';
 import {failUnsupported} from '../engine/utilities/failUnsupported.js';
 import {Vector} from '../engine/utilities/Vector.js';
+import {assets} from './assets.js';
 import {CameraComponent} from './CameraComponent.js';
 import {cameraQuery} from './cameraQuery.js';
 import {game} from './game.js';
@@ -83,16 +82,6 @@ export function releaseCurrentMap(): void {
   }
 }
 
-function getTilemap(mapName: MapName): Tilemap {
-  let tilemap = pixi.Assets.get<Tilemap | undefined>(mapName);
-
-  if (!(tilemap instanceof Tilemap)) {
-    throw new Error(`Tilemap "${mapName}" wasn't found!`);
-  }
-
-  return tilemap;
-}
-
 /**
  * The named entry point of a map, read from the tilemap asset (entry objects
  * are data, not entities). All tilemaps are preloaded with the game bundle,
@@ -100,7 +89,7 @@ function getTilemap(mapName: MapName): Tilemap {
  * Duplicate names are loud at that map's own spawn; first wins here.
  */
 export function findEntryPoint(mapName: MapName, entryName: string): TilemapObject | null {
-  let tilemap = getTilemap(mapName);
+  let tilemap = assets.tilemap(mapName);
 
   for (let objectLayer of tilemap.objectLayers) {
     for (let object of objectLayer.objects) {
@@ -152,7 +141,7 @@ function validateExit(trigger: TriggerComponent): void {
  * destination without ever creating a second player.
  */
 export function spawnMap(mapName: MapName, {includeSpawn}: {includeSpawn: boolean}): SpawnedMap {
-  let tilemap = getTilemap(mapName);
+  let tilemap = assets.tilemap(mapName);
   let mapEntity = getMapPool(mapName).create();
   let scopedEntities: Entity[] = [];
   let playerEntity: Entity | null = null;

@@ -65,7 +65,7 @@ function createBox(): DialogueBox {
     theme: game.theme,
     font: game.theme.text.body,
     metrics: BOX_METRICS,
-    markerTexture: assets.texture('ui', 'advance-marker'),
+    markerTexture: assets.spriteset('ui').texture('advance-marker'),
     onAdvanceTap: () => {
       dialogueCommandChannel.push(new DialogueCommand({type: 'advance'}));
     },
@@ -157,7 +157,7 @@ export const dialogueBoxSystem = new System({
       let graphics = promptEntity.getComponent(GraphicsComponent);
 
       if (prompt === null) {
-        prompt = new pixi.Sprite({texture: assets.texture('prompt-bubble', 'bubble')});
+        prompt = new pixi.Sprite({texture: assets.spriteset('prompt-bubble').texture('bubble')});
         prompt.eventMode = 'static';
         prompt.cursor = 'pointer';
         prompt.on('pointertap', (event) => {

@@ -1062,6 +1062,6 @@ describe('Game theme resolution', () => {
         ...theme,
         panel: {background: ['ui', 'no-such-frame']},
       }),
-    ).rejects.toThrow('Texture "no-such-frame" not found in the "ui" spriteset!');
+    ).rejects.toThrow(`Spriteset doesn't contain texture "no-such-frame"!`);
   });
 });

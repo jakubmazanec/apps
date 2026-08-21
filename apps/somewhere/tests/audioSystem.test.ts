@@ -1,6 +1,7 @@
-import * as pixi from 'pixi.js';
+import type * as pixi from 'pixi.js';
 import {afterEach, describe, expect, test, vitest} from 'vitest';
 
+import {GameAssets} from '../source/engine/app/GameAssets.js';
 import {AudioComponent} from '../source/engine/audio/AudioComponent.js';
 import {type AudioMixer} from '../source/engine/audio/AudioMixer.js';
 import {audioSystem} from '../source/engine/audio/audioSystem.js';
@@ -22,9 +23,11 @@ describe('audioSystem', () => {
 
   test('plays one sfx per drained PlaySound event, then does not replay it', () => {
     let buffer = {} as unknown as AudioBuffer;
+    let assets = new GameAssets({bundles: [{name: 'default', sounds: {bump: ['bump.wav']}}]});
 
-    // The cast sidesteps Assets.get's overload typing in the spy (Sprite.test.ts precedent).
-    vitest.spyOn(pixi.Assets, 'get').mockReturnValue(buffer as never);
+    // Spied rather than cached: GameAssets.sound checks `instanceof AudioBuffer`,
+    // which the fake buffer is not.
+    vitest.spyOn(assets, 'sound').mockReturnValue(buffer);
 
     let plays: Array<{buffer: unknown; bus: string}> = [];
     let mixer = {
@@ -33,7 +36,7 @@ describe('audioSystem', () => {
       },
     } as unknown as AudioMixer;
     let channel = new EventChannel({event: PlaySound, displayName: 'Play sound'});
-    let entity = new Entity({components: [new AudioComponent({mixer, channel})]});
+    let entity = new Entity({components: [new AudioComponent({mixer, channel, assets})]});
     let world = new World({
       onStart: (w) => {
         w.addEventChannel(channel);
@@ -79,12 +82,13 @@ describe('audioSystem', () => {
     world.stop();
   });
 
-  test('throws in DEV when a queued sound has no loaded buffer', () => {
-    vitest.spyOn(pixi.Assets, 'get').mockReturnValue(undefined as never);
-
+  test('propagates the accessor throw when a queued sound is not loaded', () => {
+    let assets = new GameAssets({
+      bundles: [{name: 'default', sounds: {missing: ['missing.wav']}}],
+    });
     let mixer = {play: vitest.fn<() => void>()} as unknown as AudioMixer;
     let channel = new EventChannel({event: PlaySound});
-    let entity = new Entity({components: [new AudioComponent({mixer, channel})]});
+    let entity = new Entity({components: [new AudioComponent({mixer, channel, assets})]});
     let world = new World({
       onStart: (w) => {
         w.addEventChannel(channel);
@@ -97,7 +101,7 @@ describe('audioSystem', () => {
     world.update(tick()); // swap: the event is now current
 
     // Drain directly so a throw does not strand the world's updating flag.
-    expect(() => audioSystem.update(tick())).toThrow('missing');
+    expect(() => audioSystem.update(tick())).toThrow(`Sound "missing" wasn't loaded!`);
 
     world.stop();
   });

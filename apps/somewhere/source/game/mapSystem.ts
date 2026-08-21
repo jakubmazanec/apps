@@ -24,7 +24,11 @@ export const mapSystem = new System({
   onAddEntity: (entity, system) => {
     let {map} = entity.getComponent(LevelComponent);
 
-    system.view.addChild(map.view);
+    // The map is the world view's backdrop, and system.view is the shared
+    // world view. Overlay layers (dialogueBoxSystem's prompt bubble) attach
+    // above it and must survive the travel swap, which removes the old map
+    // and adds the new one underneath them; appending would invert that.
+    system.view.addChildAt(map.view, 0);
   },
   onRemoveEntity: (entity, system) => {
     let {map} = entity.getComponent(LevelComponent);

@@ -3,7 +3,7 @@ import * as pixi from 'pixi.js';
 import {failUnsupported} from '../utilities/failUnsupported.js';
 import {to2dArray} from '../utilities/to2dArray.js';
 import {Vector} from '../utilities/Vector.js';
-import {Tilemap} from './Tilemap.js';
+import {type Tilemap} from './Tilemap.js';
 
 export type MapTile = {
   view: pixi.Container;
@@ -16,7 +16,7 @@ export type MapLayer = {
 };
 
 export type MapOptions = {
-  assetName: string;
+  tilemap: Tilemap;
 };
 
 export class Map {
@@ -47,13 +47,7 @@ export class Map {
   /** TBD */
   readonly #animatedSprites: pixi.AnimatedSprite[] = [];
 
-  constructor({assetName}: MapOptions) {
-    let tilemap = pixi.Assets.get<Tilemap | undefined>(assetName);
-
-    if (!(tilemap instanceof Tilemap)) {
-      throw new Error(`Tilemap "${assetName}" wasn't found!`);
-    }
-
+  constructor({tilemap}: MapOptions) {
     // The single tile layer whose class is "entities": the collision source,
     // the y-sorted layer, and addToLayer's default. A stale export without
     // the marker degrades to index 1 (yesterday's hardcoded behavior) rather

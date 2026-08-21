@@ -33,9 +33,9 @@ function tick(deltaTime: number): pixi.Ticker {
   return {deltaTime} as unknown as pixi.Ticker;
 }
 
-// Map resolves its Tilemap (and the Tilemap its Tilesets) through Assets.get
-// and checks them with instanceof, so the stubs are real instances: a 1x2 map
-// whose first tile is static and second is animated.
+// The Tilemap resolves its Tilesets through Assets.get and checks them with
+// instanceof, so the stubs are real instances: a 1x2 map whose first tile is
+// static and second is animated.
 function stubAssets() {
   let tileset = new Tileset({
     tileWidth: 16,
@@ -58,9 +58,9 @@ function stubAssets() {
   });
 
   // The whole-function cast sidesteps Assets.get's overload typing in the spy.
-  vitest
-    .spyOn(pixi.Assets, 'get')
-    .mockImplementation(((name: string) => (name === 'map' ? tilemap : tileset)) as never);
+  vitest.spyOn(pixi.Assets, 'get').mockImplementation((() => tileset) as never);
+
+  return tilemap;
 }
 
 // A 1x2 map with two layers: layer 0 (ground) and layer 1 (the entity layer,
@@ -95,9 +95,9 @@ function stubDepthSortAssets() {
     objectLayers: [],
   });
 
-  vitest
-    .spyOn(pixi.Assets, 'get')
-    .mockImplementation(((name: string) => (name === 'map' ? tilemap : tileset)) as never);
+  vitest.spyOn(pixi.Assets, 'get').mockImplementation((() => tileset) as never);
+
+  return tilemap;
 }
 
 describe(Map, () => {
@@ -106,9 +106,7 @@ describe(Map, () => {
   });
 
   test('animated tile sprites are off the shared clock (autoUpdate: false) and playing', () => {
-    stubAssets();
-
-    let map = new Map({assetName: 'map'});
+    let map = new Map({tilemap: stubAssets()});
     let animated = map.layers[0]!.tiles[0]![1]!.view.children[0] as pixi.AnimatedSprite;
 
     expect(animated).toBeInstanceOf(pixi.AnimatedSprite);
@@ -117,9 +115,7 @@ describe(Map, () => {
   });
 
   test('static tiles stay plain sprites', () => {
-    stubAssets();
-
-    let map = new Map({assetName: 'map'});
+    let map = new Map({tilemap: stubAssets()});
     let staticTile = map.layers[0]!.tiles[0]![0]!.view.children[0];
 
     expect(staticTile).toBeInstanceOf(pixi.Sprite);
@@ -127,9 +123,7 @@ describe(Map, () => {
   });
 
   test('update() advances animated tiles on their authored durations', () => {
-    stubAssets();
-
-    let map = new Map({assetName: 'map'});
+    let map = new Map({tilemap: stubAssets()});
     let animated = map.layers[0]!.tiles[0]![1]!.view.children[0] as pixi.AnimatedSprite;
 
     expect(animated.currentFrame).toBe(0);
@@ -147,9 +141,7 @@ describe(Map, () => {
   });
 
   test('the engine does not scale authored durations by an animationSpeed', () => {
-    stubAssets();
-
-    let map = new Map({assetName: 'map'});
+    let map = new Map({tilemap: stubAssets()});
     let animated = map.layers[0]!.tiles[0]![1]!.view.children[0] as pixi.AnimatedSprite;
 
     expect(animated.animationSpeed).toBe(1);
@@ -162,18 +154,14 @@ describe('Map depth sorting (entity layer)', () => {
   });
 
   test('only the entity layer (index 1) sorts its children by zIndex', () => {
-    stubDepthSortAssets();
-
-    let map = new Map({assetName: 'map'});
+    let map = new Map({tilemap: stubDepthSortAssets()});
 
     expect(map.layers[1]!.view.sortableChildren).toBe(true);
     expect(map.layers[0]!.view.sortableChildren).toBe(false);
   });
 
   test('an entity draws behind a tile while its feet are above the tile collision-box bottom, in front once below', () => {
-    stubDepthSortAssets();
-
-    let map = new Map({assetName: 'map'});
+    let map = new Map({tilemap: stubDepthSortAssets()});
     let layer = map.layers[1]!;
     let tileView = layer.tiles[0]![1]!.view; // row 1: zIndex 16 + 8 + 8 = 32
     // The entity enters the same container graphicsSystem uses and writes the
@@ -224,20 +212,16 @@ describe('Map depth sorting (entity layer)', () => {
       objectLayers: [],
     });
 
-    vitest
-      .spyOn(pixi.Assets, 'get')
-      .mockImplementation(((name: string) => (name === 'map' ? tilemap : tileset)) as never);
+    vitest.spyOn(pixi.Assets, 'get').mockImplementation((() => tileset) as never);
 
-    let map = new Map({assetName: 'map'});
+    let map = new Map({tilemap});
 
     // row 1 offset 16 + max(2 + 4, 5 + 6) = 27.
     expect(map.layers[0]!.tiles[0]![1]!.view.zIndex).toBe(27);
   });
 
   test('a boxless tile keeps the bare row offset as its y-sort key', () => {
-    stubAssets();
-
-    let map = new Map({assetName: 'map'});
+    let map = new Map({tilemap: stubAssets()});
 
     expect(map.layers[0]!.tiles[0]![1]!.view.zIndex).toBe(16);
   });
@@ -270,9 +254,9 @@ function stubFlipAssets(
     objectLayers: [],
   });
 
-  vitest
-    .spyOn(pixi.Assets, 'get')
-    .mockImplementation(((name: string) => (name === 'map' ? tilemap : tileset)) as never);
+  vitest.spyOn(pixi.Assets, 'get').mockImplementation((() => tileset) as never);
+
+  return tilemap;
 }
 
 describe('Map flip rendering', () => {
@@ -290,9 +274,7 @@ describe('Map flip rendering', () => {
     [{d: true, v: true}, -90, 1, 1],
     [{d: true, h: true, v: true}, 90, -1, 1],
   ])('flips %o render as angle %i, scale (%i, %i)', (flips, angle, scaleX, scaleY) => {
-    stubFlipAssets([flippedTile(1, flips)]);
-
-    let map = new Map({assetName: 'map'});
+    let map = new Map({tilemap: stubFlipAssets([flippedTile(1, flips)])});
     let sprite = map.layers[0]!.tiles[0]![0]!.view.children[0] as pixi.Sprite;
 
     expect(sprite.angle).toBe(angle);
@@ -301,9 +283,7 @@ describe('Map flip rendering', () => {
   });
 
   test('a flipped sprite is centered in its cell; an unflipped one keeps the top-left default', () => {
-    stubFlipAssets([flippedTile(1, {h: true}), flippedTile(1, {})]);
-
-    let map = new Map({assetName: 'map'});
+    let map = new Map({tilemap: stubFlipAssets([flippedTile(1, {h: true}), flippedTile(1, {})])});
     let flipped = map.layers[0]!.tiles[0]![0]!.view.children[0] as pixi.Sprite;
     let plain = map.layers[0]!.tiles[1]![0]!.view.children[0] as pixi.Sprite;
 
@@ -339,11 +319,11 @@ describe('Map flip rendering', () => {
       {x: 0, y: 0, width: 4, height: 16},
     ], // D then H moves the pole to the left edge; V is then a no-op
   ])('collision boxes follow the art under flips %o', (flips, expected) => {
-    stubFlipAssets([flippedTile(1, flips)], {
-      collisionBoxes: [new pixi.Rectangle(0, 12, 16, 4)],
+    let map = new Map({
+      tilemap: stubFlipAssets([flippedTile(1, flips)], {
+        collisionBoxes: [new pixi.Rectangle(0, 12, 16, 4)],
+      }),
     });
-
-    let map = new Map({assetName: 'map'});
 
     expect(map.layers[0]!.tiles[0]![0]!.collisionBoxes[0]).toMatchObject(expected);
   });
@@ -351,22 +331,20 @@ describe('Map flip rendering', () => {
   test('the y-sort key uses the transformed boxes', () => {
     // D transposes (2, 0, 4, 16) to (0, 2, 16, 4): bottom edge 6, where the
     // untransformed box's bottom edge is 16.
-    stubFlipAssets([flippedTile(1, {d: true})], {
-      collisionBoxes: [new pixi.Rectangle(2, 0, 4, 16)],
+    let map = new Map({
+      tilemap: stubFlipAssets([flippedTile(1, {d: true})], {
+        collisionBoxes: [new pixi.Rectangle(2, 0, 4, 16)],
+      }),
     });
-
-    let map = new Map({assetName: 'map'});
 
     // row 0 offset 0 + transposed bottom edge 2 + 4.
     expect(map.layers[0]!.tiles[0]![0]!.view.zIndex).toBe(6);
   });
 
   test('throws in DEV on a diagonal flip when tiles are not square', () => {
-    expect(() => {
-      stubFlipAssets([flippedTile(1, {d: true})], {tileHeight: 8});
+    let tilemap = stubFlipAssets([flippedTile(1, {d: true})], {tileHeight: 8});
 
-      return new Map({assetName: 'map'});
-    }).toThrow(/non-square/);
+    expect(() => new Map({tilemap})).toThrow(/non-square/);
   });
 });
 
@@ -376,9 +354,7 @@ describe('Map entity-layer marker', () => {
   });
 
   test('resolves entityLayerIndex to the single entities-class layer', () => {
-    stubDepthSortAssets();
-
-    let map = new Map({assetName: 'map'});
+    let map = new Map({tilemap: stubDepthSortAssets()});
 
     expect(map.entityLayerIndex).toBe(1);
   });
@@ -401,11 +377,9 @@ describe('Map entity-layer marker', () => {
       objectLayers: [],
     });
 
-    vitest
-      .spyOn(pixi.Assets, 'get')
-      .mockImplementation(((name: string) => (name === 'map' ? tilemap : tileset)) as never);
+    vitest.spyOn(pixi.Assets, 'get').mockImplementation((() => tileset) as never);
 
-    expect(() => new Map({assetName: 'map'})).toThrow(/exactly one tile layer/);
+    expect(() => new Map({tilemap})).toThrow(/exactly one tile layer/);
   });
 
   test('throws in DEV when two tile layers carry class "entities"', () => {
@@ -429,10 +403,8 @@ describe('Map entity-layer marker', () => {
       objectLayers: [],
     });
 
-    vitest
-      .spyOn(pixi.Assets, 'get')
-      .mockImplementation(((name: string) => (name === 'map' ? tilemap : tileset)) as never);
+    vitest.spyOn(pixi.Assets, 'get').mockImplementation((() => tileset) as never);
 
-    expect(() => new Map({assetName: 'map'})).toThrow(/exactly one tile layer/);
+    expect(() => new Map({tilemap})).toThrow(/exactly one tile layer/);
   });
 });

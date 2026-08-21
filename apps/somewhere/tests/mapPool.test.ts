@@ -1,8 +1,8 @@
-import * as pixi from 'pixi.js';
 import {afterEach, describe, expect, test, vitest} from 'vitest';
 
 import {toTileGid} from '../source/engine/tiled/TileGid.js';
 import {Tilemap} from '../source/engine/tiled/Tilemap.js';
+import {assets} from '../source/game/assets.js';
 import {LevelComponent} from '../source/game/LevelComponent.js';
 import {getMapPool} from '../source/game/mapPool.js';
 
@@ -36,7 +36,7 @@ describe(getMapPool, () => {
   });
 
   test('same name returns the same pool; a destroyed entity is reused with its position reset', () => {
-    vitest.spyOn(pixi.Assets, 'get').mockImplementation((() => stubTilemap()) as never);
+    vitest.spyOn(assets, 'tilemap').mockReturnValue(stubTilemap());
 
     let pool = getMapPool('map');
 
@@ -55,7 +55,7 @@ describe(getMapPool, () => {
   });
 
   test('different names get different pools', () => {
-    vitest.spyOn(pixi.Assets, 'get').mockImplementation((() => stubTilemap()) as never);
+    vitest.spyOn(assets, 'tilemap').mockReturnValue(stubTilemap());
 
     expect(getMapPool('map')).not.toBe(getMapPool('shop-interior'));
   });

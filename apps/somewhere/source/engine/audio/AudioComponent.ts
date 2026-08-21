@@ -1,3 +1,4 @@
+import {type GameAssets} from '../app/GameAssets.js';
 import {defineComponent} from '../ecs/Component.js';
 import {type EventChannel} from '../ecs/EventChannel.js';
 import {type AudioMixer} from './AudioMixer.js';
@@ -8,8 +9,11 @@ import {type PlaySound} from './PlaySound.js';
 // channel (engine must not depend on game) — the component is how the engine
 // system reaches a game-owned channel. Singleton entity + query per the T1.1
 // pattern; not a module singleton, not a world resource (that API arrives with
-// T2.15; the read migrates then).
+// T2.15; the read migrates then). `assets` rides along for the same reason:
+// the GameAssets instance is game-created, and its accessors are how the
+// system turns an event's asset name into a buffer.
 export const AudioComponent = defineComponent<{
   mixer: AudioMixer;
   channel: EventChannel<typeof PlaySound>;
+  assets: GameAssets;
 }>();

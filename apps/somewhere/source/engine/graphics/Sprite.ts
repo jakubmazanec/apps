@@ -36,12 +36,7 @@ export class Sprite<const N extends readonly string[] = string[]> {
     let sprites: Record<string, pixi.AnimatedSprite> = {};
 
     for (let spriteName of spriteNames) {
-      let animation = spriteset.animations[spriteName];
-
-      if (!animation) {
-        throw new Error(`Spriteset doesn't contain animated sprite "${spriteName}"!`);
-      }
-
+      let animation = spriteset.animation(spriteName);
       // Off Pixi's shared clock: graphicsSystem advances the current sprite via
       // view.update(ticker) on the world's update path, so a paused world
       // freezes it by construction (game UI design §3).

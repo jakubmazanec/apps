@@ -4,6 +4,8 @@ import {afterEach, describe, expect, test, vitest} from 'vitest';
 
 import {GameAssets, type GameAssets as GameAssetsClass} from '../source/engine/app/GameAssets.js';
 import {Spriteset} from '../source/engine/graphics/Spriteset.js';
+import {Tilemap} from '../source/engine/tiled/Tilemap.js';
+import {Tileset} from '../source/engine/tiled/Tileset.js';
 
 // An extension descriptor with no cache/loader, so GameAssets' module-level
 // `pixi.extensions.add` calls register nothing. The literal 'asset' rather than
@@ -42,6 +44,7 @@ function createAssets() {
         name: 'game',
         sounds: {bump: ['bump.wav']},
         tilemaps: {map: ['map.json']},
+        tilesets: {tileset: ['tileset.json']},
       },
     ],
   });
@@ -54,39 +57,6 @@ function fakeSpriteset(textures: Record<string, unknown>): Spriteset {
 describe('GameAssets accessors', () => {
   afterEach(() => {
     pixi.Assets.cache.reset();
-  });
-
-  test('texture returns the frame from a loaded spriteset', () => {
-    let assets = createAssets();
-    let frame = {};
-
-    pixi.Assets.cache.set('ui', fakeSpriteset({'focus-ring': frame}));
-
-    expect(assets.texture('ui', 'focus-ring')).toBe(frame);
-  });
-
-  test('texture throws when the spriteset is not loaded', () => {
-    let assets = createAssets();
-
-    expect(() => assets.texture('ui', 'focus-ring')).toThrow(`Spriteset "ui" wasn't loaded!`);
-  });
-
-  test('texture throws when the frame is missing from the spriteset', () => {
-    let assets = createAssets();
-
-    pixi.Assets.cache.set('ui', fakeSpriteset({}));
-
-    expect(() => assets.texture('ui', 'focus-ring')).toThrow(
-      'Texture "focus-ring" not found in the "ui" spriteset!',
-    );
-  });
-
-  test('texture throws when the cached value is not a spriteset', () => {
-    let assets = createAssets();
-
-    pixi.Assets.cache.set('ui', {});
-
-    expect(() => assets.texture('ui', 'focus-ring')).toThrow('Asset "ui" is not a spriteset!');
   });
 
   test('spriteset returns the loaded spriteset', () => {
@@ -110,6 +80,66 @@ describe('GameAssets accessors', () => {
     pixi.Assets.cache.set('ui', {});
 
     expect(() => assets.spriteset('ui')).toThrow('Asset "ui" is not a spriteset!');
+  });
+
+  test('tilemap returns the loaded tilemap', () => {
+    let assets = createAssets();
+    let tilemap = new Tilemap({
+      tileWidth: 16,
+      tileHeight: 16,
+      columnCount: 1,
+      rowCount: 1,
+      tilesets: [],
+      layers: [],
+      objectLayers: [],
+    });
+
+    pixi.Assets.cache.set('map', tilemap);
+
+    expect(assets.tilemap('map')).toBe(tilemap);
+  });
+
+  test('tilemap throws when the tilemap is not loaded', () => {
+    let assets = createAssets();
+
+    expect(() => assets.tilemap('map')).toThrow(`Tilemap "map" wasn't loaded!`);
+  });
+
+  test('tilemap throws when the cached asset is not a tilemap', () => {
+    let assets = createAssets();
+
+    pixi.Assets.cache.set('map', {});
+
+    expect(() => assets.tilemap('map')).toThrow('Asset "map" is not a tilemap!');
+  });
+
+  test('tileset returns the loaded tileset', () => {
+    let assets = createAssets();
+    let tileset = new Tileset({
+      tileWidth: 16,
+      tileHeight: 16,
+      columnCount: 1,
+      rowCount: 1,
+      tiles: [],
+    });
+
+    pixi.Assets.cache.set('tileset', tileset);
+
+    expect(assets.tileset('tileset')).toBe(tileset);
+  });
+
+  test('tileset throws when the tileset is not loaded', () => {
+    let assets = createAssets();
+
+    expect(() => assets.tileset('tileset')).toThrow(`Tileset "tileset" wasn't loaded!`);
+  });
+
+  test('tileset throws when the cached asset is not a tileset', () => {
+    let assets = createAssets();
+
+    pixi.Assets.cache.set('tileset', {});
+
+    expect(() => assets.tileset('tileset')).toThrow('Asset "tileset" is not a tileset!');
   });
 
   test('sound returns a loaded AudioBuffer', () => {
@@ -140,7 +170,7 @@ describe('GameAssets accessors', () => {
     let spy = vitest.spyOn(pixi.Assets, 'get');
 
     expect(() => assets.sound('ui-click')).toThrow(`Sound "ui-click" wasn't loaded!`);
-    expect(() => assets.texture('ui', 'focus-ring')).toThrow(`Spriteset "ui" wasn't loaded!`);
+    expect(() => assets.spriteset('ui')).toThrow(`Spriteset "ui" wasn't loaded!`);
     expect(spy).not.toHaveBeenCalled();
   });
 
@@ -149,7 +179,7 @@ describe('GameAssets accessors', () => {
 
     expect(() => {
       // @ts-expect-error -- 'ui-click' is a sound name, not a spriteset name
-      assets.texture('ui-click', 'frame');
+      assets.spriteset('ui-click');
     }).toThrow(`Spriteset "ui-click" wasn't loaded!`);
     expect(() => {
       // @ts-expect-error -- 'nope' is not a declared asset name in any group
@@ -195,6 +225,7 @@ describe('GameAssets loading', () => {
             assets: [
               {alias: 'bump', src: ['bump.wav']},
               {alias: 'map', src: ['map.json']},
+              {alias: 'tileset', src: ['tileset.json']},
             ],
           },
         ],
