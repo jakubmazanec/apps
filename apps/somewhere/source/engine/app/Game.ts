@@ -64,6 +64,72 @@ export class Game {
     this.#theme = theme;
   }
 
+  /** Initializes the game instance. */
+  async init() {
+    if (this.#state !== 'created') {
+      throw new Error(
+        `Game can't be initialized, it must be in "created" state (currently state is "${this.#state}")!`,
+      );
+    }
+
+    this.#state = 'initializing';
+    pixi.TextureSource.defaultOptions.scaleMode = 'nearest'; // Must be set before any texture load starts!
+
+    // Start the asset pipeline alongside app.init().
+    let assetsReady = this.#assets.init().then(async () => {
+      await this.#assets.loadBundles(['default']);
+
+      this.#theme.resolve(this.#assets);
+    });
+    let appReady = this.app
+      .init({
+        resolution: 1,
+        backgroundColor: 0x000000,
+        antialias: false,
+        roundPixels: true,
+        eventMode: 'passive',
+        preference: 'webgl',
+      })
+      .then(() => {});
+
+    await Promise.all([appReady, assetsReady]);
+    this.#assets.loadAllBundlesInBackground();
+    this.app.stage.addChild(this.view);
+    this.view.scale.set(this.pixelScale);
+
+    this.view.layout = {
+      width: this.app.screen.width / this.pixelScale,
+      height: this.app.screen.height / this.pixelScale,
+      transformOrigin: 0, // @pixi/layout composes a layout container's transform about its transformOrigin, which defaults to '50%': a scaled root would shift the whole scene by (1 - pixelScale) / 2 of the box!
+    };
+    this.view.eventMode = 'static';
+    this.view.hitArea = new pixi.Rectangle();
+    this.app.ticker.minFPS = 10; // One frame advances world time by at most 100 ms; Pixi's Ticker defaults to minFPS = 10 already, but pinned explicitly.
+
+    // TODO: make better abstraction
+    let filter = new CRTFilter({
+      lineWidth: this.pixelScale * 2,
+      lineContrast: 0.08,
+      noise: 0.1,
+      noiseSize: 0.1,
+      vignetting: 0,
+      time: 0,
+    });
+
+    this.app.stage.filters = [filter];
+
+    // TODO: use delta
+    this.app.ticker.add((delta) => {
+      filter.time += 0.4;
+
+      if (filter.time > 1000) {
+        filter.time = 0;
+      }
+    });
+
+    this.#state = 'running';
+  }
+
   /** TBD */
   get isRunning() {
     return this.#state === 'running' || this.#state === 'transitioning';
@@ -138,72 +204,6 @@ export class Game {
     this.#state = 'destroyed';
 
     return this;
-  }
-
-  /** Initializes the game instance. */
-  async init() {
-    if (this.#state !== 'created') {
-      throw new Error(
-        `Game can't be initialized, it must be in "created" state (currently state is "${this.#state}")!`,
-      );
-    }
-
-    this.#state = 'initializing';
-    pixi.TextureSource.defaultOptions.scaleMode = 'nearest'; // Must be set before any texture load starts!
-
-    // Start the asset pipeline alongside app.init().
-    let assetsReady = this.#assets.init().then(async () => {
-      await this.#assets.loadBundles(['default']);
-
-      this.#theme.resolve(this.#assets);
-    });
-    let appReady = this.app
-      .init({
-        resolution: 1,
-        backgroundColor: 0x000000,
-        antialias: false,
-        roundPixels: true,
-        eventMode: 'passive',
-        preference: 'webgl',
-      })
-      .then(() => {});
-
-    await Promise.all([appReady, assetsReady]);
-    this.#assets.loadAllBundlesInBackground();
-    this.app.stage.addChild(this.view);
-    this.view.scale.set(this.pixelScale);
-
-    this.view.layout = {
-      width: this.app.screen.width / this.pixelScale,
-      height: this.app.screen.height / this.pixelScale,
-      transformOrigin: 0, // @pixi/layout composes a layout container's transform about its transformOrigin, which defaults to '50%': a scaled root would shift the whole scene by (1 - pixelScale) / 2 of the box!
-    };
-    this.view.eventMode = 'static';
-    this.view.hitArea = new pixi.Rectangle();
-    this.app.ticker.minFPS = 10; // One frame advances world time by at most 100 ms; Pixi's Ticker defaults to minFPS = 10 already, but pinned explicitly.
-
-    // TODO: make better abstraction
-    let filter = new CRTFilter({
-      lineWidth: this.pixelScale * 2,
-      lineContrast: 0.08,
-      noise: 0.1,
-      noiseSize: 0.1,
-      vignetting: 0,
-      time: 0,
-    });
-
-    this.app.stage.filters = [filter];
-
-    // TODO: use delta
-    this.app.ticker.add((delta) => {
-      filter.time += 0.4;
-
-      if (filter.time > 1000) {
-        filter.time = 0;
-      }
-    });
-
-    this.#state = 'running';
   }
 
   /** Mounts the game using a ref. */

@@ -18,7 +18,7 @@ export const audio = new AudioMixer({createContext: () => new AudioContext()});
 export const playSoundChannel = new EventChannel({event: PlaySound, displayName: 'Play sound'});
 
 export const audioEntity = new Entity({
-  components: [new AudioComponent({mixer: audio, channel: playSoundChannel})],
+  components: [new AudioComponent({mixer: audio, channel: playSoundChannel, assets})],
 });
 
 // Initial volumes go through the same setter the Options sliders use, so

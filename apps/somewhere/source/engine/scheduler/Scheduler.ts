@@ -8,16 +8,17 @@ import {Tween, type TweenOptions} from './Tween.js';
 // `Tween<unknown>`. `update` is the only public method and doesn't depend on `T`, so this is safe.
 type TweenEntry = {tween: Tween<unknown>; onComplete?: (() => void) | undefined};
 type TimerEntry = {timer: Timer; onComplete: () => void};
+type WaitEntry = (result: {cancelled: boolean}) => void;
 
 export class Scheduler {
-  /** TBD */
-  readonly #pendingWaits = new Set<(result: {cancelled: boolean}) => void>();
-
   /** TBD */
   readonly #timers = new Set<TimerEntry>();
 
   /** TBD */
   readonly #tweens = new Set<TweenEntry>();
+
+  /** TBD */
+  readonly #waits: Set<WaitEntry> = new Set();
 
   /** TBD */
   after(duration: number, onComplete: () => void): () => void {
@@ -30,16 +31,16 @@ export class Scheduler {
     };
   }
 
-  /** TBD */
+  /** @internal Called via `GameScreen`'s disposables stack on hide/destroy. */
   clear() {
     this.#tweens.clear();
     this.#timers.clear();
 
-    for (let resolve of this.#pendingWaits) {
+    for (let resolve of this.#waits) {
       resolve({cancelled: true});
     }
 
-    this.#pendingWaits.clear();
+    this.#waits.clear();
   }
 
   /** TBD */
@@ -55,7 +56,7 @@ export class Scheduler {
 
   /** TBD */
   tween<T>(options: TweenOptions<T> & {onComplete?: () => void}): () => void {
-    let entry: TweenEntry = {tween: new Tween(options), onComplete: options.onComplete};
+    let entry = {tween: new Tween(options), onComplete: options.onComplete};
 
     this.#tweens.add(entry);
 
@@ -64,36 +65,33 @@ export class Scheduler {
     };
   }
 
-  /** @internal Called by `GameScreen.update`. */
+  /** @internal Called by `GameScreen.update` to update tweens and timers. */
   update(ticker: pixi.Ticker) {
-    // Snapshot before iterating: an `onComplete` may schedule a new tween/timer (a fade-out that
-    // starts a fade-in). Iterating the live `Set` would visit that fresh entry in the same pass and
-    // advance it by this same frame's `deltaMS`; snapshotting makes scheduled-from-completion work
-    // start next frame, as intended. (The copy is deliberate — do not iterate the live Set.)
-    let tweenEntries = [...this.#tweens];
-    let timerEntries = [...this.#timers];
+    // Snapshot before iterating, so an `onComplete` can schedule a new tween or timer.
+    let tweens = [...this.#tweens];
+    let timers = [...this.#timers];
 
-    for (let entry of tweenEntries) {
-      if (!this.#tweens.has(entry)) {
+    for (let tween of tweens) {
+      if (!this.#tweens.has(tween)) {
         continue;
       }
 
-      if (entry.tween.update(ticker)) {
-        entry.onComplete?.();
-        this.#tweens.delete(entry);
+      if (tween.tween.update(ticker)) {
+        tween.onComplete?.();
+        this.#tweens.delete(tween);
       }
     }
 
-    for (let entry of timerEntries) {
-      if (!this.#timers.has(entry)) {
+    for (let timer of timers) {
+      if (!this.#timers.has(timer)) {
         continue;
       }
 
-      if (entry.timer.update(ticker)) {
-        entry.onComplete();
+      if (timer.timer.update(ticker)) {
+        timer.onComplete();
 
-        if (!entry.timer.repeats) {
-          this.#timers.delete(entry);
+        if (!timer.timer.repeats) {
+          this.#timers.delete(timer);
         }
       }
     }
@@ -101,14 +99,13 @@ export class Scheduler {
 
   /** TBD */
   async wait(duration: number): Promise<{cancelled: boolean}> {
-    // Track `resolve` so `clear()` can settle a pending wait; otherwise dropping the timer would
-    // leave `await scheduler.wait(...)` suspended forever. A cancelled wait resolves (never
-    // rejects) with `{cancelled: true}`, so a fire-and-forget `wait()` cannot become an unhandled
-    // rejection when the screen hides.
+    // Track `resolve` so `clear()` can settle a pending wait; otherwise `await
+    // scheduler.wait(...)` would wait forever. A cancelled wait resolves (never rejects) with
+    // `{cancelled: true}`, so there isn't an unhandled rejection.
     return new Promise((resolve) => {
-      this.#pendingWaits.add(resolve);
+      this.#waits.add(resolve);
       this.after(duration, () => {
-        this.#pendingWaits.delete(resolve);
+        this.#waits.delete(resolve);
         resolve({cancelled: false});
       });
     });

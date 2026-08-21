@@ -126,4 +126,26 @@ export class Spriteset {
 
     return new this({textures: spritesheet.textures, animations});
   }
+
+  /** TBD */
+  animation(name: string): SpritesetAnimation {
+    let animation = this.animations[name];
+
+    if (!animation) {
+      throw new Error(`Spriteset doesn't contain animation "${name}"!`);
+    }
+
+    return animation;
+  }
+
+  /** TBD */
+  texture(frame: string): pixi.Texture {
+    let texture = this.textures[frame];
+
+    if (!texture) {
+      throw new Error(`Spriteset doesn't contain texture "${frame}"!`);
+    }
+
+    return texture;
+  }
 }

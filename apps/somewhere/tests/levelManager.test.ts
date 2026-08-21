@@ -33,6 +33,7 @@ const {camera} = await import('../source/game/camera.js');
 const {CameraComponent} = await import('../source/game/CameraComponent.js');
 const {cameraQuery} = await import('../source/game/cameraQuery.js');
 const {levelQuery} = await import('../source/game/levelQuery.js');
+const {mapSystem} = await import('../source/game/mapSystem.js');
 const {playersQuery} = await import('../source/game/playersQuery.js');
 const {playerPool} = await import('../source/game/playerPool.js');
 const {MotionComponent} = await import('../source/game/MotionComponent.js');
@@ -124,7 +125,7 @@ function buildTilemap(objects: TilemapObject[], columns = 4): Tilemap {
 }
 
 function stubAssets(tilemaps: Record<string, Tilemap>): void {
-  vitest.spyOn(pixi.Assets, 'get').mockImplementation(((name: string) => tilemaps[name]) as never);
+  vitest.spyOn(assets, 'tilemap').mockImplementation(((name: string) => tilemaps[name]) as never);
   vitest.spyOn(assets, 'spriteset').mockReturnValue(
     new Spriteset({
       textures: {},
@@ -452,6 +453,26 @@ describe('levelManager: flushPendingTravel', () => {
 
     expect(levelQuery.getFirst()).toBe(spawned.mapEntity);
     expect(getCurrentMapName()).toBe('map');
+  });
+
+  test('the swapped-in map view stays below the overlay layers', () => {
+    let {world} = startWorld();
+
+    // system.view is the shared world view, so paint order is addChild order.
+    // The map lands first (world.onStart adds it before any update runs) and
+    // dialogueBoxSystem's prompt layer attaches above it on its first update;
+    // the swap must not invert that, or the new map paints over the bubble.
+    world.addSystem(mapSystem);
+
+    let overlay = new pixi.Container();
+
+    world.view.addChild(overlay);
+    requestTravel({mapName: 'shop-interior', entryName: 'entrance'});
+    flushPendingTravel(world);
+
+    let {map} = levelQuery.getFirst().getComponent(LevelComponent);
+
+    expect(world.view.getChildIndex(map.view)).toBeLessThan(world.view.getChildIndex(overlay));
   });
 
   test('no pending travel or a stopped world is a no-op', () => {

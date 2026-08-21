@@ -97,7 +97,7 @@ function buildTilemap(objects: TilemapObject[]): Tilemap {
   });
 }
 
-// Stubs pixi.Assets.get to resolve 'map' to the built tilemap and any other
+// Stubs assets.tilemap to resolve 'map' to the built tilemap and any other
 // name through extraTilemaps (a second map for travel/Continue tests). The
 // player's 'character-' prefixed names resolve to a minimal Spriteset for the
 // Sprite constructor.
@@ -114,7 +114,7 @@ function stubAssets(objects: TilemapObject[], extraTilemaps: Record<string, Tile
   });
 
   vitest
-    .spyOn(pixi.Assets, 'get')
+    .spyOn(assets, 'tilemap')
     .mockImplementation(((name: string) =>
       name === 'map' ? tilemap : extraTilemaps[name]) as never);
   vitest.spyOn(assets, 'spriteset').mockReturnValue(character);

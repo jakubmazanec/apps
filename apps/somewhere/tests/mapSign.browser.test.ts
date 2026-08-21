@@ -70,6 +70,7 @@ vitest.mock(import('../source/game/assets.js'), async () => {
   // stub cannot satisfy the nominally typed GameAssets instance.
   let assets = {
     texture: () => Texture.WHITE,
+    tilemap: () => ({}),
     spriteset: () => ({}),
     sound: () => ({}),
     font: () => ({fontFamily: 'monogram', fontSize: 12, fill: 0xffffff}),
@@ -199,7 +200,26 @@ async function startWorldOnRealMap() {
     : name === 'ui' ? {textures: {'advance-marker': pixi.Texture.WHITE}}
     : name === 'blip' || name === 'chime' || name === 'bump' ? {}
     : undefined) as never);
-  vitest.spyOn(assets, 'spriteset').mockReturnValue(spriteBag);
+
+  let promptBubbleSpriteset = new Spriteset({
+    textures: {bubble: pixi.Texture.WHITE},
+    animations: {},
+  });
+  let uiSpriteset = new Spriteset({
+    textures: {'advance-marker': pixi.Texture.WHITE},
+    animations: {},
+  });
+
+  // Name-aware, like the pixi.Assets.get stub above: validateExit resolves
+  // the shop's own tilemap to check its entry point exists.
+  vitest
+    .spyOn(assets, 'tilemap')
+    .mockImplementation((name: string) => (name === 'map' ? tilemap : shopInteriorTilemap));
+  vitest.spyOn(assets, 'spriteset').mockImplementation((name: string) =>
+    name === 'prompt-bubble' ? promptBubbleSpriteset
+    : name === 'ui' ? uiSpriteset
+    : spriteBag,
+  );
 
   world.start();
 }

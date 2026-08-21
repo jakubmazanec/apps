@@ -32,6 +32,7 @@ vitest.mock(import('../source/game/game.js'), () => {
   return {game: game as never};
 });
 
+const {assets} = await import('../source/game/assets.js');
 const {getPendingTravel, requestTravel, resetLevelManager} =
   await import('../source/game/levelManager.js');
 
@@ -83,7 +84,7 @@ function stubDestination(): void {
   });
 
   vitest
-    .spyOn(pixi.Assets, 'get')
+    .spyOn(assets, 'tilemap')
     .mockImplementation(((name: string) =>
       name === 'shop-interior' ? tilemap : undefined) as never);
 }

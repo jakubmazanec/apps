@@ -92,4 +92,34 @@ describe(Spriteset, () => {
     expect(spriteset.textures).toEqual({});
     expect(spriteset.animations).toEqual({});
   });
+
+  test('texture returns the frame', () => {
+    let textures: Record<string, unknown> = {banner: {}};
+    let spriteset = new Spriteset({textures: textures as never, animations: {}});
+
+    expect(spriteset.texture('banner')).toBe(textures.banner);
+  });
+
+  test('texture throws when the frame is missing', () => {
+    let spriteset = new Spriteset({textures: {}, animations: {}});
+
+    expect(() => spriteset.texture('banner')).toThrow(
+      `Spriteset doesn't contain texture "banner"!`,
+    );
+  });
+
+  test('animation returns the animation', () => {
+    let animation = {textures: [], speed: 0.3, loop: false};
+    let spriteset = new Spriteset({textures: {}, animations: {spin: animation}});
+
+    expect(spriteset.animation('spin')).toBe(animation);
+  });
+
+  test('animation throws when the animation is missing', () => {
+    let spriteset = new Spriteset({textures: {}, animations: {}});
+
+    expect(() => spriteset.animation('spin')).toThrow(
+      `Spriteset doesn't contain animation "spin"!`,
+    );
+  });
 });
