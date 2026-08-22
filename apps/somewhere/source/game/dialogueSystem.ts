@@ -84,10 +84,17 @@ export const dialogueSystem = new System({
             // stands in, or the sign zone they stand near), if any, then move
             // on: the starting press can never also advance.
             let entity = findPromptEntity(system.entities);
-            let dialogue = entity?.getComponent(TriggerComponent).properties.dialogue;
+            let trigger = entity?.getComponent(TriggerComponent);
 
-            if (typeof dialogue === 'string') {
-              startDialogue(component, dialogue);
+            // An exit is travelSystem's job: even a stray dialogue property
+            // on one must not start a script, or one press would both talk
+            // and travel.
+            if (trigger !== undefined && trigger.type !== 'exit') {
+              let {dialogue} = trigger.properties;
+
+              if (typeof dialogue === 'string') {
+                startDialogue(component, dialogue);
+              }
             }
           } else {
             // Every later press is the runner's one-button action: it skips a

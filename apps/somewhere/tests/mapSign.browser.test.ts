@@ -6,7 +6,9 @@
 import * as pixi from 'pixi.js';
 import {afterEach, describe, expect, test, vitest} from 'vitest';
 
+import exteriorTilesetJsonRaw from '../public/exterior-tileset.json?raw';
 import mapJsonRaw from '../public/map.json?raw';
+import shopInteriorJsonRaw from '../public/shop-interior.json?raw';
 import tilesetJsonRaw from '../public/tileset.json?raw';
 import {Spriteset} from '../source/engine/graphics/Spriteset.js';
 import {InputComponent} from '../source/engine/input/InputComponent.js';
@@ -121,17 +123,19 @@ function tick(deltaMS: number): pixi.Ticker {
   return {deltaMS, deltaTime: deltaMS / (1000 / 60)} as unknown as pixi.Ticker;
 }
 
-async function startWorldOnRealMap() {
-  let mapJson = JSON.parse(mapJsonRaw) as unknown;
-  let tilesetJson = JSON.parse(tilesetJsonRaw) as {
-    tilecount: number;
-    columns: number;
-    tiles?: Array<{
-      id: number;
-      objectgroup?: {objects: Array<{x: number; y: number; width: number; height: number}>};
-    }>;
-  };
-  let tilemap = await Tilemap.from(mapJson);
+type RawTilesetJson = {
+  tilecount: number;
+  columns: number;
+  tiles?: Array<{
+    id: number;
+    objectgroup?: {objects: Array<{x: number; y: number; width: number; height: number}>};
+  }>;
+};
+
+// Shared by both tilesets the real map.json references: the village's own
+// tileset.json (firstgid 1) and, since the shop house stamp, exterior-tileset.json
+// (firstgid 4097). Same collision-box extraction either way.
+function buildTileset(tilesetJson: RawTilesetJson): Tileset {
   let tiles = Array.from({length: tilesetJson.tilecount}, (unused, index) => ({
     id: toTileId(index),
     textures: [pixi.Texture.WHITE],
@@ -146,13 +150,24 @@ async function startWorldOnRealMap() {
     }
   }
 
-  let tileset = new Tileset({
+  return new Tileset({
     tileWidth: 16,
     tileHeight: 16,
     columnCount: tilesetJson.columns,
     rowCount: Math.ceil(tilesetJson.tilecount / tilesetJson.columns),
     tiles,
   });
+}
+
+async function startWorldOnRealMap() {
+  let mapJson = JSON.parse(mapJsonRaw) as unknown;
+  let tilemap = await Tilemap.from(mapJson);
+  let tileset = buildTileset(JSON.parse(tilesetJsonRaw) as RawTilesetJson);
+  let exteriorTileset = buildTileset(JSON.parse(exteriorTilesetJsonRaw) as RawTilesetJson);
+  // Spawn-time validation resolves every exit's destination map + entry
+  // point (levelManager's validateExit), so the shop's exit needs its real
+  // target tilemap resolvable too, even though nothing here ever travels.
+  let shopInteriorTilemap = await Tilemap.from(JSON.parse(shopInteriorJsonRaw));
   let spriteBag = new Spriteset({
     textures: {},
     animations: Object.fromEntries(
@@ -176,7 +191,9 @@ async function startWorldOnRealMap() {
   vitest.spyOn(pixi.Assets.cache, 'has').mockReturnValue(true);
   vitest.spyOn(pixi.Assets, 'get').mockImplementation(((name: string) =>
     name === 'map' ? tilemap
+    : name === 'shop-interior' ? shopInteriorTilemap
     : name === 'tileset.json' ? tileset
+    : name === 'exterior-tileset.json' ? exteriorTileset
     : name === 'character' || name === 'npc' || name === 'spark' ? spriteBag
     : name === 'prompt-bubble' ? {textures: {bubble: pixi.Texture.WHITE}}
     : name === 'ui' ? {textures: {'advance-marker': pixi.Texture.WHITE}}

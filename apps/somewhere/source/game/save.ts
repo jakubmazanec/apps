@@ -2,6 +2,7 @@ import {z} from 'zod';
 
 import {PersistedStore} from '../engine/storage/PersistedStore.js';
 import {flags} from './flags.js';
+import {DEFAULT_MAP_NAME, getCurrentMapName, type MapName, mapNames} from './levelManager.js';
 import {MotionComponent} from './MotionComponent.js';
 import {playersQuery} from './playersQuery.js';
 
@@ -21,6 +22,9 @@ const saveSchema = z.object({
   // go on terminal nodes' onEnter, so quitting mid-conversation only loses
   // what was not reached, never records what did not happen.
   flags: z.object({metMira: z.boolean()}),
+  // Which map the run is on; restore picks it before spawning. An old save
+  // without it fails the schema and resets (the standing policy).
+  map: z.enum(mapNames),
 });
 
 export type SaveData = z.infer<typeof saveSchema>;
@@ -49,7 +53,11 @@ export function loadSave(): SaveData | null {
 export function writeSave(): void {
   let {position} = playersQuery.getFirst().getComponent(MotionComponent);
 
-  saveStore.save({player: {x: position.x, y: position.y}, flags: {...flags}});
+  saveStore.save({
+    player: {x: position.x, y: position.y},
+    flags: {...flags},
+    map: getCurrentMapName(),
+  });
 }
 
 /** Stages the stored save for the next worldScreen show (the Continue click). */
@@ -81,4 +89,13 @@ export function applyStagedSave(): void {
   position.set(stagedSave.player.x, stagedSave.player.y);
   Object.assign(flags, stagedSave.flags);
   stagedSave = null;
+}
+
+/**
+ * The staged save's map, or the default without a stage (New Game).
+ * world.onStart reads it to pick the starting map before spawning;
+ * applyStagedSave afterwards applies position and flags exactly as before.
+ */
+export function getStagedMapName(): MapName {
+  return stagedSave === null ? DEFAULT_MAP_NAME : stagedSave.map;
 }

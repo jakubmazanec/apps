@@ -14,18 +14,30 @@ const PROMPT_RANGE = 12;
 
 /**
  * The trigger the interact prompt, and an interact press, resolve against: an
- * npc the player stands in, or a dialogue zone the player stands near. The
- * zone case covers the approach band (walking on into the zone still
- * auto-starts it) and re-reads after a dismissal while still inside. First
- * match wins across overlapping triggers; dialogueSystem and dialogueBoxSystem
- * share this resolution so the bubble always advertises exactly what an
- * interact press would start.
+ * npc the player stands in, a dialogue zone the player stands near, or an
+ * exit the player stands in or near. The zone case covers the approach band
+ * (walking on into the zone still auto-starts it) and re-reads after a
+ * dismissal while still inside. First match wins across overlapping
+ * triggers; dialogueSystem and dialogueBoxSystem share this resolution so
+ * the bubble always advertises exactly what an interact press would do —
+ * talk or travel.
  */
 export function findPromptEntity<TEntity extends Entity>(
   entities: Iterable<TEntity>,
 ): TEntity | null {
   for (let entity of entities) {
     let trigger = entity.getComponent(TriggerComponent);
+
+    // An exit advertises travel, not dialogue: in or near its rect (the near
+    // band — exits sit in doorway geometry the player may only brush
+    // against) makes it the prompt.
+    if (trigger.type === 'exit') {
+      if (isPlayerNearRect(trigger.rect)) {
+        return entity;
+      }
+
+      continue;
+    }
 
     if (typeof trigger.properties.dialogue !== 'string') {
       continue;

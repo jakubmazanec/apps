@@ -10,6 +10,7 @@ import {playersQuery} from '../source/game/playersQuery.js';
 import {
   applyStagedSave,
   clearStagedSave,
+  getStagedMapName,
   loadSave,
   stageContinue,
   writeSave,
@@ -60,8 +61,9 @@ describe('save', () => {
     expect(JSON.parse(localStorage.getItem(SAVE_KEY) ?? '')).toEqual({
       player: {x: 42, y: 27},
       flags: {metMira: false},
+      map: 'map',
     });
-    expect(loadSave()).toEqual({player: {x: 42, y: 27}, flags: {metMira: false}});
+    expect(loadSave()).toEqual({player: {x: 42, y: 27}, flags: {metMira: false}, map: 'map'});
   });
 
   test('writeSave works on a paused world', () => {
@@ -71,7 +73,7 @@ describe('save', () => {
     world.pause();
     writeSave();
 
-    expect(loadSave()).toEqual({player: {x: 3, y: 4}, flags: {metMira: false}});
+    expect(loadSave()).toEqual({player: {x: 3, y: 4}, flags: {metMira: false}, map: 'map'});
   });
 
   test('loadSave returns null when nothing is stored', () => {
@@ -90,7 +92,10 @@ describe('save', () => {
   });
 
   test('stageContinue then applyStagedSave restores the position and consumes the stage', () => {
-    localStorage.setItem(SAVE_KEY, JSON.stringify({player: {x: 5, y: 6}, flags: {metMira: false}}));
+    localStorage.setItem(
+      SAVE_KEY,
+      JSON.stringify({player: {x: 5, y: 6}, flags: {metMira: false}, map: 'map'}),
+    );
     stageContinue();
 
     let {world, motion} = createWorld(144, 160);
@@ -110,7 +115,10 @@ describe('save', () => {
   });
 
   test('clearStagedSave prevents a later apply', () => {
-    localStorage.setItem(SAVE_KEY, JSON.stringify({player: {x: 5, y: 6}, flags: {metMira: false}}));
+    localStorage.setItem(
+      SAVE_KEY,
+      JSON.stringify({player: {x: 5, y: 6}, flags: {metMira: false}, map: 'map'}),
+    );
     stageContinue();
     clearStagedSave();
 
@@ -141,6 +149,10 @@ describe('save', () => {
     writeSave();
 
     resetFlags();
+    localStorage.setItem(
+      SAVE_KEY,
+      JSON.stringify({player: {x: 1, y: 2}, flags: {metMira: true}, map: 'map'}),
+    );
     stageContinue();
     applyStagedSave();
 
@@ -155,5 +167,40 @@ describe('save', () => {
     expect(loadSave()).toBeNull();
 
     warn.mockRestore();
+  });
+
+  test('the save blob round-trips the current map name', () => {
+    let {world} = createWorld(1, 2);
+
+    world.start();
+    writeSave();
+
+    expect(loadSave()).toMatchObject({map: 'map'});
+  });
+
+  test('an old save without a map field is schema-rejected and resets', () => {
+    let warn = vitest.spyOn(console, 'warn').mockImplementation(() => {});
+
+    localStorage.setItem(SAVE_KEY, JSON.stringify({player: {x: 5, y: 6}, flags: {metMira: false}}));
+
+    expect(loadSave()).toBeNull();
+
+    warn.mockRestore();
+  });
+
+  test('getStagedMapName returns the staged map, or the default without a stage', () => {
+    expect(getStagedMapName()).toBe('map');
+
+    localStorage.setItem(
+      SAVE_KEY,
+      JSON.stringify({player: {x: 5, y: 6}, flags: {metMira: false}, map: 'shop-interior'}),
+    );
+    stageContinue();
+
+    expect(getStagedMapName()).toBe('shop-interior');
+
+    clearStagedSave();
+
+    expect(getStagedMapName()).toBe('map');
   });
 });

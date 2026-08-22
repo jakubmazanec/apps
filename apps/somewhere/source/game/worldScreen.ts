@@ -1,3 +1,5 @@
+import * as pixi from 'pixi.js';
+
 import {GameScreen} from '../engine/app/GameScreen.js';
 import {Button} from '../engine/ui/Button.js';
 import {Container} from '../engine/ui/Container.js';
@@ -7,6 +9,7 @@ import {Text} from '../engine/ui/Text.js';
 import {assets} from './assets.js';
 import {audio, playFocusSound} from './audio.js';
 import {game} from './game.js';
+import {flushPendingTravel} from './levelManager.js';
 // The worldScreen <-> mainMenuScreen static import cycle is deliberate and safe:
 // each module reads the other's binding only inside event handlers (Quit to
 // menu here, New Game there), long after both modules have evaluated.
@@ -23,7 +26,9 @@ type WorldScreenContents = {
   nameLabel: Text;
   openModal: Modal | null;
   pauseButton: Button;
-  visibilityDisposables: DisposableStack | null;
+  // Everything registered per show: the visibility listener and the travel
+  // ticker callback. Scoped to a show/hide pair, not the screen's lifetime.
+  showDisposables: DisposableStack | null;
 };
 
 let wallHitCount = 0;
@@ -162,7 +167,7 @@ export const worldScreen = new GameScreen<WorldScreenContents, UIEventMap>({
 
     screen.ui.addChild(hud, pauseButton);
 
-    return {hitCounter, nameLabel, openModal: null, pauseButton, visibilityDisposables: null};
+    return {hitCounter, nameLabel, openModal: null, pauseButton, showDisposables: null};
   },
   onShow: (screen) => {
     screen.addToView(world);
@@ -204,16 +209,27 @@ export const worldScreen = new GameScreen<WorldScreenContents, UIEventMap>({
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     });
 
-    screen.contents.visibilityDisposables = disposables;
+    // The travel executor: HIGH priority runs before the world's NORMAL
+    // update and the LOW-priority render, so a swap never straddles a frame.
+    let runPendingTravel = () => {
+      flushPendingTravel(world);
+    };
+
+    game.app.ticker.add(runPendingTravel, undefined, pixi.UPDATE_PRIORITY.HIGH);
+    disposables.defer(() => {
+      game.app.ticker.remove(runPendingTravel, undefined);
+    });
+
+    screen.contents.showDisposables = disposables;
   },
   onHide: (screen) => {
     // Auto-save before teardown: the world must still be alive when the
     // position is captured. This one choke point covers Quit-to-menu and any
     // future path away from the screen.
     writeSave();
-    screen.contents.visibilityDisposables?.dispose();
+    screen.contents.showDisposables?.dispose();
 
-    screen.contents.visibilityDisposables = null;
+    screen.contents.showDisposables = null;
     teardownWorldScreen({
       world,
       modal: screen.contents.openModal,

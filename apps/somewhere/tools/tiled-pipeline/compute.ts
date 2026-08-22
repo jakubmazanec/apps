@@ -1,4 +1,5 @@
 import {existsSync, readFileSync} from 'node:fs';
+import {basename} from 'node:path';
 
 import {resolveInsideAppRoot, type TilesetConfig, type TilesetsConfig} from './config.js';
 import {formatJson} from './json.js';
@@ -56,7 +57,10 @@ export function computeTileset(appRoot: string, tileset: TilesetConfig): Compute
   });
   let {warnings} = reconcile(document, {tileset, image});
   let sourceText = formatTsx(document);
-  let outputText = formatJson(document);
+  // The exported JSON's "image" field is the shipped runtime path (outputImage's basename), not
+  // the tileset's own <image source> authoring path: those diverge whenever the source PNG lives
+  // outside public/ (an extracted asset pack), and only the shipped name resolves in the browser.
+  let outputText = formatJson(document, basename(tileset.outputImage));
   let drift: string[] = [];
 
   if (readFileSync(sourcePath, 'utf8') !== sourceText) {

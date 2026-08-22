@@ -45,8 +45,17 @@ export const signScript = defineDialogueScript<Flags>()({
   start: {text: 'KEEP OUT.'},
 });
 
+// The shop's resident. No flags and no choices: a plain repeatable greeting —
+// commerce is out of scope, the shop exists to drive the travel system.
+export const shopkeeperScript = defineDialogueScript<Flags>()({
+  start: {
+    speaker: 'Shopkeeper',
+    text: ['Welcome in.', 'Shelves are still filling up — have a look around.'],
+  },
+});
+
 // Tiled `dialogue` properties resolve against these keys at spawn (the keys
 // are static, so there is no forward-reference problem).
-export const dialogueRegistry = {mira: miraScript, sign: signScript};
+export const dialogueRegistry = {mira: miraScript, sign: signScript, shopkeeper: shopkeeperScript};
 
 export type DialogueRegistryName = keyof typeof dialogueRegistry;

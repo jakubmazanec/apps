@@ -66,6 +66,7 @@ export const objectFactories: Record<string, (object: TilemapObject) => Entity> 
   },
   door: createTrigger,
   zone: createTrigger,
+  exit: createTrigger,
   npc: (object) => {
     // The Tiled rect is the interaction zone; the sprite renders at its
     // center. Validation is spawn-time and loud (the door-target precedent):
