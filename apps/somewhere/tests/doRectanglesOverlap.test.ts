@@ -1,6 +1,6 @@
 import {describe, expect, test} from 'vitest';
 
-import {doRectanglesOverlap} from '../source/utilities/doRectanglesOverlap.js';
+import {doRectanglesOverlap} from '../source/engine/utilities/doRectanglesOverlap.js';
 
 describe(doRectanglesOverlap, () => {
   test('overlapping rectangles overlap', () => {
