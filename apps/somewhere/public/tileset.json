@@ -14660,81 +14660,33 @@
     },
     {
       "id": 1232,
-      "objectgroup": {
-        "draworder": "index",
-        "id": 2,
-        "name": "",
-        "objects": [
-          {
-            "height": 8,
-            "id": 1,
-            "name": "",
-            "rotation": 0,
-            "type": "auto",
-            "visible": true,
-            "width": 8,
-            "x": 8,
-            "y": 8
-          }
-        ],
-        "opacity": 1,
-        "type": "objectgroup",
-        "visible": true,
-        "x": 0,
-        "y": 0
-      }
+      "properties": [
+        {
+          "name": "autoCollision",
+          "type": "bool",
+          "value": false
+        }
+      ]
     },
     {
       "id": 1233,
-      "objectgroup": {
-        "draworder": "index",
-        "id": 2,
-        "name": "",
-        "objects": [
-          {
-            "height": 8,
-            "id": 1,
-            "name": "",
-            "rotation": 0,
-            "type": "auto",
-            "visible": true,
-            "width": 16,
-            "x": 0,
-            "y": 8
-          }
-        ],
-        "opacity": 1,
-        "type": "objectgroup",
-        "visible": true,
-        "x": 0,
-        "y": 0
-      }
+      "properties": [
+        {
+          "name": "autoCollision",
+          "type": "bool",
+          "value": false
+        }
+      ]
     },
     {
       "id": 1234,
-      "objectgroup": {
-        "draworder": "index",
-        "id": 2,
-        "name": "",
-        "objects": [
-          {
-            "height": 8,
-            "id": 1,
-            "name": "",
-            "rotation": 0,
-            "type": "auto",
-            "visible": true,
-            "width": 8,
-            "x": 0,
-            "y": 8
-          }
-        ],
-        "opacity": 1,
-        "type": "objectgroup",
-        "visible": true,
-        "x": 0,
-        "y": 0
-      }
+      "properties": [
+        {
+          "name": "autoCollision",
+          "type": "bool",
+          "value": false
+        }
+      ]
     },
     {
       "id": 1235,
@@ -15372,81 +15324,33 @@
     },
     {
       "id": 1296,
-      "objectgroup": {
-        "draworder": "index",
-        "id": 2,
-        "name": "",
-        "objects": [
-          {
-            "height": 16,
-            "id": 1,
-            "name": "",
-            "rotation": 0,
-            "type": "auto",
-            "visible": true,
-            "width": 8,
-            "x": 8,
-            "y": 0
-          }
-        ],
-        "opacity": 1,
-        "type": "objectgroup",
-        "visible": true,
-        "x": 0,
-        "y": 0
-      }
+      "properties": [
+        {
+          "name": "autoCollision",
+          "type": "bool",
+          "value": false
+        }
+      ]
     },
     {
       "id": 1297,
-      "objectgroup": {
-        "draworder": "index",
-        "id": 2,
-        "name": "",
-        "objects": [
-          {
-            "height": 16,
-            "id": 1,
-            "name": "",
-            "rotation": 0,
-            "type": "auto",
-            "visible": true,
-            "width": 16,
-            "x": 0,
-            "y": 0
-          }
-        ],
-        "opacity": 1,
-        "type": "objectgroup",
-        "visible": true,
-        "x": 0,
-        "y": 0
-      }
+      "properties": [
+        {
+          "name": "autoCollision",
+          "type": "bool",
+          "value": false
+        }
+      ]
     },
     {
       "id": 1298,
-      "objectgroup": {
-        "draworder": "index",
-        "id": 2,
-        "name": "",
-        "objects": [
-          {
-            "height": 16,
-            "id": 1,
-            "name": "",
-            "rotation": 0,
-            "type": "auto",
-            "visible": true,
-            "width": 8,
-            "x": 0,
-            "y": 0
-          }
-        ],
-        "opacity": 1,
-        "type": "objectgroup",
-        "visible": true,
-        "x": 0,
-        "y": 0
-      }
+      "properties": [
+        {
+          "name": "autoCollision",
+          "type": "bool",
+          "value": false
+        }
+      ]
     },
     {
       "id": 1299,
@@ -16370,81 +16274,33 @@
     },
     {
       "id": 1360,
-      "objectgroup": {
-        "draworder": "index",
-        "id": 2,
-        "name": "",
-        "objects": [
-          {
-            "height": 8,
-            "id": 1,
-            "name": "",
-            "rotation": 0,
-            "type": "auto",
-            "visible": true,
-            "width": 8,
-            "x": 8,
-            "y": 0
-          }
-        ],
-        "opacity": 1,
-        "type": "objectgroup",
-        "visible": true,
-        "x": 0,
-        "y": 0
-      }
+      "properties": [
+        {
+          "name": "autoCollision",
+          "type": "bool",
+          "value": false
+        }
+      ]
     },
     {
       "id": 1361,
-      "objectgroup": {
-        "draworder": "index",
-        "id": 2,
-        "name": "",
-        "objects": [
-          {
-            "height": 8,
-            "id": 1,
-            "name": "",
-            "rotation": 0,
-            "type": "auto",
-            "visible": true,
-            "width": 16,
-            "x": 0,
-            "y": 0
-          }
-        ],
-        "opacity": 1,
-        "type": "objectgroup",
-        "visible": true,
-        "x": 0,
-        "y": 0
-      }
+      "properties": [
+        {
+          "name": "autoCollision",
+          "type": "bool",
+          "value": false
+        }
+      ]
     },
     {
       "id": 1362,
-      "objectgroup": {
-        "draworder": "index",
-        "id": 2,
-        "name": "",
-        "objects": [
-          {
-            "height": 8,
-            "id": 1,
-            "name": "",
-            "rotation": 0,
-            "type": "auto",
-            "visible": true,
-            "width": 8,
-            "x": 0,
-            "y": 0
-          }
-        ],
-        "opacity": 1,
-        "type": "objectgroup",
-        "visible": true,
-        "x": 0,
-        "y": 0
-      }
+      "properties": [
+        {
+          "name": "autoCollision",
+          "type": "bool",
+          "value": false
+        }
+      ]
     },
     {
       "id": 1363,

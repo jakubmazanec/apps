@@ -2856,19 +2856,19 @@
   </objectgroup>
  </tile>
  <tile id="1232">
-  <objectgroup draworder="index" id="2">
-   <object id="1" type="auto" x="8" y="8" width="8" height="8"/>
-  </objectgroup>
+  <properties>
+   <property name="autoCollision" type="bool" value="false"/>
+  </properties>
  </tile>
  <tile id="1233">
-  <objectgroup draworder="index" id="2">
-   <object id="1" type="auto" x="0" y="8" width="16" height="8"/>
-  </objectgroup>
+  <properties>
+   <property name="autoCollision" type="bool" value="false"/>
+  </properties>
  </tile>
  <tile id="1234">
-  <objectgroup draworder="index" id="2">
-   <object id="1" type="auto" x="0" y="8" width="8" height="8"/>
-  </objectgroup>
+  <properties>
+   <property name="autoCollision" type="bool" value="false"/>
+  </properties>
  </tile>
  <tile id="1235">
   <objectgroup draworder="index" id="2">
@@ -2996,19 +2996,19 @@
   </objectgroup>
  </tile>
  <tile id="1296">
-  <objectgroup draworder="index" id="2">
-   <object id="1" type="auto" x="8" y="0" width="8" height="16"/>
-  </objectgroup>
+  <properties>
+   <property name="autoCollision" type="bool" value="false"/>
+  </properties>
  </tile>
  <tile id="1297">
-  <objectgroup draworder="index" id="2">
-   <object id="1" type="auto" x="0" y="0" width="16" height="16"/>
-  </objectgroup>
+  <properties>
+   <property name="autoCollision" type="bool" value="false"/>
+  </properties>
  </tile>
  <tile id="1298">
-  <objectgroup draworder="index" id="2">
-   <object id="1" type="auto" x="0" y="0" width="8" height="16"/>
-  </objectgroup>
+  <properties>
+   <property name="autoCollision" type="bool" value="false"/>
+  </properties>
  </tile>
  <tile id="1299">
   <objectgroup draworder="index" id="2">
@@ -3191,19 +3191,19 @@
   </objectgroup>
  </tile>
  <tile id="1360">
-  <objectgroup draworder="index" id="2">
-   <object id="1" type="auto" x="8" y="0" width="8" height="8"/>
-  </objectgroup>
+  <properties>
+   <property name="autoCollision" type="bool" value="false"/>
+  </properties>
  </tile>
  <tile id="1361">
-  <objectgroup draworder="index" id="2">
-   <object id="1" type="auto" x="0" y="0" width="16" height="8"/>
-  </objectgroup>
+  <properties>
+   <property name="autoCollision" type="bool" value="false"/>
+  </properties>
  </tile>
  <tile id="1362">
-  <objectgroup draworder="index" id="2">
-   <object id="1" type="auto" x="0" y="0" width="8" height="8"/>
-  </objectgroup>
+  <properties>
+   <property name="autoCollision" type="bool" value="false"/>
+  </properties>
  </tile>
  <tile id="1363">
   <objectgroup draworder="index" id="2">

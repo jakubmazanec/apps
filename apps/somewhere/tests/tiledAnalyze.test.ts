@@ -78,10 +78,10 @@ describe(analyzeTileset, () => {
   });
 
   test('a mapLayer candidate with no manual box is proposed normally, unlike the manual tiles', () => {
-    let tile1232 = analyzeReal().candidates.find((candidate) => candidate.tileId === 1232)!;
+    let tile1502 = analyzeReal().candidates.find((candidate) => candidate.tileId === 1502)!;
 
-    expect(tile1232.permanentlyBlocked).toBe(false);
-    expect(tile1232.mode).toBe('bbox');
+    expect(tile1502.permanentlyBlocked).toBe(false);
+    expect(tile1502.mode).toBe('bbox');
   });
 
   test('the last matching region wins, so a narrower later region overrides a broader earlier one', () => {
