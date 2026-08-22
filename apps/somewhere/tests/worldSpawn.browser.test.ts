@@ -9,9 +9,11 @@ import {assets} from '../source/game/assets.js';
 import {dialogueEntity} from '../source/game/dialogue.js';
 import {DialogueComponent} from '../source/game/DialogueComponent.js';
 import {flags} from '../source/game/flags.js';
+import {getCurrentMapName} from '../source/game/levelManager.js';
 import {MotionComponent} from '../source/game/MotionComponent.js';
 import {playerPool} from '../source/game/playerPool.js';
 import {playersQuery} from '../source/game/playersQuery.js';
+import {applyStagedSave, clearStagedSave, stageContinue} from '../source/game/save.js';
 import {TriggerComponent} from '../source/game/TriggerComponent.js';
 import {world} from '../source/game/world.js';
 
@@ -72,10 +74,9 @@ function zoneObject(id: number): TilemapObject {
 
 // A real 4x4 all-empty Tilemap (gid 0 renders nothing and Map.getTile never
 // touches the tileset asset), one entities-class layer, plus the given
-// objects. The player's 'character-' prefixed names resolve to a minimal
-// Spriteset for the Sprite constructor.
-function stubAssets(objects: TilemapObject[]) {
-  let tilemap = new Tilemap({
+// objects.
+function buildTilemap(objects: TilemapObject[]): Tilemap {
+  return new Tilemap({
     tileWidth: 16,
     tileHeight: 16,
     columnCount: 4,
@@ -94,6 +95,14 @@ function stubAssets(objects: TilemapObject[]) {
     ],
     objectLayers: [{name: 'objects', objects}],
   });
+}
+
+// Stubs pixi.Assets.get to resolve 'map' to the built tilemap and any other
+// name through extraTilemaps (a second map for travel/Continue tests). The
+// player's 'character-' prefixed names resolve to a minimal Spriteset for the
+// Sprite constructor.
+function stubAssets(objects: TilemapObject[], extraTilemaps: Record<string, Tilemap> = {}) {
+  let tilemap = buildTilemap(objects);
   let character = new Spriteset({
     textures: {},
     animations: Object.fromEntries(
@@ -106,7 +115,8 @@ function stubAssets(objects: TilemapObject[]) {
 
   vitest
     .spyOn(pixi.Assets, 'get')
-    .mockImplementation(((name: string) => (name === 'map' ? tilemap : undefined)) as never);
+    .mockImplementation(((name: string) =>
+      name === 'map' ? tilemap : extraTilemaps[name]) as never);
   vitest.spyOn(assets, 'spriteset').mockReturnValue(character);
 }
 
@@ -142,6 +152,8 @@ describe('world spawn loop', () => {
     }
 
     vitest.restoreAllMocks();
+    localStorage.clear();
+    clearStagedSave();
   });
 
   test('spawns from map objects: player centered on the point, triggers added, teardown pools the player', () => {
@@ -221,5 +233,39 @@ describe('world spawn loop', () => {
 
     expect(flags.metMira).toBe(false);
     expect(dialogueEntity.getComponent(DialogueComponent).active).toBeNull();
+  });
+
+  test('a staged save on a non-default map starts there quietly (Continue into the shop)', () => {
+    let entry = {
+      id: 1,
+      name: 'entrance',
+      type: 'entry',
+      x: 32,
+      y: 32,
+      width: 0,
+      height: 0,
+      point: true,
+      properties: {},
+    };
+
+    // eslint-disable-next-line @typescript-eslint/naming-convention -- kebab-case map name matches the MapName union
+    stubAssets([spawnObject()], {'shop-interior': buildTilemap([entry])});
+    localStorage.setItem(
+      'somewhere:save',
+      JSON.stringify({player: {x: 40, y: 40}, flags: {metMira: false}, map: 'shop-interior'}),
+    );
+    stageContinue();
+
+    // No spawn object in the shop map: the fallback must be quiet (no DEV
+    // throw), because the staged position lands right after start().
+    world.start();
+    applyStagedSave();
+
+    expect(getCurrentMapName()).toBe('shop-interior');
+
+    let {position} = playersQuery.getFirst().getComponent(MotionComponent);
+
+    expect(position.x).toBe(40);
+    expect(position.y).toBe(40);
   });
 });

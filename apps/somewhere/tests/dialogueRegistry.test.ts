@@ -5,7 +5,7 @@ import {dialogueRegistry, miraScript} from '../source/game/dialogueRegistry.js';
 
 describe('dialogueRegistry', () => {
   test('exposes exactly the demo scripts', () => {
-    expect(Object.keys(dialogueRegistry)).toEqual(['mira', 'sign']);
+    expect(Object.keys(dialogueRegistry)).toEqual(['mira', 'sign', 'shopkeeper']);
   });
 
   test('the mira script greets by the metMira flag', () => {
@@ -40,5 +40,9 @@ describe('dialogueRegistry', () => {
     laterRevisit.choose(1);
 
     expect(laterRevisit.pageText).toBe('Suit yourself.');
+  });
+
+  test('the shopkeeper script is a plain repeatable greeting', () => {
+    expect(dialogueRegistry.shopkeeper.start).toMatchObject({speaker: 'Shopkeeper'});
   });
 });

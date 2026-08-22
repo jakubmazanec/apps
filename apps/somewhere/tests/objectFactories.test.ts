@@ -63,8 +63,8 @@ describe('objectFactories', () => {
     vitest.restoreAllMocks();
   });
 
-  test('the record has exactly the four factories', () => {
-    expect(Object.keys(objectFactories)).toEqual(['spawn', 'door', 'zone', 'npc']);
+  test('the record has exactly the five factories', () => {
+    expect(Object.keys(objectFactories)).toEqual(['spawn', 'door', 'zone', 'exit', 'npc']);
   });
 
   test('spawn centers the player bounding box on the point', () => {
@@ -109,6 +109,25 @@ describe('objectFactories', () => {
 
     expect(zone.getComponent(TriggerComponent).type).toBe('zone');
     expect(zone.getComponent(TriggerComponent).properties).toEqual({sound: 'chime'});
+  });
+
+  test('exit builds a trigger like door and zone', () => {
+    let entity = objectFactories.exit!(
+      createObject({
+        id: 7,
+        name: 'shop-exit',
+        type: 'exit',
+        x: 304,
+        y: 112,
+        properties: {map: 'shop-interior', entry: 'shop-door'},
+      }),
+    );
+    let trigger = entity.getComponent(TriggerComponent);
+
+    expect(trigger.id).toBe(7);
+    expect(trigger.type).toBe('exit');
+    expect(trigger.rect).toMatchObject({x: 304, y: 112, width: 16, height: 16});
+    expect(trigger.properties).toEqual({map: 'shop-interior', entry: 'shop-door'});
   });
 
   test('npc builds the trigger zone plus a sprite centered on the rect', () => {

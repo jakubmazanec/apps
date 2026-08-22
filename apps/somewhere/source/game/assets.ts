@@ -22,7 +22,13 @@ export const assets = new GameAssets({
         'prompt-bubble': ['prompt-bubble.json'],
         characters: ['characters.json'],
       },
-      tilemaps: {map: ['map.json']},
+      tilemaps: {map: ['map.json'], 'shop-interior': ['shop-interior.json']},
+      // Explicit tileset entries make loading deterministic behind the
+      // loading screen; the tilemap loader would only lazily fetch them.
+      tilesets: {
+        'exterior-tileset': ['exterior-tileset.json'],
+        'interior-tileset': ['interior-tileset.json'],
+      },
       sounds: {
         bump: ['bump.wav'],
         chime: ['chime.wav'],

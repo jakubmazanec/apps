@@ -1,9 +1,10 @@
-// Re-export public/map.json from the Tiled source in assets/. Requires the
-// Tiled editor (https://www.mapeditor.org); the Windows installer does not add
-// it to PATH, hence the ProgramFiles probe. The tileset is not exported here:
-// `npm run sync-tilesets` owns public/tileset.json and public/tileset.png, and
-// two writers would fight. If Tiled's preference "Embed tilesets" or a non-CSV
-// layer format sneaks into an export, the vitest guard at the end fails loud.
+// Re-export public/map.json and public/shop-interior.json from their Tiled
+// sources in assets/. Requires the Tiled editor (https://www.mapeditor.org);
+// the Windows installer does not add it to PATH, hence the ProgramFiles
+// probe. The tileset is not exported here: `npm run sync-tilesets` owns
+// public/tileset.json and public/tileset.png, and two writers would fight. If
+// Tiled's preference "Embed tilesets" or a non-CSV layer format sneaks into
+// an export, the vitest guard at the end fails loud.
 import {execFileSync} from 'node:child_process';
 import {existsSync, readFileSync, writeFileSync} from 'node:fs';
 import {basename, join} from 'node:path';
@@ -39,26 +40,24 @@ function resolveTiled() {
 
 let tiled = resolveTiled();
 
-execFileSync(tiled, [
-  '--export-map',
-  'json',
-  join(root, 'assets/map.tmx'),
-  join(root, 'public/map.json'),
-]);
+for (let name of ['map', 'shop-interior']) {
+  let mapPath = join(root, `public/${name}.json`);
 
-// The export keeps the TMX-side reference (tileset.tsx); the runtime loads
-// the JSON export next to the public/ image, so rewrite it before validating.
-let mapPath = join(root, 'public/map.json');
-let map = JSON.parse(readFileSync(mapPath, 'utf8'));
+  execFileSync(tiled, ['--export-map', 'json', join(root, `assets/${name}.tmx`), mapPath]);
 
-for (let tileset of map.tilesets) {
-  // Tiled writes the tileset source as a path relative to public/map.json
-  // (e.g. "../assets/tileset.tsx"); the runtime only ever loads tileset.json
-  // next to map.json, so drop the directory and swap the extension.
-  tileset.source &&= basename(tileset.source).replace(/\.tsx$/, '.json');
+  // The export keeps the TMX-side reference (tileset.tsx); the runtime loads
+  // the JSON export next to the public/ image, so rewrite it before validating.
+  let map = JSON.parse(readFileSync(mapPath, 'utf8'));
+
+  for (let tileset of map.tilesets) {
+    // Tiled writes the tileset source as a path relative to public/<name>.json
+    // (e.g. "../assets/tileset.tsx"); the runtime only ever loads the JSON
+    // tileset next to the map, so drop the directory and swap the extension.
+    tileset.source &&= basename(tileset.source).replace(/\.tsx$/, '.json');
+  }
+
+  writeFileSync(mapPath, `${JSON.stringify(map, null, 2)}\n`);
 }
-
-writeFileSync(mapPath, `${JSON.stringify(map, null, 2)}\n`);
 
 // Validate with the runtime schemas: vitest resolves the TS imports that a
 // plain node script cannot.
@@ -69,4 +68,4 @@ execFileSync('npx', ['vitest', 'run', 'tests/exportedAssets.test.ts'], {
 });
 
 // eslint-disable-next-line no-console -- one-shot export script
-console.log('exported public/map.json');
+console.log('exported public/map.json and public/shop-interior.json');

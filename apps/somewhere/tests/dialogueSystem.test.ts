@@ -1,8 +1,10 @@
 import * as pixi from 'pixi.js';
 import {afterEach, beforeEach, describe, expect, test} from 'vitest';
 
+import {type Component} from '../source/engine/ecs/Component.js';
 import {Entity} from '../source/engine/ecs/Entity.js';
 import {World} from '../source/engine/ecs/World.js';
+import {type Constructor} from '../source/engine/utilities/Constructor.js';
 import {Vector} from '../source/engine/utilities/Vector.js';
 import {DialogueCommand, type DialogueCommandType} from '../source/game/DialogueCommand.js';
 import {dialogueCommandChannel} from '../source/game/dialogueCommandChannel.js';
@@ -10,6 +12,7 @@ import {DialogueComponent} from '../source/game/DialogueComponent.js';
 import {dialogueQuery} from '../source/game/dialogueQuery.js';
 import {dialogueSystem} from '../source/game/dialogueSystem.js';
 import {flags, resetFlags} from '../source/game/flags.js';
+import {GraphicsComponent} from '../source/game/GraphicsComponent.js';
 import {MotionComponent} from '../source/game/MotionComponent.js';
 import {PlayerComponent} from '../source/game/PlayerComponent.js';
 import {playersQuery} from '../source/game/playersQuery.js';
@@ -19,6 +22,10 @@ import {triggerEnterChannel} from '../source/game/triggerEnterChannel.js';
 
 function tick(deltaMS = 0): pixi.Ticker {
   return {deltaMS} as unknown as pixi.Ticker;
+}
+
+function stubComponent<T extends Component>(ComponentClass: Constructor<T>, fields: object): T {
+  return Object.assign(Object.create(ComponentClass.prototype as object) as T, fields);
 }
 
 function createNpc(properties?: Record<string, boolean | number | string>) {
@@ -58,7 +65,13 @@ let activeWorld: World | null = null;
 function createHarness(triggers: Entity[]) {
   let dialogueEntity = new Entity({components: [new DialogueComponent({active: null})]});
   let motion = new MotionComponent({position: new Vector(0, 0), velocity: new Vector(0, 0)});
-  let player = new Entity({components: [new PlayerComponent({name: 'Test'}), motion]});
+  let player = new Entity({
+    components: [
+      new PlayerComponent({name: 'Test'}),
+      motion,
+      stubComponent(GraphicsComponent, {boundingBox: {x: 0, y: 0, width: 8, height: 8}}),
+    ],
+  });
   let world = new World({
     onStart: (w) => {
       w.addEventChannel(dialogueCommandChannel)
@@ -316,6 +329,28 @@ describe('dialogueSystem', () => {
     pushCommands({type: 'interact'});
     world.update(tick());
 
+    expect(component.active).toBeNull();
+  });
+
+  test('interact on a resolved exit never starts a script, even with a stray dialogue property', () => {
+    let exitEntity = new Entity({
+      components: [
+        new TriggerComponent({
+          id: 9,
+          name: 'shop-exit',
+          type: 'exit',
+          rect: new pixi.Rectangle(0, 0, 16, 16),
+          properties: {map: 'shop-interior', entry: 'entrance', dialogue: 'mira'},
+        }),
+      ],
+    });
+    let {world, component} = createHarness([exitEntity]);
+
+    world.start();
+    pushCommands({type: 'interact'});
+    world.update(tick());
+
+    // Travel is travelSystem's job; one press must never both talk and travel.
     expect(component.active).toBeNull();
   });
 });

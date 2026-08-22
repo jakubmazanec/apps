@@ -42,6 +42,10 @@
       "image": "assets/interior-tileset.png",
       "output": "public/interior-tileset.json",
       "outputImage": "public/interior-tileset.png",
+      "solidAlphaThreshold": 255,
+      "collision": {
+        "default": "bbox"
+      },
       "animations": {
         "regions": [
           {
@@ -158,6 +162,10 @@
       "image": "assets/extracted/exterior-pack-full-version/atlas.png",
       "output": "public/exterior-tileset.json",
       "outputImage": "public/exterior-tileset.png",
+      "solidAlphaThreshold": 255,
+      "collision": {
+        "default": "bbox"
+      },
       "animations": {
         "regions": [
           {
@@ -543,7 +551,7 @@
     }
   ],
   "analysis": {
-    "maps": ["assets/map.tmx"],
+    "maps": ["assets/map.tmx", "assets/shop-interior.tmx"],
     "collisionLayerClasses": ["entities"]
   }
 }

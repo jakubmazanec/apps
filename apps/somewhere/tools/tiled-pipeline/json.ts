@@ -96,7 +96,15 @@ function toTile(element: XmlElement): Record<string, JsonValue> {
   return tile;
 }
 
-export function toTilesetJson(document: XmlDocument): Record<string, JsonValue> {
+// `outputImageName` is the shipped filename (e.g. "exterior-tileset.png"), not the
+// authoring path in the tileset's own <image source>: that attribute points at wherever the
+// artist's source image actually lives (which for an extracted asset pack is nowhere near
+// public/), so Tiled can still open the .tsx. When the caller omits it, the <image source>
+// attribute is used as-is (tests exercising the raw XML-to-JSON mapping rely on this fallback).
+export function toTilesetJson(
+  document: XmlDocument,
+  outputImageName?: string,
+): Record<string, JsonValue> {
   let {root} = document;
   let image = findChild(root, 'image');
 
@@ -110,7 +118,7 @@ export function toTilesetJson(document: XmlDocument): Record<string, JsonValue> 
   let tiles = findChildren(root, 'tile').map((tile) => toTile(tile));
   let json: Record<string, JsonValue> = {
     columns: getNumericAttribute(root, 'columns') ?? 0,
-    image: getAttribute(image, 'source') ?? '',
+    image: outputImageName ?? getAttribute(image, 'source') ?? '',
     imageheight: getNumericAttribute(image, 'height') ?? 0,
     imagewidth: getNumericAttribute(image, 'width') ?? 0,
     margin: getNumericAttribute(root, 'margin') ?? 0,
@@ -156,6 +164,6 @@ function sortKeys(value: JsonValue): JsonValue {
   return sorted;
 }
 
-export function formatJson(document: XmlDocument): string {
-  return `${JSON.stringify(sortKeys(toTilesetJson(document)), null, 2)}\n`;
+export function formatJson(document: XmlDocument, outputImageName?: string): string {
+  return `${JSON.stringify(sortKeys(toTilesetJson(document, outputImageName)), null, 2)}\n`;
 }

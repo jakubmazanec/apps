@@ -1,11 +1,7 @@
-import * as pixi from 'pixi.js';
-
 import {audioSystem} from '../engine/audio/audioSystem.js';
-import {type Entity} from '../engine/ecs/Entity.js';
 import {World} from '../engine/ecs/World.js';
 import {timerSystem} from '../engine/scheduler/timerSystem.js';
 import {tweenSystem} from '../engine/scheduler/tweenSystem.js';
-import {Tilemap} from '../engine/tiled/Tilemap.js';
 import {failUnsupported} from '../engine/utilities/failUnsupported.js';
 import {Vector} from '../engine/utilities/Vector.js';
 import {audioEntity, playSoundChannel} from './audio.js';
@@ -29,12 +25,17 @@ import {graphicsSystem} from './graphicsSystem.js';
 import {inputEntity} from './input.js';
 import {inputQuery} from './inputQuery.js';
 import {LevelComponent} from './LevelComponent.js';
+import {
+  DEFAULT_MAP_NAME,
+  getCurrentMapName,
+  releaseCurrentMap,
+  resetLevelManager,
+  spawnMap,
+} from './levelManager.js';
 import {levelQuery} from './levelQuery.js';
-import {mapPool} from './mapPool.js';
 import {mapSystem} from './mapSystem.js';
 import {MotionComponent} from './MotionComponent.js';
 import {motionSystem} from './motionSystem.js';
-import {objectFactories} from './objectFactories.js';
 import {playerActionFinishedChannel} from './playerActionFinishedChannel.js';
 import {playerActionSystem} from './playerActionSystem.js';
 import {playerPool} from './playerPool.js';
@@ -42,7 +43,8 @@ import {playersQuery} from './playersQuery.js';
 import {playerSystem} from './playerSystem.js';
 import {popupCleanupSystem} from './popupCleanupSystem.js';
 import {popupExpiredChannel} from './popupExpiredChannel.js';
-import {TriggerComponent} from './TriggerComponent.js';
+import {getStagedMapName} from './save.js';
+import {travelSystem} from './travelSystem.js';
 import {triggerEnterChannel} from './triggerEnterChannel.js';
 import {triggerExitChannel} from './triggerExitChannel.js';
 import {triggerSystem} from './triggerSystem.js';
@@ -57,17 +59,16 @@ declare global {
   }
 }
 
-let mapEntity: Entity | null = null;
-
 export const world = new World({
   onStart: (world) => {
     camera.getComponent(CameraComponent).position.set(0, 0);
 
     // Module state outlives the world: flags reset to defaults before
-    // applyStagedSave runs, and a mid-dialogue Quit left `active` set on the
-    // singleton that outlives the run.
+    // applyStagedSave runs, a mid-dialogue Quit left `active` set on the
+    // singleton, and the level manager may hold a stale pending travel.
     resetFlags();
     dialogueEntity.getComponent(DialogueComponent).active = null;
+    resetLevelManager(getStagedMapName());
 
     world.addEventChannel(wallHitChannel);
     world.addEventChannel(popupExpiredChannel);
@@ -84,6 +85,7 @@ export const world = new World({
     world.addEntityQuery(playersQuery);
 
     world.addSystem(dialogueInputSystem); // first: translates the freshly latched edges into commands
+    world.addSystem(travelSystem); // before dialogueSystem: reads last frame's `active`, so the press that pages or closes a conversation can never also travel
     world.addSystem(dialogueSystem); // before playerSystem: starts/advances on last frame's commands and enters, ticks, and playerSystem sees `active` and locks the same frame
     world.addSystem(mapSystem);
     world.addSystem(playerSystem); // before motionSystem: it writes velocity that motionSystem consumes this frame
@@ -108,94 +110,42 @@ export const world = new World({
     world.addEntity(audioEntity);
     world.addEntity(dialogueEntity);
 
-    // Map must be added before player so graphicsSystem.onAddEntity can read levelQuery.
-    mapEntity = mapPool.create();
+    // Map first, characters after, player last, so graphicsSystem.onAddEntity
+    // always reads a populated levelQuery — the same order the travel flush
+    // uses.
+    let mapName = getCurrentMapName();
+    let {mapEntity, scopedEntities, playerEntity} = spawnMap(mapName, {includeSpawn: true});
+
     world.addEntity(mapEntity);
 
-    // The spawn loop: every object of every object layer dispatches through
-    // the game-owned factory record. Object layers live on the Tilemap asset
-    // (not the rendered Map) — they are data for the game.
-    let tilemap = pixi.Assets.get<Tilemap | undefined>('map');
-
-    if (!(tilemap instanceof Tilemap)) {
-      throw new Error(`Tilemap "map" wasn't found!`);
+    for (let entity of scopedEntities) {
+      world.addEntity(entity);
     }
 
-    let hasSpawn = false;
-
-    for (let objectLayer of tilemap.objectLayers) {
-      for (let object of objectLayer.objects) {
-        // Spawn-count enforcement lives in the loop, since a factory that
-        // never runs cannot degrade anything: a second spawn is loud and
-        // skipped before its factory runs (first wins).
-        if (object.type === 'spawn') {
-          if (hasSpawn) {
-            failUnsupported(
-              `Object "${object.name}" (id ${object.id}) is a second spawn! Keep exactly one spawn object; the first one wins and this one is skipped.`,
-            );
-
-            continue;
-          }
-
-          hasSpawn = true;
-        }
-
-        let factory =
-          Object.hasOwn(objectFactories, object.type) ? objectFactories[object.type] : undefined;
-
-        if (factory === undefined) {
-          failUnsupported(
-            `Object "${object.name}" (id ${object.id}) has unknown type "${object.type}"! Add a factory to objectFactories or fix the type in Tiled. The object is skipped.`,
-          );
-
-          continue;
-        }
-
-        world.addEntity(factory(object));
-      }
-    }
-
-    // A missing player crashes every playersQuery.getFirst() consumer, so
-    // prod falls back to one at the map center.
-    if (!hasSpawn) {
-      failUnsupported(
-        'No spawn object in the map! Add a point object with type "spawn" in Tiled. Falling back to a player at the map center.',
-      );
-
-      let {map} = mapEntity.getComponent(LevelComponent);
-      let player = playerPool.create();
-      let position = getPositionForBoundingBoxCenter(
-        new Vector(map.width / 2, map.height / 2),
-        player.getComponent(GraphicsComponent).boundingBox,
-      );
-
-      player.getComponent(MotionComponent).position.set(position.x, position.y);
-      world.addEntity(player);
-    }
-
-    // Door-target validation runs once, after the loop, so forward references
-    // resolve (a system hook would fire on addSystem, before any trigger
-    // entities exist). A failing door stays spawned and simply goes inert in
-    // doorSystem.
-    let triggers = world.entities
-      .filter((entity) => entity.hasComponent(TriggerComponent))
-      .map((entity) => entity.getComponent(TriggerComponent));
-
-    for (let trigger of triggers) {
-      if (trigger.type !== 'door') {
-        continue;
-      }
-
-      // Tiled serializes an unset object property as value 0, which no
-      // object id matches, so unset falls out as dangling.
-      let {target} = trigger.properties;
-
-      if (typeof target !== 'number' || !triggers.some((other) => other.id === target)) {
+    // A missing player crashes every playersQuery.getFirst() consumer. Only
+    // the default map authors a spawn: any other starting map is a Continue
+    // whose staged position lands right after start(), so the fallback is
+    // quiet there and loud on the default map (an authoring error).
+    if (playerEntity === null) {
+      if (mapName === DEFAULT_MAP_NAME) {
         failUnsupported(
-          `Door "${trigger.name}" (id ${trigger.id}) has a missing or dangling target! Set its "target" property to another door object in Tiled. The door is inert.`,
+          'No spawn object in the map! Add a point object with type "spawn" in Tiled. Falling back to a player at the map center.',
         );
       }
+
+      let {map} = mapEntity.getComponent(LevelComponent);
+
+      playerEntity = playerPool.create();
+
+      let position = getPositionForBoundingBoxCenter(
+        new Vector(map.width / 2, map.height / 2),
+        playerEntity.getComponent(GraphicsComponent).boundingBox,
+      );
+
+      playerEntity.getComponent(MotionComponent).position.set(position.x, position.y);
     }
+
+    world.addEntity(playerEntity);
   },
   onStop: () => {
     // Trigger entities are plain entities that World.stop removes; only the
@@ -210,10 +160,7 @@ export const world = new World({
       playerPool.destroy(playerEntity);
     }
 
-    if (mapEntity) {
-      mapPool.destroy(mapEntity);
-      mapEntity = null;
-    }
+    releaseCurrentMap();
   },
 });
 

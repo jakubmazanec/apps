@@ -112,7 +112,7 @@ describe('the committed tilesets.config.json', () => {
 
     // JSON.stringify(value, null, 2) is NOT prettier-stable: prettier collapses
     // short arrays. Anything that writes this file must format through prettier.
-    expect(text).toContain('"maps": ["assets/map.tmx"]');
+    expect(text).toContain('"maps": ["assets/map.tmx", "assets/shop-interior.tmx"]');
     expect(text.endsWith('\n')).toBe(true);
   });
 });
