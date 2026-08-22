@@ -1,5 +1,12 @@
-import {defineDialogueScript} from '../engine/dialogue/DialogueScript.js';
+import {defineDialogueScript, type DialogueChoice} from '../engine/dialogue/DialogueScript.js';
 import {type Flags} from './flags.js';
+
+// One shared menu keeps the first and every repeat conversation offering the
+// same branches, so no branch ever becomes unreachable.
+const miraChoices: Array<DialogueChoice<Flags, 'later' | 'tour'>> = [
+  {text: 'Sure, show me around.', next: 'tour'},
+  {text: 'Maybe later.', next: 'later'},
+];
 
 // Authored dialogue content. Naming guideline: ids for nodes referenced more
 // than once, looped to or asserted on in tests; inline nodes for dead-end
@@ -11,13 +18,7 @@ export const miraScript = defineDialogueScript<Flags>()({
       speaker: 'Mira',
       portrait: 'mira',
       text: 'Welcome to Somewhere.',
-      choices: [
-        {text: 'Sure, show me around.', next: 'tour'},
-        {
-          text: 'Maybe later.',
-          next: {speaker: 'Mira', portrait: 'mira', text: 'Suit yourself.'},
-        },
-      ],
+      choices: miraChoices,
     },
     tour: {
       speaker: 'Mira',
@@ -25,7 +26,8 @@ export const miraScript = defineDialogueScript<Flags>()({
       text: ['This way.', 'Mind the well.'],
       next: 'goodbye',
     },
-    again: {speaker: 'Mira', portrait: 'mira', text: 'Back already?', next: 'goodbye'},
+    again: {speaker: 'Mira', portrait: 'mira', text: 'Back already?', choices: miraChoices},
+    later: {speaker: 'Mira', portrait: 'mira', text: 'Suit yourself.'},
     goodbye: {
       speaker: 'Mira',
       portrait: 'mira',
