@@ -1,6 +1,6 @@
 import {describe, expect, test} from 'vitest';
 
-import {doRectanglesIntersect} from '../source/utilities/doRectanglesIntersect.js';
+import {doRectanglesIntersect} from '../source/engine/utilities/doRectanglesIntersect.js';
 
 describe(doRectanglesIntersect, () => {
   test.each([

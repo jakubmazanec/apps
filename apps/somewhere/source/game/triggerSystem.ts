@@ -1,5 +1,5 @@
 import {System} from '../engine/ecs/System.js';
-import {doRectanglesOverlap} from '../utilities/doRectanglesOverlap.js';
+import {doRectanglesOverlap} from '../engine/utilities/doRectanglesOverlap.js';
 import {GraphicsComponent} from './GraphicsComponent.js';
 import {MotionComponent} from './MotionComponent.js';
 import {playersQuery} from './playersQuery.js';
