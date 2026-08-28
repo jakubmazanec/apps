@@ -41,6 +41,13 @@ export type DialogueBoxNode = {
 
   /** The current page's authored text; the owner calls showNode again on page turns. */
   page: string;
+
+  /**
+   * The node's visible choice texts, known at node entry. The bar reserves
+   * their column from the first frame of every page, so setChoices with the
+   * same texts fills it in place and nothing on screen moves or grows.
+   */
+  choices?: string[] | undefined;
 };
 
 export type DialogueBoxOptions = {
@@ -75,15 +82,24 @@ const CHOICE_PADDING = 1;
  * lives: choice buttons are ordinary focusables inside the scope, and with no
  * choices on screen the scope is empty, so focus commands cannot wander to
  * HUD widgets behind the box.
+ *
+ * The layout is settled at showNode from the FINAL content, never from what
+ * is on screen: the page is wrapped and windowed up front, the content leaf
+ * is given the whole window's size, and the node's choice column is reserved
+ * before the first character shows. The typewriter and the choices then only
+ * fill boxes that already exist, so nothing moves or grows mid-node.
  */
 export class DialogueBox implements UiParent {
   /** TBD */
   readonly view: pixi.Container = new pixi.Container();
 
+  /** Whether setChoices has built the button column for the current node. */
+  #areChoicesShown = false;
+
   /** TBD */
   #box: Panel | null = null;
 
-  /** The bar's current height: the authored height, grown to fit the content. */
+  /** The bar's height for the node: the authored height, grown to fit the header, the text window and the reserved choice column. */
   #boxHeight = 0;
 
   /** TBD */
@@ -283,14 +299,27 @@ export class DialogueBox implements UiParent {
     }
   }
 
-  /** Rebuilds the button column. Node change only; hover and press state survive per-frame sync. */
+  /** Builds the button column. Node change only; hover and press state survive per-frame sync. */
   setChoices(texts: string[], selectedIndex: number): void {
-    this.#choiceTexts = [...texts];
     this.#selectedIndex = selectedIndex;
-    // A full rebuild, not just #buildChoices: the choice column is extra
-    // content, so the bar has to grow to fit it. The line budget does not
-    // depend on the choice count, so the breaks the owner already pushed to
-    // the runner come back identical.
+    this.#areChoicesShown = true;
+
+    if (
+      texts.length === this.#choiceTexts.length &&
+      texts.every((text, index) => text === this.#choiceTexts[index])
+    ) {
+      // The column was reserved at showNode: fill it in place, so the bar
+      // keeps the size and position it has had since the first character.
+      this.#buildChoices();
+
+      return;
+    }
+
+    // Choices the node did not announce: the only way to fit them is to grow
+    // the bar after the fact. The line budget does not depend on the choice
+    // count, so the breaks the owner already pushed to the runner come back
+    // identical.
+    this.#choiceTexts = [...texts];
     this.#rebuild();
   }
 
@@ -318,7 +347,10 @@ export class DialogueBox implements UiParent {
   showNode(node: DialogueBoxNode): void {
     this.#node = node;
     this.#revealedCount = 0;
-    this.#choiceTexts = [];
+    // Reserved, not shown: the column's height is budgeted from these texts
+    // now; the buttons themselves arrive with setChoices.
+    this.#choiceTexts = [...(node.choices ?? [])];
+    this.#areChoicesShown = false;
     this.#choiceLabels = [];
     this.#choiceButtons = [];
     this.#choicesPanel = null;
@@ -415,8 +447,17 @@ export class DialogueBox implements UiParent {
     this.#applySelected();
   }
 
-  /** TBD */
-  #buildPanels(node: DialogueBoxNode, boxWidth: number, textPanelWidth: number): void {
+  /** Builds the panel row for the geometry #rebuild settled: the bar, its text panel and the text window inside it, all in art px. */
+  #buildPanels(
+    node: DialogueBoxNode,
+    geometry: {
+      boxWidth: number;
+      textPanelWidth: number;
+      contentWidth: number;
+      contentHeight: number;
+    },
+  ): void {
+    let {boxWidth, textPanelWidth, contentWidth, contentHeight} = geometry;
     let {padding, gap, portraitSize} = this.#metrics;
     let font = this.#font;
     let height = this.#boxHeight;
@@ -440,12 +481,18 @@ export class DialogueBox implements UiParent {
       );
     }
 
+    // The leaf is the size of the whole text window, not of the revealed
+    // substring: a leaf sized by its own bounds is re-measured by the layout
+    // system on a throttle, and everything stacked under it (the choice
+    // column) would settle only once that measurement caught up with the last
+    // line typed. Sized up front, the column's geometry is fixed from the
+    // first frame and the typewriter only fills it.
     this.#content = new Text({
       text: '',
       fontFamily: font.fontFamily,
       fontSize: font.fontSize,
       fill: font.fill,
-      layout: true,
+      layout: {width: contentWidth, height: contentHeight},
     });
     textChildren.push(this.#content);
 
@@ -594,26 +641,32 @@ export class DialogueBox implements UiParent {
 
     // The authored height budgets the header and the windowed text; a node's
     // choices stack UNDER them, so the bar grows upward to fit rather than
-    // overflowing. Overflow here is not clipping: yoga shrinks the children to
+    // overflowing. The growth happens here, at showNode, from the choices the
+    // node announced: the bar is already its final size while the page types,
+    // and the buttons later fill a column that was empty, not one that has to
+    // be made. Overflow here is not clipping: yoga shrinks the children to
     // fit the fixed height, and a Text leaf renders at native glyph size
     // (objectFit 'none'), so a shrunk text box spills its lines over the first
     // choice button while the last button lands off the bottom of the screen.
     let choicesHeight = this.#getChoicesHeight();
+    let contentHeight = lineBudget * lineHeight;
 
     this.#boxHeight = Math.max(
       height,
       2 * padding +
         (hasHeader ? lineHeight + gap : 0) +
-        lineBudget * lineHeight +
+        contentHeight +
         (choicesHeight === 0 ? 0 : gap + choicesHeight),
     );
 
     this.view.position.set(margin, this.#screenHeight - this.#boxHeight - margin);
 
-    this.#buildPanels(node, boxWidth, textPanelWidth);
+    this.#buildPanels(node, {boxWidth, textPanelWidth, contentWidth: textWidth, contentHeight});
     this.#applyRevealed();
 
-    if (this.#choiceTexts.length > 0) {
+    // A resize mid-choosing rebuilds the buttons too; before setChoices the
+    // reserved column stays empty.
+    if (this.#areChoicesShown) {
       this.#buildChoices();
     }
   }

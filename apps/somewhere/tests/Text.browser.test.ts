@@ -4,54 +4,9 @@ import {LayoutContainer} from '@pixi/layout/components';
 import * as pixi from 'pixi.js';
 import {beforeAll, describe, expect, test, vitest} from 'vitest';
 
-import monogramFnt from '../public/monogram.fnt?raw';
 import {Text} from '../source/engine/ui/Text.js';
 import {createTestTheme} from './createTestTheme.js';
-
-// The real monogram metrics from the shipped .fnt; bounds math is GPU-free
-// (BitmapText.updateBounds only calls BitmapFontManager.measureText), so a stub
-// page texture is enough.
-function installMonogram() {
-  let xml = monogramFnt;
-  let attribute = (tag: string, name: string) =>
-    Number(new RegExp(`<${tag}[^>]*\\s${name}="(-?\\d+)"`).exec(xml)?.[1]);
-  let lineHeight = attribute('common', 'lineHeight');
-  let data: pixi.BitmapFontData = {
-    chars: {},
-    pages: [{id: 0, file: 'monogram_0.png'}],
-    lineHeight,
-    fontSize: attribute('info', 'size'),
-    fontFamily: 'monogram',
-    distanceField: {type: 'none', range: 0},
-    baseLineOffset: lineHeight - attribute('common', 'base'),
-  };
-
-  for (let [, attributes = ''] of xml.matchAll(/<char ([^>]*)\/>/g)) {
-    let get = (name: string) => Number(new RegExp(`\\s?${name}="(-?\\d+)"`).exec(attributes)?.[1]);
-    let id = get('id');
-
-    data.chars[String.fromCodePoint(id)] = {
-      id,
-      letter: String.fromCodePoint(id),
-      page: get('page'),
-      x: get('x'),
-      y: get('y'),
-      width: get('width'),
-      height: get('height'),
-      xOffset: get('xoffset'),
-      yOffset: get('yoffset'),
-      xAdvance: get('xadvance'),
-      kerning: {},
-    };
-  }
-
-  let source = new pixi.TextureSource({width: 256, height: 256});
-
-  pixi.Cache.set(
-    'monogram-bitmap',
-    new pixi.BitmapFont({data, textures: [new pixi.Texture({source})]}, 'monogram.fnt'),
-  );
-}
+import {installMonogram} from './installMonogram.js';
 
 describe('Text layout', () => {
   const PAGE = 'The old lighthouse keeper squints at\nthe horizon and says nothing.';
