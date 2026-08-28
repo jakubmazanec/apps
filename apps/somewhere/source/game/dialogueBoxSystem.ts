@@ -244,6 +244,9 @@ export const dialogueBoxSystem = new System({
         speaker: active.node?.speaker,
         portraitTexture: resolvePortrait(active.node?.portrait),
         page: active.pageText,
+        // The runner resolves the visible choices at node entry, so the box
+        // can reserve their column now rather than grow when they appear.
+        choices: active.visibleChoices.map((choice) => choice.text),
       });
       active.setBreaks(box.breaks);
     }
