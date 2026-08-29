@@ -99,7 +99,10 @@ export class DialogueBox implements UiParent {
   /** TBD */
   #box: Panel | null = null;
 
-  /** The bar's height for the node: the authored height, grown to fit the header, the text window and the reserved choice column. */
+  /**
+   * The bar's height for the node: the authored height, grown to fit the
+   * header, the text window and the reserved choice column.
+   */
   #boxHeight = 0;
 
   /** TBD */
@@ -447,7 +450,10 @@ export class DialogueBox implements UiParent {
     this.#applySelected();
   }
 
-  /** Builds the panel row for the geometry #rebuild settled: the bar, its text panel and the text window inside it, all in art px. */
+  /**
+   * Builds the panel row for the geometry #rebuild settled: the bar, its text
+   * panel and the text window inside it, all in art px.
+   */
   #buildPanels(
     node: DialogueBoxNode,
     geometry: {
