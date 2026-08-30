@@ -16,7 +16,7 @@ import 'pixi.js/events';
 
 type MockContainer = {children: MockContainer[]};
 
-function createScreen(options: {onHide?: () => void; theme?: UiTheme} = {}) {
+function createScreen(options: {onHide?: () => void; onShow?: () => void; theme?: UiTheme} = {}) {
   let {theme, ...screenOptions} = options;
   let events = new EventEmitter<UIEventMap>();
   let screen = new GameScreen({events, ...screenOptions});
@@ -203,6 +203,12 @@ describe('GameScreen.hide idempotence', () => {
     expect(onHide).not.toHaveBeenCalled();
   });
 
+  test('hide() on a never-attached screen throws', async () => {
+    let screen = new GameScreen({events: new EventEmitter<UIEventMap>()});
+
+    await expect(screen.hide()).rejects.toThrow("Screen can't be hidden");
+  });
+
   test('show() after hide() re-arms hide()', async () => {
     let onHide = vitest.fn<() => void>();
     let {screen} = createScreen({onHide});
@@ -213,6 +219,24 @@ describe('GameScreen.hide idempotence', () => {
     await screen.hide();
 
     expect(onHide).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('GameScreen.show idempotence', () => {
+  test('show() called twice invokes onShow exactly once and does not throw', async () => {
+    let onShow = vitest.fn<() => void>();
+    let {screen} = createScreen({onShow});
+
+    await screen.show();
+
+    await expect(screen.show()).resolves.toBeUndefined();
+    expect(onShow).toHaveBeenCalledTimes(1);
+  });
+
+  test('show() on a never-attached screen throws', async () => {
+    let screen = new GameScreen({events: new EventEmitter<UIEventMap>()});
+
+    await expect(screen.show()).rejects.toThrow("Screen can't be shown");
   });
 });
 

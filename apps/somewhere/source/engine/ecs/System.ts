@@ -165,7 +165,7 @@ export class System<
     this.#onRemoveEntity?.(entity, this, this.world);
   }
 
-  /** @internal Called by `World`. */
+  /** @internal Called by `World` on each tick. */
   update(ticker: pixi.Ticker) {
     this.#onUpdate?.(ticker, this, this.world);
   }

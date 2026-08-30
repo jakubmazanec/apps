@@ -85,13 +85,14 @@ describe('GameScreen lifecycle state', () => {
     await expect(screen.show()).rejects.toThrow("Screen can't be shown");
   });
 
-  test('showing twice without an intervening hide throws', async () => {
+  test('showing twice without an intervening hide is a no-op', async () => {
     let screen = new GameScreen({});
 
     screen.attach(fakeGame);
     await screen.show();
 
     expect(screen.state).toBe('shown');
-    await expect(screen.show()).rejects.toThrow("Screen can't be shown");
+    await expect(screen.show()).resolves.toBeUndefined();
+    expect(screen.state).toBe('shown');
   });
 });

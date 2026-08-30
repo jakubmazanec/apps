@@ -130,7 +130,7 @@ export class Game {
     this.#state = 'running';
   }
 
-  /** TBD */
+  /** Is game running? */
   get isRunning() {
     return this.#state === 'running' || this.#state === 'transitioning';
   }
@@ -140,7 +140,7 @@ export class Game {
     return this.#theme.resolved;
   }
 
-  /** Adds a screen to all screens and sets it as the error screen. */
+  /** Adds a screen to the game's screens and sets it as the error screen. */
   addErrorScreen(gameScreen: AnyErrorGameScreen) {
     if (!this.isRunning) {
       throw new Error('Game must be running!');
@@ -153,7 +153,7 @@ export class Game {
     return this;
   }
 
-  /** Adds a screen to all screens and sets it as the loading screen. */
+  /** Adds a screen to the game's screens and sets it as the loading screen. */
   addLoadingScreen(gameScreen: AnyGameScreen) {
     if (!this.isRunning) {
       throw new Error('Game must be running!');
@@ -166,7 +166,7 @@ export class Game {
     return this;
   }
 
-  /** Adds a screen to all screens. */
+  /** Adds a screen to the game's screens. */
   addScreen(gameScreen: AnyGameScreen) {
     if (!this.isRunning) {
       throw new Error('Game must be running!');
@@ -181,7 +181,7 @@ export class Game {
     return this;
   }
 
-  /** Adds renderable to view. */
+  /** Adds a renderable to the game's view. */
   addToView(renderable: Renderable) {
     if (!this.isRunning) {
       throw new Error('Game must be running!');
@@ -229,7 +229,7 @@ export class Game {
     return this;
   }
 
-  /** Removes renderable from view. */
+  /** Removes a renderable from the game's view. */
   removeFromView(renderable: Renderable) {
     if (!this.isRunning) {
       throw new Error('Game must be running!');
@@ -245,9 +245,8 @@ export class Game {
       throw new Error('Game must be running!');
     }
 
-    // Can't show screen that hasn't been added.
     if (!this.screens.includes(screen)) {
-      return this;
+      throw new Error('Screen must be added to the game!');
     }
 
     // Re-showing the current screen is no-op.

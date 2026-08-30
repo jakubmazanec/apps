@@ -65,7 +65,7 @@ export class Scheduler {
     };
   }
 
-  /** @internal Called by `GameScreen.update` to update tweens and timers. */
+  /** @internal Called by `GameScreen` on each tick. */
   update(ticker: pixi.Ticker) {
     // Snapshot before iterating, so an `onComplete` can schedule a new tween or timer.
     let tweens = [...this.#tweens];

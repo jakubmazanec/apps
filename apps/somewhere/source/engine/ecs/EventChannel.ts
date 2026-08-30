@@ -102,7 +102,7 @@ export class EventChannel<const T extends Constructor<Event> = Constructor<Event
     this.#nextEvents.push(...events);
   }
 
-  /** @internal Called by `World` once per frame. */
+  /** @internal Called by `World` on each tick. */
   swap(): void {
     let recycled = this.#currentEvents; // last frame's, already consumed
 

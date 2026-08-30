@@ -66,7 +66,7 @@ export class GameAssets<
     return true;
   }
 
-  /** Loads all bundles in the bavkground. */
+  /** Loads all bundles in the background. */
   loadAllBundlesInBackground(): void {
     void pixi.Assets.backgroundLoadBundle(this.#bundles.map((bundle) => bundle.name));
   }
