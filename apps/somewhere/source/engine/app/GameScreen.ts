@@ -16,10 +16,8 @@ export class GameScreen<
   /** TBD */
   readonly assetBundles: string[];
 
-  // Whatever `onAttach` built and the screen keeps for its lifetime: retained widget handles,
-  // mutable slots, disposables. Not the pixi display list — `view` is that — and not a state
-  // machine tag; `state` below is.
-  /** TBD */
+  // TODO: type should be some conditional type for proper typing of undefined and such
+  /** Storage for whatever `onAttach` returns. */
   contents!: T;
 
   /** TBD */
@@ -28,9 +26,6 @@ export class GameScreen<
   /** TBD */
   readonly view: pixi.Container = new pixi.Container();
 
-  // Engine teardown idiom (DisposableStack + defer), like Game/Button/UiRoot. Unlike those
-  // one-shot stacks it is reset on each hide so the screen can re-subscribe on the next show;
-  // a DisposableStack cannot be reused after disposal.
   /** TBD */
   #disposables = new DisposableStack();
 
@@ -61,9 +56,6 @@ export class GameScreen<
   /** TBD */
   readonly #onUpdate?: (ticker: pixi.Ticker, screen: AnyGameScreen, game: Game) => void;
 
-  // Lifecycle tag, the same idiom as Game/World/Modal. Also what makes hide() idempotent:
-  // onHide side effects (e.g. world.stop()) must not run twice when an already-hidden screen
-  // is hidden again.
   /** TBD */
   #state: GameScreenState = 'created';
 
@@ -139,14 +131,14 @@ export class GameScreen<
     return this.#ui;
   }
 
-  /** TBD */
+  /** Adds a renderable to the screen's view. */
   addToView(renderable: Renderable) {
     this.view.addChild(renderable.view);
     this.view.setChildIndex(this.ui.view, this.view.children.length - 1);
     this.game.app.ticker.add(renderable.update, renderable);
   }
 
-  /** TBD */
+  /** @internal Called by `Game`. */
   attach(game: Game) {
     if (this.#state !== 'created') {
       throw new Error('Screen is already attached to a game!');
@@ -178,10 +170,13 @@ export class GameScreen<
     this.view.destroy({children: true});
   }
 
-  /** TBD */
+  /** @internal Called by `Game`. */
   async hide() {
-    // No-op unless shown: a double hide (or a hide before any show) must not
-    // dispose anything or re-run onHide side effects.
+    if (this.#state === 'created') {
+      throw new Error("Screen can't be hidden, it must be attached to a game first!");
+    }
+
+    // Re-hiding a hidden screen is no-op.
     if (this.#state !== 'shown') {
       return;
     }
@@ -189,30 +184,33 @@ export class GameScreen<
     this.#state = 'attached';
 
     this.ui.clearFocus();
-
     this.#disposables.dispose();
+
     this.#disposables = new DisposableStack();
 
     await this.#onHide?.(this, this.game);
   }
 
-  /** TBD */
+  /** Removes a renderable from the screen's view. */
   removeFromView(renderable: Renderable) {
     this.view.removeChild(renderable.view);
     this.game.app.ticker.remove(renderable.update, renderable);
   }
 
-  /** TBD */
+  /** @internal Called by `Game`. */
   resize() {
     this.#onResize?.(this, this.game);
   }
 
-  /** TBD */
+  /** @internal Called by `Game`. */
   async show() {
+    if (this.#state === 'created') {
+      throw new Error("Screen can't be shown, it must be attached to a game first!");
+    }
+
+    // Re-showing a shown screen is no-op.
     if (this.#state !== 'attached') {
-      throw new Error(
-        `Screen can't be shown, it must be in "attached" state (currently state is "${this.#state}")!`,
-      );
+      return;
     }
 
     this.#state = 'shown';
@@ -224,7 +222,7 @@ export class GameScreen<
     await this.#onShow?.(this, this.game);
   }
 
-  /** TBD */
+  /** Subscribes `handler` to one of the screen's events. */
   subscribe<E extends EventEmitter.EventNames<Events>>(
     event: E,
     handler: EventEmitter.EventListener<Events, E>,
@@ -237,7 +235,7 @@ export class GameScreen<
     return this;
   }
 
-  /** TBD */
+  /** @internal Called by game's ticker on each tick. */
   update(ticker: pixi.Ticker) {
     this.scheduler.update(ticker);
     this.ui.update();
