@@ -6,14 +6,14 @@ import {World} from '../source/engine/ecs/World.js';
 import {Spriteset} from '../source/engine/graphics/Spriteset.js';
 import {type MapTile} from '../source/engine/tiled/Map.js';
 import {Vector} from '../source/engine/utilities/Vector.js';
-import {assets} from '../source/game/assets.js';
-import {playSoundChannel} from '../source/game/audio.js';
-import {GraphicsComponent} from '../source/game/GraphicsComponent.js';
-import {MotionComponent} from '../source/game/MotionComponent.js';
-import {popupExpiredChannel} from '../source/game/popupExpiredChannel.js';
-import {WallHit} from '../source/game/WallHit.js';
-import {wallHitChannel} from '../source/game/wallHitChannel.js';
-import {wallHitPopupSystem} from '../source/game/wallHitPopupSystem.js';
+import {GraphicsComponent} from '../source/game/components/GraphicsComponent.js';
+import {MotionComponent} from '../source/game/components/MotionComponent.js';
+import {assets} from '../source/game/core/assets.js';
+import {playSoundChannel} from '../source/game/core/audio.js';
+import {popupExpiredChannel} from '../source/game/events/popupExpiredChannel.js';
+import {WallHit} from '../source/game/events/WallHit.js';
+import {wallHitChannel} from '../source/game/events/wallHitChannel.js';
+import {wallHitPopupSystem} from '../source/game/systems/wallHitPopupSystem.js';
 
 function tick(deltaTime: number): pixi.Ticker {
   return {deltaTime, deltaMS: deltaTime} as unknown as pixi.Ticker;

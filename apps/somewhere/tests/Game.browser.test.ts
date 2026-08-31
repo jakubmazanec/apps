@@ -10,9 +10,9 @@ import {Spriteset} from '../source/engine/graphics/Spriteset.js';
 import {GameInput} from '../source/engine/input/GameInput.js';
 import {type FocusDirection} from '../source/engine/ui/UiRoot.js';
 import {type UiThemeDescription} from '../source/engine/ui/UiTheme.js';
-import {theme} from '../source/game/theme.js';
+import {theme} from '../source/game/core/theme.js';
 
-// Every frame source/game/theme.ts names. A stand-in object per frame is
+// Every frame source/game/core/theme.ts names. A stand-in object per frame is
 // enough — nothing here renders.
 const UI_FRAMES = [
   'banner',

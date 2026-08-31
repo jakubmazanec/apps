@@ -1,7 +1,7 @@
 import type * as pixi from 'pixi.js';
 import {afterEach, beforeEach, describe, expect, test} from 'vitest';
 
-import {input} from '../../source/game/input.js';
+import {input} from '../../source/game/core/input.js';
 
 // The game's own control table, tested through the same reads Game and the
 // world systems use. A mapping typo (arrows swapped, a gameplay key landing in

@@ -6,12 +6,12 @@ import {Entity} from '../source/engine/ecs/Entity.js';
 import {World} from '../source/engine/ecs/World.js';
 import {type GameInput} from '../source/engine/input/GameInput.js';
 import {InputComponent} from '../source/engine/input/InputComponent.js';
-import {dialogueCommandChannel} from '../source/game/dialogueCommandChannel.js';
-import {DialogueComponent} from '../source/game/DialogueComponent.js';
-import {dialogueInputSystem} from '../source/game/dialogueInputSystem.js';
-import {dialogueQuery} from '../source/game/dialogueQuery.js';
-import {flags} from '../source/game/flags.js';
-import {inputQuery} from '../source/game/inputQuery.js';
+import {DialogueComponent} from '../source/game/components/DialogueComponent.js';
+import {flags} from '../source/game/core/flags.js';
+import {dialogueCommandChannel} from '../source/game/events/dialogueCommandChannel.js';
+import {dialogueQuery} from '../source/game/queries/dialogueQuery.js';
+import {inputQuery} from '../source/game/queries/inputQuery.js';
+import {dialogueInputSystem} from '../source/game/systems/dialogueInputSystem.js';
 
 function tick(): pixi.Ticker {
   return {deltaMS: 0} as unknown as pixi.Ticker;

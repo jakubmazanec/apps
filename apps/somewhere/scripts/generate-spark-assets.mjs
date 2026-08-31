@@ -5,7 +5,7 @@
 //
 // The eight duplicated animation keys are load-bearing: graphicsSystem picks a
 // sprite name from velocity direction and Sprite.show throws on a missing name
-// (see the TODO in source/game/wallHitPopupSystem.ts).
+// (see the TODO in source/game/systems/wallHitPopupSystem.ts).
 //
 // Idempotent — re-running overwrites both files with identical bytes.
 // Usage: node scripts/generate-spark-assets.mjs

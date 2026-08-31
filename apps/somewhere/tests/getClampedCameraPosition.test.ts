@@ -1,7 +1,7 @@
 import {describe, expect, test} from 'vitest';
 
 import {type Map} from '../source/engine/tiled/Map.js';
-import {getClampedCameraPosition} from '../source/game/getClampedCameraPosition.js';
+import {getClampedCameraPosition} from '../source/game/utilities/getClampedCameraPosition.js';
 
 function mapStub(width: number, height: number, x = 0, y = 0): Map {
   return {position: {x, y}, width, height} as unknown as Map;

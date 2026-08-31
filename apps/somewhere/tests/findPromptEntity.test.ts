@@ -6,12 +6,12 @@ import {Entity} from '../source/engine/ecs/Entity.js';
 import {World} from '../source/engine/ecs/World.js';
 import {type Constructor} from '../source/engine/utilities/Constructor.js';
 import {Vector} from '../source/engine/utilities/Vector.js';
-import {findPromptEntity} from '../source/game/findPromptEntity.js';
-import {GraphicsComponent} from '../source/game/GraphicsComponent.js';
-import {MotionComponent} from '../source/game/MotionComponent.js';
-import {PlayerComponent} from '../source/game/PlayerComponent.js';
-import {playersQuery} from '../source/game/playersQuery.js';
-import {TriggerComponent} from '../source/game/TriggerComponent.js';
+import {GraphicsComponent} from '../source/game/components/GraphicsComponent.js';
+import {MotionComponent} from '../source/game/components/MotionComponent.js';
+import {PlayerComponent} from '../source/game/components/PlayerComponent.js';
+import {TriggerComponent} from '../source/game/components/TriggerComponent.js';
+import {playersQuery} from '../source/game/queries/playersQuery.js';
+import {findPromptEntity} from '../source/game/utilities/findPromptEntity.js';
 
 function stubComponent<T extends Component>(ComponentClass: Constructor<T>, fields: object): T {
   return Object.assign(Object.create(ComponentClass.prototype as object) as T, fields);

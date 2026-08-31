@@ -6,14 +6,14 @@ import {Entity} from '../source/engine/ecs/Entity.js';
 import {World} from '../source/engine/ecs/World.js';
 import {type Constructor} from '../source/engine/utilities/Constructor.js';
 import {Vector} from '../source/engine/utilities/Vector.js';
-import {GraphicsComponent} from '../source/game/GraphicsComponent.js';
-import {MotionComponent} from '../source/game/MotionComponent.js';
-import {PlayerComponent} from '../source/game/PlayerComponent.js';
-import {playersQuery} from '../source/game/playersQuery.js';
-import {TriggerComponent} from '../source/game/TriggerComponent.js';
-import {triggerEnterChannel} from '../source/game/triggerEnterChannel.js';
-import {triggerExitChannel} from '../source/game/triggerExitChannel.js';
-import {triggerSystem} from '../source/game/triggerSystem.js';
+import {GraphicsComponent} from '../source/game/components/GraphicsComponent.js';
+import {MotionComponent} from '../source/game/components/MotionComponent.js';
+import {PlayerComponent} from '../source/game/components/PlayerComponent.js';
+import {TriggerComponent} from '../source/game/components/TriggerComponent.js';
+import {triggerEnterChannel} from '../source/game/events/triggerEnterChannel.js';
+import {triggerExitChannel} from '../source/game/events/triggerExitChannel.js';
+import {playersQuery} from '../source/game/queries/playersQuery.js';
+import {triggerSystem} from '../source/game/systems/triggerSystem.js';
 
 function tick(deltaTime = 1): pixi.Ticker {
   return {deltaTime} as unknown as pixi.Ticker;

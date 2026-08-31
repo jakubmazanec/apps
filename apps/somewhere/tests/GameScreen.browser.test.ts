@@ -7,7 +7,7 @@ import {type Game} from '../source/engine/app/Game.js';
 import {GameScreen} from '../source/engine/app/GameScreen.js';
 import {type MapTile} from '../source/engine/tiled/Map.js';
 import {type UiTheme} from '../source/engine/ui/UiTheme.js';
-import {type UIEventMap} from '../source/game/uiEvents.js';
+import {type UIEventMap} from '../source/game/core/uiEvents.js';
 import {createTestTheme} from './createTestTheme.js';
 
 // GameScreen builds a UiRoot, which registers its pointertap listeners via

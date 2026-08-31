@@ -2,7 +2,11 @@ import {describe, expect, test, vitest} from 'vitest';
 
 import {Modal} from '../source/engine/ui/Modal.js';
 import {UiRoot} from '../source/engine/ui/UiRoot.js';
-import {openPauseMenu, resumeFromPause, teardownWorldScreen} from '../source/game/pauseFlow.js';
+import {
+  openPauseMenu,
+  resumeFromPause,
+  teardownWorldScreen,
+} from '../source/game/screens/pauseFlow.js';
 
 // Container.prototype gets addEventListener only once pixi's events system
 // registers itself; in the real app that happens as a side effect of

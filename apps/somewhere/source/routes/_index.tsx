@@ -18,14 +18,14 @@ export default function Index() {
     (async () => {
       let [{game: importedGame}, {loadingScreen}, {errorScreen}, {mainMenuScreen}, {worldScreen}] =
         await Promise.all([
-          import('../game/game.js'),
-          import('../game/loadingScreen.js'),
-          import('../game/errorScreen.js'),
-          import('../game/mainMenuScreen.js'),
-          import('../game/worldScreen.js'),
+          import('../game/core/game.js'),
+          import('../game/screens/loadingScreen.js'),
+          import('../game/screens/errorScreen.js'),
+          import('../game/screens/mainMenuScreen.js'),
+          import('../game/screens/worldScreen.js'),
           // Eval audio bootstrap (decode context + first-gesture unlock) before
           // init() below loads the default bundle's audio assets.
-          import('../game/audio.js'),
+          import('../game/core/audio.js'),
         ]);
 
       if (controller.signal.aborted) {

@@ -6,12 +6,12 @@ import {Entity} from '../source/engine/ecs/Entity.js';
 import {World} from '../source/engine/ecs/World.js';
 import {type Constructor} from '../source/engine/utilities/Constructor.js';
 import {Vector} from '../source/engine/utilities/Vector.js';
-import {GraphicsComponent} from '../source/game/GraphicsComponent.js';
-import {LevelComponent} from '../source/game/LevelComponent.js';
-import {levelQuery} from '../source/game/levelQuery.js';
-import {MotionComponent} from '../source/game/MotionComponent.js';
-import {motionSystem} from '../source/game/motionSystem.js';
-import {wallHitChannel} from '../source/game/wallHitChannel.js';
+import {GraphicsComponent} from '../source/game/components/GraphicsComponent.js';
+import {LevelComponent} from '../source/game/components/LevelComponent.js';
+import {MotionComponent} from '../source/game/components/MotionComponent.js';
+import {wallHitChannel} from '../source/game/events/wallHitChannel.js';
+import {levelQuery} from '../source/game/queries/levelQuery.js';
+import {motionSystem} from '../source/game/systems/motionSystem.js';
 
 function tick(deltaTime: number): pixi.Ticker {
   return {deltaTime} as unknown as pixi.Ticker;

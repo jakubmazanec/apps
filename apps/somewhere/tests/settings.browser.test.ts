@@ -21,7 +21,7 @@ async function importSettings() {
   settingsImport += 1;
 
   return import(
-    /* @vite-ignore */ `../source/game/settings.ts?fresh=${settingsImport}`
+    /* @vite-ignore */ `../source/game/core/settings.ts?fresh=${settingsImport}`
   ) as Promise<SettingsModule>;
 }
 

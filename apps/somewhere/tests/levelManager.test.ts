@@ -3,7 +3,7 @@ import {afterEach, beforeEach, describe, expect, test, vitest} from 'vitest';
 
 // The travel flush (Task 10) presets the camera through the game singleton;
 // mock it before any game module loads (the dialogueBoxSystem.test pattern).
-vitest.mock(import('../source/game/game.js'), () => {
+vitest.mock(import('../source/game/core/game.js'), () => {
   let game = {app: {canvas: {width: 64, height: 64}}, pixelScale: 1};
 
   return {game: game as never};
@@ -12,7 +12,7 @@ vitest.mock(import('../source/game/game.js'), () => {
 const {Spriteset} = await import('../source/engine/graphics/Spriteset.js');
 const {toTileGid} = await import('../source/engine/tiled/TileGid.js');
 const {Tilemap} = await import('../source/engine/tiled/Tilemap.js');
-const {assets} = await import('../source/game/assets.js');
+const {assets} = await import('../source/game/core/assets.js');
 const {
   DEFAULT_MAP_NAME,
   findEntryPoint,
@@ -24,20 +24,20 @@ const {
   requestTravel,
   resetLevelManager,
   spawnMap,
-} = await import('../source/game/levelManager.js');
-const {TriggerComponent} = await import('../source/game/TriggerComponent.js');
+} = await import('../source/game/levels/levelManager.js');
+const {TriggerComponent} = await import('../source/game/components/TriggerComponent.js');
 const {World} = await import('../source/engine/ecs/World.js');
 const {System} = await import('../source/engine/ecs/System.js');
 const {Entity} = await import('../source/engine/ecs/Entity.js');
-const {camera} = await import('../source/game/camera.js');
-const {CameraComponent} = await import('../source/game/CameraComponent.js');
-const {cameraQuery} = await import('../source/game/cameraQuery.js');
-const {levelQuery} = await import('../source/game/levelQuery.js');
-const {mapSystem} = await import('../source/game/mapSystem.js');
-const {playersQuery} = await import('../source/game/playersQuery.js');
-const {playerPool} = await import('../source/game/playerPool.js');
-const {MotionComponent} = await import('../source/game/MotionComponent.js');
-const {LevelComponent} = await import('../source/game/LevelComponent.js');
+const {camera} = await import('../source/game/core/camera.js');
+const {CameraComponent} = await import('../source/game/components/CameraComponent.js');
+const {cameraQuery} = await import('../source/game/queries/cameraQuery.js');
+const {levelQuery} = await import('../source/game/queries/levelQuery.js');
+const {mapSystem} = await import('../source/game/systems/mapSystem.js');
+const {playersQuery} = await import('../source/game/queries/playersQuery.js');
+const {playerPool} = await import('../source/game/levels/playerPool.js');
+const {MotionComponent} = await import('../source/game/components/MotionComponent.js');
+const {LevelComponent} = await import('../source/game/components/LevelComponent.js');
 const {Vector} = await import('../source/engine/utilities/Vector.js');
 
 // `const {Tilemap} = await import(...)` only binds Tilemap as a value (unlike

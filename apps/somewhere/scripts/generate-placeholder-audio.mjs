@@ -1,7 +1,7 @@
 // Zero-dependency placeholder audio generator: writes mono 16-bit PCM WAV files
 // into public/. These are throwaway sounds for the demo; replace with real CC0
 // .ogg clips later (the loader parser accepts both .ogg and .wav — just change
-// the bundle `sources` entries in source/game/game.ts).
+// the bundle `sources` entries in source/game/core/game.ts).
 import {writeFileSync} from 'node:fs';
 import {fileURLToPath} from 'node:url';
 

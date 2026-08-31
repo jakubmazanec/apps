@@ -151,7 +151,7 @@ export class World {
 
     // The systems loop runs first in stop(), so a system appended here lands past its
     // descending cursor and survives the teardown, with its world reference still set.
-    // source/game/world.ts re-adds module-level singletons on every start(), so a survivor
+    // source/game/core/world.ts re-adds module-level singletons on every start(), so a survivor
     // either makes the next start() throw or silently prepends a stale system to a
     // load-bearing update order. Entities, queries and channels added from a teardown hook
     // are cleaned up by the loops that run afterwards, which is why only topology is

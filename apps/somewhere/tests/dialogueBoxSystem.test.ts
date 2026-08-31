@@ -5,7 +5,7 @@ import {Entity} from '../source/engine/ecs/Entity.js';
 import {World} from '../source/engine/ecs/World.js';
 import {createTestTheme} from './createTestTheme.js';
 
-vitest.mock(import('../source/game/game.js'), () => {
+vitest.mock(import('../source/game/core/game.js'), () => {
   // `as never`: only the slice dialogueBoxSystem reads is stood in for, so the
   // stub cannot satisfy the nominally typed Game instance.
   let game = {
@@ -17,9 +17,9 @@ vitest.mock(import('../source/game/game.js'), () => {
   return {game: game as never};
 });
 
-const {DialogueComponent} = await import('../source/game/DialogueComponent.js');
-const {dialogueBoxSystem} = await import('../source/game/dialogueBoxSystem.js');
-const {dialogueQuery} = await import('../source/game/dialogueQuery.js');
+const {DialogueComponent} = await import('../source/game/components/DialogueComponent.js');
+const {dialogueBoxSystem} = await import('../source/game/systems/dialogueBoxSystem.js');
+const {dialogueQuery} = await import('../source/game/queries/dialogueQuery.js');
 
 function tick(deltaMS = 0): pixi.Ticker {
   return {deltaMS} as unknown as pixi.Ticker;

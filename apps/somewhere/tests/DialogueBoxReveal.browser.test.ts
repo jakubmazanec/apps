@@ -7,7 +7,7 @@ import {DialogueBox} from '../source/engine/dialogue/DialogueBox.js';
 import {createTestTheme} from './createTestTheme.js';
 import {installMonogram} from './installMonogram.js';
 
-// The shipping metrics, verbatim from source/game/dialogueBoxSystem.ts.
+// The shipping metrics, verbatim from source/game/systems/dialogueBoxSystem.ts.
 const BOX_METRICS = {
   margin: 4,
   padding: 3,
