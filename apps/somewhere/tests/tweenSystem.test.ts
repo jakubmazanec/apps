@@ -4,8 +4,8 @@ import {describe, expect, test} from 'vitest';
 import {Entity} from '../source/engine/ecs/Entity.js';
 import {World} from '../source/engine/ecs/World.js';
 import {Tween} from '../source/engine/scheduler/Tween.js';
-import {TweenComponent} from '../source/engine/scheduler/TweenComponent.js';
-import {tweenSystem} from '../source/engine/scheduler/tweenSystem.js';
+import {TweenComponent} from '../source/game/components/TweenComponent.js';
+import {tweenSystem} from '../source/game/systems/tweenSystem.js';
 
 function tick(deltaMS: number): pixi.Ticker {
   return {deltaMS} as unknown as pixi.Ticker;

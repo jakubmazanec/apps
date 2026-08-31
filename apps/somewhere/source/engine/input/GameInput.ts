@@ -93,7 +93,7 @@ export class GameInput {
   /** TBD */
   #currentCodes = new Set<string>();
 
-  /** TBD */
+  /** Stack to register disposers that cleanup resources when needed. */
   #disposables = new DisposableStack();
 
   /** Live set mutated by listeners; may change at any moment between steps. */

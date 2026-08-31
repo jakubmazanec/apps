@@ -13,53 +13,54 @@ export class GameScreen<
   T = undefined,
   Events extends EventEmitter.ValidEventTypes = Record<never, never>,
 > {
-  /** TBD */
+  /** Asset bundles the screen requires. */
   readonly assetBundles: string[];
 
   // TODO: type should be some conditional type for proper typing of undefined and such
   /** Storage for whatever `onAttach` returns. */
   contents!: T;
 
-  /** TBD */
+  /** Scheduler. */
   readonly scheduler = new Scheduler();
 
-  /** TBD */
+  /** View. */
   readonly view: pixi.Container = new pixi.Container();
 
-  /** TBD */
+  /** Stack to register disposers that cleanup resources when needed. */
   #disposables = new DisposableStack();
 
-  /** TBD */
+  /** Events. */
   readonly #events?: EventEmitter<Events>;
 
-  /** TBD */
+  /** Game. */
   #game: Game | null = null;
 
-  /** TBD */
+  /** Lifecycle hook called when screen is attached. Returned value is stored in `contents`. */
   readonly #onAttach?: (screen: AnyGameScreen, game: Game) => T;
 
-  /** TBD */
+  /** Lifecycle hook called when there is an unhandled cancel command. */
   readonly #onCancel?: (screen: AnyGameScreen, game: Game) => void;
 
-  /** TBD */
+  // TODO: better comment and maybe better name or even API?
+  /** Lifecycle hook. */
   readonly #onFocusEvent?: (event: UiFocusEvent) => void;
 
-  /** TBD */
+  /** Lifecycle hook called when screen is hidden. */
   readonly #onHide?: (screen: AnyGameScreen, game: Game) => Promise<void> | void;
 
-  /** TBD */
+  /** Lifecycle hook called when screen is resized. */
   readonly #onResize?: (screen: AnyGameScreen, game: Game) => void;
 
-  /** TBD */
+  /** Lifecycle hook called when screen is showed. */
   readonly #onShow?: (screen: AnyGameScreen, game: Game) => Promise<void> | void;
 
-  /** TBD */
+  /** Lifecycle hook called on each tick. */
   readonly #onUpdate?: (ticker: pixi.Ticker, screen: AnyGameScreen, game: Game) => void;
 
-  /** TBD */
+  /** State; which part of its life cycle the instance is currently in. */
   #state: GameScreenState = 'created';
 
-  /** TBD */
+  /** UI. */
   #ui: UiRoot | null = null;
 
   constructor({
@@ -108,7 +109,7 @@ export class GameScreen<
     }
   }
 
-  /** TBD */
+  /** Game. */
   get game(): Game {
     if (!this.#game) {
       throw new Error('Screen is not attached to a game!');
@@ -117,12 +118,12 @@ export class GameScreen<
     return this.#game;
   }
 
-  /** TBD */
+  /** State. */
   get state(): GameScreenState {
     return this.#state;
   }
 
-  /** TBD */
+  /** UI. */
   get ui(): UiRoot {
     if (!this.#ui) {
       throw new Error('UI is not created on the screen!');
@@ -158,12 +159,12 @@ export class GameScreen<
     this.contents = this.#onAttach?.(this, game) as T;
   }
 
-  /** TBD */
+  /** Triggers cancel lifecycle hook. */
   cancel() {
     this.#onCancel?.(this, this.game);
   }
 
-  /** TBD */
+  /** Destroys the instance. */
   destroy() {
     this.#disposables.dispose();
     this.ui.destroy();

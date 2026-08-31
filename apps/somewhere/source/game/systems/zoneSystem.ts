@@ -1,7 +1,7 @@
-import {PlaySound} from '../../engine/audio/PlaySound.js';
 import {System} from '../../engine/ecs/System.js';
 import {TriggerComponent} from '../components/TriggerComponent.js';
-import {playSoundChannel} from '../core/audio.js';
+import {playSoundChannel} from '../core/playSoundChannel.js';
+import {PlaySoundEvent} from '../events/PlaySoundEvent.js';
 import {triggerEnterChannel} from '../events/triggerEnterChannel.js';
 
 export const zoneSystem = new System({
@@ -20,7 +20,7 @@ export const zoneSystem = new System({
       let {sound} = zone.properties;
 
       if (typeof sound === 'string') {
-        playSoundChannel.push(new PlaySound({name: sound}));
+        playSoundChannel.push(new PlaySoundEvent({name: sound}));
       }
     }
   },

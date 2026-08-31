@@ -1,5 +1,5 @@
-import {System} from '../ecs/System.js';
-import {TweenComponent} from './TweenComponent.js';
+import {System} from '../../engine/ecs/System.js';
+import {TweenComponent} from '../components/TweenComponent.js';
 
 export const tweenSystem = new System({
   components: [TweenComponent],

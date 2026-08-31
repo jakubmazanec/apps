@@ -1,7 +1,4 @@
-import {audioSystem} from '../../engine/audio/audioSystem.js';
 import {World} from '../../engine/ecs/World.js';
-import {timerSystem} from '../../engine/scheduler/timerSystem.js';
-import {tweenSystem} from '../../engine/scheduler/tweenSystem.js';
 import {failUnsupported} from '../../engine/utilities/failUnsupported.js';
 import {Vector} from '../../engine/utilities/Vector.js';
 import {CameraComponent} from '../components/CameraComponent.js';
@@ -28,6 +25,7 @@ import {dialogueQuery} from '../queries/dialogueQuery.js';
 import {inputQuery} from '../queries/inputQuery.js';
 import {levelQuery} from '../queries/levelQuery.js';
 import {playersQuery} from '../queries/playersQuery.js';
+import {audioSystem} from '../systems/audioSystem.js';
 import {behaviorSystem} from '../systems/behaviorSystem.js';
 import {cameraSystem} from '../systems/cameraSystem.js';
 import {dialogueBoxSystem} from '../systems/dialogueBoxSystem.js';
@@ -40,17 +38,20 @@ import {motionSystem} from '../systems/motionSystem.js';
 import {playerActionSystem} from '../systems/playerActionSystem.js';
 import {playerSystem} from '../systems/playerSystem.js';
 import {popupCleanupSystem} from '../systems/popupCleanupSystem.js';
+import {timerSystem} from '../systems/timerSystem.js';
 import {travelSystem} from '../systems/travelSystem.js';
 import {triggerSystem} from '../systems/triggerSystem.js';
+import {tweenSystem} from '../systems/tweenSystem.js';
 import {uiBridge} from '../systems/uiBridge.js';
 import {wallHitPopupSystem} from '../systems/wallHitPopupSystem.js';
 import {zoneSystem} from '../systems/zoneSystem.js';
 import {getPositionForBoundingBoxCenter} from '../utilities/getPositionForBoundingBoxCenter.js';
-import {audioEntity, playSoundChannel} from './audio.js';
+import {audioEntity} from './audioEntity.js';
 import {camera} from './camera.js';
 import {dialogueEntity} from './dialogue.js';
 import {resetFlags} from './flags.js';
 import {inputEntity} from './input.js';
+import {playSoundChannel} from './playSoundChannel.js';
 import {getStagedMapName} from './save.js';
 
 declare global {
@@ -96,7 +97,7 @@ export const world = new World({
     world.addSystem(doorSystem); // consumes last frame's trigger enters (buffered, one-frame delay)
     world.addSystem(zoneSystem); // like doorSystem: last frame's enters, before wallHitPopupSystem
     world.addSystem(wallHitPopupSystem); // spawn popups from the previous frame's wall hits
-    world.addSystem(audioSystem); // placement is free: PlaySound events are buffered, seen next frame
+    world.addSystem(audioSystem); // placement is free: PlaySoundEvent is buffered, seen next frame
     world.addSystem(popupCleanupSystem); // remove popups whose lifetime timer has expired
     world.addSystem(timerSystem); // placement is free: timer events are buffered, seen next frame
     world.addSystem(uiBridge);

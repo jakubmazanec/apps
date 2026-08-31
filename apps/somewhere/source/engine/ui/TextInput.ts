@@ -37,7 +37,7 @@ export type TextInputOptions = ThemedOptions<TextInputBackgrounds> & {
 const BLINK_PERIOD = 60;
 
 export class TextInput implements Focusable {
-  /** TBD */
+  /** View. */
   readonly view: LayoutContainer;
 
   /** TBD */
@@ -63,7 +63,7 @@ export class TextInput implements Focusable {
   /** TBD */
   readonly #container: HTMLElement;
 
-  /** TBD */
+  /** Stack to register disposers that cleanup resources when needed. */
   readonly #disposables = new DisposableStack();
 
   /** TBD */
@@ -78,10 +78,10 @@ export class TextInput implements Focusable {
   /** TBD */
   readonly #maxLength?: number;
 
-  /** TBD */
+  /** Lifecycle hook called when the input's value changes. */
   readonly #onChange?: (input: TextInput) => void;
 
-  /** TBD */
+  /** Lifecycle hook called when Enter is pressed while editing. */
   readonly #onEnter?: (input: TextInput) => void;
 
   /** TBD */
@@ -90,7 +90,7 @@ export class TextInput implements Focusable {
   /** TBD */
   readonly #row: LayoutContainer;
 
-  /** TBD */
+  /** State; which part of its life cycle the instance is currently in. */
   #state: TextInputState = 'normal';
 
   /** TBD */
@@ -367,7 +367,7 @@ export class TextInput implements Focusable {
     this.startEditing();
   }
 
-  /** TBD */
+  /** Destroys the instance. */
   destroy() {
     this.stopEditing();
     this.#disposables.dispose();

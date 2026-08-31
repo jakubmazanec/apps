@@ -1,6 +1,5 @@
 import * as pixi from 'pixi.js';
 
-import {PlaySound} from '../../engine/audio/PlaySound.js';
 import {DialogueBox} from '../../engine/dialogue/DialogueBox.js';
 import {type DialogueNode} from '../../engine/dialogue/DialogueScript.js';
 import {System} from '../../engine/ecs/System.js';
@@ -11,10 +10,11 @@ import {GraphicsComponent} from '../components/GraphicsComponent.js';
 import {MotionComponent} from '../components/MotionComponent.js';
 import {TriggerComponent} from '../components/TriggerComponent.js';
 import {assets} from '../core/assets.js';
-import {playSoundChannel} from '../core/audio.js';
 import {type Flags} from '../core/flags.js';
 import {game} from '../core/game.js';
+import {playSoundChannel} from '../core/playSoundChannel.js';
 import {DialogueCommand} from '../events/DialogueCommand.js';
+import {PlaySoundEvent} from '../events/PlaySoundEvent.js';
 import {dialogueCommandChannel} from '../events/dialogueCommandChannel.js';
 import {cameraQuery} from '../queries/cameraQuery.js';
 import {dialogueQuery} from '../queries/dialogueQuery.js';
@@ -288,7 +288,7 @@ export const dialogueBoxSystem = new System({
       if (newlyRevealed >= SKIP_THRESHOLD) {
         // An advance-skip reveals a whole stretch in one frame: at most one blip.
         if (glyphs > 0) {
-          playSoundChannel.push(new PlaySound({name: 'blip'}));
+          playSoundChannel.push(new PlaySoundEvent({name: 'blip'}));
         }
 
         blipGlyphCounter = 0;
@@ -297,7 +297,7 @@ export const dialogueBoxSystem = new System({
 
         if (blipGlyphCounter >= BLIP_EVERY_GLYPHS) {
           blipGlyphCounter %= BLIP_EVERY_GLYPHS;
-          playSoundChannel.push(new PlaySound({name: 'blip'}));
+          playSoundChannel.push(new PlaySoundEvent({name: 'blip'}));
         }
       }
 

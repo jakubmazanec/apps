@@ -40,7 +40,7 @@ export class Game {
   /** All screens. */
   readonly screens: AnyGameScreen[] = [];
 
-  /** Primary view. */
+  /** View. */
   readonly view: pixi.Container = new pixi.Container();
 
   /** Assets. */
@@ -52,7 +52,7 @@ export class Game {
   /** Input. */
   readonly #input: GameInput;
 
-  /** State of the Game instance; which part of its life cycle it is currently in. */
+  /** State; which part of its life cycle the instance is currently in. */
   #state: GameState = 'created';
 
   /** Theme. */
@@ -64,7 +64,7 @@ export class Game {
     this.#theme = theme;
   }
 
-  /** Initializes the game instance. */
+  /** Initializes the instance. */
   async init() {
     if (this.#state !== 'created') {
       throw new Error(
@@ -119,8 +119,8 @@ export class Game {
     this.app.stage.filters = [filter];
 
     // TODO: use delta
-    this.app.ticker.add((delta) => {
-      filter.time += 0.4;
+    this.app.ticker.add((timer) => {
+      filter.time += 0.2 * timer.deltaTime;
 
       if (filter.time > 1000) {
         filter.time = 0;
@@ -350,44 +350,4 @@ export class Game {
 
     return this;
   }
-
-  // TODO: remove
-  // on<T extends EventEmitter.EventNames<pixi.FederatedEventMap>>(
-  //   event: T,
-  //   fn: EventEmitter.EventListener<pixi.FederatedEventMap, T>,
-  // ): this {
-  //   if (!this.#isRunning) {
-  //     return this;
-  //   }
-
-  //   this.view.on(event, fn, this);
-
-  //   return this;
-  // }
-
-  // once<T extends EventEmitter.EventNames<pixi.FederatedEventMap>>(
-  //   event: T,
-  //   fn: EventEmitter.EventListener<pixi.FederatedEventMap, T>,
-  // ): this {
-  //   if (!this.#isRunning) {
-  //     return this;
-  //   }
-
-  //   this.view.once(event, fn, this);
-
-  //   return this;
-  // }
-
-  // off<T extends EventEmitter.EventNames<pixi.FederatedEventMap>>(
-  //   event: T,
-  //   fn?: EventEmitter.EventListener<pixi.FederatedEventMap, T>,
-  // ): this {
-  //   if (!this.#isRunning) {
-  //     return this;
-  //   }
-
-  //   this.view.off(event, fn, this);
-
-  //   return this;
-  // }
 }

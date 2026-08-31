@@ -20,27 +20,27 @@ export class System<
   /** TBD */
   readonly entities: Array<Entity<readonly [InstanceType<T[number]>]>> = [];
 
-  /** TBD */
+  /** Lifecycle hook called when an entity is added to the system. */
   readonly #onAddEntity?: (
     entity: Entity<readonly [InstanceType<T[number]>]>,
     system: System<T>,
     world: World,
   ) => void;
 
-  /** TBD */
+  /** Lifecycle hook called when system is attached. */
   readonly #onAttach?: (system: System<T>, world: World) => void;
 
-  /** TBD */
+  /** Lifecycle hook called when system is detached. */
   readonly #onDetach?: (system: System<T>, world: World) => void;
 
-  /** TBD */
+  /** Lifecycle hook called when an entity is removed from the system. */
   readonly #onRemoveEntity?: (
     entity: Entity<readonly [InstanceType<T[number]>]>,
     system: System<T>,
     world: World,
   ) => void;
 
-  /** TBD */
+  /** Lifecycle hook called on each tick. */
   readonly #onUpdate?: (ticker: pixi.Ticker, system: System<T>, world: World) => void;
 
   /** TBD */

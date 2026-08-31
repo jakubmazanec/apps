@@ -27,7 +27,7 @@ export type ToggleOptions = ThemedOptions<ToggleBackgrounds> & {
 };
 
 export class Toggle implements Focusable {
-  /** TBD */
+  /** View. */
   readonly view: LayoutContainer;
 
   /** TBD */
@@ -36,16 +36,16 @@ export class Toggle implements Focusable {
     unchecked: Record<ToggleState, pixi.Container>;
   };
 
-  /** TBD */
+  /** Stack to register disposers that cleanup resources when needed. */
   readonly #disposables = new DisposableStack();
 
   /** TBD */
   #isChecked: boolean; // basically a `value`
 
-  /** TBD */
+  /** Lifecycle hook called when the toggle's checked state changes. */
   readonly #onChange?: (toggle: Toggle) => void;
 
-  /** TBD */
+  /** State; which part of its life cycle the instance is currently in. */
   #state: ToggleState = 'normal';
 
   constructor({backgrounds, theme, checked = false, onChange}: ToggleOptions) {
@@ -143,7 +143,7 @@ export class Toggle implements Focusable {
     this.#setChecked(true);
   }
 
-  /** TBD */
+  /** Destroys the instance. */
   destroy() {
     this.#disposables.dispose();
   }

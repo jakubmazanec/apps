@@ -1,6 +1,6 @@
 import {System} from '../../engine/ecs/System.js';
-import {InputComponent} from '../../engine/input/InputComponent.js';
 import {DialogueComponent} from '../components/DialogueComponent.js';
+import {InputComponent} from '../components/InputComponent.js';
 import {DialogueCommand} from '../events/DialogueCommand.js';
 import {dialogueCommandChannel} from '../events/dialogueCommandChannel.js';
 import {dialogueQuery} from '../queries/dialogueQuery.js';

@@ -40,13 +40,13 @@ export class Modal implements UiParent {
   /** TBD */
   readonly children: UiChild[] = [];
 
-  /** TBD */
+  /** View. */
   readonly view: pixi.Container = new pixi.Container();
 
   /** TBD */
   #cancelFade: (() => void) | null = null;
 
-  /** TBD */
+  /** Stack to register disposers that cleanup resources when needed. */
   readonly #disposables = new DisposableStack();
 
   /** TBD */
@@ -55,10 +55,10 @@ export class Modal implements UiParent {
   /** TBD */
   readonly #initialFocus?: Focusable;
 
-  /** TBD */
+  /** Lifecycle hook called when there is an unhandled cancel command. */
   readonly #onCancel?: () => void;
 
-  /** TBD */
+  /** Lifecycle hook called when the modal is closed. */
   readonly #onClose?: () => void;
 
   /** TBD */
@@ -67,7 +67,7 @@ export class Modal implements UiParent {
   /** TBD */
   readonly #scrim: pixi.Graphics = new pixi.Graphics();
 
-  /** TBD */
+  /** State; which part of its life cycle the instance is currently in. */
   #state: ModalState = 'closed';
 
   /** TBD */
@@ -172,7 +172,7 @@ export class Modal implements UiParent {
   // scope if one is still pushed (tolerant of an already-empty stack) and
   // synchronously removes + destroys; callable from any state, never animated,
   // never fires onClose.
-  /** TBD */
+  /** Destroys the instance. */
   destroy() {
     this.#cancelFade?.();
     this.#cancelFade = null;

@@ -90,7 +90,7 @@ const CHOICE_PADDING = 1;
  * fill boxes that already exist, so nothing moves or grows mid-node.
  */
 export class DialogueBox implements UiParent {
-  /** TBD */
+  /** View. */
   readonly view: pixi.Container = new pixi.Container();
 
   /** Whether setChoices has built the button column for the current node. */
@@ -144,13 +144,13 @@ export class DialogueBox implements UiParent {
   /** TBD */
   #node: DialogueBoxNode | null = null;
 
-  /** TBD */
+  /** Lifecycle hook called when the box is tapped to advance the page. */
   readonly #onAdvanceTap: () => void;
 
-  /** TBD */
+  /** Lifecycle hook called when a choice button is hovered. */
   readonly #onChoiceHover: (index: number) => void;
 
-  /** TBD */
+  /** Lifecycle hook called when a choice button is tapped. */
   readonly #onChooseTap: (index: number) => void;
 
   /** TBD */
@@ -237,7 +237,7 @@ export class DialogueBox implements UiParent {
     return this.#isCollapsed;
   }
 
-  /** TBD */
+  /** Destroys the instance. */
   destroy(): void {
     // The scope is popped BEFORE removeChild (the Modal precedent): removing
     // first would let UiRoot's scope self-heal drop it as stale and lose the
