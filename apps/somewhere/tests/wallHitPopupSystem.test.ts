@@ -9,7 +9,7 @@ import {Vector} from '../source/engine/utilities/Vector.js';
 import {GraphicsComponent} from '../source/game/components/GraphicsComponent.js';
 import {MotionComponent} from '../source/game/components/MotionComponent.js';
 import {assets} from '../source/game/core/assets.js';
-import {playSoundChannel} from '../source/game/core/audio.js';
+import {playSoundChannel} from '../source/game/core/playSoundChannel.js';
 import {popupExpiredChannel} from '../source/game/events/popupExpiredChannel.js';
 import {WallHit} from '../source/game/events/WallHit.js';
 import {wallHitChannel} from '../source/game/events/wallHitChannel.js';

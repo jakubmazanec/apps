@@ -16,34 +16,31 @@ export type WorldOptions = {
 };
 
 export class World {
-  /** TBD */
+  /** Entities. */
   readonly entities: Entity[] = [];
 
-  /** TBD */
+  /** Entity queries. */
   readonly entityQueries: EntityQuery[] = [];
 
-  /** TBD */
+  /** Event channels. */
   readonly eventChannels: EventChannel[] = [];
 
-  /** TBD */
+  /** Systems. */
   readonly systems: System[] = [];
 
-  /** TBD */
+  /** View. */
   readonly view: pixi.Container = new pixi.Container();
 
-  /** TBD */
+  /** Lifecycle hook called when world is started. */
   readonly #onStart?: (world: World) => void;
 
-  /** TBD */
+  /** Lifecycle hook called when world is stopped. */
   readonly #onStop?: (world: World) => void;
 
-  /** TBD */
+  /** Pending changes to the entities that happened during a tick, to be applied after. */
   readonly #pendingChanges: Array<{entity: Entity; isRemoval: boolean}> = [];
-  // One state instead of three independent booleans: `paused` only follows `running`,
-  // `updating` only follows `running` (a paused update returns early), and `stopping` only
-  // follows `running` or `paused`, so no two of them were ever needed at once. Mirrors
-  // `Game`'s `#state`.
-  /** TBD */
+
+  /** State; which part of its life cycle the instance is currently in. */
   #state: WorldState = 'stopped';
 
   constructor({onStart, onStop}: WorldOptions = {}) {
@@ -402,7 +399,7 @@ export class World {
     }
   }
 
-  /** TBD */
+  /** @internal Called by game's ticker on each tick. */
   update(ticker: pixi.Ticker) {
     // A world that isn't running, is paused, is already updating, or is tearing down
     // doesn't update.

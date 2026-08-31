@@ -50,10 +50,10 @@ export class UiRoot implements UiParent {
   /** TBD */
   readonly children: UiChild[] = [];
 
-  /** TBD */
+  /** View. */
   readonly view: pixi.Container = new pixi.Container();
 
-  /** TBD */
+  /** Stack to register disposers that cleanup resources when needed. */
   readonly #disposables = new DisposableStack();
 
   /** TBD */
@@ -65,7 +65,7 @@ export class UiRoot implements UiParent {
   /** TBD */
   #isRingVisible = false;
 
-  /** TBD */
+  /** Lifecycle hook called when focus moves or a directional move is rejected. */
   readonly #onFocusEvent?: (event: UiFocusEvent) => void;
 
   /** TBD */
@@ -209,7 +209,7 @@ export class UiRoot implements UiParent {
     this.#focused.decrease?.();
   }
 
-  /** TBD */
+  /** Destroys the instance. */
   destroy() {
     for (let child of this.children) {
       if ('view' in child) {

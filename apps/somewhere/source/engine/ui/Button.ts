@@ -33,7 +33,7 @@ export class Button implements Focusable, UiParent {
   /** TBD */
   readonly children: UiChild[] = [];
 
-  /** TBD */
+  /** View. */
   readonly view: LayoutContainer;
 
   /** TBD */
@@ -45,16 +45,16 @@ export class Button implements Focusable, UiParent {
   /** TBD */
   readonly #basePaddingTop: number;
 
-  /** TBD */
+  /** Stack to register disposers that cleanup resources when needed. */
   readonly #disposables = new DisposableStack();
 
-  /** TBD */
+  /** Lifecycle hook called when the button is clicked. */
   readonly #onClick?: (button: Button) => void;
 
   /** TBD */
   readonly #pressOffset: number;
 
-  /** TBD */
+  /** State; which part of its life cycle the instance is currently in. */
   #state: ButtonState = 'normal';
 
   constructor({backgrounds, theme, children, onClick, layout, pressOffset}: ButtonOptions) {
@@ -189,7 +189,7 @@ export class Button implements Focusable, UiParent {
     return this;
   }
 
-  /** TBD */
+  /** Destroys the instance. */
   destroy() {
     for (let child of this.children) {
       if ('view' in child) {

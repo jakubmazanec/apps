@@ -1,5 +1,5 @@
-import {System} from '../ecs/System.js';
-import {TimerComponent} from './TimerComponent.js';
+import {System} from '../../engine/ecs/System.js';
+import {TimerComponent} from '../components/TimerComponent.js';
 
 export const timerSystem = new System({
   components: [TimerComponent],

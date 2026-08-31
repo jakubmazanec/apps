@@ -2,13 +2,13 @@ import type * as pixi from 'pixi.js';
 import {afterEach, describe, expect, test, vitest} from 'vitest';
 
 import {GameAssets} from '../source/engine/app/GameAssets.js';
-import {AudioComponent} from '../source/engine/audio/AudioComponent.js';
 import {type AudioMixer} from '../source/engine/audio/AudioMixer.js';
-import {audioSystem} from '../source/engine/audio/audioSystem.js';
-import {PlaySound} from '../source/engine/audio/PlaySound.js';
 import {Entity} from '../source/engine/ecs/Entity.js';
 import {EventChannel} from '../source/engine/ecs/EventChannel.js';
 import {World} from '../source/engine/ecs/World.js';
+import {AudioComponent} from '../source/game/components/AudioComponent.js';
+import {PlaySoundEvent} from '../source/game/events/PlaySoundEvent.js';
+import {audioSystem} from '../source/game/systems/audioSystem.js';
 
 function tick(deltaTime = 1): pixi.Ticker {
   return {deltaTime} as unknown as pixi.Ticker;
@@ -21,7 +21,7 @@ describe('audioSystem', () => {
     vitest.restoreAllMocks();
   });
 
-  test('plays one sfx per drained PlaySound event, then does not replay it', () => {
+  test('plays one sfx per drained PlaySoundEvent, then does not replay it', () => {
     let buffer = {} as unknown as AudioBuffer;
     let assets = new GameAssets({bundles: [{name: 'default', sounds: {bump: ['bump.wav']}}]});
 
@@ -35,7 +35,7 @@ describe('audioSystem', () => {
         plays.push({buffer: playedBuffer, bus: options.bus});
       },
     } as unknown as AudioMixer;
-    let channel = new EventChannel({event: PlaySound, displayName: 'Play sound'});
+    let channel = new EventChannel({event: PlaySoundEvent, displayName: 'Play sound'});
     let entity = new Entity({components: [new AudioComponent({mixer, channel, assets})]});
     let world = new World({
       onStart: (w) => {
@@ -45,7 +45,7 @@ describe('audioSystem', () => {
     });
 
     world.start();
-    channel.push(new PlaySound({name: 'bump'}));
+    channel.push(new PlaySoundEvent({name: 'bump'}));
 
     // Channels swap at the end of update(): the push is readable next frame.
     world.update(tick());
@@ -64,7 +64,7 @@ describe('audioSystem', () => {
   });
 
   test('throws loudly when the audio entity is missing', () => {
-    let channel = new EventChannel({event: PlaySound});
+    let channel = new EventChannel({event: PlaySoundEvent});
     let world = new World({
       onStart: (w) => {
         w.addEventChannel(channel);
@@ -87,7 +87,7 @@ describe('audioSystem', () => {
       bundles: [{name: 'default', sounds: {missing: ['missing.wav']}}],
     });
     let mixer = {play: vitest.fn<() => void>()} as unknown as AudioMixer;
-    let channel = new EventChannel({event: PlaySound});
+    let channel = new EventChannel({event: PlaySoundEvent});
     let entity = new Entity({components: [new AudioComponent({mixer, channel, assets})]});
     let world = new World({
       onStart: (w) => {
@@ -97,7 +97,7 @@ describe('audioSystem', () => {
     });
 
     world.start();
-    channel.push(new PlaySound({name: 'missing'}));
+    channel.push(new PlaySoundEvent({name: 'missing'}));
     world.update(tick()); // swap: the event is now current
 
     // Drain directly so a throw does not strand the world's updating flag.

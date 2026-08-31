@@ -65,7 +65,7 @@ export class Tween<T = Record<string, number>> {
     }
   }
 
-  /** Advance by the ticker's `deltaMS`; returns `true` on the frame it reaches the end. */
+  /** Advances the tween on each tick. */
   update(ticker: pixi.Ticker): boolean {
     this.#elapsed += ticker.deltaMS;
 

@@ -1,10 +1,10 @@
-import {PlaySound} from '../../engine/audio/PlaySound.js';
 import {System} from '../../engine/ecs/System.js';
-import {InputComponent} from '../../engine/input/InputComponent.js';
 import {DialogueComponent} from '../components/DialogueComponent.js';
 import {GraphicsComponent} from '../components/GraphicsComponent.js';
+import {InputComponent} from '../components/InputComponent.js';
 import {PlayerComponent} from '../components/PlayerComponent.js';
-import {playSoundChannel} from '../core/audio.js';
+import {playSoundChannel} from '../core/playSoundChannel.js';
+import {PlaySoundEvent} from '../events/PlaySoundEvent.js';
 import {PlayerActionFinished} from '../events/PlayerActionFinished.js';
 import {playerActionFinishedChannel} from '../events/playerActionFinishedChannel.js';
 import {dialogueQuery} from '../queries/dialogueQuery.js';
@@ -17,7 +17,7 @@ export const playerActionSystem = new System({
     // Last frame's finished spin chimes — the completion emit consumed the
     // standard way, one frame later, like every timer/tween emit.
     if (playerActionFinishedChannel.events.length > 0) {
-      playSoundChannel.push(new PlaySound({name: 'chime'}));
+      playSoundChannel.push(new PlaySoundEvent({name: 'chime'}));
     }
 
     // Dialogue movement lock, same policy as playerSystem: no actions while

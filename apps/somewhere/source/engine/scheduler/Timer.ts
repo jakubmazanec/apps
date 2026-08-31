@@ -38,10 +38,7 @@ export class Timer {
     return this.#repeat;
   }
 
-  /**
-   * Advance by the ticker's `deltaMS`; returns `true` if it fired this call (at most once, even
-   * across several periods).
-   */
+  /** Advances the timer on each tick. */
   update(ticker: pixi.Ticker): boolean {
     if (this.#finished) {
       return false;

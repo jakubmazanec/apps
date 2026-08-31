@@ -4,7 +4,7 @@ import {afterEach, describe, expect, test} from 'vitest';
 import {Entity} from '../source/engine/ecs/Entity.js';
 import {World} from '../source/engine/ecs/World.js';
 import {TriggerComponent} from '../source/game/components/TriggerComponent.js';
-import {playSoundChannel} from '../source/game/core/audio.js';
+import {playSoundChannel} from '../source/game/core/playSoundChannel.js';
 import {TriggerEnter} from '../source/game/events/TriggerEnter.js';
 import {triggerEnterChannel} from '../source/game/events/triggerEnterChannel.js';
 import {zoneSystem} from '../source/game/systems/zoneSystem.js';
@@ -52,7 +52,7 @@ describe('zoneSystem', () => {
     activeWorld = null;
   });
 
-  test('a zone enter with a sound property pushes PlaySound', () => {
+  test('a zone enter with a sound property pushes PlaySoundEvent', () => {
     let trigger = createTrigger('zone', {sound: 'chime'});
     let world = createWorld(trigger);
 

@@ -6,8 +6,8 @@ import {defineEvent} from '../source/engine/ecs/Event.js';
 import {EventChannel} from '../source/engine/ecs/EventChannel.js';
 import {World} from '../source/engine/ecs/World.js';
 import {Timer} from '../source/engine/scheduler/Timer.js';
-import {TimerComponent} from '../source/engine/scheduler/TimerComponent.js';
-import {timerSystem} from '../source/engine/scheduler/timerSystem.js';
+import {TimerComponent} from '../source/game/components/TimerComponent.js';
+import {timerSystem} from '../source/game/systems/timerSystem.js';
 
 const Fired = defineEvent<{value: number}>();
 

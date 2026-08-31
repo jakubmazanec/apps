@@ -1,5 +1,5 @@
 import {GameScreen} from '../../engine/app/GameScreen.js';
-import {type AudioBus} from '../../engine/audio/AudioMixer.js';
+import {type AudioBus} from '../../engine/audio/AudioBus.js';
 import {Button} from '../../engine/ui/Button.js';
 import {Container} from '../../engine/ui/Container.js';
 import {Modal} from '../../engine/ui/Modal.js';
@@ -8,8 +8,9 @@ import {Slider} from '../../engine/ui/Slider.js';
 import {Text} from '../../engine/ui/Text.js';
 import {TextInput} from '../../engine/ui/TextInput.js';
 import {assets} from '../core/assets.js';
-import {audio, playFocusSound} from '../core/audio.js';
+import {audio} from '../core/audio.js';
 import {game} from '../core/game.js';
+import {playFocusSound} from '../core/playFocusSound.js';
 import {clearStagedSave, loadSave, stageContinue} from '../core/save.js';
 import {saveSettings, saveSettingsSoon, settings} from '../core/settings.js';
 // The mainMenuScreen <-> worldScreen static import cycle is deliberate and safe:

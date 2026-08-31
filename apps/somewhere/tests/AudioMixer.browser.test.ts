@@ -110,48 +110,33 @@ class FakeAudioContext {
 }
 
 // gains[0] = master, gains[1] = music, gains[2] = sfx, gains[3] = ui
-// (creation order in #buildGraph).
+// (creation order in the constructor).
 function createMixer() {
-  let context = new FakeAudioContext();
-  let created = 0;
-  let mixer = new AudioMixer({
-    createContext: () => {
-      created += 1;
+  // The mixer's constructor calls `new AudioContext()` itself; stubbing the
+  // global routes that construction to the fake class (restored in afterEach).
+  vitest.stubGlobal('AudioContext', FakeAudioContext);
 
-      return context as unknown as AudioContext;
-    },
-  });
+  let mixer = new AudioMixer();
+  let context = mixer.context as unknown as FakeAudioContext;
 
-  return {mixer, context, createdCount: () => created};
+  return {mixer, context};
 }
 
 describe(AudioMixer, () => {
   afterEach(() => {
-    // Nothing global to restore; unlock listeners are removed by the tests
-    // that arm them.
+    // Restore the AudioContext global stubbed by createMixer; unlock listeners
+    // are removed by the tests that arm them.
+    vitest.unstubAllGlobals();
   });
 
-  test('does not create the context until first use', () => {
-    let {mixer, createdCount} = createMixer();
+  test('builds the context and gain graph at construction', () => {
+    let {context} = createMixer();
 
-    expect(createdCount()).toBe(0);
-
-    // eslint-disable-next-line @typescript-eslint/no-unused-expressions -- accessing the getter is the trigger under test
-    mixer.context;
-
-    expect(createdCount()).toBe(1);
-
-    // eslint-disable-next-line @typescript-eslint/no-unused-expressions -- idempotency check
-    mixer.context;
-
-    expect(createdCount()).toBe(1);
+    expect(context.gains).toHaveLength(4);
   });
 
   test('wires the bus graph: each bus into master, master into destination', () => {
-    let {mixer, context} = createMixer();
-
-    // eslint-disable-next-line @typescript-eslint/no-unused-expressions -- build the graph
-    mixer.context;
+    let {context} = createMixer();
 
     expect(context.gains).toHaveLength(4);
     expect(context.gains[0]!.connectedTo).toBe(context.destination); // master → destination
@@ -212,24 +197,9 @@ describe(AudioMixer, () => {
     expect(source.stopped).toBe(true);
   });
 
-  test('a setVolume issued before first use applies once the graph is built', () => {
-    let {mixer, context} = createMixer();
-
-    mixer.setVolume('master', 0.4);
-
-    expect(context.gains).toHaveLength(0); // still no graph
-
-    // eslint-disable-next-line @typescript-eslint/no-unused-expressions -- build the graph now
-    mixer.context;
-
-    expect(context.gains[0]!.gain.value).toBe(0.4);
-  });
-
   test('setVolume clamps out-of-range levels to [0, 1]', () => {
     let {mixer, context} = createMixer();
 
-    // eslint-disable-next-line @typescript-eslint/no-unused-expressions -- build the graph
-    mixer.context;
     mixer.setVolume('master', 1.5);
 
     expect(context.gains[0]!.gain.value).toBe(1);
@@ -242,8 +212,6 @@ describe(AudioMixer, () => {
   test('setVolume ramps the live gain rather than jumping it directly', () => {
     let {mixer, context} = createMixer();
 
-    // eslint-disable-next-line @typescript-eslint/no-unused-expressions -- build the graph
-    mixer.context;
     mixer.setVolume('sfx', 0.3);
 
     let {gain} = context.gains[2]!; // sfx bus
@@ -263,8 +231,6 @@ describe(AudioMixer, () => {
   test('an overlapping setVolume cancels the prior ramp before scheduling its own', () => {
     let {mixer, context} = createMixer();
 
-    // eslint-disable-next-line @typescript-eslint/no-unused-expressions -- build the graph
-    mixer.context;
     mixer.setVolume('sfx', 0.3);
     mixer.setVolume('sfx', 0.6);
 
@@ -281,14 +247,6 @@ describe(AudioMixer, () => {
       'setValueAtTime(0.3, 0)',
       'linearRampToValueAtTime(0.6, 0.015)',
     ]);
-  });
-
-  test('setVolume before first use records the intent without forcing the graph to build', () => {
-    let {mixer, createdCount} = createMixer();
-
-    mixer.setVolume('music', 0.4);
-
-    expect(createdCount()).toBe(0);
   });
 
   test('unlock resumes once on the first gesture and removes its listeners', () => {

@@ -1,5 +1,5 @@
-import {defineComponent} from '../ecs/Component.js';
-import {type GameInput} from './GameInput.js';
+import {defineComponent} from '../../engine/ecs/Component.js';
+import {type GameInput} from '../../engine/input/GameInput.js';
 
 // Purely discoverability: game systems find input through a query, the way
 // playerSystem finds the camera through cameraQuery. Singleton entity + query

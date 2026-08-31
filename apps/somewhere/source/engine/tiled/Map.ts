@@ -38,7 +38,7 @@ export class Map {
   /** TBD */
   readonly rowCount: number;
 
-  /** TBD */
+  /** View. */
   readonly view: pixi.Container = new pixi.Container();
 
   /** TBD */
@@ -232,7 +232,7 @@ export class Map {
     this.layers[layerIndex]?.view.removeChild(view);
   }
 
-  /** Advance the animated tile sprites on world time; `mapSystem` calls this once per frame. */
+  /** Advances the animated tile sprites on each tick. */
   update(ticker: pixi.Ticker) {
     for (let sprite of this.#animatedSprites) {
       sprite.update(ticker);

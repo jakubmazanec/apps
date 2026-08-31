@@ -1,5 +1,5 @@
-import {System} from '../ecs/System.js';
-import {AudioComponent} from './AudioComponent.js';
+import {System} from '../../engine/ecs/System.js';
+import {AudioComponent} from '../components/AudioComponent.js';
 
 export const audioSystem = new System({
   displayName: 'Audio system',

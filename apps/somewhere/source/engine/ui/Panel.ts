@@ -16,10 +16,10 @@ export class Panel implements UiParent {
   /** TBD */
   readonly children: UiChild[] = [];
 
-  /** TBD */
+  /** View. */
   readonly view: LayoutContainer;
 
-  /** TBD */
+  /** Stack to register disposers that cleanup resources when needed. */
   readonly #disposables = new DisposableStack();
 
   constructor({background, theme, children, layout}: PanelOptions) {
@@ -48,7 +48,7 @@ export class Panel implements UiParent {
     return this;
   }
 
-  /** TBD */
+  /** Destroys the instance. */
   destroy() {
     for (let child of this.children) {
       if ('view' in child) {

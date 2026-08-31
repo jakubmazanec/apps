@@ -1,17 +1,17 @@
 import * as pixi from 'pixi.js';
 
-import {PlaySound} from '../../engine/audio/PlaySound.js';
 import {Entity} from '../../engine/ecs/Entity.js';
 import {System} from '../../engine/ecs/System.js';
 import {easeOutQuad} from '../../engine/scheduler/easing.js';
 import {Timer} from '../../engine/scheduler/Timer.js';
-import {TimerComponent} from '../../engine/scheduler/TimerComponent.js';
 import {Tween} from '../../engine/scheduler/Tween.js';
-import {TweenComponent} from '../../engine/scheduler/TweenComponent.js';
 import {Vector} from '../../engine/utilities/Vector.js';
 import {GraphicsComponent} from '../components/GraphicsComponent.js';
 import {MotionComponent} from '../components/MotionComponent.js';
-import {playSoundChannel} from '../core/audio.js';
+import {TimerComponent} from '../components/TimerComponent.js';
+import {TweenComponent} from '../components/TweenComponent.js';
+import {playSoundChannel} from '../core/playSoundChannel.js';
+import {PlaySoundEvent} from '../events/PlaySoundEvent.js';
 import {PopupExpired} from '../events/PopupExpired.js';
 import {popupExpiredChannel} from '../events/popupExpiredChannel.js';
 import {wallHitChannel} from '../events/wallHitChannel.js';
@@ -35,7 +35,7 @@ export const wallHitPopupSystem = new System({
     for (let {entity, box} of wallHitChannel.events) {
       // Gameplay SFX for the wall hit, alongside the popup this system already
       // spawns — no separate audio-bridge system. audioSystem plays it on `sfx`.
-      playSoundChannel.push(new PlaySound({name: 'bump'}));
+      playSoundChannel.push(new PlaySoundEvent({name: 'bump'}));
 
       // Spawn the spark where the player actually makes contact: the point on the hit collision
       // box nearest the player's center (the player entity that hit the wall carries both

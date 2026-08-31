@@ -9,13 +9,13 @@ export class ObjectPool<T extends object, A extends unknown[]> {
   /** TBD */
   readonly #objects: T[] = [];
 
-  /** TBD */
+  /** Lifecycle hook called when a new object is needed to be created. */
   readonly #onCreate: () => T;
 
-  /** TBD */
+  /** Lifecycle hook called when an object is released back to the pool. */
   readonly #onDestroy?: (object: T) => void;
 
-  /** TBD */
+  /** Lifecycle hook called when an object is handed out, to reset it. */
   readonly #onReset: (object: T, ...rest: A) => T;
 
   constructor({onCreate, onReset, onDestroy, initialSize}: ObjectPoolOptions<T, A>) {
@@ -46,7 +46,7 @@ export class ObjectPool<T extends object, A extends unknown[]> {
     return object;
   }
 
-  /** TBD */
+  /** Destroys the instance. */
   destroy(object: T) {
     if (import.meta.env.DEV && this.#objects.includes(object)) {
       throw new Error('Object was already destroyed!');

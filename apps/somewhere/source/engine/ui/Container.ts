@@ -11,10 +11,10 @@ export class Container implements UiParent {
   /** TBD */
   readonly children: UiChild[] = [];
 
-  /** TBD */
+  /** View. */
   readonly view: pixi.Container = new pixi.Container();
 
-  /** TBD */
+  /** Stack to register disposers that cleanup resources when needed. */
   readonly #disposables = new DisposableStack();
 
   constructor({children, layout}: ContainerOptions) {
@@ -41,7 +41,7 @@ export class Container implements UiParent {
     return this;
   }
 
-  /** TBD */
+  /** Destroys the instance. */
   destroy() {
     for (let child of this.children) {
       if ('view' in child) {

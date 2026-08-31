@@ -31,10 +31,10 @@ const DEFAULT_ANCHOR: pixi.PointData = {x: 0, y: 0};
 const LEAF_LAYOUT = {isLeaf: true, objectFit: 'none', objectPosition: 'left top'} as const;
 
 export class Text {
-  /** TBD */
+  /** View. */
   readonly view: pixi.Container = new pixi.Container();
 
-  /** TBD */
+  /** Stack to register disposers that cleanup resources when needed. */
   readonly #disposables = new DisposableStack();
 
   /** TBD */
@@ -70,7 +70,7 @@ export class Text {
     return this.#sprite.style;
   }
 
-  /** TBD */
+  /** Destroys the instance. */
   destroy() {
     this.#disposables.dispose();
   }

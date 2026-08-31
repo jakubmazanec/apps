@@ -24,7 +24,7 @@ pixi.extensions.add(spritesetAsset);
 export class GameAssets<
   const Bundles extends readonly GameAssetBundle[] = readonly GameAssetBundle[],
 > {
-  /** TBD */
+  /** Bundles. */
   readonly #bundles: Bundles;
 
   constructor({bundles}: GameAssetsOptions<Bundles>) {

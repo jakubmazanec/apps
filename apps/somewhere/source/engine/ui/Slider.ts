@@ -33,10 +33,10 @@ export type SliderOptions = ThemedOptions<SliderBackgrounds> & {
 };
 
 export class Slider implements Focusable {
-  /** TBD */
+  /** View. */
   readonly view: LayoutContainer;
 
-  /** TBD */
+  /** Stack to register disposers that cleanup resources when needed. */
   readonly #disposables = new DisposableStack();
 
   /** TBD */
@@ -51,10 +51,10 @@ export class Slider implements Focusable {
   /** TBD */
   readonly #min: number;
 
-  /** TBD */
+  /** Lifecycle hook called when the slider's value changes. */
   readonly #onChange?: (slider: Slider) => void;
 
-  /** TBD */
+  /** State; which part of its life cycle the instance is currently in. */
   #state: SliderState = 'normal';
 
   /** TBD */
@@ -235,7 +235,7 @@ export class Slider implements Focusable {
     this.#onChange?.(this);
   }
 
-  /** TBD */
+  /** Destroys the instance. */
   destroy() {
     this.#disposables.dispose();
   }
