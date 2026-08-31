@@ -5,12 +5,15 @@ import {Dialogue} from '../source/engine/dialogue/Dialogue.js';
 import {Entity} from '../source/engine/ecs/Entity.js';
 import {World} from '../source/engine/ecs/World.js';
 import {Vector} from '../source/engine/utilities/Vector.js';
-import {BehaviorComponent, type StrollBehavior} from '../source/game/BehaviorComponent.js';
-import {behaviorSystem} from '../source/game/behaviorSystem.js';
-import {DialogueComponent} from '../source/game/DialogueComponent.js';
-import {dialogueQuery} from '../source/game/dialogueQuery.js';
-import {flags} from '../source/game/flags.js';
-import {MotionComponent} from '../source/game/MotionComponent.js';
+import {
+  BehaviorComponent,
+  type StrollBehavior,
+} from '../source/game/components/BehaviorComponent.js';
+import {DialogueComponent} from '../source/game/components/DialogueComponent.js';
+import {MotionComponent} from '../source/game/components/MotionComponent.js';
+import {flags} from '../source/game/core/flags.js';
+import {dialogueQuery} from '../source/game/queries/dialogueQuery.js';
+import {behaviorSystem} from '../source/game/systems/behaviorSystem.js';
 
 function tick(deltaMS = 100): pixi.Ticker {
   return {deltaMS} as unknown as pixi.Ticker;

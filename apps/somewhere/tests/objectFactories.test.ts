@@ -3,13 +3,13 @@ import {afterEach, describe, expect, test, vitest} from 'vitest';
 
 import {Spriteset} from '../source/engine/graphics/Spriteset.js';
 import {type TilemapObject} from '../source/engine/tiled/Tilemap.js';
-import {assets} from '../source/game/assets.js';
-import {BehaviorComponent} from '../source/game/BehaviorComponent.js';
-import {GraphicsComponent} from '../source/game/GraphicsComponent.js';
-import {MotionComponent} from '../source/game/MotionComponent.js';
-import {objectFactories} from '../source/game/objectFactories.js';
-import {playerPool} from '../source/game/playerPool.js';
-import {TriggerComponent} from '../source/game/TriggerComponent.js';
+import {BehaviorComponent} from '../source/game/components/BehaviorComponent.js';
+import {GraphicsComponent} from '../source/game/components/GraphicsComponent.js';
+import {MotionComponent} from '../source/game/components/MotionComponent.js';
+import {TriggerComponent} from '../source/game/components/TriggerComponent.js';
+import {assets} from '../source/game/core/assets.js';
+import {objectFactories} from '../source/game/levels/objectFactories.js';
+import {playerPool} from '../source/game/levels/playerPool.js';
 
 const SPRITE_NAMES = [
   'standing-down',

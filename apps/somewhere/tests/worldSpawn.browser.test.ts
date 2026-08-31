@@ -5,17 +5,17 @@ import {Dialogue} from '../source/engine/dialogue/Dialogue.js';
 import {Spriteset} from '../source/engine/graphics/Spriteset.js';
 import {toTileGid} from '../source/engine/tiled/TileGid.js';
 import {Tilemap, type TilemapObject} from '../source/engine/tiled/Tilemap.js';
-import {assets} from '../source/game/assets.js';
-import {dialogueEntity} from '../source/game/dialogue.js';
-import {DialogueComponent} from '../source/game/DialogueComponent.js';
-import {flags} from '../source/game/flags.js';
-import {getCurrentMapName} from '../source/game/levelManager.js';
-import {MotionComponent} from '../source/game/MotionComponent.js';
-import {playerPool} from '../source/game/playerPool.js';
-import {playersQuery} from '../source/game/playersQuery.js';
-import {applyStagedSave, clearStagedSave, stageContinue} from '../source/game/save.js';
-import {TriggerComponent} from '../source/game/TriggerComponent.js';
-import {world} from '../source/game/world.js';
+import {DialogueComponent} from '../source/game/components/DialogueComponent.js';
+import {MotionComponent} from '../source/game/components/MotionComponent.js';
+import {TriggerComponent} from '../source/game/components/TriggerComponent.js';
+import {assets} from '../source/game/core/assets.js';
+import {dialogueEntity} from '../source/game/core/dialogue.js';
+import {flags} from '../source/game/core/flags.js';
+import {applyStagedSave, clearStagedSave, stageContinue} from '../source/game/core/save.js';
+import {world} from '../source/game/core/world.js';
+import {getCurrentMapName} from '../source/game/levels/levelManager.js';
+import {playerPool} from '../source/game/levels/playerPool.js';
+import {playersQuery} from '../source/game/queries/playersQuery.js';
 
 const SPRITE_NAMES = [
   'standing-down',

@@ -7,16 +7,16 @@ import {Spriteset} from '../source/engine/graphics/Spriteset.js';
 import {type GameInput} from '../source/engine/input/GameInput.js';
 import {InputComponent} from '../source/engine/input/InputComponent.js';
 import {Vector} from '../source/engine/utilities/Vector.js';
-import {assets} from '../source/game/assets.js';
-import {playSoundChannel} from '../source/game/audio.js';
-import {DialogueComponent} from '../source/game/DialogueComponent.js';
-import {dialogueQuery} from '../source/game/dialogueQuery.js';
-import {GraphicsComponent} from '../source/game/GraphicsComponent.js';
-import {inputQuery} from '../source/game/inputQuery.js';
-import {MotionComponent} from '../source/game/MotionComponent.js';
-import {playerActionFinishedChannel} from '../source/game/playerActionFinishedChannel.js';
-import {playerActionSystem} from '../source/game/playerActionSystem.js';
-import {PlayerComponent} from '../source/game/PlayerComponent.js';
+import {DialogueComponent} from '../source/game/components/DialogueComponent.js';
+import {GraphicsComponent} from '../source/game/components/GraphicsComponent.js';
+import {MotionComponent} from '../source/game/components/MotionComponent.js';
+import {PlayerComponent} from '../source/game/components/PlayerComponent.js';
+import {assets} from '../source/game/core/assets.js';
+import {playSoundChannel} from '../source/game/core/audio.js';
+import {playerActionFinishedChannel} from '../source/game/events/playerActionFinishedChannel.js';
+import {dialogueQuery} from '../source/game/queries/dialogueQuery.js';
+import {inputQuery} from '../source/game/queries/inputQuery.js';
+import {playerActionSystem} from '../source/game/systems/playerActionSystem.js';
 
 function tick(deltaTime: number): pixi.Ticker {
   return {deltaTime, deltaMS: deltaTime} as unknown as pixi.Ticker;

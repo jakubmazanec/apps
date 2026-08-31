@@ -2,7 +2,7 @@ import * as pixi from 'pixi.js';
 import {describe, expect, test} from 'vitest';
 
 import {Vector} from '../source/engine/utilities/Vector.js';
-import {getPositionForBoundingBoxCenter} from '../source/game/getPositionForBoundingBoxCenter.js';
+import {getPositionForBoundingBoxCenter} from '../source/game/utilities/getPositionForBoundingBoxCenter.js';
 
 describe(getPositionForBoundingBoxCenter, () => {
   test('centers the player box (0, 10, 16, 10) on a point', () => {

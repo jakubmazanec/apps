@@ -16,20 +16,20 @@ import {toTileId} from '../source/engine/tiled/TileId.js';
 import {Tilemap} from '../source/engine/tiled/Tilemap.js';
 import {Tileset} from '../source/engine/tiled/Tileset.js';
 import {Vector} from '../source/engine/utilities/Vector.js';
-import {assets} from '../source/game/assets.js';
-import {audio} from '../source/game/audio.js';
-import {dialogueEntity} from '../source/game/dialogue.js';
-import {dialogueBoxSystem} from '../source/game/dialogueBoxSystem.js';
-import {DialogueComponent} from '../source/game/DialogueComponent.js';
-import {game} from '../source/game/game.js';
+import {DialogueComponent} from '../source/game/components/DialogueComponent.js';
+import {MotionComponent} from '../source/game/components/MotionComponent.js';
+import {assets} from '../source/game/core/assets.js';
+import {audio} from '../source/game/core/audio.js';
+import {dialogueEntity} from '../source/game/core/dialogue.js';
+import {game} from '../source/game/core/game.js';
 // Aliased: every test also pulls the same singleton off InputComponent as
 // `input`, for direct attach()/detach() and reads. pressKey is a module-scope
 // helper with no access to that local binding, so it needs its own handle.
-import {input as sharedInput} from '../source/game/input.js';
-import {inputQuery} from '../source/game/inputQuery.js';
-import {MotionComponent} from '../source/game/MotionComponent.js';
-import {playersQuery} from '../source/game/playersQuery.js';
-import {world} from '../source/game/world.js';
+import {input as sharedInput} from '../source/game/core/input.js';
+import {world} from '../source/game/core/world.js';
+import {inputQuery} from '../source/game/queries/inputQuery.js';
+import {playersQuery} from '../source/game/queries/playersQuery.js';
+import {dialogueBoxSystem} from '../source/game/systems/dialogueBoxSystem.js';
 
 // The real DialogueBox runs; only the primitives that need an installed
 // bitmap font or the layout runtime are mocked (the DialogueBox.test setup).
@@ -64,7 +64,7 @@ vitest.mock(import('../source/engine/ui/Text.js'), async () => {
   return {Text: Text as never};
 });
 
-vitest.mock(import('../source/game/assets.js'), async () => {
+vitest.mock(import('../source/game/core/assets.js'), async () => {
   let {Texture} = await import('pixi.js');
   // `as never`: only the accessors this suite reads are stood in for, so the
   // stub cannot satisfy the nominally typed GameAssets instance.
@@ -79,7 +79,7 @@ vitest.mock(import('../source/game/assets.js'), async () => {
   return {assets: assets as never};
 });
 
-vitest.mock(import('../source/game/game.js'), async () => {
+vitest.mock(import('../source/game/core/game.js'), async () => {
   let pixiModule = await import('pixi.js');
   // Headless pixi containers lack the federated addEventListener mixin;
   // UiRoot only uses it for pointer plumbing, irrelevant to focus logic.

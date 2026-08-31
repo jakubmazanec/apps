@@ -8,15 +8,15 @@ import {Spriteset} from '../source/engine/graphics/Spriteset.js';
 import {type Map} from '../source/engine/tiled/Map.js';
 import {type Constructor} from '../source/engine/utilities/Constructor.js';
 import {Vector} from '../source/engine/utilities/Vector.js';
-import {assets} from '../source/game/assets.js';
-import {camera} from '../source/game/camera.js';
-import {CameraComponent} from '../source/game/CameraComponent.js';
-import {cameraQuery} from '../source/game/cameraQuery.js';
-import {GraphicsComponent} from '../source/game/GraphicsComponent.js';
-import {graphicsSystem, pickDirectionalSpriteName} from '../source/game/graphicsSystem.js';
-import {LevelComponent} from '../source/game/LevelComponent.js';
-import {levelQuery} from '../source/game/levelQuery.js';
-import {MotionComponent} from '../source/game/MotionComponent.js';
+import {CameraComponent} from '../source/game/components/CameraComponent.js';
+import {GraphicsComponent} from '../source/game/components/GraphicsComponent.js';
+import {LevelComponent} from '../source/game/components/LevelComponent.js';
+import {MotionComponent} from '../source/game/components/MotionComponent.js';
+import {assets} from '../source/game/core/assets.js';
+import {camera} from '../source/game/core/camera.js';
+import {cameraQuery} from '../source/game/queries/cameraQuery.js';
+import {levelQuery} from '../source/game/queries/levelQuery.js';
+import {graphicsSystem, pickDirectionalSpriteName} from '../source/game/systems/graphicsSystem.js';
 
 function tick(deltaTime: number): pixi.Ticker {
   return {deltaTime} as unknown as pixi.Ticker;

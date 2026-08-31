@@ -2,9 +2,9 @@ import {afterEach, describe, expect, test, vitest} from 'vitest';
 
 import {toTileGid} from '../source/engine/tiled/TileGid.js';
 import {Tilemap} from '../source/engine/tiled/Tilemap.js';
-import {assets} from '../source/game/assets.js';
-import {LevelComponent} from '../source/game/LevelComponent.js';
-import {getMapPool} from '../source/game/mapPool.js';
+import {LevelComponent} from '../source/game/components/LevelComponent.js';
+import {assets} from '../source/game/core/assets.js';
+import {getMapPool} from '../source/game/levels/mapPool.js';
 
 // A real all-empty Tilemap (gid 0 renders nothing, so Map never touches a
 // tileset asset) with the single entities-class layer Map requires.

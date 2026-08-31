@@ -1,7 +1,7 @@
 import * as pixi from 'pixi.js';
 
 // The single AudioContext used to decode compressed audio into AudioBuffers.
-// Set once at bootstrap (game/audio.ts) before the first audio bundle loads;
+// Set once at bootstrap (game/core/audio.ts) before the first audio bundle loads;
 // decoding needs a real context and the mixer owns the only one. AudioBuffers
 // are context-portable per spec, so a dedicated decode context is possible if
 // this parser is ever wanted fully standalone.

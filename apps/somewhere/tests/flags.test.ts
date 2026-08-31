@@ -1,6 +1,6 @@
 import {describe, expect, test} from 'vitest';
 
-import {flags, resetFlags} from '../source/game/flags.js';
+import {flags, resetFlags} from '../source/game/core/flags.js';
 
 describe('flags', () => {
   test('resetFlags restores the defaults', () => {

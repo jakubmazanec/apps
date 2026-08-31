@@ -94,7 +94,7 @@ vitest.mock(import('../source/engine/ui/Text.js'), async () => {
 });
 
 const {DialogueBox} = await import('../source/engine/dialogue/DialogueBox.js');
-// The shipping metrics, verbatim from source/game/dialogueBoxSystem.ts.
+// The shipping metrics, verbatim from source/game/systems/dialogueBoxSystem.ts.
 const BOX_METRICS = {
   margin: 4,
   padding: 3,

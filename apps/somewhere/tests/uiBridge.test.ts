@@ -4,10 +4,10 @@ import {afterEach, describe, expect, test} from 'vitest';
 import {Entity} from '../source/engine/ecs/Entity.js';
 import {World} from '../source/engine/ecs/World.js';
 import {type MapTile} from '../source/engine/tiled/Map.js';
-import {uiBridge} from '../source/game/uiBridge.js';
-import {uiEvents} from '../source/game/uiEvents.js';
-import {WallHit} from '../source/game/WallHit.js';
-import {wallHitChannel} from '../source/game/wallHitChannel.js';
+import {uiEvents} from '../source/game/core/uiEvents.js';
+import {WallHit} from '../source/game/events/WallHit.js';
+import {wallHitChannel} from '../source/game/events/wallHitChannel.js';
+import {uiBridge} from '../source/game/systems/uiBridge.js';
 
 let entity = new Entity({components: []});
 let box = {} as unknown as pixi.Rectangle;

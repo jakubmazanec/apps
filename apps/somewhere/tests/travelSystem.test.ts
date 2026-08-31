@@ -9,32 +9,32 @@ import {toTileGid} from '../source/engine/tiled/TileGid.js';
 import {Tilemap} from '../source/engine/tiled/Tilemap.js';
 import {type Constructor} from '../source/engine/utilities/Constructor.js';
 import {Vector} from '../source/engine/utilities/Vector.js';
-import {DialogueCommand} from '../source/game/DialogueCommand.js';
-import {dialogueCommandChannel} from '../source/game/dialogueCommandChannel.js';
-import {DialogueComponent} from '../source/game/DialogueComponent.js';
-import {dialogueQuery} from '../source/game/dialogueQuery.js';
-import {flags} from '../source/game/flags.js';
-import {GraphicsComponent} from '../source/game/GraphicsComponent.js';
-import {MotionComponent} from '../source/game/MotionComponent.js';
-import {PlayerComponent} from '../source/game/PlayerComponent.js';
-import {playersQuery} from '../source/game/playersQuery.js';
-import {travelSystem} from '../source/game/travelSystem.js';
-import {TriggerComponent} from '../source/game/TriggerComponent.js';
+import {DialogueComponent} from '../source/game/components/DialogueComponent.js';
+import {GraphicsComponent} from '../source/game/components/GraphicsComponent.js';
+import {MotionComponent} from '../source/game/components/MotionComponent.js';
+import {PlayerComponent} from '../source/game/components/PlayerComponent.js';
+import {TriggerComponent} from '../source/game/components/TriggerComponent.js';
+import {flags} from '../source/game/core/flags.js';
+import {DialogueCommand} from '../source/game/events/DialogueCommand.js';
+import {dialogueCommandChannel} from '../source/game/events/dialogueCommandChannel.js';
+import {dialogueQuery} from '../source/game/queries/dialogueQuery.js';
+import {playersQuery} from '../source/game/queries/playersQuery.js';
+import {travelSystem} from '../source/game/systems/travelSystem.js';
 
 // levelManager.js now imports game.js (Task 10's camera preset); mock it
 // before that import resolves (the dialogueBoxSystem.test pattern) so the
 // real Game singleton, which reads `window` at construction, never runs in
 // this node-environment suite. This file's tests never touch
 // flushPendingTravel, so the stub's shape doesn't matter beyond existing.
-vitest.mock(import('../source/game/game.js'), () => {
+vitest.mock(import('../source/game/core/game.js'), () => {
   let game = {app: {canvas: {width: 64, height: 64}}, pixelScale: 1};
 
   return {game: game as never};
 });
 
-const {assets} = await import('../source/game/assets.js');
+const {assets} = await import('../source/game/core/assets.js');
 const {getPendingTravel, requestTravel, resetLevelManager} =
-  await import('../source/game/levelManager.js');
+  await import('../source/game/levels/levelManager.js');
 
 function tick(): pixi.Ticker {
   return {deltaMS: 0} as unknown as pixi.Ticker;

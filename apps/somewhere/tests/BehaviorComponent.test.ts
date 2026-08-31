@@ -1,7 +1,7 @@
 import {afterEach, describe, expect, test, vitest} from 'vitest';
 
 import {Vector} from '../source/engine/utilities/Vector.js';
-import {BehaviorComponent, randomStrollWait} from '../source/game/BehaviorComponent.js';
+import {BehaviorComponent, randomStrollWait} from '../source/game/components/BehaviorComponent.js';
 
 describe(BehaviorComponent, () => {
   afterEach(() => {

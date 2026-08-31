@@ -6,10 +6,10 @@ import {Entity} from '../source/engine/ecs/Entity.js';
 import {World} from '../source/engine/ecs/World.js';
 import {type Constructor} from '../source/engine/utilities/Constructor.js';
 import {Vector} from '../source/engine/utilities/Vector.js';
-import {CameraComponent} from '../source/game/CameraComponent.js';
-import {cameraQuery} from '../source/game/cameraQuery.js';
-import {LevelComponent} from '../source/game/LevelComponent.js';
-import {mapSystem} from '../source/game/mapSystem.js';
+import {CameraComponent} from '../source/game/components/CameraComponent.js';
+import {LevelComponent} from '../source/game/components/LevelComponent.js';
+import {cameraQuery} from '../source/game/queries/cameraQuery.js';
+import {mapSystem} from '../source/game/systems/mapSystem.js';
 
 // LevelComponent builds a real Map from an asset name in its constructor;
 // bypass it and assign stub fields onto the real prototype instead (same

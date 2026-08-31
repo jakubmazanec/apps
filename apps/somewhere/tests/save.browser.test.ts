@@ -3,10 +3,9 @@ import {afterEach, describe, expect, test, vitest} from 'vitest';
 import {Entity} from '../source/engine/ecs/Entity.js';
 import {World} from '../source/engine/ecs/World.js';
 import {Vector} from '../source/engine/utilities/Vector.js';
-import {flags, resetFlags} from '../source/game/flags.js';
-import {MotionComponent} from '../source/game/MotionComponent.js';
-import {PlayerComponent} from '../source/game/PlayerComponent.js';
-import {playersQuery} from '../source/game/playersQuery.js';
+import {MotionComponent} from '../source/game/components/MotionComponent.js';
+import {PlayerComponent} from '../source/game/components/PlayerComponent.js';
+import {flags, resetFlags} from '../source/game/core/flags.js';
 import {
   applyStagedSave,
   clearStagedSave,
@@ -14,7 +13,8 @@ import {
   loadSave,
   stageContinue,
   writeSave,
-} from '../source/game/save.js';
+} from '../source/game/core/save.js';
+import {playersQuery} from '../source/game/queries/playersQuery.js';
 
 const SAVE_KEY = 'somewhere:save';
 // playersQuery is a module singleton: every test's world must be stopped so

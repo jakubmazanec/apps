@@ -3,11 +3,11 @@ import {afterEach, describe, expect, test} from 'vitest';
 
 import {Entity} from '../source/engine/ecs/Entity.js';
 import {World} from '../source/engine/ecs/World.js';
-import {playSoundChannel} from '../source/game/audio.js';
-import {TriggerComponent} from '../source/game/TriggerComponent.js';
-import {TriggerEnter} from '../source/game/TriggerEnter.js';
-import {triggerEnterChannel} from '../source/game/triggerEnterChannel.js';
-import {zoneSystem} from '../source/game/zoneSystem.js';
+import {TriggerComponent} from '../source/game/components/TriggerComponent.js';
+import {playSoundChannel} from '../source/game/core/audio.js';
+import {TriggerEnter} from '../source/game/events/TriggerEnter.js';
+import {triggerEnterChannel} from '../source/game/events/triggerEnterChannel.js';
+import {zoneSystem} from '../source/game/systems/zoneSystem.js';
 
 function tick(deltaTime = 1): pixi.Ticker {
   return {deltaTime} as unknown as pixi.Ticker;

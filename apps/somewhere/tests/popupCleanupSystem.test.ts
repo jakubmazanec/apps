@@ -3,9 +3,9 @@ import {describe, expect, test} from 'vitest';
 
 import {Entity} from '../source/engine/ecs/Entity.js';
 import {World} from '../source/engine/ecs/World.js';
-import {popupCleanupSystem} from '../source/game/popupCleanupSystem.js';
-import {PopupExpired} from '../source/game/PopupExpired.js';
-import {popupExpiredChannel} from '../source/game/popupExpiredChannel.js';
+import {PopupExpired} from '../source/game/events/PopupExpired.js';
+import {popupExpiredChannel} from '../source/game/events/popupExpiredChannel.js';
+import {popupCleanupSystem} from '../source/game/systems/popupCleanupSystem.js';
 
 function tick(deltaMS: number): pixi.Ticker {
   return {deltaMS} as unknown as pixi.Ticker;
