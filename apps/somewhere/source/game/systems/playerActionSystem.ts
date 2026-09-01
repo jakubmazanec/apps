@@ -4,9 +4,9 @@ import {GraphicsComponent} from '../components/GraphicsComponent.js';
 import {InputComponent} from '../components/InputComponent.js';
 import {PlayerComponent} from '../components/PlayerComponent.js';
 import {playSoundChannel} from '../core/playSoundChannel.js';
-import {PlaySoundEvent} from '../events/PlaySoundEvent.js';
 import {PlayerActionFinished} from '../events/PlayerActionFinished.js';
 import {playerActionFinishedChannel} from '../events/playerActionFinishedChannel.js';
+import {PlaySoundEvent} from '../events/PlaySoundEvent.js';
 import {dialogueQuery} from '../queries/dialogueQuery.js';
 import {inputQuery} from '../queries/inputQuery.js';
 
