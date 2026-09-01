@@ -70,13 +70,17 @@ export const graphicsSystem = new System({
 
     graphics.sprite.view.play();
   },
-  onRemoveEntity: (entity, system) => {
+  onRemoveEntity: (entity) => {
     let graphics = entity.getComponent(GraphicsComponent);
-    let {map} = levelQuery.getFirst().getComponent(LevelComponent);
-    let layerIndex = graphics.overlay ? map.topLayerIndex : map.entityLayerIndex;
 
     for (let sprite of Object.values(graphics.sprite.sprites)) {
-      map.removeFromLayer(sprite, layerIndex);
+      // Detach from the layer onAddEntity actually parented into, not from
+      // whichever map is current now: an entity can outlive its map (a
+      // wall-hit popup still floating when the player travels), and looking
+      // the layer up again would remove it from the destination map, leaving
+      // the sprite parented in the outgoing map's pooled view for the next
+      // visit to render again.
+      sprite.removeFromParent();
     }
 
     graphics.sprite.view.stop();

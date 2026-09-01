@@ -28,6 +28,7 @@ function createSpriteStub() {
     play: vitest.fn<() => void>(),
     stop: vitest.fn<() => void>(),
     update: vitest.fn<(ticker: pixi.Ticker) => void>(),
+    removeFromParent: vitest.fn<() => void>(),
     position: {x: 0, y: 0},
     zIndex: 0,
   };
@@ -80,6 +81,63 @@ describe('graphicsSystem sprite lifecycle', () => {
     world.addEntity(popup);
 
     expect(sprite.view.play).toHaveBeenCalledTimes(2); // once from start(), once from this resume
+
+    world.stop();
+  });
+
+  test('detaches the sprite from the map it was parented into, not the current one', () => {
+    // Real containers, because the point of the test is where the sprite
+    // actually sits in the scene graph. The popup outlives the map swap: it is
+    // still floating when the player travels, and its timer removes it a few
+    // frames later, by which time levelQuery holds the destination map.
+    let spriteView = Object.assign(new pixi.Container(), {
+      play: vitest.fn<() => void>(),
+      stop: vitest.fn<() => void>(),
+    });
+    let sprite = {view: spriteView, sprites: {spark: spriteView}};
+    let oldLayer = new pixi.Container();
+    let newLayer = new pixi.Container();
+    let oldMap = {
+      addToLayer: (view: pixi.Container) => oldLayer.addChild(view),
+      removeFromLayer: (view: pixi.Container) => oldLayer.removeChild(view),
+      topLayerIndex: 2,
+      entityLayerIndex: 1,
+    };
+    let newMap = {
+      addToLayer: (view: pixi.Container) => newLayer.addChild(view),
+      removeFromLayer: (view: pixi.Container) => newLayer.removeChild(view),
+      topLayerIndex: 2,
+      entityLayerIndex: 1,
+    };
+    let oldLevel = new Entity({components: [stubComponent(LevelComponent, {map: oldMap})]});
+    let newLevel = new Entity({components: [stubComponent(LevelComponent, {map: newMap})]});
+    let popup = new Entity({
+      components: [
+        new MotionComponent({position: new Vector(0, 0), velocity: new Vector(0, 0)}),
+        stubComponent(GraphicsComponent, {
+          sprite,
+          boundingBox: {x: 0, y: 0, width: 4, height: 4},
+          overlay: true,
+        }),
+      ],
+    });
+    let world = new World({
+      onStart: (w) => {
+        w.addEntityQuery(levelQuery).addSystem(graphicsSystem).addEntity(oldLevel).addEntity(popup);
+      },
+    });
+
+    world.start();
+
+    expect(oldLayer.children).toContain(spriteView);
+
+    // The travel swap, popup untouched: old map out, destination map in.
+    world.removeEntity(oldLevel);
+    world.addEntity(newLevel);
+    world.removeEntity(popup);
+
+    expect(oldLayer.children).not.toContain(spriteView);
+    expect(newLayer.children).toHaveLength(0);
 
     world.stop();
   });
