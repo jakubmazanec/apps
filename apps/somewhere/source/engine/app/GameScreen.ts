@@ -147,14 +147,7 @@ export class GameScreen<
 
     this.#game = game;
     this.#state = 'attached';
-
-    let uiRootOptions: UiRootOptions = {theme: game.theme};
-
-    if (this.#onFocusEvent !== undefined) {
-      uiRootOptions.onFocusEvent = this.#onFocusEvent;
-    }
-
-    this.#ui = new UiRoot(uiRootOptions);
+    this.#ui = new UiRoot({theme: game.theme, onFocusEvent: this.#onFocusEvent});
     this.view.addChild(this.#ui.view);
     this.contents = this.#onAttach?.(this, game) as T;
   }
