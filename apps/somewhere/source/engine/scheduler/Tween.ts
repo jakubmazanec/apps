@@ -2,9 +2,7 @@ import type * as pixi from 'pixi.js';
 
 import {type Easing, linear} from './easing.js';
 
-// Real targets (a Pixi `Container`, an `ObservablePoint`, a `Vector`) are class instances with
-// methods, so they do NOT satisfy `Record<string, number>`. Leave `target` loose and constrain
-// only `to` to the target's numeric-valued keys.
+// We can tween only numeric keys.
 type NumericKeys<T> = {[K in keyof T]: T[K] extends number ? K : never}[keyof T];
 
 export type TweenOptions<T> = {
@@ -15,13 +13,8 @@ export type TweenOptions<T> = {
 };
 
 /**
- * Interpolates the numeric properties named in `to` from their current values
- * toward the target values over `duration` milliseconds.
- *
- * Axiom: `from` is captured at construction, NOT at the first update —
- * construct a tween at the moment it should start. This is load-bearing:
- * cancel-and-replace flows (e.g. Modal's mid-fade close) rely on a new tween
- * picking up from the target's current value with no visual jump.
+ * Interpolates the numeric properties from their current values (at ctween construction time) to
+ * the target values over time.
  */
 export class Tween<T = Record<string, number>> {
   /** TBD */
@@ -43,12 +36,6 @@ export class Tween<T = Record<string, number>> {
   readonly #to: Partial<Pick<T, NumericKeys<T>>>;
 
   constructor({target, to, duration, easing = linear}: TweenOptions<T>) {
-    // `< 0` rather than `<= 0`: a zero duration is legal and completes on the first
-    // update (see `update`), which is how an instant, non-animated transition is spelled.
-    // The finite check is what rejects NaN, which passes any `<` or `<=` comparison and
-    // would otherwise make progress NaN: poisoned target properties every frame, and
-    // `progress >= 1` never true, so the Scheduler holds the entry forever. Infinity pins
-    // progress at 0 with the same leak.
     if (!Number.isFinite(duration) || duration < 0) {
       throw new RangeError('Tween duration must be a finite number >= 0');
     }
