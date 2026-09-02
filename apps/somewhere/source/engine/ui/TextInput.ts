@@ -15,22 +15,22 @@ export type TextInputState = 'disabled' | 'hovered' | 'normal';
 
 export type TextInputBackgrounds = {
   normal: pixi.Container;
-  hovered?: pixi.Container;
-  disabled?: pixi.Container;
+  hovered?: pixi.Container | undefined;
+  disabled?: pixi.Container | undefined;
 };
 
 export type TextInputOptions = ThemedOptions<TextInputBackgrounds> & {
-  value?: string;
-  placeholder?: string;
-  maxLength?: number;
+  value?: string | undefined;
+  placeholder?: string | undefined;
+  maxLength?: number | undefined;
   container: HTMLElement;
-  role?: 'body' | 'label';
-  fontFamily?: string;
-  fontSize?: number;
-  fill?: pixi.ColorSource;
-  onChange?: (input: TextInput) => void;
-  onEnter?: (input: TextInput) => void;
-  layout?: pixi.ContainerOptions['layout'];
+  role?: 'body' | 'label' | undefined;
+  fontFamily?: string | undefined;
+  fontSize?: number | undefined;
+  fill?: pixi.ColorSource | undefined;
+  onChange?: ((input: TextInput) => void) | undefined;
+  onEnter?: ((input: TextInput) => void) | undefined;
+  layout?: pixi.ContainerOptions['layout'] | undefined;
 };
 
 // One full blink cycle in ticker frames: ~0.5 s lit, ~0.5 s dark at 60 fps.

@@ -2,7 +2,7 @@ import type * as pixi from 'pixi.js';
 
 export type TimerOptions = {
   duration: number; // milliseconds
-  repeat?: boolean;
+  repeat?: boolean | undefined;
 };
 
 export class Timer {

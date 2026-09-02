@@ -11,12 +11,12 @@ export type TextOptions = Pick<
   'breakWords' | 'fontFamily' | 'fontSize' | 'wordWrap' | 'wordWrapWidth'
 > & {
   text: string;
-  theme?: UiTheme;
+  theme?: UiTheme | undefined;
   // Which theme.text style applies. Labels are the common case.
-  role?: 'body' | 'label';
+  role?: 'body' | 'label' | undefined;
   fill?: pixi.ColorSource;
-  anchor?: pixi.PointData;
-  layout?: pixi.ContainerOptions['layout'];
+  anchor?: pixi.PointData | undefined;
+  layout?: pixi.ContainerOptions['layout'] | undefined;
 };
 
 const DEFAULT_ANCHOR: pixi.PointData = {x: 0, y: 0};

@@ -62,10 +62,10 @@ export type InputBinding = {
    * `KeyboardEvent.code` values, each optionally prefixed with `Shift+`, `Ctrl+`, `Alt+` or
    * `Meta+`.
    */
-  keys?: string[];
+  keys?: string[] | undefined;
 
   /** Bound to pixi `pointertap` on the attached view. */
-  pointerTap?: boolean;
+  pointerTap?: boolean | undefined;
 };
 
 /**

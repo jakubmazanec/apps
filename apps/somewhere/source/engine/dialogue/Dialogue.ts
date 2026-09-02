@@ -22,7 +22,7 @@ export type DialogueOptions<TContext> = {
   context: TContext;
 
   /** Characters per second, > 0 (DEV-throw). */
-  revealSpeed?: number;
+  revealSpeed?: number | undefined;
 };
 
 const DEFAULT_REVEAL_SPEED = 40;

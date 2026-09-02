@@ -15,21 +15,21 @@ export type SliderState = 'disabled' | 'hovered' | 'normal';
 export type SliderBackgrounds = {
   track: pixi.Container;
   fill: pixi.Container;
-  hovered?: pixi.Container;
-  disabled?: pixi.Container;
+  hovered?: pixi.Container | undefined;
+  disabled?: pixi.Container | undefined;
 };
 
 export type SliderOptions = ThemedOptions<SliderBackgrounds> & {
-  min?: number;
-  max?: number;
-  step?: number;
-  value?: number;
+  min?: number | undefined;
+  max?: number | undefined;
+  step?: number | undefined;
+  value?: number | undefined;
   // Fires on every value change, including each pointermove tick of a drag
   // and each keyboard increase()/decrease() step. Slider has no notion of a
   // separate "finalized" change to report — a consumer that only cares about
   // the settled value (e.g. debouncing a slow write) owns that distinction
   // itself, by debouncing onChange in userland.
-  onChange?: (slider: Slider) => void;
+  onChange?: ((slider: Slider) => void) | undefined;
 };
 
 export class Slider implements Focusable {

@@ -60,7 +60,7 @@ export type DialogueBoxOptions = {
    * Rendered width of a string in art px; injectable for headless tests.
    * Defaults to bitmap-font measurement of `font`.
    */
-  measure?: (text: string) => number;
+  measure?: ((text: string) => number) | undefined;
   onAdvanceTap: () => void;
   onChooseTap: (index: number) => void;
   onChoiceHover: (index: number) => void;
