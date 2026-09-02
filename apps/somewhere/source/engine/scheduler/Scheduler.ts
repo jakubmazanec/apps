@@ -90,7 +90,7 @@ export class Scheduler {
       if (timer.timer.update(ticker)) {
         timer.onComplete();
 
-        if (!timer.timer.repeats) {
+        if (!timer.timer.isRepeating) {
           this.#timers.delete(timer);
         }
       }

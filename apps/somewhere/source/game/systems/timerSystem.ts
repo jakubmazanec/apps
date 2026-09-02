@@ -14,7 +14,7 @@ export const timerSystem = new System({
         if (timer.update(ticker)) {
           emit?.channel.push(emit.event); // consumed next frame by a gameplay system
 
-          if (!timer.repeats) {
+          if (!timer.isRepeating) {
             timers.splice(index, 1);
           }
         }
