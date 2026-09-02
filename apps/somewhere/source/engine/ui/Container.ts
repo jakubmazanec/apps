@@ -3,8 +3,8 @@ import * as pixi from 'pixi.js';
 import {type UiChild, type UiParent} from './UiChild.js';
 
 export type ContainerOptions = {
-  children?: UiChild[];
-  layout?: pixi.ContainerOptions['layout'];
+  children?: UiChild[] | undefined;
+  layout?: pixi.ContainerOptions['layout'] | undefined;
 };
 
 export class Container implements UiParent {

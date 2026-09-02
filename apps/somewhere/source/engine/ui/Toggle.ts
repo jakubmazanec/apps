@@ -15,15 +15,15 @@ export type ToggleState = 'disabled' | 'hovered' | 'normal';
 export type ToggleBackgrounds = {
   unchecked: pixi.Container;
   checked: pixi.Container;
-  hovered?: pixi.Container;
-  hoveredChecked?: pixi.Container;
-  disabled?: pixi.Container;
-  disabledChecked?: pixi.Container;
+  hovered?: pixi.Container | undefined;
+  hoveredChecked?: pixi.Container | undefined;
+  disabled?: pixi.Container | undefined;
+  disabledChecked?: pixi.Container | undefined;
 };
 
 export type ToggleOptions = ThemedOptions<ToggleBackgrounds> & {
-  checked?: boolean;
-  onChange?: (toggle: Toggle) => void;
+  checked?: boolean | undefined;
+  onChange?: ((toggle: Toggle) => void) | undefined;
 };
 
 export class Toggle implements Focusable {

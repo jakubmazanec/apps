@@ -1,8 +1,8 @@
 export type ObjectPoolOptions<T extends object, A extends unknown[]> = {
   onCreate: () => T;
   onReset: (object: T, ...rest: A) => T;
-  onDestroy?: (object: T) => void;
-  initialSize?: number;
+  onDestroy?: ((object: T) => void) | undefined;
+  initialSize?: number | undefined;
 };
 
 export class ObjectPool<T extends object, A extends unknown[]> {

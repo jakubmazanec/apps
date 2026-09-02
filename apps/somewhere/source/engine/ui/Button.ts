@@ -15,18 +15,18 @@ export type ButtonState = 'active' | 'disabled' | 'hovered' | 'normal';
 
 export type ButtonBackgrounds = {
   normal: pixi.Container;
-  hovered?: pixi.Container;
-  active?: pixi.Container;
-  disabled?: pixi.Container;
+  hovered?: pixi.Container | undefined;
+  active?: pixi.Container | undefined;
+  disabled?: pixi.Container | undefined;
 };
 
 export type ButtonOptions = ThemedOptions<ButtonBackgrounds> & {
-  children?: UiChild[];
-  onClick?: (button: Button) => void;
-  layout?: pixi.ContainerOptions['layout'];
+  children?: UiChild[] | undefined;
+  onClick?: ((button: Button) => void) | undefined;
+  layout?: pixi.ContainerOptions['layout'] | undefined;
   // Pixels to shift the content down while pressed, so the label tracks a
   // background whose face drops on press (e.g. an extruded 3D button).
-  pressOffset?: number;
+  pressOffset?: number | undefined;
 };
 
 export class Button implements Focusable, UiParent {

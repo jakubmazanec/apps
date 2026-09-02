@@ -17,7 +17,7 @@ export type UiRootOptions = {
 };
 
 type FocusScope = {
-  onCancel?: () => boolean;
+  onCancel?: (() => boolean) | undefined;
   previousFocus: Focusable | null;
   root: UiChild;
 };
@@ -299,11 +299,11 @@ export class UiRoot implements UiParent {
   // Modal pops its scope properly in all designed flows; the self-heal is the
   // safety net for out-of-band removals.
   /** TBD */
-  pushFocusScope(component: UiChild, {onCancel}: {onCancel?: () => boolean} = {}) {
+  pushFocusScope(component: UiChild, {onCancel}: {onCancel?: (() => boolean) | undefined} = {}) {
     this.#scopes.push({
       root: component,
       previousFocus: this.#focused,
-      ...(onCancel === undefined ? {} : {onCancel}),
+      onCancel,
     });
     this.#focused = null;
   }

@@ -9,7 +9,7 @@ export type TweenOptions<T> = {
   target: T;
   to: Partial<Pick<T, NumericKeys<T>>>;
   duration: number; // milliseconds, >= 0 (0 completes on the first update)
-  easing?: Easing;
+  easing?: Easing | undefined;
 };
 
 /**

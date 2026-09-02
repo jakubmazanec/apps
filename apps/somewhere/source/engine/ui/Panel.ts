@@ -6,10 +6,10 @@ import {type UiChild, type UiParent} from './UiChild.js';
 import {type UiTheme} from './UiTheme.js';
 
 export type PanelOptions = {
-  background?: pixi.Container;
-  theme?: UiTheme;
-  children?: UiChild[];
-  layout?: pixi.ContainerOptions['layout'];
+  background?: pixi.Container | undefined;
+  theme?: UiTheme | undefined;
+  children?: UiChild[] | undefined;
+  layout?: pixi.ContainerOptions['layout'] | undefined;
 };
 
 export class Panel implements UiParent {

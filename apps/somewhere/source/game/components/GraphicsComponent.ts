@@ -5,15 +5,19 @@ import {Sprite} from '../../engine/graphics/Sprite.js';
 import {assets} from '../core/assets.js';
 
 export type GraphicsComponentOptions = {
-  spriteOptions: {assetName: string; character?: string; spriteNames: readonly string[]};
+  spriteOptions: {
+    assetName: string;
+    character?: string | undefined;
+    spriteNames: readonly string[];
+  };
   boundingBox: pixi.Rectangle;
   // Render in the map's topmost layer (above the overhead "air" layers) instead of the default
   // entity layer. Used for foreground effects like the wall-hit spark.
-  overlay?: boolean;
+  overlay?: boolean | undefined;
   // Whether graphicsSystem drives the sprite through the eight-name
   // walking/standing directional convention. Non-character visuals (the
   // wall-hit spark) opt out and manage their own single animation.
-  directional?: boolean;
+  directional?: boolean | undefined;
 };
 
 export class GraphicsComponent extends Component {

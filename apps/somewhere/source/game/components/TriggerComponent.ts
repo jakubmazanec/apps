@@ -11,8 +11,8 @@ export type TriggerComponentOptions = {
   // The rect's authored offset from the owning entity's position. Only the
   // npc factory passes these; doors and zones have no entity position to
   // follow and keep the 0 default.
-  rectOffsetX?: number;
-  rectOffsetY?: number;
+  rectOffsetX?: number | undefined;
+  rectOffsetY?: number | undefined;
 };
 
 export class TriggerComponent extends Component {
