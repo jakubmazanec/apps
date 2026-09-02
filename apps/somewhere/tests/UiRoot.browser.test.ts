@@ -28,8 +28,8 @@ type MockContainer = {
 
 let roots: Array<{destroy: () => void}> = [];
 
-function createRoot(options?: ConstructorParameters<typeof UiRoot>[0]) {
-  let root = new UiRoot(options);
+function createRoot(options?: Partial<ConstructorParameters<typeof UiRoot>[0]>) {
+  let root = new UiRoot({theme: createTestTheme(), ...options});
 
   roots.push(root);
 
@@ -262,7 +262,7 @@ describe(UiRoot, () => {
 
     test('destroy removes the global pointerdown listener', () => {
       let removeSpy = vitest.spyOn(globalThis, 'removeEventListener');
-      let root = new UiRoot();
+      let root = createRoot();
 
       root.destroy();
 
@@ -270,7 +270,7 @@ describe(UiRoot, () => {
     });
 
     test('destroy() cascades to child components', () => {
-      let root = new UiRoot();
+      let root = createRoot();
       let child = {view: new Container(), destroy: vitest.fn<() => void>()};
 
       root.addChild(child);

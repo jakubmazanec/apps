@@ -17,7 +17,7 @@ import 'pixi.js/events';
 type MockContainer = {children: MockContainer[]};
 
 function createScreen(options: {onHide?: () => void; onShow?: () => void; theme?: UiTheme} = {}) {
-  let {theme, ...screenOptions} = options;
+  let {theme = createTestTheme(), ...screenOptions} = options;
   let events = new EventEmitter<UIEventMap>();
   let screen = new GameScreen({events, ...screenOptions});
 

@@ -6,6 +6,7 @@ import {Scheduler} from '../source/engine/scheduler/Scheduler.js';
 import {Modal} from '../source/engine/ui/Modal.js';
 import {type UiChild} from '../source/engine/ui/UiChild.js';
 import {UiRoot} from '../source/engine/ui/UiRoot.js';
+import {createTestTheme} from './createTestTheme.js';
 
 // UiRoot registers its pointertap listeners via the federated event system
 // (addEventListener), which pixi only installs on Container through this side
@@ -27,7 +28,7 @@ function tick(deltaMS: number): pixi.Ticker {
 let roots: Array<{destroy: () => void}> = [];
 
 function createRoot() {
-  let root = new UiRoot();
+  let root = new UiRoot({theme: createTestTheme()});
 
   roots.push(root);
 

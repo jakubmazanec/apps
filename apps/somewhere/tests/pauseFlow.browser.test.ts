@@ -7,6 +7,7 @@ import {
   resumeFromPause,
   teardownWorldScreen,
 } from '../source/game/screens/pauseFlow.js';
+import {createTestTheme} from './createTestTheme.js';
 
 // Container.prototype gets addEventListener only once pixi's events system
 // registers itself; in the real app that happens as a side effect of
@@ -105,7 +106,7 @@ describe('pauseFlow', () => {
 
   test('cancel on the pause modal resumes the world, like the Resume button', () => {
     let calls: string[] = [];
-    let root = new UiRoot();
+    let root = new UiRoot({theme: createTestTheme()});
     let modal: Modal = new Modal({
       children: [],
       onCancel: () => {

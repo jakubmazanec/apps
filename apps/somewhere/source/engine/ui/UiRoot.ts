@@ -9,7 +9,7 @@ export type FocusDirection = 'down' | 'left' | 'right' | 'up';
 export type UiFocusEvent = {type: 'move'} | {type: 'reject'};
 
 export type UiRootOptions = {
-  theme?: UiTheme;
+  theme: UiTheme;
   // Semantic focus feedback (the game maps it to a sound). `move` fires when a
   // focus command lands on a different component; `reject` when a directional
   // move finds no candidate. Tap-driven silent focus fires nothing.
@@ -29,13 +29,6 @@ type FocusScope = {
 // below over a nearer diagonal one.
 const PERPENDICULAR_PENALTY = 2;
 const OVERLAP_BONUS = 0.5;
-
-// Any tap that bubbles this far started on a UI element (panel padding,
-// labels, widgets); stop it here so it can't fall through to the game view
-// and move the player. Taps on the open world never route through this view.
-function stopTap(event: pixi.FederatedPointerEvent) {
-  event.stopPropagation();
-}
 
 export class UiRoot implements UiParent {
   /** TBD */
@@ -63,15 +56,15 @@ export class UiRoot implements UiParent {
   readonly #overlay: pixi.Container = new pixi.Container();
 
   /** TBD */
-  #ring: pixi.NineSliceSprite | null = null;
+  readonly #ring: pixi.NineSliceSprite | null = null;
 
   /** TBD */
   readonly #scopes: FocusScope[] = [];
 
-  constructor({theme, onFocusEvent}: UiRootOptions = {}) {
-    if (theme !== undefined) {
-      this.#focusRing = theme.focusRing;
-    }
+  constructor({theme, onFocusEvent}: UiRootOptions) {
+    this.#focusRing = theme.focusRing;
+    this.#ring = new pixi.NineSliceSprite({texture: theme.focusRing.texture});
+    this.#overlay.addChild(this.#ring);
 
     if (onFocusEvent !== undefined) {
       this.#onFocusEvent = onFocusEvent;
@@ -98,8 +91,6 @@ export class UiRoot implements UiParent {
     // stays hidden), so Tab/arrows resume from where the user last clicked.
     // Capture phase: components stop propagation of their pointertap, which
     // would hide the tap from a bubble listener here.
-    // TODO: remove when linter config contains fix for this: https://github.com/sindresorhus/eslint-plugin-unicorn/issues/2088
-    // eslint-disable-next-line unicorn/consistent-function-scoping -- false positive
     let handleTap = (event: pixi.FederatedPointerEvent) => {
       this.#focusFromPointer(event.target);
     };
@@ -109,6 +100,13 @@ export class UiRoot implements UiParent {
     this.#disposables.defer(() => {
       this.view.removeEventListener('pointertap', handleTap, {capture: true});
     });
+
+    // Any tap that bubbles this far started on a UI element (panel padding,
+    // labels, widgets); stop it here so it can't fall through to the game view
+    // and move the player. Taps on the open world never route through this view.
+    let stopTap = (event: pixi.FederatedPointerEvent) => {
+      event.stopPropagation();
+    };
 
     this.view.addEventListener('pointertap', stopTap);
 
@@ -348,7 +346,9 @@ export class UiRoot implements UiParent {
       return;
     }
 
-    let ring = this.#ring ?? this.#createRing(this.#focusRing);
+    // the assertion is ok, because #ring is created alongside #focusRing in
+    // the constructor, and we already returned above when #focusRing is undefined
+    let ring = this.#ring as pixi.NineSliceSprite;
     let {padding} = this.#focusRing;
     // Bounds are re-read every frame while the ring is visible, so it tracks
     // layout changes and animations without any cached geometry to invalidate.
@@ -387,7 +387,7 @@ export class UiRoot implements UiParent {
       let scope = this.#scopes.at(-1) as FocusScope;
       let scopeView = 'view' in scope.root ? scope.root.view : scope.root;
 
-      if (!scopeView.destroyed && this.#isAttached(scopeView)) {
+      if (!scopeView.destroyed && this.#isConnected(scopeView)) {
         break;
       }
 
@@ -436,14 +436,6 @@ export class UiRoot implements UiParent {
     return result;
   }
 
-  /** TBD */
-  #createRing(options: UiTheme['focusRing']): pixi.NineSliceSprite {
-    this.#ring = new pixi.NineSliceSprite({texture: options.texture});
-    this.#overlay.addChild(this.#ring);
-
-    return this.#ring;
-  }
-
   // Fire `move` only when the focus actually changed to a different component
   // (a single-focusable focusNext wraps to itself and stays silent).
   /** TBD */
@@ -482,7 +474,7 @@ export class UiRoot implements UiParent {
   // Attachment is checked via the pixi view.parent chain — component-level
   // parent pointers don't exist.
   /** TBD */
-  #isAttached(view: pixi.Container): boolean {
+  #isConnected(view: pixi.Container): boolean {
     let current: pixi.Container | null = view;
 
     while (current !== null) {

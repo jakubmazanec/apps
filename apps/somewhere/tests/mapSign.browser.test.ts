@@ -101,7 +101,7 @@ vitest.mock(import('../source/game/core/game.js'), async () => {
   let game = {
     app: {screen: {width: 1280, height: 720}, canvas: {width: 1280, height: 720}},
     pixelScale: 4,
-    currentScreen: {ui: new UiRoot()},
+    currentScreen: {ui: new UiRoot({theme: createTestTheme()})},
     theme: createTestTheme(),
   };
 
