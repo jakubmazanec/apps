@@ -23,7 +23,6 @@ export class Entity<
   }
 
   /** TBD */
-  /** TBD */
   getComponent<U extends Component | T[number]>(
     ComponentConstructor: Constructor<U>,
   ): U extends T[number] ? U : U | undefined {
