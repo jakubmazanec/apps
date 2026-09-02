@@ -8,15 +8,6 @@ export type FocusDirection = 'down' | 'left' | 'right' | 'up';
 
 export type UiFocusEvent = {type: 'move'} | {type: 'reject'};
 
-export type FocusRingOptions = {
-  // Extra space between the focused component's bounds and the outside of the
-  // ring, in art px.
-  padding: number;
-  // Resolved nine-slice texture; the insets come from `texture.defaultBorders`
-  // (set by the ui spritesheet's per-frame `borders`).
-  texture: pixi.Texture;
-};
-
 export type UiRootOptions = {
   theme?: UiTheme;
   // Semantic focus feedback (the game maps it to a sound). `move` fires when a
@@ -60,7 +51,7 @@ export class UiRoot implements UiParent {
   #focused: Focusable | null = null;
 
   /** TBD */
-  readonly #focusRing?: FocusRingOptions;
+  readonly #focusRing?: UiTheme['focusRing'];
 
   /** TBD */
   #isRingVisible = false;
@@ -446,7 +437,7 @@ export class UiRoot implements UiParent {
   }
 
   /** TBD */
-  #createRing(options: FocusRingOptions): pixi.NineSliceSprite {
+  #createRing(options: UiTheme['focusRing']): pixi.NineSliceSprite {
     this.#ring = new pixi.NineSliceSprite({texture: options.texture});
     this.#overlay.addChild(this.#ring);
 
