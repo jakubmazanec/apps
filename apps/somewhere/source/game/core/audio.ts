@@ -5,7 +5,7 @@ import {settings} from './settings.js';
 
 // The one mixer for the whole app. The UI/screen layer imports `audio` and
 // calls it directly (it must work with no world, e.g. the main menu); the ECS
-// layer reaches the same mixer through audioEntity's AudioComponent.
+// layer reaches the same mixer through audioSystem's direct import.
 // Constructing the mixer builds a real AudioContext, so this module is
 // browser-only: it is reached solely through the route's client-side dynamic
 // import (routes/_index.tsx), never on the server or under happy-dom.

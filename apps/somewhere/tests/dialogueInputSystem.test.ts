@@ -1,17 +1,25 @@
 import type * as pixi from 'pixi.js';
-import {afterEach, describe, expect, test} from 'vitest';
+import {afterEach, describe, expect, test, vitest} from 'vitest';
 
 import {Dialogue} from '../source/engine/dialogue/Dialogue.js';
 import {Entity} from '../source/engine/ecs/Entity.js';
 import {World} from '../source/engine/ecs/World.js';
 import {type GameInput} from '../source/engine/input/GameInput.js';
 import {DialogueComponent} from '../source/game/components/DialogueComponent.js';
-import {InputComponent} from '../source/game/components/InputComponent.js';
 import {flags} from '../source/game/core/flags.js';
 import {dialogueCommandChannel} from '../source/game/events/dialogueCommandChannel.js';
 import {dialogueQuery} from '../source/game/queries/dialogueQuery.js';
-import {inputQuery} from '../source/game/queries/inputQuery.js';
 import {dialogueInputSystem} from '../source/game/systems/dialogueInputSystem.js';
+
+// The system imports the input singleton directly, so the module is replaced
+// (hoisted above the imports) and each test installs its own fake.
+const inputStub = vitest.hoisted(() => ({current: undefined as unknown as GameInput}));
+
+vitest.mock(import('../source/game/core/input.js'), () => ({
+  get input() {
+    return inputStub.current;
+  },
+}));
 
 function tick(): pixi.Ticker {
   return {deltaMS: 0} as unknown as pixi.Ticker;
@@ -28,18 +36,15 @@ function createFakeInput(pressedActions: string[]): GameInput {
 let activeWorld: World | null = null;
 
 function createWorld(pressedActions: string[]) {
+  inputStub.current = createFakeInput(pressedActions);
+
   let dialogueEntity = new Entity({components: [new DialogueComponent({active: null})]});
-  let inputEntity = new Entity({
-    components: [new InputComponent({input: createFakeInput(pressedActions)})],
-  });
   let world = new World({
     onStart: (w) => {
       w.addEventChannel(dialogueCommandChannel)
         .addEntityQuery(dialogueQuery)
-        .addEntityQuery(inputQuery)
         .addSystem(dialogueInputSystem)
-        .addEntity(dialogueEntity)
-        .addEntity(inputEntity);
+        .addEntity(dialogueEntity);
     },
   });
 

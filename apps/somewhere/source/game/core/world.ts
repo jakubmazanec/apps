@@ -22,7 +22,6 @@ import {
 import {playerPool} from '../levels/playerPool.js';
 import {cameraQuery} from '../queries/cameraQuery.js';
 import {dialogueQuery} from '../queries/dialogueQuery.js';
-import {inputQuery} from '../queries/inputQuery.js';
 import {levelQuery} from '../queries/levelQuery.js';
 import {playersQuery} from '../queries/playersQuery.js';
 import {audioSystem} from '../systems/audioSystem.js';
@@ -46,11 +45,9 @@ import {uiBridge} from '../systems/uiBridge.js';
 import {wallHitPopupSystem} from '../systems/wallHitPopupSystem.js';
 import {zoneSystem} from '../systems/zoneSystem.js';
 import {getPositionForBoundingBoxCenter} from '../utilities/getPositionForBoundingBoxCenter.js';
-import {audioEntity} from './audioEntity.js';
 import {camera} from './camera.js';
 import {dialogueEntity} from './dialogue.js';
 import {resetFlags} from './flags.js';
-import {inputEntity} from './input.js';
 import {playSoundChannel} from './playSoundChannel.js';
 import {getStagedMapName} from './save.js';
 
@@ -81,7 +78,6 @@ export const world = new World({
 
     world.addEntityQuery(cameraQuery);
     world.addEntityQuery(dialogueQuery);
-    world.addEntityQuery(inputQuery);
     world.addEntityQuery(levelQuery);
     world.addEntityQuery(playersQuery);
 
@@ -107,8 +103,6 @@ export const world = new World({
     world.addSystem(dialogueBoxSystem); // after graphicsSystem: renders the just-ticked dialogue state into its own layer above the map
 
     world.addEntity(camera);
-    world.addEntity(inputEntity);
-    world.addEntity(audioEntity);
     world.addEntity(dialogueEntity);
 
     // Map first, characters after, player last, so graphicsSystem.onAddEntity

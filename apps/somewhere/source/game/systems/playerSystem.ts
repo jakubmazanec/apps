@@ -3,12 +3,11 @@ import {Vector} from '../../engine/utilities/Vector.js';
 import {CameraComponent} from '../components/CameraComponent.js';
 import {DialogueComponent} from '../components/DialogueComponent.js';
 import {GraphicsComponent} from '../components/GraphicsComponent.js';
-import {InputComponent} from '../components/InputComponent.js';
 import {MotionComponent} from '../components/MotionComponent.js';
 import {PlayerComponent} from '../components/PlayerComponent.js';
+import {input} from '../core/input.js';
 import {cameraQuery} from '../queries/cameraQuery.js';
 import {dialogueQuery} from '../queries/dialogueQuery.js';
-import {inputQuery} from '../queries/inputQuery.js';
 import {getPositionForBoundingBoxCenter} from '../utilities/getPositionForBoundingBoxCenter.js';
 import {MAX_SPEED} from './motionSystem.js';
 
@@ -23,7 +22,6 @@ export const playerSystem = new System({
       return;
     }
 
-    let {input} = inputQuery.getFirst().getComponent(InputComponent);
     let isUpHeld = input.held('move-up');
     let isDownHeld = input.held('move-down');
     let isLeftHeld = input.held('move-left');

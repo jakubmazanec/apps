@@ -1,5 +1,5 @@
 import type * as pixi from 'pixi.js';
-import {describe, expect, test} from 'vitest';
+import {describe, expect, test, vitest} from 'vitest';
 
 import {Dialogue} from '../source/engine/dialogue/Dialogue.js';
 import {type Component} from '../source/engine/ecs/Component.js';
@@ -11,15 +11,23 @@ import {Vector} from '../source/engine/utilities/Vector.js';
 import {CameraComponent} from '../source/game/components/CameraComponent.js';
 import {DialogueComponent} from '../source/game/components/DialogueComponent.js';
 import {GraphicsComponent} from '../source/game/components/GraphicsComponent.js';
-import {InputComponent} from '../source/game/components/InputComponent.js';
 import {MotionComponent} from '../source/game/components/MotionComponent.js';
 import {PlayerComponent} from '../source/game/components/PlayerComponent.js';
 import {flags} from '../source/game/core/flags.js';
 import {cameraQuery} from '../source/game/queries/cameraQuery.js';
 import {dialogueQuery} from '../source/game/queries/dialogueQuery.js';
-import {inputQuery} from '../source/game/queries/inputQuery.js';
 import {MAX_SPEED} from '../source/game/systems/motionSystem.js';
 import {playerSystem} from '../source/game/systems/playerSystem.js';
+
+// The system imports the input singleton directly, so the module is replaced
+// (hoisted above the imports) and each test installs its own fake.
+const inputStub = vitest.hoisted(() => ({current: undefined as unknown as GameInput}));
+
+vitest.mock(import('../source/game/core/input.js'), () => ({
+  get input() {
+    return inputStub.current;
+  },
+}));
 
 function tick(deltaTime = 1): pixi.Ticker {
   return {deltaTime} as unknown as pixi.Ticker;
@@ -50,9 +58,11 @@ function createFakeInput(state: FakeInputState): GameInput {
   } as unknown as GameInput;
 }
 
-// cameraQuery/inputQuery/dialogueQuery/playerSystem are module singletons:
+// cameraQuery/dialogueQuery/playerSystem are module singletons:
 // every test must world.stop() so the next test can register them again.
 function createWorld(state: FakeInputState) {
+  inputStub.current = createFakeInput(state);
+
   let motion = new MotionComponent({position: new Vector(0, 0), velocity: new Vector(0, 0)});
   let player = new Entity({
     components: [
@@ -61,18 +71,13 @@ function createWorld(state: FakeInputState) {
       stubComponent(GraphicsComponent, {boundingBox: {x: 0, y: 10, width: 16, height: 10}}),
     ],
   });
-  let inputEntity = new Entity({
-    components: [new InputComponent({input: createFakeInput(state)})],
-  });
   let camera = new Entity({components: [new CameraComponent({position: new Vector(100, 50)})]});
   let dialogueEntity = new Entity({components: [new DialogueComponent({active: null})]});
   let world = new World({
     onStart: (w) => {
-      w.addEntityQuery(inputQuery)
-        .addEntityQuery(cameraQuery)
+      w.addEntityQuery(cameraQuery)
         .addEntityQuery(dialogueQuery)
         .addSystem(playerSystem)
-        .addEntity(inputEntity)
         .addEntity(camera)
         .addEntity(dialogueEntity)
         .addEntity(player);
