@@ -5,12 +5,13 @@ export type EntityOptions<T extends readonly [...rest: readonly Component[]]> = 
   components: T;
 };
 
+/** A game object made of components. */
 export class Entity<
   const T extends readonly [...rest: readonly Component[]] = readonly [
     ...rest: readonly Component[],
   ],
 > {
-  /** TBD */
+  /** Map of components and their classes. */
   readonly #components: ReadonlyMap<typeof Component, Component> = new Map();
 
   constructor({components}: EntityOptions<T>) {
@@ -22,14 +23,14 @@ export class Entity<
     }
   }
 
-  /** TBD */
+  /** Returns the component of the given class. */
   getComponent<U extends Component | T[number]>(
     ComponentConstructor: Constructor<U>,
   ): U extends T[number] ? U : U | undefined {
     return this.#components.get(ComponentConstructor) as U extends T[number] ? U : U | undefined;
   }
 
-  /** TBD */
+  /** Does the entity have a component of the given class? */
   hasComponent<U extends T[number]>(ComponentConstructor: Constructor<U>): boolean {
     return this.#components.has(ComponentConstructor);
   }

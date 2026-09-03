@@ -2,8 +2,9 @@
 const tag: unique symbol = Symbol('Tag');
 const event: unique symbol = Symbol('Event');
 
+/** Data sent through an event channel. */
 export abstract class Event {
-  /** TBD */
+  /** Tag making the type nominal. */
   private readonly [tag] = event;
 }
 

@@ -11,21 +11,22 @@ export type EntityQueryOptions<
   displayName?: string | undefined;
 };
 
+/** Queries entities that have specified components. */
 export class EntityQuery<
   const T extends readonly [...rest: ReadonlyArray<Constructor<Component>>] = readonly [
     ...rest: ReadonlyArray<Constructor<Component>>,
   ],
 > {
-  /** TBD */
+  /** Component classes an entity must have to match. */
   readonly components: T;
 
-  /** TBD */
+  /** Name for debugging purposes. */
   displayName: string;
 
-  /** TBD */
+  /** Matching entities. */
   readonly entities: Array<Entity<readonly [InstanceType<T[number]>]>> = [];
 
-  /** TBD */
+  /** World the query is attached to. */
   #world: World | null = null;
 
   constructor({components, displayName}: EntityQueryOptions<T>) {
@@ -38,7 +39,8 @@ export class EntityQuery<
     }
   }
 
-  /** TBD */
+  // TODO: is this needed?
+  /** World the query is attached to. */
   get world(): World {
     if (!this.#world) {
       throw new Error('Entity query is not attached to a world!');
@@ -74,7 +76,7 @@ export class EntityQuery<
     this.#world = null;
   }
 
-  /** TBD */
+  /** Returns the first matching entity. */
   getFirst() {
     let [entity] = this.entities;
 
