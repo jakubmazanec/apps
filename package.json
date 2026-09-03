@@ -20,7 +20,7 @@
     "uninstall": "del-cli ./**/node_modules ./package-lock.json"
   },
   "devDependencies": {
-    "@changesets/cli": "^2.31.1",
+    "@changesets/cli": "^3.0.1",
     "@jakubmazanec/carson": "^3.0.2",
     "@jakubmazanec/carson-templates": "^9.0.0",
     "@jakubmazanec/changesets-changelog": "^2.0.16",
