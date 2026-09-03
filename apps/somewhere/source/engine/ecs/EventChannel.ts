@@ -18,9 +18,6 @@ export class EventChannel<const T extends Constructor<Event> = Constructor<Event
   /** This frame's events. */
   #currentEvents: Array<InstanceType<T>> = []; // this frame's readable snapshot
 
-  /** Was the detached-push warning already logged? */
-  #hasWarnedDetached = false;
-
   /** Next frame's events. */
   #nextEvents: Array<InstanceType<T>> = []; // pushed now, become current next frame
 
@@ -74,21 +71,9 @@ export class EventChannel<const T extends Constructor<Event> = Constructor<Event
   /** Pushes one or more events onto the channel. */
   push(...events: Array<InstanceType<T>>): void {
     if (!this.#world) {
-      let message = `Cannot push to the detached event channel "${this.displayName}" — events would never be delivered! Add it to a world with world.addEventChannel() first.`;
-
-      if (import.meta.env.DEV) {
-        throw new Error(message);
-      }
-
-      // Warn once and drop the event: buffering it anyway would recreate the
-      // unbounded growth this guard exists to prevent.
-      if (!this.#hasWarnedDetached) {
-        this.#hasWarnedDetached = true;
-        // eslint-disable-next-line no-console -- loud failure in production builds (DEV throws)
-        console.warn(message);
-      }
-
-      return;
+      throw new Error(
+        `Cannot push to the detached event channel "${this.displayName}" — events would never be delivered! Add it to a world with world.addEventChannel() first.`,
+      );
     }
 
     this.#nextEvents.push(...events);

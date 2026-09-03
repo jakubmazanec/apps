@@ -38,8 +38,11 @@ export class World {
   /** Lifecycle hook called when world is stopped. */
   readonly #onStop?: (world: World) => void;
 
-  /** Pending changes to the entities that happened during a tick, to be applied after. */
-  readonly #pendingChanges: Array<{entity: Entity; isRemoval: boolean}> = [];
+  /** Entities added during a tick, to be added after. */
+  readonly #pendingAdditions: Entity[] = [];
+
+  /** Entities removed during a tick, to be removed after. */
+  readonly #pendingRemovals: Entity[] = [];
 
   /** State; which part of its life cycle the instance is currently in. */
   #state: WorldState = 'stopped';
@@ -67,7 +70,7 @@ export class World {
   /** Adds an entity; during an update it is queued until the tick ends. */
   addEntity(entity: Entity) {
     if (this.#state === 'updating') {
-      this.#pendingChanges.push({entity, isRemoval: false});
+      this.#pendingAdditions.push(entity);
     } else {
       if (this.entities.includes(entity)) {
         throw new Error('Entity was already added to the world!');
@@ -191,7 +194,7 @@ export class World {
   /** Removes an entity; during an update it is queued until the tick ends. */
   removeEntity(entity: Entity) {
     if (this.#state === 'updating') {
-      this.#pendingChanges.push({entity, isRemoval: true});
+      this.#pendingRemovals.push(entity);
     } else {
       let index = this.entities.indexOf(entity);
 
@@ -388,7 +391,8 @@ export class World {
         }
       }
     } finally {
-      this.#pendingChanges.length = 0;
+      this.#pendingAdditions.length = 0;
+      this.#pendingRemovals.length = 0;
       this.#state = 'stopped';
     }
   }
@@ -410,21 +414,21 @@ export class World {
     }
 
     // Only after update is done, we can add or remove entities.
-    while (this.#pendingChanges.length > 0) {
-      // The type assertion is ok, because we checked `this.#pendingChanges.length`.
-      let {entity, isRemoval} = this.#pendingChanges.shift() as {
-        entity: Entity;
-        isRemoval: boolean;
-      };
+    for (let entity of this.#pendingRemovals) {
+      if (this.entities.includes(entity)) {
+        this.removeEntity(entity);
+      }
+    }
 
-      if (isRemoval) {
-        if (this.entities.includes(entity)) {
-          this.removeEntity(entity);
-        }
-      } else if (!this.entities.includes(entity)) {
+    this.#pendingRemovals.length = 0;
+
+    for (let entity of this.#pendingAdditions) {
+      if (!this.entities.includes(entity)) {
         this.addEntity(entity);
       }
     }
+
+    this.#pendingAdditions.length = 0;
 
     for (let channel of this.eventChannels) {
       channel.swap();
