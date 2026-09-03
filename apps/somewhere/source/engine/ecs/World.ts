@@ -15,6 +15,7 @@ export type WorldOptions = {
   onStop?: ((world: World) => void) | undefined;
 };
 
+/** Owns and hadles entities, entity queries, event channels and systems. */
 export class World {
   /** Entities. */
   readonly entities: Entity[] = [];
@@ -53,17 +54,17 @@ export class World {
     }
   }
 
-  /** TBD */
+  /** Is the world paused? */
   get isPaused(): boolean {
     return this.#state === 'paused';
   }
 
-  /** TBD */
+  /** Is the world started, i.e. not stopped? */
   get isRunning(): boolean {
     return this.#state !== 'stopped';
   }
 
-  /** TBD */
+  /** Adds an entity; during an update it is queued until the tick ends. */
   addEntity(entity: Entity) {
     if (this.#state === 'updating') {
       this.#pendingChanges.push({entity, isRemoval: false});
@@ -90,7 +91,7 @@ export class World {
     return this;
   }
 
-  /** TBD */
+  /** Adds an entity query and fills it with the matching entities. */
   addEntityQuery<T extends readonly [...rest: ReadonlyArray<Constructor<Component>>]>(
     entityQuery: EntityQuery<T>,
   ) {
@@ -118,7 +119,7 @@ export class World {
     return this;
   }
 
-  /** TBD */
+  /** Adds an event channel. */
   addEventChannel<T extends Constructor<Event>>(channel: EventChannel<T>) {
     if (this.#state === 'updating') {
       throw new Error('Cannot add an event channel during an update!');
@@ -138,7 +139,7 @@ export class World {
     return this;
   }
 
-  /** TBD */
+  /** Adds a system and fills it with the matching entities. */
   addSystem<T extends readonly [...rest: ReadonlyArray<Constructor<Component>>]>(
     system: System<T>,
   ) {
@@ -173,7 +174,7 @@ export class World {
     return this;
   }
 
-  /** TBD */
+  /** Pauses the world. */
   pause() {
     // Checked before the running test so an already-paused world keeps its own message.
     if (this.#state === 'paused') {
@@ -187,7 +188,7 @@ export class World {
     this.#state = 'paused';
   }
 
-  /** TBD */
+  /** Removes an entity; during an update it is queued until the tick ends. */
   removeEntity(entity: Entity) {
     if (this.#state === 'updating') {
       this.#pendingChanges.push({entity, isRemoval: true});
@@ -216,7 +217,7 @@ export class World {
     return entity;
   }
 
-  /** TBD */
+  /** Removes an entity query. */
   removeEntityQuery<T extends readonly [...rest: ReadonlyArray<Constructor<Component>>]>(
     entityQuery: EntityQuery<T>,
   ) {
@@ -247,7 +248,7 @@ export class World {
     return this;
   }
 
-  /** TBD */
+  /** Removes an event channel. */
   removeEventChannel<T extends Constructor<Event>>(channel: EventChannel<T>) {
     if (this.#state === 'updating') {
       throw new Error('Cannot remove an event channel during an update!');
@@ -266,7 +267,7 @@ export class World {
     return this;
   }
 
-  /** TBD */
+  /** Removes a system. */
   removeSystem<T extends readonly [...rest: ReadonlyArray<Constructor<Component>>]>(
     system: System<T>,
   ) {
@@ -301,7 +302,7 @@ export class World {
     return this;
   }
 
-  /** TBD */
+  /** Resumes the paused world. */
   resume() {
     if (this.#state !== 'paused') {
       throw new Error('World is not paused!');
@@ -310,7 +311,7 @@ export class World {
     this.#state = 'running';
   }
 
-  /** TBD */
+  /** Starts the world. */
   start() {
     if (this.#state !== 'stopped') {
       throw new Error('World is already running!');
@@ -331,7 +332,7 @@ export class World {
     }
   }
 
-  /** TBD */
+  /** Stops the world and removes everything from it. */
   stop() {
     if (this.#state === 'stopped') {
       throw new Error('World is not running!');
@@ -387,22 +388,13 @@ export class World {
         }
       }
     } finally {
-      // In the finally so a throw anywhere above — `#onStop` or a teardown hook — still
-      // resets `#state` and clears the pending-changes queue, so start() is never
-      // permanently blocked. That is all this guarantees: a throw can still leave
-      // `systems`/`entities`/`entityQueries`/`eventChannels` partially torn down.
       this.#pendingChanges.length = 0;
-
-      // A paused world can be stopped (the quit-to-menu flow); the next start()
-      // begins unpaused, because reaching `stopped` clears the paused state inherently.
       this.#state = 'stopped';
     }
   }
 
   /** @internal Called by game's ticker on each tick. */
   update(ticker: pixi.Ticker) {
-    // A world that isn't running, is paused, is already updating, or is tearing down
-    // doesn't update.
     if (this.#state !== 'running') {
       return;
     }

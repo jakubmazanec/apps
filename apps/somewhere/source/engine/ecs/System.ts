@@ -6,18 +6,19 @@ import {type Entity} from './Entity.js';
 import {type SystemOptions} from './SystemOptions.js';
 import {type World} from './World.js';
 
+/** Runs logic on entities that have specified components. */
 export class System<
   const T extends readonly [...rest: ReadonlyArray<Constructor<Component>>] = readonly [
     ...rest: ReadonlyArray<Constructor<Component>>,
   ],
 > {
-  /** TBD */
+  /** Component classes an entity must have to match. */
   readonly components: T;
 
-  /** TBD */
+  /** Name for debugging purposes. */
   displayName: string;
 
-  /** TBD */
+  /** Matching entities. */
   readonly entities: Array<Entity<readonly [InstanceType<T[number]>]>> = [];
 
   /** Lifecycle hook called when an entity is added to the system. */
@@ -43,7 +44,7 @@ export class System<
   /** Lifecycle hook called on each tick. */
   readonly #onUpdate?: (ticker: pixi.Ticker, system: System<T>, world: World) => void;
 
-  /** TBD */
+  /** World the query is attached to. */
   #world: World | null = null;
 
   constructor({
@@ -80,7 +81,7 @@ export class System<
     this.displayName = displayName;
   }
 
-  /** TBD */
+  /** View of the attached world. */
   get view(): pixi.Container {
     if (!this.#world) {
       throw new Error('System is not attached to a world!');
@@ -89,7 +90,7 @@ export class System<
     return this.#world.view;
   }
 
-  /** TBD */
+  /** World the query is attached to. */
   get world(): World {
     if (!this.#world) {
       throw new Error('System is not attached to a world!');
@@ -115,8 +116,7 @@ export class System<
     }
 
     this.#world = world;
-    // symmetric with `detach`: `onAttach` fires with `world.entities` populated but
-    // `system.entities` not yet synced in
+
     this.#onAttach?.(this, this.#world);
   }
 
@@ -126,23 +126,14 @@ export class System<
       throw new Error('System is not attached to a world!');
     }
 
-    // events "hug" the state of the thing they belong to, i.e. starting events run after something
-    // is done, and ending events run before something is done concretely `onDetach` fires with the
-    // world still attached and `world.entities` populated, but `system.entities` already drained —
-    // per-entity teardown belongs in `onRemoveEntity`. `World.stop` removes systems before entities
-    // so this holds there too, matching a standalone `removeSystem`. (M1)
     try {
       this.#onDetach?.(this, this.#world);
     } finally {
-      // In the finally so a throwing `onDetach` still releases `#world`: otherwise the
-      // system would believe itself attached forever, and re-adding it (e.g. a module-level
-      // singleton re-added on the next `start()`) would throw 'System is already attached
-      // to a world!' for the rest of the process.
       this.#world = null;
     }
   }
 
-  /** TBD */
+  /** Returns the first matching entity. */
   getFirst() {
     let [entity] = this.entities;
 

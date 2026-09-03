@@ -2,8 +2,9 @@
 const tag: unique symbol = Symbol('Tag');
 const component: unique symbol = Symbol('Component');
 
+/** Data attached to an entity. */
 export abstract class Component {
-  /** TBD */
+  /** Tag making the type nominal. */
   private readonly [tag] = component;
 }
 
