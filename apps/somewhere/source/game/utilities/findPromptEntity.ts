@@ -14,13 +14,13 @@ const PROMPT_RANGE = 12;
 
 /**
  * The trigger the interact prompt, and an interact press, resolve against: an
- * npc the player stands in, a dialogue zone the player stands near, or an
- * exit the player stands in or near. The zone case covers the approach band
- * (walking on into the zone still auto-starts it) and re-reads after a
- * dismissal while still inside. First match wins across overlapping
- * triggers; dialogueSystem and dialogueBoxSystem share this resolution so
- * the bubble always advertises exactly what an interact press would do —
- * talk or travel.
+ * npc or same-map door the player stands in, a dialogue zone the player
+ * stands near, or an exit the player stands in or near. The zone case covers
+ * the approach band (walking on into the zone still auto-starts it) and
+ * re-reads after a dismissal while still inside. First match wins across
+ * overlapping triggers; dialogueSystem, travelSystem, doorSystem and
+ * dialogueBoxSystem share this resolution so the bubble always advertises
+ * exactly what an interact press would do — talk, travel or teleport.
  */
 export function findPromptEntity<TEntity extends Entity>(
   entities: Iterable<TEntity>,
@@ -33,6 +33,18 @@ export function findPromptEntity<TEntity extends Entity>(
     // against) makes it the prompt.
     if (trigger.type === 'exit') {
       if (isPlayerNearRect(trigger.rect)) {
+        return entity;
+      }
+
+      continue;
+    }
+
+    // A door advertises a same-map teleport. It sits on a walkable doorway
+    // tile the player steps onto, so standing in it is the prompt; no band,
+    // which would otherwise steal the prompt from a neighbor's band (the
+    // village hut door sits right under the keep-out sign).
+    if (trigger.type === 'door') {
+      if (isPlayerNearRect(trigger.rect, 0)) {
         return entity;
       }
 
@@ -55,7 +67,7 @@ export function findPromptEntity<TEntity extends Entity>(
   return null;
 }
 
-function isPlayerNearRect(rect: pixi.Rectangle): boolean {
+function isPlayerNearRect(rect: pixi.Rectangle, range = PROMPT_RANGE): boolean {
   // The [0] guard (world.ts onStop precedent): a DEV throw mid-spawn can leave
   // no player while systems still run.
   let player = playersQuery.entities[0];
@@ -73,9 +85,9 @@ function isPlayerNearRect(rect: pixi.Rectangle): boolean {
     position.y + boundingBox.y,
     boundingBox.width,
     boundingBox.height,
-    rect.x - PROMPT_RANGE,
-    rect.y - PROMPT_RANGE,
-    rect.width + 2 * PROMPT_RANGE,
-    rect.height + 2 * PROMPT_RANGE,
+    rect.x - range,
+    rect.y - range,
+    rect.width + 2 * range,
+    rect.height + 2 * range,
   );
 }

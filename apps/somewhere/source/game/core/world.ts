@@ -87,6 +87,7 @@ export const world = new World({
 
     world.addSystem(dialogueInputSystem); // first: translates the freshly latched edges into commands
     world.addSystem(travelSystem); // before dialogueSystem: reads last frame's `active`, so the press that pages or closes a conversation can never also travel
+    world.addSystem(doorSystem); // right after travelSystem, same reason: the same press teleports through a same-map door, never while a conversation pages
     world.addSystem(dialogueSystem); // before playerSystem: starts/advances on last frame's commands and enters, ticks, and playerSystem sees `active` and locks the same frame
     world.addSystem(mapSystem);
     world.addSystem(playerSystem); // before motionSystem: it writes velocity that motionSystem consumes this frame
@@ -94,8 +95,7 @@ export const world = new World({
     world.addSystem(playerActionSystem); // after playerSystem: same input snapshot, and its one-shot show() wins over graphicsSystem later this frame by the one-shot precedence rule
     world.addSystem(motionSystem);
     world.addSystem(triggerSystem); // right after motionSystem: overlap tests read the just-resolved position
-    world.addSystem(doorSystem); // consumes last frame's trigger enters (buffered, one-frame delay)
-    world.addSystem(zoneSystem); // like doorSystem: last frame's enters, before wallHitPopupSystem
+    world.addSystem(zoneSystem); // consumes last frame's trigger enters (buffered, one-frame delay), before wallHitPopupSystem
     world.addSystem(wallHitPopupSystem); // spawn popups from the previous frame's wall hits
     world.addSystem(audioSystem); // placement is free: PlaySoundEvent is buffered, seen next frame
     world.addSystem(popupCleanupSystem); // remove popups whose lifetime timer has expired

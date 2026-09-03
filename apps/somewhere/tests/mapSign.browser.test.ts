@@ -18,6 +18,7 @@ import {Vector} from '../source/engine/utilities/Vector.js';
 import {DialogueComponent} from '../source/game/components/DialogueComponent.js';
 import {InputComponent} from '../source/game/components/InputComponent.js';
 import {MotionComponent} from '../source/game/components/MotionComponent.js';
+import {TriggerComponent} from '../source/game/components/TriggerComponent.js';
 import {assets} from '../source/game/core/assets.js';
 import {audio} from '../source/game/core/audio.js';
 import {dialogueEntity} from '../source/game/core/dialogue.js';
@@ -171,14 +172,19 @@ async function startWorldOnRealMap() {
   let shopInteriorTilemap = await Tilemap.from(JSON.parse(shopInteriorJsonRaw));
   let spriteBag = new Spriteset({
     textures: {},
-    animations: Object.fromEntries(
-      ['character', 'mira', 'npc'].flatMap((character) =>
-        SPRITE_NAMES.map((name) => [
-          `${character}-${name}`,
-          {textures: [pixi.Texture.WHITE], speed: 0.15, loop: true},
-        ]),
+    animations: {
+      ...Object.fromEntries(
+        ['character', 'mira', 'npc'].flatMap((character) =>
+          SPRITE_NAMES.map((name) => [
+            `${character}-${name}`,
+            {textures: [pixi.Texture.WHITE], speed: 0.15, loop: true},
+          ]),
+        ),
       ),
-    ),
+      // The wall-hit popup's one-frame spark: a walk that brushes a wall must
+      // not blow up the run over a stub that lacks the effect's animation.
+      spark: {textures: [pixi.Texture.WHITE], speed: 0.15, loop: true},
+    },
   });
 
   // The real DialogueBox measures through the bitmap-font manager, which has
@@ -369,17 +375,46 @@ describe('the keep-out sign on the exported map', () => {
     input.detach();
   });
 
-  test('the walk from spawn to the door never brushes the sign zone', async () => {
+  test('the walk from spawn to the door never brushes the sign zone, and the door waits for the interact key', async () => {
     await startWorldOnRealMap();
 
     let motion = playersQuery.getFirst().getComponent(MotionComponent);
     let component = dialogueEntity.getComponent(DialogueComponent);
+    let {input} = inputQuery.getFirst().getComponent(InputComponent);
 
-    // The natural first trip: spawn toward the hut door below the sign wall.
-    // The door teleports on enter; the sign dialogue must never fire on the way.
-    walkUntil(new Vector(184, 186), 600, () => motion.position.x > 400);
+    input.attach(new pixi.Container());
+
+    let door = world.entities.find(
+      (entity) =>
+        entity.hasComponent(TriggerComponent) &&
+        entity.getComponent(TriggerComponent).name === 'door-hut',
+    );
+    let doorTrigger = door?.getComponent(TriggerComponent);
+
+    // The natural first trip: spawn toward the hut door below the sign wall,
+    // stopping as the feet step into the door rect. The sign dialogue must
+    // never fire on the way, and the door waits for the interact press like
+    // an exit does: walking in alone never teleports.
+    walkUntil(new Vector(184, 186), 600, () => doorTrigger?.isPlayerInside === true);
+
+    expect(doorTrigger?.isPlayerInside).toBe(true); // standing in the door
+    expect(motion.position.x).toBeLessThan(400); // and still in front of the hut
+    expect(component.active).toBeNull(); // the sign stayed quiet
+
+    // The door advertises the press with the same bubble an exit shows (the
+    // sign-band test's lookup: the current run's dialogue layer is last).
+    world.update(tick(16.667));
+
+    let layer = dialogueBoxSystem.view.children.at(-1) as pixi.Container;
+    let bubble = layer.children.find((child) => child instanceof pixi.Sprite && child.visible);
+
+    expect(bubble).toBeDefined();
+
+    pressKey('KeyE'); // the prompted door teleports to its far target
 
     expect(motion.position.x).toBeGreaterThan(400); // the door did its job
-    expect(component.active).toBeNull(); // the sign stayed quiet
+    expect(component.active).toBeNull();
+
+    input.detach();
   });
 });

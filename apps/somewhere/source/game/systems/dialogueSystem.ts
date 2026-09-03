@@ -86,10 +86,10 @@ export const dialogueSystem = new System({
             let entity = findPromptEntity(system.entities);
             let trigger = entity?.getComponent(TriggerComponent);
 
-            // An exit is travelSystem's job: even a stray dialogue property
-            // on one must not start a script, or one press would both talk
-            // and travel.
-            if (trigger !== undefined && trigger.type !== 'exit') {
+            // An exit is travelSystem's job and a door is doorSystem's: even
+            // a stray dialogue property on one must not start a script, or
+            // one press would both talk and travel or teleport.
+            if (trigger !== undefined && trigger.type !== 'exit' && trigger.type !== 'door') {
               let {dialogue} = trigger.properties;
 
               if (typeof dialogue === 'string') {
