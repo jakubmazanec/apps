@@ -320,8 +320,8 @@ export function flushPendingTravel(world: World): void {
   motion.velocity.set(0, 0);
 
   // 5. Arm every destination trigger the player lands inside: no spurious
-  // zone enters or same-map-door teleports on arrival; each re-arms after a
-  // genuine exit, exactly like doors today.
+  // zone enters on arrival; each re-arms after a genuine exit, exactly like
+  // a door's target after a teleport.
   for (let entity of scopedEntities) {
     // hasComponent first (the spawnMap trigger-validation precedent above):
     // every scoped entity is a door/zone/exit/npc today, all of which carry

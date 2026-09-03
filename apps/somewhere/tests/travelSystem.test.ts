@@ -241,4 +241,26 @@ describe('travelSystem', () => {
 
     expect(getPendingTravel()).toBeNull();
   });
+
+  test('a resolved door never travels', () => {
+    let door = new Entity({
+      components: [
+        new TriggerComponent({
+          id: 7,
+          name: 'door-hut',
+          type: 'door',
+          rect: new pixi.Rectangle(0, 0, 16, 16),
+          // A stray exit-style destination must not turn a door into an exit.
+          properties: {target: 8, map: 'shop-interior', entry: 'entrance'},
+        }),
+      ],
+    });
+    let {world} = createHarness([door, createExit({map: 'shop-interior', entry: 'entrance'}, 8)]);
+
+    world.start();
+    pressInteract();
+    world.update(tick());
+
+    expect(getPendingTravel()).toBeNull();
+  });
 });

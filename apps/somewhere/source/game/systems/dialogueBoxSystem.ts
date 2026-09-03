@@ -142,7 +142,8 @@ export const dialogueBoxSystem = new System({
 
       // The prompt shows only while no dialogue is active; the shared
       // resolution keeps the bubble pointing at exactly what an interact
-      // press would start (the npc stood in, or the sign zone stood near).
+      // press would do (the npc stood in, the sign zone stood near, or the
+      // exit or door stood in or near).
       let promptEntity = findPromptEntity(system.entities);
 
       if (promptEntity === null) {
@@ -186,7 +187,7 @@ export const dialogueBoxSystem = new System({
           motion.position.y + boundingBox.y - prompt.height - 1 - cameraPosition.y,
         );
       } else {
-        // A zone (the sign): float over the trigger rect itself.
+        // A zone (the sign), an exit or a door: float over the trigger rect.
         let {rect} = promptEntity.getComponent(TriggerComponent);
 
         prompt.position.set(

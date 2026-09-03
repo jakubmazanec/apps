@@ -112,4 +112,32 @@ describe(findPromptEntity, () => {
 
     expect(findPromptEntity([farZone, npc])).toBe(npc);
   });
+
+  test('a door resolves while the player stands inside it, without any dialogue property', () => {
+    createPlayerWorld(4, 4);
+
+    let door = createTrigger('door', new pixi.Rectangle(0, 0, 16, 16), {target: 2});
+
+    expect(findPromptEntity([door])).toBe(door);
+  });
+
+  test('a door in the approach band alone does not resolve (unlike an exit)', () => {
+    createPlayerWorld(4, 20); // box 4..12 x 20..28; rect 0..16 y 0..16, a band would reach y 28
+
+    let door = createTrigger('door', new pixi.Rectangle(0, 0, 16, 16), {target: 2});
+
+    expect(findPromptEntity([door])).toBeNull();
+  });
+
+  test('a door listed first never steals the prompt from a neighboring sign band', () => {
+    // The village layout: the hut door (176, 176, 16x16) sits right under the
+    // keep-out sign zone (192, 160, 16x14). Feet (196..204, 185..193) stand in
+    // the sign's band and clear of the door's rect.
+    createPlayerWorld(196, 185);
+
+    let door = createTrigger('door', new pixi.Rectangle(176, 176, 16, 16), {target: 3}, 2);
+    let sign = createTrigger('zone', new pixi.Rectangle(192, 160, 16, 14), {dialogue: 'sign'}, 6);
+
+    expect(findPromptEntity([door, sign])).toBe(sign);
+  });
 });

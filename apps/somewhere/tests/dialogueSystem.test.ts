@@ -353,4 +353,26 @@ describe('dialogueSystem', () => {
     // Travel is travelSystem's job; one press must never both talk and travel.
     expect(component.active).toBeNull();
   });
+
+  test('interact on a resolved door never starts a script, even with a stray dialogue property', () => {
+    let doorEntity = new Entity({
+      components: [
+        new TriggerComponent({
+          id: 10,
+          name: 'door-hut',
+          type: 'door',
+          rect: new pixi.Rectangle(0, 0, 16, 16),
+          properties: {target: 11, dialogue: 'mira'},
+        }),
+      ],
+    });
+    let {world, component} = createHarness([doorEntity]);
+
+    world.start();
+    pushCommands({type: 'interact'});
+    world.update(tick());
+
+    // The teleport is doorSystem's job; one press must never both talk and teleport.
+    expect(component.active).toBeNull();
+  });
 });
