@@ -14,11 +14,10 @@ const MODIFIER_CODES = {
   Alt: ['AltLeft', 'AltRight'],
   Meta: ['MetaLeft', 'MetaRight'],
 } as const;
+type Modifier = keyof typeof MODIFIER_CODES;
 // Canonical prefix order, so 'Ctrl+Shift+KeyS' and 'Shift+Ctrl+KeyS' are one
 // binding and cannot be bound twice.
-const MODIFIER_ORDER = ['Ctrl', 'Alt', 'Shift', 'Meta'] as const;
-
-type Modifier = keyof typeof MODIFIER_CODES;
+const Modifier = ['Ctrl', 'Alt', 'Shift', 'Meta'] as const satisfies readonly Modifier[];
 
 type ParsedKey = {
   canonical: string;
@@ -48,7 +47,7 @@ function parseKey(key: string, action: string): ParsedKey {
     }
   }
 
-  modifiers.sort((a, b) => MODIFIER_ORDER.indexOf(a) - MODIFIER_ORDER.indexOf(b));
+  modifiers.sort((a, b) => Modifier.indexOf(a) - Modifier.indexOf(b));
 
   return {canonical: [...modifiers, code].join('+'), code, modifiers};
 }
