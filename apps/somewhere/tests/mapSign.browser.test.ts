@@ -10,6 +10,7 @@ import exteriorTilesetJsonRaw from '../public/exterior-tileset.json?raw';
 import mapJsonRaw from '../public/map.json?raw';
 import shopInteriorJsonRaw from '../public/shop-interior.json?raw';
 import tilesetJsonRaw from '../public/tileset.json?raw';
+import {type Game} from '../source/engine/app/Game.js';
 import {Spriteset} from '../source/engine/graphics/Spriteset.js';
 import {toTileId} from '../source/engine/tiled/TileId.js';
 import {Tilemap} from '../source/engine/tiled/Tilemap.js';
@@ -289,7 +290,7 @@ describe('the keep-out sign on the exported map', () => {
     let component = dialogueEntity.getComponent(DialogueComponent);
     let {input} = inputQuery.getFirst().getComponent(InputComponent);
 
-    input.attach(new pixi.Container());
+    input.attach({view: new pixi.Container()} as unknown as Game);
 
     motion.position.set(196, 185);
     walkUntil(new Vector(196, 130), 300, () => component.active !== null);
@@ -314,7 +315,7 @@ describe('the keep-out sign on the exported map', () => {
     let component = dialogueEntity.getComponent(DialogueComponent);
     let {input} = inputQuery.getFirst().getComponent(InputComponent);
 
-    input.attach(new pixi.Container());
+    input.attach({view: new pixi.Container()} as unknown as Game);
 
     // Near the sign but clear of the zone: feet (196..212, 185..195) against
     // the zone's bottom edge at 174.
@@ -346,7 +347,7 @@ describe('the keep-out sign on the exported map', () => {
     let {input} = inputQuery.getFirst().getComponent(InputComponent);
     let {ui} = game.currentScreen!;
 
-    input.attach(new pixi.Container());
+    input.attach({view: new pixi.Container()} as unknown as Game);
 
     // Stand inside Mira's interaction rect (240,176,24x28) and talk to her.
     motion.position.set(244, 180);
@@ -382,7 +383,7 @@ describe('the keep-out sign on the exported map', () => {
     let component = dialogueEntity.getComponent(DialogueComponent);
     let {input} = inputQuery.getFirst().getComponent(InputComponent);
 
-    input.attach(new pixi.Container());
+    input.attach({view: new pixi.Container()} as unknown as Game);
 
     let door = world.entities.find(
       (entity) =>

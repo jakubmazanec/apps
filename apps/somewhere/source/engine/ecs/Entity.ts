@@ -1,9 +1,6 @@
 import {type Constructor} from '../utilities/Constructor.js';
 import {type Component} from './Component.js';
-
-export type EntityOptions<T extends readonly [...rest: readonly Component[]]> = {
-  components: T;
-};
+import {type EntityOptions} from './EntityOptions.js';
 
 /** A game object made of components. */
 export class Entity<

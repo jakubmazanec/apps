@@ -1,24 +1,21 @@
 import type * as pixi from 'pixi.js';
 
 import {type FocusCommand} from '../app/FocusCommand.js';
+import {type Game} from '../app/Game.js';
 import {isTextEntryTarget} from '../ui/isTextEntryTarget.js';
 import {Vector} from '../utilities/Vector.js';
 import {type GameInputOptions} from './GameInputOptions.js';
+import {Modifier} from './Modifier.js';
 
 // Modifier name to the pair of KeyboardEvent.code values that produce it.
 // Modifier state is read from the down-set itself, so no separate tracking
 // exists: these codes are recorded even when nothing binds them.
-const MODIFIER_CODES = {
+export const MODIFIER_CODES = {
   Shift: ['ShiftLeft', 'ShiftRight'],
   Ctrl: ['ControlLeft', 'ControlRight'],
   Alt: ['AltLeft', 'AltRight'],
   Meta: ['MetaLeft', 'MetaRight'],
 } as const;
-type Modifier = keyof typeof MODIFIER_CODES;
-// Canonical prefix order, so 'Ctrl+Shift+KeyS' and 'Shift+Ctrl+KeyS' are one
-// binding and cannot be bound twice.
-const Modifier = ['Ctrl', 'Alt', 'Shift', 'Meta'] as const satisfies readonly Modifier[];
-
 type ParsedKey = {
   canonical: string;
   code: string;
@@ -101,6 +98,9 @@ export class GameInput {
   /** TBD */
   readonly #focus: ReadonlyMap<FocusCommand, ParsedKey[]>;
 
+  /** TBD */
+  #game: Game | null = null;
+
   // Tap buffer (written by the listener, position stored by copy) and the
   // per-step latch `update()` drains it into. The latch never enters the
   // down-set: a tap is pressed+released on its step and never held.
@@ -126,9 +126,6 @@ export class GameInput {
 
   /** TBD */
   readonly #tapPosition = new Vector(0, 0);
-
-  /** TBD */
-  #view: pixi.Container | null = null;
 
   constructor({focus = {}, actions = {}}: GameInputOptions) {
     let parsedFocus = new Map<FocusCommand, ParsedKey[]>();
@@ -187,12 +184,15 @@ export class GameInput {
   }
 
   /** TBD */
-  attach(view: pixi.Container): void {
-    if (this.#view) {
+  attach(game: Game): void {
+    if (this.#game) {
       throw new Error('GameInput is already attached!');
     }
 
-    this.#view = view;
+    this.#game = game;
+
+    let {view} = game;
+
     this.#disposables.dispose();
 
     this.#disposables = new DisposableStack();
@@ -259,12 +259,12 @@ export class GameInput {
 
   /** TBD */
   detach(): void {
-    if (!this.#view) {
+    if (!this.#game) {
       throw new Error('GameInput is not attached!');
     }
 
     this.#disposables.dispose();
-    this.#view = null;
+    this.#game = null;
 
     // The next attach starts clean: nothing carries over between sessions.
     this.#downCodes.clear();

@@ -1,15 +1,8 @@
 import {type Constructor} from '../utilities/Constructor.js';
 import {type Component} from './Component.js';
 import {type Entity} from './Entity.js';
+import {type EntityQueryOptions} from './EntityQueryOptions.js';
 import {type World} from './World.js';
-
-export type EntityQueryOptions<
-  T extends readonly [...rest: ReadonlyArray<Constructor<Component>>],
-> = {
-  components: T;
-
-  displayName?: string | undefined;
-};
 
 /** Queries entities that have specified components. */
 export class EntityQuery<
