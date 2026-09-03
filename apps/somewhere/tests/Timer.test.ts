@@ -47,9 +47,9 @@ describe(Timer, () => {
     expect(timer.update(tick(1))).toBe(true);
   });
 
-  test('repeats getter reflects the option', () => {
-    expect(new Timer({duration: 100}).repeats).toBe(false);
-    expect(new Timer({duration: 100, repeat: true}).repeats).toBe(true);
+  test('isRepeating getter reflects the option', () => {
+    expect(new Timer({duration: 100}).isRepeating).toBe(false);
+    expect(new Timer({duration: 100, repeat: true}).isRepeating).toBe(true);
   });
 
   test('throws a RangeError on non-positive duration', () => {
