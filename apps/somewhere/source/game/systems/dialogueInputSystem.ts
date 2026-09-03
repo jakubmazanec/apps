@@ -1,10 +1,9 @@
 import {System} from '../../engine/ecs/System.js';
 import {DialogueComponent} from '../components/DialogueComponent.js';
-import {InputComponent} from '../components/InputComponent.js';
+import {input} from '../core/input.js';
 import {DialogueCommand} from '../events/DialogueCommand.js';
 import {dialogueCommandChannel} from '../events/dialogueCommandChannel.js';
 import {dialogueQuery} from '../queries/dialogueQuery.js';
-import {inputQuery} from '../queries/inputQuery.js';
 
 // Translates action edges into dialogue commands; pointer paths push the same
 // commands from pixi handlers in dialogueBoxSystem. This system only
@@ -14,8 +13,6 @@ export const dialogueInputSystem = new System({
   components: [],
   displayName: 'Dialogue input system',
   onUpdate: () => {
-    let {input} = inputQuery.getFirst().getComponent(InputComponent);
-
     // Pushed even with no dialogue and no NPC in range (cheap, rare);
     // dialogueSystem drops it when it means nothing.
     if (input.pressed('interact')) {

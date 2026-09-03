@@ -17,19 +17,14 @@ import {Tilemap} from '../source/engine/tiled/Tilemap.js';
 import {Tileset} from '../source/engine/tiled/Tileset.js';
 import {Vector} from '../source/engine/utilities/Vector.js';
 import {DialogueComponent} from '../source/game/components/DialogueComponent.js';
-import {InputComponent} from '../source/game/components/InputComponent.js';
 import {MotionComponent} from '../source/game/components/MotionComponent.js';
 import {TriggerComponent} from '../source/game/components/TriggerComponent.js';
 import {assets} from '../source/game/core/assets.js';
 import {audio} from '../source/game/core/audio.js';
 import {dialogueEntity} from '../source/game/core/dialogue.js';
 import {game} from '../source/game/core/game.js';
-// Aliased: every test also pulls the same singleton off InputComponent as
-// `input`, for direct attach()/detach() and reads. pressKey is a module-scope
-// helper with no access to that local binding, so it needs its own handle.
-import {input as sharedInput} from '../source/game/core/input.js';
+import {input} from '../source/game/core/input.js';
 import {world} from '../source/game/core/world.js';
-import {inputQuery} from '../source/game/queries/inputQuery.js';
 import {playersQuery} from '../source/game/queries/playersQuery.js';
 import {dialogueBoxSystem} from '../source/game/systems/dialogueBoxSystem.js';
 
@@ -238,10 +233,10 @@ async function startWorldOnRealMap() {
 // update pairs with the input.update() Game would otherwise have made.
 function pressKey(code: string) {
   globalThis.dispatchEvent(new KeyboardEvent('keydown', {code}));
-  sharedInput.update();
+  input.update();
   world.update(tick(16.667));
   globalThis.dispatchEvent(new KeyboardEvent('keyup', {code}));
-  sharedInput.update();
+  input.update();
   world.update(tick(16.667));
 }
 
@@ -288,7 +283,6 @@ describe('the keep-out sign on the exported map', () => {
 
     let motion = playersQuery.getFirst().getComponent(MotionComponent);
     let component = dialogueEntity.getComponent(DialogueComponent);
-    let {input} = inputQuery.getFirst().getComponent(InputComponent);
 
     input.attach({view: new pixi.Container()} as unknown as Game);
 
@@ -313,7 +307,6 @@ describe('the keep-out sign on the exported map', () => {
 
     let motion = playersQuery.getFirst().getComponent(MotionComponent);
     let component = dialogueEntity.getComponent(DialogueComponent);
-    let {input} = inputQuery.getFirst().getComponent(InputComponent);
 
     input.attach({view: new pixi.Container()} as unknown as Game);
 
@@ -344,7 +337,6 @@ describe('the keep-out sign on the exported map', () => {
 
     let motion = playersQuery.getFirst().getComponent(MotionComponent);
     let component = dialogueEntity.getComponent(DialogueComponent);
-    let {input} = inputQuery.getFirst().getComponent(InputComponent);
     let {ui} = game.currentScreen!;
 
     input.attach({view: new pixi.Container()} as unknown as Game);
@@ -381,7 +373,6 @@ describe('the keep-out sign on the exported map', () => {
 
     let motion = playersQuery.getFirst().getComponent(MotionComponent);
     let component = dialogueEntity.getComponent(DialogueComponent);
-    let {input} = inputQuery.getFirst().getComponent(InputComponent);
 
     input.attach({view: new pixi.Container()} as unknown as Game);
 

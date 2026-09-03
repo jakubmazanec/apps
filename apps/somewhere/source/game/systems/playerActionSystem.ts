@@ -1,14 +1,13 @@
 import {System} from '../../engine/ecs/System.js';
 import {DialogueComponent} from '../components/DialogueComponent.js';
 import {GraphicsComponent} from '../components/GraphicsComponent.js';
-import {InputComponent} from '../components/InputComponent.js';
 import {PlayerComponent} from '../components/PlayerComponent.js';
+import {input} from '../core/input.js';
 import {playSoundChannel} from '../core/playSoundChannel.js';
 import {PlayerActionFinished} from '../events/PlayerActionFinished.js';
 import {playerActionFinishedChannel} from '../events/playerActionFinishedChannel.js';
 import {PlaySoundEvent} from '../events/PlaySoundEvent.js';
 import {dialogueQuery} from '../queries/dialogueQuery.js';
-import {inputQuery} from '../queries/inputQuery.js';
 
 export const playerActionSystem = new System({
   displayName: 'Player action system',
@@ -25,8 +24,6 @@ export const playerActionSystem = new System({
     if (dialogueQuery.getFirst().getComponent(DialogueComponent).active !== null) {
       return;
     }
-
-    let {input} = inputQuery.getFirst().getComponent(InputComponent);
 
     if (input.pressed('spin')) {
       for (let entity of system.entities) {

@@ -8,15 +8,23 @@ import {type GameInput} from '../source/engine/input/GameInput.js';
 import {Vector} from '../source/engine/utilities/Vector.js';
 import {DialogueComponent} from '../source/game/components/DialogueComponent.js';
 import {GraphicsComponent} from '../source/game/components/GraphicsComponent.js';
-import {InputComponent} from '../source/game/components/InputComponent.js';
 import {MotionComponent} from '../source/game/components/MotionComponent.js';
 import {PlayerComponent} from '../source/game/components/PlayerComponent.js';
 import {assets} from '../source/game/core/assets.js';
 import {playSoundChannel} from '../source/game/core/playSoundChannel.js';
 import {playerActionFinishedChannel} from '../source/game/events/playerActionFinishedChannel.js';
 import {dialogueQuery} from '../source/game/queries/dialogueQuery.js';
-import {inputQuery} from '../source/game/queries/inputQuery.js';
 import {playerActionSystem} from '../source/game/systems/playerActionSystem.js';
+
+// The system imports the input singleton directly, so the module is replaced
+// (hoisted above the imports) and each test installs its own fake.
+const inputStub = vitest.hoisted(() => ({current: undefined as unknown as GameInput}));
+
+vitest.mock(import('../source/game/core/input.js'), () => ({
+  get input() {
+    return inputStub.current;
+  },
+}));
 
 function tick(deltaTime: number): pixi.Ticker {
   return {deltaTime, deltaMS: deltaTime} as unknown as pixi.Ticker;
@@ -45,7 +53,6 @@ describe('playerActionSystem', () => {
       pressed: (name: string) => name === 'spin' && isSpinPressed,
       held: () => false,
     } as unknown as GameInput;
-    let inputEntity = new Entity({components: [new InputComponent({input: fakeInput})]});
     let dialogueEntity = new Entity({
       components: [new DialogueComponent({active: null})],
     });
@@ -63,15 +70,14 @@ describe('playerActionSystem', () => {
       onStart: (w) => {
         w.addEventChannel(playerActionFinishedChannel)
           .addEventChannel(playSoundChannel)
-          .addEntityQuery(inputQuery)
           .addEntityQuery(dialogueQuery)
           .addSystem(playerActionSystem)
-          .addEntity(inputEntity)
           .addEntity(dialogueEntity)
           .addEntity(player);
       },
     });
 
+    inputStub.current = fakeInput;
     world.start();
     world.update(tick(16)); // spin pressed: show('spin', {emit})
 
@@ -109,7 +115,6 @@ describe('playerActionSystem', () => {
       pressed: (name: string) => name === 'spin',
       held: () => false,
     } as unknown as GameInput;
-    let inputEntity = new Entity({components: [new InputComponent({input: fakeInput})]});
     let dialogueEntity = new Entity({
       components: [new DialogueComponent({active: {}} as never)],
     });
@@ -127,15 +132,14 @@ describe('playerActionSystem', () => {
       onStart: (w) => {
         w.addEventChannel(playerActionFinishedChannel)
           .addEventChannel(playSoundChannel)
-          .addEntityQuery(inputQuery)
           .addEntityQuery(dialogueQuery)
           .addSystem(playerActionSystem)
-          .addEntity(inputEntity)
           .addEntity(dialogueEntity)
           .addEntity(player);
       },
     });
 
+    inputStub.current = fakeInput;
     world.start();
     world.update(tick(16)); // spin pressed, but dialogue is active: the lock bounces it off
 
@@ -164,7 +168,6 @@ describe('playerActionSystem', () => {
       pressed: (name: string) => name === 'spin',
       held: () => false,
     } as unknown as GameInput;
-    let inputEntity = new Entity({components: [new InputComponent({input: fakeInput})]});
     let dialogueEntity = new Entity({
       components: [new DialogueComponent({active: null})],
     });
@@ -186,15 +189,14 @@ describe('playerActionSystem', () => {
       onStart: (w) => {
         w.addEventChannel(playerActionFinishedChannel)
           .addEventChannel(playSoundChannel)
-          .addEntityQuery(inputQuery)
           .addEntityQuery(dialogueQuery)
           .addSystem(playerActionSystem)
-          .addEntity(inputEntity)
           .addEntity(dialogueEntity)
           .addEntity(player);
       },
     });
 
+    inputStub.current = fakeInput;
     world.start();
     world.update(tick(16)); // spin pressed: show('character-spin', {emit})
 
