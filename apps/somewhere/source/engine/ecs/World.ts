@@ -8,12 +8,8 @@ import {type EntityQuery} from './EntityQuery.js';
 import {type Event} from './Event.js';
 import {type EventChannel} from './EventChannel.js';
 import {type System} from './System.js';
+import {type WorldOptions} from './WorldOptions.js';
 import {type WorldState} from './WorldState.js';
-
-export type WorldOptions = {
-  onStart?: ((world: World) => void) | undefined;
-  onStop?: ((world: World) => void) | undefined;
-};
 
 /** Owns and hadles entities, entity queries, event channels and systems. */
 export class World {

@@ -1,6 +1,6 @@
-import type * as pixi from 'pixi.js';
 import {afterEach, describe, expect, test} from 'vitest';
 
+import {type Game} from '../../source/engine/app/Game.js';
 import {GameInput} from '../../source/engine/input/GameInput.js';
 
 // GameInput's pixi surface is `view.on`/`view.off` plus per-event
@@ -63,7 +63,7 @@ function createAttachedInput(
   let view = createView();
   let input = new GameInput(bindings);
 
-  input.attach(view as unknown as pixi.Container);
+  input.attach({view} as unknown as Game);
   attachedInputs.push(input);
 
   return {input, view};
@@ -403,15 +403,14 @@ describe('GameInput keyboard edges', () => {
   test('strict attach/detach lifecycle and listener removal', () => {
     // Not via the helper: this test manages its own detach.
     let view = createView();
+    let game = {view} as unknown as Game;
     let input = new GameInput(DEFAULT_BINDINGS);
 
     expect(() => input.detach()).toThrow('GameInput is not attached!');
 
-    input.attach(view as unknown as pixi.Container);
+    input.attach(game);
 
-    expect(() => input.attach(view as unknown as pixi.Container)).toThrow(
-      'GameInput is already attached!',
-    );
+    expect(() => input.attach(game)).toThrow('GameInput is already attached!');
 
     input.detach();
 
@@ -422,7 +421,7 @@ describe('GameInput keyboard edges', () => {
     expect(input.held('move-up')).toBe(false);
 
     // A detached input can be re-attached cleanly.
-    input.attach(view as unknown as pixi.Container);
+    input.attach(game);
     press('KeyW');
     input.update();
 

@@ -1,6 +1,6 @@
-import type * as pixi from 'pixi.js';
 import {afterEach, beforeEach, describe, expect, test} from 'vitest';
 
+import {type Game} from '../../source/engine/app/Game.js';
 import {input} from '../../source/game/core/input.js';
 
 // The game's own control table, tested through the same reads Game and the
@@ -37,7 +37,7 @@ const MOVES = [
 
 describe('the game control table', () => {
   beforeEach(() => {
-    input.attach(createView() as unknown as pixi.Container);
+    input.attach({view: createView()} as unknown as Game);
   });
 
   afterEach(() => {

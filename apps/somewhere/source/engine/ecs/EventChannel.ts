@@ -1,11 +1,7 @@
 import {type Constructor} from '../utilities/Constructor.js';
 import {type Event} from './Event.js';
+import {type EventChannelOptions} from './EventChannelOptions.js';
 import {type World} from './World.js';
-
-export type EventChannelOptions<T extends Constructor<Event>> = {
-  event: T;
-  displayName?: string | undefined;
-};
 
 /** A per-frame queue of events. */
 export class EventChannel<const T extends Constructor<Event> = Constructor<Event>> {
