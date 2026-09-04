@@ -13,26 +13,26 @@ export type TweenOptions<T> = {
 };
 
 /**
- * Interpolates the numeric properties from their current values (at ctween construction time) to
+ * Interpolates the numeric properties from their current values (at construction time) to
  * the target values over time.
  */
 export class Tween<T = Record<string, number>> {
-  /** TBD */
+  /** Duration in milliseconds. */
   readonly #duration: number;
 
-  /** TBD */
+  /** Easing function. */
   readonly #easing: Easing;
 
-  /** TBD */
+  /** Elapsed milliseconds. */
   #elapsed = 0;
 
-  /** TBD */
+  /** Starting values. */
   readonly #from: Partial<Record<NumericKeys<T>, number>> = {};
 
-  /** TBD */
+  /** Object whose properties are interpolated. */
   readonly #target: T;
 
-  /** TBD */
+  /** End values. */
   readonly #to: Partial<Pick<T, NumericKeys<T>>>;
 
   constructor({target, to, duration, easing = linear}: TweenOptions<T>) {
@@ -63,8 +63,10 @@ export class Tween<T = Record<string, number>> {
     let to = this.#to as Partial<Record<NumericKeys<T>, number>>;
 
     for (let key of Object.keys(to) as Array<NumericKeys<T>>) {
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- iterating on existing keys
       let from = this.#from[key]!;
 
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- iterating on existing keys
       target[key] = from + (to[key]! - from) * eased;
     }
 
