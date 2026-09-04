@@ -5,17 +5,18 @@ export type TimerOptions = {
   repeat?: boolean | undefined;
 };
 
+/** Counts down a duration , once or repeatedly. */
 export class Timer {
-  /** TBD */
+  /** Duration in milliseconds. */
   readonly #duration: number;
 
-  /** TBD */
+  /** Elapsed milliseconds. */
   #elapsed = 0;
 
-  /** TBD */
+  /** Set once a non-repeating timer completes. */
   #isFinished = false;
 
-  /** TBD */
+  /** Whether the timer restarts after completing. */
   readonly #isRepeating: boolean;
 
   constructor({duration, repeat = false}: TimerOptions) {
@@ -27,7 +28,7 @@ export class Timer {
     this.#isRepeating = repeat;
   }
 
-  /** TBD */
+  /** Does the timer restart after completing? */
   get isRepeating(): boolean {
     return this.#isRepeating;
   }

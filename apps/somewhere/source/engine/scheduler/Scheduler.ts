@@ -10,17 +10,18 @@ type TweenEntry = {tween: Tween<unknown>; onComplete?: (() => void) | undefined}
 type TimerEntry = {timer: Timer; onComplete: () => void};
 type WaitEntry = (result: {cancelled: boolean}) => void;
 
+/** Owns and updates a screen's timers, tweens and waits. */
 export class Scheduler {
-  /** TBD */
+  /** Pending timers. */
   readonly #timers = new Set<TimerEntry>();
 
-  /** TBD */
+  /** Running tweens. */
   readonly #tweens = new Set<TweenEntry>();
 
-  /** TBD */
+  /** Pending waits. */
   readonly #waits: Set<WaitEntry> = new Set();
 
-  /** TBD */
+  /** Calls `onComplete` once after `duration` milliseconds; returns a cancel function. */
   after(duration: number, onComplete: () => void): () => void {
     let entry: TimerEntry = {timer: new Timer({duration}), onComplete};
 
@@ -31,7 +32,7 @@ export class Scheduler {
     };
   }
 
-  /** @internal Called via `GameScreen`'s disposables stack on hide/destroy. */
+  /** Clears all timers, tweens and waits. */
   clear() {
     this.#tweens.clear();
     this.#timers.clear();
@@ -43,7 +44,7 @@ export class Scheduler {
     this.#waits.clear();
   }
 
-  /** TBD */
+  /** Calls `onComplete` every `duration` milliseconds; returns a cancel function. */
   every(duration: number, onComplete: () => void): () => void {
     let entry: TimerEntry = {timer: new Timer({duration, repeat: true}), onComplete};
 
@@ -54,7 +55,7 @@ export class Scheduler {
     };
   }
 
-  /** TBD */
+  /** Runs a tween, calling `onComplete` when it finishes; returns a cancel function. */
   tween<T>(options: TweenOptions<T> & {onComplete?: () => void}): () => void {
     let entry = {tween: new Tween(options), onComplete: options.onComplete};
 
@@ -97,7 +98,7 @@ export class Scheduler {
     }
   }
 
-  /** TBD */
+  /** Resolves after `duration` milliseconds, or with `cancelled: true` if cleared first. */
   async wait(duration: number): Promise<{cancelled: boolean}> {
     // Track `resolve` so `clear()` can settle a pending wait; otherwise `await
     // scheduler.wait(...)` would wait forever. A cancelled wait resolves (never rejects) with
