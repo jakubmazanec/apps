@@ -1,8 +1,13 @@
 import type * as pixi from 'pixi.js';
-import {describe, expect, test} from 'vitest';
+import {describe, expect, test, vitest} from 'vitest';
 
+import {defineEvent} from '../source/engine/ecs/Event.js';
+import {EventChannel} from '../source/engine/ecs/EventChannel.js';
+import {World} from '../source/engine/ecs/World.js';
 import {easeInQuad} from '../source/engine/scheduler/easing.js';
 import {Tween} from '../source/engine/scheduler/Tween.js';
+
+const Fired = defineEvent<{value: number}>();
 
 function tick(deltaMS: number): pixi.Ticker {
   return {deltaMS} as unknown as pixi.Ticker;
@@ -87,5 +92,46 @@ describe(Tween, () => {
     tween.update(tick(50));
 
     expect(target.x).toBeCloseTo(15);
+  });
+
+  test('hook: onComplete is called once when the tween completes', () => {
+    let onComplete = vitest.fn<() => void>();
+    let target = {x: 0};
+    let tween = new Tween({target, to: {x: 100}, duration: 100, onComplete});
+
+    expect(tween.update(tick(50))).toBe(false);
+    expect(onComplete).not.toHaveBeenCalled();
+    expect(tween.update(tick(50))).toBe(true);
+    expect(onComplete).toHaveBeenCalledTimes(1);
+  });
+
+  test('channel variant: pushes the event on its channel, seen after the swap', () => {
+    let channel = new EventChannel({event: Fired, displayName: 'Fired'});
+
+    channel.attach(new World());
+
+    let event = new Fired({value: 7});
+    let target = {x: 0};
+    let tween = new Tween({target, to: {x: 100}, duration: 100, channel, event});
+
+    expect(tween.update(tick(100))).toBe(true);
+
+    expect(channel.events).toHaveLength(0);
+
+    channel.swap();
+
+    expect(channel.events).toHaveLength(1);
+    expect(channel.events[0]).toBe(event);
+  });
+
+  test('after completion a further update returns true, keeps the end value and does not deliver again', () => {
+    let onComplete = vitest.fn<() => void>();
+    let target = {x: 0};
+    let tween = new Tween({target, to: {x: 100}, duration: 100, onComplete});
+
+    expect(tween.update(tick(100))).toBe(true);
+    expect(tween.update(tick(100))).toBe(true);
+    expect(target.x).toBeCloseTo(100);
+    expect(onComplete).toHaveBeenCalledTimes(1);
   });
 });

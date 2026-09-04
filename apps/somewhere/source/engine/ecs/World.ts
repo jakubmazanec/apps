@@ -409,22 +409,24 @@ export class World {
       this.#state = 'running';
     }
 
-    // Only after update is done, we can add or remove entities.
-    for (let entity of this.#pendingRemovals) {
-      if (this.entities.includes(entity)) {
-        this.removeEntity(entity);
-      }
-    }
-
-    this.#pendingRemovals.length = 0;
-
+    // Only after update is done, we can add or remove entities. An entity queued for
+    // both keeps its pre-tick state: the mutual-exclusion checks cancel the pair, in
+    // either issue order.
     for (let entity of this.#pendingAdditions) {
-      if (!this.entities.includes(entity)) {
+      if (!this.#pendingRemovals.includes(entity) && !this.entities.includes(entity)) {
         this.addEntity(entity);
       }
     }
 
+    for (let entity of this.#pendingRemovals) {
+      if (!this.#pendingAdditions.includes(entity) && this.entities.includes(entity)) {
+        this.removeEntity(entity);
+      }
+    }
+
     this.#pendingAdditions.length = 0;
+
+    this.#pendingRemovals.length = 0;
 
     for (let channel of this.eventChannels) {
       channel.swap();

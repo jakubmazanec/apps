@@ -1,12 +1,21 @@
 import type * as pixi from 'pixi.js';
 
+import {type Event} from '../ecs/Event.js';
+import {type EventChannel} from '../ecs/EventChannel.js';
+
 export type TimerOptions = {
   duration: number; // milliseconds
   repeat?: boolean | undefined;
-};
+} & (
+  | {channel: EventChannel; event: Event; onComplete?: never}
+  | {channel?: never; event?: never; onComplete?: (() => void) | undefined}
+);
 
-/** Counts down a duration , once or repeatedly. */
+/** Counts down a duration, once or repeatedly. */
 export class Timer {
+  /** Completes the timer.  */
+  readonly #complete: () => void;
+
   /** Duration in milliseconds. */
   readonly #duration: number;
 
@@ -14,18 +23,23 @@ export class Timer {
   #elapsed = 0;
 
   /** Set once a non-repeating timer completes. */
-  #isFinished = false;
+  #isCompleted = false;
 
   /** Whether the timer restarts after completing. */
   readonly #isRepeating: boolean;
 
-  constructor({duration, repeat = false}: TimerOptions) {
-    if (!Number.isFinite(duration) || duration <= 0) {
+  constructor(options: TimerOptions) {
+    if (!Number.isFinite(options.duration) || options.duration <= 0) {
       throw new RangeError('Timer duration must be a finite number > 0');
     }
 
-    this.#duration = duration;
-    this.#isRepeating = repeat;
+    this.#duration = options.duration;
+    this.#isRepeating = options.repeat ?? false;
+    // `'channel' in options` would not narrow here: both members declare the prop.
+    this.#complete =
+      options.channel === undefined ?
+        (options.onComplete ?? (() => {}))
+      : () => options.channel.push(options.event);
   }
 
   /** Does the timer restart after completing? */
@@ -33,9 +47,12 @@ export class Timer {
     return this.#isRepeating;
   }
 
-  /** Advances the timer on each tick. */
+  /**
+   * Advances the timer on each tick. Delivers the completion and returns true when it fires; a
+   * finished one-shot returns false from then on.
+   */
   update(ticker: pixi.Ticker): boolean {
-    if (this.#isFinished) {
+    if (this.#isCompleted) {
       return false;
     }
 
@@ -45,11 +62,14 @@ export class Timer {
       return false;
     }
 
+    // State first, then delivery: a hook that throws must not re-fire on the next tick.
     if (this.#isRepeating) {
       this.#elapsed %= this.#duration;
     } else {
-      this.#isFinished = true;
+      this.#isCompleted = true;
     }
+
+    this.#complete();
 
     return true;
   }

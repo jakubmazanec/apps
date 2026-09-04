@@ -9,14 +9,10 @@ export const timerSystem = new System({
       let {timers} = entity.getComponent(TimerComponent);
 
       for (let index = timers.length - 1; index >= 0; index--) {
-        let {timer, emit} = timers[index]!;
+        let timer = timers[index]!;
 
-        if (timer.update(ticker)) {
-          emit?.channel.push(emit.event); // consumed next frame by a gameplay system
-
-          if (!timer.isRepeating) {
-            timers.splice(index, 1);
-          }
+        if (timer.update(ticker) && !timer.isRepeating) {
+          timers.splice(index, 1);
         }
       }
     }

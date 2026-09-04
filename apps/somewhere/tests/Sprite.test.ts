@@ -101,8 +101,8 @@ describe(Sprite, () => {
     });
   });
 
-  describe('Sprite.show emit', () => {
-    test('completion pushes the emit exactly once, readable after the channel swap', () => {
+  describe('Sprite.show completion', () => {
+    test('completion pushes the event exactly once, readable after the channel swap', () => {
       let channel = new EventChannel({event: Finished, displayName: 'Test finished'});
       let world = new World({
         onStart: (w) => {
@@ -114,7 +114,7 @@ describe(Sprite, () => {
 
       let sprite = makeSprite();
 
-      sprite.show('spin', {emit: {channel, event: new Finished({name: 'spin'})}});
+      sprite.show('spin', {channel, event: new Finished({name: 'spin'})});
       sprite.view.update(tick(100)); // one-shot completes; push is buffered
 
       expect(channel.events).toHaveLength(0);
@@ -131,7 +131,7 @@ describe(Sprite, () => {
       world.stop();
     });
 
-    test('an interrupted one-shot discards its emit; the replacement keeps its own', () => {
+    test('an interrupted one-shot discards its event; the replacement keeps its own', () => {
       let channel = new EventChannel({event: Finished, displayName: 'Test finished'});
       let world = new World({
         onStart: (w) => {
@@ -143,8 +143,8 @@ describe(Sprite, () => {
 
       let sprite = makeSprite();
 
-      sprite.show('spin', {emit: {channel, event: new Finished({name: 'spin'})}});
-      sprite.show('jab', {emit: {channel, event: new Finished({name: 'jab'})}});
+      sprite.show('spin', {channel, event: new Finished({name: 'spin'})});
+      sprite.show('jab', {channel, event: new Finished({name: 'jab'})});
       sprite.view.update(tick(100));
       world.update(tick(16));
 
@@ -163,12 +163,12 @@ describe(Sprite, () => {
       expect(() => sprite.show('nope')).toThrow('doesn\'t contain animated sprite "nope"');
     });
 
-    test('emit on a looping animation throws', () => {
+    test('event on a looping animation throws', () => {
       let channel = new EventChannel({event: Finished, displayName: 'Test finished'});
       let sprite = makeSprite();
 
       expect(() =>
-        sprite.show('walking-down', {emit: {channel, event: new Finished({name: 'walk'})}}),
+        sprite.show('walking-down', {channel, event: new Finished({name: 'walk'})}),
       ).toThrow('never completes');
     });
   });

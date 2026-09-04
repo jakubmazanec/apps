@@ -20,9 +20,7 @@ describe('timerSystem', () => {
     let channel = new EventChannel({event: Fired, displayName: 'Fired'});
     let event = new Fired({value: 7});
     let entity = new Entity({
-      components: [
-        new TimerComponent({timers: [{timer: new Timer({duration: 100}), emit: {channel, event}}]}),
-      ],
+      components: [new TimerComponent({timers: [new Timer({duration: 100, channel, event})]})],
     });
     let world = new World({
       onStart: (w) => {
@@ -48,12 +46,7 @@ describe('timerSystem', () => {
     let entity = new Entity({
       components: [
         new TimerComponent({
-          timers: [
-            {
-              timer: new Timer({duration: 100, repeat: true}),
-              emit: {channel, event: new Fired({value: 1})},
-            },
-          ],
+          timers: [new Timer({duration: 100, repeat: true, channel, event: new Fired({value: 1})})],
         }),
       ],
     });
