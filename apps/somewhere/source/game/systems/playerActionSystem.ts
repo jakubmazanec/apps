@@ -13,8 +13,8 @@ export const playerActionSystem = new System({
   displayName: 'Player action system',
   components: [PlayerComponent, GraphicsComponent],
   onUpdate: (ticker, system) => {
-    // Last frame's finished spin chimes — the completion emit consumed the
-    // standard way, one frame later, like every timer/tween emit.
+    // Last frame's finished spin chimes — the completion event consumed the
+    // standard way, one frame later, like every timer/tween event.
     if (playerActionFinishedChannel.events.length > 0) {
       playSoundChannel.push(new PlaySoundEvent({name: 'chime'}));
     }
@@ -30,10 +30,8 @@ export const playerActionSystem = new System({
         let {sprite, spriteNamePrefix} = entity.getComponent(GraphicsComponent);
 
         sprite.show(`${spriteNamePrefix}spin`, {
-          emit: {
-            channel: playerActionFinishedChannel,
-            event: new PlayerActionFinished({entity}),
-          },
+          channel: playerActionFinishedChannel,
+          event: new PlayerActionFinished({entity}),
         });
       }
     }

@@ -69,20 +69,20 @@ export const wallHitPopupSystem = new System({
       let motion = popup.getComponent(MotionComponent);
 
       // float up over 400ms; tweenSystem runs late, so it is the last writer of `position`
-      popup.getComponent(TweenComponent).tweens.push({
-        tween: new Tween({
-          target: motion.position,
-          to: {y: y - 6},
-          duration: 400,
-          easing: easeOutQuad,
-        }),
-      });
+      popup
+        .getComponent(TweenComponent)
+        .tweens.push(
+          new Tween({target: motion.position, to: {y: y - 6}, duration: 400, easing: easeOutQuad}),
+        );
 
       // lifetime: after 400ms announce expiry so the cleanup system removes the entity next frame
-      popup.getComponent(TimerComponent).timers.push({
-        timer: new Timer({duration: 400}),
-        emit: {channel: popupExpiredChannel, event: new PopupExpired({entity: popup})},
-      });
+      popup.getComponent(TimerComponent).timers.push(
+        new Timer({
+          duration: 400,
+          channel: popupExpiredChannel,
+          event: new PopupExpired({entity: popup}),
+        }),
+      );
 
       world.addEntity(popup); // deferred to the end of update; safe to call mid-update
     }

@@ -1,6 +1,7 @@
 import * as pixi from 'pixi.js';
 
-import {type EventEmit} from '../scheduler/EventEmit.js';
+import {type Event} from '../ecs/Event.js';
+import {type EventChannel} from '../ecs/EventChannel.js';
 import {type Spriteset} from './Spriteset.js';
 
 export type SpriteOptions<N extends readonly string[] = string[]> = {
@@ -8,7 +9,7 @@ export type SpriteOptions<N extends readonly string[] = string[]> = {
   spriteNames: N;
 };
 
-export type SpriteShowOptions = {emit?: EventEmit | undefined};
+export type SpriteShowOptions = {channel: EventChannel; event: Event};
 
 export class Sprite<const N extends readonly string[] = string[]> {
   /** TBD */
@@ -21,7 +22,7 @@ export class Sprite<const N extends readonly string[] = string[]> {
   view: pixi.AnimatedSprite;
 
   /** TBD */
-  #hasWarnedLoopEmit = false;
+  #hasWarnedLoopEvent = false;
 
   /** TBD */
   #hasWarnedUnknownName = false;
@@ -30,7 +31,7 @@ export class Sprite<const N extends readonly string[] = string[]> {
   #isOneShotPlaying = false;
 
   /** TBD */
-  #pendingEmit: EventEmit | null = null;
+  #pending: SpriteShowOptions | null = null;
 
   constructor({spriteset, spriteNames}: SpriteOptions<N>) {
     let sprites: Record<string, pixi.AnimatedSprite> = {};
@@ -59,7 +60,7 @@ export class Sprite<const N extends readonly string[] = string[]> {
     // AnimatedSprite.update() no-ops unless playing, and show() early-returns
     // for a loop whose name already matches currentSpriteName — so a sprite
     // whose first shown name equals its first constructed name would never
-    // start. One-shots must NOT auto-fire here: no emit can be attached yet
+    // start. One-shots must NOT auto-fire here: no event can be attached yet
     // at construction time, so firing one now would silently drop it.
     if (this.view.loop) {
       this.view.play();
@@ -95,15 +96,15 @@ export class Sprite<const N extends readonly string[] = string[]> {
 
     let isOneShot = !target.loop;
 
-    if (options?.emit && !isOneShot) {
-      let message = `Animated sprite "${String(spriteName)}" loops and never completes, so its emit would never fire!`;
+    if (options && !isOneShot) {
+      let message = `Animated sprite "${String(spriteName)}" loops and never completes, so its event would never fire!`;
 
       if (import.meta.env.DEV) {
         throw new Error(message);
       }
 
-      if (!this.#hasWarnedLoopEmit) {
-        this.#hasWarnedLoopEmit = true;
+      if (!this.#hasWarnedLoopEvent) {
+        this.#hasWarnedLoopEvent = true;
         // eslint-disable-next-line no-console -- loud failure in production builds (DEV throws)
         console.warn(message);
       }
@@ -123,12 +124,12 @@ export class Sprite<const N extends readonly string[] = string[]> {
       return this;
     }
 
-    // Replacing a playing one-shot discards its pending emit, never fires it —
+    // Replacing a playing one-shot discards its pending event, never fires it —
     // the same posture as removing an entity mid-timer, which drops the
-    // timer's emit. Gameplay that awaits a completion event is the code that
+    // timer's event. Gameplay that awaits a completion event is the code that
     // starts one-shots, so it controls interruption.
     this.#detachOnComplete(this.view);
-    this.#pendingEmit = null;
+    this.#pending = null;
     this.#isOneShotPlaying = false;
 
     this.view.stop();
@@ -138,18 +139,18 @@ export class Sprite<const N extends readonly string[] = string[]> {
 
     if (isOneShot) {
       this.#isOneShotPlaying = true;
-      this.#pendingEmit = options?.emit ?? null;
+      this.#pending = options ?? null;
 
       // Fires inside view.update(ticker), i.e. on the world's update path;
       // EventChannel.push is mid-update-safe and the event surfaces next
-      // frame — identical ordering to a timer emit.
+      // frame — identical ordering to a timer event.
       this.view.onComplete = () => {
-        let emit = this.#pendingEmit;
+        let pending = this.#pending;
 
         this.#detachOnComplete(this.view);
         this.#isOneShotPlaying = false;
-        this.#pendingEmit = null;
-        emit?.channel.push(emit.event);
+        this.#pending = null;
+        pending?.channel.push(pending.event);
       };
 
       this.view.gotoAndPlay(0);

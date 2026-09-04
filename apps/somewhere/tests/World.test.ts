@@ -607,6 +607,64 @@ describe(World, () => {
 
       world.stop();
     }, 2000);
+
+    test('adding and immediately removing an entity that was already in the world keeps it', () => {
+      let target = new Entity({components: []});
+      let hasSpawned = false;
+      let spawner = new System({
+        components: [],
+        onUpdate: (ticker, system, world) => {
+          if (!hasSpawned) {
+            hasSpawned = true;
+            world.addEntity(target);
+            world.removeEntity(target);
+          }
+        },
+      });
+      let world = new World({
+        onStart: (w) => {
+          w.addSystem(spawner).addEntity(target);
+        },
+      });
+
+      world.start();
+
+      expect(() => {
+        world.update({deltaTime: 1} as never);
+      }).not.toThrow();
+      expect(world.entities).toContain(target);
+
+      world.stop();
+    }, 2000);
+
+    test('removing and immediately re-adding an entity that was not in the world leaves it out', () => {
+      let spawned = new Entity({components: []});
+      let hasRecycled = false;
+      let recycler = new System({
+        components: [],
+        onUpdate: (ticker, system, world) => {
+          if (!hasRecycled) {
+            hasRecycled = true;
+            world.removeEntity(spawned);
+            world.addEntity(spawned);
+          }
+        },
+      });
+      let world = new World({
+        onStart: (w) => {
+          w.addSystem(recycler);
+        },
+      });
+
+      world.start();
+
+      expect(() => {
+        world.update({deltaTime: 1} as never);
+      }).not.toThrow();
+      expect(world.entities).not.toContain(spawned);
+
+      world.stop();
+    }, 2000);
   });
 
   describe('pause/resume (game UI design §3)', () => {

@@ -9,11 +9,8 @@ export const tweenSystem = new System({
       let {tweens} = entity.getComponent(TweenComponent);
 
       for (let index = tweens.length - 1; index >= 0; index--) {
-        let {tween, emit} = tweens[index]!;
-
         // A tween never repeats, so it always removes its entry on completion.
-        if (tween.update(ticker)) {
-          emit?.channel.push(emit.event);
+        if (tweens[index]!.update(ticker)) {
           tweens.splice(index, 1);
         }
       }
