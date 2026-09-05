@@ -1,0 +1,7 @@
+# Per-user editor state: open files, zoom and scroll positions.
+somewhere.tiled-session
+
+# Regenerated from assets/raw/*.zip via `npm run extract-assets`; never the
+# game's actual source of truth (that's assets/*.tsx, assets/*.png, and the
+# generated public/ artifacts sync-tilesets writes from them).
+extracted/

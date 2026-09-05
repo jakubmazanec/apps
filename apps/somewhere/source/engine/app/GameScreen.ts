@@ -1,0 +1,238 @@
+import {type EventEmitter} from 'eventemitter3';
+import * as pixi from 'pixi.js';
+
+import {Scheduler} from '../scheduler/Scheduler.js';
+import {type UiFocusEvent, UiRoot} from '../ui/UiRoot.js';
+import {type AnyGameScreen} from './AnyGameScreen.js';
+import {type Game} from './Game.js';
+import {type GameScreenOptions} from './GameScreenOptions.js';
+import {type GameScreenState} from './GameScreenState.js';
+import {type Renderable} from './Renderable.js';
+
+export class GameScreen<
+  T = undefined,
+  Events extends EventEmitter.ValidEventTypes = Record<never, never>,
+> {
+  /** Asset bundles the screen requires. */
+  readonly assetBundles: string[];
+
+  // TODO: type should be some conditional type for proper typing of undefined and such
+  /** Storage for whatever `onAttach` returns. */
+  contents!: T;
+
+  /** Scheduler. */
+  readonly scheduler = new Scheduler();
+
+  /** View. */
+  readonly view: pixi.Container = new pixi.Container();
+
+  /** Stack to register disposers that cleanup resources when needed. */
+  #disposables = new DisposableStack();
+
+  /** Events. */
+  readonly #events?: EventEmitter<Events>;
+
+  /** Game. */
+  #game: Game | null = null;
+
+  /** Lifecycle hook called when screen is attached. Returned value is stored in `contents`. */
+  readonly #onAttach?: (screen: AnyGameScreen, game: Game) => T;
+
+  /** Lifecycle hook called when there is an unhandled cancel command. */
+  readonly #onCancel?: (screen: AnyGameScreen, game: Game) => void;
+
+  // TODO: better comment and maybe better name or even API?
+  /** Lifecycle hook. */
+  readonly #onFocusEvent?: (event: UiFocusEvent) => void;
+
+  /** Lifecycle hook called when screen is hidden. */
+  readonly #onHide?: (screen: AnyGameScreen, game: Game) => Promise<void> | void;
+
+  /** Lifecycle hook called when screen is resized. */
+  readonly #onResize?: (screen: AnyGameScreen, game: Game) => void;
+
+  /** Lifecycle hook called when screen is showed. */
+  readonly #onShow?: (screen: AnyGameScreen, game: Game) => Promise<void> | void;
+
+  /** Lifecycle hook called on each tick. */
+  readonly #onUpdate?: (ticker: pixi.Ticker, screen: AnyGameScreen, game: Game) => void;
+
+  /** State; which part of its life cycle the instance is currently in. */
+  #state: GameScreenState = 'created';
+
+  /** UI. */
+  #ui: UiRoot | null = null;
+
+  constructor({
+    assetBundles = [],
+    events,
+    onAttach,
+    onFocusEvent,
+    onShow,
+    onHide,
+    onUpdate,
+    onResize,
+    onCancel,
+  }: GameScreenOptions<T, Events>) {
+    this.assetBundles = assetBundles;
+
+    if (events !== undefined) {
+      this.#events = events;
+    }
+
+    if (onFocusEvent !== undefined) {
+      this.#onFocusEvent = onFocusEvent;
+    }
+
+    if (onAttach !== undefined) {
+      this.#onAttach = onAttach;
+    }
+
+    if (onShow !== undefined) {
+      this.#onShow = onShow;
+    }
+
+    if (onHide !== undefined) {
+      this.#onHide = onHide;
+    }
+
+    if (onUpdate !== undefined) {
+      this.#onUpdate = onUpdate;
+    }
+
+    if (onResize !== undefined) {
+      this.#onResize = onResize;
+    }
+
+    if (onCancel !== undefined) {
+      this.#onCancel = onCancel;
+    }
+  }
+
+  /** Game. */
+  get game(): Game {
+    if (!this.#game) {
+      throw new Error('Screen is not attached to a game!');
+    }
+
+    return this.#game;
+  }
+
+  /** State. */
+  get state(): GameScreenState {
+    return this.#state;
+  }
+
+  /** UI. */
+  get ui(): UiRoot {
+    if (!this.#ui) {
+      throw new Error('UI is not created on the screen!');
+    }
+
+    return this.#ui;
+  }
+
+  /** Adds a renderable to the screen's view. */
+  addToView(renderable: Renderable) {
+    this.view.addChild(renderable.view);
+    this.view.setChildIndex(this.ui.view, this.view.children.length - 1);
+    this.game.app.ticker.add(renderable.update, renderable);
+  }
+
+  /** @internal Called by `Game`. */
+  attach(game: Game) {
+    if (this.#state !== 'created') {
+      throw new Error('Screen is already attached to a game!');
+    }
+
+    this.#game = game;
+    this.#state = 'attached';
+    this.#ui = new UiRoot({theme: game.theme, onFocusEvent: this.#onFocusEvent});
+    this.view.addChild(this.#ui.view);
+    this.contents = this.#onAttach?.(this, game) as T;
+  }
+
+  /** Triggers cancel lifecycle hook. */
+  cancel() {
+    this.#onCancel?.(this, this.game);
+  }
+
+  /** Destroys the instance. */
+  destroy() {
+    this.#disposables.dispose();
+    this.ui.destroy();
+    this.view.destroy({children: true});
+  }
+
+  /** @internal Called by `Game`. */
+  async hide() {
+    if (this.#state === 'created') {
+      throw new Error("Screen can't be hidden, it must be attached to a game first!");
+    }
+
+    // Re-hiding a hidden screen is no-op.
+    if (this.#state !== 'shown') {
+      return;
+    }
+
+    this.#state = 'attached';
+
+    this.ui.clearFocus();
+    this.#disposables.dispose();
+
+    this.#disposables = new DisposableStack();
+
+    await this.#onHide?.(this, this.game);
+  }
+
+  /** Removes a renderable from the screen's view. */
+  removeFromView(renderable: Renderable) {
+    this.view.removeChild(renderable.view);
+    this.game.app.ticker.remove(renderable.update, renderable);
+  }
+
+  /** @internal Called by `Game`. */
+  resize() {
+    this.#onResize?.(this, this.game);
+  }
+
+  /** @internal Called by `Game`. */
+  async show() {
+    if (this.#state === 'created') {
+      throw new Error("Screen can't be shown, it must be attached to a game first!");
+    }
+
+    // Re-showing a shown screen is no-op.
+    if (this.#state !== 'attached') {
+      return;
+    }
+
+    this.#state = 'shown';
+
+    // Register scheduler teardown on the (per-hide) disposables stack; re-armed each show because
+    // hide() disposes and replaces the stack. A single dispose() then cancels in-flight
+    // tweens/timers.
+    this.#disposables.defer(() => this.scheduler.clear());
+    await this.#onShow?.(this, this.game);
+  }
+
+  /** Subscribes `handler` to one of the screen's events. */
+  subscribe<E extends EventEmitter.EventNames<Events>>(
+    event: E,
+    handler: EventEmitter.EventListener<Events, E>,
+  ): this {
+    this.#events?.on(event, handler);
+    this.#disposables.defer(() => {
+      this.#events?.off(event, handler);
+    });
+
+    return this;
+  }
+
+  /** @internal Called by game's ticker on each tick. */
+  update(ticker: pixi.Ticker) {
+    this.scheduler.update(ticker);
+    this.ui.update();
+    this.#onUpdate?.(ticker, this, this.game);
+  }
+}
