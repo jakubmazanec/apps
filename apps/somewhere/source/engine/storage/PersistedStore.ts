@@ -13,18 +13,14 @@ import {type PersistedStoreOptions} from './PersistedStoreOptions';
  */
 export class PersistedStore<T> {
   /** TBD */
-  readonly #defaults: () => T;
-
-  /** TBD */
   readonly #key: string;
 
   /** TBD */
-  readonly #schema: z.ZodType<T>;
+  readonly #schema: z.ZodDefault<z.ZodType<T>> | z.ZodPrefault<z.ZodType<T>>;
 
-  constructor({key, schema, defaults}: PersistedStoreOptions<T>) {
+  constructor({key, schema}: PersistedStoreOptions<T>) {
     this.#key = key;
     this.#schema = schema;
-    this.#defaults = defaults;
   }
 
   /** TBD */
@@ -101,6 +97,15 @@ export class PersistedStore<T> {
       // eslint-disable-next-line no-console -- persistence is best-effort: a quota or private-mode failure must never reach gameplay, but should stay debuggable
       console.warn(`PersistedStore "${this.#key}": write failed.`, error);
     }
+  }
+
+  /**
+   * The schema's own default, rebuilt on every call: a fresh object graph the
+   * caller is free to mutate. The option type demands a defaulted schema, so
+   * this cannot throw.
+   */
+  #defaults(): T {
+    return this.#schema.parse(undefined);
   }
 
   /** TBD */

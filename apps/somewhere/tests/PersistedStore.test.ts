@@ -3,7 +3,7 @@ import {z} from 'zod';
 
 import {PersistedStore} from '../source/engine/storage/PersistedStore.js';
 
-const schema = z.object({count: z.number()});
+const schema = z.object({count: z.number()}).prefault({count: 0});
 
 type TestData = z.infer<typeof schema>;
 
@@ -26,11 +26,7 @@ function stubStorage(seed: Record<string, string> = {}) {
 }
 
 function createStore() {
-  return new PersistedStore<TestData>({
-    key: 'test:data',
-    schema,
-    defaults: () => ({count: 0}),
-  });
+  return new PersistedStore<TestData>({key: 'test:data', schema});
 }
 
 describe(PersistedStore, () => {
@@ -108,15 +104,26 @@ describe(PersistedStore, () => {
     expect(store.load()).toEqual({count: 42});
   });
 
-  test('defaults is a factory: two failed loads return distinct objects', () => {
+  test('the schema default is rebuilt per load: distinct objects, nested included', () => {
     stubStorage();
 
-    let store = createStore();
+    // Nested, because that is where a `.default(literal)` schema would leak a
+    // shared instance: zod only shallow-clones a default, while a prefault is
+    // re-parsed into a fresh object graph.
+    let store = new PersistedStore({
+      key: 'test:data',
+      schema: z.object({volumes: z.object({master: z.number()})}).prefault({volumes: {master: 1}}),
+    });
     let first = store.load();
     let second = store.load();
 
     expect(first).toEqual(second);
     expect(first).not.toBe(second);
+    expect(first.volumes).not.toBe(second.volumes);
+
+    first.volumes.master = 0.5;
+
+    expect(store.load().volumes.master).toBe(1);
   });
 
   test('a throwing setItem (quota) is swallowed with one warning', () => {

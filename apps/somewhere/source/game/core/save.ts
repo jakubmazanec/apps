@@ -36,9 +36,8 @@ export type SaveData = z.infer<typeof saveSchema>;
 
 const saveStore = new PersistedStore<SaveData | null>({
   key: 'somewhere:save',
-  schema: saveSchema.nullable(),
   // null = "no save exists" — drives the main menu's Continue visibility.
-  defaults: () => null,
+  schema: saveSchema.nullable().prefault(null),
 });
 // The Continue hand-off: the menu stages the save before the screen swap and
 // worldScreen.onShow applies it after world.start().
