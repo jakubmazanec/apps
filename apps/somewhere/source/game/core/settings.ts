@@ -3,29 +3,29 @@ import {z} from 'zod';
 import {PersistedStore} from '../../engine/storage/PersistedStore.js';
 import {debounce} from '../../engine/utilities/debounce.js';
 
+// `.default()` covers a key the payload is missing, `.catch()` a value that is
+// present but unusable; zod only makes the former optional in the input type,
+// so a field that must survive both needs the pair.
+const volume = z.number().min(0).max(1).default(1).catch(1);
+// Every field recovers on its own, so a payload only loses what is actually
+// wrong: a key it predates defaults in, a value out of range snaps back, and
+// the rest of the stored settings survive. Adding a field is therefore not a
+// breaking change for players who already have settings stored.
+const settingsSchema = z.object({
+  playerName: z.string().default('').catch(''),
+  volumes: z.object({master: volume, music: volume, sfx: volume, ui: volume}).prefault({}),
+});
 const settingsStore = new PersistedStore({
   key: 'somewhere:settings',
-  schema: z
-    .object({
-      playerName: z.string(),
-      volumes: z.object({
-        master: z.number().min(0).max(1),
-        music: z.number().min(0).max(1),
-        sfx: z.number().min(0).max(1),
-        ui: z.number().min(0).max(1),
-      }),
-    })
-    .prefault({playerName: '', volumes: {master: 1, music: 1, sfx: 1, ui: 1}}),
+  // `{}` rather than a spelled-out literal: the per-field defaults above are
+  // the single source of the values, and prefault re-parses to fill them in.
+  schema: settingsSchema.prefault({}),
 });
 
 // Game settings: a plain mutable object, written directly by the Options UI
 // and read where needed (no getter/setter ceremony). Hydrated from
 // localStorage at module load; write sites call saveSettings() right after
-// each mutation. A corrupt or schema-rejected payload silently resets to
-// defaults — the schema is the only gate. A payload from before the volumes
-// migration (a single soundEnabled boolean, no volumes key) also fails
-// validation and resets everything, including playerName — accepted, see
-// docs/superpowers/specs/2026-07-25-audio-levels-design.md.
+// each mutation.
 export const settings = settingsStore.load();
 
 export function saveSettings(): void {

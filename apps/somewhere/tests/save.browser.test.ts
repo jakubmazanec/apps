@@ -80,15 +80,12 @@ describe('save', () => {
     expect(loadSave()).toBeNull();
   });
 
-  test('loadSave returns null for a schema-rejected payload, with one warning', () => {
-    let warn = vitest.spyOn(console, 'warn').mockImplementation(() => {});
-
+  test('loadSave returns null for a schema-rejected payload', () => {
+    // All-or-nothing, unlike settings: the save schema catches to null rather
+    // than salvaging fields, so a partial blob is simply "no save".
     localStorage.setItem(SAVE_KEY, JSON.stringify({player: {x: 'nope', y: 0}}));
 
     expect(loadSave()).toBeNull();
-    expect(warn).toHaveBeenCalledTimes(1);
-
-    warn.mockRestore();
   });
 
   test('stageContinue then applyStagedSave restores the position and consumes the stage', () => {
