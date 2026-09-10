@@ -22,9 +22,7 @@ export type TweenOptions<T> = {
  * the target values over time.
  */
 export class Tween<T = Record<string, number>> {
-  /**
-   * Delivers the completion: calls the hook, or pushes the event on its channel (seen next frame).
-   */
+  /** Completes the tween.  */
   readonly #complete: () => void;
 
   /** Duration in milliseconds. */
