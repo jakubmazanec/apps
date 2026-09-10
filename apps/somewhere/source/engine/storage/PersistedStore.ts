@@ -21,14 +21,10 @@ export class PersistedStore<T> {
   /** TBD */
   readonly #schema: z.ZodType<T>;
 
-  /** TBD */
-  readonly #storage: Pick<Storage, 'getItem' | 'removeItem' | 'setItem'> | undefined;
-
-  constructor({key, schema, defaults, storage}: PersistedStoreOptions<T>) {
+  constructor({key, schema, defaults}: PersistedStoreOptions<T>) {
     this.#key = key;
     this.#schema = schema;
     this.#defaults = defaults;
-    this.#storage = storage;
   }
 
   /** TBD */
@@ -109,10 +105,6 @@ export class PersistedStore<T> {
 
   /** TBD */
   #resolveStorage(): Pick<Storage, 'getItem' | 'removeItem' | 'setItem'> | undefined {
-    if (this.#storage !== undefined) {
-      return this.#storage;
-    }
-
     // Accessing the global can itself throw (browser privacy modes); absent
     // or throwing both mean "no persistence this session". lib.dom types the
     // global as always-present, but in Node it is undefined at runtime.

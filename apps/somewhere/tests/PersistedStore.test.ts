@@ -1,4 +1,4 @@
-import {describe, expect, test, vitest} from 'vitest';
+import {afterEach, describe, expect, test, vitest} from 'vitest';
 import {z} from 'zod';
 
 import {PersistedStore} from '../source/engine/storage/PersistedStore.js';
@@ -7,13 +7,12 @@ const schema = z.object({count: z.number()});
 
 type TestData = z.infer<typeof schema>;
 
-// Map-backed fake storage (the AudioMixer `createContext` injection pattern):
-// this suite never touches the real localStorage.
-function createFakeStorage(seed: Record<string, string> = {}) {
+// Map-backed fake installed as the global, the way the AudioMixer suite stubs
+// AudioContext: this suite never touches a real localStorage.
+function stubStorage(seed: Record<string, string> = {}) {
   let map = new Map(Object.entries(seed));
 
-  return {
-    map,
+  vitest.stubGlobal('localStorage', {
     getItem: (key: string) => map.get(key) ?? null,
     removeItem: (key: string) => {
       map.delete(key);
@@ -21,22 +20,30 @@ function createFakeStorage(seed: Record<string, string> = {}) {
     setItem: (key: string, value: string) => {
       map.set(key, value);
     },
-  };
+  });
+
+  return map;
 }
 
-function createStore(storage: Pick<Storage, 'getItem' | 'removeItem' | 'setItem'>) {
+function createStore() {
   return new PersistedStore<TestData>({
     key: 'test:data',
     schema,
     defaults: () => ({count: 0}),
-    storage,
   });
 }
 
 describe(PersistedStore, () => {
+  afterEach(() => {
+    vitest.unstubAllGlobals();
+  });
+
   test('a missing key returns defaults without warning', () => {
     let warn = vitest.spyOn(console, 'warn').mockImplementation(() => {});
-    let store = createStore(createFakeStorage());
+
+    stubStorage();
+
+    let store = createStore();
 
     expect(store.load()).toEqual({count: 0});
     expect(warn).not.toHaveBeenCalled();
@@ -46,8 +53,11 @@ describe(PersistedStore, () => {
 
   test('corrupt JSON returns defaults with one warning', () => {
     let warn = vitest.spyOn(console, 'warn').mockImplementation(() => {});
+
     // eslint-disable-next-line @typescript-eslint/naming-convention -- test key intentionally uses namespace:key pattern
-    let store = createStore(createFakeStorage({'test:data': '{not json'}));
+    stubStorage({'test:data': '{not json'});
+
+    let store = createStore();
 
     expect(store.load()).toEqual({count: 0});
     expect(warn).toHaveBeenCalledTimes(1);
@@ -57,8 +67,11 @@ describe(PersistedStore, () => {
 
   test('schema-rejected data returns defaults with one warning', () => {
     let warn = vitest.spyOn(console, 'warn').mockImplementation(() => {});
+
     // eslint-disable-next-line @typescript-eslint/naming-convention -- test key intentionally uses namespace:key pattern
-    let store = createStore(createFakeStorage({'test:data': JSON.stringify({count: 'nope'})}));
+    stubStorage({'test:data': JSON.stringify({count: 'nope'})});
+
+    let store = createStore();
 
     expect(store.load()).toEqual({count: 0});
     expect(warn).toHaveBeenCalledTimes(1);
@@ -68,18 +81,16 @@ describe(PersistedStore, () => {
 
   test('a throwing getItem returns defaults with one warning', () => {
     let warn = vitest.spyOn(console, 'warn').mockImplementation(() => {});
-    let store = new PersistedStore<TestData>({
-      key: 'test:data',
-      schema,
-      defaults: () => ({count: 0}),
-      storage: {
-        getItem: () => {
-          throw new Error('SecurityError');
-        },
-        setItem: () => {},
-        removeItem: () => {},
+
+    vitest.stubGlobal('localStorage', {
+      getItem: () => {
+        throw new Error('SecurityError');
       },
+      setItem: () => {},
+      removeItem: () => {},
     });
+
+    let store = createStore();
 
     expect(store.load()).toEqual({count: 0});
     expect(warn).toHaveBeenCalledTimes(1);
@@ -88,7 +99,9 @@ describe(PersistedStore, () => {
   });
 
   test('save then load roundtrips a valid value', () => {
-    let store = createStore(createFakeStorage());
+    stubStorage();
+
+    let store = createStore();
 
     store.save({count: 42});
 
@@ -96,7 +109,9 @@ describe(PersistedStore, () => {
   });
 
   test('defaults is a factory: two failed loads return distinct objects', () => {
-    let store = createStore(createFakeStorage());
+    stubStorage();
+
+    let store = createStore();
     let first = store.load();
     let second = store.load();
 
@@ -106,18 +121,16 @@ describe(PersistedStore, () => {
 
   test('a throwing setItem (quota) is swallowed with one warning', () => {
     let warn = vitest.spyOn(console, 'warn').mockImplementation(() => {});
-    let store = new PersistedStore<TestData>({
-      key: 'test:data',
-      schema,
-      defaults: () => ({count: 0}),
-      storage: {
-        getItem: () => null,
-        setItem: () => {
-          throw new Error('QuotaExceededError');
-        },
-        removeItem: () => {},
+
+    vitest.stubGlobal('localStorage', {
+      getItem: () => null,
+      setItem: () => {
+        throw new Error('QuotaExceededError');
       },
+      removeItem: () => {},
     });
+
+    let store = createStore();
 
     expect(() => {
       store.save({count: 1});
@@ -129,30 +142,24 @@ describe(PersistedStore, () => {
 
   test('clear removes the key', () => {
     // eslint-disable-next-line @typescript-eslint/naming-convention -- test key intentionally uses namespace:key pattern
-    let storage = createFakeStorage({'test:data': JSON.stringify({count: 7})});
-    let store = createStore(storage);
+    let map = stubStorage({'test:data': JSON.stringify({count: 7})});
+    let store = createStore();
 
     store.clear();
 
-    expect(storage.map.has('test:data')).toBe(false);
+    expect(map.has('test:data')).toBe(false);
     expect(store.load()).toEqual({count: 0});
   });
 
-  test('no storage option and no global: load defaults, save and clear no-op', () => {
+  test('no global storage: load defaults, save and clear no-op', () => {
     vitest.stubGlobal('localStorage', undefined);
 
-    let store = new PersistedStore<TestData>({
-      key: 'test:data',
-      schema,
-      defaults: () => ({count: 0}),
-    });
+    let store = createStore();
 
     expect(store.load()).toEqual({count: 0});
     expect(() => {
       store.save({count: 1});
       store.clear();
     }).not.toThrow();
-
-    vitest.unstubAllGlobals();
   });
 });
