@@ -5,16 +5,17 @@ import {debounce} from '../../engine/utilities/debounce.js';
 
 const settingsStore = new PersistedStore({
   key: 'somewhere:settings',
-  schema: z.object({
-    playerName: z.string(),
-    volumes: z.object({
-      master: z.number().min(0).max(1),
-      music: z.number().min(0).max(1),
-      sfx: z.number().min(0).max(1),
-      ui: z.number().min(0).max(1),
-    }),
-  }),
-  defaults: () => ({playerName: '', volumes: {master: 1, music: 1, sfx: 1, ui: 1}}),
+  schema: z
+    .object({
+      playerName: z.string(),
+      volumes: z.object({
+        master: z.number().min(0).max(1),
+        music: z.number().min(0).max(1),
+        sfx: z.number().min(0).max(1),
+        ui: z.number().min(0).max(1),
+      }),
+    })
+    .prefault({playerName: '', volumes: {master: 1, music: 1, sfx: 1, ui: 1}}),
 });
 
 // Game settings: a plain mutable object, written directly by the Options UI
