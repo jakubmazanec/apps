@@ -1,4 +1,4 @@
-import {afterEach, describe, expect, test, vitest} from 'vitest';
+import {afterEach, describe, expect, test} from 'vitest';
 
 const SETTINGS_KEY = 'somewhere:settings';
 const DEFAULT_VOLUMES = {master: 1, music: 1, sfx: 1, ui: 1};
@@ -46,30 +46,36 @@ describe('settings', () => {
     expect(settings).toEqual({playerName: 'Ada', volumes});
   });
 
-  test('a schema-rejected payload resets to defaults with one warning', async () => {
-    let warn = vitest.spyOn(console, 'warn').mockImplementation(() => {});
+  test('an invalid field resets alone, leaving the valid ones stored', async () => {
+    let volumes = {master: 0.5, music: 0.2, sfx: 0.8, ui: 0.3};
 
-    localStorage.setItem(SETTINGS_KEY, JSON.stringify({playerName: 42}));
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify({playerName: 42, volumes}));
 
     let {settings} = await importSettings();
 
-    expect(settings).toEqual({playerName: '', volumes: DEFAULT_VOLUMES});
-    expect(warn).toHaveBeenCalledTimes(1);
-
-    warn.mockRestore();
+    expect(settings).toEqual({playerName: '', volumes});
   });
 
-  test('a pre-migration payload (soundEnabled, no volumes) resets everything, including playerName', async () => {
-    let warn = vitest.spyOn(console, 'warn').mockImplementation(() => {});
+  test('an out-of-range volume snaps back without disturbing its siblings', async () => {
+    localStorage.setItem(
+      SETTINGS_KEY,
+      JSON.stringify({playerName: 'Ada', volumes: {master: 9, music: 0.2, sfx: 0.8, ui: 0.3}}),
+    );
 
+    let {settings} = await importSettings();
+
+    expect(settings).toEqual({
+      playerName: 'Ada',
+      volumes: {master: 1, music: 0.2, sfx: 0.8, ui: 0.3},
+    });
+  });
+
+  test('a pre-migration payload (soundEnabled, no volumes) keeps playerName', async () => {
     localStorage.setItem(SETTINGS_KEY, JSON.stringify({playerName: 'Ada', soundEnabled: false}));
 
     let {settings} = await importSettings();
 
-    expect(settings).toEqual({playerName: '', volumes: DEFAULT_VOLUMES});
-    expect(warn).toHaveBeenCalledTimes(1);
-
-    warn.mockRestore();
+    expect(settings).toEqual({playerName: 'Ada', volumes: DEFAULT_VOLUMES});
   });
 
   test('saveSettings writes the current object', async () => {

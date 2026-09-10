@@ -36,7 +36,10 @@ export type SaveData = z.infer<typeof saveSchema>;
 
 const saveStore = new PersistedStore<SaveData | null>({
   key: 'somewhere:save',
-  // null = "no save exists" — drives the main menu's Continue visibility.
+  // null = "no save exists" — drives the main menu's Continue visibility, and
+  // is also where anything unusable lands: unlike settings, a save is
+  // all-or-nothing, because a half-defaulted blob would drop the player
+  // somewhere they never stood.
   schema: saveSchema.nullable().prefault(null),
 });
 // The Continue hand-off: the menu stages the save before the screen swap and
