@@ -11,7 +11,9 @@ export const timerSystem = new System({
       for (let index = timers.length - 1; index >= 0; index--) {
         let timer = timers[index]!;
 
-        if (timer.update(ticker) && !timer.isRepeating) {
+        timer.update(ticker);
+
+        if (timer.isCompleted) {
           timers.splice(index, 1);
         }
       }

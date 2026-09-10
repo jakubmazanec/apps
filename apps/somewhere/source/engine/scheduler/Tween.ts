@@ -37,13 +37,13 @@ export class Tween<T = Record<string, number>> {
   /** Starting values. */
   readonly #from: Partial<Record<NumericKeys<T>, number>> = {};
 
-  /** Set once the completion has been delivered. */
+  /** Is the tween completed? */
   #isCompleted = false;
 
   /** Object whose properties are interpolated. */
   readonly #target: T;
 
-  /** End values. */
+  /** Target values. */
   readonly #to: Partial<Pick<T, NumericKeys<T>>>;
 
   constructor(options: TweenOptions<T>) {
@@ -60,22 +60,27 @@ export class Tween<T = Record<string, number>> {
         (options.onComplete ?? (() => {}))
       : () => options.channel.push(options.event);
 
-    let source = options.target as Record<NumericKeys<T>, number>;
-
     for (let key of Object.keys(options.to) as Array<NumericKeys<T>>) {
-      this.#from[key] = source[key];
+      this.#from[key] = (options.target as Record<NumericKeys<T>, number>)[key];
     }
   }
 
-  /**
-   * Advances the tween on each tick; delivers the completion once and returns true from then on.
-   */
-  update(ticker: pixi.Ticker): boolean {
+  /** Is the tween completed? */
+  get isCompleted(): boolean {
+    return this.#isCompleted;
+  }
+
+  /** Advances the tween on each tick and delivers the completion. */
+  update(ticker: pixi.Ticker) {
+    if (this.#isCompleted) {
+      return;
+    }
+
     this.#elapsed += ticker.deltaMS;
 
-    // Guard `duration <= 0`: without it a zero-delta tick yields 0/0 = NaN and poisons the target.
+    // Zero or negative duration means progress is 100%, otherwise it would lead to 0/0 = NaN.
     let progress = this.#duration <= 0 ? 1 : Math.min(this.#elapsed / this.#duration, 1);
-    let eased = this.#easing(progress);
+    let easedProgress = this.#easing(progress);
     let target = this.#target as Record<NumericKeys<T>, number>;
     let to = this.#to as Partial<Record<NumericKeys<T>, number>>;
 
@@ -84,19 +89,14 @@ export class Tween<T = Record<string, number>> {
       let from = this.#from[key]!;
 
       // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- iterating on existing keys
-      target[key] = from + (to[key]! - from) * eased;
+      target[key] = from + (to[key]! - from) * easedProgress;
     }
 
     if (progress < 1) {
-      return false;
+      return;
     }
 
-    // At most once: the class guarantees single delivery, not each owner.
-    if (!this.#isCompleted) {
-      this.#isCompleted = true;
-      this.#complete();
-    }
-
-    return true;
+    this.#isCompleted = true;
+    this.#complete();
   }
 }
