@@ -410,8 +410,7 @@ export class World {
     }
 
     // Only after update is done, we can add or remove entities. An entity queued for
-    // both keeps its pre-tick state: the mutual-exclusion checks cancel the pair, in
-    // either issue order.
+    // both keeps its state thanks to the the mutual-exclusion checks.
     for (let entity of this.#pendingAdditions) {
       if (!this.#pendingRemovals.includes(entity) && !this.entities.includes(entity)) {
         this.addEntity(entity);
@@ -425,7 +424,6 @@ export class World {
     }
 
     this.#pendingAdditions.length = 0;
-
     this.#pendingRemovals.length = 0;
 
     for (let channel of this.eventChannels) {
