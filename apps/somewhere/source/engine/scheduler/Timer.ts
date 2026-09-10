@@ -22,10 +22,10 @@ export class Timer {
   /** Elapsed milliseconds. */
   #elapsed = 0;
 
-  /** Set once a non-repeating timer completes. */
+  /** Is the timer completed? A repeating timer never completes. */
   #isCompleted = false;
 
-  /** Whether the timer restarts after completing. */
+  /** Does the timer restart after completing? */
   readonly #isRepeating: boolean;
 
   constructor(options: TimerOptions) {
@@ -35,11 +35,15 @@ export class Timer {
 
     this.#duration = options.duration;
     this.#isRepeating = options.repeat ?? false;
-    // `'channel' in options` would not narrow here: both members declare the prop.
     this.#complete =
       options.channel === undefined ?
         (options.onComplete ?? (() => {}))
       : () => options.channel.push(options.event);
+  }
+
+  /** Is the timer completed? A repeating timer never completes. */
+  get isCompleted(): boolean {
+    return this.#isCompleted;
   }
 
   /** Does the timer restart after completing? */
@@ -48,21 +52,19 @@ export class Timer {
   }
 
   /**
-   * Advances the timer on each tick. Delivers the completion and returns true when it fires; a
-   * finished one-shot returns false from then on.
+   * Advances the timer on each tick and delivers the completion.
    */
-  update(ticker: pixi.Ticker): boolean {
+  update(ticker: pixi.Ticker) {
     if (this.#isCompleted) {
-      return false;
+      return;
     }
 
     this.#elapsed += ticker.deltaMS;
 
     if (this.#elapsed < this.#duration) {
-      return false;
+      return;
     }
 
-    // State first, then delivery: a hook that throws must not re-fire on the next tick.
     if (this.#isRepeating) {
       this.#elapsed %= this.#duration;
     } else {
@@ -70,7 +72,5 @@ export class Timer {
     }
 
     this.#complete();
-
-    return true;
   }
 }

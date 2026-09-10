@@ -70,13 +70,25 @@ export class Scheduler {
     let timers = [...this.#timers];
 
     for (let tween of tweens) {
-      if (this.#tweens.has(tween) && tween.update(ticker)) {
+      if (!this.#tweens.has(tween)) {
+        continue;
+      }
+
+      tween.update(ticker);
+
+      if (tween.isCompleted) {
         this.#tweens.delete(tween);
       }
     }
 
     for (let timer of timers) {
-      if (this.#timers.has(timer) && timer.update(ticker) && !timer.isRepeating) {
+      if (!this.#timers.has(timer)) {
+        continue;
+      }
+
+      timer.update(ticker);
+
+      if (timer.isCompleted) {
         this.#timers.delete(timer);
       }
     }

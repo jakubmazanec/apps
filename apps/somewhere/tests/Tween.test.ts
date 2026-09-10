@@ -18,15 +18,19 @@ describe(Tween, () => {
     let target = {x: 10};
     let tween = new Tween({target, to: {x: 20}, duration: 100});
 
-    expect(tween.update(tick(50))).toBe(false);
+    tween.update(tick(50));
+
+    expect(tween.isCompleted).toBe(false);
     expect(target.x).toBeCloseTo(15);
   });
 
-  test('reaches the end value and returns true on the completing frame', () => {
+  test('reaches the end value and is completed on the completing frame', () => {
     let target = {x: 0};
     let tween = new Tween({target, to: {x: 100}, duration: 100});
 
-    expect(tween.update(tick(100))).toBe(true);
+    tween.update(tick(100));
+
+    expect(tween.isCompleted).toBe(true);
     expect(target.x).toBeCloseTo(100);
   });
 
@@ -34,7 +38,9 @@ describe(Tween, () => {
     let target = {x: 0};
     let tween = new Tween({target, to: {x: 100}, duration: 100});
 
-    expect(tween.update(tick(500))).toBe(true);
+    tween.update(tick(500));
+
+    expect(tween.isCompleted).toBe(true);
     expect(target.x).toBeCloseTo(100);
   });
 
@@ -61,7 +67,9 @@ describe(Tween, () => {
     let target = {x: 0};
     let tween = new Tween({target, to: {x: 100}, duration: 0});
 
-    expect(tween.update(tick(0))).toBe(true);
+    tween.update(tick(0));
+
+    expect(tween.isCompleted).toBe(true);
     expect(target.x).toBe(100);
     expect(Number.isNaN(target.x)).toBe(false);
   });
@@ -99,9 +107,12 @@ describe(Tween, () => {
     let target = {x: 0};
     let tween = new Tween({target, to: {x: 100}, duration: 100, onComplete});
 
-    expect(tween.update(tick(50))).toBe(false);
+    tween.update(tick(50));
+
     expect(onComplete).not.toHaveBeenCalled();
-    expect(tween.update(tick(50))).toBe(true);
+
+    tween.update(tick(50));
+
     expect(onComplete).toHaveBeenCalledTimes(1);
   });
 
@@ -114,7 +125,7 @@ describe(Tween, () => {
     let target = {x: 0};
     let tween = new Tween({target, to: {x: 100}, duration: 100, channel, event});
 
-    expect(tween.update(tick(100))).toBe(true);
+    tween.update(tick(100));
 
     expect(channel.events).toHaveLength(0);
 
@@ -124,14 +135,17 @@ describe(Tween, () => {
     expect(channel.events[0]).toBe(event);
   });
 
-  test('after completion a further update returns true, keeps the end value and does not deliver again', () => {
+  test('after completion a further update stays completed, keeps the end value and does not deliver again', () => {
     let onComplete = vitest.fn<() => void>();
     let target = {x: 0};
     let tween = new Tween({target, to: {x: 100}, duration: 100, onComplete});
 
-    expect(tween.update(tick(100))).toBe(true);
-    expect(tween.update(tick(100))).toBe(true);
+    tween.update(tick(100));
+    tween.update(tick(100));
+
+    expect(tween.isCompleted).toBe(true);
     expect(target.x).toBeCloseTo(100);
+
     expect(onComplete).toHaveBeenCalledTimes(1);
   });
 });
