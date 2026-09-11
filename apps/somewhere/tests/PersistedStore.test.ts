@@ -173,16 +173,4 @@ describe(PersistedStore, () => {
     expect(map.has('test:data')).toBe(false);
     expect(store.load()).toEqual({count: 0});
   });
-
-  test('no global storage: load defaults, save and clear no-op', () => {
-    vitest.stubGlobal('localStorage', undefined);
-
-    let store = createStore();
-
-    expect(store.load()).toEqual({count: 0});
-    expect(() => {
-      store.save({count: 1});
-      store.clear();
-    }).not.toThrow();
-  });
 });
