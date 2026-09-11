@@ -2,23 +2,12 @@ import {type z} from 'zod';
 
 import {type PersistedStoreOptions} from './PersistedStoreOptions';
 
-/**
- * A schema-validated localStorage wrapper: the one code path through which
- * anything is persisted. `load()` never throws — storage absence, unreadable
- * JSON and a missing key all reach the schema as `undefined`, and a payload
- * the schema rejects is recovered by the schema's own defaults — and writes
- * are best-effort (quota/private-mode failures are swallowed with a warning).
- * The stored shape is the JSON-serialized value itself: no envelope, no
- * version field. The schema is the only gate, and it decides alone what a
- * mismatch costs: a stale field, or the whole blob. A schema whose own
- * prefault does not validate is the one way through: that ZodError is a
- * caller bug, and surfacing it beats returning a value the schema rejects.
- */
+/** A schema-validated localStorage wrapper. */
 export class PersistedStore<T> {
-  /** TBD */
+  /** Local sotrage key. */
   readonly #key: string;
 
-  /** TBD */
+  /** Schema. */
   readonly #schema: z.ZodCatch<z.ZodPrefault<z.ZodType<T>>>;
 
   constructor({key, schema}: PersistedStoreOptions<T>) {
@@ -46,9 +35,33 @@ export class PersistedStore<T> {
     }
   }
 
-  /** Never throws and never caches — each call re-reads storage. */
+  /** TBD */
   load(): T {
-    return this.#schema.parse(this.#read());
+    let storage = this.#resolveStorage();
+    // The stored payload, or `undefined` when there is nothing to parse —
+    // which is the input the schema turns into its defaults.
+    let raw: unknown;
+
+    if (storage === undefined) {
+      raw = undefined;
+    } else {
+      try {
+        let stored = storage.getItem(this.#key);
+
+        // A missing key is a normal first run, not corruption — no warning.
+        raw = stored === null ? undefined : JSON.parse(stored);
+      } catch (error) {
+        // eslint-disable-next-line no-console -- corruption must be debuggable but never fatal: the warn is the only observable artifact of a failed load
+        console.warn(
+          `PersistedStore "${this.#key}": stored value is unreadable; using defaults.`,
+          error,
+        );
+
+        raw = undefined;
+      }
+    }
+
+    return this.#schema.parse(raw);
   }
 
   /** TBD */
@@ -67,29 +80,6 @@ export class PersistedStore<T> {
     }
   }
 
-  /**
-   * The stored payload, or `undefined` when there is nothing to parse — which
-   * is the input the schema turns into its defaults.
-   */
-  #read(): unknown {
-    let storage = this.#resolveStorage();
-
-    if (storage === undefined) {
-      return undefined;
-    }
-
-    try {
-      let raw = storage.getItem(this.#key);
-
-      // A missing key is a normal first run, not corruption — no warning.
-      return raw === null ? undefined : JSON.parse(raw);
-    } catch (error) {
-      this.#warnDiscard('stored value is unreadable', error);
-
-      return undefined;
-    }
-  }
-
   /** TBD */
   #resolveStorage(): Pick<Storage, 'getItem' | 'removeItem' | 'setItem'> | undefined {
     // Accessing the global can itself throw (browser privacy modes); absent
@@ -103,11 +93,5 @@ export class PersistedStore<T> {
     } catch {
       return undefined;
     }
-  }
-
-  /** TBD */
-  #warnDiscard(reason: string, error: unknown): void {
-    // eslint-disable-next-line no-console -- corruption must be debuggable but never fatal: the warn is the only observable artifact of a failed load
-    console.warn(`PersistedStore "${this.#key}": ${reason}; using defaults.`, error);
   }
 }
