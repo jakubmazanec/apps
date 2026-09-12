@@ -1,5 +1,6 @@
 import * as pixi from 'pixi.js';
 
+import {type Disposables} from '../utilities/Disposables.js';
 import {type TextOptions} from './TextOptions.js';
 
 const DEFAULT_ANCHOR: pixi.PointData = {x: 0, y: 0};
@@ -17,8 +18,8 @@ export class Text {
   /** View. */
   readonly view: pixi.Container = new pixi.Container();
 
-  /** Stack to register disposers that cleanup resources when needed. */
-  readonly #disposables = new DisposableStack();
+  /** Stacks to register disposers that cleanup resources when needed. */
+  readonly #disposables: Disposables<'instance'> = {instance: new DisposableStack()};
 
   /** TBD */
   readonly #sprite: pixi.BitmapText;
@@ -45,7 +46,7 @@ export class Text {
       }
     }
 
-    this.#disposables.defer(() => this.view.destroy({children: true}));
+    this.#disposables.instance.defer(() => this.view.destroy({children: true}));
   }
 
   /** TBD */
@@ -55,7 +56,7 @@ export class Text {
 
   /** Destroys the instance. */
   destroy() {
-    this.#disposables.dispose();
+    this.#disposables.instance.dispose();
   }
 
   /** TBD */

@@ -2,6 +2,7 @@ import type * as pixi from 'pixi.js';
 
 import {type FocusCommand} from '../app/FocusCommand.js';
 import {type Game} from '../app/Game.js';
+import {type Disposables} from '../utilities/Disposables.js';
 import {isTextEntryTarget} from '../utilities/isTextEntryTarget.js';
 import {Vector} from '../utilities/Vector.js';
 import {type GameInputOptions} from './GameInputOptions.js';
@@ -89,8 +90,8 @@ export class GameInput {
   /** TBD */
   #currentCodes = new Set<string>();
 
-  /** Stack to register disposers that cleanup resources when needed. */
-  #disposables = new DisposableStack();
+  /** Stacks to register disposers that cleanup resources when needed. */
+  readonly #disposables: Disposables<never, 'attached'> = {attached: null};
 
   /** Live set mutated by listeners; may change at any moment between steps. */
   readonly #downCodes = new Set<string>();
@@ -190,12 +191,7 @@ export class GameInput {
     }
 
     this.#game = game;
-
-    let {view} = game;
-
-    this.#disposables.dispose();
-
-    this.#disposables = new DisposableStack();
+    this.#disposables.attached = new DisposableStack();
 
     // eslint-disable-next-line unicorn/consistent-function-scoping -- false positive
     let handleKeyDown = (event: KeyboardEvent) => {
@@ -238,7 +234,7 @@ export class GameInput {
     let handlePointerTap = (event: pixi.FederatedPointerEvent) => {
       // Multiple taps in one frame collapse to one, last position wins. Copy
       // the position: pixi reuses federated event objects after handlers return.
-      let local = event.getLocalPosition(view);
+      let local = event.getLocalPosition(game.view);
 
       this.#hasBufferedTap = true;
       this.#bufferedTapPosition.set(local.x, local.y);
@@ -247,13 +243,13 @@ export class GameInput {
     globalThis.addEventListener('keydown', handleKeyDown);
     globalThis.addEventListener('keyup', handleKeyUp);
     globalThis.addEventListener('blur', handleBlur);
-    view.on('pointertap', handlePointerTap);
+    game.view.on('pointertap', handlePointerTap);
 
-    this.#disposables.defer(() => {
+    this.#disposables.attached.defer(() => {
       globalThis.removeEventListener('keydown', handleKeyDown);
       globalThis.removeEventListener('keyup', handleKeyUp);
       globalThis.removeEventListener('blur', handleBlur);
-      view.off('pointertap', handlePointerTap);
+      game.view.off('pointertap', handlePointerTap);
     });
   }
 
@@ -263,7 +259,8 @@ export class GameInput {
       throw new Error('GameInput is not attached!');
     }
 
-    this.#disposables.dispose();
+    this.#disposables.attached?.dispose();
+    this.#disposables.attached = null;
     this.#game = null;
 
     // The next attach starts clean: nothing carries over between sessions.

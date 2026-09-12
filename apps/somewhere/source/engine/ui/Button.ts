@@ -1,6 +1,7 @@
 import {LayoutContainer} from '@pixi/layout/components';
 import type * as pixi from 'pixi.js';
 
+import {type Disposables} from '../utilities/Disposables.js';
 import {type ButtonOptions} from './ButtonOptions.js';
 import {type ButtonState} from './ButtonState.js';
 import {type Focusable} from './Focusable.js';
@@ -28,8 +29,8 @@ export class Button implements Focusable, UiParent {
   /** TBD */
   readonly #basePaddingTop: number;
 
-  /** Stack to register disposers that cleanup resources when needed. */
-  readonly #disposables = new DisposableStack();
+  /** Stacks to register disposers that cleanup resources when needed. */
+  readonly #disposables: Disposables<'instance'> = {instance: new DisposableStack()};
 
   /** Lifecycle hook called when the button is clicked. */
   readonly #onClick?: (button: Button) => void;
@@ -82,7 +83,7 @@ export class Button implements Focusable, UiParent {
       resolved,
     );
 
-    adoptDetachedBackgrounds(this.#disposables, Object.values(this.#backgrounds));
+    adoptDetachedBackgrounds(this.#disposables.instance, Object.values(this.#backgrounds));
 
     this.view = new LayoutContainer({background: this.#backgrounds.normal});
 
@@ -177,7 +178,7 @@ export class Button implements Focusable, UiParent {
       ...mergedLayout,
     };
 
-    this.#disposables.defer(() => this.view.destroy({children: true}));
+    this.#disposables.instance.defer(() => this.view.destroy({children: true}));
   }
 
   /** TBD */
@@ -222,7 +223,7 @@ export class Button implements Focusable, UiParent {
       }
     }
 
-    this.#disposables.dispose();
+    this.#disposables.instance.dispose();
   }
 
   /** TBD */

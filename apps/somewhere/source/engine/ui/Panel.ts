@@ -1,5 +1,6 @@
 import {LayoutContainer} from '@pixi/layout/components';
 
+import {type Disposables} from '../utilities/Disposables.js';
 import {createBackground} from './internals/createBackground.js';
 import {type PanelOptions} from './PanelOptions.js';
 import {type UiChild, type UiParent} from './UiChild.js';
@@ -11,8 +12,8 @@ export class Panel implements UiParent {
   /** View. */
   readonly view: LayoutContainer;
 
-  /** Stack to register disposers that cleanup resources when needed. */
-  readonly #disposables = new DisposableStack();
+  /** Stacks to register disposers that cleanup resources when needed. */
+  readonly #disposables: Disposables<'instance'> = {instance: new DisposableStack()};
 
   constructor({background, theme, children, layout}: PanelOptions) {
     let resolved = background ?? (theme && createBackground(theme.panel.background));
@@ -27,7 +28,7 @@ export class Panel implements UiParent {
       ...(typeof layout === 'object' ? layout : undefined),
     };
 
-    this.#disposables.defer(() => this.view.destroy({children: true}));
+    this.#disposables.instance.defer(() => this.view.destroy({children: true}));
   }
 
   /** TBD */
@@ -48,7 +49,7 @@ export class Panel implements UiParent {
       }
     }
 
-    this.#disposables.dispose();
+    this.#disposables.instance.dispose();
   }
 
   /** TBD */

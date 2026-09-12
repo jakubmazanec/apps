@@ -1,5 +1,6 @@
 import * as pixi from 'pixi.js';
 
+import {type Disposables} from '../utilities/Disposables.js';
 import {type ContainerOptions} from './ContainerOptions.js';
 import {type UiChild, type UiParent} from './UiChild.js';
 
@@ -10,8 +11,8 @@ export class Container implements UiParent {
   /** View. */
   readonly view: pixi.Container = new pixi.Container();
 
-  /** Stack to register disposers that cleanup resources when needed. */
-  readonly #disposables = new DisposableStack();
+  /** Stacks to register disposers that cleanup resources when needed. */
+  readonly #disposables: Disposables<'instance'> = {instance: new DisposableStack()};
 
   constructor({children, layout}: ContainerOptions) {
     if (children !== undefined) {
@@ -24,7 +25,7 @@ export class Container implements UiParent {
       ...(typeof layout === 'object' ? layout : undefined),
     };
 
-    this.#disposables.defer(() => this.view.destroy({children: true}));
+    this.#disposables.instance.defer(() => this.view.destroy({children: true}));
   }
 
   /** TBD */
@@ -45,7 +46,7 @@ export class Container implements UiParent {
       }
     }
 
-    this.#disposables.dispose();
+    this.#disposables.instance.dispose();
   }
 
   /** TBD */

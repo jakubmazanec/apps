@@ -1,6 +1,7 @@
 import {LayoutContainer} from '@pixi/layout/components';
 import type * as pixi from 'pixi.js';
 
+import {type Disposables} from '../utilities/Disposables.js';
 import {type Focusable} from './Focusable.js';
 import {adoptDetachedBackgrounds} from './internals/adoptDetachedBackgrounds.js';
 import {attachWidgetInteraction} from './internals/attachWidgetInteraction.js';
@@ -21,8 +22,8 @@ export class Toggle implements Focusable {
     unchecked: Record<ToggleState, pixi.Container>;
   };
 
-  /** Stack to register disposers that cleanup resources when needed. */
-  readonly #disposables = new DisposableStack();
+  /** Stacks to register disposers that cleanup resources when needed. */
+  readonly #disposables: Disposables<'instance'> = {instance: new DisposableStack()};
 
   /** TBD */
   #isChecked: boolean; // basically a `value`
@@ -62,7 +63,7 @@ export class Toggle implements Focusable {
       }),
     };
 
-    adoptDetachedBackgrounds(this.#disposables, [
+    adoptDetachedBackgrounds(this.#disposables.instance, [
       ...Object.values(this.#backgrounds.unchecked),
       ...Object.values(this.#backgrounds.checked),
     ]);
@@ -90,7 +91,7 @@ export class Toggle implements Focusable {
       }
     });
 
-    this.#disposables.defer(() => this.view.destroy({children: true}));
+    this.#disposables.instance.defer(() => this.view.destroy({children: true}));
   }
 
   /** TBD */
@@ -139,7 +140,7 @@ export class Toggle implements Focusable {
 
   /** Destroys the instance. */
   destroy() {
-    this.#disposables.dispose();
+    this.#disposables.instance.dispose();
   }
 
   /** TBD */

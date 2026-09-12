@@ -4,6 +4,7 @@ import * as pixi from 'pixi.js';
 import {Scheduler} from '../scheduler/Scheduler.js';
 import {type UiFocusEvent} from '../ui/UiFocusEvent.js';
 import {UiRoot} from '../ui/UiRoot.js';
+import {type Disposables} from '../utilities/Disposables.js';
 import {type AnyGameScreen} from './AnyGameScreen.js';
 import {type Game} from './Game.js';
 import {type GameScreenOptions} from './GameScreenOptions.js';
@@ -27,8 +28,11 @@ export class GameScreen<
   /** View. */
   readonly view: pixi.Container = new pixi.Container();
 
-  /** Stack to register disposers that cleanup resources when needed. */
-  #disposables = new DisposableStack();
+  /** Stacks to register disposers that cleanup resources when needed. */
+  readonly #disposables: Disposables<'instance', 'shown'> = {
+    instance: new DisposableStack(),
+    shown: null,
+  };
 
   /** Events. */
   readonly #events?: EventEmitter<Events>;
@@ -160,7 +164,11 @@ export class GameScreen<
 
   /** Destroys the instance. */
   destroy() {
-    this.#disposables.dispose();
+    // The show ends first, but not through hide(): that is async and runs the
+    // onHide hook, and a destroyed screen gets neither.
+    this.#disposables.shown?.dispose();
+    this.#disposables.shown = null;
+    this.#disposables.instance.dispose();
     this.ui.destroy();
     this.view.destroy({children: true});
   }
@@ -179,9 +187,8 @@ export class GameScreen<
     this.#state = 'attached';
 
     this.ui.clearFocus();
-    this.#disposables.dispose();
-
-    this.#disposables = new DisposableStack();
+    this.#disposables.shown?.dispose();
+    this.#disposables.shown = null;
 
     await this.#onHide?.(this, this.game);
   }
@@ -209,21 +216,23 @@ export class GameScreen<
     }
 
     this.#state = 'shown';
+    this.#disposables.shown = new DisposableStack();
 
-    // Register scheduler teardown on the (per-hide) disposables stack; re-armed each show because
-    // hide() disposes and replaces the stack. A single dispose() then cancels in-flight
-    // tweens/timers.
-    this.#disposables.defer(() => this.scheduler.clear());
+    this.#disposables.shown.defer(() => this.scheduler.clear());
     await this.#onShow?.(this, this.game);
   }
 
-  /** Subscribes `handler` to one of the screen's events. */
+  /**
+   * Subscribes `handler` to one of the screen's events for the lifetime it is
+   * made in: during a show it ends with that show (so an onShow subscription
+   * cannot double up on re-show), otherwise with the screen.
+   */
   subscribe<E extends EventEmitter.EventNames<Events>>(
     event: E,
     handler: EventEmitter.EventListener<Events, E>,
   ): this {
     this.#events?.on(event, handler);
-    this.#disposables.defer(() => {
+    (this.#disposables.shown ?? this.#disposables.instance).defer(() => {
       this.#events?.off(event, handler);
     });
 

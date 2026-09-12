@@ -166,6 +166,30 @@ describe('TextInput', () => {
     expect(removed()).toBe(2);
   });
 
+  test('attaches the blur listener only while editing', () => {
+    // Spied on the prototype before construction, so a constructor-time attach
+    // is counted too.
+    let addSpy = vitest.spyOn(HTMLInputElement.prototype, 'addEventListener');
+    let removeSpy = vitest.spyOn(HTMLInputElement.prototype, 'removeEventListener');
+    let input = createInput();
+    let added = () => addSpy.mock.calls.filter(([type]) => type === 'blur').length;
+    let removed = () => removeSpy.mock.calls.filter(([type]) => type === 'blur').length;
+
+    // The hidden input is only ever focused by startEditing, so an idle field
+    // has nothing to hear.
+    expect(added()).toBe(0);
+
+    input.startEditing();
+
+    expect(added()).toBe(1);
+    expect(removed()).toBe(0);
+
+    input.stopEditing();
+
+    expect(added()).toBe(1);
+    expect(removed()).toBe(1);
+  });
+
   test('removes the global pointerdown listener when destroyed mid-edit', () => {
     let removeSpy = vitest.spyOn(globalThis, 'removeEventListener');
     let input = createInput();
