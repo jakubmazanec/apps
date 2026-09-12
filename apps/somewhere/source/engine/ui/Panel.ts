@@ -1,16 +1,8 @@
 import {LayoutContainer} from '@pixi/layout/components';
-import type * as pixi from 'pixi.js';
 
-import {createBackground} from './createBackground.js';
+import {createBackground} from './internals/createBackground.js';
+import {type PanelOptions} from './PanelOptions.js';
 import {type UiChild, type UiParent} from './UiChild.js';
-import {type UiTheme} from './UiTheme.js';
-
-export type PanelOptions = {
-  background?: pixi.Container | undefined;
-  theme?: UiTheme | undefined;
-  children?: UiChild[] | undefined;
-  layout?: pixi.ContainerOptions['layout'] | undefined;
-};
 
 export class Panel implements UiParent {
   /** TBD */

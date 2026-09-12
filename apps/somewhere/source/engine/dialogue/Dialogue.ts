@@ -199,6 +199,9 @@ export class Dialogue<TContext = unknown> {
    * space. Offsets at or before revealedCount are ignored; node and page
    * changes clear them.
    */
+  // TODO: setter-shaped API over #breaks (low-API-surface cleanup, see Button/Toggle/Slider/
+  // TextInput #setState removal); needs the ended-phase guard and revealedCount filtering folded
+  // into a `set breaks(...)` accessor rather than a plain rename.
   setBreaks(offsets: readonly number[]): void {
     if (this.#phase === 'ended') {
       return;

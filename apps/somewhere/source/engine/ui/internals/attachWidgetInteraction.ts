@@ -1,7 +1,7 @@
 import {type LayoutContainer} from '@pixi/layout/components';
 import type * as pixi from 'pixi.js';
 
-import {attachHitArea} from './attachHitArea.js';
+import {attachHitArea} from '../../utilities/attachHitArea.js';
 import {attachHoverHandlers} from './attachHoverHandlers.js';
 import {setInteractionEnabled} from './setInteractionEnabled.js';
 

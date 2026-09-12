@@ -1,33 +1,16 @@
 import {LayoutContainer} from '@pixi/layout/components';
 import type * as pixi from 'pixi.js';
 
-import {adoptDetachedBackgrounds} from './adoptDetachedBackgrounds.js';
-import {attachWidgetInteraction} from './attachWidgetInteraction.js';
+import {type ButtonOptions} from './ButtonOptions.js';
+import {type ButtonState} from './ButtonState.js';
 import {type Focusable} from './Focusable.js';
-import {resolveBackgrounds} from './resolveBackgrounds.js';
-import {resolveThemedBackgrounds} from './resolveThemedBackgrounds.js';
-import {setInteractionEnabled} from './setInteractionEnabled.js';
-import {swapBackground} from './swapBackground.js';
+import {adoptDetachedBackgrounds} from './internals/adoptDetachedBackgrounds.js';
+import {attachWidgetInteraction} from './internals/attachWidgetInteraction.js';
+import {resolveBackgrounds} from './internals/resolveBackgrounds.js';
+import {resolveThemedBackgrounds} from './internals/resolveThemedBackgrounds.js';
+import {setInteractionEnabled} from './internals/setInteractionEnabled.js';
+import {swapBackground} from './internals/swapBackground.js';
 import {type UiChild, type UiParent} from './UiChild.js';
-import {type ThemedOptions} from './UiTheme.js';
-
-export type ButtonState = 'active' | 'disabled' | 'hovered' | 'normal';
-
-export type ButtonBackgrounds = {
-  normal: pixi.Container;
-  hovered?: pixi.Container | undefined;
-  active?: pixi.Container | undefined;
-  disabled?: pixi.Container | undefined;
-};
-
-export type ButtonOptions = ThemedOptions<ButtonBackgrounds> & {
-  children?: UiChild[] | undefined;
-  onClick?: ((button: Button) => void) | undefined;
-  layout?: pixi.ContainerOptions['layout'] | undefined;
-  // Pixels to shift the content down while pressed, so the label tracks a
-  // background whose face drops on press (e.g. an extruded 3D button).
-  pressOffset?: number | undefined;
-};
 
 export class Button implements Focusable, UiParent {
   /** TBD */
@@ -106,7 +89,19 @@ export class Button implements Focusable, UiParent {
     attachWidgetInteraction(this.view, {
       cursor: 'pointer',
       getState: () => this.#state,
-      setState: (state) => this.#setState(state),
+      setState: (state) => {
+        this.#state = state;
+
+        if (this.#pressOffset !== 0) {
+          this.view.layout = pressPadding(state, {
+            pressOffset: this.#pressOffset,
+            basePaddingTop: this.#basePaddingTop,
+            basePaddingBottom: this.#basePaddingBottom,
+          });
+        }
+
+        swapBackground(this.view, this.#backgrounds[state]);
+      },
     });
 
     this.view.on('pointerdown', () => {
@@ -114,7 +109,17 @@ export class Button implements Focusable, UiParent {
         return;
       }
 
-      this.#setState('active');
+      this.#state = 'active';
+
+      if (this.#pressOffset !== 0) {
+        this.view.layout = pressPadding('active', {
+          pressOffset: this.#pressOffset,
+          basePaddingTop: this.#basePaddingTop,
+          basePaddingBottom: this.#basePaddingBottom,
+        });
+      }
+
+      swapBackground(this.view, this.#backgrounds.active);
     });
 
     this.view.on('pointerup', () => {
@@ -122,7 +127,17 @@ export class Button implements Focusable, UiParent {
         return;
       }
 
-      this.#setState('hovered');
+      this.#state = 'hovered';
+
+      if (this.#pressOffset !== 0) {
+        this.view.layout = pressPadding('hovered', {
+          pressOffset: this.#pressOffset,
+          basePaddingTop: this.#basePaddingTop,
+          basePaddingBottom: this.#basePaddingBottom,
+        });
+      }
+
+      swapBackground(this.view, this.#backgrounds.hovered);
     });
 
     // A press released outside the button never fires `pointerup`, which would
@@ -132,7 +147,17 @@ export class Button implements Focusable, UiParent {
         return;
       }
 
-      this.#setState('normal');
+      this.#state = 'normal';
+
+      if (this.#pressOffset !== 0) {
+        this.view.layout = pressPadding('normal', {
+          pressOffset: this.#pressOffset,
+          basePaddingTop: this.#basePaddingTop,
+          basePaddingBottom: this.#basePaddingBottom,
+        });
+      }
+
+      swapBackground(this.view, this.#backgrounds.normal);
     });
 
     this.view.on('pointertap', (event) => {
@@ -206,7 +231,17 @@ export class Button implements Focusable, UiParent {
       return;
     }
 
-    this.#setState('disabled');
+    this.#state = 'disabled';
+
+    if (this.#pressOffset !== 0) {
+      this.view.layout = pressPadding('disabled', {
+        pressOffset: this.#pressOffset,
+        basePaddingTop: this.#basePaddingTop,
+        basePaddingBottom: this.#basePaddingBottom,
+      });
+    }
+
+    swapBackground(this.view, this.#backgrounds.disabled);
 
     setInteractionEnabled(this.view, false);
   }
@@ -217,7 +252,17 @@ export class Button implements Focusable, UiParent {
       return;
     }
 
-    this.#setState('normal');
+    this.#state = 'normal';
+
+    if (this.#pressOffset !== 0) {
+      this.view.layout = pressPadding('normal', {
+        pressOffset: this.#pressOffset,
+        basePaddingTop: this.#basePaddingTop,
+        basePaddingBottom: this.#basePaddingBottom,
+      });
+    }
+
+    swapBackground(this.view, this.#backgrounds.normal);
 
     setInteractionEnabled(this.view, true, 'pointer');
   }
@@ -236,22 +281,22 @@ export class Button implements Focusable, UiParent {
 
     return this;
   }
+}
 
-  /** TBD */
-  #setState(state: ButtonState) {
-    this.#state = state;
+// Layout assignments merge onto the current style, so restoring the base padding on release
+// needs the value captured at construction rather than reading it back from the view.
+function pressPadding(
+  state: ButtonState,
+  {
+    pressOffset,
+    basePaddingTop,
+    basePaddingBottom,
+  }: {pressOffset: number; basePaddingTop: number; basePaddingBottom: number},
+): {paddingTop: number; paddingBottom: number} {
+  let shift = state === 'active' ? pressOffset : 0;
 
-    if (this.#pressOffset !== 0) {
-      // Layout assignments merge onto the current style, so restoring the base padding on
-      // release needs the value captured at construction rather than reading it back here.
-      let shift = this.#state === 'active' ? this.#pressOffset : 0;
-
-      this.view.layout = {
-        paddingTop: this.#basePaddingTop + shift,
-        paddingBottom: this.#basePaddingBottom - shift,
-      };
-    }
-
-    swapBackground(this.view, this.#backgrounds[state]);
-  }
+  return {
+    paddingTop: basePaddingTop + shift,
+    paddingBottom: basePaddingBottom - shift,
+  };
 }

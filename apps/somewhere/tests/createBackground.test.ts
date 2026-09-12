@@ -1,7 +1,7 @@
 import * as pixi from 'pixi.js';
 import {describe, expect, test} from 'vitest';
 
-import {createBackground} from '../source/engine/ui/createBackground.js';
+import {createBackground} from '../source/engine/ui/internals/createBackground.js';
 
 describe(createBackground, () => {
   test('builds a nine-slice sprite from a texture with default borders', () => {

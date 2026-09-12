@@ -1,7 +1,7 @@
 import type * as pixi from 'pixi.js';
 import {describe, expect, test} from 'vitest';
 
-import {resolveBackgrounds} from '../source/engine/ui/resolveBackgrounds.js';
+import {resolveBackgrounds} from '../source/engine/ui/internals/resolveBackgrounds.js';
 
 // Labelled so a failed identity assertion names the container it got.
 function background(label: string): pixi.Container {

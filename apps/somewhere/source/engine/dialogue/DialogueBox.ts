@@ -1,12 +1,12 @@
 import * as pixi from 'pixi.js';
 
-import {attachHitArea} from '../ui/attachHitArea.js';
 import {Button} from '../ui/Button.js';
 import {Panel} from '../ui/Panel.js';
 import {Text} from '../ui/Text.js';
 import {type UiChild, type UiParent} from '../ui/UiChild.js';
 import {type UiRoot} from '../ui/UiRoot.js';
 import {type UiTheme} from '../ui/UiTheme.js';
+import {attachHitArea} from '../utilities/attachHitArea.js';
 import {wrapText} from './wrapText.js';
 
 export type DialogueBoxMetrics = {

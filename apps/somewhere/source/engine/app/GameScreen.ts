@@ -2,7 +2,8 @@ import {type EventEmitter} from 'eventemitter3';
 import * as pixi from 'pixi.js';
 
 import {Scheduler} from '../scheduler/Scheduler.js';
-import {type UiFocusEvent, UiRoot} from '../ui/UiRoot.js';
+import {type UiFocusEvent} from '../ui/UiFocusEvent.js';
+import {UiRoot} from '../ui/UiRoot.js';
 import {type AnyGameScreen} from './AnyGameScreen.js';
 import {type Game} from './Game.js';
 import {type GameScreenOptions} from './GameScreenOptions.js';

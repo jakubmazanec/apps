@@ -2,7 +2,7 @@ import {LayoutSystem} from '@pixi/layout';
 import {LayoutContainer} from '@pixi/layout/components';
 import {beforeAll, describe, expect, test, vitest} from 'vitest';
 
-import {attachWidgetInteraction} from '../source/engine/ui/attachWidgetInteraction.js';
+import {attachWidgetInteraction} from '../source/engine/ui/internals/attachWidgetInteraction.js';
 
 let layoutSystem: LayoutSystem;
 

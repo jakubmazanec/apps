@@ -3,12 +3,12 @@ import * as pixi from 'pixi.js';
 import {beforeAll, beforeEach, describe, expect, test, vitest} from 'vitest';
 
 import {Button} from '../source/engine/ui/Button.js';
-import {createBackground} from '../source/engine/ui/createBackground.js';
+import {createBackground} from '../source/engine/ui/internals/createBackground.js';
 import {createTestTheme} from './createTestTheme.js';
 
 let layoutSystem: LayoutSystem;
 
-vitest.mock(import('../source/engine/ui/createBackground.js'), () => ({
+vitest.mock(import('../source/engine/ui/internals/createBackground.js'), () => ({
   createBackground: vitest.fn<() => pixi.Container>(() => background()),
 }));
 

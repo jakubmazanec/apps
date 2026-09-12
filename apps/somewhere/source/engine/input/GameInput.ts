@@ -2,7 +2,7 @@ import type * as pixi from 'pixi.js';
 
 import {type FocusCommand} from '../app/FocusCommand.js';
 import {type Game} from '../app/Game.js';
-import {isTextEntryTarget} from '../ui/isTextEntryTarget.js';
+import {isTextEntryTarget} from '../utilities/isTextEntryTarget.js';
 import {Vector} from '../utilities/Vector.js';
 import {type GameInputOptions} from './GameInputOptions.js';
 import {Modifier} from './Modifier.js';
