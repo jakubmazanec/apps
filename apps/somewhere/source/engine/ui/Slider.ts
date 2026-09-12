@@ -1,36 +1,15 @@
 import {LayoutContainer} from '@pixi/layout/components';
 import type * as pixi from 'pixi.js';
 
-import {adoptDetachedBackgrounds} from './adoptDetachedBackgrounds.js';
-import {attachWidgetInteraction} from './attachWidgetInteraction.js';
 import {type Focusable} from './Focusable.js';
-import {resolveBackgrounds} from './resolveBackgrounds.js';
-import {resolveThemedBackgrounds} from './resolveThemedBackgrounds.js';
-import {setInteractionEnabled} from './setInteractionEnabled.js';
-import {swapBackground} from './swapBackground.js';
-import {type ThemedOptions} from './UiTheme.js';
-
-export type SliderState = 'disabled' | 'hovered' | 'normal';
-
-export type SliderBackgrounds = {
-  track: pixi.Container;
-  fill: pixi.Container;
-  hovered?: pixi.Container | undefined;
-  disabled?: pixi.Container | undefined;
-};
-
-export type SliderOptions = ThemedOptions<SliderBackgrounds> & {
-  min?: number | undefined;
-  max?: number | undefined;
-  step?: number | undefined;
-  value?: number | undefined;
-  // Fires on every value change, including each pointermove tick of a drag
-  // and each keyboard increase()/decrease() step. Slider has no notion of a
-  // separate "finalized" change to report — a consumer that only cares about
-  // the settled value (e.g. debouncing a slow write) owns that distinction
-  // itself, by debouncing onChange in userland.
-  onChange?: ((slider: Slider) => void) | undefined;
-};
+import {adoptDetachedBackgrounds} from './internals/adoptDetachedBackgrounds.js';
+import {attachWidgetInteraction} from './internals/attachWidgetInteraction.js';
+import {resolveBackgrounds} from './internals/resolveBackgrounds.js';
+import {resolveThemedBackgrounds} from './internals/resolveThemedBackgrounds.js';
+import {setInteractionEnabled} from './internals/setInteractionEnabled.js';
+import {swapBackground} from './internals/swapBackground.js';
+import {type SliderOptions} from './SliderOptions.js';
+import {type SliderState} from './SliderState.js';
 
 export class Slider implements Focusable {
   /** View. */
@@ -116,12 +95,16 @@ export class Slider implements Focusable {
     attachWidgetInteraction(this.view, {
       cursor: 'pointer',
       getState: () => this.#state,
-      setState: (state) => this.#setState(state),
+      setState: (state) => {
+        this.#state = state;
+
+        swapBackground(this.view, this.#trackBackgrounds[state]);
+      },
     });
 
     this.#fill = resolved.fill;
-    // Deliberately NOT given a `layout` style: the fill is sized by #updateFill
-    // via setSize(), and a yoga node would double-apply that size. @pixi/layout
+    // Deliberately NOT given a `layout` style: the fill is sized via setSize()
+    // whenever the value changes, and a yoga node would double-apply that size. @pixi/layout
     // treats any ViewContainer as a leaf styled `{width: 'intrinsic'}`, resolves
     // 'intrinsic' as getLocalBounds().width * scale.x (so yoga's width becomes
     // the already-scaled visual width), then re-derives an offsetScale of
@@ -132,8 +115,11 @@ export class Slider implements Focusable {
     this.#fill.position.set(0, 0);
     this.view.addChild(this.#fill);
 
-    this.#value = this.#snap(value);
-    this.#updateFill();
+    this.#value = snap(value, {min: this.#min, max: this.#max, step: this.#step});
+    this.#fill.setSize(
+      fillWidth(this.#trackWidth, this.#value, {min: this.#min, max: this.#max}),
+      this.#trackHeight,
+    );
 
     this.view.on('pointerdown', (event) => {
       if (this.#state === 'disabled') {
@@ -152,7 +138,12 @@ export class Slider implements Focusable {
 
       event.stopPropagation();
       this.#isDragging = true;
-      this.#setValue(this.#valueFromEvent(event));
+      this.value = valueFromEvent(event, this.view, {
+        trackWidth: this.#trackWidth,
+        min: this.#min,
+        max: this.#max,
+        step: this.#step,
+      });
       this.#onChange?.(this);
     });
 
@@ -171,18 +162,23 @@ export class Slider implements Focusable {
       // held. `buttons === 0` catches that: no button is down, so the drag
       // must already be over even though we never got an end event for it.
       if (event.buttons === 0) {
-        this.#endDrag();
+        this.#isDragging = false;
 
         return;
       }
 
-      let next = this.#valueFromEvent(event);
+      let next = valueFromEvent(event, this.view, {
+        trackWidth: this.#trackWidth,
+        min: this.#min,
+        max: this.#max,
+        step: this.#step,
+      });
 
       if (next === this.#value) {
         return;
       }
 
-      this.#setValue(next);
+      this.value = next;
       this.#onChange?.(this);
     });
 
@@ -193,9 +189,15 @@ export class Slider implements Focusable {
     // included defensively even though Pixi does not currently dispatch it
     // (see the globalpointermove comment above) — cheap insurance in case
     // that ever changes.
-    this.view.on('pointerup', () => this.#endDrag());
-    this.view.on('pointerupoutside', () => this.#endDrag());
-    this.view.on('pointercancel', () => this.#endDrag());
+    this.view.on('pointerup', () => {
+      this.#isDragging = false;
+    });
+    this.view.on('pointerupoutside', () => {
+      this.#isDragging = false;
+    });
+    this.view.on('pointercancel', () => {
+      this.#isDragging = false;
+    });
 
     this.#disposables.defer(() => this.view.destroy({children: true}));
   }
@@ -220,6 +222,14 @@ export class Slider implements Focusable {
     return this.#value;
   }
 
+  set value(value: number) {
+    this.#value = snap(value, {min: this.#min, max: this.#max, step: this.#step});
+    this.#fill.setSize(
+      fillWidth(this.#trackWidth, this.#value, {min: this.#min, max: this.#max}),
+      this.#trackHeight,
+    );
+  }
+
   // No single equivalent action for a continuously-variable value —
   // increase()/decrease() own the discrete steps instead.
   /** TBD */
@@ -231,7 +241,7 @@ export class Slider implements Focusable {
       return;
     }
 
-    this.#setValue(this.#snap(this.#value - this.#step));
+    this.value = this.#value - this.#step;
     this.#onChange?.(this);
   }
 
@@ -246,8 +256,10 @@ export class Slider implements Focusable {
       return;
     }
 
-    this.#endDrag();
-    this.#setState('disabled');
+    this.#isDragging = false;
+    this.#state = 'disabled';
+
+    swapBackground(this.view, this.#trackBackgrounds.disabled);
 
     setInteractionEnabled(this.view, false);
   }
@@ -258,7 +270,9 @@ export class Slider implements Focusable {
       return;
     }
 
-    this.#setState('normal');
+    this.#state = 'normal';
+
+    swapBackground(this.view, this.#trackBackgrounds.normal);
 
     setInteractionEnabled(this.view, true, 'pointer');
   }
@@ -269,60 +283,36 @@ export class Slider implements Focusable {
       return;
     }
 
-    this.#setValue(this.#snap(this.#value + this.#step));
+    this.value = this.#value + this.#step;
     this.#onChange?.(this);
   }
+}
 
-  /** TBD */
-  #clamp(value: number): number {
-    return Math.min(this.#max, Math.max(this.#min, value));
-  }
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
+}
 
-  // Only clears the latch. Kept as its own method (rather than inlined at each
-  // call site) because every way a drag can end routes through it: the
-  // pointerup and pointerupoutside listeners, the defensive pointercancel
-  // listener, the buttons-check inside globalpointermove, and disable().
-  /** TBD */
-  #endDrag() {
-    this.#isDragging = false;
-  }
+function fillWidth(
+  trackWidth: number,
+  value: number,
+  {min, max}: {min: number; max: number},
+): number {
+  return trackWidth * (max === min ? 0 : (value - min) / (max - min));
+}
 
-  /** TBD */
-  #setState(state: SliderState) {
-    if (this.#state === state) {
-      return;
-    }
+function snap(value: number, {min, max, step}: {min: number; max: number; step: number}): number {
+  let steps = Math.round((value - min) / step);
 
-    this.#state = state;
+  return clamp(min + steps * step, min, max);
+}
 
-    swapBackground(this.view, this.#trackBackgrounds[state]);
-  }
+function valueFromEvent(
+  event: pixi.FederatedPointerEvent,
+  view: LayoutContainer,
+  {trackWidth, min, max, step}: {trackWidth: number; min: number; max: number; step: number},
+): number {
+  let local = event.getLocalPosition(view);
+  let ratio = trackWidth === 0 ? 0 : local.x / trackWidth;
 
-  /** TBD */
-  #setValue(value: number) {
-    this.#value = value;
-    this.#updateFill();
-  }
-
-  /** TBD */
-  #snap(value: number): number {
-    let steps = Math.round((value - this.#min) / this.#step);
-
-    return this.#clamp(this.#min + steps * this.#step);
-  }
-
-  /** TBD */
-  #updateFill() {
-    let ratio = this.#max === this.#min ? 0 : (this.#value - this.#min) / (this.#max - this.#min);
-
-    this.#fill.setSize(this.#trackWidth * ratio, this.#trackHeight);
-  }
-
-  /** TBD */
-  #valueFromEvent(event: pixi.FederatedPointerEvent): number {
-    let local = event.getLocalPosition(this.view);
-    let ratio = this.#trackWidth === 0 ? 0 : local.x / this.#trackWidth;
-
-    return this.#snap(this.#min + ratio * (this.#max - this.#min));
-  }
+  return snap(min + ratio * (max - min), {min, max, step});
 }

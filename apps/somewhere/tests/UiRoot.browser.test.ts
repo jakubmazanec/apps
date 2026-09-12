@@ -3,7 +3,8 @@ import {Container} from 'pixi.js';
 import {afterEach, describe, expect, test, vitest} from 'vitest';
 
 import {type UiChild} from '../source/engine/ui/UiChild.js';
-import {type UiFocusEvent, UiRoot} from '../source/engine/ui/UiRoot.js';
+import {type UiFocusEvent} from '../source/engine/ui/UiFocusEvent.js';
+import {UiRoot} from '../source/engine/ui/UiRoot.js';
 import {createTestTheme} from './createTestTheme.js';
 
 // UiRoot registers its pointertap listeners via the federated event system

@@ -1,20 +1,11 @@
 import * as pixi from 'pixi.js';
 
 import {type Focusable} from './Focusable.js';
+import {type FocusDirection} from './FocusDirection.js';
 import {type UiChild, type UiParent} from './UiChild.js';
+import {type UiFocusEvent} from './UiFocusEvent.js';
+import {type UiRootOptions} from './UiRootOptions.js';
 import {type UiTheme} from './UiTheme.js';
-
-export type FocusDirection = 'down' | 'left' | 'right' | 'up';
-
-export type UiFocusEvent = {type: 'move'} | {type: 'reject'};
-
-export type UiRootOptions = {
-  theme: UiTheme;
-  // Semantic focus feedback (the game maps it to a sound). `move` fires when a
-  // focus command lands on a different component; `reject` when a directional
-  // move finds no candidate. Tap-driven silent focus fires nothing.
-  onFocusEvent?: ((event: UiFocusEvent) => void) | undefined;
-};
 
 type FocusScope = {
   onCancel?: (() => boolean) | undefined;

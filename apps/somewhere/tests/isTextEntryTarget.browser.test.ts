@@ -1,6 +1,6 @@
 import {describe, expect, test} from 'vitest';
 
-import {isTextEntryTarget} from '../source/engine/ui/isTextEntryTarget.js';
+import {isTextEntryTarget} from '../source/engine/utilities/isTextEntryTarget.js';
 
 describe(isTextEntryTarget, () => {
   test('is true for a keyboard event targeting a DOM input element', () => {

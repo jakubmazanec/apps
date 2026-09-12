@@ -8,7 +8,7 @@ import {GameTheme} from '../source/engine/app/GameTheme.js';
 import {getPixelScale} from '../source/engine/app/getPixelScale.js';
 import {Spriteset} from '../source/engine/graphics/Spriteset.js';
 import {GameInput} from '../source/engine/input/GameInput.js';
-import {type FocusDirection} from '../source/engine/ui/UiRoot.js';
+import {type FocusDirection} from '../source/engine/ui/FocusDirection.js';
 import {type UiThemeDescription} from '../source/engine/ui/UiTheme.js';
 import {theme} from '../source/game/core/theme.js';
 

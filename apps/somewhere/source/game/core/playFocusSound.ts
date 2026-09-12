@@ -1,4 +1,4 @@
-import {type UiFocusEvent} from '../../engine/ui/UiRoot.js';
+import {type UiFocusEvent} from '../../engine/ui/UiFocusEvent.js';
 import {assets} from './assets.js';
 import {audio} from './audio.js';
 

@@ -1,7 +1,7 @@
 import {type EventEmitter} from 'eventemitter3';
 import type * as pixi from 'pixi.js';
 
-import {type UiFocusEvent} from '../ui/UiRoot';
+import {type UiFocusEvent} from '../ui/UiFocusEvent';
 import {type Game} from './Game';
 import {type GameScreen} from './GameScreen';
 

@@ -1,7 +1,7 @@
 import {type LayoutContainer} from '@pixi/layout/components';
 import {describe, expect, test, vitest} from 'vitest';
 
-import {attachHoverHandlers} from '../source/engine/ui/attachHoverHandlers.js';
+import {attachHoverHandlers} from '../source/engine/ui/internals/attachHoverHandlers.js';
 
 function fakeView() {
   let handlers: Record<string, () => void> = {};

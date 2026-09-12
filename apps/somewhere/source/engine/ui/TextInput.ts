@@ -1,37 +1,16 @@
 import {LayoutContainer} from '@pixi/layout/components';
 import * as pixi from 'pixi.js';
 
-import {adoptDetachedBackgrounds} from './adoptDetachedBackgrounds.js';
-import {attachWidgetInteraction} from './attachWidgetInteraction.js';
 import {type Focusable} from './Focusable.js';
-import {resolveBackgrounds} from './resolveBackgrounds.js';
-import {resolveThemedBackgrounds} from './resolveThemedBackgrounds.js';
-import {setInteractionEnabled} from './setInteractionEnabled.js';
-import {swapBackground} from './swapBackground.js';
+import {adoptDetachedBackgrounds} from './internals/adoptDetachedBackgrounds.js';
+import {attachWidgetInteraction} from './internals/attachWidgetInteraction.js';
+import {resolveBackgrounds} from './internals/resolveBackgrounds.js';
+import {resolveThemedBackgrounds} from './internals/resolveThemedBackgrounds.js';
+import {setInteractionEnabled} from './internals/setInteractionEnabled.js';
+import {swapBackground} from './internals/swapBackground.js';
 import {Text} from './Text.js';
-import {type ThemedOptions} from './UiTheme.js';
-
-export type TextInputState = 'disabled' | 'hovered' | 'normal';
-
-export type TextInputBackgrounds = {
-  normal: pixi.Container;
-  hovered?: pixi.Container | undefined;
-  disabled?: pixi.Container | undefined;
-};
-
-export type TextInputOptions = ThemedOptions<TextInputBackgrounds> & {
-  value?: string | undefined;
-  placeholder?: string | undefined;
-  maxLength?: number | undefined;
-  container: HTMLElement;
-  role?: 'body' | 'label' | undefined;
-  fontFamily?: string | undefined;
-  fontSize?: number | undefined;
-  fill?: pixi.ColorSource | undefined;
-  onChange?: ((input: TextInput) => void) | undefined;
-  onEnter?: ((input: TextInput) => void) | undefined;
-  layout?: pixi.ContainerOptions['layout'] | undefined;
-};
+import {type TextInputOptions} from './TextInputOptions.js';
+import {type TextInputState} from './TextInputState.js';
 
 // One full blink cycle in ticker frames: ~0.5 s lit, ~0.5 s dark at 60 fps.
 const BLINK_PERIOD = 60;
@@ -153,7 +132,11 @@ export class TextInput implements Focusable {
     attachWidgetInteraction(this.view, {
       cursor: 'text',
       getState: () => this.#state,
-      setState: (state) => this.#setState(state),
+      setState: (state) => {
+        this.#state = state;
+
+        swapBackground(this.view, this.#backgrounds[state]);
+      },
     });
 
     this.#row = new LayoutContainer({});
@@ -356,6 +339,14 @@ export class TextInput implements Focusable {
     return this.#value;
   }
 
+  set value(value: string) {
+    this.#value = this.#maxLength === undefined ? value : value.slice(0, this.#maxLength);
+    this.#valueText.setText(this.#value);
+    this.#input.value = this.#value;
+
+    this.#refresh();
+  }
+
   // Navigation focus and editing focus are distinct: activating the
   // navigation-focused field is what starts editing.
   /** TBD */
@@ -379,7 +370,9 @@ export class TextInput implements Focusable {
       return;
     }
 
-    this.#setState('disabled');
+    this.#state = 'disabled';
+
+    swapBackground(this.view, this.#backgrounds.disabled);
 
     setInteractionEnabled(this.view, false);
     this.stopEditing();
@@ -391,20 +384,11 @@ export class TextInput implements Focusable {
       return;
     }
 
-    this.#setState('normal');
+    this.#state = 'normal';
+
+    swapBackground(this.view, this.#backgrounds.normal);
 
     setInteractionEnabled(this.view, true, 'text');
-  }
-
-  /** TBD */
-  setValue(value: string): this {
-    this.#value = this.#maxLength === undefined ? value : value.slice(0, this.#maxLength);
-    this.#valueText.setText(this.#value);
-    this.#input.value = this.#value;
-
-    this.#refresh();
-
-    return this;
   }
 
   /** TBD */
@@ -508,13 +492,6 @@ export class TextInput implements Focusable {
     } else {
       this.#row.addChild(this.#valueText.view);
     }
-  }
-
-  /** TBD */
-  #setState(state: TextInputState) {
-    this.#state = state;
-
-    swapBackground(this.view, this.#backgrounds[state]);
   }
 
   /** TBD */

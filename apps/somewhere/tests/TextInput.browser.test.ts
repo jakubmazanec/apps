@@ -2,7 +2,7 @@ import {LayoutSystem} from '@pixi/layout';
 import * as pixi from 'pixi.js';
 import {afterEach, beforeAll, beforeEach, describe, expect, test, vitest} from 'vitest';
 
-import {createBackground} from '../source/engine/ui/createBackground.js';
+import {createBackground} from '../source/engine/ui/internals/createBackground.js';
 import {createTestTheme} from './createTestTheme.js';
 
 // A fixed advance per character, so the expected caret offsets stay arithmetic;
@@ -33,7 +33,7 @@ vitest.mock(import('../source/engine/ui/Text.js'), async () => {
   };
 });
 
-vitest.mock(import('../source/engine/ui/createBackground.js'), () => ({
+vitest.mock(import('../source/engine/ui/internals/createBackground.js'), () => ({
   createBackground: vitest.fn<typeof createBackground>(() => background()),
 }));
 

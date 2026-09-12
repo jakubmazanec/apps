@@ -2,7 +2,7 @@ import {type LayoutContainer} from '@pixi/layout/components';
 import type * as pixi from 'pixi.js';
 import {describe, expect, test, vitest} from 'vitest';
 
-import {swapBackground} from '../source/engine/ui/swapBackground.js';
+import {swapBackground} from '../source/engine/ui/internals/swapBackground.js';
 
 function fakeContainer(width: number, height: number) {
   return {

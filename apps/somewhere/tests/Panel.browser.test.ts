@@ -2,13 +2,13 @@ import {LayoutSystem} from '@pixi/layout';
 import * as pixi from 'pixi.js';
 import {beforeAll, describe, expect, test, vitest} from 'vitest';
 
-import {type createBackground} from '../source/engine/ui/createBackground.js';
+import {type createBackground} from '../source/engine/ui/internals/createBackground.js';
 import {Panel} from '../source/engine/ui/Panel.js';
 import {createTestTheme} from './createTestTheme.js';
 
 let layoutSystem: LayoutSystem;
 
-vitest.mock(import('../source/engine/ui/createBackground.js'), () => ({
+vitest.mock(import('../source/engine/ui/internals/createBackground.js'), () => ({
   createBackground: vitest.fn<typeof createBackground>((texture) => {
     let container = new pixi.Container();
 

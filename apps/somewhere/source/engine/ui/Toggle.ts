@@ -1,30 +1,15 @@
 import {LayoutContainer} from '@pixi/layout/components';
 import type * as pixi from 'pixi.js';
 
-import {adoptDetachedBackgrounds} from './adoptDetachedBackgrounds.js';
-import {attachWidgetInteraction} from './attachWidgetInteraction.js';
 import {type Focusable} from './Focusable.js';
-import {resolveBackgrounds} from './resolveBackgrounds.js';
-import {resolveThemedBackgrounds} from './resolveThemedBackgrounds.js';
-import {setInteractionEnabled} from './setInteractionEnabled.js';
-import {swapBackground} from './swapBackground.js';
-import {type ThemedOptions} from './UiTheme.js';
-
-export type ToggleState = 'disabled' | 'hovered' | 'normal';
-
-export type ToggleBackgrounds = {
-  unchecked: pixi.Container;
-  checked: pixi.Container;
-  hovered?: pixi.Container | undefined;
-  hoveredChecked?: pixi.Container | undefined;
-  disabled?: pixi.Container | undefined;
-  disabledChecked?: pixi.Container | undefined;
-};
-
-export type ToggleOptions = ThemedOptions<ToggleBackgrounds> & {
-  checked?: boolean | undefined;
-  onChange?: ((toggle: Toggle) => void) | undefined;
-};
+import {adoptDetachedBackgrounds} from './internals/adoptDetachedBackgrounds.js';
+import {attachWidgetInteraction} from './internals/attachWidgetInteraction.js';
+import {resolveBackgrounds} from './internals/resolveBackgrounds.js';
+import {resolveThemedBackgrounds} from './internals/resolveThemedBackgrounds.js';
+import {setInteractionEnabled} from './internals/setInteractionEnabled.js';
+import {swapBackground} from './internals/swapBackground.js';
+import {type ToggleOptions} from './ToggleOptions.js';
+import {type ToggleState} from './ToggleState.js';
 
 export class Toggle implements Focusable {
   /** View. */
@@ -91,7 +76,11 @@ export class Toggle implements Focusable {
     attachWidgetInteraction(this.view, {
       cursor: 'pointer',
       getState: () => this.#state,
-      setState: (state) => this.#setState(state),
+      setState: (state) => {
+        this.#state = state;
+
+        swapBackground(this.view, toggleBackground(this.#backgrounds, this.#isChecked, state));
+      },
     });
 
     this.view.on('pointertap', (event) => {
@@ -130,7 +119,10 @@ export class Toggle implements Focusable {
       return;
     }
 
-    this.#setChecked(!this.#isChecked);
+    this.#isChecked = !this.#isChecked;
+
+    swapBackground(this.view, toggleBackground(this.#backgrounds, this.#isChecked, this.#state));
+
     this.#onChange?.(this);
   }
 
@@ -140,7 +132,9 @@ export class Toggle implements Focusable {
       return;
     }
 
-    this.#setChecked(true);
+    this.#isChecked = true;
+
+    swapBackground(this.view, toggleBackground(this.#backgrounds, true, this.#state));
   }
 
   /** Destroys the instance. */
@@ -154,7 +148,9 @@ export class Toggle implements Focusable {
       return;
     }
 
-    this.#setState('disabled');
+    this.#state = 'disabled';
+
+    swapBackground(this.view, toggleBackground(this.#backgrounds, this.#isChecked, 'disabled'));
 
     setInteractionEnabled(this.view, false);
   }
@@ -165,7 +161,9 @@ export class Toggle implements Focusable {
       return;
     }
 
-    this.#setState('normal');
+    this.#state = 'normal';
+
+    swapBackground(this.view, toggleBackground(this.#backgrounds, this.#isChecked, 'normal'));
 
     setInteractionEnabled(this.view, true, 'pointer');
   }
@@ -176,36 +174,19 @@ export class Toggle implements Focusable {
       return;
     }
 
-    this.#setChecked(false);
+    this.#isChecked = false;
+
+    swapBackground(this.view, toggleBackground(this.#backgrounds, false, this.#state));
   }
+}
 
-  /** TBD */
-  #setChecked(checked: boolean) {
-    if (this.#isChecked === checked) {
-      return;
-    }
-
-    this.#isChecked = checked;
-
-    this.#updateBackground();
-  }
-
-  /** TBD */
-  #setState(state: ToggleState) {
-    if (this.#state === state) {
-      return;
-    }
-
-    this.#state = state;
-
-    this.#updateBackground();
-  }
-
-  /** TBD */
-  #updateBackground() {
-    swapBackground(
-      this.view,
-      this.#backgrounds[this.#isChecked ? 'checked' : 'unchecked'][this.#state],
-    );
-  }
+function toggleBackground(
+  backgrounds: {
+    checked: Record<ToggleState, pixi.Container>;
+    unchecked: Record<ToggleState, pixi.Container>;
+  },
+  isChecked: boolean,
+  state: ToggleState,
+): pixi.Container {
+  return backgrounds[isChecked ? 'checked' : 'unchecked'][state];
 }

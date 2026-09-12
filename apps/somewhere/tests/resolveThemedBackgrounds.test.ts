@@ -1,10 +1,10 @@
 import * as pixi from 'pixi.js';
 import {describe, expect, test, vitest} from 'vitest';
 
-import {createBackground} from '../source/engine/ui/createBackground.js';
-import {resolveThemedBackgrounds} from '../source/engine/ui/resolveThemedBackgrounds.js';
+import {createBackground} from '../source/engine/ui/internals/createBackground.js';
+import {resolveThemedBackgrounds} from '../source/engine/ui/internals/resolveThemedBackgrounds.js';
 
-vitest.mock(import('../source/engine/ui/createBackground.js'), {spy: true});
+vitest.mock(import('../source/engine/ui/internals/createBackground.js'), {spy: true});
 
 describe(resolveThemedBackgrounds, () => {
   test('builds a background per state from the theme textures', () => {
