@@ -1,6 +1,7 @@
 import {LayoutContainer} from '@pixi/layout/components';
 import * as pixi from 'pixi.js';
 
+import {type Disposables} from '../utilities/Disposables.js';
 import {type Focusable} from './Focusable.js';
 import {adoptDetachedBackgrounds} from './internals/adoptDetachedBackgrounds.js';
 import {attachWidgetInteraction} from './internals/attachWidgetInteraction.js';
@@ -42,8 +43,11 @@ export class TextInput implements Focusable {
   /** TBD */
   readonly #container: HTMLElement;
 
-  /** Stack to register disposers that cleanup resources when needed. */
-  readonly #disposables = new DisposableStack();
+  /** Stacks to register disposers that cleanup resources when needed. */
+  readonly #disposables: Disposables<'instance', 'editing'> = {
+    editing: null,
+    instance: new DisposableStack(),
+  };
 
   /** TBD */
   readonly #input: HTMLInputElement;
@@ -125,7 +129,7 @@ export class TextInput implements Focusable {
       resolved,
     );
 
-    adoptDetachedBackgrounds(this.#disposables, Object.values(this.#backgrounds));
+    adoptDetachedBackgrounds(this.#disposables.instance, Object.values(this.#backgrounds));
 
     this.view = new LayoutContainer({background: this.#backgrounds.normal});
 
@@ -274,14 +278,9 @@ export class TextInput implements Focusable {
     input.addEventListener('input', handleInput);
     input.addEventListener('keydown', handleKeyDown);
 
-    // Keep our state in sync when the input loses focus on its own (e.g. the soft
-    // keyboard is dismissed), so the field can be focused again afterwards.
-    input.addEventListener('blur', this.#handleBlur);
-
-    this.#disposables.defer(() => {
+    this.#disposables.instance.defer(() => {
       input.removeEventListener('input', handleInput);
       input.removeEventListener('keydown', handleKeyDown);
-      input.removeEventListener('blur', this.#handleBlur);
       input.remove();
     });
 
@@ -303,13 +302,13 @@ export class TextInput implements Focusable {
 
     pixi.Ticker.shared.add(update);
 
-    this.#disposables.defer(() => {
+    this.#disposables.instance.defer(() => {
       pixi.Ticker.shared.remove(update);
     });
 
     // #valueText / #placeholderText / #caret are swapped in and out of #row, so
     // whichever is currently detached would leak under view.destroy({children}).
-    this.#disposables.defer(() => {
+    this.#disposables.instance.defer(() => {
       this.#row.removeChildren();
       this.#valueText.destroy();
       this.#placeholderText.destroy();
@@ -361,7 +360,7 @@ export class TextInput implements Focusable {
   /** Destroys the instance. */
   destroy() {
     this.stopEditing();
-    this.#disposables.dispose();
+    this.#disposables.instance.dispose();
   }
 
   /** TBD */
@@ -399,12 +398,39 @@ export class TextInput implements Focusable {
 
     this.#isEditing = true;
 
-    // Watch for an outside tap only while editing, so idle inputs hold no
-    // app-wide listeners. Clear the own-pointer flag the opening tap set, so the
-    // first outside tap is recognized as outside (the constructor's always-on
-    // listener used to clear it; now nothing else does).
+    // Clear the own-pointer flag the opening tap set, so the first outside tap
+    // is recognized as outside (nothing else clears it before the listener
+    // below exists).
     this.#isOwnPointerDown = false;
-    globalThis.addEventListener('pointerdown', this.#handleBlur);
+
+    // Everything that only matters during an edit is registered by the edit and
+    // torn down with it, so idle inputs hold no app-wide listeners. Closes the
+    // editor when a pointerdown lands outside this field, and when the input
+    // loses focus on its own (e.g. the soft keyboard is dismissed), so the
+    // field can be focused again afterwards. A tap on this field's own view
+    // sets #isOwnPointerDown first (the view's federated pointerdown runs
+    // before the window listener), so an in-field tap keeps the edit — and the
+    // soft keyboard — alive.
+    this.#disposables.editing = new DisposableStack();
+
+    // TODO: remove when linter config contains fix for this: https://github.com/sindresorhus/eslint-plugin-unicorn/issues/2088
+    // eslint-disable-next-line unicorn/consistent-function-scoping -- false positive
+    let handleBlur = () => {
+      if (this.#isOwnPointerDown) {
+        this.#isOwnPointerDown = false;
+
+        return;
+      }
+
+      this.stopEditing();
+    };
+
+    globalThis.addEventListener('pointerdown', handleBlur);
+    this.#input.addEventListener('blur', handleBlur);
+    this.#disposables.editing.defer(() => {
+      globalThis.removeEventListener('pointerdown', handleBlur);
+      this.#input.removeEventListener('blur', handleBlur);
+    });
 
     this.#input.value = this.#value;
 
@@ -433,7 +459,9 @@ export class TextInput implements Focusable {
 
     this.#isEditing = false;
 
-    globalThis.removeEventListener('pointerdown', this.#handleBlur);
+    // Disposed before blur() below, so the blur it raises finds no listener.
+    this.#disposables.editing?.dispose();
+    this.#disposables.editing = null;
 
     this.#input.blur();
 
@@ -441,23 +469,6 @@ export class TextInput implements Focusable {
 
     return this;
   }
-
-  // Closes the editor when a pointerdown lands outside this field. Doubles as the
-  // input's own DOM blur handler. A tap on this field's own view sets
-  // #isOwnPointerDown first (the view's federated pointerdown runs before this
-  // listener), so an in-field tap keeps the edit — and the soft keyboard — alive.
-  // As a window pointerdown listener it is attached only while editing (see
-  // startEditing/stopEditing), so idle inputs hold no app-wide listeners.
-  /** TBD */
-  readonly #handleBlur = () => {
-    if (this.#isOwnPointerDown) {
-      this.#isOwnPointerDown = false;
-
-      return;
-    }
-
-    this.stopEditing();
-  };
 
   /** TBD */
   #positionCaret(offset: number, width: number) {

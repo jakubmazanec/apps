@@ -6,6 +6,7 @@ import {Container} from '../../engine/ui/Container.js';
 import {Modal} from '../../engine/ui/Modal.js';
 import {Panel} from '../../engine/ui/Panel.js';
 import {Text} from '../../engine/ui/Text.js';
+import {type Disposables} from '../../engine/utilities/Disposables.js';
 import {assets} from '../core/assets.js';
 import {audio} from '../core/audio.js';
 import {game} from '../core/game.js';
@@ -23,13 +24,13 @@ import {mainMenuScreen} from './mainMenuScreen.js';
 import {openPauseMenu, resumeFromPause, teardownWorldScreen} from './pauseFlow.js';
 
 type WorldScreenContents = {
+  // Everything registered per show: the visibility listener and the travel
+  // ticker callback. Scoped to a show/hide pair, not the screen's lifetime.
+  disposables: Disposables<never, 'shown'>;
   hitCounter: Text;
   nameLabel: Text;
   openModal: Modal | null;
   pauseButton: Button;
-  // Everything registered per show: the visibility listener and the travel
-  // ticker callback. Scoped to a show/hide pair, not the screen's lifetime.
-  showDisposables: DisposableStack | null;
 };
 
 let wallHitCount = 0;
@@ -168,7 +169,7 @@ export const worldScreen = new GameScreen<WorldScreenContents, UIEventMap>({
 
     screen.ui.addChild(hud, pauseButton);
 
-    return {hitCounter, nameLabel, openModal: null, pauseButton, showDisposables: null};
+    return {disposables: {shown: null}, hitCounter, nameLabel, openModal: null, pauseButton};
   },
   onShow: (screen) => {
     screen.addToView(world);
@@ -198,7 +199,8 @@ export const worldScreen = new GameScreen<WorldScreenContents, UIEventMap>({
     // Auto-save at the last reliable lifecycle moment on mobile: covers tab
     // close, tab switch and app backgrounding. Firing while the pause modal
     // is open is fine — capture works on a paused world.
-    let disposables = new DisposableStack();
+    screen.contents.disposables.shown = new DisposableStack();
+
     let handleVisibilityChange = () => {
       if (document.visibilityState === 'hidden') {
         writeSave();
@@ -206,7 +208,7 @@ export const worldScreen = new GameScreen<WorldScreenContents, UIEventMap>({
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
-    disposables.defer(() => {
+    screen.contents.disposables.shown.defer(() => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     });
 
@@ -217,20 +219,17 @@ export const worldScreen = new GameScreen<WorldScreenContents, UIEventMap>({
     };
 
     game.app.ticker.add(runPendingTravel, undefined, pixi.UPDATE_PRIORITY.HIGH);
-    disposables.defer(() => {
+    screen.contents.disposables.shown.defer(() => {
       game.app.ticker.remove(runPendingTravel, undefined);
     });
-
-    screen.contents.showDisposables = disposables;
   },
   onHide: (screen) => {
     // Auto-save before teardown: the world must still be alive when the
     // position is captured. This one choke point covers Quit-to-menu and any
     // future path away from the screen.
     writeSave();
-    screen.contents.showDisposables?.dispose();
-
-    screen.contents.showDisposables = null;
+    screen.contents.disposables.shown?.dispose();
+    screen.contents.disposables.shown = null;
     teardownWorldScreen({
       world,
       modal: screen.contents.openModal,

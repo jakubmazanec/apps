@@ -81,6 +81,20 @@ describe('GameScreen.subscribe', () => {
     expect(spy).toHaveBeenCalledTimes(1);
   });
 
+  test('a subscription made outside a show outlives hide()', async () => {
+    let {screen, events} = createScreen();
+    let spy = vitest.fn<() => void>();
+
+    // Made before any show, so it belongs to the screen, not to the show that
+    // hide() ends; only destroy() drains it.
+    screen.subscribe('world:wallHit', spy);
+    await screen.show();
+    await screen.hide();
+    events.emit('world:wallHit', {tile: null as unknown as MapTile});
+
+    expect(spy).toHaveBeenCalledTimes(1);
+  });
+
   test('hide() with no subscriptions resolves without throwing', async () => {
     let {screen} = createScreen();
 

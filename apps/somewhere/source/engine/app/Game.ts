@@ -4,6 +4,7 @@ import * as pixi from 'pixi.js';
 
 import {type GameInput} from '../input/GameInput.js';
 import {type UiTheme} from '../ui/UiTheme.js';
+import {type Disposables} from '../utilities/Disposables.js';
 import {type AnyErrorGameScreen} from './AnyErrorGameScreen.js';
 import {type AnyGameScreen} from './AnyGameScreen.js';
 import {type GameAssets} from './GameAssets.js';
@@ -46,8 +47,8 @@ export class Game {
   /** Assets. */
   readonly #assets: GameAssets;
 
-  /** Stack to register disposers that cleanup resources when needed. */
-  #disposables = new DisposableStack();
+  /** Stacks to register disposers that cleanup resources when needed. */
+  readonly #disposables: Disposables<never, 'mounted'> = {mounted: null};
 
   /** Input. */
   readonly #input: GameInput;
@@ -216,15 +217,15 @@ export class Game {
       return this;
     }
 
-    this.#disposables.dispose();
+    this.#disposables.mounted?.dispose();
     ref.current.append(this.app.canvas);
 
-    this.#disposables = new DisposableStack();
+    this.#disposables.mounted = new DisposableStack();
     this.app.canvas.style.imageRendering = 'pixelated';
     this.ref = ref;
 
-    adoptInput(this, this.#disposables, this.#input);
-    adoptResize(this, this.#disposables);
+    adoptInput(this, this.#disposables.mounted, this.#input);
+    adoptResize(this, this.#disposables.mounted);
 
     return this;
   }
@@ -315,9 +316,10 @@ export class Game {
       throw new Error('Game must be running!');
     }
 
-    this.#disposables.dispose();
+    this.#disposables.mounted?.dispose();
     this.app.canvas.remove();
 
+    this.#disposables.mounted = null;
     this.ref = null;
 
     return this;

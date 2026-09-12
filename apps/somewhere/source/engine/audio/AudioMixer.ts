@@ -1,3 +1,4 @@
+import {type Disposables} from '../utilities/Disposables.js';
 import {type AudioBus} from './AudioBus.js';
 
 const VOLUME_RAMP_SECONDS = 0.015;
@@ -9,8 +10,8 @@ export class AudioMixer {
   /** Audio context. */
   readonly context: AudioContext;
 
-  /** Stack to register disposers that cleanup resources when needed. */
-  #disposables: DisposableStack | null = null;
+  /** Stacks to register disposers that cleanup resources when needed. */
+  readonly #disposables: Disposables<never, 'locked'> = {locked: null};
 
   /** TBD */
   readonly #gains: Record<AudioBus, GainNode>;
@@ -37,8 +38,8 @@ export class AudioMixer {
   /** Destroys the instance. */
   destroy(): void {
     this.stopMusic();
-    this.#disposables?.dispose();
-    this.#disposables = null;
+    this.#disposables.locked?.dispose();
+    this.#disposables.locked = null;
     void this.context.close();
   }
 
@@ -90,23 +91,25 @@ export class AudioMixer {
 
   /** TBD */
   unlock(): void {
-    if (this.#disposables !== null) {
+    if (this.#disposables.locked !== null) {
       return;
     }
 
-    let disposables = new DisposableStack();
+    this.#disposables.locked = new DisposableStack();
+
+    // eslint-disable-next-line unicorn/consistent-function-scoping -- false positive
     let handleGesture = () => {
       void this.context.resume();
-      disposables.dispose();
+      this.#disposables.locked?.dispose();
+
+      this.#disposables.locked = null;
     };
 
     globalThis.addEventListener('pointerdown', handleGesture);
     globalThis.addEventListener('keydown', handleGesture);
-    disposables.defer(() => {
+    this.#disposables.locked.defer(() => {
       globalThis.removeEventListener('pointerdown', handleGesture);
       globalThis.removeEventListener('keydown', handleGesture);
     });
-
-    this.#disposables = disposables;
   }
 }

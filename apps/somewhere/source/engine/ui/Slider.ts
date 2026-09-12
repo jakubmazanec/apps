@@ -1,6 +1,7 @@
 import {LayoutContainer} from '@pixi/layout/components';
 import type * as pixi from 'pixi.js';
 
+import {type Disposables} from '../utilities/Disposables.js';
 import {type Focusable} from './Focusable.js';
 import {adoptDetachedBackgrounds} from './internals/adoptDetachedBackgrounds.js';
 import {attachWidgetInteraction} from './internals/attachWidgetInteraction.js';
@@ -15,8 +16,8 @@ export class Slider implements Focusable {
   /** View. */
   readonly view: LayoutContainer;
 
-  /** Stack to register disposers that cleanup resources when needed. */
-  readonly #disposables = new DisposableStack();
+  /** Stacks to register disposers that cleanup resources when needed. */
+  readonly #disposables: Disposables<'instance'> = {instance: new DisposableStack()};
 
   /** TBD */
   readonly #fill: pixi.Container;
@@ -84,7 +85,7 @@ export class Slider implements Focusable {
       disabled: resolved.disabled,
     });
 
-    adoptDetachedBackgrounds(this.#disposables, Object.values(this.#trackBackgrounds));
+    adoptDetachedBackgrounds(this.#disposables.instance, Object.values(this.#trackBackgrounds));
 
     this.#trackWidth = resolved.track.width;
     this.#trackHeight = resolved.track.height;
@@ -199,7 +200,7 @@ export class Slider implements Focusable {
       this.#isDragging = false;
     });
 
-    this.#disposables.defer(() => this.view.destroy({children: true}));
+    this.#disposables.instance.defer(() => this.view.destroy({children: true}));
   }
 
   /** TBD */
@@ -247,7 +248,7 @@ export class Slider implements Focusable {
 
   /** Destroys the instance. */
   destroy() {
-    this.#disposables.dispose();
+    this.#disposables.instance.dispose();
   }
 
   /** TBD */

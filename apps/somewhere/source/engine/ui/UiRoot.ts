@@ -1,5 +1,6 @@
 import * as pixi from 'pixi.js';
 
+import {type Disposables} from '../utilities/Disposables.js';
 import {type Focusable} from './Focusable.js';
 import {type FocusDirection} from './FocusDirection.js';
 import {type UiChild, type UiParent} from './UiChild.js';
@@ -28,8 +29,8 @@ export class UiRoot implements UiParent {
   /** View. */
   readonly view: pixi.Container = new pixi.Container();
 
-  /** Stack to register disposers that cleanup resources when needed. */
-  readonly #disposables = new DisposableStack();
+  /** Stacks to register disposers that cleanup resources when needed. */
+  readonly #disposables: Disposables<'instance'> = {instance: new DisposableStack()};
 
   /** TBD */
   #focused: Focusable | null = null;
@@ -88,7 +89,7 @@ export class UiRoot implements UiParent {
 
     this.view.addEventListener('pointertap', handleTap, {capture: true});
 
-    this.#disposables.defer(() => {
+    this.#disposables.instance.defer(() => {
       this.view.removeEventListener('pointertap', handleTap, {capture: true});
     });
 
@@ -101,7 +102,7 @@ export class UiRoot implements UiParent {
 
     this.view.addEventListener('pointertap', stopTap);
 
-    this.#disposables.defer(() => {
+    this.#disposables.instance.defer(() => {
       this.view.removeEventListener('pointertap', stopTap);
     });
 
@@ -115,11 +116,11 @@ export class UiRoot implements UiParent {
 
     globalThis.addEventListener('pointerdown', handlePointerDown);
 
-    this.#disposables.defer(() => {
+    this.#disposables.instance.defer(() => {
       globalThis.removeEventListener('pointerdown', handlePointerDown);
     });
 
-    this.#disposables.defer(() => this.view.destroy({children: true}));
+    this.#disposables.instance.defer(() => this.view.destroy({children: true}));
   }
 
   /** TBD */
@@ -197,7 +198,7 @@ export class UiRoot implements UiParent {
       }
     }
 
-    this.#disposables.dispose();
+    this.#disposables.instance.dispose();
   }
 
   // Programmatic focus: sets the component without showing the ring.

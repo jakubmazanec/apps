@@ -2,6 +2,7 @@ import * as pixi from 'pixi.js';
 
 import {easeOutQuad} from '../scheduler/easing.js';
 import {type Scheduler} from '../scheduler/Scheduler.js';
+import {type Disposables} from '../utilities/Disposables.js';
 import {type Focusable} from './Focusable.js';
 import {type ModalOptions} from './ModalOptions.js';
 import {type ModalState} from './ModalState.js';
@@ -22,8 +23,11 @@ export class Modal implements UiParent {
   /** TBD */
   #cancelFade: (() => void) | null = null;
 
-  /** Stack to register disposers that cleanup resources when needed. */
-  readonly #disposables = new DisposableStack();
+  /** Stacks to register disposers that cleanup resources when needed. */
+  readonly #disposables: Disposables<'instance', 'open'> = {
+    instance: new DisposableStack(),
+    open: null,
+  };
 
   /** TBD */
   readonly #fadeDuration?: number;
@@ -45,9 +49,6 @@ export class Modal implements UiParent {
 
   /** State; which part of its life cycle the instance is currently in. */
   #state: ModalState = 'closed';
-
-  /** TBD */
-  #ui: UiRoot | null = null;
 
   constructor({
     children,
@@ -103,7 +104,7 @@ export class Modal implements UiParent {
       ...(typeof layout === 'object' ? layout : undefined),
     };
 
-    this.#disposables.defer(() => this.view.destroy({children: true}));
+    this.#disposables.instance.defer(() => this.view.destroy({children: true}));
   }
 
   /** TBD */
@@ -150,9 +151,8 @@ export class Modal implements UiParent {
   // never fires onClose.
   /** Destroys the instance. */
   destroy() {
-    this.#cancelFade?.();
-    this.#cancelFade = null;
-    this.#detach();
+    this.#disposables.open?.dispose();
+    this.#disposables.open = null;
     this.#state = 'closed';
     this.#destroyViews();
   }
@@ -167,7 +167,8 @@ export class Modal implements UiParent {
       return;
     }
 
-    this.#ui = ui;
+    this.#disposables.open = new DisposableStack();
+
     ui.addChild(this);
     ui.pushFocusScope(this, {
       onCancel: () => {
@@ -179,6 +180,16 @@ export class Modal implements UiParent {
 
         return true;
       },
+    });
+
+    // The scope is popped BEFORE removeChild: removing first would let UiRoot's
+    // scope self-heal drop the scope as stale and silently lose the
+    // previousFocus restoration (the Options flow depends on it).
+    this.#disposables.open.defer(() => {
+      this.#cancelFade?.();
+      this.#cancelFade = null;
+      ui.popFocusScope();
+      ui.removeChild(this);
     });
 
     if (this.#initialFocus !== undefined) {
@@ -229,30 +240,14 @@ export class Modal implements UiParent {
       }
     }
 
-    this.#disposables.dispose();
-  }
-
-  // The scope is popped BEFORE removeChild: removing first would let UiRoot's
-  // scope self-heal drop the scope as stale and silently lose the
-  // previousFocus restoration (the Options flow depends on it).
-  /** TBD */
-  #detach() {
-    let ui = this.#ui;
-
-    this.#ui = null;
-
-    if (ui === null) {
-      return;
-    }
-
-    ui.popFocusScope();
-    ui.removeChild(this);
+    this.#disposables.instance.dispose();
   }
 
   /** TBD */
   #finishClose() {
     this.#state = 'closed';
-    this.#detach();
+    this.#disposables.open?.dispose();
+    this.#disposables.open = null;
     this.#destroyViews();
     this.#onClose?.();
   }
