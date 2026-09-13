@@ -1,5 +1,6 @@
 /* eslint-disable max-classes-per-file -- needed */
-const tag: unique symbol = Symbol('Tag');
+import {tag} from './Tag.js';
+
 const event: unique symbol = Symbol('Event');
 
 /** Data sent through an event channel. */

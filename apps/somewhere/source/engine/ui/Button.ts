@@ -23,11 +23,8 @@ export class Button implements Focusable, UiParent {
   /** TBD */
   readonly #backgrounds: Record<ButtonState, pixi.Container>;
 
-  /** TBD */
-  readonly #basePaddingBottom: number;
-
-  /** TBD */
-  readonly #basePaddingTop: number;
+  /** Padding captured at construction; press/release restores it. */
+  readonly #basePadding: {top: number; bottom: number};
 
   /** Stacks to register disposers that cleanup resources when needed. */
   readonly #disposables: Disposables<'instance'> = {instance: new DisposableStack()};
@@ -63,8 +60,7 @@ export class Button implements Focusable, UiParent {
       paddingBottom?: number;
     };
 
-    this.#basePaddingTop = paddingTop;
-    this.#basePaddingBottom = paddingBottom;
+    this.#basePadding = {top: paddingTop, bottom: paddingBottom};
 
     let resolved = resolveThemedBackgrounds(
       ['normal', 'hovered', 'active', 'disabled'],
@@ -96,8 +92,7 @@ export class Button implements Focusable, UiParent {
         if (this.#pressOffset !== 0) {
           this.view.layout = pressPadding(state, {
             pressOffset: this.#pressOffset,
-            basePaddingTop: this.#basePaddingTop,
-            basePaddingBottom: this.#basePaddingBottom,
+            basePadding: this.#basePadding,
           });
         }
 
@@ -115,8 +110,7 @@ export class Button implements Focusable, UiParent {
       if (this.#pressOffset !== 0) {
         this.view.layout = pressPadding('active', {
           pressOffset: this.#pressOffset,
-          basePaddingTop: this.#basePaddingTop,
-          basePaddingBottom: this.#basePaddingBottom,
+          basePadding: this.#basePadding,
         });
       }
 
@@ -133,8 +127,7 @@ export class Button implements Focusable, UiParent {
       if (this.#pressOffset !== 0) {
         this.view.layout = pressPadding('hovered', {
           pressOffset: this.#pressOffset,
-          basePaddingTop: this.#basePaddingTop,
-          basePaddingBottom: this.#basePaddingBottom,
+          basePadding: this.#basePadding,
         });
       }
 
@@ -153,8 +146,7 @@ export class Button implements Focusable, UiParent {
       if (this.#pressOffset !== 0) {
         this.view.layout = pressPadding('normal', {
           pressOffset: this.#pressOffset,
-          basePaddingTop: this.#basePaddingTop,
-          basePaddingBottom: this.#basePaddingBottom,
+          basePadding: this.#basePadding,
         });
       }
 
@@ -237,8 +229,7 @@ export class Button implements Focusable, UiParent {
     if (this.#pressOffset !== 0) {
       this.view.layout = pressPadding('disabled', {
         pressOffset: this.#pressOffset,
-        basePaddingTop: this.#basePaddingTop,
-        basePaddingBottom: this.#basePaddingBottom,
+        basePadding: this.#basePadding,
       });
     }
 
@@ -258,8 +249,7 @@ export class Button implements Focusable, UiParent {
     if (this.#pressOffset !== 0) {
       this.view.layout = pressPadding('normal', {
         pressOffset: this.#pressOffset,
-        basePaddingTop: this.#basePaddingTop,
-        basePaddingBottom: this.#basePaddingBottom,
+        basePadding: this.#basePadding,
       });
     }
 
@@ -288,16 +278,12 @@ export class Button implements Focusable, UiParent {
 // needs the value captured at construction rather than reading it back from the view.
 function pressPadding(
   state: ButtonState,
-  {
-    pressOffset,
-    basePaddingTop,
-    basePaddingBottom,
-  }: {pressOffset: number; basePaddingTop: number; basePaddingBottom: number},
+  {pressOffset, basePadding}: {pressOffset: number; basePadding: {top: number; bottom: number}},
 ): {paddingTop: number; paddingBottom: number} {
   let shift = state === 'active' ? pressOffset : 0;
 
   return {
-    paddingTop: basePaddingTop + shift,
-    paddingBottom: basePaddingBottom - shift,
+    paddingTop: basePadding.top + shift,
+    paddingBottom: basePadding.bottom - shift,
   };
 }

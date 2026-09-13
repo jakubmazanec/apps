@@ -13,6 +13,7 @@ export type GameScreenOptions<T, E extends EventEmitter.ValidEventTypes = Record
   onHide?: ((screen: GameScreen<T, E>, game: Game) => Promise<void> | void) | undefined;
   onUpdate?: ((ticker: pixi.Ticker, screen: GameScreen<T, E>, game: Game) => void) | undefined;
   onResize?: ((screen: GameScreen<T, E>, game: Game) => void) | undefined;
+  // TODO: proper document comment here (and rest of options)!
   // Escape (the `cancel` focus command) that no focus scope claimed. The game
   // screen opens the pause menu here; a menu screen can go back.
   onCancel?: ((screen: GameScreen<T, E>, game: Game) => void) | undefined;
