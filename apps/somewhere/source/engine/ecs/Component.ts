@@ -1,5 +1,6 @@
 /* eslint-disable max-classes-per-file -- needed */
-const tag: unique symbol = Symbol('Tag');
+import {tag} from './Tag.js';
+
 const component: unique symbol = Symbol('Component');
 
 /** Data attached to an entity. */

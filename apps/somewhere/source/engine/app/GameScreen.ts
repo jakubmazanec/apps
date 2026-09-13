@@ -222,17 +222,13 @@ export class GameScreen<
     await this.#onShow?.(this, this.game);
   }
 
-  /**
-   * Subscribes `handler` to one of the screen's events for the lifetime it is
-   * made in: during a show it ends with that show (so an onShow subscription
-   * cannot double up on re-show), otherwise with the screen.
-   */
+  /** Subscribes `handler` to one of the screen's events. */
   subscribe<E extends EventEmitter.EventNames<Events>>(
     event: E,
     handler: EventEmitter.EventListener<Events, E>,
   ): this {
     this.#events?.on(event, handler);
-    (this.#disposables.shown ?? this.#disposables.instance).defer(() => {
+    this.#disposables.instance.defer(() => {
       this.#events?.off(event, handler);
     });
 

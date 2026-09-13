@@ -55,27 +55,28 @@ describe('GameScreen.subscribe', () => {
     expect(spy).toHaveBeenCalledTimes(1);
   });
 
-  test('hide() drains subscriptions so handler is not called after hide', async () => {
+  test('a subscription made while shown outlives hide() and only destroy() drains it', async () => {
     let {screen, events} = createScreen();
     let spy = vitest.fn<() => void>();
 
     await screen.show();
     screen.subscribe('world:wallHit', spy);
-    events.emit('world:wallHit', {tile: null as unknown as MapTile});
     await screen.hide();
+    events.emit('world:wallHit', {tile: null as unknown as MapTile});
+    screen.destroy();
     events.emit('world:wallHit', {tile: null as unknown as MapTile});
 
     expect(spy).toHaveBeenCalledTimes(1);
   });
 
-  test('re-show does NOT double-subscribe: one emit fires handler exactly once', async () => {
+  test('a subscription made while shown keeps firing across hide() and re-show', async () => {
     let {screen, events} = createScreen();
     let spy = vitest.fn<() => void>();
 
     await screen.show();
     screen.subscribe('world:wallHit', spy);
     await screen.hide();
-    screen.subscribe('world:wallHit', spy);
+    await screen.show();
     events.emit('world:wallHit', {tile: null as unknown as MapTile});
 
     expect(spy).toHaveBeenCalledTimes(1);
