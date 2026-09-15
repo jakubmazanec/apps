@@ -1,8 +1,9 @@
 import {LayoutContainer} from '@pixi/layout/components';
-import type * as pixi from 'pixi.js';
 
 import {type Disposables} from '../utilities/Disposables.js';
+import {type ButtonConfig} from './ButtonConfig.js';
 import {type ButtonOptions} from './ButtonOptions.js';
+import {type ButtonParts} from './ButtonParts.js';
 import {type ButtonState} from './ButtonState.js';
 import {type Focusable} from './Focusable.js';
 import {adoptDetachedBackgrounds} from './internals/adoptDetachedBackgrounds.js';
@@ -20,11 +21,8 @@ export class Button implements Focusable, UiParent {
   /** View. */
   readonly view: LayoutContainer;
 
-  /** TBD */
-  readonly #backgrounds: Record<ButtonState, pixi.Container>;
-
-  /** Padding captured at construction; press/release restores it. */
-  readonly #basePadding: {top: number; bottom: number};
+  /** Object for storing config. */
+  readonly #config: ButtonConfig;
 
   /** Stacks to register disposers that cleanup resources when needed. */
   readonly #disposables: Disposables<'instance'> = {instance: new DisposableStack()};
@@ -32,8 +30,8 @@ export class Button implements Focusable, UiParent {
   /** Lifecycle hook called when the button is clicked. */
   readonly #onClick?: (button: Button) => void;
 
-  /** TBD */
-  readonly #pressOffset: number;
+  /** Object for keeping references to display objects or DOM elements. */
+  readonly #parts: ButtonParts;
 
   /** State; which part of its life cycle the instance is currently in. */
   #state: ButtonState = 'normal';
@@ -42,8 +40,6 @@ export class Button implements Focusable, UiParent {
     if (onClick !== undefined) {
       this.#onClick = onClick;
     }
-
-    this.#pressOffset = pressOffset ?? theme?.button.pressOffset ?? 0;
 
     // The theme provides per-property layout defaults; an instance property wins.
     let mergedLayout = {
@@ -60,11 +56,16 @@ export class Button implements Focusable, UiParent {
       paddingBottom?: number;
     };
 
-    this.#basePadding = {top: paddingTop, bottom: paddingBottom};
+    this.#config = {
+      basePadding: {top: paddingTop, bottom: paddingBottom},
+      layout: mergedLayout,
+      pressOffset: pressOffset ?? theme?.button.pressOffset ?? 0,
+      theme,
+    };
 
     let resolved = resolveThemedBackgrounds(
       ['normal', 'hovered', 'active', 'disabled'],
-      theme?.button,
+      this.#config.theme?.button,
       backgrounds,
     );
 
@@ -73,15 +74,17 @@ export class Button implements Focusable, UiParent {
       throw new Error('Button needs a theme or a normal background!');
     }
 
-    this.#backgrounds = resolveBackgrounds(
-      ['normal', 'hovered', 'active', 'disabled'],
-      resolved.normal,
-      resolved,
-    );
+    this.#parts = {
+      backgrounds: resolveBackgrounds(
+        ['normal', 'hovered', 'active', 'disabled'],
+        resolved.normal,
+        resolved,
+      ),
+    };
 
-    adoptDetachedBackgrounds(this.#disposables.instance, Object.values(this.#backgrounds));
+    adoptDetachedBackgrounds(this.#disposables.instance, Object.values(this.#parts.backgrounds));
 
-    this.view = new LayoutContainer({background: this.#backgrounds.normal});
+    this.view = new LayoutContainer({background: this.#parts.backgrounds.normal});
 
     attachWidgetInteraction(this.view, {
       cursor: 'pointer',
@@ -89,14 +92,11 @@ export class Button implements Focusable, UiParent {
       setState: (state) => {
         this.#state = state;
 
-        if (this.#pressOffset !== 0) {
-          this.view.layout = pressPadding(state, {
-            pressOffset: this.#pressOffset,
-            basePadding: this.#basePadding,
-          });
+        if (this.#config.pressOffset !== 0) {
+          this.view.layout = pressPadding(state, this.#config);
         }
 
-        swapBackground(this.view, this.#backgrounds[state]);
+        swapBackground(this.view, this.#parts.backgrounds[state]);
       },
     });
 
@@ -107,14 +107,11 @@ export class Button implements Focusable, UiParent {
 
       this.#state = 'active';
 
-      if (this.#pressOffset !== 0) {
-        this.view.layout = pressPadding('active', {
-          pressOffset: this.#pressOffset,
-          basePadding: this.#basePadding,
-        });
+      if (this.#config.pressOffset !== 0) {
+        this.view.layout = pressPadding('active', this.#config);
       }
 
-      swapBackground(this.view, this.#backgrounds.active);
+      swapBackground(this.view, this.#parts.backgrounds.active);
     });
 
     this.view.on('pointerup', () => {
@@ -124,14 +121,11 @@ export class Button implements Focusable, UiParent {
 
       this.#state = 'hovered';
 
-      if (this.#pressOffset !== 0) {
-        this.view.layout = pressPadding('hovered', {
-          pressOffset: this.#pressOffset,
-          basePadding: this.#basePadding,
-        });
+      if (this.#config.pressOffset !== 0) {
+        this.view.layout = pressPadding('hovered', this.#config);
       }
 
-      swapBackground(this.view, this.#backgrounds.hovered);
+      swapBackground(this.view, this.#parts.backgrounds.hovered);
     });
 
     // A press released outside the button never fires `pointerup`, which would
@@ -143,14 +137,11 @@ export class Button implements Focusable, UiParent {
 
       this.#state = 'normal';
 
-      if (this.#pressOffset !== 0) {
-        this.view.layout = pressPadding('normal', {
-          pressOffset: this.#pressOffset,
-          basePadding: this.#basePadding,
-        });
+      if (this.#config.pressOffset !== 0) {
+        this.view.layout = pressPadding('normal', this.#config);
       }
 
-      swapBackground(this.view, this.#backgrounds.normal);
+      swapBackground(this.view, this.#parts.backgrounds.normal);
     });
 
     this.view.on('pointertap', (event) => {
@@ -167,7 +158,7 @@ export class Button implements Focusable, UiParent {
     this.view.layout = {
       justifyContent: 'center',
       alignItems: 'center',
-      ...mergedLayout,
+      ...this.#config.layout,
     };
 
     this.#disposables.instance.defer(() => this.view.destroy({children: true}));
@@ -226,14 +217,11 @@ export class Button implements Focusable, UiParent {
 
     this.#state = 'disabled';
 
-    if (this.#pressOffset !== 0) {
-      this.view.layout = pressPadding('disabled', {
-        pressOffset: this.#pressOffset,
-        basePadding: this.#basePadding,
-      });
+    if (this.#config.pressOffset !== 0) {
+      this.view.layout = pressPadding('disabled', this.#config);
     }
 
-    swapBackground(this.view, this.#backgrounds.disabled);
+    swapBackground(this.view, this.#parts.backgrounds.disabled);
 
     setInteractionEnabled(this.view, false);
   }
@@ -246,14 +234,11 @@ export class Button implements Focusable, UiParent {
 
     this.#state = 'normal';
 
-    if (this.#pressOffset !== 0) {
-      this.view.layout = pressPadding('normal', {
-        pressOffset: this.#pressOffset,
-        basePadding: this.#basePadding,
-      });
+    if (this.#config.pressOffset !== 0) {
+      this.view.layout = pressPadding('normal', this.#config);
     }
 
-    swapBackground(this.view, this.#backgrounds.normal);
+    swapBackground(this.view, this.#parts.backgrounds.normal);
 
     setInteractionEnabled(this.view, true, 'pointer');
   }

@@ -1,7 +1,9 @@
 import * as pixi from 'pixi.js';
 
 import {type Disposables} from '../utilities/Disposables.js';
+import {type TextConfig} from './TextConfig.js';
 import {type TextOptions} from './TextOptions.js';
+import {type TextParts} from './TextParts.js';
 
 const DEFAULT_ANCHOR: pixi.PointData = {x: 0, y: 0};
 // A layout leaf is measured by its own bounds, but @pixi/layout then fits it to
@@ -18,31 +20,37 @@ export class Text {
   /** View. */
   readonly view: pixi.Container = new pixi.Container();
 
+  /** Object for storing config. */
+  readonly #config: TextConfig;
+
   /** Stacks to register disposers that cleanup resources when needed. */
   readonly #disposables: Disposables<'instance'> = {instance: new DisposableStack()};
 
-  /** TBD */
-  readonly #sprite: pixi.BitmapText;
+  /** Object for keeping references to display objects or DOM elements. */
+  readonly #parts: TextParts;
 
   constructor(options: TextOptions) {
     let {text, theme, role = 'label', anchor = DEFAULT_ANCHOR, layout, ...style} = options;
     let themeStyle = theme?.text[role];
 
-    this.#sprite = new pixi.BitmapText({
-      text,
+    this.#config = {
+      anchor,
+      layout,
       style: themeStyle === undefined ? style : {...themeStyle, ...style},
-    });
+      theme,
+    };
+    this.#parts = {sprite: new pixi.BitmapText({text, style: this.#config.style})};
 
-    this.#sprite.anchor.set(anchor.x, anchor.y);
-    this.view.addChild(this.#sprite);
+    this.#parts.sprite.anchor.set(this.#config.anchor.x, this.#config.anchor.y);
+    this.view.addChild(this.#parts.sprite);
 
-    if (layout !== undefined) {
-      if (layout === true) {
+    if (this.#config.layout !== undefined) {
+      if (this.#config.layout === true) {
         this.view.layout = {...LEAF_LAYOUT};
-      } else if (typeof layout === 'object' && layout !== null) {
-        this.view.layout = {...LEAF_LAYOUT, ...layout};
+      } else if (typeof this.#config.layout === 'object' && this.#config.layout !== null) {
+        this.view.layout = {...LEAF_LAYOUT, ...this.#config.layout};
       } else {
-        this.view.layout = layout;
+        this.view.layout = this.#config.layout;
       }
     }
 
@@ -51,7 +59,7 @@ export class Text {
 
   /** TBD */
   get style(): pixi.TextStyle {
-    return this.#sprite.style;
+    return this.#parts.sprite.style;
   }
 
   /** Destroys the instance. */
@@ -65,21 +73,21 @@ export class Text {
     // BitmapText scales by `scale` to reach the style's font size (see its
     // updateBounds). trimEnd is off because it would drop a trailing space's
     // advance, and a caret has to move when one is typed.
-    let {width, scale} = pixi.BitmapFontManager.measureText(text, this.#sprite.style, false);
+    let {width, scale} = pixi.BitmapFontManager.measureText(text, this.#parts.sprite.style, false);
 
     return width * scale;
   }
 
   /** TBD */
   setAnchor(anchor: pixi.PointData): this {
-    this.#sprite.anchor.set(anchor.x, anchor.y);
+    this.#parts.sprite.anchor.set(anchor.x, anchor.y);
 
     return this;
   }
 
   /** TBD */
   setText(text: string): this {
-    this.#sprite.text = text;
+    this.#parts.sprite.text = text;
 
     return this;
   }
