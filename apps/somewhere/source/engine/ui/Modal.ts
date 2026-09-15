@@ -1,10 +1,11 @@
 import * as pixi from 'pixi.js';
 
 import {easeOutQuad} from '../scheduler/easing.js';
-import {type Scheduler} from '../scheduler/Scheduler.js';
 import {type Disposables} from '../utilities/Disposables.js';
-import {type Focusable} from './Focusable.js';
+import {type ModalConfig} from './ModalConfig.js';
 import {type ModalOptions} from './ModalOptions.js';
+import {type ModalParts} from './ModalParts.js';
+import {type ModalRuntime} from './ModalRuntime.js';
 import {type ModalState} from './ModalState.js';
 import {type UiChild, type UiParent} from './UiChild.js';
 import {type UiRoot} from './UiRoot.js';
@@ -20,8 +21,8 @@ export class Modal implements UiParent {
   /** View. */
   readonly view: pixi.Container = new pixi.Container();
 
-  /** TBD */
-  #cancelFade: (() => void) | null = null;
+  /** Object for storing config. */
+  readonly #config: ModalConfig;
 
   /** Stacks to register disposers that cleanup resources when needed. */
   readonly #disposables: Disposables<'instance', 'open'> = {
@@ -29,23 +30,17 @@ export class Modal implements UiParent {
     open: null,
   };
 
-  /** TBD */
-  readonly #fadeDuration?: number;
-
-  /** TBD */
-  readonly #initialFocus?: Focusable;
-
   /** Lifecycle hook called when there is an unhandled cancel command. */
   readonly #onCancel?: () => void;
 
   /** Lifecycle hook called when the modal is closed. */
   readonly #onClose?: () => void;
 
-  /** TBD */
-  readonly #scheduler?: Scheduler;
+  /** Object for keeping references to display objects or DOM elements. */
+  readonly #parts: ModalParts = {scrim: new pixi.Graphics()};
 
-  /** TBD */
-  readonly #scrim: pixi.Graphics = new pixi.Graphics();
+  /** Object for internal values that may change. */
+  readonly #runtime: ModalRuntime = {cancelFade: null};
 
   /** State; which part of its life cycle the instance is currently in. */
   #state: ModalState = 'closed';
@@ -60,10 +55,6 @@ export class Modal implements UiParent {
     scheduler,
     fadeDuration,
   }: ModalOptions) {
-    if (initialFocus !== undefined) {
-      this.#initialFocus = initialFocus;
-    }
-
     if (onClose !== undefined) {
       this.#onClose = onClose;
     }
@@ -72,10 +63,13 @@ export class Modal implements UiParent {
       this.#onCancel = onCancel;
     }
 
-    if (scheduler !== undefined) {
-      this.#scheduler = scheduler;
-      this.#fadeDuration = fadeDuration;
-    }
+    this.#config = {
+      fadeDuration,
+      initialFocus,
+      layout: typeof layout === 'object' ? layout : undefined,
+      scheduler,
+      scrimAlpha,
+    };
 
     // The scrim is a raw pixi child behind the layout children and deliberately
     // NOT in `children`, so the focus walk never sees it. It is interactive so
@@ -83,9 +77,9 @@ export class Modal implements UiParent {
     // reaching the game view, which blocks click-to-move for free). It sits
     // out-of-flow (no layout of its own) at (0, 0) — the same mixed
     // layout/non-layout child behavior loadingScreen's view exercises.
-    this.#scrim.alpha = scrimAlpha;
-    this.#scrim.eventMode = 'static';
-    this.view.addChild(this.#scrim);
+    this.#parts.scrim.alpha = this.#config.scrimAlpha;
+    this.#parts.scrim.eventMode = 'static';
+    this.view.addChild(this.#parts.scrim);
 
     if (children !== undefined) {
       for (let child of children) {
@@ -101,7 +95,7 @@ export class Modal implements UiParent {
       position: 'absolute',
       left: 0,
       top: 0,
-      ...(typeof layout === 'object' ? layout : undefined),
+      ...this.#config.layout,
     };
 
     this.#disposables.instance.defer(() => this.view.destroy({children: true}));
@@ -122,19 +116,19 @@ export class Modal implements UiParent {
       return false;
     }
 
-    if (this.#scheduler !== undefined && this.#fadeDuration !== undefined) {
+    if (this.#config.scheduler !== undefined && this.#config.fadeDuration !== undefined) {
       // Tweens don't reverse: cancel any in-flight fade-in and start a new
       // tween toward 0 — Tween captures its from-value from the current alpha
       // at construction, so the replacement picks up with no visual jump.
-      this.#cancelFade?.();
+      this.#runtime.cancelFade?.();
       this.#state = 'closing';
-      this.#cancelFade = this.#scheduler.tween({
+      this.#runtime.cancelFade = this.#config.scheduler.tween({
         target: this.view,
         to: {alpha: 0},
-        duration: this.#fadeDuration,
+        duration: this.#config.fadeDuration,
         easing: easeOutQuad,
         onComplete: () => {
-          this.#cancelFade = null;
+          this.#runtime.cancelFade = null;
           this.#finishClose();
         },
       });
@@ -186,26 +180,26 @@ export class Modal implements UiParent {
     // scope self-heal drop the scope as stale and silently lose the
     // previousFocus restoration (the Options flow depends on it).
     this.#disposables.open.defer(() => {
-      this.#cancelFade?.();
-      this.#cancelFade = null;
+      this.#runtime.cancelFade?.();
+      this.#runtime.cancelFade = null;
       ui.popFocusScope();
       ui.removeChild(this);
     });
 
-    if (this.#initialFocus !== undefined) {
-      ui.focus(this.#initialFocus);
+    if (this.#config.initialFocus !== undefined) {
+      ui.focus(this.#config.initialFocus);
     }
 
-    if (this.#scheduler !== undefined && this.#fadeDuration !== undefined) {
+    if (this.#config.scheduler !== undefined && this.#config.fadeDuration !== undefined) {
       this.#state = 'opening';
       this.view.alpha = 0;
-      this.#cancelFade = this.#scheduler.tween({
+      this.#runtime.cancelFade = this.#config.scheduler.tween({
         target: this.view,
         to: {alpha: 1},
-        duration: this.#fadeDuration,
+        duration: this.#config.fadeDuration,
         easing: easeOutQuad,
         onComplete: () => {
-          this.#cancelFade = null;
+          this.#runtime.cancelFade = null;
           this.#state = 'open';
         },
       });
@@ -225,7 +219,7 @@ export class Modal implements UiParent {
     }
 
     this.view.layout = {width, height};
-    this.#scrim.clear().rect(0, 0, width, height).fill(0x000000);
+    this.#parts.scrim.clear().rect(0, 0, width, height).fill(0x000000);
   }
 
   /** TBD */

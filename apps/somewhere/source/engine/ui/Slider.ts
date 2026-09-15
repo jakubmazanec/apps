@@ -9,48 +9,33 @@ import {resolveBackgrounds} from './internals/resolveBackgrounds.js';
 import {resolveThemedBackgrounds} from './internals/resolveThemedBackgrounds.js';
 import {setInteractionEnabled} from './internals/setInteractionEnabled.js';
 import {swapBackground} from './internals/swapBackground.js';
+import {type SliderConfig} from './SliderConfig.js';
 import {type SliderOptions} from './SliderOptions.js';
+import {type SliderParts} from './SliderParts.js';
+import {type SliderRuntime} from './SliderRuntime.js';
 import {type SliderState} from './SliderState.js';
 
 export class Slider implements Focusable {
   /** View. */
   readonly view: LayoutContainer;
 
+  /** Object for storing config. */
+  readonly #config: SliderConfig;
+
   /** Stacks to register disposers that cleanup resources when needed. */
   readonly #disposables: Disposables<'instance'> = {instance: new DisposableStack()};
-
-  /** TBD */
-  readonly #fill: pixi.Container;
-
-  /** TBD */
-  #isDragging = false;
-
-  /** TBD */
-  readonly #max: number;
-
-  /** TBD */
-  readonly #min: number;
 
   /** Lifecycle hook called when the slider's value changes. */
   readonly #onChange?: (slider: Slider) => void;
 
+  /** Object for keeping references to display objects or DOM elements. */
+  readonly #parts: SliderParts;
+
+  /** Object for internal values that may change. */
+  readonly #runtime: SliderRuntime;
+
   /** State; which part of its life cycle the instance is currently in. */
   #state: SliderState = 'normal';
-
-  /** TBD */
-  readonly #step: number;
-
-  /** TBD */
-  readonly #trackBackgrounds: Record<SliderState, pixi.Container>;
-
-  /** TBD */
-  readonly #trackHeight: number;
-
-  /** TBD */
-  readonly #trackWidth: number;
-
-  /** TBD */
-  #value: number;
 
   constructor({
     backgrounds,
@@ -65,10 +50,8 @@ export class Slider implements Focusable {
       this.#onChange = onChange;
     }
 
-    this.#min = min;
-    this.#max = max;
-    this.#step = step;
-
+    // The track's size is part of the config, and it only exists once the
+    // backgrounds are resolved, so this widget resolves them first.
     let resolved = resolveThemedBackgrounds(
       ['track', 'fill', 'hovered', 'disabled'],
       theme?.slider,
@@ -80,18 +63,29 @@ export class Slider implements Focusable {
       throw new Error('Slider needs a theme or track and fill backgrounds!');
     }
 
-    this.#trackBackgrounds = resolveBackgrounds(['normal', 'hovered', 'disabled'], resolved.track, {
-      hovered: resolved.hovered,
-      disabled: resolved.disabled,
-    });
+    this.#config = {
+      min,
+      max,
+      step,
+      theme,
+      trackWidth: resolved.track.width,
+      trackHeight: resolved.track.height,
+    };
+    this.#parts = {
+      fill: resolved.fill,
+      trackBackgrounds: resolveBackgrounds(['normal', 'hovered', 'disabled'], resolved.track, {
+        hovered: resolved.hovered,
+        disabled: resolved.disabled,
+      }),
+    };
 
-    adoptDetachedBackgrounds(this.#disposables.instance, Object.values(this.#trackBackgrounds));
+    adoptDetachedBackgrounds(
+      this.#disposables.instance,
+      Object.values(this.#parts.trackBackgrounds),
+    );
 
-    this.#trackWidth = resolved.track.width;
-    this.#trackHeight = resolved.track.height;
-
-    this.view = new LayoutContainer({background: this.#trackBackgrounds.normal});
-    this.view.layout = {width: this.#trackWidth, height: this.#trackHeight};
+    this.view = new LayoutContainer({background: this.#parts.trackBackgrounds.normal});
+    this.view.layout = {width: this.#config.trackWidth, height: this.#config.trackHeight};
 
     attachWidgetInteraction(this.view, {
       cursor: 'pointer',
@@ -99,11 +93,10 @@ export class Slider implements Focusable {
       setState: (state) => {
         this.#state = state;
 
-        swapBackground(this.view, this.#trackBackgrounds[state]);
+        swapBackground(this.view, this.#parts.trackBackgrounds[state]);
       },
     });
 
-    this.#fill = resolved.fill;
     // Deliberately NOT given a `layout` style: the fill is sized via setSize()
     // whenever the value changes, and a yoga node would double-apply that size. @pixi/layout
     // treats any ViewContainer as a leaf styled `{width: 'intrinsic'}`, resolves
@@ -113,13 +106,16 @@ export class Slider implements Focusable {
     // texture and composes the two multiplicatively — a 32 art-px fill would
     // render at 256. Positioning it directly (no yoga node) is the same shape
     // swapBackground/LayoutContainer use for a view's background child.
-    this.#fill.position.set(0, 0);
-    this.view.addChild(this.#fill);
+    this.#parts.fill.position.set(0, 0);
+    this.view.addChild(this.#parts.fill);
 
-    this.#value = snap(value, {min: this.#min, max: this.#max, step: this.#step});
-    this.#fill.setSize(
-      fillWidth(this.#trackWidth, this.#value, {min: this.#min, max: this.#max}),
-      this.#trackHeight,
+    this.#runtime = {
+      isDragging: false,
+      value: snap(value, this.#config),
+    };
+    this.#parts.fill.setSize(
+      fillWidth(this.#config.trackWidth, this.#runtime.value, this.#config),
+      this.#config.trackHeight,
     );
 
     this.view.on('pointerdown', (event) => {
@@ -138,18 +134,13 @@ export class Slider implements Focusable {
       }
 
       event.stopPropagation();
-      this.#isDragging = true;
-      this.value = valueFromEvent(event, this.view, {
-        trackWidth: this.#trackWidth,
-        min: this.#min,
-        max: this.#max,
-        step: this.#step,
-      });
+      this.#runtime.isDragging = true;
+      this.value = valueFromEvent(event, this.view, this.#config);
       this.#onChange?.(this);
     });
 
     this.view.on('globalpointermove', (event) => {
-      if (!this.#isDragging) {
+      if (!this.#runtime.isDragging) {
         return;
       }
 
@@ -163,19 +154,14 @@ export class Slider implements Focusable {
       // held. `buttons === 0` catches that: no button is down, so the drag
       // must already be over even though we never got an end event for it.
       if (event.buttons === 0) {
-        this.#isDragging = false;
+        this.#runtime.isDragging = false;
 
         return;
       }
 
-      let next = valueFromEvent(event, this.view, {
-        trackWidth: this.#trackWidth,
-        min: this.#min,
-        max: this.#max,
-        step: this.#step,
-      });
+      let next = valueFromEvent(event, this.view, this.#config);
 
-      if (next === this.#value) {
+      if (next === this.#runtime.value) {
         return;
       }
 
@@ -191,13 +177,13 @@ export class Slider implements Focusable {
     // (see the globalpointermove comment above) — cheap insurance in case
     // that ever changes.
     this.view.on('pointerup', () => {
-      this.#isDragging = false;
+      this.#runtime.isDragging = false;
     });
     this.view.on('pointerupoutside', () => {
-      this.#isDragging = false;
+      this.#runtime.isDragging = false;
     });
     this.view.on('pointercancel', () => {
-      this.#isDragging = false;
+      this.#runtime.isDragging = false;
     });
 
     this.#disposables.instance.defer(() => this.view.destroy({children: true}));
@@ -220,14 +206,14 @@ export class Slider implements Focusable {
 
   /** TBD */
   get value(): number {
-    return this.#value;
+    return this.#runtime.value;
   }
 
   set value(value: number) {
-    this.#value = snap(value, {min: this.#min, max: this.#max, step: this.#step});
-    this.#fill.setSize(
-      fillWidth(this.#trackWidth, this.#value, {min: this.#min, max: this.#max}),
-      this.#trackHeight,
+    this.#runtime.value = snap(value, this.#config);
+    this.#parts.fill.setSize(
+      fillWidth(this.#config.trackWidth, this.#runtime.value, this.#config),
+      this.#config.trackHeight,
     );
   }
 
@@ -242,7 +228,7 @@ export class Slider implements Focusable {
       return;
     }
 
-    this.value = this.#value - this.#step;
+    this.value = this.#runtime.value - this.#config.step;
     this.#onChange?.(this);
   }
 
@@ -257,10 +243,10 @@ export class Slider implements Focusable {
       return;
     }
 
-    this.#isDragging = false;
+    this.#runtime.isDragging = false;
     this.#state = 'disabled';
 
-    swapBackground(this.view, this.#trackBackgrounds.disabled);
+    swapBackground(this.view, this.#parts.trackBackgrounds.disabled);
 
     setInteractionEnabled(this.view, false);
   }
@@ -273,7 +259,7 @@ export class Slider implements Focusable {
 
     this.#state = 'normal';
 
-    swapBackground(this.view, this.#trackBackgrounds.normal);
+    swapBackground(this.view, this.#parts.trackBackgrounds.normal);
 
     setInteractionEnabled(this.view, true, 'pointer');
   }
@@ -284,7 +270,7 @@ export class Slider implements Focusable {
       return;
     }
 
-    this.value = this.#value + this.#step;
+    this.value = this.#runtime.value + this.#config.step;
     this.#onChange?.(this);
   }
 }

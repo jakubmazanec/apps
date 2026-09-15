@@ -10,7 +10,10 @@ import {resolveThemedBackgrounds} from './internals/resolveThemedBackgrounds.js'
 import {setInteractionEnabled} from './internals/setInteractionEnabled.js';
 import {swapBackground} from './internals/swapBackground.js';
 import {Text} from './Text.js';
+import {type TextInputConfig} from './TextInputConfig.js';
 import {type TextInputOptions} from './TextInputOptions.js';
+import {type TextInputParts} from './TextInputParts.js';
+import {type TextInputRuntime} from './TextInputRuntime.js';
 import {type TextInputState} from './TextInputState.js';
 
 // One full blink cycle in ticker frames: ~0.5 s lit, ~0.5 s dark at 60 fps.
@@ -20,28 +23,8 @@ export class TextInput implements Focusable {
   /** View. */
   readonly view: LayoutContainer;
 
-  /** TBD */
-  readonly #backgrounds: Record<TextInputState, pixi.Container>;
-
-  /** TBD */
-  #blinkTick = 0;
-
-  /** TBD */
-  readonly #caret: pixi.Sprite;
-
-  /** TBD */
-  readonly #caretHeight: number;
-
-  // -1 on both until #syncCaret writes the first layout; no measured offset or
-  // width can be negative, so the first sync always applies.
-  /** TBD */
-  #caretOffset = -1;
-
-  /** TBD */
-  #caretWidth = -1;
-
-  /** TBD */
-  readonly #container: HTMLElement;
+  /** Object for storing config. */
+  readonly #config: TextInputConfig;
 
   /** Stacks to register disposers that cleanup resources when needed. */
   readonly #disposables: Disposables<'instance', 'editing'> = {
@@ -49,38 +32,22 @@ export class TextInput implements Focusable {
     instance: new DisposableStack(),
   };
 
-  /** TBD */
-  readonly #input: HTMLInputElement;
-
-  /** TBD */
-  #isEditing = false;
-
-  /** TBD */
-  #isOwnPointerDown = false;
-
-  /** TBD */
-  readonly #maxLength?: number;
-
   /** Lifecycle hook called when the input's value changes. */
   readonly #onChange?: (input: TextInput) => void;
 
   /** Lifecycle hook called when Enter is pressed while editing. */
   readonly #onEnter?: (input: TextInput) => void;
 
-  /** TBD */
-  readonly #placeholderText: Text;
+  /** Object for keeping references to display objects or DOM elements. */
+  readonly #parts: TextInputParts;
 
-  /** TBD */
-  readonly #row: LayoutContainer;
+  // caretOffset and caretWidth are -1 until #syncCaret writes the first layout; no
+  // measured offset or width can be negative, so the first sync always applies.
+  /** Object for internal values that may change. */
+  readonly #runtime: TextInputRuntime;
 
   /** State; which part of its life cycle the instance is currently in. */
   #state: TextInputState = 'normal';
-
-  /** TBD */
-  #value: string;
-
-  /** TBD */
-  readonly #valueText: Text;
 
   constructor({
     backgrounds,
@@ -105,16 +72,34 @@ export class TextInput implements Focusable {
       this.#onEnter = onEnter;
     }
 
-    this.#container = container;
-    this.#value = value;
+    // TextInput defaults to 'body' because it renders entered text, not a label.
+    let style = theme === undefined ? undefined : theme.text[role ?? 'body'];
+    let resolvedFontFamily = fontFamily ?? style?.fontFamily;
+    let resolvedFontSize = fontSize ?? style?.fontSize;
+    let resolvedFill = fill ?? style?.fill;
 
-    if (maxLength !== undefined) {
-      this.#maxLength = maxLength;
-    }
+    this.#config = {
+      // The block covers the character's whole line box, the way a terminal's cell
+      // cursor does. Falls back to 0 only in the no-theme, no-explicit-fontSize
+      // branch — unreachable through TextInputOptions in practice (the theme, when
+      // present, always supplies a fontSize), used here only, not smuggled into
+      // the text style above.
+      caretHeight: resolvedFontSize ?? 0,
+      container,
+      layout: typeof layout === 'object' ? layout : undefined,
+      maxLength,
+      placeholder,
+      textStyle: {
+        ...(resolvedFontFamily === undefined ? undefined : {fontFamily: resolvedFontFamily}),
+        ...(resolvedFontSize === undefined ? undefined : {fontSize: resolvedFontSize}),
+        ...(resolvedFill === undefined ? undefined : {fill: resolvedFill}),
+      },
+      theme,
+    };
 
     let resolved = resolveThemedBackgrounds(
       ['normal', 'hovered', 'disabled'],
-      theme?.textInput,
+      this.#config.theme?.textInput,
       backgrounds,
     );
 
@@ -123,90 +108,28 @@ export class TextInput implements Focusable {
       throw new Error('TextInput needs a theme or a normal background!');
     }
 
-    this.#backgrounds = resolveBackgrounds(
-      ['normal', 'hovered', 'disabled'],
-      resolved.normal,
-      resolved,
-    );
+    let row = new LayoutContainer({});
 
-    adoptDetachedBackgrounds(this.#disposables.instance, Object.values(this.#backgrounds));
-
-    this.view = new LayoutContainer({background: this.#backgrounds.normal});
-
-    attachWidgetInteraction(this.view, {
-      cursor: 'text',
-      getState: () => this.#state,
-      setState: (state) => {
-        this.#state = state;
-
-        swapBackground(this.view, this.#backgrounds[state]);
-      },
-    });
-
-    this.#row = new LayoutContainer({});
-    this.#row.layout = {flexDirection: 'row', alignItems: 'center'};
+    row.layout = {flexDirection: 'row', alignItems: 'center'};
 
     // LayoutContainer makes itself an interactive hit target ('static', for its
     // scroll trackpad), and Pixi takes the canvas cursor from the deepest
     // interactive hit target only; the purely visual row would override the
     // view's 'text' cursor wherever the text covers the field.
-    this.#row.eventMode = 'none';
-    this.view.addChild(this.#row);
+    row.eventMode = 'none';
 
-    // TextInput defaults to 'body' because it renders entered text, not a label.
-    let style = theme === undefined ? undefined : theme.text[role ?? 'body'];
-    let resolvedFontFamily = fontFamily ?? style?.fontFamily;
-    let resolvedFontSize = fontSize ?? style?.fontSize;
-    let resolvedFill = fill ?? style?.fill;
-    let textStyle = {
-      ...(resolvedFontFamily === undefined ? undefined : {fontFamily: resolvedFontFamily}),
-      ...(resolvedFontSize === undefined ? undefined : {fontSize: resolvedFontSize}),
-      ...(resolvedFill === undefined ? undefined : {fill: resolvedFill}),
-    };
-
-    this.#valueText = new Text({text: value, layout: true, ...textStyle});
-    this.#placeholderText = new Text({text: placeholder, layout: true, ...textStyle});
-    this.#placeholderText.view.alpha = 0.5;
-
-    this.#caret = new pixi.Sprite(pixi.Texture.WHITE);
-    this.#caret.tint = resolvedFill ?? 0xffffff;
-
-    // The block covers the character's whole line box, the way a terminal's cell
-    // cursor does. Falls back to 0 only in the no-theme, no-explicit-fontSize
-    // branch — unreachable through TextInputOptions in practice (the theme, when
-    // present, always supplies a fontSize), used here only, not smuggled into
-    // the text style above.
-    this.#caretHeight = resolvedFontSize ?? 0;
-
-    // Cancel the native pointerdown so the browser does not generate the
-    // compatibility mouse events whose default action moves focus to the canvas,
-    // which would immediately blur the hidden input right after startEditing() and close
-    // the soft keyboard. (Per the Pointer Events spec, canceling pointerdown
-    // suppresses the compatibility mouse events.)
-    this.view.on('pointerdown', (event) => {
-      event.stopPropagation();
-      event.preventDefault();
-      this.#isOwnPointerDown = true;
+    let valueText = new Text({text: value, layout: true, ...this.#config.textStyle});
+    let placeholderText = new Text({
+      text: this.#config.placeholder,
+      layout: true,
+      ...this.#config.textStyle,
     });
 
-    // Use pointerup rather than pointertap: on touch, a tap with slight finger
-    // movement is classified as a drag and pointertap never fires, so the field
-    // would never focus and the soft keyboard would never open.
-    this.view.on('pointerup', (event) => {
-      event.stopPropagation();
-      this.startEditing();
-    });
+    placeholderText.view.alpha = 0.5;
 
-    // The view is a row (@pixi/layout defaults flexDirection to 'row'), so
-    // justifyContent is the horizontal axis. Typed text reads left-to-right from
-    // the field's left edge, as text fields customarily do; only the vertical
-    // axis is centered. Centering the main axis instead would drift the value
-    // sideways on every keystroke whenever the field is wider than its content.
-    this.view.layout = {
-      justifyContent: 'flex-start',
-      alignItems: 'center',
-      ...(typeof layout === 'object' ? layout : undefined),
-    };
+    let caret = new pixi.Sprite(pixi.Texture.WHITE);
+
+    caret.tint = this.#config.textStyle.fill ?? 0xffffff;
 
     let input = document.createElement('input');
 
@@ -219,8 +142,8 @@ export class TextInput implements Focusable {
     input.setAttribute('autocorrect', 'off');
     input.setAttribute('autocapitalize', 'none');
 
-    if (maxLength !== undefined) {
-      input.maxLength = maxLength;
+    if (this.#config.maxLength !== undefined) {
+      input.maxLength = this.#config.maxLength;
     }
 
     let inputStyle = input.style;
@@ -245,8 +168,70 @@ export class TextInput implements Focusable {
     inputStyle.fontSize = '16px'; // >= 16px avoids iOS focus zoom
     inputStyle.pointerEvents = 'none';
 
-    this.#input = input;
-    this.#container.append(input);
+    this.#parts = {
+      backgrounds: resolveBackgrounds(['normal', 'hovered', 'disabled'], resolved.normal, resolved),
+      caret,
+      input,
+      placeholderText,
+      row,
+      valueText,
+    };
+    this.#runtime = {
+      blinkTick: 0,
+      caretOffset: -1,
+      caretWidth: -1,
+      isEditing: false,
+      isOwnPointerDown: false,
+      value,
+    };
+
+    adoptDetachedBackgrounds(this.#disposables.instance, Object.values(this.#parts.backgrounds));
+
+    this.view = new LayoutContainer({background: this.#parts.backgrounds.normal});
+
+    attachWidgetInteraction(this.view, {
+      cursor: 'text',
+      getState: () => this.#state,
+      setState: (state) => {
+        this.#state = state;
+
+        swapBackground(this.view, this.#parts.backgrounds[state]);
+      },
+    });
+
+    this.view.addChild(row);
+
+    // Cancel the native pointerdown so the browser does not generate the
+    // compatibility mouse events whose default action moves focus to the canvas,
+    // which would immediately blur the hidden input right after startEditing() and close
+    // the soft keyboard. (Per the Pointer Events spec, canceling pointerdown
+    // suppresses the compatibility mouse events.)
+    this.view.on('pointerdown', (event) => {
+      event.stopPropagation();
+      event.preventDefault();
+      this.#runtime.isOwnPointerDown = true;
+    });
+
+    // Use pointerup rather than pointertap: on touch, a tap with slight finger
+    // movement is classified as a drag and pointertap never fires, so the field
+    // would never focus and the soft keyboard would never open.
+    this.view.on('pointerup', (event) => {
+      event.stopPropagation();
+      this.startEditing();
+    });
+
+    // The view is a row (@pixi/layout defaults flexDirection to 'row'), so
+    // justifyContent is the horizontal axis. Typed text reads left-to-right from
+    // the field's left edge, as text fields customarily do; only the vertical
+    // axis is centered. Centering the main axis instead would drift the value
+    // sideways on every keystroke whenever the field is wider than its content.
+    this.view.layout = {
+      justifyContent: 'flex-start',
+      alignItems: 'center',
+      ...this.#config.layout,
+    };
+
+    this.#config.container.append(input);
 
     let handleInput = () => {
       if (this.#state === 'disabled') {
@@ -255,13 +240,13 @@ export class TextInput implements Focusable {
 
       let next = input.value;
 
-      if (this.#maxLength !== undefined && next.length > this.#maxLength) {
-        next = next.slice(0, this.#maxLength);
+      if (this.#config.maxLength !== undefined && next.length > this.#config.maxLength) {
+        next = next.slice(0, this.#config.maxLength);
         input.value = next;
       }
 
-      this.#value = next;
-      this.#valueText.setText(next);
+      this.#runtime.value = next;
+      this.#parts.valueText.setText(next);
       this.#onChange?.(this);
     };
     // TODO: remove when linter config contains fix for this: https://github.com/sindresorhus/eslint-plugin-unicorn/issues/2088
@@ -285,7 +270,7 @@ export class TextInput implements Focusable {
     });
 
     let update = (ticker: pixi.Ticker) => {
-      if (!this.#isEditing) {
+      if (!this.#runtime.isEditing) {
         return;
       }
 
@@ -293,11 +278,11 @@ export class TextInput implements Focusable {
       // the frame it moved on rather than one later.
       this.#syncCaret();
 
-      this.#blinkTick = (this.#blinkTick + ticker.deltaTime) % BLINK_PERIOD;
+      this.#runtime.blinkTick = (this.#runtime.blinkTick + ticker.deltaTime) % BLINK_PERIOD;
 
       // A block covers the character it sits on, so it blinks hard on and off;
       // fading would leave that character half-obscured for most of the cycle.
-      this.#caret.alpha = this.#blinkTick < BLINK_PERIOD / 2 ? 1 : 0;
+      this.#parts.caret.alpha = this.#runtime.blinkTick < BLINK_PERIOD / 2 ? 1 : 0;
     };
 
     pixi.Ticker.shared.add(update);
@@ -306,13 +291,13 @@ export class TextInput implements Focusable {
       pixi.Ticker.shared.remove(update);
     });
 
-    // #valueText / #placeholderText / #caret are swapped in and out of #row, so
-    // whichever is currently detached would leak under view.destroy({children}).
+    // #parts.valueText / #parts.placeholderText / #parts.caret are swapped in and out of
+    // #parts.row, so whichever is currently detached would leak under view.destroy({children}).
     this.#disposables.instance.defer(() => {
-      this.#row.removeChildren();
-      this.#valueText.destroy();
-      this.#placeholderText.destroy();
-      this.#caret.destroy();
+      this.#parts.row.removeChildren();
+      this.#parts.valueText.destroy();
+      this.#parts.placeholderText.destroy();
+      this.#parts.caret.destroy();
       this.view.destroy({children: true});
     });
 
@@ -335,13 +320,14 @@ export class TextInput implements Focusable {
 
   /** TBD */
   get value(): string {
-    return this.#value;
+    return this.#runtime.value;
   }
 
   set value(value: string) {
-    this.#value = this.#maxLength === undefined ? value : value.slice(0, this.#maxLength);
-    this.#valueText.setText(this.#value);
-    this.#input.value = this.#value;
+    this.#runtime.value =
+      this.#config.maxLength === undefined ? value : value.slice(0, this.#config.maxLength);
+    this.#parts.valueText.setText(this.#runtime.value);
+    this.#parts.input.value = this.#runtime.value;
 
     this.#refresh();
   }
@@ -371,7 +357,7 @@ export class TextInput implements Focusable {
 
     this.#state = 'disabled';
 
-    swapBackground(this.view, this.#backgrounds.disabled);
+    swapBackground(this.view, this.#parts.backgrounds.disabled);
 
     setInteractionEnabled(this.view, false);
     this.stopEditing();
@@ -385,30 +371,30 @@ export class TextInput implements Focusable {
 
     this.#state = 'normal';
 
-    swapBackground(this.view, this.#backgrounds.normal);
+    swapBackground(this.view, this.#parts.backgrounds.normal);
 
     setInteractionEnabled(this.view, true, 'text');
   }
 
   /** TBD */
   startEditing(): this {
-    if (this.#isEditing) {
+    if (this.#runtime.isEditing) {
       return this;
     }
 
-    this.#isEditing = true;
+    this.#runtime.isEditing = true;
 
     // Clear the own-pointer flag the opening tap set, so the first outside tap
     // is recognized as outside (nothing else clears it before the listener
     // below exists).
-    this.#isOwnPointerDown = false;
+    this.#runtime.isOwnPointerDown = false;
 
     // Everything that only matters during an edit is registered by the edit and
     // torn down with it, so idle inputs hold no app-wide listeners. Closes the
     // editor when a pointerdown lands outside this field, and when the input
     // loses focus on its own (e.g. the soft keyboard is dismissed), so the
     // field can be focused again afterwards. A tap on this field's own view
-    // sets #isOwnPointerDown first (the view's federated pointerdown runs
+    // sets #runtime.isOwnPointerDown first (the view's federated pointerdown runs
     // before the window listener), so an in-field tap keeps the edit — and the
     // soft keyboard — alive.
     this.#disposables.editing = new DisposableStack();
@@ -416,8 +402,8 @@ export class TextInput implements Focusable {
     // TODO: remove when linter config contains fix for this: https://github.com/sindresorhus/eslint-plugin-unicorn/issues/2088
     // eslint-disable-next-line unicorn/consistent-function-scoping -- false positive
     let handleBlur = () => {
-      if (this.#isOwnPointerDown) {
-        this.#isOwnPointerDown = false;
+      if (this.#runtime.isOwnPointerDown) {
+        this.#runtime.isOwnPointerDown = false;
 
         return;
       }
@@ -426,25 +412,25 @@ export class TextInput implements Focusable {
     };
 
     globalThis.addEventListener('pointerdown', handleBlur);
-    this.#input.addEventListener('blur', handleBlur);
+    this.#parts.input.addEventListener('blur', handleBlur);
     this.#disposables.editing.defer(() => {
       globalThis.removeEventListener('pointerdown', handleBlur);
-      this.#input.removeEventListener('blur', handleBlur);
+      this.#parts.input.removeEventListener('blur', handleBlur);
     });
 
-    this.#input.value = this.#value;
+    this.#parts.input.value = this.#runtime.value;
 
     let {x, y} = this.view.getGlobalPosition();
     let ratio = window.devicePixelRatio || 1;
     // getGlobalPosition is in renderer (device) pixels relative to the canvas;
     // the input is position: fixed (viewport-relative), so offset by the canvas
     // container's viewport rect and convert device px -> CSS px.
-    let rect = this.#container.getBoundingClientRect();
+    let rect = this.#config.container.getBoundingClientRect();
 
-    this.#input.style.left = `${rect.left + x / ratio}px`;
-    this.#input.style.top = `${rect.top + y / ratio}px`;
+    this.#parts.input.style.left = `${rect.left + x / ratio}px`;
+    this.#parts.input.style.top = `${rect.top + y / ratio}px`;
 
-    this.#input.focus({preventScroll: true});
+    this.#parts.input.focus({preventScroll: true});
 
     this.#refresh();
 
@@ -453,17 +439,17 @@ export class TextInput implements Focusable {
 
   /** TBD */
   stopEditing(): this {
-    if (!this.#isEditing) {
+    if (!this.#runtime.isEditing) {
       return this;
     }
 
-    this.#isEditing = false;
+    this.#runtime.isEditing = false;
 
     // Disposed before blur() below, so the blur it raises finds no listener.
     this.#disposables.editing?.dispose();
     this.#disposables.editing = null;
 
-    this.#input.blur();
+    this.#parts.input.blur();
 
     this.#refresh();
 
@@ -472,17 +458,17 @@ export class TextInput implements Focusable {
 
   /** TBD */
   #positionCaret(offset: number, width: number) {
-    this.#caretOffset = offset;
-    this.#caretWidth = width;
+    this.#runtime.caretOffset = offset;
+    this.#runtime.caretWidth = width;
 
     // Restart the blink lit. A caret that moved during the dark half would
     // otherwise leave the user hunting for where it went — and since typing
     // moves it too, this also keeps it solid while the user types.
-    this.#blinkTick = 0;
+    this.#runtime.blinkTick = 0;
 
-    this.#caret.layout = {
+    this.#parts.caret.layout = {
       width,
-      height: this.#caretHeight,
+      height: this.#config.caretHeight,
       // Out of the row's flow: an in-flow caret can only ever land after the
       // whole value, and it would shove the text following it aside as the
       // cursor moved through the string. `top` is left undefined so the row's
@@ -494,14 +480,14 @@ export class TextInput implements Focusable {
 
   /** TBD */
   #refresh() {
-    this.#row.removeChildren();
+    this.#parts.row.removeChildren();
 
-    if (this.#isEditing) {
-      this.#row.addChild(this.#valueText.view, this.#caret);
-    } else if (this.#value.length === 0) {
-      this.#row.addChild(this.#placeholderText.view);
+    if (this.#runtime.isEditing) {
+      this.#parts.row.addChild(this.#parts.valueText.view, this.#parts.caret);
+    } else if (this.#runtime.value.length === 0) {
+      this.#parts.row.addChild(this.#parts.placeholderText.view);
     } else {
-      this.#row.addChild(this.#valueText.view);
+      this.#parts.row.addChild(this.#parts.valueText.view);
     }
   }
 
@@ -510,16 +496,16 @@ export class TextInput implements Focusable {
     // The hidden input owns the cursor: arrow keys, Home/End, word jumps and IME
     // all move it without changing the value, so there is no event to hook —
     // reading the selection back each frame is what catches every one of them.
-    let index = this.#input.selectionStart ?? this.#value.length;
-    let offset = this.#valueText.measureWidth(this.#value.slice(0, index));
+    let index = this.#parts.input.selectionStart ?? this.#runtime.value.length;
+    let offset = this.#parts.valueText.measureWidth(this.#runtime.value.slice(0, index));
     // The font leaves a single 1 art px column between glyphs and its descenders
     // fill the line box, so a bar caret has nowhere to sit without touching ink.
     // The caret is a block over the character's cell instead, the way a
     // terminal's is. Past the last character there is no cell to cover, so it
     // falls back to a space's advance.
-    let width = this.#valueText.measureWidth(this.#value[index] ?? ' ');
+    let width = this.#parts.valueText.measureWidth(this.#runtime.value[index] ?? ' ');
 
-    if (offset !== this.#caretOffset || width !== this.#caretWidth) {
+    if (offset !== this.#runtime.caretOffset || width !== this.#runtime.caretWidth) {
       this.#positionCaret(offset, width);
     }
   }

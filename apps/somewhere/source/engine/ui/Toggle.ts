@@ -9,27 +9,30 @@ import {resolveBackgrounds} from './internals/resolveBackgrounds.js';
 import {resolveThemedBackgrounds} from './internals/resolveThemedBackgrounds.js';
 import {setInteractionEnabled} from './internals/setInteractionEnabled.js';
 import {swapBackground} from './internals/swapBackground.js';
+import {type ToggleConfig} from './ToggleConfig.js';
 import {type ToggleOptions} from './ToggleOptions.js';
+import {type ToggleParts} from './ToggleParts.js';
+import {type ToggleRuntime} from './ToggleRuntime.js';
 import {type ToggleState} from './ToggleState.js';
 
 export class Toggle implements Focusable {
   /** View. */
   readonly view: LayoutContainer;
 
-  /** TBD */
-  readonly #backgrounds: {
-    checked: Record<ToggleState, pixi.Container>;
-    unchecked: Record<ToggleState, pixi.Container>;
-  };
+  /** Object for storing config. */
+  readonly #config: ToggleConfig;
 
   /** Stacks to register disposers that cleanup resources when needed. */
   readonly #disposables: Disposables<'instance'> = {instance: new DisposableStack()};
 
-  /** TBD */
-  #isChecked: boolean; // basically a `value`
-
   /** Lifecycle hook called when the toggle's checked state changes. */
   readonly #onChange?: (toggle: Toggle) => void;
+
+  /** Object for keeping references to display objects or DOM elements. */
+  readonly #parts: ToggleParts;
+
+  /** Object for internal values that may change. */
+  readonly #runtime: ToggleRuntime; // basically a `value`
 
   /** State; which part of its life cycle the instance is currently in. */
   #state: ToggleState = 'normal';
@@ -39,9 +42,11 @@ export class Toggle implements Focusable {
       this.#onChange = onChange;
     }
 
+    this.#config = {theme};
+
     let resolved = resolveThemedBackgrounds(
       ['unchecked', 'checked', 'hovered', 'hoveredChecked', 'disabled', 'disabledChecked'],
-      theme?.toggle,
+      this.#config.theme?.toggle,
       backgrounds,
     );
 
@@ -52,25 +57,27 @@ export class Toggle implements Focusable {
 
     let states = ['normal', 'hovered', 'disabled'] as const;
 
-    this.#backgrounds = {
-      unchecked: resolveBackgrounds(states, resolved.unchecked, {
-        hovered: resolved.hovered,
-        disabled: resolved.disabled,
-      }),
-      checked: resolveBackgrounds(states, resolved.checked, {
-        hovered: resolved.hoveredChecked,
-        disabled: resolved.disabledChecked,
-      }),
+    this.#parts = {
+      backgrounds: {
+        unchecked: resolveBackgrounds(states, resolved.unchecked, {
+          hovered: resolved.hovered,
+          disabled: resolved.disabled,
+        }),
+        checked: resolveBackgrounds(states, resolved.checked, {
+          hovered: resolved.hoveredChecked,
+          disabled: resolved.disabledChecked,
+        }),
+      },
     };
 
     adoptDetachedBackgrounds(this.#disposables.instance, [
-      ...Object.values(this.#backgrounds.unchecked),
-      ...Object.values(this.#backgrounds.checked),
+      ...Object.values(this.#parts.backgrounds.unchecked),
+      ...Object.values(this.#parts.backgrounds.checked),
     ]);
 
-    this.#isChecked = checked;
+    this.#runtime = {isChecked: checked};
     this.view = new LayoutContainer({
-      background: this.#backgrounds[checked ? 'checked' : 'unchecked'].normal,
+      background: this.#parts.backgrounds[checked ? 'checked' : 'unchecked'].normal,
     });
     this.view.layout = {width: resolved.unchecked.width, height: resolved.unchecked.height};
 
@@ -80,7 +87,10 @@ export class Toggle implements Focusable {
       setState: (state) => {
         this.#state = state;
 
-        swapBackground(this.view, toggleBackground(this.#backgrounds, this.#isChecked, state));
+        swapBackground(
+          this.view,
+          toggleBackground(this.#parts.backgrounds, this.#runtime.isChecked, state),
+        );
       },
     });
 
@@ -96,7 +106,7 @@ export class Toggle implements Focusable {
 
   /** TBD */
   get isChecked(): boolean {
-    return this.#isChecked;
+    return this.#runtime.isChecked;
   }
 
   /** TBD */
@@ -120,22 +130,25 @@ export class Toggle implements Focusable {
       return;
     }
 
-    this.#isChecked = !this.#isChecked;
+    this.#runtime.isChecked = !this.#runtime.isChecked;
 
-    swapBackground(this.view, toggleBackground(this.#backgrounds, this.#isChecked, this.#state));
+    swapBackground(
+      this.view,
+      toggleBackground(this.#parts.backgrounds, this.#runtime.isChecked, this.#state),
+    );
 
     this.#onChange?.(this);
   }
 
   /** TBD */
   check() {
-    if (this.#isChecked) {
+    if (this.#runtime.isChecked) {
       return;
     }
 
-    this.#isChecked = true;
+    this.#runtime.isChecked = true;
 
-    swapBackground(this.view, toggleBackground(this.#backgrounds, true, this.#state));
+    swapBackground(this.view, toggleBackground(this.#parts.backgrounds, true, this.#state));
   }
 
   /** Destroys the instance. */
@@ -151,7 +164,10 @@ export class Toggle implements Focusable {
 
     this.#state = 'disabled';
 
-    swapBackground(this.view, toggleBackground(this.#backgrounds, this.#isChecked, 'disabled'));
+    swapBackground(
+      this.view,
+      toggleBackground(this.#parts.backgrounds, this.#runtime.isChecked, 'disabled'),
+    );
 
     setInteractionEnabled(this.view, false);
   }
@@ -164,20 +180,23 @@ export class Toggle implements Focusable {
 
     this.#state = 'normal';
 
-    swapBackground(this.view, toggleBackground(this.#backgrounds, this.#isChecked, 'normal'));
+    swapBackground(
+      this.view,
+      toggleBackground(this.#parts.backgrounds, this.#runtime.isChecked, 'normal'),
+    );
 
     setInteractionEnabled(this.view, true, 'pointer');
   }
 
   /** TBD */
   uncheck() {
-    if (!this.#isChecked) {
+    if (!this.#runtime.isChecked) {
       return;
     }
 
-    this.#isChecked = false;
+    this.#runtime.isChecked = false;
 
-    swapBackground(this.view, toggleBackground(this.#backgrounds, false, this.#state));
+    swapBackground(this.view, toggleBackground(this.#parts.backgrounds, false, this.#state));
   }
 }
 
