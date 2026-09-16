@@ -66,9 +66,7 @@ export class Modal implements UiParent {
     this.#config = {
       fadeDuration,
       initialFocus,
-      layout: typeof layout === 'object' ? layout : undefined,
       scheduler,
-      scrimAlpha,
     };
 
     // The scrim is a raw pixi child behind the layout children and deliberately
@@ -77,7 +75,7 @@ export class Modal implements UiParent {
     // reaching the game view, which blocks click-to-move for free). It sits
     // out-of-flow (no layout of its own) at (0, 0) — the same mixed
     // layout/non-layout child behavior loadingScreen's view exercises.
-    this.#parts.scrim.alpha = this.#config.scrimAlpha;
+    this.#parts.scrim.alpha = scrimAlpha;
     this.#parts.scrim.eventMode = 'static';
     this.view.addChild(this.#parts.scrim);
 
@@ -95,7 +93,7 @@ export class Modal implements UiParent {
       position: 'absolute',
       left: 0,
       top: 0,
-      ...this.#config.layout,
+      ...(typeof layout === 'object' ? layout : undefined),
     };
 
     this.#disposables.instance.defer(() => this.view.destroy({children: true}));

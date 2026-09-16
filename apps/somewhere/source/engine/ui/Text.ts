@@ -33,24 +33,24 @@ export class Text {
     let {text, theme, role = 'label', anchor = DEFAULT_ANCHOR, layout, ...style} = options;
     let themeStyle = theme?.text[role];
 
-    this.#config = {
-      anchor,
-      layout,
-      style: themeStyle === undefined ? style : {...themeStyle, ...style},
-      theme,
+    this.#config = {theme};
+    this.#parts = {
+      sprite: new pixi.BitmapText({
+        text,
+        style: themeStyle === undefined ? style : {...themeStyle, ...style},
+      }),
     };
-    this.#parts = {sprite: new pixi.BitmapText({text, style: this.#config.style})};
 
-    this.#parts.sprite.anchor.set(this.#config.anchor.x, this.#config.anchor.y);
+    this.#parts.sprite.anchor.set(anchor.x, anchor.y);
     this.view.addChild(this.#parts.sprite);
 
-    if (this.#config.layout !== undefined) {
-      if (this.#config.layout === true) {
+    if (layout !== undefined) {
+      if (layout === true) {
         this.view.layout = {...LEAF_LAYOUT};
-      } else if (typeof this.#config.layout === 'object' && this.#config.layout !== null) {
-        this.view.layout = {...LEAF_LAYOUT, ...this.#config.layout};
+      } else if (typeof layout === 'object' && layout !== null) {
+        this.view.layout = {...LEAF_LAYOUT, ...layout};
       } else {
-        this.view.layout = this.#config.layout;
+        this.view.layout = layout;
       }
     }
 
