@@ -7,6 +7,7 @@ import {type ButtonParts} from './ButtonParts.js';
 import {type ButtonState} from './ButtonState.js';
 import {type Focusable} from './Focusable.js';
 import {adoptDetachedBackgrounds} from './internals/adoptDetachedBackgrounds.js';
+import {applyPressShift} from './internals/applyPressShift.js';
 import {attachWidgetInteraction} from './internals/attachWidgetInteraction.js';
 import {resolveBackgrounds} from './internals/resolveBackgrounds.js';
 import {resolveThemedBackgrounds} from './internals/resolveThemedBackgrounds.js';
@@ -41,24 +42,7 @@ export class Button implements Focusable, UiParent {
       this.#onClick = onClick;
     }
 
-    // The theme provides per-property layout defaults; an instance property wins.
-    let mergedLayout = {
-      ...theme?.button.layout,
-      ...(typeof layout === 'object' ? layout : undefined),
-    };
-    let {
-      padding = 0,
-      paddingTop = padding,
-      paddingBottom = padding,
-    } = mergedLayout as {
-      padding?: number;
-      paddingTop?: number;
-      paddingBottom?: number;
-    };
-
     this.#config = {
-      basePadding: {top: paddingTop, bottom: paddingBottom},
-      layout: mergedLayout,
       pressOffset: pressOffset ?? theme?.button.pressOffset ?? 0,
       theme,
     };
@@ -93,7 +77,7 @@ export class Button implements Focusable, UiParent {
         this.#state = state;
 
         if (this.#config.pressOffset !== 0) {
-          this.view.layout = pressPadding(state, this.#config);
+          applyPressShift(this.children, state, this.#config.pressOffset);
         }
 
         swapBackground(this.view, this.#parts.backgrounds[state]);
@@ -108,7 +92,7 @@ export class Button implements Focusable, UiParent {
       this.#state = 'active';
 
       if (this.#config.pressOffset !== 0) {
-        this.view.layout = pressPadding('active', this.#config);
+        applyPressShift(this.children, 'active', this.#config.pressOffset);
       }
 
       swapBackground(this.view, this.#parts.backgrounds.active);
@@ -122,7 +106,7 @@ export class Button implements Focusable, UiParent {
       this.#state = 'hovered';
 
       if (this.#config.pressOffset !== 0) {
-        this.view.layout = pressPadding('hovered', this.#config);
+        applyPressShift(this.children, 'hovered', this.#config.pressOffset);
       }
 
       swapBackground(this.view, this.#parts.backgrounds.hovered);
@@ -138,7 +122,7 @@ export class Button implements Focusable, UiParent {
       this.#state = 'normal';
 
       if (this.#config.pressOffset !== 0) {
-        this.view.layout = pressPadding('normal', this.#config);
+        applyPressShift(this.children, 'normal', this.#config.pressOffset);
       }
 
       swapBackground(this.view, this.#parts.backgrounds.normal);
@@ -158,7 +142,8 @@ export class Button implements Focusable, UiParent {
     this.view.layout = {
       justifyContent: 'center',
       alignItems: 'center',
-      ...this.#config.layout,
+      ...theme?.button.layout,
+      ...(typeof layout === 'object' ? layout : undefined),
     };
 
     this.#disposables.instance.defer(() => this.view.destroy({children: true}));
@@ -193,6 +178,10 @@ export class Button implements Focusable, UiParent {
     for (let child of children) {
       this.children.push(child);
       this.view.addChild('view' in child ? child.view : child);
+
+      if (this.#config.pressOffset !== 0) {
+        applyPressShift([child], this.#state, this.#config.pressOffset);
+      }
     }
 
     return this;
@@ -218,7 +207,7 @@ export class Button implements Focusable, UiParent {
     this.#state = 'disabled';
 
     if (this.#config.pressOffset !== 0) {
-      this.view.layout = pressPadding('disabled', this.#config);
+      applyPressShift(this.children, 'disabled', this.#config.pressOffset);
     }
 
     swapBackground(this.view, this.#parts.backgrounds.disabled);
@@ -235,7 +224,7 @@ export class Button implements Focusable, UiParent {
     this.#state = 'normal';
 
     if (this.#config.pressOffset !== 0) {
-      this.view.layout = pressPadding('normal', this.#config);
+      applyPressShift(this.children, 'normal', this.#config.pressOffset);
     }
 
     swapBackground(this.view, this.#parts.backgrounds.normal);
@@ -252,23 +241,13 @@ export class Button implements Focusable, UiParent {
         this.children.splice(index, 1);
       }
 
+      if (this.#config.pressOffset !== 0) {
+        applyPressShift([child], 'normal', this.#config.pressOffset);
+      }
+
       this.view.removeChild('view' in child ? child.view : child);
     }
 
     return this;
   }
-}
-
-// Layout assignments merge onto the current style, so restoring the base padding on release
-// needs the value captured at construction rather than reading it back from the view.
-function pressPadding(
-  state: ButtonState,
-  {pressOffset, basePadding}: {pressOffset: number; basePadding: {top: number; bottom: number}},
-): {paddingTop: number; paddingBottom: number} {
-  let shift = state === 'active' ? pressOffset : 0;
-
-  return {
-    paddingTop: basePadding.top + shift,
-    paddingBottom: basePadding.bottom - shift,
-  };
 }

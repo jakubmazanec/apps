@@ -68,46 +68,46 @@ describe('Button press offset', () => {
     });
   });
 
-  test('shifts content down on press and restores it on release', () => {
+  test('shifts content down on press and restores it on release, without touching layout', () => {
+    let label = {view: new pixi.Container()};
     let button = new Button({
       backgrounds: {normal: background(), hovered: background(), active: background()},
       pressOffset: 4,
       layout: {padding: 8, alignItems: 'center', justifyContent: 'center'},
+      children: [label],
     });
     let {view} = button;
 
     // @ts-expect-error -- partial FederatedPointerEvent mock
     view.emit('pointerdown', {global: {x: 0, y: 0}});
 
-    expect(view.layout!.style.paddingTop).toBe(12);
-    expect(view.layout!.style.paddingBottom).toBe(4);
+    expect(label.view.y).toBe(4);
+    expect(view.layout!.style.paddingTop).toBeUndefined();
+    expect(view.layout!.style.paddingBottom).toBeUndefined();
 
     // @ts-expect-error -- pixi emits without data at runtime
     view.emit('pointerup');
 
-    expect(view.layout!.style.paddingTop).toBe(8);
-    expect(view.layout!.style.paddingBottom).toBe(8);
+    expect(label.view.y).toBe(0);
   });
 
-  test('pressOffset press and release keep explicit paddingTop/paddingBottom', () => {
+  test('removeChild resets a shifted child back to its unpressed position', () => {
+    let label = {view: new pixi.Container()};
     let button = new Button({
       backgrounds: {normal: background(), hovered: background(), active: background()},
       pressOffset: 4,
-      layout: {paddingTop: 8, paddingBottom: 8, alignItems: 'center', justifyContent: 'center'},
+      children: [label],
     });
     let {view} = button;
 
     // @ts-expect-error -- partial FederatedPointerEvent mock
     view.emit('pointerdown', {global: {x: 0, y: 0}});
 
-    expect(view.layout!.style.paddingTop).toBe(12);
-    expect(view.layout!.style.paddingBottom).toBe(4);
+    expect(label.view.y).toBe(4);
 
-    // @ts-expect-error -- pixi emits without data at runtime
-    view.emit('pointerup');
+    button.removeChild(label);
 
-    expect(view.layout!.style.paddingTop).toBe(8);
-    expect(view.layout!.style.paddingBottom).toBe(8);
+    expect(label.view.y).toBe(0);
   });
 });
 
@@ -229,30 +229,29 @@ describe('Button theme', () => {
 
   test('takes pressOffset from the theme', () => {
     let theme = createTestTheme();
+    let label = {view: new pixi.Container()};
 
-    theme.button.layout = {padding: 8};
     theme.button.pressOffset = 3;
 
-    let {view} = new Button({theme});
+    let {view} = new Button({theme, children: [label]});
 
     // @ts-expect-error -- partial FederatedPointerEvent mock
     view.emit('pointerdown', {global: {x: 0, y: 0}});
 
-    expect(view.layout!.style.paddingTop).toBe(11);
-    expect(view.layout!.style.paddingBottom).toBe(5);
+    expect(label.view.y).toBe(3);
   });
 
   test('caller pressOffset of 0 wins over the theme', () => {
     let theme = createTestTheme();
+    let label = {view: new pixi.Container()};
 
     theme.button.pressOffset = 3;
 
-    let {view} = new Button({theme, pressOffset: 0, layout: {padding: 8}});
+    let {view} = new Button({theme, pressOffset: 0, children: [label]});
 
     // @ts-expect-error -- partial FederatedPointerEvent mock
     view.emit('pointerdown', {global: {x: 0, y: 0}});
 
-    expect(view.layout!.style.paddingTop).toBeUndefined();
-    expect(view.layout!.style.paddingBottom).toBeUndefined();
+    expect(label.view.y).toBe(0);
   });
 });
