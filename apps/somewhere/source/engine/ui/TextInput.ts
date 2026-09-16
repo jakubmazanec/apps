@@ -77,6 +77,11 @@ export class TextInput implements Focusable {
     let resolvedFontFamily = fontFamily ?? style?.fontFamily;
     let resolvedFontSize = fontSize ?? style?.fontSize;
     let resolvedFill = fill ?? style?.fill;
+    let textStyle = {
+      ...(resolvedFontFamily === undefined ? undefined : {fontFamily: resolvedFontFamily}),
+      ...(resolvedFontSize === undefined ? undefined : {fontSize: resolvedFontSize}),
+      ...(resolvedFill === undefined ? undefined : {fill: resolvedFill}),
+    };
 
     this.#config = {
       // The block covers the character's whole line box, the way a terminal's cell
@@ -86,14 +91,7 @@ export class TextInput implements Focusable {
       // the text style above.
       caretHeight: resolvedFontSize ?? 0,
       container,
-      layout: typeof layout === 'object' ? layout : undefined,
       maxLength,
-      placeholder,
-      textStyle: {
-        ...(resolvedFontFamily === undefined ? undefined : {fontFamily: resolvedFontFamily}),
-        ...(resolvedFontSize === undefined ? undefined : {fontSize: resolvedFontSize}),
-        ...(resolvedFill === undefined ? undefined : {fill: resolvedFill}),
-      },
       theme,
     };
 
@@ -118,18 +116,18 @@ export class TextInput implements Focusable {
     // view's 'text' cursor wherever the text covers the field.
     row.eventMode = 'none';
 
-    let valueText = new Text({text: value, layout: true, ...this.#config.textStyle});
+    let valueText = new Text({text: value, layout: true, ...textStyle});
     let placeholderText = new Text({
-      text: this.#config.placeholder,
+      text: placeholder,
       layout: true,
-      ...this.#config.textStyle,
+      ...textStyle,
     });
 
     placeholderText.view.alpha = 0.5;
 
     let caret = new pixi.Sprite(pixi.Texture.WHITE);
 
-    caret.tint = this.#config.textStyle.fill ?? 0xffffff;
+    caret.tint = textStyle.fill ?? 0xffffff;
 
     let input = document.createElement('input');
 
@@ -228,7 +226,7 @@ export class TextInput implements Focusable {
     this.view.layout = {
       justifyContent: 'flex-start',
       alignItems: 'center',
-      ...this.#config.layout,
+      ...(typeof layout === 'object' ? layout : undefined),
     };
 
     this.#config.container.append(input);

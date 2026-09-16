@@ -24,7 +24,7 @@ export class Panel implements UiParent {
   readonly #parts: PanelParts;
 
   constructor({background, theme, children, layout}: PanelOptions) {
-    this.#config = {layout: typeof layout === 'object' ? layout : undefined, theme};
+    this.#config = {theme};
     this.#parts = {
       background:
         background ?? (this.#config.theme && createBackground(this.#config.theme.panel.background)),
@@ -38,7 +38,7 @@ export class Panel implements UiParent {
       this.addChild(...children);
     }
 
-    this.view.layout = {...this.#config.layout};
+    this.view.layout = {...(typeof layout === 'object' ? layout : undefined)};
 
     this.#disposables.instance.defer(() => this.view.destroy({children: true}));
   }
