@@ -5,15 +5,7 @@ import {type TextConfig} from './TextConfig.js';
 import {type TextOptions} from './TextOptions.js';
 import {type TextParts} from './TextParts.js';
 
-const DEFAULT_ANCHOR: pixi.PointData = {x: 0, y: 0};
-// A layout leaf is measured by its own bounds, but @pixi/layout then fits it to
-// the box yoga computed: objectFit defaults to 'fill', which SCALES the glyphs
-// by box/bounds on each axis, and objectPosition defaults to 'center', which
-// re-centers them inside the box. The box comes from the leaf's intrinsic size,
-// which LayoutSystem re-measures on a ~100 ms throttle, so text that changes
-// every frame (the dialogue typewriter) renders most frames against a stale
-// box: squashed to a fractional width and drifting. The font has one size and
-// must render 1:1, so the leaf opts out of both.
+const DEFAULT_ANCHOR: pixi.PointData = {x: 0, y: 0} as const;
 const LEAF_LAYOUT = {isLeaf: true, objectFit: 'none', objectPosition: 'left top'} as const;
 
 export class Text {
@@ -29,20 +21,27 @@ export class Text {
   /** Object for keeping references to display objects or DOM elements. */
   readonly #parts: TextParts;
 
-  constructor(options: TextOptions) {
-    let {text, theme, role = 'label', anchor = DEFAULT_ANCHOR, layout, ...style} = options;
-    let themeStyle = theme?.text[role];
-
+  constructor({
+    text,
+    theme,
+    role = 'label',
+    anchor = DEFAULT_ANCHOR,
+    layout,
+    ...style
+  }: TextOptions) {
     this.#config = {theme};
     this.#parts = {
-      sprite: new pixi.BitmapText({
+      content: new pixi.BitmapText({
         text,
-        style: themeStyle === undefined ? style : {...themeStyle, ...style},
+        style:
+          this.#config.theme?.text[role] === undefined ?
+            style
+          : {...this.#config.theme.text[role], ...style},
       }),
     };
 
-    this.#parts.sprite.anchor.set(anchor.x, anchor.y);
-    this.view.addChild(this.#parts.sprite);
+    this.#parts.content.anchor.set(anchor.x, anchor.y);
+    this.view.addChild(this.#parts.content);
 
     if (layout !== undefined) {
       if (layout === true) {
@@ -57,9 +56,9 @@ export class Text {
     this.#disposables.instance.defer(() => this.view.destroy({children: true}));
   }
 
-  /** TBD */
+  /** Returns the text style. */
   get style(): pixi.TextStyle {
-    return this.#parts.sprite.style;
+    return this.#parts.content.style;
   }
 
   /** Destroys the instance. */
@@ -67,27 +66,16 @@ export class Text {
     this.#disposables.instance.dispose();
   }
 
-  /** TBD */
-  measureWidth(text: string): number {
-    // measureText returns the width in the font's own measurement units, which
-    // BitmapText scales by `scale` to reach the style's font size (see its
-    // updateBounds). trimEnd is off because it would drop a trailing space's
-    // advance, and a caret has to move when one is typed.
-    let {width, scale} = pixi.BitmapFontManager.measureText(text, this.#parts.sprite.style, false);
-
-    return width * scale;
-  }
-
-  /** TBD */
+  /** Sets the anchor. */
   setAnchor(anchor: pixi.PointData): this {
-    this.#parts.sprite.anchor.set(anchor.x, anchor.y);
+    this.#parts.content.anchor.set(anchor.x, anchor.y);
 
     return this;
   }
 
-  /** TBD */
+  /** Sets the text. */
   setText(text: string): this {
-    this.#parts.sprite.text = text;
+    this.#parts.content.text = text;
 
     return this;
   }

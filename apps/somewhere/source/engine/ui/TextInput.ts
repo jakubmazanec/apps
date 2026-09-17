@@ -5,6 +5,7 @@ import {type Disposables} from '../utilities/Disposables.js';
 import {type Focusable} from './Focusable.js';
 import {adoptDetachedBackgrounds} from './internals/adoptDetachedBackgrounds.js';
 import {attachWidgetInteraction} from './internals/attachWidgetInteraction.js';
+import {measureTextWidth} from './internals/measureTextWidth.js';
 import {resolveBackgrounds} from './internals/resolveBackgrounds.js';
 import {resolveThemedBackgrounds} from './internals/resolveThemedBackgrounds.js';
 import {setInteractionEnabled} from './internals/setInteractionEnabled.js';
@@ -495,13 +496,13 @@ export class TextInput implements Focusable {
     // all move it without changing the value, so there is no event to hook —
     // reading the selection back each frame is what catches every one of them.
     let index = this.#parts.input.selectionStart ?? this.#runtime.value.length;
-    let offset = this.#parts.valueText.measureWidth(this.#runtime.value.slice(0, index));
+    let offset = measureTextWidth(this.#runtime.value.slice(0, index), this.#parts.valueText.style);
     // The font leaves a single 1 art px column between glyphs and its descenders
     // fill the line box, so a bar caret has nowhere to sit without touching ink.
     // The caret is a block over the character's cell instead, the way a
     // terminal's is. Past the last character there is no cell to cover, so it
     // falls back to a space's advance.
-    let width = this.#parts.valueText.measureWidth(this.#runtime.value[index] ?? ' ');
+    let width = measureTextWidth(this.#runtime.value[index] ?? ' ', this.#parts.valueText.style);
 
     if (offset !== this.#runtime.caretOffset || width !== this.#runtime.caretWidth) {
       this.#positionCaret(offset, width);
