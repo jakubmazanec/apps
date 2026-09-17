@@ -30,7 +30,7 @@ describe('Panel children', () => {
   test('keeps added children in a public children array', () => {
     let first = {view: new pixi.Container()};
     let second = {view: new pixi.Container()};
-    let panel = new Panel({children: [first]});
+    let panel = new Panel({backgrounds: {background: new pixi.Container()}, children: [first]});
 
     panel.addChild(second);
 
@@ -43,7 +43,7 @@ describe('Panel children', () => {
 
   test('destroy() cascades to child components', () => {
     let child = {view: new pixi.Container(), destroy: vitest.fn<() => void>()};
-    let panel = new Panel({children: [child]});
+    let panel = new Panel({backgrounds: {background: new pixi.Container()}, children: [child]});
 
     panel.destroy();
 
@@ -69,7 +69,7 @@ describe('Panel theme', () => {
   test('an explicit background wins over the theme', () => {
     let background = new pixi.Container();
     let panel = new Panel({
-      background,
+      backgrounds: {background},
       theme: createTestTheme(),
     });
 

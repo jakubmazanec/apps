@@ -4,6 +4,7 @@ import {LayoutContainer} from '@pixi/layout/components';
 import * as pixi from 'pixi.js';
 import {beforeAll, describe, expect, test, vitest} from 'vitest';
 
+import {measureTextWidth} from '../source/engine/ui/internals/measureTextWidth.js';
 import {Text} from '../source/engine/ui/Text.js';
 import {createTestTheme} from './createTestTheme.js';
 import {installMonogram} from './installMonogram.js';
@@ -116,7 +117,7 @@ describe('Text measurement', () => {
 
     // A caret sits at the right edge of the glyphs before it, so the measured
     // prefix has to match what those glyphs actually occupy.
-    expect(text.measureWidth('One')).toBe(prefix.view.getLocalBounds().width);
+    expect(measureTextWidth('One', text.style)).toBe(prefix.view.getLocalBounds().width);
   });
 
   // A block caret past the last character has no character to cover, so it takes
@@ -124,7 +125,7 @@ describe('Text measurement', () => {
   test('measures a lone space as its advance', () => {
     let text = new Text({text: '', fontFamily: 'monogram', fontSize: 12});
 
-    expect(text.measureWidth(' ')).toBeGreaterThan(0);
+    expect(measureTextWidth(' ', text.style)).toBeGreaterThan(0);
   });
 
   test('counts a trailing space', () => {
@@ -132,7 +133,7 @@ describe('Text measurement', () => {
 
     // BitmapFontManager trims trailing whitespace by default, but a caret has to
     // advance when a space is typed.
-    expect(text.measureWidth('a ')).toBeGreaterThan(text.measureWidth('a'));
+    expect(measureTextWidth('a ', text.style)).toBeGreaterThan(measureTextWidth('a', text.style));
   });
 });
 

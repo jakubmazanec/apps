@@ -9,6 +9,10 @@ import {createTestTheme} from './createTestTheme.js';
 // the real measurement is covered against the shipped font in Text.browser.test.ts.
 const {CHARACTER_WIDTH} = vitest.hoisted(() => ({CHARACTER_WIDTH: 6}));
 
+vitest.mock(import('../source/engine/ui/internals/measureTextWidth.js'), () => ({
+  measureTextWidth: (text: string) => text.length * CHARACTER_WIDTH,
+}));
+
 vitest.mock(import('../source/engine/ui/Text.js'), async () => {
   let {Container} = await import('pixi.js');
 
@@ -20,10 +24,6 @@ vitest.mock(import('../source/engine/ui/Text.js'), async () => {
 
       destroy() {
         this.view.destroy();
-      }
-
-      measureWidth(text: string) {
-        return text.length * CHARACTER_WIDTH;
       }
 
       setText() {
@@ -43,6 +43,12 @@ let layoutSystem: LayoutSystem;
 
 function background() {
   return new pixi.Container();
+}
+
+// Without a theme every slot is required, so tests that do not care about the
+// art build the whole set.
+function backgrounds() {
+  return {normal: background(), hovered: background(), disabled: background()};
 }
 
 // The caret is the only sprite in the tree: the backgrounds and the mocked Texts
@@ -108,7 +114,7 @@ describe('TextInput', () => {
 
   function createInput(layout?: object, onChange?: () => void) {
     return new TextInput({
-      backgrounds: {normal: background()},
+      backgrounds: backgrounds(),
       container,
       fontFamily: 'monogram',
       fontSize: 16,
@@ -538,15 +544,14 @@ describe('TextInput', () => {
     expect(caretOffsetOf(input.view)).toBe(3 * CHARACTER_WIDTH);
   });
 
-  // Every state the caller leaves unspecified resolves to the `normal`
-  // container, so a suite that never passes a distinct `disabled` background
-  // never exercises the swap: it always short-circuits at swapBackground's
-  // no-change guard.
+  // A suite that passed the same container for every state would never exercise
+  // the swap: it would always short-circuit at swapBackground's no-change guard.
+  // Hence the distinct containers here.
   test('disable() swaps the view background to the disabled state', () => {
     let normal = background();
     let disabled = background();
     let input = new TextInput({
-      backgrounds: {normal, disabled},
+      backgrounds: {...backgrounds(), normal, disabled},
       container,
       fontFamily: 'monogram',
       fontSize: 16,

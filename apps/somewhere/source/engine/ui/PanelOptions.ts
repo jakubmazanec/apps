@@ -1,11 +1,6 @@
-import type * as pixi from 'pixi.js';
-
 import {type UiChild} from './UiChild.js';
-import {type UiTheme} from './UiTheme.js';
+import {type UiComponentThemeOptions} from './UiTheme.js';
 
-export type PanelOptions = {
-  background?: pixi.Container | undefined;
-  theme?: UiTheme | undefined;
+export type PanelOptions = UiComponentThemeOptions<'panel'> & {
   children?: UiChild[] | undefined;
-  layout?: pixi.ContainerOptions['layout'] | undefined;
 };

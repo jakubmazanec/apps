@@ -6,7 +6,6 @@ import {type Focusable} from './Focusable.js';
 import {adoptDetachedBackgrounds} from './internals/adoptDetachedBackgrounds.js';
 import {attachWidgetInteraction} from './internals/attachWidgetInteraction.js';
 import {measureTextWidth} from './internals/measureTextWidth.js';
-import {resolveBackgrounds} from './internals/resolveBackgrounds.js';
 import {resolveThemedBackgrounds} from './internals/resolveThemedBackgrounds.js';
 import {setInteractionEnabled} from './internals/setInteractionEnabled.js';
 import {swapBackground} from './internals/swapBackground.js';
@@ -96,17 +95,6 @@ export class TextInput implements Focusable {
       theme,
     };
 
-    let resolved = resolveThemedBackgrounds(
-      ['normal', 'hovered', 'disabled'],
-      this.#config.theme?.textInput,
-      backgrounds,
-    );
-
-    if (resolved.normal === undefined) {
-      // Unreachable through ThemedOptions, which requires one source or the other.
-      throw new Error('TextInput needs a theme or a normal background!');
-    }
-
     let row = new LayoutContainer({});
 
     row.layout = {flexDirection: 'row', alignItems: 'center'};
@@ -168,7 +156,11 @@ export class TextInput implements Focusable {
     inputStyle.pointerEvents = 'none';
 
     this.#parts = {
-      backgrounds: resolveBackgrounds(['normal', 'hovered', 'disabled'], resolved.normal, resolved),
+      backgrounds: resolveThemedBackgrounds(
+        ['normal', 'hovered', 'disabled'],
+        this.#config.theme?.textInput,
+        backgrounds,
+      ),
       caret,
       input,
       placeholderText,
@@ -227,7 +219,8 @@ export class TextInput implements Focusable {
     this.view.layout = {
       justifyContent: 'flex-start',
       alignItems: 'center',
-      ...(typeof layout === 'object' ? layout : undefined),
+      ...this.#config.theme?.textInput.layout,
+      ...layout,
     };
 
     this.#config.container.append(input);

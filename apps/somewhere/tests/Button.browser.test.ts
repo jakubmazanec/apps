@@ -18,6 +18,17 @@ function background(): pixi.Container {
   return container;
 }
 
+// Without a theme every slot is required, so tests that do not care about the
+// art build the whole set.
+function backgrounds() {
+  return {
+    normal: background(),
+    hovered: background(),
+    active: background(),
+    disabled: background(),
+  };
+}
+
 describe('Button layout defaults', () => {
   beforeAll(async () => {
     layoutSystem = new LayoutSystem();
@@ -28,7 +39,7 @@ describe('Button layout defaults', () => {
   });
 
   test('centers its content by default', () => {
-    let button = new Button({backgrounds: {normal: background()}});
+    let button = new Button({backgrounds: backgrounds()});
 
     expect(button.view.layout?.style).toMatchObject({
       justifyContent: 'center',
@@ -38,7 +49,7 @@ describe('Button layout defaults', () => {
 
   test('caller layout overrides the centering defaults', () => {
     let button = new Button({
-      backgrounds: {normal: background()},
+      backgrounds: backgrounds(),
       layout: {alignItems: 'flex-end'},
     });
 
@@ -49,7 +60,7 @@ describe('Button layout defaults', () => {
   });
 
   test('sizes its hit area from the computed layout', () => {
-    let button = new Button({backgrounds: {normal: background()}});
+    let button = new Button({backgrounds: backgrounds()});
     let {view} = button;
 
     // @ts-expect-error -- ComputedLayout requires more properties than needed at runtime
@@ -71,7 +82,7 @@ describe('Button press offset', () => {
   test('shifts content down on press and restores it on release, without touching layout', () => {
     let label = {view: new pixi.Container()};
     let button = new Button({
-      backgrounds: {normal: background(), hovered: background(), active: background()},
+      backgrounds: backgrounds(),
       pressOffset: 4,
       layout: {padding: 8, alignItems: 'center', justifyContent: 'center'},
       children: [label],
@@ -94,7 +105,7 @@ describe('Button press offset', () => {
   test('removeChild resets a shifted child back to its unpressed position', () => {
     let label = {view: new pixi.Container()};
     let button = new Button({
-      backgrounds: {normal: background(), hovered: background(), active: background()},
+      backgrounds: backgrounds(),
       pressOffset: 4,
       children: [label],
     });
@@ -122,7 +133,7 @@ describe('Button focus', () => {
 
   test('keeps added children in a public children array', () => {
     let label: {view: pixi.Container} = {view: new pixi.Container()};
-    let button = new Button({backgrounds: {normal: background()}, children: [label]});
+    let button = new Button({backgrounds: backgrounds(), children: [label]});
 
     expect(button.children).toEqual([label]);
 
@@ -133,7 +144,7 @@ describe('Button focus', () => {
 
   test('destroy() cascades to child components', () => {
     let child = {view: new pixi.Container(), destroy: vitest.fn<() => void>()};
-    let button = new Button({backgrounds: {normal: background()}, children: [child]});
+    let button = new Button({backgrounds: backgrounds(), children: [child]});
 
     button.destroy();
 
@@ -141,7 +152,7 @@ describe('Button focus', () => {
   });
 
   test('is focusable unless disabled', () => {
-    let button = new Button({backgrounds: {normal: background(), disabled: background()}});
+    let button = new Button({backgrounds: backgrounds()});
 
     expect(button.isFocusable).toBe(true);
     expect(button.isDisabled).toBe(false);
@@ -159,7 +170,7 @@ describe('Button focus', () => {
 
   test('activate fires onClick', () => {
     let onClick = vitest.fn<(button: Button) => void>();
-    let button = new Button({backgrounds: {normal: background()}, onClick});
+    let button = new Button({backgrounds: backgrounds(), onClick});
 
     button.activate();
 
@@ -168,7 +179,7 @@ describe('Button focus', () => {
 
   test('activate is a no-op while disabled', () => {
     let onClick = vitest.fn<(button: Button) => void>();
-    let button = new Button({backgrounds: {normal: background(), disabled: background()}, onClick});
+    let button = new Button({backgrounds: backgrounds(), onClick});
 
     button.disable();
     button.activate();

@@ -22,8 +22,15 @@ function background(width = 10, height = 10): pixi.Container {
   return sprite;
 }
 
+// Without a theme every slot is required, so tests that only care about the
+// track and the fill still build the whole set.
 function backgrounds(trackWidth = 32, trackHeight = 6) {
-  return {track: background(trackWidth, trackHeight), fill: background(0, trackHeight)};
+  return {
+    track: background(trackWidth, trackHeight),
+    fill: background(0, trackHeight),
+    hovered: background(trackWidth, trackHeight),
+    disabled: background(trackWidth, trackHeight),
+  };
 }
 
 function pointerEvent(x: number, buttons = 1, button = 0): pixi.FederatedPointerEvent {

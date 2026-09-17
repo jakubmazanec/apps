@@ -5,7 +5,6 @@ import {type Disposables} from '../utilities/Disposables.js';
 import {type Focusable} from './Focusable.js';
 import {adoptDetachedBackgrounds} from './internals/adoptDetachedBackgrounds.js';
 import {attachWidgetInteraction} from './internals/attachWidgetInteraction.js';
-import {resolveBackgrounds} from './internals/resolveBackgrounds.js';
 import {resolveThemedBackgrounds} from './internals/resolveThemedBackgrounds.js';
 import {setInteractionEnabled} from './internals/setInteractionEnabled.js';
 import {swapBackground} from './internals/swapBackground.js';
@@ -58,11 +57,6 @@ export class Slider implements Focusable {
       backgrounds,
     );
 
-    if (resolved.track === undefined || resolved.fill === undefined) {
-      // Unreachable through ThemedOptions, which requires one source or the other.
-      throw new Error('Slider needs a theme or track and fill backgrounds!');
-    }
-
     this.#config = {
       min,
       max,
@@ -73,10 +67,11 @@ export class Slider implements Focusable {
     };
     this.#parts = {
       fill: resolved.fill,
-      trackBackgrounds: resolveBackgrounds(['normal', 'hovered', 'disabled'], resolved.track, {
+      trackBackgrounds: {
+        normal: resolved.track,
         hovered: resolved.hovered,
         disabled: resolved.disabled,
-      }),
+      },
     };
 
     adoptDetachedBackgrounds(
