@@ -40,7 +40,7 @@
   },
   "devDependencies": {
     "@gel/generate": "^0.6.4",
-    "@jakubmazanec/eslint-config": "^5.0.0",
+    "@jakubmazanec/eslint-config": "6.0.0-unstable.72f063e3",
     "@react-router/dev": "^8.3.0",
     "@tailwindcss/vite": "^4.3.3",
     "@types/fs-extra": "^11.0.4",

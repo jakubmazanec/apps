@@ -1,0 +1,7 @@
+# Carson-managed gitignore handles .vitest-attachments/ and .vitest-reports/
+# These entries are not in the Carson template yet — they stay here to survive
+# `carson update workspace` regenerations.
+
+.playwright-mcp/
+tests/__screenshots__/
+coverage/
