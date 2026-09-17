@@ -277,7 +277,14 @@ async function createUiWithOutsideButton() {
   prototype.removeEventListener ??= () => {};
 
   let ui = new UiRoot({theme: createTestTheme()});
-  let outside = new Button({backgrounds: {normal: new pixi.Container()}});
+  let outside = new Button({
+    backgrounds: {
+      normal: new pixi.Container(),
+      hovered: new pixi.Container(),
+      active: new pixi.Container(),
+      disabled: new pixi.Container(),
+    },
+  });
 
   ui.addChild(outside);
 

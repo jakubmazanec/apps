@@ -1,7 +1,7 @@
 import {LayoutContainer} from '@pixi/layout/components';
 
 import {type Disposables} from '../utilities/Disposables.js';
-import {createBackground} from './internals/createBackground.js';
+import {resolveThemedBackgrounds} from './internals/resolveThemedBackgrounds.js';
 import {type PanelConfig} from './PanelConfig.js';
 import {type PanelOptions} from './PanelOptions.js';
 import {type PanelParts} from './PanelParts.js';
@@ -23,22 +23,17 @@ export class Panel implements UiParent {
   /** Object for keeping references to display objects or DOM elements. */
   readonly #parts: PanelParts;
 
-  constructor({background, theme, children, layout}: PanelOptions) {
+  constructor({backgrounds, theme, children, layout}: PanelOptions) {
     this.#config = {theme};
-    this.#parts = {
-      background:
-        background ?? (this.#config.theme && createBackground(this.#config.theme.panel.background)),
-    };
+    this.#parts = resolveThemedBackgrounds(['background'], this.#config.theme?.panel, backgrounds);
 
-    this.view = new LayoutContainer(
-      this.#parts.background === undefined ? {} : {background: this.#parts.background},
-    );
+    this.view = new LayoutContainer({background: this.#parts.background});
 
     if (children !== undefined) {
       this.addChild(...children);
     }
 
-    this.view.layout = {...(typeof layout === 'object' ? layout : undefined)};
+    this.view.layout = {...this.#config.theme?.panel.layout, ...layout};
 
     this.#disposables.instance.defer(() => this.view.destroy({children: true}));
   }

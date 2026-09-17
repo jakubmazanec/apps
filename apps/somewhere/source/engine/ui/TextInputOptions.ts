@@ -1,10 +1,9 @@
 import type * as pixi from 'pixi.js';
 
 import {type TextInput} from './TextInput.js';
-import {type TextInputBackgrounds} from './TextInputBackgrounds.js';
-import {type ThemedOptions} from './UiTheme.js';
+import {type UiComponentThemeOptions} from './UiTheme.js';
 
-export type TextInputOptions = ThemedOptions<TextInputBackgrounds> & {
+export type TextInputOptions = UiComponentThemeOptions<'textInput'> & {
   value?: string | undefined;
   placeholder?: string | undefined;
   maxLength?: number | undefined;
@@ -15,5 +14,4 @@ export type TextInputOptions = ThemedOptions<TextInputBackgrounds> & {
   fill?: pixi.ColorSource | undefined;
   onChange?: ((input: TextInput) => void) | undefined;
   onEnter?: ((input: TextInput) => void) | undefined;
-  layout?: pixi.ContainerOptions['layout'] | undefined;
 };

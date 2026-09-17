@@ -1,8 +1,7 @@
 import {type Slider} from './Slider.js';
-import {type SliderBackgrounds} from './SliderBackgrounds.js';
-import {type ThemedOptions} from './UiTheme.js';
+import {type UiComponentThemeOptions} from './UiTheme.js';
 
-export type SliderOptions = ThemedOptions<SliderBackgrounds> & {
+export type SliderOptions = UiComponentThemeOptions<'slider'> & {
   min?: number | undefined;
   max?: number | undefined;
   step?: number | undefined;

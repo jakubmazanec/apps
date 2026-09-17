@@ -9,7 +9,6 @@ import {type Focusable} from './Focusable.js';
 import {adoptDetachedBackgrounds} from './internals/adoptDetachedBackgrounds.js';
 import {applyPressShift} from './internals/applyPressShift.js';
 import {attachWidgetInteraction} from './internals/attachWidgetInteraction.js';
-import {resolveBackgrounds} from './internals/resolveBackgrounds.js';
 import {resolveThemedBackgrounds} from './internals/resolveThemedBackgrounds.js';
 import {setInteractionEnabled} from './internals/setInteractionEnabled.js';
 import {swapBackground} from './internals/swapBackground.js';
@@ -47,22 +46,11 @@ export class Button implements Focusable, UiParent {
       theme,
     };
 
-    let resolved = resolveThemedBackgrounds(
-      ['normal', 'hovered', 'active', 'disabled'],
-      this.#config.theme?.button,
-      backgrounds,
-    );
-
-    if (resolved.normal === undefined) {
-      // Unreachable through ThemedOptions, which requires one source or the other.
-      throw new Error('Button needs a theme or a normal background!');
-    }
-
     this.#parts = {
-      backgrounds: resolveBackgrounds(
+      backgrounds: resolveThemedBackgrounds(
         ['normal', 'hovered', 'active', 'disabled'],
-        resolved.normal,
-        resolved,
+        this.#config.theme?.button,
+        backgrounds,
       ),
     };
 
@@ -143,7 +131,7 @@ export class Button implements Focusable, UiParent {
       justifyContent: 'center',
       alignItems: 'center',
       ...theme?.button.layout,
-      ...(typeof layout === 'object' ? layout : undefined),
+      ...layout,
     };
 
     this.#disposables.instance.defer(() => this.view.destroy({children: true}));

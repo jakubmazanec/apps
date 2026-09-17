@@ -1,6 +1,7 @@
 import * as pixi from 'pixi.js';
 
 import {Button} from '../ui/Button.js';
+import {Container} from '../ui/Container.js';
 import {Panel} from '../ui/Panel.js';
 import {Text} from '../ui/Text.js';
 import {type UiChild, type UiParent} from '../ui/UiChild.js';
@@ -97,7 +98,7 @@ export class DialogueBox implements UiParent {
   #areChoicesShown = false;
 
   /** TBD */
-  #box: Panel | null = null;
+  #box: Container | null = null;
 
   /**
    * The bar's height for the node: the authored height, grown to fit the
@@ -118,7 +119,7 @@ export class DialogueBox implements UiParent {
   #choiceLabelWidth = 1;
 
   /** TBD */
-  #choicesPanel: Panel | null = null;
+  #choicesPanel: Container | null = null;
 
   /** TBD */
   #choiceTexts: string[] = [];
@@ -442,9 +443,11 @@ export class DialogueBox implements UiParent {
     });
 
     this.#choiceButtons = buttons;
-    this.#choicesPanel = new Panel({
+    this.#choicesPanel = new Container({
       children: buttons,
-      layout: {flexDirection: 'column', gap: this.#metrics.choiceGap},
+      // A backgroundless box, so a Container rather than a Panel; it stretches its
+      // rows, where a Container centers them by default.
+      layout: {flexDirection: 'column', alignItems: 'stretch', gap: this.#metrics.choiceGap},
     });
     this.#textPanel.addChild(this.#choicesPanel);
     this.#applySelected();
@@ -556,9 +559,11 @@ export class DialogueBox implements UiParent {
 
     boxChildren.push(this.#textPanel);
 
-    this.#box = new Panel({
+    this.#box = new Container({
       children: boxChildren,
-      layout: {flexDirection: 'row', gap, width: boxWidth, height},
+      // A backgroundless box, so a Container rather than a Panel; it stretches its
+      // columns to full height, where a Container centers them by default.
+      layout: {flexDirection: 'row', alignItems: 'stretch', gap, width: boxWidth, height},
     });
 
     this.view.addChild(this.#box.view);

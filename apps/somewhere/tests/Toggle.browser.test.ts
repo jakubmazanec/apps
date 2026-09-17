@@ -19,6 +19,19 @@ function background(): pixi.Container {
   return container;
 }
 
+// Without a theme every slot is required, so tests that only care about the
+// checked and unchecked art build the whole set.
+function backgrounds() {
+  return {
+    unchecked: background(),
+    checked: background(),
+    hovered: background(),
+    hoveredChecked: background(),
+    disabled: background(),
+    disabledChecked: background(),
+  };
+}
+
 describe(Toggle, () => {
   beforeAll(async () => {
     layoutSystem = new LayoutSystem();
@@ -29,7 +42,7 @@ describe(Toggle, () => {
   });
 
   test('sizes its hit area from the computed layout', () => {
-    let toggle = new Toggle({backgrounds: {unchecked: background(), checked: background()}});
+    let toggle = new Toggle({backgrounds: backgrounds()});
     let {view} = toggle;
 
     // @ts-expect-error -- ComputedLayout requires more properties than needed at runtime
@@ -39,7 +52,7 @@ describe(Toggle, () => {
   });
 
   test('background swap keeps the layout internals attached', () => {
-    let toggle = new Toggle({backgrounds: {unchecked: background(), checked: background()}});
+    let toggle = new Toggle({backgrounds: backgrounds()});
     let {view} = toggle;
     let internals = view.children.filter(
       (child: unknown) => (child as {isOverflowContainer?: boolean}).isOverflowContainer,
@@ -63,7 +76,7 @@ describe('Toggle focus', () => {
   });
 
   test('is focusable unless disabled', () => {
-    let toggle = new Toggle({backgrounds: {unchecked: background(), checked: background()}});
+    let toggle = new Toggle({backgrounds: backgrounds()});
 
     expect(toggle.isFocusable).toBe(true);
     expect(toggle.isDisabled).toBe(false);
@@ -77,7 +90,7 @@ describe('Toggle focus', () => {
   test('activate flips the value and fires onChange', () => {
     let onChange = vitest.fn<(toggle: Toggle) => void>();
     let toggle = new Toggle({
-      backgrounds: {unchecked: background(), checked: background()},
+      backgrounds: backgrounds(),
       onChange,
     });
 
@@ -94,7 +107,7 @@ describe('Toggle focus', () => {
   test('check and uncheck set the value without firing onChange', () => {
     let onChange = vitest.fn<(toggle: Toggle) => void>();
     let toggle = new Toggle({
-      backgrounds: {unchecked: background(), checked: background()},
+      backgrounds: backgrounds(),
       onChange,
     });
 
@@ -111,7 +124,7 @@ describe('Toggle focus', () => {
   test('activate is a no-op while disabled', () => {
     let onChange = vitest.fn<(toggle: Toggle) => void>();
     let toggle = new Toggle({
-      backgrounds: {unchecked: background(), checked: background()},
+      backgrounds: backgrounds(),
       onChange,
     });
 
@@ -133,7 +146,7 @@ describe('Toggle disabled interaction', () => {
   });
 
   test('disable stops pointer events and enable restores them', () => {
-    let toggle = new Toggle({backgrounds: {unchecked: background(), checked: background()}});
+    let toggle = new Toggle({backgrounds: backgrounds()});
     let {view} = toggle;
 
     expect(view.eventMode).toBe('static');
@@ -153,7 +166,7 @@ describe('Toggle disabled interaction', () => {
   test('a tap on a disabled toggle is ignored, not swallowed', () => {
     let onChange = vitest.fn<(toggle: Toggle) => void>();
     let toggle = new Toggle({
-      backgrounds: {unchecked: background(), checked: background()},
+      backgrounds: backgrounds(),
       onChange,
     });
     let {view} = toggle;
@@ -171,7 +184,7 @@ describe('Toggle disabled interaction', () => {
   test('a tap on an enabled toggle is handled and consumed', () => {
     let onChange = vitest.fn<(toggle: Toggle) => void>();
     let toggle = new Toggle({
-      backgrounds: {unchecked: background(), checked: background()},
+      backgrounds: backgrounds(),
       onChange,
     });
     let {view} = toggle;

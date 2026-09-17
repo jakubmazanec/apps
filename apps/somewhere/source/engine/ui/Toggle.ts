@@ -5,7 +5,6 @@ import {type Disposables} from '../utilities/Disposables.js';
 import {type Focusable} from './Focusable.js';
 import {adoptDetachedBackgrounds} from './internals/adoptDetachedBackgrounds.js';
 import {attachWidgetInteraction} from './internals/attachWidgetInteraction.js';
-import {resolveBackgrounds} from './internals/resolveBackgrounds.js';
 import {resolveThemedBackgrounds} from './internals/resolveThemedBackgrounds.js';
 import {setInteractionEnabled} from './internals/setInteractionEnabled.js';
 import {swapBackground} from './internals/swapBackground.js';
@@ -50,23 +49,18 @@ export class Toggle implements Focusable {
       backgrounds,
     );
 
-    if (resolved.unchecked === undefined || resolved.checked === undefined) {
-      // Unreachable through ThemedOptions, which requires one source or the other.
-      throw new Error('Toggle needs a theme or unchecked and checked backgrounds!');
-    }
-
-    let states = ['normal', 'hovered', 'disabled'] as const;
-
     this.#parts = {
       backgrounds: {
-        unchecked: resolveBackgrounds(states, resolved.unchecked, {
+        unchecked: {
+          normal: resolved.unchecked,
           hovered: resolved.hovered,
           disabled: resolved.disabled,
-        }),
-        checked: resolveBackgrounds(states, resolved.checked, {
+        },
+        checked: {
+          normal: resolved.checked,
           hovered: resolved.hoveredChecked,
           disabled: resolved.disabledChecked,
-        }),
+        },
       },
     };
 
