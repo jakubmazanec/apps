@@ -3,7 +3,7 @@ import {CRTFilter} from 'pixi-filters';
 import * as pixi from 'pixi.js';
 
 import {type GameInput} from '../input/GameInput.js';
-import {type UiTheme} from '../ui/UiTheme.js';
+import {type ResolvedUiTheme} from '../ui/UiTheme.js';
 import {type Disposables} from '../utilities/Disposables.js';
 import {type AnyErrorGameScreen} from './AnyErrorGameScreen.js';
 import {type AnyGameScreen} from './AnyGameScreen.js';
@@ -137,7 +137,7 @@ export class Game {
   }
 
   /** Theme. */
-  get theme(): UiTheme {
+  get theme(): ResolvedUiTheme {
     return this.#theme.resolved;
   }
 

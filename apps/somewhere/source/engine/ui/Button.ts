@@ -100,8 +100,7 @@ export class Button implements Focusable, UiParent {
       swapBackground(this.view, this.#parts.backgrounds.hovered);
     });
 
-    // A press released outside the button never fires `pointerup`, which would
-    // otherwise leave the button stuck in `active`.
+    // A press released outside the button never fires `pointerup`.
     this.view.on('pointerupoutside', () => {
       if (this.#state !== 'active') {
         return;

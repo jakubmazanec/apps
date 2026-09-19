@@ -1,4 +1,4 @@
-import {type UiTheme, type UiThemeDescription} from '../ui/UiTheme.js';
+import {type ResolvedUiTheme, type UiThemeDescription} from '../ui/UiTheme.js';
 import {type GameAssets} from './GameAssets.js';
 
 /**
@@ -10,14 +10,14 @@ export class GameTheme {
   #description: UiThemeDescription | null;
 
   /** Resolved theme; is `null` until `resolve` runs. */
-  #resolved: UiTheme | null = null;
+  #resolved: ResolvedUiTheme | null = null;
 
   constructor(description: UiThemeDescription) {
     this.#description = description;
   }
 
   /** Resolved theme with textures in place of texture references. */
-  get resolved(): UiTheme {
+  get resolved(): ResolvedUiTheme {
     if (this.#resolved === null) {
       throw new Error("Theme isn't resolved yet!");
     }
@@ -46,7 +46,7 @@ export class GameTheme {
           ]),
         ),
       ]),
-    ) as UiTheme;
+    ) as ResolvedUiTheme;
     this.#description = null;
 
     return this;

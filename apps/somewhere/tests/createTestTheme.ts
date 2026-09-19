@@ -1,6 +1,6 @@
 import type * as pixi from 'pixi.js';
 
-import {type UiTheme} from '../source/engine/ui/UiTheme.js';
+import {type ResolvedUiTheme} from '../source/engine/ui/UiTheme.js';
 
 function texture(label: string): pixi.Texture {
   let sentinel = {label};
@@ -10,7 +10,7 @@ function texture(label: string): pixi.Texture {
 
 // Named sentinels, not real textures: the suites that use this mock pixi.js
 // wholesale. Distinct objects let a test assert which entry a widget read.
-export function createTestTheme(): UiTheme {
+export function createTestTheme(): ResolvedUiTheme {
   return {
     button: {
       normal: texture('button-normal'),

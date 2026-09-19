@@ -1,6 +1,6 @@
 import type * as pixi from 'pixi.js';
 
-import {type UiTheme} from './UiTheme.js';
+import {type ResolvedUiTheme} from './UiTheme.js';
 
 // TODO: support other styling options
 export type TextOptions = Pick<
@@ -11,7 +11,7 @@ export type TextOptions = Pick<
   'breakWords' | 'fontFamily' | 'fontSize' | 'wordWrap' | 'wordWrapWidth'
 > & {
   text: string;
-  theme?: UiTheme | undefined;
+  theme?: ResolvedUiTheme | undefined;
   // Which theme.text style applies. Labels are the common case.
   role?: 'body' | 'label' | undefined;
   fill?: pixi.ColorSource;
