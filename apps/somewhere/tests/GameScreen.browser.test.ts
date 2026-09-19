@@ -6,7 +6,7 @@ import {describe, expect, test, vitest} from 'vitest';
 import {type Game} from '../source/engine/app/Game.js';
 import {GameScreen} from '../source/engine/app/GameScreen.js';
 import {type MapTile} from '../source/engine/tiled/Map.js';
-import {type UiTheme} from '../source/engine/ui/UiTheme.js';
+import {type ResolvedUiTheme} from '../source/engine/ui/UiTheme.js';
 import {type UIEventMap} from '../source/game/core/uiEvents.js';
 import {createTestTheme} from './createTestTheme.js';
 
@@ -16,7 +16,9 @@ import 'pixi.js/events';
 
 type MockContainer = {children: MockContainer[]};
 
-function createScreen(options: {onHide?: () => void; onShow?: () => void; theme?: UiTheme} = {}) {
+function createScreen(
+  options: {onHide?: () => void; onShow?: () => void; theme?: ResolvedUiTheme} = {},
+) {
   let {theme = createTestTheme(), ...screenOptions} = options;
   let events = new EventEmitter<UIEventMap>();
   let screen = new GameScreen({events, ...screenOptions});

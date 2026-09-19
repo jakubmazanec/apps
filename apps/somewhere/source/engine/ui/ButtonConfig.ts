@@ -1,7 +1,7 @@
 import {type Config} from '../utilities/Config.js';
-import {type UiTheme} from './UiTheme.js';
+import {type ResolvedUiTheme} from './UiTheme.js';
 
 export type ButtonConfig = Config<{
   pressOffset: number;
-  theme: UiTheme | undefined;
+  theme: ResolvedUiTheme | undefined;
 }>;

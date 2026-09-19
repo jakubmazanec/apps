@@ -1,5 +1,9 @@
+// TODO: split this file, move some types to own files
+import {type Simplify} from '@jakubmazanec/ts-utils';
 import {type LayoutStyles} from '@pixi/layout';
 import type * as pixi from 'pixi.js';
+
+import {type Opaque} from '../utilities/Opaque.js';
 
 export type UiTextStyle = {
   fontFamily: string;
@@ -13,67 +17,80 @@ export type UiTextStyle = {
 // Widget groups may also carry layout defaults (plain data, identical in both
 // instantiations); a widget merges them under its own options, so an instance
 // property wins per property.
-export type UiThemeOf<T> = {
+/** TBD... keys are Components, to be used by UiComponents... */
+export type UiTheme<Background> = {
   button: {
-    normal: T;
-    hovered: T;
-    active: T;
-    disabled: T;
+    normal: Background;
+    hovered: Background;
+    active: Background;
+    disabled: Background;
     layout?: LayoutStyles;
-    // Pixels to shift the content down while pressed, so the label tracks a
-    // background whose face drops on press (e.g. an extruded 3D button).
     pressOffset?: number;
   };
-  textInput: {normal: T; hovered: T; disabled: T; layout?: LayoutStyles};
-  slider: {track: T; fill: T; hovered: T; disabled: T};
-  toggle: {
-    unchecked: T;
-    checked: T;
-    hovered: T;
-    hoveredChecked: T;
-    disabled: T;
-    disabledChecked: T;
+  textInput: {
+    normal: Background;
+    hovered: Background;
+    disabled: Background;
+    layout?: LayoutStyles;
   };
-  panel: {background: T; layout?: LayoutStyles};
-  focusRing: {texture: T; padding: number};
-  text: {label: UiTextStyle; body: UiTextStyle};
+  slider: {track: Background; fill: Background; hovered: Background; disabled: Background};
+  toggle: {
+    unchecked: Background;
+    checked: Background;
+    hovered: Background;
+    hoveredChecked: Background;
+    disabled: Background;
+    disabledChecked: Background;
+  };
+  panel: {
+    background: Background;
+    layout?: LayoutStyles;
+  };
+  focusRing: {
+    texture: Background;
+    padding: number;
+  };
+  text: {
+    label: UiTextStyle;
+    body: UiTextStyle;
+  };
 };
 
-export type UiThemeDescription = UiThemeOf<readonly [spriteset: string, frame: string]>;
-export type UiTheme = UiThemeOf<pixi.Texture>;
+export type UiThemeDescription = UiTheme<readonly [spriteset: string, frame: string]>;
+export type ResolvedUiTheme = UiTheme<pixi.Texture>;
 
-declare const artSlot: unique symbol;
+type Slot = Opaque<unknown, 'Slot'>;
+type UiThemeWithSlot = UiTheme<Slot>;
 
-// Probe type: instantiating UiThemeOf with it marks every art slot, so the
-// helpers below can tell art apart from the plain-data defaults sitting in the
-// same group.
-type ArtSlot = {[artSlot]: true};
+/** Helper type that specifies which backgrounds a component has. */
+type UiThemeComponentBackgroundKeys<Component extends keyof UiThemeWithSlot> = {
+  [Key in keyof UiThemeWithSlot[Component]]-?: UiThemeWithSlot[Component][Key] extends Slot ? Key
+  : never;
+}[keyof UiThemeWithSlot[Component]];
 
-type ProbedTheme = UiThemeOf<ArtSlot>;
+/** Component, i.e. key of the theme type, that have at least one background in its theme. */
+type ComponentWithBackground = {
+  [Component in keyof UiThemeWithSlot]: [UiThemeComponentBackgroundKeys<Component>] extends (
+    [never]
+  ) ?
+    never
+  : Component;
+}[keyof UiThemeWithSlot];
 
-type ArtKeys<Group extends keyof ProbedTheme> = {
-  [Key in keyof ProbedTheme[Group]]-?: ProbedTheme[Group][Key] extends ArtSlot ? Key : never;
-}[keyof ProbedTheme[Group]];
-
-// Groups that dress a widget: the ones with at least one art slot.
-type UiWidgetGroup = {
-  [Group in keyof ProbedTheme]: [ArtKeys<Group>] extends [never] ? never : Group;
-}[keyof ProbedTheme];
-
-// Mapped types display as an unreadable intersection without this.
-type Flatten<T> = {[Key in keyof T]: T[Key]} & {};
-
-// Widgets take a theme or explicit backgrounds, never neither. Explicit
-// backgrounds win per slot, so a caller with a theme can override one slot and
-// take the rest from it; a caller without a theme supplies every slot the theme
-// would have.
-// Beyond the art, each of the group's plain-data defaults becomes an instance
-// level override — declaring one in UiThemeOf is the whole change needed for the
-// matching widget to accept it.
-export type UiComponentThemeOptions<Group extends UiWidgetGroup> = Flatten<{
-  [Key in Exclude<keyof ProbedTheme[Group], ArtKeys<Group>>]?: ProbedTheme[Group][Key] | undefined;
+/** Helper type that specifies available options for a component. */
+export type UiComponentThemeOptions<Component extends ComponentWithBackground> = Simplify<{
+  [Key in Exclude<keyof UiThemeWithSlot[Component], UiThemeComponentBackgroundKeys<Component>>]?:
+    UiThemeWithSlot[Component][Key] | undefined;
 }> &
   (
-    | {theme: UiTheme; backgrounds?: Partial<Flatten<Record<ArtKeys<Group>, pixi.Container>>>}
-    | {theme?: undefined; backgrounds: Flatten<Record<ArtKeys<Group>, pixi.Container>>}
+    | {
+        theme: ResolvedUiTheme;
+        backgrounds?: Partial<
+          Simplify<Record<UiThemeComponentBackgroundKeys<Component>, pixi.Container>>
+        >;
+      }
+    | {
+        theme?: undefined;
+        backgrounds: Simplify<Record<UiThemeComponentBackgroundKeys<Component>, pixi.Container>>;
+      }
   );

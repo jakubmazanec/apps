@@ -6,7 +6,7 @@ import {Panel} from '../ui/Panel.js';
 import {Text} from '../ui/Text.js';
 import {type UiChild, type UiParent} from '../ui/UiChild.js';
 import {type UiRoot} from '../ui/UiRoot.js';
-import {type UiTheme} from '../ui/UiTheme.js';
+import {type ResolvedUiTheme} from '../ui/UiTheme.js';
 import {attachHitArea} from '../utilities/attachHitArea.js';
 import {wrapText} from './wrapText.js';
 
@@ -52,7 +52,7 @@ export type DialogueBoxNode = {
 };
 
 export type DialogueBoxOptions = {
-  theme: UiTheme;
+  theme: ResolvedUiTheme;
   font: {fontFamily: string; fontSize: number; fill: pixi.ColorSource};
   metrics: DialogueBoxMetrics;
   markerTexture: pixi.Texture;
@@ -170,7 +170,7 @@ export class DialogueBox implements UiParent {
   #textPanel: Panel | null = null;
 
   /** TBD */
-  readonly #theme: UiTheme;
+  readonly #theme: ResolvedUiTheme;
 
   /** TBD */
   #ui: UiRoot | null = null;

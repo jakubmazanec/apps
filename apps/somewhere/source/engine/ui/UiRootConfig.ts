@@ -1,4 +1,7 @@
 import {type Config} from '../utilities/Config.js';
-import {type UiTheme} from './UiTheme.js';
+import {type ResolvedUiTheme} from './UiTheme.js';
 
-export type UiRootConfig = Config<{focusRing: UiTheme['focusRing'] | undefined; theme: UiTheme}>;
+export type UiRootConfig = Config<{
+  focusRing: ResolvedUiTheme['focusRing'] | undefined;
+  theme: ResolvedUiTheme;
+}>;
