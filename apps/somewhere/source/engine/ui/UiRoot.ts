@@ -42,7 +42,7 @@ export class UiRoot implements UiParent {
   readonly #runtime: UiRootRuntime = {focused: null, isRingVisible: false, scopes: []};
 
   constructor({theme, onFocusEvent}: UiRootOptions) {
-    this.#config = {focusRing: theme.focusRing, theme};
+    this.#config = {theme};
 
     let overlay = new pixi.Container();
     let ring = new pixi.NineSliceSprite({texture: this.#config.theme.focusRing.texture});
@@ -144,8 +144,7 @@ export class UiRoot implements UiParent {
   addChild(...children: UiChild[]): this {
     for (let child of children) {
       this.children.push(child);
-      // The overlay (focus ring layer) stays the topmost view child.
-      this.view.addChildAt('view' in child ? child.view : child, this.view.children.length - 1);
+      this.view.addChildAt('view' in child ? child.view : child, this.view.children.length - 1); // The focus ring must stay last child, to render above other children.
     }
 
     return this;
@@ -193,8 +192,7 @@ export class UiRoot implements UiParent {
     this.#disposables.instance.dispose();
   }
 
-  // Programmatic focus: sets the component without showing the ring.
-  /** TBD */
+  /** Sets component as focused without showing the focus ring. */
   focus(component: Focusable) {
     this.#runtime.focused = component;
   }
@@ -319,29 +317,20 @@ export class UiRoot implements UiParent {
   /** TBD */
   update() {
     let {focused, isRingVisible} = this.#runtime;
+    let {overlay, ring} = this.#parts;
 
-    if (
-      this.#config.focusRing === undefined ||
-      !isRingVisible ||
-      !focused?.isFocusable ||
-      focused.view.destroyed
-    ) {
-      if (this.#parts.ring !== null) {
-        this.#parts.ring.visible = false;
-      }
+    if (!isRingVisible || !focused?.isFocusable || focused.view.destroyed) {
+      ring.visible = false;
 
       return;
     }
 
-    // the assertion is ok, because #parts.ring is created alongside #config.focusRing in
-    // the constructor, and we already returned above when #config.focusRing is undefined
-    let ring = this.#parts.ring as pixi.NineSliceSprite;
-    let {padding} = this.#config.focusRing;
+    let {padding} = this.#config.theme.focusRing;
     // Bounds are re-read every frame while the ring is visible, so it tracks
     // layout changes and animations without any cached geometry to invalidate.
     let bounds = focused.view.getBounds();
-    let topLeft = this.#parts.overlay.toLocal({x: bounds.x, y: bounds.y});
-    let bottomRight = this.#parts.overlay.toLocal({
+    let topLeft = overlay.toLocal({x: bounds.x, y: bounds.y});
+    let bottomRight = overlay.toLocal({
       x: bounds.x + bounds.width,
       y: bounds.y + bounds.height,
     });
