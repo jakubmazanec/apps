@@ -164,8 +164,6 @@ export class GameScreen<
 
   /** Destroys the instance. */
   destroy() {
-    // The show ends first, but not through hide(): that is async and runs the
-    // onHide hook, and a destroyed screen gets neither.
     this.#disposables.shown?.dispose();
     this.#disposables.shown = null;
     this.#disposables.instance.dispose();

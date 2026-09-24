@@ -31,10 +31,23 @@ export const theme: UiThemeDescription = {
     disabled: ['ui', 'toggle-disabled'],
     disabledChecked: ['ui', 'toggle-disabled-checked'],
   },
-  panel: {background: ['ui', 'banner']},
-  focusRing: {texture: ['ui', 'focus-ring'], padding: 2},
+  panel: {
+    background: ['ui', 'banner'],
+  },
+  focusRing: {
+    texture: ['ui', 'focus-ring'],
+    padding: 2,
+  },
   text: {
-    label: {fontFamily: 'monogram-outline', fontSize: 12, fill: 0xffffff},
-    body: {fontFamily: 'monogram', fontSize: 12, fill: 0xffffff},
+    label: {
+      fontFamily: 'monogram-outline',
+      fontSize: 12,
+      fill: 0xffffff,
+    },
+    body: {
+      fontFamily: 'monogram',
+      fontSize: 12,
+      fill: 0xffffff,
+    },
   },
 };
