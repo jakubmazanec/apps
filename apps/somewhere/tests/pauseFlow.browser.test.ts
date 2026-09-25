@@ -1,12 +1,8 @@
-import {describe, expect, test, vitest} from 'vitest';
+import {describe, expect, test} from 'vitest';
 
 import {Modal} from '../source/engine/ui/Modal.js';
 import {UiRoot} from '../source/engine/ui/UiRoot.js';
-import {
-  openPauseMenu,
-  resumeFromPause,
-  teardownWorldScreen,
-} from '../source/game/screens/pauseFlow.js';
+import {openPauseMenu, teardownWorldScreen} from '../source/game/screens/pauseFlow.js';
 import {createTestTheme} from './createTestTheme.js';
 
 // Container.prototype gets addEventListener only once pixi's events system
@@ -33,35 +29,6 @@ describe('pauseFlow', () => {
     });
 
     expect(calls).toEqual(['pause', 'open']);
-  });
-
-  test('resumeFromPause closes the modal at close-start, then resumes the world', () => {
-    let calls: string[] = [];
-
-    resumeFromPause({
-      world: {
-        resume: () => {
-          calls.push('resume');
-        },
-      },
-      modal: {
-        close: () => {
-          calls.push('close');
-
-          return true;
-        },
-      },
-    });
-
-    expect(calls).toEqual(['close', 'resume']);
-  });
-
-  test('resumeFromPause does not resume when the modal was already closing', () => {
-    let resume = vitest.fn<() => void>();
-
-    resumeFromPause({world: {resume}, modal: {close: () => false}});
-
-    expect(resume).not.toHaveBeenCalled();
   });
 
   test('teardownWorldScreen destroys the modal, stops the world, then detaches it', () => {
@@ -104,28 +71,23 @@ describe('pauseFlow', () => {
     expect(calls).toEqual(['stop', 'detach']);
   });
 
-  test('cancel on the pause modal resumes the world, like the Resume button', () => {
+  test('cancel on the pause modal resumes the world once, like the Resume button', () => {
     let calls: string[] = [];
     let root = new UiRoot({theme: createTestTheme()});
-    let modal: Modal = new Modal({
+    let modal = new Modal({
       children: [],
-      onCancel: () => {
-        resumeFromPause({
-          world: {
-            resume: () => {
-              calls.push('resume');
-            },
-          },
-          modal,
-        });
+      onClosing: () => {
+        calls.push('resume');
       },
     });
 
     modal.open(root);
 
-    // Escape reaches the modal through the scope it pushed; the world must not
-    // be left frozen behind a closed overlay.
-    expect(root.cancel()).toBe(true);
+    // Escape reaches the modal as the topmost overlay; the world must not be
+    // left frozen behind a closed overlay. A Resume click racing it is a no-op.
+    root.cancel();
+    modal.close();
+
     expect(calls).toEqual(['resume']);
     expect(modal.state).toBe('closed');
 

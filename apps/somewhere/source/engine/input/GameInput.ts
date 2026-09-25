@@ -274,9 +274,40 @@ export class GameInput {
   }
 
   /**
+   * Whether the event matches one of the command's bindings. A pure read of
+   * the table, independent of the latched state: a text field with DOM focus
+   * asks it for the keys that commit or dismiss it, while the window listeners
+   * ignore text entry. Unbound commands read false.
+   */
+  focusMatches(command: FocusCommand, event: KeyboardEvent): boolean {
+    // The event's flags stand in for the down-set the matcher reads modifier
+    // state from, so specificity applies exactly as in an ordinary read.
+    let codes = new Set([event.code]);
+
+    if (event.shiftKey) {
+      codes.add(MODIFIER_CODES.Shift[0]);
+    }
+
+    if (event.ctrlKey) {
+      codes.add(MODIFIER_CODES.Ctrl[0]);
+    }
+
+    if (event.altKey) {
+      codes.add(MODIFIER_CODES.Alt[0]);
+    }
+
+    if (event.metaKey) {
+      codes.add(MODIFIER_CODES.Meta[0]);
+    }
+
+    return (this.#focus.get(command) ?? []).some((key) => this.#matches(key, codes));
+  }
+
+  /**
    * Whether a focus command went down this step, a key latched inside one
    * frame included. Unbound commands read false, so a game may omit any of
-   * them; `Game` is the only caller.
+   * them. `Game` routes every command into the current screen's `UiRoot`; a
+   * screen may observe one as well.
    */
   focusPressed(command: FocusCommand): boolean {
     let keys = this.#focus.get(command) ?? [];

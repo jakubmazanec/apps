@@ -7,14 +7,15 @@ import {type ModalOptions} from './ModalOptions.js';
 import {type ModalParts} from './ModalParts.js';
 import {type ModalRuntime} from './ModalRuntime.js';
 import {type ModalState} from './ModalState.js';
-import {type UiChild, type UiParent} from './UiChild.js';
+import {type Overlay} from './Overlay.js';
+import {type UiChild} from './UiChild.js';
 import {type UiRoot} from './UiRoot.js';
 
 // A reusable modal: a flat widget in the existing Container/Panel idiom (public
 // `children` + `view`, no inheritance). Constructed per open by whatever
 // handler opens it; the owning screen tracks the open instance and calls
 // destroy() (never the animated close()) from its onHide.
-export class Modal implements UiParent {
+export class Modal implements Overlay {
   /** TBD */
   readonly children: UiChild[] = [];
 
@@ -30,11 +31,11 @@ export class Modal implements UiParent {
     open: null,
   };
 
-  /** Lifecycle hook called when there is an unhandled cancel command. */
-  readonly #onCancel?: () => void;
-
   /** Lifecycle hook called when the modal is closed. */
-  readonly #onClose?: () => void;
+  readonly #onClosed?: () => void;
+
+  /** Lifecycle hook called when a user-facing close begins. */
+  readonly #onClosing?: () => void;
 
   /** Object for keeping references to display objects or DOM elements. */
   readonly #parts: ModalParts = {scrim: new pixi.Graphics()};
@@ -50,17 +51,17 @@ export class Modal implements UiParent {
     layout,
     scrimAlpha = 0.5,
     initialFocus,
-    onClose,
-    onCancel,
+    onClosing,
+    onClosed,
     scheduler,
     fadeDuration,
   }: ModalOptions) {
-    if (onClose !== undefined) {
-      this.#onClose = onClose;
+    if (onClosing !== undefined) {
+      this.#onClosing = onClosing;
     }
 
-    if (onCancel !== undefined) {
-      this.#onCancel = onCancel;
+    if (onClosed !== undefined) {
+      this.#onClosed = onClosed;
     }
 
     this.#config = {
@@ -105,14 +106,16 @@ export class Modal implements UiParent {
   }
 
   /**
-   * User-facing close. Returns whether THIS call initiated the close (`false`
-   * while already closing/closed) — callers gate close side effects on it,
-   * e.g. the pause menu must not `world.resume()` twice.
+   * User-facing close, and what the cancel command calls. A no-op while
+   * already closing/closed, so `onClosing` fires once per close however many
+   * callers race it (Resume stays activatable during the fade-out).
    */
-  close(): boolean {
+  close(): void {
     if (this.#state === 'closing' || this.#state === 'closed') {
-      return false;
+      return;
     }
+
+    this.#onClosing?.();
 
     if (this.#config.scheduler !== undefined && this.#config.fadeDuration !== undefined) {
       // Tweens don't reverse: cancel any in-flight fade-in and start a new
@@ -133,14 +136,12 @@ export class Modal implements UiParent {
     } else {
       this.#finishClose();
     }
-
-    return true;
   }
 
-  // Teardown path (owning-screen onHide, or any out-of-band cleanup): pops the
-  // scope if one is still pushed (tolerant of an already-empty stack) and
-  // synchronously removes + destroys; callable from any state, never animated,
-  // never fires onClose.
+  // Teardown path (owning-screen onHide, or any out-of-band cleanup): releases
+  // the overlay if still attached (tolerant of an already-empty scope stack)
+  // and synchronously removes + destroys; callable from any state, never
+  // animated, never fires onClosing or onClosed.
   /** Destroys the instance. */
   destroy() {
     this.#disposables.open?.dispose();
@@ -150,9 +151,9 @@ export class Modal implements UiParent {
   }
 
   // A modal is opened INTO a ui root, so the target is a parameter of open,
-  // not the constructor. Adds the modal as the last UI child (above the HUD by
-  // insertion order; UiRoot.addChild keeps the focus-ring overlay topmost),
-  // then pushes the focus scope (scope root = the modal itself).
+  // not the constructor. Attaches the modal as an overlay: the last UI child
+  // (above the HUD by insertion order; UiRoot keeps the focus-ring overlay
+  // topmost), holding the focus scope while it is attached.
   /** TBD */
   open(ui: UiRoot) {
     if (this.#state !== 'closed' || this.view.destroyed) {
@@ -161,27 +162,15 @@ export class Modal implements UiParent {
 
     this.#disposables.open = new DisposableStack();
 
-    ui.addChild(this);
-    ui.pushFocusScope(this, {
-      onCancel: () => {
-        if (this.#onCancel === undefined) {
-          return this.close();
-        }
+    ui.addOverlay(this);
 
-        this.#onCancel();
-
-        return true;
-      },
-    });
-
-    // The scope is popped BEFORE removeChild: removing first would let UiRoot's
-    // scope self-heal drop the scope as stale and silently lose the
-    // previousFocus restoration (the Options flow depends on it).
+    // removeOverlay releases this modal's own scope before removing it, so the
+    // previousFocus restoration (the Options flow depends on it) cannot be lost
+    // to ordering here.
     this.#disposables.open.defer(() => {
       this.#runtime.cancelFade?.();
       this.#runtime.cancelFade = null;
-      ui.popFocusScope();
-      ui.removeChild(this);
+      ui.removeOverlay(this);
     });
 
     if (this.#config.initialFocus !== undefined) {
@@ -241,6 +230,6 @@ export class Modal implements UiParent {
     this.#disposables.open?.dispose();
     this.#disposables.open = null;
     this.#destroyViews();
-    this.#onClose?.();
+    this.#onClosed?.();
   }
 }

@@ -94,6 +94,20 @@ function tick(steps = 1, stepMs = 100) {
   }
 }
 
+type FakeBindings = {activate?: string[]; cancel?: string[]};
+
+// The game's real table binds Space to activate, so the default here does too.
+const DEFAULT_BINDINGS: FakeBindings = {activate: ['Enter', 'Space'], cancel: ['Escape']};
+
+// Stands in for GameInput: a command matches when the event's code is one of
+// its keys.
+function fakeInput(bindings: FakeBindings = DEFAULT_BINDINGS) {
+  return {
+    focusMatches: (command: 'activate' | 'cancel', event: KeyboardEvent) =>
+      (bindings[command] ?? []).includes(event.code),
+  };
+}
+
 function caretWidthOf(view: pixi.Container): number {
   return (caretOf(view).layout as unknown as {computedLayout: {width: number}}).computedLayout
     .width;
@@ -116,11 +130,37 @@ describe('TextInput', () => {
     return new TextInput({
       backgrounds: backgrounds(),
       container,
+      input: fakeInput(),
       fontFamily: 'monogram',
       fontSize: 16,
       ...(layout === undefined ? {} : {layout}),
       ...(onChange === undefined ? {} : {onChange}),
     });
+  }
+
+  function createEditing(bindings?: FakeBindings) {
+    let onSubmit = vitest.fn<() => void>();
+    let input = new TextInput({
+      backgrounds: backgrounds(),
+      container,
+      input: fakeInput(bindings),
+      fontFamily: 'monogram',
+      fontSize: 16,
+      onSubmit,
+    });
+    let element = container.querySelector('input');
+
+    if (element === null) {
+      throw new Error('hidden input was not created');
+    }
+
+    input.startEditing();
+
+    let press = (code: string, key: string) => {
+      element.dispatchEvent(new KeyboardEvent('keydown', {code, key}));
+    };
+
+    return {element, onSubmit, press};
   }
 
   beforeAll(async () => {
@@ -553,6 +593,7 @@ describe('TextInput', () => {
     let input = new TextInput({
       backgrounds: {...backgrounds(), normal, disabled},
       container,
+      input: fakeInput(),
       fontFamily: 'monogram',
       fontSize: 16,
     });
@@ -594,6 +635,39 @@ describe('TextInput', () => {
 
     expect(onChange).toHaveBeenCalledTimes(1);
   });
+
+  describe('keys while editing follow the bindings', () => {
+    test('a key bound to activate submits and stops editing', () => {
+      let {element, onSubmit, press} = createEditing();
+
+      press('Enter', 'Enter');
+
+      expect(onSubmit).toHaveBeenCalledTimes(1);
+      expect(document.activeElement).not.toBe(element);
+    });
+
+    test('a printable key bound to activate types instead of committing', () => {
+      let {element, onSubmit, press} = createEditing();
+
+      press('Space', ' ');
+
+      expect(onSubmit).not.toHaveBeenCalled();
+      expect(document.activeElement).toBe(element);
+    });
+
+    test('a rebound cancel dismisses the field, and the old key no longer does', () => {
+      let {element, onSubmit, press} = createEditing({activate: ['Enter'], cancel: ['F2']});
+
+      press('Escape', 'Escape');
+
+      expect(document.activeElement).toBe(element);
+
+      press('F2', 'F2');
+
+      expect(onSubmit).not.toHaveBeenCalled();
+      expect(document.activeElement).not.toBe(element);
+    });
+  });
 });
 
 describe('TextInput theme', () => {
@@ -608,7 +682,7 @@ describe('TextInput theme', () => {
 
   test('takes its backgrounds from the theme', () => {
     let theme = createTestTheme();
-    let input = new TextInput({theme, container: document.body});
+    let input = new TextInput({theme, container: document.body, input: fakeInput()});
     let view = input.view as unknown as {background: unknown};
 
     expect(createBackground).toHaveBeenCalledWith(theme.textInput.normal);

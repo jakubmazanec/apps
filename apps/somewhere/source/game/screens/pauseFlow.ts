@@ -14,22 +14,6 @@ export function openPauseMenu({
   openModal();
 }
 
-export function resumeFromPause({
-  world,
-  modal,
-}: {
-  modal: {close: () => boolean};
-  world: {resume: () => void};
-}): void {
-  // The world unfreezes at close-START, behind the fading scrim. close()
-  // reports whether this call initiated the close: Resume stays activatable
-  // while the modal fades out (the focus scope pops at close-complete), and a
-  // second resume() would throw.
-  if (modal.close()) {
-    world.resume();
-  }
-}
-
 export function teardownWorldScreen({
   modal,
   world,

@@ -137,7 +137,7 @@ describe(Modal, () => {
     expect(modal.state).toBe('open');
   });
 
-  test('close() pops the focus scope before removing the modal and restores prior focus', () => {
+  test('close() removes the modal and restores prior focus', () => {
     let root = createRoot();
     let outside = focusable();
 
@@ -149,40 +149,42 @@ describe(Modal, () => {
     root.focus(outside);
     modal.open(root);
 
-    let popSpy = vitest.spyOn(root, 'popFocusScope');
-    let removeSpy = vitest.spyOn(root, 'removeChild');
-
     modal.close();
 
-    expect(popSpy.mock.invocationCallOrder[0]!).toBeLessThan(
-      removeSpy.mock.invocationCallOrder[0]!,
-    );
     expect(root.focused).toBe(outside);
     expect(root.children).not.toContain(modal);
     expect((modal.view as unknown as MockContainer).destroyed).toBe(true);
     expect(modal.state).toBe('closed');
   });
 
-  test('close() reports initiation, fires onClose once, and later calls are no-ops', () => {
+  test('close() fires onClosing then onClosed once, and later calls are no-ops', () => {
     let root = createRoot();
-    let onClose = vitest.fn<() => void>();
-    let modal = new Modal({onClose});
+    let calls: string[] = [];
+    let modal = new Modal({
+      onClosing: () => {
+        calls.push('closing');
+      },
+      onClosed: () => {
+        calls.push('closed');
+      },
+    });
 
     modal.open(root);
+    modal.close();
+    modal.close();
 
-    expect(modal.close()).toBe(true);
-    expect(modal.close()).toBe(false);
-    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(calls).toEqual(['closing', 'closed']);
   });
 
-  test('destroy() tears down synchronously from any state and never fires onClose', () => {
+  test('destroy() tears down synchronously from any state and fires neither close hook', () => {
     let root = createRoot();
     let outside = focusable();
 
     root.addChild(outside);
 
-    let onClose = vitest.fn<() => void>();
-    let modal = new Modal({children: [panel([focusable()])], onClose});
+    let onClosing = vitest.fn<() => void>();
+    let onClosed = vitest.fn<() => void>();
+    let modal = new Modal({children: [panel([focusable()])], onClosing, onClosed});
 
     root.focus(outside);
     modal.open(root);
@@ -192,7 +194,8 @@ describe(Modal, () => {
     expect((modal.view as unknown as MockContainer).destroyed).toBe(true);
     expect(root.focused).toBe(outside);
     expect(modal.state).toBe('closed');
-    expect(onClose).not.toHaveBeenCalled();
+    expect(onClosing).not.toHaveBeenCalled();
+    expect(onClosed).not.toHaveBeenCalled();
 
     expect(() => {
       modal.destroy(); // idempotent
@@ -239,32 +242,16 @@ describe(Modal, () => {
     expect(modal.children).toEqual([content]); // the focus walk never sees the scrim
   });
 
-  test('cancel closes the modal by default', () => {
+  test('the cancel command closes the modal', () => {
     let root = createRoot();
-    let modal = new Modal({children: [panel([focusable()])]});
+    let onClosing = vitest.fn<() => void>();
+    let modal = new Modal({children: [panel([focusable()])], onClosing});
 
     modal.open(root);
+    root.cancel();
 
-    expect(root.cancel()).toBe(true);
+    expect(onClosing).toHaveBeenCalledTimes(1);
     expect(modal.state).toBe('closed');
-  });
-
-  test('a supplied onCancel replaces the default close', () => {
-    let root = createRoot();
-    let calls = 0;
-    let modal = new Modal({
-      children: [panel([focusable()])],
-      onCancel: () => {
-        calls += 1;
-      },
-    });
-
-    modal.open(root);
-
-    expect(root.cancel()).toBe(true);
-    expect(calls).toBe(1);
-    // The handler owns the close: the pause menu resumes the world in it.
-    expect(modal.state).toBe('open');
   });
 
   describe('fade (scheduler + fadeDuration)', () => {
@@ -303,13 +290,15 @@ describe(Modal, () => {
       root.addChild(outside);
 
       let scheduler = new Scheduler();
-      let onClose = vitest.fn<() => void>();
+      let onClosing = vitest.fn<() => void>();
+      let onClosed = vitest.fn<() => void>();
       let inside = focusable();
       let modal = new Modal({
         children: [panel([inside])],
         scheduler,
         fadeDuration: 200,
-        onClose,
+        onClosing,
+        onClosed,
       });
       let view = modal.view as unknown as MockContainer;
 
@@ -317,9 +306,13 @@ describe(Modal, () => {
       modal.open(root);
       scheduler.update(tick(100)); // mid fade-in, alpha 0.75
 
-      expect(modal.close()).toBe(true);
+      modal.close();
+
       expect(modal.state).toBe('closing');
       expect(view.alpha).toBeCloseTo(0.75); // no jump at close-start
+      // onClosing fires at close-START, behind the fading scrim; onClosed waits.
+      expect(onClosing).toHaveBeenCalledTimes(1);
+      expect(onClosed).not.toHaveBeenCalled();
       expect(root.children).toContain(modal); // still attached while fading out
 
       // The scope pops at close-COMPLETE, not close-start: still confined.
@@ -333,31 +326,33 @@ describe(Modal, () => {
       expect(modal.state).toBe('closed');
       expect(root.children).not.toContain(modal);
       expect(root.focused).toBe(outside);
-      expect(onClose).toHaveBeenCalledTimes(1);
+      expect(onClosing).toHaveBeenCalledTimes(1);
+      expect(onClosed).toHaveBeenCalledTimes(1);
     });
 
-    test('close() while already closing reports false and does not double-fire', () => {
+    test('close() while already closing does not double-fire either hook', () => {
       let root = createRoot();
       let scheduler = new Scheduler();
-      let onClose = vitest.fn<() => void>();
-      let modal = new Modal({scheduler, fadeDuration: 200, onClose});
+      let onClosing = vitest.fn<() => void>();
+      let onClosed = vitest.fn<() => void>();
+      let modal = new Modal({scheduler, fadeDuration: 200, onClosing, onClosed});
 
       modal.open(root);
       scheduler.update(tick(200)); // open
-
-      expect(modal.close()).toBe(true);
-      expect(modal.close()).toBe(false);
-
+      modal.close();
+      modal.close();
       scheduler.update(tick(200));
 
-      expect(onClose).toHaveBeenCalledTimes(1);
+      expect(onClosing).toHaveBeenCalledTimes(1);
+      expect(onClosed).toHaveBeenCalledTimes(1);
     });
 
-    test('destroy() mid-fade cancels the tween and never fires onClose', () => {
+    test('destroy() mid-fade cancels the tween and fires neither close hook', () => {
       let root = createRoot();
       let scheduler = new Scheduler();
-      let onClose = vitest.fn<() => void>();
-      let modal = new Modal({scheduler, fadeDuration: 200, onClose});
+      let onClosing = vitest.fn<() => void>();
+      let onClosed = vitest.fn<() => void>();
+      let modal = new Modal({scheduler, fadeDuration: 200, onClosing, onClosed});
       let view = modal.view as unknown as MockContainer;
 
       modal.open(root);
@@ -375,7 +370,8 @@ describe(Modal, () => {
       }).not.toThrow();
 
       expect(view.alpha).toBe(alphaAtDestroy); // the tween was cancelled, not left running
-      expect(onClose).not.toHaveBeenCalled();
+      expect(onClosing).not.toHaveBeenCalled();
+      expect(onClosed).not.toHaveBeenCalled();
     });
   });
 });

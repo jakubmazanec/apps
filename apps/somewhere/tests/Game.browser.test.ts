@@ -123,7 +123,7 @@ async function createGame(
     activate: vitest.fn<() => void>(),
     increase: vitest.fn<() => void>(),
     decrease: vitest.fn<() => void>(),
-    cancel: vitest.fn<() => boolean>(() => false),
+    cancel: vitest.fn<() => void>(),
   };
   let view = new pixi.Container();
 
@@ -250,36 +250,20 @@ describe('Game focus key routing', () => {
     expect(ui.focusNext).not.toHaveBeenCalled();
   });
 
-  test('an unclaimed cancel reaches the screen', async () => {
+  test('cancel is routed to the ui and nowhere else', async () => {
     let input = new GameInput(FOCUS_BINDINGS);
     let {game, ui} = await createGame(input);
-    let cancelled = 0;
+    let screenCancel = vitest.fn<() => void>();
 
-    (game.currentScreen as unknown as {cancel: () => void}).cancel = () => {
-      cancelled += 1;
-    };
+    // A stand-in for the screen-level fallback this routing used to have: with
+    // nothing dismissible open, what cancel means is the game's business.
+    Object.assign(game.currentScreen!, {cancel: screenCancel});
 
     press('Escape');
     frame(game);
 
     expect(ui.cancel).toHaveBeenCalledTimes(1);
-    expect(cancelled).toBe(1);
-  });
-
-  test('a claimed cancel stops at the ui', async () => {
-    let input = new GameInput(FOCUS_BINDINGS);
-    let {game, ui} = await createGame(input);
-    let cancelled = 0;
-
-    ui.cancel.mockReturnValue(true);
-    (game.currentScreen as unknown as {cancel: () => void}).cancel = () => {
-      cancelled += 1;
-    };
-
-    press('Escape');
-    frame(game);
-
-    expect(cancelled).toBe(0);
+    expect(screenCancel).not.toHaveBeenCalled();
   });
 
   test('ignores keys while a DOM input element has focus', async () => {

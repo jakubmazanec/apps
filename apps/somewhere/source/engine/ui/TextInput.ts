@@ -35,8 +35,8 @@ export class TextInput implements Focusable {
   /** Lifecycle hook called when the input's value changes. */
   readonly #onChange?: (input: TextInput) => void;
 
-  /** Lifecycle hook called when Enter is pressed while editing. */
-  readonly #onEnter?: (input: TextInput) => void;
+  /** Lifecycle hook called when an `activate` key is pressed while editing. */
+  readonly #onSubmit?: (input: TextInput) => void;
 
   /** Object for keeping references to display objects or DOM elements. */
   readonly #parts: TextInputParts;
@@ -56,20 +56,21 @@ export class TextInput implements Focusable {
     placeholder = '',
     maxLength,
     container,
+    input: gameInput,
     role,
     fontFamily,
     fontSize,
     fill,
     onChange,
-    onEnter,
+    onSubmit,
     layout,
   }: TextInputOptions) {
     if (onChange !== undefined) {
       this.#onChange = onChange;
     }
 
-    if (onEnter !== undefined) {
-      this.#onEnter = onEnter;
+    if (onSubmit !== undefined) {
+      this.#onSubmit = onSubmit;
     }
 
     // TextInput defaults to 'body' because it renders entered text, not a label.
@@ -91,6 +92,7 @@ export class TextInput implements Focusable {
       // the text style above.
       caretHeight: resolvedFontSize ?? 0,
       container,
+      input: gameInput,
       maxLength,
       theme,
     };
@@ -241,13 +243,24 @@ export class TextInput implements Focusable {
       this.#parts.valueText.setText(next);
       this.#onChange?.(this);
     };
+    // The DOM listener stays: GameInput ignores every key while a text-entry
+    // element has DOM focus, which is what keeps arrows and Space as editing
+    // keys.
     // TODO: remove when linter config contains fix for this: https://github.com/sindresorhus/eslint-plugin-unicorn/issues/2088
     // eslint-disable-next-line unicorn/consistent-function-scoping -- false positive
     let handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Enter') {
-        this.#onEnter?.(this);
+      // While editing, a key that produces a character is literal text, never a
+      // command: `activate` binds Space, and any binding could name a printable
+      // key. `code` identifies the physical key for bindings, `key` says what the
+      // current layout produces.
+      if (event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey) {
+        return;
+      }
+
+      if (this.#config.input.focusMatches('activate', event)) {
+        this.#onSubmit?.(this);
         this.stopEditing();
-      } else if (event.key === 'Escape') {
+      } else if (this.#config.input.focusMatches('cancel', event)) {
         this.stopEditing();
       }
     };

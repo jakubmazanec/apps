@@ -349,6 +349,22 @@ describe('DialogueBox focus integration', () => {
     expect(box.focusedChoiceIndex).toBe(1);
   });
 
+  test('the cancel command passes over the box, which stays open and keeps its scope', async () => {
+    let {ui} = await createUiWithOutsideButton();
+    let {box} = createBox();
+
+    box.resize(10, 100);
+    box.open(ui);
+    box.showNode({page: 'Q'});
+    ui.cancel();
+
+    // No close declared: the world screen reads this as nothing dismissible
+    // being open and opens the pause menu over the box instead.
+    expect(ui.topOverlay).toBe(box);
+    expect(ui.topOverlay?.close).toBeUndefined();
+    expect(box.view.destroyed).toBe(false);
+  });
+
   test('destroy releases the scope back to the screen', async () => {
     let {ui, outside} = await createUiWithOutsideButton();
     let {box} = createBox();
