@@ -4,6 +4,7 @@ import {type Disposables} from '../utilities/Disposables.js';
 import {type Focusable} from './Focusable.js';
 import {type FocusDirection} from './FocusDirection.js';
 import {type FocusScope} from './FocusScope.js';
+import {type Overlay} from './Overlay.js';
 import {type UiChild, type UiParent} from './UiChild.js';
 import {type UiFocusEvent} from './UiFocusEvent.js';
 import {type UiRootConfig} from './UiRootConfig.js';
@@ -125,6 +126,11 @@ export class UiRoot implements UiParent {
     return this.#runtime.isRingVisible;
   }
 
+  /** The innermost attached overlay, which owns focus and the cancel command. */
+  get topOverlay(): Overlay | null {
+    return this.#runtime.scopes.at(-1)?.root ?? null;
+  }
+
   /** TBD */
   activate() {
     if (this.#runtime.focused === null) {
@@ -150,13 +156,24 @@ export class UiRoot implements UiParent {
     return this;
   }
 
-  /**
-   * Offers the cancel command to the innermost scope only and reports whether
-   * it was claimed. Scopes below the top are never consulted: an unclaimed
-   * cancel belongs to the screen, not to whatever sits underneath.
-   */
-  cancel(): boolean {
-    return this.#runtime.scopes.at(-1)?.onCancel?.() ?? false;
+  // Scope/removal interplay: nothing forces a matching removeOverlay before an
+  // overlay is removed or destroyed some other way. #collectFocusables lazily
+  // self-heals at the focus choke point instead — see the prune step there.
+  /** Attaches the overlay as the last UI child and gives it the focus scope. */
+  addOverlay(overlay: Overlay): this {
+    this.addChild(overlay);
+    this.#runtime.scopes.push({previousFocus: this.#runtime.focused, root: overlay});
+    this.#runtime.focused = null;
+
+    return this;
+  }
+
+  // The topmost overlay owns cancel. Nothing open, or an overlay that declares
+  // no close, means nothing happens here; what the game does instead is the
+  // game's business.
+  /** TBD */
+  cancel() {
+    this.#runtime.scopes.at(-1)?.root.close?.();
   }
 
   /** TBD */
@@ -262,35 +279,6 @@ export class UiRoot implements UiParent {
   }
 
   /** TBD */
-  popFocusScope() {
-    let scope = this.#runtime.scopes.pop();
-
-    if (scope === undefined) {
-      return;
-    }
-
-    this.#runtime.focused =
-      scope.previousFocus !== null && this.#collectFocusables().includes(scope.previousFocus) ?
-        scope.previousFocus
-      : null;
-  }
-
-  // Scope/removal interplay: nothing forces a matching popFocusScope before a
-  // scoped subtree is removed or destroyed. #collectFocusables lazily
-  // self-heals at the focus choke point instead — see the prune step there.
-  // Modal pops its scope properly in all designed flows; the self-heal is the
-  // safety net for out-of-band removals.
-  /** TBD */
-  pushFocusScope(component: UiChild, {onCancel}: {onCancel?: (() => boolean) | undefined} = {}) {
-    this.#runtime.scopes.push({
-      root: component,
-      previousFocus: this.#runtime.focused,
-      onCancel,
-    });
-    this.#runtime.focused = null;
-  }
-
-  /** TBD */
   removeChild(...children: UiChild[]): this {
     for (let child of children) {
       let index = this.children.indexOf(child);
@@ -310,6 +298,25 @@ export class UiRoot implements UiParent {
     ) {
       this.#runtime.focused = null;
     }
+
+    return this;
+  }
+
+  // Drops this overlay's own scope, not whatever is on top, and tolerates a
+  // scope that is already gone (clearFocus on hide, or the self-heal prune).
+  // The scope goes before the child, so the order is not the caller's to get
+  // wrong.
+  /** Detaches the overlay and releases its focus scope. */
+  removeOverlay(overlay: Overlay): this {
+    let index = this.#runtime.scopes.findIndex((scope) => scope.root === overlay);
+
+    if (index !== -1 && index === this.#runtime.scopes.length - 1) {
+      this.#popScope();
+    } else if (index !== -1) {
+      this.#runtime.scopes.splice(index, 1);
+    }
+
+    this.removeChild(overlay);
 
     return this;
   }
@@ -350,7 +357,7 @@ export class UiRoot implements UiParent {
   // Panel.removeChild, or a plain destroy()). Without this, the stale scope
   // keeps detached-but-not-destroyed widgets focusable: Tab reaches components
   // that are no longer on stage and activate() fires their handlers. Pruning
-  // mirrors popFocusScope by restoring the last-pruned scope's previousFocus
+  // mirrors #popScope by restoring the last-pruned scope's previousFocus
   // when still collectible. Dead scopes below a live top scope wait until they
   // surface; staleness between the mutation and the next focus command is
   // unobservable (nothing reads the stack in between).
@@ -361,7 +368,7 @@ export class UiRoot implements UiParent {
     while (this.#runtime.scopes.length > 0) {
       // the type assertion is ok, because we checked `this.#runtime.scopes.length`
       let scope = this.#runtime.scopes.at(-1) as FocusScope;
-      let scopeView = 'view' in scope.root ? scope.root.view : scope.root;
+      let scopeView = scope.root.view;
 
       if (!scopeView.destroyed && this.#isConnected(scopeView)) {
         break;
@@ -581,5 +588,19 @@ export class UiRoot implements UiParent {
     }
 
     return best;
+  }
+
+  /** TBD */
+  #popScope() {
+    let scope = this.#runtime.scopes.pop();
+
+    if (scope === undefined) {
+      return;
+    }
+
+    this.#runtime.focused =
+      scope.previousFocus !== null && this.#collectFocusables().includes(scope.previousFocus) ?
+        scope.previousFocus
+      : null;
   }
 }

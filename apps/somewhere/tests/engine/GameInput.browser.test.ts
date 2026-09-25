@@ -533,3 +533,41 @@ describe('GameInput taps', () => {
     expect(view.handlers.pointertap).toHaveLength(1);
   });
 });
+
+// A pure read of the bindings against one event: nothing is attached, and the
+// down-set plays no part, so a field with DOM focus can ask it while the
+// window listeners ignore text entry.
+describe('GameInput focusMatches', () => {
+  const BINDINGS = {
+    focus: {
+      next: {keys: ['Tab']},
+      previous: {keys: ['Shift+Tab']},
+      activate: {keys: ['Enter']},
+    },
+  };
+
+  test('a bare binding matches its code', () => {
+    let input = new GameInput(BINDINGS);
+
+    expect(input.focusMatches('activate', new KeyboardEvent('keydown', {code: 'Enter'}))).toBe(
+      true,
+    );
+    expect(input.focusMatches('activate', new KeyboardEvent('keydown', {code: 'Tab'}))).toBe(false);
+  });
+
+  test('a modified binding reads the event flags, and specificity holds', () => {
+    let input = new GameInput(BINDINGS);
+    let event = new KeyboardEvent('keydown', {code: 'Tab', shiftKey: true});
+
+    expect(input.focusMatches('previous', event)).toBe(true);
+    expect(input.focusMatches('next', event)).toBe(false);
+  });
+
+  test('an unbound command reads false', () => {
+    let input = new GameInput(BINDINGS);
+
+    expect(input.focusMatches('cancel', new KeyboardEvent('keydown', {code: 'Escape'}))).toBe(
+      false,
+    );
+  });
+});

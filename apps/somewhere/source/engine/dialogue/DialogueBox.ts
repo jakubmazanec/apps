@@ -2,9 +2,10 @@ import * as pixi from 'pixi.js';
 
 import {Button} from '../ui/Button.js';
 import {Container} from '../ui/Container.js';
+import {type Overlay} from '../ui/Overlay.js';
 import {Panel} from '../ui/Panel.js';
 import {Text} from '../ui/Text.js';
-import {type UiChild, type UiParent} from '../ui/UiChild.js';
+import {type UiChild} from '../ui/UiChild.js';
 import {type UiRoot} from '../ui/UiRoot.js';
 import {type ResolvedUiTheme} from '../ui/UiTheme.js';
 import {attachHitArea} from '../utilities/attachHitArea.js';
@@ -79,10 +80,11 @@ const CHOICE_PADDING = 1;
  * LayoutContainer subtree under a plain container computes as an independent
  * layout root because its width and height are numbers.
  *
- * Like Modal, the box opens INTO a ui root and holds a focus scope while it
- * lives: choice buttons are ordinary focusables inside the scope, and with no
- * choices on screen the scope is empty, so focus commands cannot wander to
- * HUD widgets behind the box.
+ * Like Modal, the box opens INTO a ui root as an overlay and holds its focus
+ * scope while it lives: choice buttons are ordinary focusables inside the
+ * scope, and with no choices on screen the scope is empty, so focus commands
+ * cannot wander to HUD widgets behind the box. Unlike Modal it declares no
+ * close, so it is not dismissible: the cancel command passes over it.
  *
  * The layout is settled at showNode from the FINAL content, never from what
  * is on screen: the page is wrapped and windowed up front, the content leaf
@@ -90,7 +92,7 @@ const CHOICE_PADDING = 1;
  * before the first character shows. The typewriter and the choices then only
  * fill boxes that already exist, so nothing moves or grows mid-node.
  */
-export class DialogueBox implements UiParent {
+export class DialogueBox implements Overlay {
   /** View. */
   readonly view: pixi.Container = new pixi.Container();
 
@@ -240,16 +242,14 @@ export class DialogueBox implements UiParent {
 
   /** Destroys the instance. */
   destroy(): void {
-    // The scope is popped BEFORE removeChild (the Modal precedent): removing
-    // first would let UiRoot's scope self-heal drop it as stale and lose the
-    // previousFocus restoration.
+    // removeOverlay releases this box's own scope, not whatever sits on top,
+    // and owns the scope-then-child order that keeps previousFocus restored.
     let ui = this.#ui;
 
     this.#ui = null;
 
     if (ui !== null && !ui.view.destroyed) {
-      ui.popFocusScope();
-      ui.removeChild(this);
+      ui.removeOverlay(this);
     }
 
     this.#choiceButtons = [];
@@ -259,8 +259,9 @@ export class DialogueBox implements UiParent {
   }
 
   /**
-   * The Modal precedent: attach into the screen's ui as the last UI child and
-   * take the focus scope for the box's lifetime; destroy releases both.
+   * Attaches into the screen's ui as an overlay, holding the focus scope for
+   * the box's lifetime; destroy releases it. With no close declared the
+   * overlay is not dismissible.
    */
   open(ui: UiRoot): void {
     if (this.#ui !== null || this.view.destroyed) {
@@ -268,8 +269,7 @@ export class DialogueBox implements UiParent {
     }
 
     this.#ui = ui;
-    ui.addChild(this);
-    ui.pushFocusScope(this);
+    ui.addOverlay(this);
   }
 
   /**

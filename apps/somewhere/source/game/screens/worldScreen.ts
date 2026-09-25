@@ -10,6 +10,7 @@ import {type Disposables} from '../../engine/utilities/Disposables.js';
 import {assets} from '../core/assets.js';
 import {audio} from '../core/audio.js';
 import {game} from '../core/game.js';
+import {input} from '../core/input.js';
 import {playFocusSound} from '../core/playFocusSound.js';
 import {applyStagedSave, writeSave} from '../core/save.js';
 import {settings} from '../core/settings.js';
@@ -21,7 +22,7 @@ import {flushPendingTravel} from '../levels/levelManager.js';
 // menu here, New Game there), long after both modules have evaluated.
 // eslint-disable-next-line import/no-cycle -- see comment above: the cycle only resolves inside event handlers, long after both modules evaluate
 import {mainMenuScreen} from './mainMenuScreen.js';
-import {openPauseMenu, resumeFromPause, teardownWorldScreen} from './pauseFlow.js';
+import {openPauseMenu, teardownWorldScreen} from './pauseFlow.js';
 
 type WorldScreenContents = {
   // Everything registered per show: the visibility listener and the travel
@@ -38,19 +39,13 @@ let wallHitCount = 0;
 // The pause menu is constructed per open (the reminder-dialog pattern): banner
 // panel with a "Paused" title, Resume (initial focus), and Quit to menu.
 function buildPauseModal(screen: GameScreen<WorldScreenContents, UIEventMap>): Modal {
-  // Shared by the Resume button and by Escape: both must resume the world, so
-  // the overlay can never close while it stays frozen.
-  let resume = () => {
-    let modal = screen.contents.openModal;
-
-    if (modal !== null) {
-      resumeFromPause({world, modal});
-    }
-  };
   let resumeButton = new Button({
     theme: game.theme,
     children: [new Text({text: 'Resume', theme: game.theme, layout: true})],
-    onClick: resume,
+    // The same close the cancel command calls; resuming lives in onClosing.
+    onClick: () => {
+      screen.contents.openModal?.close();
+    },
   });
   let saveLabel = new Text({text: 'Save', theme: game.theme, layout: true});
   let saveButton = new Button({
@@ -96,20 +91,25 @@ function buildPauseModal(screen: GameScreen<WorldScreenContents, UIEventMap>): M
     scheduler: screen.scheduler,
     fadeDuration: 200,
     initialFocus: resumeButton,
-    onClose: () => {
+    // Shared by the Resume button and by Escape, and fired once per close:
+    // the world unfreezes at close-start, behind the fading scrim, and can
+    // never stay frozen behind a closed overlay.
+    onClosing: () => {
+      world.resume();
+    },
+    onClosed: () => {
       screen.contents.openModal = null;
     },
-    onCancel: resume,
   });
 }
 
-// Called by the pause button and by Escape (via the screen's onCancel below);
-// the ordering (pause first, then overlay) lives in openPauseMenu.
+// Called by the pause button and by the pause key and Escape (via onUpdate
+// below); the ordering (pause first, then overlay) lives in openPauseMenu.
 function openPauseModal(screen: GameScreen<WorldScreenContents, UIEventMap>): void {
-  // One guard for both callers: a second open would call world.pause() on an already
-  // paused world, which throws. Escape cannot reach here with a modal open (the modal's
-  // focus scope claims cancel first), but the HUD button can, on a double tap that races
-  // the scrim.
+  // One guard for every caller: a second open would call world.pause() on an already
+  // paused world, which throws. Escape cannot reach here with the modal open (it is
+  // dismissible, so onUpdate leaves the command to it), but the pause key and the HUD
+  // button can, the button on a double tap that races the scrim.
   if (screen.contents.openModal !== null) {
     return;
   }
@@ -246,9 +246,16 @@ export const worldScreen = new GameScreen<WorldScreenContents, UIEventMap>({
       screen.game.app.screen.height / screen.game.pixelScale,
     );
   },
-  onCancel: (screen) => {
-    // Escape with no scope claiming it. openPauseModal holds the open-modal guard for
-    // every caller, so there is nothing to repeat here.
-    openPauseModal(screen);
+  onUpdate: (ticker, screen) => {
+    // The pause key works from anywhere; the cancel command opens the menu only
+    // when there was nothing to dismiss, which is what the screen-level hook did.
+    // focusPressed is a pure read of latched state, so the engine's cancel
+    // routing reading it earlier this frame does not interfere.
+    if (
+      input.pressed('pause') ||
+      (input.focusPressed('cancel') && screen.ui.topOverlay?.close === undefined)
+    ) {
+      openPauseModal(screen);
+    }
   },
 });

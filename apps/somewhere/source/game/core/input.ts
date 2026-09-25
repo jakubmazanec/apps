@@ -12,8 +12,8 @@ export const input = new GameInput({
     next: {keys: ['Tab']},
     previous: {keys: ['Shift+Tab']},
     activate: {keys: ['Enter', 'Space']},
-    // Escape: claimed by the innermost focus scope (the pause modal resumes
-    // and closes), otherwise handled by the screen, which opens the menu.
+    // Dismisses the topmost overlay; with nothing dismissible open the world
+    // screen reads this same command and opens the pause menu.
     cancel: {keys: ['Escape']},
     increase: {keys: ['Equal', 'PageUp']},
     decrease: {keys: ['Minus', 'PageDown']},
@@ -34,6 +34,9 @@ export const input = new GameInput({
     // highlighted choice, so the hand never leaves it. Enter and Space confirm
     // as well, through the focus layer's `activate` on the choice buttons.
     interact: {keys: ['KeyE']},
+    // A second way into the pause menu. Escape cannot be shared with cancel:
+    // a key may appear in exactly one entry.
+    pause: {keys: ['KeyP']},
     spin: {keys: ['KeyQ']},
   },
 });

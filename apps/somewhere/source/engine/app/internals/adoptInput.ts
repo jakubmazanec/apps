@@ -42,12 +42,12 @@ export function adoptInput(game: Game, disposables: DisposableStack, input: Game
       }
     }
 
-    // TODO: I don't like this magic, let's think about different solution
-    // Offered to the innermost focus scope first (a modal closes itself), then
-    // to the screen. This is the whole reason cancel is a focus command: a
-    // paused world cannot unpause itself, and nothing here runs inside it.
-    if (input.focusPressed('cancel') && !game.currentScreen.ui.cancel()) {
-      game.currentScreen.cancel();
+    // Dismisses the topmost overlay, when it declares close. This is why
+    // cancel is a focus command: a paused world cannot unpause itself, and
+    // nothing here runs inside it. With nothing dismissible open, a screen may
+    // read the same command and decide what it means (the world screen pauses).
+    if (input.focusPressed('cancel')) {
+      game.currentScreen.ui.cancel();
     }
   };
 

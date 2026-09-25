@@ -43,9 +43,6 @@ export class GameScreen<
   /** Lifecycle hook called when screen is attached. Returned value is stored in `contents`. */
   readonly #onAttach?: (screen: AnyGameScreen, game: Game) => T;
 
-  /** Lifecycle hook called when there is an unhandled cancel command. */
-  readonly #onCancel?: (screen: AnyGameScreen, game: Game) => void;
-
   // TODO: better comment and maybe better name or even API?
   /** Lifecycle hook. */
   readonly #onFocusEvent?: (event: UiFocusEvent) => void;
@@ -77,7 +74,6 @@ export class GameScreen<
     onHide,
     onUpdate,
     onResize,
-    onCancel,
   }: GameScreenOptions<T, Events>) {
     this.assetBundles = assetBundles;
 
@@ -107,10 +103,6 @@ export class GameScreen<
 
     if (onResize !== undefined) {
       this.#onResize = onResize;
-    }
-
-    if (onCancel !== undefined) {
-      this.#onCancel = onCancel;
     }
   }
 
@@ -155,11 +147,6 @@ export class GameScreen<
     this.#ui = new UiRoot({theme: game.theme, onFocusEvent: this.#onFocusEvent});
     this.view.addChild(this.#ui.view);
     this.contents = this.#onAttach?.(this, game) as T;
-  }
-
-  /** Triggers cancel lifecycle hook. */
-  cancel() {
-    this.#onCancel?.(this, this.game);
   }
 
   /** Destroys the instance. */

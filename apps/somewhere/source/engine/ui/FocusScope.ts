@@ -1,8 +1,7 @@
 import {type Focusable} from './Focusable.js';
-import {type UiChild} from './UiChild.js';
+import {type Overlay} from './Overlay.js';
 
 export type FocusScope = {
-  onCancel?: (() => boolean) | undefined;
   previousFocus: Focusable | null;
-  root: UiChild;
+  root: Overlay;
 };

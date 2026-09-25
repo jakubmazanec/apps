@@ -76,6 +76,14 @@ describe('the game control table', () => {
     expect(input.focusPressed('cancel')).toBe(true);
   });
 
+  test('P pauses, and is no focus command', () => {
+    press('KeyP');
+    input.update();
+
+    expect(input.pressed('pause')).toBe(true);
+    expect(input.focusPressed('cancel')).toBe(false);
+  });
+
   test('Shift+Tab moves focus back, and never forward too', () => {
     press('ShiftLeft');
     press('Tab');

@@ -10,6 +10,7 @@ import {TextInput} from '../../engine/ui/TextInput.js';
 import {assets} from '../core/assets.js';
 import {audio} from '../core/audio.js';
 import {game} from '../core/game.js';
+import {input} from '../core/input.js';
 import {playFocusSound} from '../core/playFocusSound.js';
 import {clearStagedSave, loadSave, stageContinue} from '../core/save.js';
 import {saveSettings, saveSettingsSoon, settings} from '../core/settings.js';
@@ -56,8 +57,9 @@ function openOptionsModal(screen: GameScreen<MainMenuScreenContents>) {
     // Evaluated on the Options click — after the canvas is mounted — so it
     // resolves to the real canvas container.
     container: game.app.canvas.parentElement ?? document.body,
-    onChange: (input) => {
-      settings.playerName = input.value;
+    input,
+    onChange: (changed) => {
+      settings.playerName = changed.value;
       saveSettings();
       audio.play(assets.sound('ui-key'), {bus: 'ui'});
     },
@@ -94,7 +96,7 @@ function openOptionsModal(screen: GameScreen<MainMenuScreenContents>) {
     layout: {justifyContent: 'center', alignItems: 'center'},
     scheduler: screen.scheduler,
     fadeDuration: 200,
-    onClose: () => {
+    onClosed: () => {
       saveSettingsSoon.flush();
 
       screen.contents.openModal = null;
