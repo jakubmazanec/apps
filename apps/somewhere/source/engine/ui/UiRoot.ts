@@ -110,6 +110,51 @@ export class UiRoot implements UiParent {
     this.#disposables.instance.defer(() => this.view.destroy({children: true}));
   }
 
+  // Depth-first order over the component hierarchy is the Tab order. Raw Pixi
+  // containers are leaves (components are only discoverable through public
+  // children arrays), and subtrees whose view is hidden are pruned.
+  //
+  // The scope stack needs no repair here: removeChild refuses an overlay that
+  // holds a scope, so no scope outlives its overlay through UiRoot. A view
+  // detached through pixi directly is invisible to UiRoot (attachment lives on
+  // the pixi view.parent chain; component-level parent pointers don't exist),
+  // which is why that is unsupported, as for any component.
+  /** TBD */
+  get #focusables(): Focusable[] {
+    let result: Focusable[] = [];
+    let walk = (node: UiChild) => {
+      if (!('view' in node)) {
+        return;
+      }
+
+      if (!node.view.visible) {
+        return;
+      }
+
+      // A destroyed pixi container still reports visible === true, but its
+      // getBounds() throws; without this prune a component destroyed while
+      // still in a children array would crash the spatial-navigation math on
+      // the next Tab/arrow press.
+      if (node.view.destroyed) {
+        return;
+      }
+
+      let {isFocusable, children} = node as Partial<Focusable> & Partial<UiParent>;
+
+      if (isFocusable === true) {
+        result.push(node as Focusable);
+      }
+
+      for (let child of children ?? []) {
+        walk(child);
+      }
+    };
+
+    walk(this.#runtime.scopes.at(-1)?.root ?? this);
+
+    return result;
+  }
+
   /** TBD */
   get focused(): Focusable | null {
     return this.#runtime.focused;
@@ -131,7 +176,7 @@ export class UiRoot implements UiParent {
       return;
     }
 
-    if (!this.#collectFocusables().includes(this.#runtime.focused)) {
+    if (!this.#focusables.includes(this.#runtime.focused)) {
       this.#runtime.focused = null;
 
       return;
@@ -150,9 +195,9 @@ export class UiRoot implements UiParent {
     return this;
   }
 
-  // Scope/removal interplay: nothing forces a matching removeOverlay before an
-  // overlay is removed or destroyed some other way. #collectFocusables lazily
-  // self-heals at the focus choke point instead — see the prune step there.
+  // Scope/removal interplay: removeChild refuses an overlay that holds a scope,
+  // so removeOverlay is the only way out through UiRoot. Detaching or destroying
+  // its view through pixi directly is unsupported, as for any component.
   /** Attaches the overlay as the last UI child and gives it the focus scope. */
   addOverlay(overlay: Overlay): this {
     this.addChild(overlay);
@@ -183,7 +228,7 @@ export class UiRoot implements UiParent {
       return;
     }
 
-    if (!this.#collectFocusables().includes(this.#runtime.focused)) {
+    if (!this.#focusables.includes(this.#runtime.focused)) {
       this.#runtime.focused = null;
 
       return;
@@ -194,7 +239,10 @@ export class UiRoot implements UiParent {
 
   /** Destroys the instance. */
   destroy() {
-    for (let child of this.children) {
+    // A copy: an overlay's destroy() leaves children through removeOverlay.
+    let children = [...this.children];
+
+    for (let child of children) {
       if ('view' in child) {
         child.destroy?.();
       }
@@ -224,7 +272,7 @@ export class UiRoot implements UiParent {
       return;
     }
 
-    if (!this.#collectFocusables().includes(this.#runtime.focused)) {
+    if (!this.#focusables.includes(this.#runtime.focused)) {
       this.#runtime.focused = null;
 
       return;
@@ -235,7 +283,7 @@ export class UiRoot implements UiParent {
 
   /** TBD */
   moveFocus(direction: FocusDirection) {
-    let focusables = this.#collectFocusables();
+    let focusables = this.#focusables;
 
     if (focusables.length === 0) {
       return;
@@ -274,6 +322,12 @@ export class UiRoot implements UiParent {
 
   /** TBD */
   removeChild(...children: UiChild[]): this {
+    // An overlay leaves through removeOverlay, which releases its scope first.
+    // Checked before anything is removed, so a refused call changes nothing.
+    if (children.some((child) => this.#runtime.scopes.some((scope) => scope.root === child))) {
+      throw new Error('Overlay must be removed with removeOverlay()!');
+    }
+
     for (let child of children) {
       let index = this.children.indexOf(child);
 
@@ -286,10 +340,7 @@ export class UiRoot implements UiParent {
 
     // Stale focus (the component left with the removed subtree): drop it now,
     // matching how the focus commands treat non-collectible components.
-    if (
-      this.#runtime.focused !== null &&
-      !this.#collectFocusables().includes(this.#runtime.focused)
-    ) {
+    if (this.#runtime.focused !== null && !this.#focusables.includes(this.#runtime.focused)) {
       this.#runtime.focused = null;
     }
 
@@ -297,9 +348,10 @@ export class UiRoot implements UiParent {
   }
 
   // Drops this overlay's own scope, not whatever is on top, and tolerates a
-  // scope that is already gone (clearFocus on hide, or the self-heal prune).
-  // The scope goes before the child, so the order is not the caller's to get
-  // wrong.
+  // scope that is already gone (clearFocus on hide). A buried scope is legal: a
+  // closing modal keeps its scope through the fade while the game already runs,
+  // so overlays can open above it or close beneath it. The scope goes before the
+  // child, so the order is not the caller's to get wrong.
   /** Detaches the overlay and releases its focus scope. */
   removeOverlay(overlay: Overlay): this {
     let index = this.#runtime.scopes.findIndex((scope) => scope.root === overlay);
@@ -309,12 +361,17 @@ export class UiRoot implements UiParent {
 
       if (scope !== undefined) {
         this.#runtime.focused =
-          scope.previousFocus !== null && this.#collectFocusables().includes(scope.previousFocus) ?
+          scope.previousFocus !== null && this.#focusables.includes(scope.previousFocus) ?
             scope.previousFocus
           : null;
       }
     } else if (index !== -1) {
-      this.#runtime.scopes.splice(index, 1);
+      // The scope above was opened while this one was on top, so its
+      // previousFocus points into this overlay; it inherits this scope's. The
+      // type assertions are ok, because index is not the last one.
+      let [buried] = this.#runtime.scopes.splice(index, 1) as [FocusScope];
+
+      (this.#runtime.scopes[index] as FocusScope).previousFocus = buried.previousFocus;
     }
 
     this.removeChild(overlay);
@@ -348,78 +405,6 @@ export class UiRoot implements UiParent {
     ring.setSize(bottomRight.x - topLeft.x + 2 * padding, bottomRight.y - topLeft.y + 2 * padding);
   }
 
-  // Depth-first order over the component hierarchy is the Tab order. Raw Pixi
-  // containers are leaves (components are only discoverable through public
-  // children arrays), and subtrees whose view is hidden are pruned.
-  //
-  // Before walking, dead scopes are pruned from the top of #runtime.scopes: a scope
-  // whose root view is destroyed or no longer attached under this root was
-  // removed out-of-band (direct removal, deep removal e.g. via
-  // Panel.removeChild, or a plain destroy()). Without this, the stale scope
-  // keeps detached-but-not-destroyed widgets focusable: Tab reaches components
-  // that are no longer on stage and activate() fires their handlers. Pruning
-  // mirrors #popScope by restoring the last-pruned scope's previousFocus
-  // when still collectible. Dead scopes below a live top scope wait until they
-  // surface; staleness between the mutation and the next focus command is
-  // unobservable (nothing reads the stack in between).
-  /** TBD */
-  #collectFocusables(): Focusable[] {
-    let pruned: FocusScope | null = null;
-
-    while (this.#runtime.scopes.length > 0) {
-      // the type assertion is ok, because we checked `this.#runtime.scopes.length`
-      let scope = this.#runtime.scopes.at(-1) as FocusScope;
-      let scopeView = scope.root.view;
-
-      if (!scopeView.destroyed && this.#isConnected(scopeView)) {
-        break;
-      }
-
-      this.#runtime.scopes.pop();
-      pruned = scope;
-    }
-
-    let result: Focusable[] = [];
-    let walk = (node: UiChild) => {
-      if (!('view' in node)) {
-        return;
-      }
-
-      if (!node.view.visible) {
-        return;
-      }
-
-      // A destroyed pixi container still reports visible === true, but its
-      // getBounds() throws; without this prune a component destroyed while
-      // still in a children array would crash the spatial-navigation math on
-      // the next Tab/arrow press.
-      if (node.view.destroyed) {
-        return;
-      }
-
-      let {isFocusable, children} = node as Partial<Focusable> & Partial<UiParent>;
-
-      if (isFocusable === true) {
-        result.push(node as Focusable);
-      }
-
-      for (let child of children ?? []) {
-        walk(child);
-      }
-    };
-
-    walk(this.#runtime.scopes.at(-1)?.root ?? this);
-
-    if (pruned !== null) {
-      this.#runtime.focused =
-        pruned.previousFocus !== null && result.includes(pruned.previousFocus) ?
-          pruned.previousFocus
-        : null;
-    }
-
-    return result;
-  }
-
   // Fire `move` only when the focus actually changed to a different component
   // (a single-focusable focusNext wraps to itself and stays silent).
   /** TBD */
@@ -436,7 +421,7 @@ export class UiRoot implements UiParent {
   #focusFromPointer(target: pixi.Container | null) {
     let byView = new Map<pixi.Container, Focusable>();
 
-    for (let focusable of this.#collectFocusables()) {
+    for (let focusable of this.#focusables) {
       byView.set(focusable.view, focusable);
     }
 
@@ -455,26 +440,9 @@ export class UiRoot implements UiParent {
     }
   }
 
-  // Attachment is checked via the pixi view.parent chain — component-level
-  // parent pointers don't exist.
-  /** TBD */
-  #isConnected(view: pixi.Container): boolean {
-    let current: pixi.Container | null = view;
-
-    while (current !== null) {
-      if (current === this.view) {
-        return true;
-      }
-
-      current = current.parent;
-    }
-
-    return false;
-  }
-
   /** TBD */
   #moveLinear(step: -1 | 1) {
-    let focusables = this.#collectFocusables();
+    let focusables = this.#focusables;
 
     if (focusables.length === 0) {
       return;

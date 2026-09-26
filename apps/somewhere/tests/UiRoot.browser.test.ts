@@ -280,6 +280,28 @@ describe(UiRoot, () => {
       expect(child.destroy).toHaveBeenCalledTimes(1);
     });
 
+    test('destroy() reaches every overlay, including the one after an overlay that removes itself', () => {
+      let root = createRoot();
+      let first = {...panel([]), destroy: vitest.fn<() => void>()};
+      let second = {...panel([]), destroy: vitest.fn<() => void>()};
+
+      // Like Modal and DialogueBox, each overlay leaves through removeOverlay
+      // when destroyed, which splices it out of root.children mid-iteration.
+      first.destroy.mockImplementation(() => {
+        root.removeOverlay(first);
+      });
+      second.destroy.mockImplementation(() => {
+        root.removeOverlay(second);
+      });
+
+      root.addOverlay(first);
+      root.addOverlay(second);
+      root.destroy();
+
+      expect(first.destroy).toHaveBeenCalledTimes(1);
+      expect(second.destroy).toHaveBeenCalledTimes(1);
+    });
+
     test('update() does not throw when the focused view was destroyed', () => {
       let root = createRoot({theme: FOCUS_RING_THEME});
       let button = focusable();
@@ -754,6 +776,26 @@ describe(UiRoot, () => {
       expect(top.close).toHaveBeenCalledTimes(1);
     });
 
+    test('removeOverlay on a buried overlay hands its previousFocus up to the scope above', () => {
+      let a = focusable();
+      let b = focusable();
+      let c = focusable();
+      let lower = panel([b]);
+      let top = panel([c]);
+      let root = createRootWith(a);
+
+      root.focus(a);
+      root.addOverlay(lower);
+      root.focus(b);
+      root.addOverlay(top);
+      root.removeOverlay(lower);
+      root.removeOverlay(top);
+
+      // top's previousFocus (b) left with lower, so top inherited lower's
+      // previousFocus instead and closing top lands back on a.
+      expect(root.focused).toBe(a);
+    });
+
     test('removeOverlay tolerates a scope that is already gone', () => {
       let a = focusable();
       let b = focusable();
@@ -904,26 +946,28 @@ describe(UiRoot, () => {
     });
   });
 
-  describe('focus scope self-heal (out-of-band removal)', () => {
-    test('removing the overlay without removeOverlay: the next focus command prunes the scope and restores previous focus', () => {
+  describe('overlay removal contract', () => {
+    test('removeChild refuses an overlay that holds a scope', () => {
       let a = focusable();
       let b = focusable();
       let modal = panel([b]);
       let root = createRootWith(a);
 
-      root.focus(a);
       root.addOverlay(modal);
-      root.removeChild(modal); // dismissed without a matching removeOverlay
+      root.focusNext();
 
-      root.focusNext(); // assertions run after a focus command, not right after the mutation
+      // A plain child rides along to show the refusal happens before anything
+      // is removed: a is still attached afterwards.
+      expect(() => {
+        root.removeChild(a, modal);
+      }).toThrow('Overlay must be removed with removeOverlay()!');
 
-      // The dead scope was pruned (b is unreachable) and the scope's
-      // previousFocus (a) was restored; the command then moved from a and
-      // wrapped back to it as the only focusable left.
-      expect(root.focused).toBe(a);
+      expect(root.children).toEqual([a, modal]);
+      expect(root.topOverlay).toBe(modal);
+      expect(root.focused).toBe(b);
     });
 
-    test('destroying the overlay in place is healed the same way', () => {
+    test("destroying an overlay's view in place does not crash navigation", () => {
       let a = focusable();
       let b = focusable();
       let modal = panel([b]);
@@ -931,11 +975,30 @@ describe(UiRoot, () => {
 
       root.focus(a);
       root.addOverlay(modal);
-      (modal.view as unknown as MockContainer).destroy(); // plain destroy(), no removal
+      root.focusNext();
+      (modal.view as unknown as MockContainer).destroy(); // unsupported: bypasses the component
+
+      expect(() => {
+        root.focusNext();
+        root.moveFocus('down');
+        root.activate();
+      }).not.toThrow();
+    });
+
+    test('a focus command never changes the scope stack, even over a destroyed overlay view', () => {
+      let a = focusable();
+      let b = focusable();
+      let modal = panel([b]);
+      let root = createRootWith(a);
+
+      root.addOverlay(modal);
+      (modal.view as unknown as MockContainer).destroy(); // unsupported: bypasses the component
 
       root.focusNext();
 
-      expect(root.focused).toBe(a);
+      // The stack changes only through addOverlay, removeOverlay and clearFocus;
+      // no focus command repairs it behind the caller's back.
+      expect(root.topOverlay).toBe(modal);
     });
 
     test('a previousFocus that left with the overlay is dropped, not restored', () => {
@@ -947,43 +1010,13 @@ describe(UiRoot, () => {
 
       root.focus(a); // the previously focused component sits inside the overlay itself
       root.addOverlay(modal);
-      root.removeChild(modal);
+      root.removeOverlay(modal);
 
       root.focusNext();
 
-      // previousFocus (a) is no longer collectible, so the heal cleared focus
-      // and the command started over from the first focusable.
+      // previousFocus (a) is no longer collectible, so focus was cleared and
+      // the command started over from the first focusable.
       expect(root.focused).toBe(outside);
-    });
-
-    test('a dead scope below a live top scope waits until it surfaces', () => {
-      let a = focusable();
-      let d = focusable();
-      let b = focusable();
-      let c = focusable();
-      let lower = panel([b]);
-      let top = panel([c]);
-      let root = createRootWith(a, d);
-
-      root.focus(a);
-      root.addOverlay(lower);
-      root.addOverlay(top);
-      root.removeChild(lower); // the lower scope is dead; the top scope is live
-
-      root.focusNext();
-
-      expect(root.focused).toBe(c); // traversal still confined to the live top scope
-
-      root.removeOverlay(top); // the dead scope surfaces (top's previousFocus was null)
-
-      expect(root.focused).toBeNull();
-
-      root.focusNext(); // the next focus command prunes it and restores a as the start point
-
-      // Restoration is observable through where the command moved FROM: with a
-      // restored (focusables are [a, d]) the command lands on d; had the heal
-      // dropped focus instead, it would have started over and landed on a.
-      expect(root.focused).toBe(d);
     });
   });
 });
