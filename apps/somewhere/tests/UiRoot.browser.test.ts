@@ -356,6 +356,16 @@ describe(UiRoot, () => {
       expect(root.focused).toBe(b);
     });
 
+    test('focusPrevious without focus starts at the last component', () => {
+      let a = focusable();
+      let b = focusable();
+      let root = createRootWith(a, b);
+
+      root.focusPrevious();
+
+      expect(root.focused).toBe(b);
+    });
+
     test('skips non-focusable components and hidden subtrees', () => {
       let a = focusable();
       let b = focusable();

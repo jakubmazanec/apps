@@ -4,6 +4,7 @@ import {type Disposables} from '../utilities/Disposables.js';
 import {type Focusable} from './Focusable.js';
 import {type FocusDirection} from './FocusDirection.js';
 import {type FocusScope} from './FocusScope.js';
+import {collectFocusables} from './internals/collectFocusables.js';
 import {nearestInDirection} from './internals/nearestInDirection.js';
 import {nearestTopLeft} from './internals/nearestTopLeft.js';
 import {type Overlay} from './Overlay.js';
@@ -39,39 +40,45 @@ export class UiRoot implements UiParent {
   constructor({theme, onFocusEvent}: UiRootOptions) {
     this.#config = {theme};
 
-    let overlay = new pixi.Container();
+    let ringContainer = new pixi.Container();
     let ring = new pixi.NineSliceSprite({texture: this.#config.theme.focusRing.texture});
 
-    this.#parts = {overlay, ring};
-    overlay.addChild(ring);
+    this.#parts = {overlay: ringContainer, ring};
+    ringContainer.eventMode = 'none';
+    this.view.eventMode = 'static';
+
+    ringContainer.addChild(ring);
+    this.view.addChild(ringContainer);
 
     if (onFocusEvent !== undefined) {
       this.#onFocusEvent = onFocusEvent;
     }
 
-    // The overlay draws the focus ring on top of every widget, and once a
-    // widget is focused the ring's bounds cover it. Pixi hit-tests front-to-back
-    // and would reach the ring first; because the ring only carries the default
-    // (hit-testable) event mode, pixi resolves the tap to the ring's nearest
-    // interactive ancestor — this view — and stops, never descending to the
-    // widget beneath. 'none' prunes the whole overlay subtree from hit-testing
-    // so taps fall through to the focused widget and its onClick still fires.
-    overlay.eventMode = 'none';
-
-    this.view.addChild(overlay);
-
-    // pixi notifies listeners only on interactive containers, so the root
-    // must be static for the two pointertap listeners below to run. A plain
-    // container has no geometry of its own, so this adds no hit target and
-    // taps on the open world still reach the game view directly.
-    this.view.eventMode = 'static';
-
-    // Tapping a focusable silently moves navigation focus to it (the ring
-    // stays hidden), so Tab/arrows resume from where the user last clicked.
-    // Capture phase: components stop propagation of their pointertap, which
-    // would hide the tap from a bubble listener here.
+    // Tapping a focusable silently moves navigation focus to it, so we're resuming from where the
+    // user last clicked.
+    // Pointer interplay: resolve a Pixi hit-test target back to the component
+    // that owns it and focus it silently (the ring stays hidden), so keyboard
+    // navigation resumes from where the user last tapped.
     let handleTap = (event: pixi.FederatedPointerEvent) => {
-      this.#focusFromPointer(event.target);
+      let byView = new Map<pixi.Container, Focusable>();
+
+      for (let focusable of this.#focusables) {
+        byView.set(focusable.view, focusable);
+      }
+
+      let current: pixi.Container | null = event.target;
+
+      while (current !== null) {
+        let focusable = byView.get(current);
+
+        if (focusable !== undefined) {
+          this.#runtime.focused = focusable;
+
+          return;
+        }
+
+        current = current.parent;
+      }
     };
 
     this.view.addEventListener('pointertap', handleTap, {capture: true});
@@ -80,9 +87,8 @@ export class UiRoot implements UiParent {
       this.view.removeEventListener('pointertap', handleTap, {capture: true});
     });
 
-    // Any tap that bubbles this far started on a UI element (panel padding,
-    // labels, widgets); stop it here so it can't fall through to the game view
-    // and move the player. Taps on the open world never route through this view.
+    // Any tap that bubbles this far started on a UI element; stop it here so it can't fall through
+    // to the game.
     let stopTap = (event: pixi.FederatedPointerEvent) => {
       event.stopPropagation();
     };
@@ -110,10 +116,6 @@ export class UiRoot implements UiParent {
     this.#disposables.instance.defer(() => this.view.destroy({children: true}));
   }
 
-  // Depth-first order over the component hierarchy is the Tab order. Raw Pixi
-  // containers are leaves (components are only discoverable through public
-  // children arrays), and subtrees whose view is hidden are pruned.
-  //
   // The scope stack needs no repair here: removeChild refuses an overlay that
   // holds a scope, so no scope outlives its overlay through UiRoot. A view
   // detached through pixi directly is invisible to UiRoot (attachment lives on
@@ -121,38 +123,7 @@ export class UiRoot implements UiParent {
   // which is why that is unsupported, as for any component.
   /** TBD */
   get #focusables(): Focusable[] {
-    let result: Focusable[] = [];
-    let walk = (node: UiChild) => {
-      if (!('view' in node)) {
-        return;
-      }
-
-      if (!node.view.visible) {
-        return;
-      }
-
-      // A destroyed pixi container still reports visible === true, but its
-      // getBounds() throws; without this prune a component destroyed while
-      // still in a children array would crash the spatial-navigation math on
-      // the next Tab/arrow press.
-      if (node.view.destroyed) {
-        return;
-      }
-
-      let {isFocusable, children} = node as Partial<Focusable> & Partial<UiParent>;
-
-      if (isFocusable === true) {
-        result.push(node as Focusable);
-      }
-
-      for (let child of children ?? []) {
-        walk(child);
-      }
-    };
-
-    walk(this.#runtime.scopes.at(-1)?.root ?? this);
-
-    return result;
+    return collectFocusables(this.#runtime.scopes.at(-1)?.root ?? this);
   }
 
   /** TBD */
@@ -258,12 +229,75 @@ export class UiRoot implements UiParent {
 
   /** TBD */
   focusNext() {
-    this.#moveLinear(1);
+    let focusables = this.#focusables;
+
+    if (focusables.length === 0) {
+      return;
+    }
+
+    this.#runtime.isRingVisible = true;
+
+    if (this.#runtime.focused === null) {
+      this.#runtime.focused = focusables[0] ?? null;
+      this.#onFocusEvent?.({type: 'move'});
+
+      return;
+    }
+
+    let index = focusables.indexOf(this.#runtime.focused);
+
+    if (index === -1) {
+      // Stale focus (the component was disabled, hidden or removed): drop it
+      // now; the next focus command behaves like initial focus in the scope.
+      this.#runtime.focused = null;
+
+      return;
+    }
+
+    let next = focusables[(index + 1) % focusables.length] ?? null;
+
+    // A single focusable wraps to itself and stays silent.
+    if (next !== this.#runtime.focused) {
+      this.#runtime.focused = next;
+      this.#onFocusEvent?.({type: 'move'});
+    }
   }
 
   /** TBD */
   focusPrevious() {
-    this.#moveLinear(-1);
+    let focusables = this.#focusables;
+
+    if (focusables.length === 0) {
+      return;
+    }
+
+    this.#runtime.isRingVisible = true;
+
+    if (this.#runtime.focused === null) {
+      this.#runtime.focused = focusables.at(-1) ?? null;
+      this.#onFocusEvent?.({type: 'move'});
+
+      return;
+    }
+
+    let index = focusables.indexOf(this.#runtime.focused);
+
+    if (index === -1) {
+      // Stale focus (the component was disabled, hidden or removed): drop it
+      // now; the next focus command behaves like initial focus in the scope.
+      this.#runtime.focused = null;
+
+      return;
+    }
+
+    // at(-1) wraps from the first component to the last.
+    let next = focusables.at(index - 1) ?? null;
+
+    // A single focusable wraps to itself and stays silent.
+    if (next !== this.#runtime.focused) {
+      this.#runtime.focused = next;
+      this.#onFocusEvent?.({type: 'move'});
+    }
   }
 
   /** TBD */
@@ -291,17 +325,17 @@ export class UiRoot implements UiParent {
 
     this.#runtime.isRingVisible = true;
 
-    let previous = this.#runtime.focused;
-    let current = this.#runtime.focused;
-
-    if (current === null) {
+    if (this.#runtime.focused === null) {
       this.#runtime.focused = nearestTopLeft(focusables);
-      this.#emitFocusChange(previous);
+
+      if (this.#runtime.focused !== null) {
+        this.#onFocusEvent?.({type: 'move'});
+      }
 
       return;
     }
 
-    if (!focusables.includes(current)) {
+    if (!focusables.includes(this.#runtime.focused)) {
       // Stale focus (the component was disabled, hidden or removed): drop it
       // now; the next focus command behaves like initial focus in the scope.
       this.#runtime.focused = null;
@@ -309,14 +343,14 @@ export class UiRoot implements UiParent {
       return;
     }
 
-    let next = nearestInDirection(current, focusables, direction);
+    let next = nearestInDirection(this.#runtime.focused, focusables, direction);
 
     if (next === null) {
       // Arrow-key navigation hit a wall: the clean, detectable negative-feedback case.
       this.#onFocusEvent?.({type: 'reject'});
     } else {
       this.#runtime.focused = next;
-      this.#emitFocusChange(previous);
+      this.#onFocusEvent?.({type: 'move'});
     }
   }
 
@@ -403,75 +437,5 @@ export class UiRoot implements UiParent {
     ring.visible = true;
     ring.position.set(topLeft.x - padding, topLeft.y - padding);
     ring.setSize(bottomRight.x - topLeft.x + 2 * padding, bottomRight.y - topLeft.y + 2 * padding);
-  }
-
-  // Fire `move` only when the focus actually changed to a different component
-  // (a single-focusable focusNext wraps to itself and stays silent).
-  /** TBD */
-  #emitFocusChange(previous: Focusable | null) {
-    if (this.#runtime.focused !== null && this.#runtime.focused !== previous) {
-      this.#onFocusEvent?.({type: 'move'});
-    }
-  }
-
-  // Pointer interplay: resolve a Pixi hit-test target back to the component
-  // that owns it and focus it silently (the ring stays hidden), so keyboard
-  // navigation resumes from where the user last tapped.
-  /** TBD */
-  #focusFromPointer(target: pixi.Container | null) {
-    let byView = new Map<pixi.Container, Focusable>();
-
-    for (let focusable of this.#focusables) {
-      byView.set(focusable.view, focusable);
-    }
-
-    let current = target;
-
-    while (current !== null) {
-      let focusable = byView.get(current);
-
-      if (focusable !== undefined) {
-        this.#runtime.focused = focusable;
-
-        return;
-      }
-
-      current = current.parent;
-    }
-  }
-
-  /** TBD */
-  #moveLinear(step: -1 | 1) {
-    let focusables = this.#focusables;
-
-    if (focusables.length === 0) {
-      return;
-    }
-
-    this.#runtime.isRingVisible = true;
-
-    let previous = this.#runtime.focused;
-    let current = this.#runtime.focused;
-
-    if (current === null) {
-      this.#runtime.focused = focusables[0] ?? null;
-      this.#emitFocusChange(previous);
-
-      return;
-    }
-
-    let index = focusables.indexOf(current);
-
-    if (index === -1) {
-      // Stale focus (the component was disabled, hidden or removed): drop it
-      // now; the next focus command behaves like initial focus in the scope.
-      this.#runtime.focused = null;
-
-      return;
-    }
-
-    this.#runtime.focused =
-      focusables[(index + step + focusables.length) % focusables.length] ?? null;
-    this.#emitFocusChange(previous);
   }
 }
