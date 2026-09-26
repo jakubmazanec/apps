@@ -56,8 +56,7 @@ export function nearestInDirection(
         )
       : Math.max(
           0,
-          Math.max(source.x, bounds.x) -
-            Math.min(source.x + source.width, bounds.x + bounds.width),
+          Math.max(source.x, bounds.x) - Math.min(source.x + source.width, bounds.x + bounds.width),
         );
     let score = forward + PERPENDICULAR_PENALTY * perpendicularGap;
 
