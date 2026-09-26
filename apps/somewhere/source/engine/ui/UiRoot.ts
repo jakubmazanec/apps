@@ -4,6 +4,8 @@ import {type Disposables} from '../utilities/Disposables.js';
 import {type Focusable} from './Focusable.js';
 import {type FocusDirection} from './FocusDirection.js';
 import {type FocusScope} from './FocusScope.js';
+import {nearestInDirection} from './internals/nearestInDirection.js';
+import {nearestTopLeft} from './internals/nearestTopLeft.js';
 import {type Overlay} from './Overlay.js';
 import {type UiChild, type UiParent} from './UiChild.js';
 import {type UiFocusEvent} from './UiFocusEvent.js';
@@ -11,14 +13,6 @@ import {type UiRootConfig} from './UiRootConfig.js';
 import {type UiRootOptions} from './UiRootOptions.js';
 import {type UiRootParts} from './UiRootParts.js';
 import {type UiRootRuntime} from './UiRootRuntime.js';
-
-// Spatial scoring: distance along the movement axis plus a weighted penalty
-// for perpendicular gap (zero while the candidate stays within the source's
-// cross-axis extent); candidates whose bounds overlap the source's
-// perpendicular extent score better, so "down" prefers the component directly
-// below over a nearer diagonal one.
-const PERPENDICULAR_PENALTY = 2;
-const OVERLAP_BONUS = 0.5;
 
 export class UiRoot implements UiParent {
   /** TBD */
@@ -253,7 +247,7 @@ export class UiRoot implements UiParent {
     let current = this.#runtime.focused;
 
     if (current === null) {
-      this.#runtime.focused = this.#nearestTopLeft(focusables);
+      this.#runtime.focused = nearestTopLeft(focusables);
       this.#emitFocusChange(previous);
 
       return;
@@ -267,7 +261,7 @@ export class UiRoot implements UiParent {
       return;
     }
 
-    let next = this.#nearestInDirection(current, focusables, direction);
+    let next = nearestInDirection(current, focusables, direction);
 
     if (next === null) {
       // Arrow-key navigation hit a wall: the clean, detectable negative-feedback case.
@@ -311,7 +305,14 @@ export class UiRoot implements UiParent {
     let index = this.#runtime.scopes.findIndex((scope) => scope.root === overlay);
 
     if (index !== -1 && index === this.#runtime.scopes.length - 1) {
-      this.#popScope();
+      let scope = this.#runtime.scopes.pop();
+
+      if (scope !== undefined) {
+        this.#runtime.focused =
+          scope.previousFocus !== null && this.#collectFocusables().includes(scope.previousFocus) ?
+            scope.previousFocus
+          : null;
+      }
     } else if (index !== -1) {
       this.#runtime.scopes.splice(index, 1);
     }
@@ -504,103 +505,5 @@ export class UiRoot implements UiParent {
     this.#runtime.focused =
       focusables[(index + step + focusables.length) % focusables.length] ?? null;
     this.#emitFocusChange(previous);
-  }
-
-  /** TBD */
-  #nearestInDirection(
-    current: Focusable,
-    focusables: Focusable[],
-    direction: FocusDirection,
-  ): Focusable | null {
-    let source = current.view.getBounds();
-    let horizontal = direction === 'left' || direction === 'right';
-    let best: Focusable | null = null;
-    let bestScore = Infinity;
-
-    for (let candidate of focusables) {
-      if (candidate === current) {
-        continue;
-      }
-
-      let bounds = candidate.view.getBounds();
-      let dx = bounds.x + bounds.width / 2 - (source.x + source.width / 2);
-      let dy = bounds.y + bounds.height / 2 - (source.y + source.height / 2);
-      let forward =
-        direction === 'right' ? dx
-        : direction === 'left' ? -dx
-        : direction === 'down' ? dy
-        : -dy;
-
-      if (forward <= 0) {
-        continue;
-      }
-
-      let overlaps =
-        horizontal ?
-          bounds.y < source.y + source.height && source.y < bounds.y + bounds.height
-        : bounds.x < source.x + source.width && source.x < bounds.x + bounds.width;
-      // Perpendicular distance is the gap between the two extents on the cross
-      // axis, which is zero whenever the candidate sits within the source's
-      // column (vertical moves) or row (horizontal moves). Measuring the gap
-      // rather than the center-to-center offset means a small control directly
-      // under a wide one counts as straight ahead, so "down" prefers it over a
-      // farther but center-aligned component.
-      let perpendicularGap =
-        horizontal ?
-          Math.max(
-            0,
-            Math.max(source.y, bounds.y) -
-              Math.min(source.y + source.height, bounds.y + bounds.height),
-          )
-        : Math.max(
-            0,
-            Math.max(source.x, bounds.x) -
-              Math.min(source.x + source.width, bounds.x + bounds.width),
-          );
-      let score = forward + PERPENDICULAR_PENALTY * perpendicularGap;
-
-      if (overlaps) {
-        score *= OVERLAP_BONUS;
-      }
-
-      if (score < bestScore) {
-        bestScore = score;
-        best = candidate;
-      }
-    }
-
-    return best;
-  }
-
-  /** TBD */
-  #nearestTopLeft(focusables: Focusable[]): Focusable | null {
-    let best: Focusable | null = null;
-    let bestScore = Infinity;
-
-    for (let candidate of focusables) {
-      let bounds = candidate.view.getBounds();
-      let score = bounds.x + bounds.y;
-
-      if (score < bestScore) {
-        bestScore = score;
-        best = candidate;
-      }
-    }
-
-    return best;
-  }
-
-  /** TBD */
-  #popScope() {
-    let scope = this.#runtime.scopes.pop();
-
-    if (scope === undefined) {
-      return;
-    }
-
-    this.#runtime.focused =
-      scope.previousFocus !== null && this.#collectFocusables().includes(scope.previousFocus) ?
-        scope.previousFocus
-      : null;
   }
 }
