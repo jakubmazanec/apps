@@ -348,6 +348,11 @@ export class TextInput implements Focusable {
     this.startEditing();
   }
 
+  /** @internal Called by `UiRoot`. */
+  deactivate() {
+    this.stopEditing();
+  }
+
   /** Destroys the instance. */
   destroy() {
     this.stopEditing();

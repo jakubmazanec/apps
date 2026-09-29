@@ -12,4 +12,9 @@ export type Focusable = {
   // implementer that does real work here.
   increase?: () => void;
   decrease?: () => void;
+  // Ends what activate started, when it is still running. Optional: only a
+  // component that stays busy after activation has something to end, which
+  // today is TextInput and its edit. UiRoot calls it on every focusable of an
+  // overlay it removes.
+  deactivate?: () => void;
 };

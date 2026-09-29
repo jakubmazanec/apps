@@ -92,22 +92,22 @@ describe(UiRoot, () => {
   });
 
   describe('children', () => {
-    test('tracks components and keeps the focus ring overlay topmost', () => {
+    test('tracks components and keeps the focus ring topmost', () => {
       let root = createRoot();
       let view = root.view as unknown as MockContainer;
-      let overlay = view.children[0];
+      let ringContainer = view.children[0];
       let a = focusable();
       let b = new Container();
 
       root.addChild(a, b);
 
       expect(root.children).toEqual([a, b]);
-      expect(view.children).toEqual([a.view, b, overlay]);
+      expect(view.children).toEqual([a.view, b, ringContainer]);
 
       root.removeChild(a);
 
       expect(root.children).toEqual([b]);
-      expect(view.children).toEqual([b, overlay]);
+      expect(view.children).toEqual([b, ringContainer]);
     });
   });
 
@@ -171,17 +171,18 @@ describe(UiRoot, () => {
       expect(root.view.eventMode).toBe('static');
     });
 
-    test('the focus-ring overlay is transparent to hit-testing so it never steals a tap from the widget beneath it', () => {
-      // The overlay sits on top of every widget and, once focused, the ring
-      // covers the focused widget. Left hit-testable, pixi resolves a tap on the
-      // covered widget to the ring's nearest interactive ancestor (the root view)
-      // and never reaches the widget, so its onClick never fires. 'none' prunes
-      // the overlay subtree from hit-testing, letting the tap fall through.
+    test('the focus ring is transparent to hit-testing so it never steals a tap from the widget beneath it', () => {
+      // The ring container sits on top of every widget and, once focused, the
+      // ring covers the focused widget. Left hit-testable, pixi resolves a tap on
+      // the covered widget to the ring's nearest interactive ancestor (the root
+      // view) and never reaches the widget, so its onClick never fires. 'none'
+      // prunes the ring container's subtree from hit-testing, letting the tap
+      // fall through.
       let root = createRoot();
       let view = root.view as unknown as MockContainer;
-      let overlay = view.children[0] as unknown as {eventMode: string};
+      let ringContainer = view.children[0] as unknown as {eventMode: string};
 
-      expect(overlay.eventMode).toBe('none');
+      expect(ringContainer.eventMode).toBe('none');
     });
   });
 
@@ -195,8 +196,8 @@ describe(UiRoot, () => {
       root.focusNext();
       root.update();
 
-      let overlay = view.children.at(-1) as MockContainer;
-      let ring = overlay.children[0] as unknown as {
+      let ringContainer = view.children.at(-1) as MockContainer;
+      let ring = ringContainer.children[0] as unknown as {
         height: number;
         position: {x: number; y: number};
         visible: boolean;
@@ -218,8 +219,8 @@ describe(UiRoot, () => {
       root.focusNext();
       root.update();
 
-      let overlay = view.children.at(-1) as MockContainer;
-      let ring = overlay.children[0] as unknown as {texture: unknown};
+      let ringContainer = view.children.at(-1) as MockContainer;
+      let ring = ringContainer.children[0] as unknown as {texture: unknown};
 
       expect(ring.texture).toBe(FOCUS_RING_THEME.focusRing.texture);
     });
@@ -236,8 +237,8 @@ describe(UiRoot, () => {
       globalThis.dispatchEvent(new Event('pointerdown'));
       root.update();
 
-      let overlay = view.children.at(-1) as MockContainer;
-      let ring = overlay.children[0] as unknown as {visible: boolean};
+      let ringContainer = view.children.at(-1) as MockContainer;
+      let ring = ringContainer.children[0] as unknown as {visible: boolean};
 
       expect(ring.visible).toBe(false);
       expect(root.focused).toBe(component);
@@ -254,8 +255,8 @@ describe(UiRoot, () => {
       root.clearFocus();
       root.update();
 
-      let overlay = view.children.at(-1) as MockContainer;
-      let ring = overlay.children[0] as unknown as {visible: boolean};
+      let ringContainer = view.children.at(-1) as MockContainer;
+      let ring = ringContainer.children[0] as unknown as {visible: boolean};
 
       expect(ring.visible).toBe(false);
       expect(root.focused).toBeNull();
@@ -1027,6 +1028,211 @@ describe(UiRoot, () => {
       // previousFocus (a) is no longer collectible, so focus was cleared and
       // the command started over from the first focusable.
       expect(root.focused).toBe(outside);
+    });
+  });
+
+  describe('overlay attach protocol', () => {
+    test('addOverlay calls attach with the root once the overlay holds the scope', () => {
+      let root = createRootWith(focusable());
+      let topOverlayInsideAttach: unknown = null;
+      let childrenInsideAttach: UiChild[] = [];
+      let overlay = {
+        ...panel([focusable()]),
+        attach: vitest.fn<(ui: UiRoot) => void>((ui) => {
+          topOverlayInsideAttach = ui.topOverlay;
+          childrenInsideAttach = [...ui.children];
+        }),
+      };
+
+      root.addOverlay(overlay);
+
+      expect(overlay.attach).toHaveBeenCalledTimes(1);
+      expect(overlay.attach).toHaveBeenCalledWith(root);
+      expect(topOverlayInsideAttach).toBe(overlay);
+      expect(childrenInsideAttach).toContain(overlay);
+    });
+
+    test('focus set inside attach survives addOverlay', () => {
+      let inside = focusable();
+      let root = createRootWith(focusable());
+      let overlay = {
+        ...panel([inside]),
+        attach: (ui: UiRoot) => {
+          ui.focus(inside);
+        },
+      };
+
+      root.addOverlay(overlay);
+
+      expect(root.focused).toBe(inside);
+    });
+
+    test('addOverlay throws for an overlay that is already attached and changes nothing', () => {
+      let a = focusable();
+      let lower = {...panel([focusable()]), attach: vitest.fn<(ui: UiRoot) => void>()};
+      let top = panel([focusable()]);
+      let root = createRootWith(a);
+
+      root.addOverlay(lower);
+      root.addOverlay(top);
+
+      expect(() => {
+        root.addOverlay(lower);
+      }).toThrow('Overlay was already added to the UI root!');
+
+      expect(root.children).toEqual([a, lower, top]);
+      expect(root.topOverlay).toBe(top);
+      expect(lower.attach).toHaveBeenCalledTimes(1);
+    });
+
+    test('addOverlay throws for an overlay whose view is destroyed', () => {
+      let a = focusable();
+      let overlay = {...panel([focusable()]), attach: vitest.fn<(ui: UiRoot) => void>()};
+      let root = createRootWith(a);
+
+      overlay.view.destroy();
+
+      expect(() => {
+        root.addOverlay(overlay);
+      }).toThrow('Overlay is destroyed!');
+
+      expect(root.children).toEqual([a]);
+      expect(root.topOverlay).toBeNull();
+      expect(overlay.attach).not.toHaveBeenCalled();
+    });
+
+    test('removeOverlay calls detach after the overlay left the children', () => {
+      let root = createRootWith(focusable());
+      let childrenInsideDetach: UiChild[] | null = null;
+      let topOverlayInsideDetach: unknown;
+      let overlay = {
+        ...panel([focusable()]),
+        detach: vitest.fn<() => void>(() => {
+          childrenInsideDetach = [...root.children];
+          topOverlayInsideDetach = root.topOverlay;
+        }),
+      };
+
+      root.addOverlay(overlay);
+      root.removeOverlay(overlay);
+
+      expect(overlay.detach).toHaveBeenCalledTimes(1);
+      expect(childrenInsideDetach).not.toContain(overlay);
+      expect(topOverlayInsideDetach).toBeNull();
+      expect(overlay.view.parent).toBeNull();
+    });
+
+    test('removeOverlay throws for an overlay that is not attached', () => {
+      let a = focusable();
+      let attached = panel([focusable()]);
+      let stranger = {...panel([focusable()]), detach: vitest.fn<() => void>()};
+      let root = createRootWith(a);
+
+      root.addOverlay(attached);
+
+      expect(() => {
+        root.removeOverlay(stranger);
+      }).toThrow("Overlay wasn't found!");
+
+      expect(root.children).toEqual([a, attached]);
+      expect(root.topOverlay).toBe(attached);
+      expect(stranger.detach).not.toHaveBeenCalled();
+    });
+
+    test('removeOverlay throws the second time, because the overlay already left', () => {
+      let overlay = {...panel([focusable()]), detach: vitest.fn<() => void>()};
+      let root = createRootWith(focusable());
+
+      root.addOverlay(overlay);
+      root.removeOverlay(overlay);
+
+      expect(() => {
+        root.removeOverlay(overlay);
+      }).toThrow("Overlay wasn't found!");
+
+      expect(overlay.detach).toHaveBeenCalledTimes(1);
+    });
+
+    test('a removed overlay can be added again', () => {
+      let inside = focusable();
+      let overlay = {
+        ...panel([inside]),
+        attach: vitest.fn<(ui: UiRoot) => void>(),
+        detach: vitest.fn<() => void>(),
+      };
+      let root = createRootWith(focusable());
+
+      root.addOverlay(overlay);
+      root.removeOverlay(overlay);
+      root.addOverlay(overlay);
+      root.focusNext();
+
+      expect(overlay.attach).toHaveBeenCalledTimes(2);
+      expect(overlay.detach).toHaveBeenCalledTimes(1);
+      expect(root.topOverlay).toBe(overlay);
+      expect(root.focused).toBe(inside);
+    });
+
+    test('removeOverlay deactivates the focusables inside the overlay that declare it', () => {
+      let calls: string[] = [];
+      let outside = {...focusable(), deactivate: vitest.fn<() => void>()};
+      let first = {...focusable(), deactivate: vitest.fn<() => void>()};
+      let plain = focusable(); // declares no deactivate
+      let nested = {...focusable(), deactivate: vitest.fn<() => void>()};
+      let overlay = {
+        ...panel([first, plain, panel([nested])]),
+        detach: vitest.fn<() => void>(),
+      };
+      let root = createRootWith(outside);
+      let isAttached = () => String(root.children.includes(overlay));
+
+      first.deactivate.mockImplementation(() => {
+        calls.push(`first:${isAttached()}`);
+      });
+      nested.deactivate.mockImplementation(() => {
+        calls.push(`nested:${isAttached()}`);
+      });
+      overlay.detach.mockImplementation(() => {
+        calls.push(`detach:${isAttached()}`);
+      });
+
+      root.addOverlay(overlay);
+      root.removeOverlay(overlay);
+
+      // Each focusable is told while the overlay is still a child; detach last.
+      expect(calls).toEqual(['first:true', 'nested:true', 'detach:false']);
+      expect(outside.deactivate).not.toHaveBeenCalled();
+    });
+
+    test('removeOverlay still calls detach after clearFocus emptied the scopes', () => {
+      let a = focusable();
+      let overlay = {...panel([focusable()]), detach: vitest.fn<() => void>()};
+      let root = createRootWith(a);
+
+      root.addOverlay(overlay);
+      root.clearFocus(); // what GameScreen.hide does before the screen's onHide
+      root.removeOverlay(overlay);
+
+      expect(overlay.detach).toHaveBeenCalledTimes(1);
+      expect(root.children).toEqual([a]);
+    });
+
+    test('destroy() lets an overlay that removes itself run its detach', () => {
+      let root = createRoot();
+      let overlay = {
+        ...panel([]),
+        destroy: vitest.fn<() => void>(),
+        detach: vitest.fn<() => void>(),
+      };
+
+      overlay.destroy.mockImplementation(() => {
+        root.removeOverlay(overlay);
+      });
+
+      root.addOverlay(overlay);
+      root.destroy();
+
+      expect(overlay.detach).toHaveBeenCalledTimes(1);
     });
   });
 });

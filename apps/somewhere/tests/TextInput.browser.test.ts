@@ -5,6 +5,11 @@ import {afterEach, beforeAll, beforeEach, describe, expect, test, vitest} from '
 import {createBackground} from '../source/engine/ui/internals/createBackground.js';
 import {createTestTheme} from './createTestTheme.js';
 
+// UiRoot registers its pointertap listeners via the federated event system
+// (addEventListener), which pixi only installs on Container through this side
+// effect.
+import 'pixi.js/events';
+
 // A fixed advance per character, so the expected caret offsets stay arithmetic;
 // the real measurement is covered against the shipped font in Text.browser.test.ts.
 const {CHARACTER_WIDTH} = vitest.hoisted(() => ({CHARACTER_WIDTH: 6}));
@@ -39,6 +44,7 @@ vitest.mock(import('../source/engine/ui/internals/createBackground.js'), () => (
 
 // Imported after the mocks so it picks up the mocked Pixi surface.
 const {TextInput} = await import('../source/engine/ui/TextInput.js');
+const {UiRoot} = await import('../source/engine/ui/UiRoot.js');
 let layoutSystem: LayoutSystem;
 
 function background() {
@@ -634,6 +640,78 @@ describe('TextInput', () => {
     element.dispatchEvent(new Event('input'));
 
     expect(onChange).toHaveBeenCalledTimes(1);
+  });
+
+  test('deactivate() ends a running edit', () => {
+    let input = createInput();
+    let element = container.querySelector('input');
+
+    if (element === null) {
+      throw new Error('hidden input was not created');
+    }
+
+    let removeSpy = vitest.spyOn(globalThis, 'removeEventListener');
+
+    input.startEditing();
+
+    expect(document.activeElement).toBe(element);
+
+    input.deactivate();
+
+    expect(document.activeElement).not.toBe(element);
+    expect(removeSpy.mock.calls.filter(([type]) => type === 'pointerdown')).toHaveLength(1);
+    expect(findCaret(input.view)).toBeUndefined(); // the caret left the row with the edit
+  });
+
+  test('deactivate() on an idle field does nothing', () => {
+    let input = createInput();
+    let element = container.querySelector('input');
+
+    if (element === null) {
+      throw new Error('hidden input was not created');
+    }
+
+    let blurSpy = vitest.spyOn(element, 'blur');
+
+    expect(() => {
+      input.deactivate();
+    }).not.toThrow();
+
+    expect(blurSpy).not.toHaveBeenCalled();
+  });
+
+  test('removing an overlay that holds an editing field ends the edit', () => {
+    let root = new UiRoot({theme: createTestTheme()});
+    let input = createInput();
+    let element = container.querySelector('input');
+
+    if (element === null) {
+      throw new Error('hidden input was not created');
+    }
+
+    // A kept overlay: nothing destroys the field, so only deactivate can end
+    // the edit.
+    let overlay = {view: new pixi.Container(), children: [input]};
+
+    overlay.view.addChild(input.view);
+    root.addOverlay(overlay);
+    input.startEditing();
+
+    expect(document.activeElement).toBe(element);
+
+    root.removeOverlay(overlay);
+
+    expect(document.activeElement).not.toBe(element);
+    expect(input.view.destroyed).toBe(false);
+
+    // The field still works when the overlay comes back.
+    root.addOverlay(overlay);
+    input.activate();
+
+    expect(document.activeElement).toBe(element);
+
+    input.destroy();
+    root.destroy();
   });
 
   describe('keys while editing follow the bindings', () => {

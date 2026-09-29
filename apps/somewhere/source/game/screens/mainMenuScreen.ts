@@ -104,8 +104,7 @@ function openOptionsModal(screen: GameScreen<MainMenuScreenContents>) {
   });
 
   screen.contents.openModal = modal;
-  modal.open(screen.ui);
-  modal.resize(game.app.screen.width / game.pixelScale, game.app.screen.height / game.pixelScale);
+  screen.ui.addOverlay(modal);
 }
 
 type MainMenuScreenContents = {
@@ -211,11 +210,5 @@ export const mainMenuScreen = new GameScreen<MainMenuScreenContents>({
     screen.contents.openModal?.destroy();
 
     screen.contents.openModal = null;
-  },
-  onResize: (screen) => {
-    screen.contents.openModal?.resize(
-      screen.game.app.screen.width / screen.game.pixelScale,
-      screen.game.app.screen.height / screen.game.pixelScale,
-    );
   },
 });

@@ -11,10 +11,12 @@ import {type Overlay} from './Overlay.js';
 import {type UiChild} from './UiChild.js';
 import {type UiRoot} from './UiRoot.js';
 
-// A reusable modal: a flat widget in the existing Container/Panel idiom (public
-// `children` + `view`, no inheritance). Constructed per open by whatever
-// handler opens it; the owning screen tracks the open instance and calls
-// destroy() (never the animated close()) from its onHide.
+// A modal: a flat widget in the existing Container/Panel idiom (public
+// `children` + `view`, no inheritance) and the general-purpose overlay, added
+// with ui.addOverlay(modal). Constructed per open by whatever handler opens
+// it, unless isReusable keeps it alive after close(); the owning screen tracks
+// the instance and calls destroy() (never the animated close()) from its
+// onHide.
 export class Modal implements Overlay {
   /** TBD */
   readonly children: UiChild[] = [];
@@ -26,10 +28,7 @@ export class Modal implements Overlay {
   readonly #config: ModalConfig;
 
   /** Stacks to register disposers that cleanup resources when needed. */
-  readonly #disposables: Disposables<'instance', 'open'> = {
-    instance: new DisposableStack(),
-    open: null,
-  };
+  readonly #disposables: Disposables<'instance'> = {instance: new DisposableStack()};
 
   /** Lifecycle hook called when the modal is closed. */
   readonly #onClosed?: () => void;
@@ -41,7 +40,7 @@ export class Modal implements Overlay {
   readonly #parts: ModalParts = {scrim: new pixi.Graphics()};
 
   /** Object for internal values that may change. */
-  readonly #runtime: ModalRuntime = {cancelFade: null};
+  readonly #runtime: ModalRuntime = {cancelFade: null, ui: null};
 
   /** State; which part of its life cycle the instance is currently in. */
   #state: ModalState = 'closed';
@@ -51,6 +50,7 @@ export class Modal implements Overlay {
     layout,
     scrimAlpha = 0.5,
     initialFocus,
+    isReusable = false,
     onClosing,
     onClosed,
     scheduler,
@@ -67,6 +67,7 @@ export class Modal implements Overlay {
     this.#config = {
       fadeDuration,
       initialFocus,
+      isReusable,
       scheduler,
     };
 
@@ -74,10 +75,21 @@ export class Modal implements Overlay {
     // NOT in `children`, so the focus walk never sees it. It is interactive so
     // every pointer event lands on UI (UiRoot already stops taps on UI from
     // reaching the game view, which blocks click-to-move for free). It sits
-    // out-of-flow (no layout of its own) at (0, 0) — the same mixed
-    // layout/non-layout child behavior loadingScreen's view exercises.
+    // out of flow and is drawn once as a 1x1 rectangle that yoga stretches over
+    // the root (a leaf's objectFit defaults to 'fill'). Its hit area accepts
+    // every point, so it blocks from the moment it is attached, before the
+    // first layout pass has sized it.
+    this.#parts.scrim.rect(0, 0, 1, 1).fill(0x000000);
     this.#parts.scrim.alpha = scrimAlpha;
     this.#parts.scrim.eventMode = 'static';
+    this.#parts.scrim.hitArea = {contains: () => true};
+    this.#parts.scrim.layout = {
+      position: 'absolute',
+      left: 0,
+      top: 0,
+      width: '100%',
+      height: '100%',
+    };
     this.view.addChild(this.#parts.scrim);
 
     if (children !== undefined) {
@@ -89,11 +101,16 @@ export class Modal implements Overlay {
 
     // position: 'absolute' keeps the full-screen root out of any flex flow the
     // owning UiRoot's view may have (the menu centers its own children); the
-    // caller's layout still styles content placement inside the root.
+    // caller's layout still styles content placement inside the root. The
+    // percentages give that layout something to resolve against and keep the
+    // scrim covering the screen: yoga sizes the root against the UiRoot's
+    // view, so the modal never reads screen dimensions itself.
     this.view.layout = {
       position: 'absolute',
       left: 0,
       top: 0,
+      width: '100%',
+      height: '100%',
       ...(typeof layout === 'object' ? layout : undefined),
     };
 
@@ -103,6 +120,48 @@ export class Modal implements Overlay {
   /** TBD */
   get state(): ModalState {
     return this.#state;
+  }
+
+  // The root is not a constructor option: UiRoot passes itself in when the
+  // modal is added, so a kept modal can be added again. By then the modal is
+  // the last UI child (above the HUD by insertion order; UiRoot keeps the
+  // focus ring topmost) and holds the focus scope, which is why initialFocus
+  // lands inside it. The root is recorded before the layout check, the way
+  // System.attach sets its world before onAttach: UiRoot does not roll back a
+  // throwing attach, so the modal is already a child holding a scope when the
+  // check throws, and destroy() needs #runtime.ui set to leave the root.
+  /** @internal Called by `UiRoot`. */
+  attach(ui: UiRoot) {
+    if (this.#runtime.ui) {
+      throw new Error('Modal is already attached to a UI root!');
+    }
+
+    this.#runtime.ui = ui;
+
+    if (ui.view.layout === null) {
+      throw new Error('UI root has no layout, the modal is sized against it!');
+    }
+
+    if (this.#config.initialFocus !== undefined) {
+      ui.focus(this.#config.initialFocus);
+    }
+
+    if (this.#config.scheduler !== undefined && this.#config.fadeDuration !== undefined) {
+      this.#state = 'opening';
+      this.view.alpha = 0;
+      this.#runtime.cancelFade = this.#config.scheduler.tween({
+        target: this.view,
+        to: {alpha: 1},
+        duration: this.#config.fadeDuration,
+        easing: easeOutQuad,
+        onComplete: () => {
+          this.#runtime.cancelFade = null;
+          this.#state = 'open';
+        },
+      });
+    } else {
+      this.#state = 'open';
+    }
   }
 
   /**
@@ -138,75 +197,28 @@ export class Modal implements Overlay {
     }
   }
 
-  // Teardown path (owning-screen onHide, or any out-of-band cleanup): releases
-  // the overlay if still attached (tolerant of an already-empty scope stack)
-  // and synchronously removes + destroys; callable from any state, never
-  // animated, never fires onClosing or onClosed.
+  // Teardown path (owning-screen onHide, or any out-of-band cleanup): leaves
+  // the UiRoot if still attached (tolerant of an already-empty scope stack)
+  // and synchronously destroys; callable from any state, never animated, never
+  // fires onClosing or onClosed, and destroys a kept modal too.
   /** Destroys the instance. */
   destroy() {
-    this.#disposables.open?.dispose();
-    this.#disposables.open = null;
-    this.#state = 'closed';
+    this.#runtime.ui?.removeOverlay(this);
     this.#destroyViews();
   }
 
-  // A modal is opened INTO a ui root, so the target is a parameter of open,
-  // not the constructor. Attaches the modal as an overlay: the last UI child
-  // (above the HUD by insertion order; UiRoot keeps the focus-ring overlay
-  // topmost), holding the focus scope while it is attached.
-  /** TBD */
-  open(ui: UiRoot) {
-    if (this.#state !== 'closed' || this.view.destroyed) {
-      return;
+  // Undoes attach() and nothing more: it destroys nothing and fires neither
+  // close hook.
+  /** @internal Called by `UiRoot`. */
+  detach() {
+    if (!this.#runtime.ui) {
+      throw new Error('Modal is not attached to a UI root!');
     }
 
-    this.#disposables.open = new DisposableStack();
-
-    ui.addOverlay(this);
-
-    // removeOverlay releases this modal's own scope before removing it, so the
-    // previousFocus restoration (the Options flow depends on it) cannot be lost
-    // to ordering here.
-    this.#disposables.open.defer(() => {
-      this.#runtime.cancelFade?.();
-      this.#runtime.cancelFade = null;
-      ui.removeOverlay(this);
-    });
-
-    if (this.#config.initialFocus !== undefined) {
-      ui.focus(this.#config.initialFocus);
-    }
-
-    if (this.#config.scheduler !== undefined && this.#config.fadeDuration !== undefined) {
-      this.#state = 'opening';
-      this.view.alpha = 0;
-      this.#runtime.cancelFade = this.#config.scheduler.tween({
-        target: this.view,
-        to: {alpha: 1},
-        duration: this.#config.fadeDuration,
-        easing: easeOutQuad,
-        onComplete: () => {
-          this.#runtime.cancelFade = null;
-          this.#state = 'open';
-        },
-      });
-    } else {
-      this.#state = 'open';
-    }
-  }
-
-  // Dumb plumbing: gives the caller's layout something to resolve against and
-  // keeps the scrim covering the screen. The owning screen calls it once right
-  // after open() and again from its onResize; the modal never reads screen
-  // dimensions itself.
-  /** TBD */
-  resize(width: number, height: number) {
-    if (this.view.destroyed) {
-      return;
-    }
-
-    this.view.layout = {width, height};
-    this.#parts.scrim.clear().rect(0, 0, width, height).fill(0x000000);
+    this.#runtime.cancelFade?.();
+    this.#runtime.cancelFade = null;
+    this.#runtime.ui = null;
+    this.#state = 'closed';
   }
 
   /** TBD */
@@ -224,12 +236,18 @@ export class Modal implements Overlay {
     this.#disposables.instance.dispose();
   }
 
+  // removeOverlay releases this modal's own scope before removing it, so the
+  // previousFocus restoration (the Options flow depends on it) cannot be lost
+  // to ordering here; it then calls detach(). A kept modal skips the destroy
+  // and can be added again.
   /** TBD */
   #finishClose() {
-    this.#state = 'closed';
-    this.#disposables.open?.dispose();
-    this.#disposables.open = null;
-    this.#destroyViews();
+    this.#runtime.ui?.removeOverlay(this);
+
+    if (!this.#config.isReusable) {
+      this.#destroyViews();
+    }
+
     this.#onClosed?.();
   }
 }

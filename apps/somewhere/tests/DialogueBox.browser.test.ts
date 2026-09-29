@@ -296,16 +296,16 @@ describe('DialogueBox focus integration', () => {
     mockTexts.length = 0;
   });
 
-  test('open takes a focus scope: no choices means nothing is focusable', async () => {
+  test('an added box takes a focus scope: no choices means nothing is focusable', async () => {
     let {ui, outside} = await createUiWithOutsideButton();
     let {box} = createBox();
 
     box.resize(10, 100);
-    box.open(ui);
+    ui.addOverlay(box);
     box.showNode({page: 'Q'});
 
     // The regression: focus commands must not escape to HUD widgets while the
-    // box is open with plain text.
+    // box is attached with plain text.
     ui.focusNext();
     ui.moveFocus('down');
 
@@ -319,7 +319,7 @@ describe('DialogueBox focus integration', () => {
     let {box} = createBox({onChooseTap: chosen});
 
     box.resize(10, 100);
-    box.open(ui);
+    ui.addOverlay(box);
     box.showNode({page: 'Q'});
     box.setChoices(['Yes', 'No'], 0);
 
@@ -340,7 +340,7 @@ describe('DialogueBox focus integration', () => {
     let {box} = createBox();
 
     box.resize(10, 100);
-    box.open(ui);
+    ui.addOverlay(box);
     box.showNode({page: 'Q'});
     box.setChoices(['Yes', 'No'], 0);
 
@@ -354,7 +354,7 @@ describe('DialogueBox focus integration', () => {
     let {box} = createBox();
 
     box.resize(10, 100);
-    box.open(ui);
+    ui.addOverlay(box);
     box.showNode({page: 'Q'});
     ui.cancel();
 
@@ -365,12 +365,116 @@ describe('DialogueBox focus integration', () => {
     expect(box.view.destroyed).toBe(false);
   });
 
+  test('adding an attached box throws', async () => {
+    let {ui} = await createUiWithOutsideButton();
+    let {box} = createBox();
+
+    ui.addOverlay(box);
+
+    expect(() => {
+      ui.addOverlay(box);
+    }).toThrow('Overlay was already added to the UI root!');
+
+    expect(ui.children.filter((child) => child === box)).toHaveLength(1);
+    expect(ui.topOverlay).toBe(box);
+  });
+
+  test('a box is attached to one root at a time', async () => {
+    let {ui} = await createUiWithOutsideButton();
+    let {ui: other} = await createUiWithOutsideButton();
+    let {box} = createBox();
+
+    ui.addOverlay(box);
+
+    expect(() => {
+      other.addOverlay(box);
+    }).toThrow('Dialogue box is already attached to a UI root!');
+  });
+
+  test('detach() throws for a box that is not attached', () => {
+    let {box} = createBox();
+
+    expect(() => {
+      box.detach();
+    }).toThrow('Dialogue box is not attached to a UI root!');
+  });
+
+  test('ui.removeOverlay(box) keeps the box alive, and it can be added again', async () => {
+    let {ui, outside} = await createUiWithOutsideButton();
+    let chosen = vitest.fn<(index: number) => void>();
+    let {box} = createBox({onChooseTap: chosen});
+
+    box.resize(10, 100);
+    ui.addOverlay(box);
+    box.showNode({page: 'Q'});
+    box.setChoices(['Yes', 'No'], 0);
+    ui.removeOverlay(box);
+
+    expect(box.view.destroyed).toBe(false);
+    expect(ui.children).not.toContain(box);
+    expect(ui.topOverlay).toBeNull();
+    // Detached, the box no longer asks the root which choice is focused.
+    expect(box.focusedChoiceIndex).toBe(-1);
+
+    ui.focusNext();
+
+    expect(ui.focused).toBe(outside);
+
+    // The same instance across dialogues: the scope and the focus sync are back.
+    ui.addOverlay(box);
+    box.showNode({page: 'Again'});
+    box.setChoices(['Yes', 'No'], 1);
+
+    expect(ui.topOverlay).toBe(box);
+    expect(box.focusedChoiceIndex).toBe(1);
+
+    ui.activate();
+
+    expect(chosen).toHaveBeenCalledWith(1);
+  });
+
+  test('destroy() after ui.removeOverlay(box) leaves the root alone', async () => {
+    let {ui, outside} = await createUiWithOutsideButton();
+    let {box} = createBox();
+
+    box.resize(10, 100);
+    ui.addOverlay(box);
+    box.showNode({page: 'Q'});
+    ui.removeOverlay(box);
+
+    expect(() => {
+      box.destroy();
+    }).not.toThrow();
+
+    expect(box.view.destroyed).toBe(true);
+    expect(ui.children).toEqual([outside]);
+  });
+
+  test('destroy() survives a root that was destroyed first', async () => {
+    let {ui} = await createUiWithOutsideButton();
+    let {box} = createBox();
+
+    box.resize(10, 100);
+    ui.addOverlay(box);
+    box.showNode({page: 'Q'});
+    // Not through ui.destroy(), which would cascade into box.destroy(): the
+    // root's view is gone while the box still points at the root.
+    ui.view.destroy();
+
+    expect(() => {
+      box.destroy();
+    }).not.toThrow();
+
+    expect(box.view.destroyed).toBe(true);
+    expect(box.focusedChoiceIndex).toBe(-1);
+  });
+
   test('destroy releases the scope back to the screen', async () => {
     let {ui, outside} = await createUiWithOutsideButton();
     let {box} = createBox();
 
     box.resize(10, 100);
-    box.open(ui);
+    ui.addOverlay(box);
     box.showNode({page: 'Q'});
     box.setChoices(['Yes', 'No'], 0);
     box.destroy();
