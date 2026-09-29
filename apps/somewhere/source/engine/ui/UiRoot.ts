@@ -43,7 +43,7 @@ export class UiRoot implements UiParent {
     let ringContainer = new pixi.Container();
     let ring = new pixi.NineSliceSprite({texture: this.#config.theme.focusRing.texture});
 
-    this.#parts = {overlay: ringContainer, ring};
+    this.#parts = {ring, ringContainer};
     ringContainer.eventMode = 'none';
     this.view.eventMode = 'static';
 
@@ -54,11 +54,8 @@ export class UiRoot implements UiParent {
       this.#onFocusEvent = onFocusEvent;
     }
 
-    // Tapping a focusable silently moves navigation focus to it, so we're resuming from where the
-    // user last clicked.
-    // Pointer interplay: resolve a Pixi hit-test target back to the component
-    // that owns it and focus it silently (the ring stays hidden), so keyboard
-    // navigation resumes from where the user last tapped.
+    // Taps focus components without showing the ring; keyboard navigation resumes from last tapped
+    // component.
     let handleTap = (event: pixi.FederatedPointerEvent) => {
       let byView = new Map<pixi.Container, Focusable>();
 
@@ -68,6 +65,7 @@ export class UiRoot implements UiParent {
 
       let current: pixi.Container | null = event.target;
 
+      // We need to find component with view that is the tapped Pixi.js display object.
       while (current !== null) {
         let focusable = byView.get(current);
 
@@ -82,25 +80,21 @@ export class UiRoot implements UiParent {
     };
 
     this.view.addEventListener('pointertap', handleTap, {capture: true});
-
     this.#disposables.instance.defer(() => {
       this.view.removeEventListener('pointertap', handleTap, {capture: true});
     });
 
-    // Any tap that bubbles this far started on a UI element; stop it here so it can't fall through
-    // to the game.
+    // Stops propagating taps, so no game handlers can receive them.
     let stopTap = (event: pixi.FederatedPointerEvent) => {
       event.stopPropagation();
     };
 
     this.view.addEventListener('pointertap', stopTap);
-
     this.#disposables.instance.defer(() => {
       this.view.removeEventListener('pointertap', stopTap);
     });
 
-    // Any pointer press hides the ring again (focus is kept); it reappears on
-    // the next focus command.
+    // Any pointer press hides the ring.
     // TODO: remove when linter config contains fix for this: https://github.com/sindresorhus/eslint-plugin-unicorn/issues/2088
     // eslint-disable-next-line unicorn/consistent-function-scoping -- false positive
     let handlePointerDown = () => {
@@ -108,19 +102,12 @@ export class UiRoot implements UiParent {
     };
 
     globalThis.addEventListener('pointerdown', handlePointerDown);
-
     this.#disposables.instance.defer(() => {
       globalThis.removeEventListener('pointerdown', handlePointerDown);
     });
-
     this.#disposables.instance.defer(() => this.view.destroy({children: true}));
   }
 
-  // The scope stack needs no repair here: removeChild refuses an overlay that
-  // holds a scope, so no scope outlives its overlay through UiRoot. A view
-  // detached through pixi directly is invisible to UiRoot (attachment lives on
-  // the pixi view.parent chain; component-level parent pointers don't exist),
-  // which is why that is unsupported, as for any component.
   /** TBD */
   get #focusables(): Focusable[] {
     return collectFocusables(this.#runtime.scopes.at(-1)?.root ?? this);
@@ -166,14 +153,20 @@ export class UiRoot implements UiParent {
     return this;
   }
 
-  // Scope/removal interplay: removeChild refuses an overlay that holds a scope,
-  // so removeOverlay is the only way out through UiRoot. Detaching or destroying
-  // its view through pixi directly is unsupported, as for any component.
   /** Attaches the overlay as the last UI child and gives it the focus scope. */
   addOverlay(overlay: Overlay): this {
+    if (this.children.includes(overlay)) {
+      throw new Error('Overlay was already added to the UI root!');
+    }
+
+    if (overlay.view.destroyed) {
+      throw new Error('Overlay is destroyed!');
+    }
+
     this.addChild(overlay);
     this.#runtime.scopes.push({previousFocus: this.#runtime.focused, root: overlay});
     this.#runtime.focused = null;
+    overlay.attach?.(this);
 
     return this;
   }
@@ -210,7 +203,8 @@ export class UiRoot implements UiParent {
 
   /** Destroys the instance. */
   destroy() {
-    // A copy: an overlay's destroy() leaves children through removeOverlay.
+    // Iterate a copy; child that is an overlay splices itself out of children when its destyroyed,
+    // which would make the live loop skip the next overlay.
     let children = [...this.children];
 
     for (let child of children) {
@@ -336,8 +330,6 @@ export class UiRoot implements UiParent {
     }
 
     if (!focusables.includes(this.#runtime.focused)) {
-      // Stale focus (the component was disabled, hidden or removed): drop it
-      // now; the next focus command behaves like initial focus in the scope.
       this.#runtime.focused = null;
 
       return;
@@ -356,8 +348,6 @@ export class UiRoot implements UiParent {
 
   /** TBD */
   removeChild(...children: UiChild[]): this {
-    // An overlay leaves through removeOverlay, which releases its scope first.
-    // Checked before anything is removed, so a refused call changes nothing.
     if (children.some((child) => this.#runtime.scopes.some((scope) => scope.root === child))) {
       throw new Error('Overlay must be removed with removeOverlay()!');
     }
@@ -372,8 +362,6 @@ export class UiRoot implements UiParent {
       this.view.removeChild('view' in child ? child.view : child);
     }
 
-    // Stale focus (the component left with the removed subtree): drop it now,
-    // matching how the focus commands treat non-collectible components.
     if (this.#runtime.focused !== null && !this.#focusables.includes(this.#runtime.focused)) {
       this.#runtime.focused = null;
     }
@@ -381,16 +369,20 @@ export class UiRoot implements UiParent {
     return this;
   }
 
-  // Drops this overlay's own scope, not whatever is on top, and tolerates a
-  // scope that is already gone (clearFocus on hide). A buried scope is legal: a
-  // closing modal keeps its scope through the fade while the game already runs,
-  // so overlays can open above it or close beneath it. The scope goes before the
-  // child, so the order is not the caller's to get wrong.
   /** Detaches the overlay and releases its focus scope. */
   removeOverlay(overlay: Overlay): this {
+    if (!this.children.includes(overlay)) {
+      throw new Error("Overlay wasn't found!");
+    }
+
+    for (let focusable of collectFocusables(overlay)) {
+      focusable.deactivate?.();
+    }
+
     let index = this.#runtime.scopes.findIndex((scope) => scope.root === overlay);
 
     if (index !== -1 && index === this.#runtime.scopes.length - 1) {
+      // Topmost scope is being removed.
       let scope = this.#runtime.scopes.pop();
 
       if (scope !== undefined) {
@@ -400,15 +392,16 @@ export class UiRoot implements UiParent {
           : null;
       }
     } else if (index !== -1) {
-      // The scope above was opened while this one was on top, so its
-      // previousFocus points into this overlay; it inherits this scope's. The
-      // type assertions are ok, because index is not the last one.
+      // The scope being removed has saved a focused element from a lower scope; we need to copy it
+      // to the scope that replaces the removed one.
       let [buried] = this.#runtime.scopes.splice(index, 1) as [FocusScope];
 
-      (this.#runtime.scopes[index] as FocusScope).previousFocus = buried.previousFocus;
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- it's ok, we checked for existence
+      this.#runtime.scopes[index]!.previousFocus = buried.previousFocus;
     }
 
     this.removeChild(overlay);
+    overlay.detach?.();
 
     return this;
   }
@@ -416,7 +409,7 @@ export class UiRoot implements UiParent {
   /** TBD */
   update() {
     let {focused, isRingVisible} = this.#runtime;
-    let {overlay, ring} = this.#parts;
+    let {ring, ringContainer} = this.#parts;
 
     if (!isRingVisible || !focused?.isFocusable || focused.view.destroyed) {
       ring.visible = false;
@@ -425,16 +418,15 @@ export class UiRoot implements UiParent {
     }
 
     let {padding} = this.#config.theme.focusRing;
-    // Bounds are re-read every frame while the ring is visible, so it tracks
-    // layout changes and animations without any cached geometry to invalidate.
     let bounds = focused.view.getBounds();
-    let topLeft = overlay.toLocal({x: bounds.x, y: bounds.y});
-    let bottomRight = overlay.toLocal({
+    let topLeft = ringContainer.toLocal({x: bounds.x, y: bounds.y});
+    let bottomRight = ringContainer.toLocal({
       x: bounds.x + bounds.width,
       y: bounds.y + bounds.height,
     });
 
     ring.visible = true;
+
     ring.position.set(topLeft.x - padding, topLeft.y - padding);
     ring.setSize(bottomRight.x - topLeft.x + 2 * padding, bottomRight.y - topLeft.y + 2 * padding);
   }

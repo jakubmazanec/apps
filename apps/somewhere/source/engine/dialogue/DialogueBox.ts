@@ -74,17 +74,17 @@ const UNSELECTED_PREFIX = '  ';
 const CHOICE_PADDING = 1;
 
 /**
- * The dialogue display widget in the Modal idiom: a flat class owning a view,
- * composed from the existing UI widgets, no inheritance, no ECS and no
- * channels. The root positions itself as a bottom bar in screen art px; a
- * LayoutContainer subtree under a plain container computes as an independent
- * layout root because its width and height are numbers.
+ * The dialogue display widget: a flat class owning a view, composed from the
+ * existing UI widgets, no inheritance, no ECS and no channels. The root
+ * positions itself as a bottom bar in screen art px; a LayoutContainer subtree
+ * under a plain container computes as an independent layout root because its
+ * width and height are numbers.
  *
- * Like Modal, the box opens INTO a ui root as an overlay and holds its focus
- * scope while it lives: choice buttons are ordinary focusables inside the
- * scope, and with no choices on screen the scope is empty, so focus commands
- * cannot wander to HUD widgets behind the box. Unlike Modal it declares no
- * close, so it is not dismissible: the cancel command passes over it.
+ * The box is an overlay: it is added with ui.addOverlay(box) and holds the
+ * focus scope while it is attached. Choice buttons are ordinary focusables
+ * inside the scope, and with no choices on screen the scope is empty, so focus
+ * commands cannot wander to HUD widgets behind the box. It declares no close,
+ * so it is not dismissible: the cancel command passes over it.
  *
  * The layout is settled at showNode from the FINAL content, never from what
  * is on screen: the page is wrapped and windowed up front, the content leaf
@@ -223,7 +223,7 @@ export class DialogueBox implements Overlay {
     return this.#choicesPanel === null ? [] : [this.#choicesPanel];
   }
 
-  /** Index of the focused choice button, -1 when focus is elsewhere or the box is not open. */
+  /** Index of the focused choice button, -1 when focus is elsewhere or the box is not attached. */
   get focusedChoiceIndex(): number {
     if (this.#ui === null) {
       return -1;
@@ -240,17 +240,30 @@ export class DialogueBox implements Overlay {
     return this.#isCollapsed;
   }
 
+  // The box keeps the root for the two things it asks of it: which choice is
+  // focused, and moving focus to the selected one.
+  /** @internal Called by `UiRoot`. */
+  attach(ui: UiRoot) {
+    if (this.#ui) {
+      throw new Error('Dialogue box is already attached to a UI root!');
+    }
+
+    this.#ui = ui;
+  }
+
   /** Destroys the instance. */
   destroy(): void {
     // removeOverlay releases this box's own scope, not whatever sits on top,
-    // and owns the scope-then-child order that keeps previousFocus restored.
+    // owns the scope-then-child order that keeps previousFocus restored, and
+    // calls detach(), which needs #ui still set. The reset below covers a root
+    // that was destroyed first.
     let ui = this.#ui;
-
-    this.#ui = null;
 
     if (ui !== null && !ui.view.destroyed) {
       ui.removeOverlay(this);
     }
+
+    this.#ui = null;
 
     this.#choiceButtons = [];
     this.#box?.destroy();
@@ -258,18 +271,13 @@ export class DialogueBox implements Overlay {
     this.view.destroy({children: true});
   }
 
-  /**
-   * Attaches into the screen's ui as an overlay, holding the focus scope for
-   * the box's lifetime; destroy releases it. With no close declared the
-   * overlay is not dismissible.
-   */
-  open(ui: UiRoot): void {
-    if (this.#ui !== null || this.view.destroyed) {
-      return;
+  /** @internal Called by `UiRoot`. */
+  detach() {
+    if (!this.#ui) {
+      throw new Error('Dialogue box is not attached to a UI root!');
     }
 
-    this.#ui = ui;
-    ui.addOverlay(this);
+    this.#ui = null;
   }
 
   /**

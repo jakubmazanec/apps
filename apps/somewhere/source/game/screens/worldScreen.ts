@@ -108,8 +108,9 @@ function buildPauseModal(screen: GameScreen<WorldScreenContents, UIEventMap>): M
 function openPauseModal(screen: GameScreen<WorldScreenContents, UIEventMap>): void {
   // One guard for every caller: a second open would call world.pause() on an already
   // paused world, which throws. Escape cannot reach here with the modal open (it is
-  // dismissible, so onUpdate leaves the command to it), but the pause key and the HUD
-  // button can, the button on a double tap that races the scrim.
+  // dismissible, so onUpdate leaves the command to it), the HUD button cannot either
+  // (the scrim blocks every press from the moment the modal is added), but the pause
+  // key can.
   if (screen.contents.openModal !== null) {
     return;
   }
@@ -120,11 +121,7 @@ function openPauseModal(screen: GameScreen<WorldScreenContents, UIEventMap>): vo
       let modal = buildPauseModal(screen);
 
       screen.contents.openModal = modal;
-      modal.open(screen.ui);
-      modal.resize(
-        screen.game.app.screen.width / screen.game.pixelScale,
-        screen.game.app.screen.height / screen.game.pixelScale,
-      );
+      screen.ui.addOverlay(modal);
     },
   });
 }
@@ -138,8 +135,8 @@ export const worldScreen = new GameScreen<WorldScreenContents, UIEventMap>({
   onAttach: (screen): WorldScreenContents => {
     // Full-screen flex row: HUD texts top-left, pause button top-right. The
     // percentages resolve against game.view's root layout, so window resize is
-    // handled by the existing root-layout resize path. The focus-ring overlay
-    // and the modal stay out of the flow (no layout / position: absolute).
+    // handled by the existing root-layout resize path. The focus ring and the
+    // overlays stay out of the flow (no layout / position: absolute).
 
     screen.view.layout = {width: '100%', height: '100%'};
 
@@ -239,12 +236,6 @@ export const worldScreen = new GameScreen<WorldScreenContents, UIEventMap>({
     });
 
     screen.contents.openModal = null;
-  },
-  onResize: (screen) => {
-    screen.contents.openModal?.resize(
-      screen.game.app.screen.width / screen.game.pixelScale,
-      screen.game.app.screen.height / screen.game.pixelScale,
-    );
   },
   onUpdate: (ticker, screen) => {
     // The pause key works from anywhere; the cancel command opens the menu only

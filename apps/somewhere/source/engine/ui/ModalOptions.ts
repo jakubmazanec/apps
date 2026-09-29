@@ -11,16 +11,21 @@ export type ModalOptions = {
   // verbatim — the primitive has no placement opinion for its content.
   layout?: pixi.ContainerOptions['layout'] | undefined;
   scrimAlpha?: number | undefined;
-  // Applied via ui.focus() on open (programmatic — no ring shown). When
-  // omitted nothing is focused, same as screens.
+  // Applied via ui.focus() on every attach (programmatic, no ring shown).
+  // When omitted nothing is focused, same as screens.
   initialFocus?: Focusable | undefined;
+  // Keeps the modal alive after close(), so the same instance can be added
+  // again with ui.addOverlay(); its owner then destroys it. Off by default:
+  // close() destroys the modal.
+  isReusable?: boolean | undefined;
   // Fired once when a user-facing close begins, before any fade, never on
-  // destroy(). Side effects of dismissal belong here, so the cancel command and
-  // the modal's own close button cannot diverge: the pause menu unfreezes the
-  // world at close-start, behind the fading scrim.
+  // destroy() or ui.removeOverlay(). Side effects of dismissal belong here, so
+  // the cancel command and the modal's own close button cannot diverge: the
+  // pause menu unfreezes the world at close-start, behind the fading scrim.
   onClosing?: (() => void) | undefined;
-  // Fired when a user-facing close() completes (never on destroy()); the
-  // owning screen clears its `openModal` reference here.
+  // Fired when a user-facing close() completes (never on destroy() or
+  // ui.removeOverlay(), and never if the modal is removed during the fade-out);
+  // the owning screen clears its `openModal` reference here.
   onClosed?: (() => void) | undefined;
   // Both or neither — enables the open/close fade, driven by the owning
   // screen's Scheduler (which deliberately keeps running while the world is

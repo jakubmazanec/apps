@@ -61,10 +61,10 @@ describe(Modal, () => {
     vitest.restoreAllMocks();
   });
 
-  test('open(ui) adds the modal as the last UI child, below the focus-ring overlay', () => {
+  test('addOverlay adds the modal as the last UI child, below the focus ring', () => {
     let root = createRoot();
     let rootView = root.view as unknown as MockContainer;
-    let overlay = rootView.children[0];
+    let ringContainer = rootView.children[0];
     let outside = focusable();
 
     root.addChild(outside);
@@ -72,15 +72,15 @@ describe(Modal, () => {
     let inside = focusable();
     let modal = new Modal({children: [panel([inside])]});
 
-    modal.open(root);
+    root.addOverlay(modal);
 
     expect(root.children.at(-1)).toBe(modal);
-    expect(rootView.children.at(-1)).toBe(overlay);
+    expect(rootView.children.at(-1)).toBe(ringContainer);
     expect(rootView.children.at(-2)).toBe(modal.view as unknown as MockContainer);
     expect(modal.state).toBe('open');
   });
 
-  test('open(ui) traps focus inside the modal', () => {
+  test('an added modal traps focus inside it', () => {
     let root = createRoot();
     let outside = focusable();
 
@@ -90,7 +90,7 @@ describe(Modal, () => {
     let second = focusable();
     let modal = new Modal({children: [panel([first, second])]});
 
-    modal.open(root);
+    root.addOverlay(modal);
 
     root.focusNext();
 
@@ -105,12 +105,12 @@ describe(Modal, () => {
     expect(root.focused).toBe(first); // wraps within the scope; outside is unreachable
   });
 
-  test('open() applies initialFocus programmatically (no ring)', () => {
+  test('adding applies initialFocus programmatically (no ring)', () => {
     let root = createRoot();
     let resume = focusable();
     let modal = new Modal({children: [panel([resume])], initialFocus: resume});
 
-    modal.open(root);
+    root.addOverlay(modal);
 
     expect(root.focused).toBe(resume);
     expect(root.isRingVisible).toBe(false);
@@ -121,20 +121,62 @@ describe(Modal, () => {
     let inside = focusable();
     let modal = new Modal({children: [panel([inside])]});
 
-    modal.open(root);
+    root.addOverlay(modal);
 
     expect(root.focused).toBeNull();
   });
 
-  test('open() is a no-op unless closed', () => {
+  test('adding an attached modal throws', () => {
     let root = createRoot();
     let modal = new Modal({});
 
-    modal.open(root);
-    modal.open(root);
+    root.addOverlay(modal);
+
+    expect(() => {
+      root.addOverlay(modal);
+    }).toThrow('Overlay was already added to the UI root!');
 
     expect(root.children.filter((child) => child === modal)).toHaveLength(1);
+    expect(root.topOverlay).toBe(modal);
     expect(modal.state).toBe('open');
+  });
+
+  test('adding a closed modal throws, because close() destroyed it', () => {
+    let root = createRoot();
+    let modal = new Modal({});
+
+    root.addOverlay(modal);
+    modal.close();
+
+    expect(() => {
+      root.addOverlay(modal);
+    }).toThrow('Overlay is destroyed!');
+
+    expect(root.children).not.toContain(modal);
+    expect(root.topOverlay).toBeNull();
+  });
+
+  test('a modal is attached to one root at a time', () => {
+    let first = createRoot();
+    let second = createRoot();
+    let modal = new Modal({});
+
+    first.addOverlay(modal);
+
+    expect(() => {
+      second.addOverlay(modal);
+    }).toThrow('Modal is already attached to a UI root!');
+
+    expect(first.topOverlay).toBe(modal);
+    expect(modal.state).toBe('open');
+  });
+
+  test('detach() throws for a modal that is not attached', () => {
+    let modal = new Modal({});
+
+    expect(() => {
+      modal.detach();
+    }).toThrow('Modal is not attached to a UI root!');
   });
 
   test('close() removes the modal and restores prior focus', () => {
@@ -147,7 +189,7 @@ describe(Modal, () => {
     let modal = new Modal({children: [panel([inside])]});
 
     root.focus(outside);
-    modal.open(root);
+    root.addOverlay(modal);
 
     modal.close();
 
@@ -169,7 +211,7 @@ describe(Modal, () => {
       },
     });
 
-    modal.open(root);
+    root.addOverlay(modal);
     modal.close();
     modal.close();
 
@@ -187,7 +229,7 @@ describe(Modal, () => {
     let modal = new Modal({children: [panel([focusable()])], onClosing, onClosed});
 
     root.focus(outside);
-    modal.open(root);
+    root.addOverlay(modal);
     modal.destroy();
 
     expect(root.children).not.toContain(modal);
@@ -203,21 +245,16 @@ describe(Modal, () => {
     }).not.toThrow();
   });
 
-  test('resize() sizes the root layout and redraws the scrim', () => {
+  test('the root asks yoga for the whole UiRoot view, out of its flow', () => {
     let modal = new Modal({});
 
-    modal.resize(800, 600);
-
     expect((modal.view as unknown as MockContainer).layout).toMatchObject({
-      width: 800,
-      height: 600,
+      position: 'absolute',
+      left: 0,
+      top: 0,
+      width: '100%',
+      height: '100%',
     });
-
-    let scrim = (modal.view as unknown as MockContainer).children[0] as unknown as Graphics;
-
-    // The real Graphics records its drawing in the context bounds: the scrim
-    // is redrawn to cover exactly the resized modal.
-    expect(scrim.bounds).toMatchObject({x: 0, y: 0, width: 800, height: 600});
   });
 
   test('the layout option passes through verbatim', () => {
@@ -238,8 +275,53 @@ describe(Modal, () => {
     expect(scrim instanceof Graphics).toBe(true); // it is the Graphics scrim
     expect(scrim.alpha).toBeCloseTo(0.7);
     expect(scrim.eventMode).toBe('static');
+    // The hit area accepts every point, so the scrim blocks before yoga sized
+    // it, and wherever the press lands.
+    expect(scrim.hitArea?.contains(0, 0)).toBe(true);
+    expect(scrim.hitArea?.contains(-5000, 9000)).toBe(true);
+    // Drawn once as a unit square; yoga stretches it over the root.
+    expect(scrim.bounds).toMatchObject({x: 0, y: 0, width: 1, height: 1});
+    expect((scrim as unknown as MockContainer).layout).toMatchObject({
+      position: 'absolute',
+      left: 0,
+      top: 0,
+      width: '100%',
+      height: '100%',
+    });
     expect(viewChildren[1]).toBe(content.view as unknown as MockContainer);
     expect(modal.children).toEqual([content]); // the focus walk never sees the scrim
+  });
+
+  test('ui.removeOverlay(modal) leaves the modal alive and fires neither close hook', () => {
+    let root = createRoot();
+    let outside = focusable();
+
+    root.addChild(outside);
+
+    let onClosing = vitest.fn<() => void>();
+    let onClosed = vitest.fn<() => void>();
+    let inside = focusable();
+    let modal = new Modal({children: [panel([inside])], onClosing, onClosed});
+
+    root.focus(outside);
+    root.addOverlay(modal);
+    root.removeOverlay(modal);
+
+    expect(root.children).not.toContain(modal);
+    expect(root.topOverlay).toBeNull();
+    expect(root.focused).toBe(outside);
+    expect((modal.view as unknown as MockContainer).destroyed).toBe(false);
+    expect(modal.state).toBe('closed');
+    expect(onClosing).not.toHaveBeenCalled();
+    expect(onClosed).not.toHaveBeenCalled();
+
+    // Removed, not destroyed: the same instance goes back in.
+    root.addOverlay(modal);
+
+    expect(modal.state).toBe('open');
+    expect(root.topOverlay).toBe(modal);
+
+    modal.destroy();
   });
 
   test('the cancel command closes the modal', () => {
@@ -247,22 +329,190 @@ describe(Modal, () => {
     let onClosing = vitest.fn<() => void>();
     let modal = new Modal({children: [panel([focusable()])], onClosing});
 
-    modal.open(root);
+    root.addOverlay(modal);
     root.cancel();
 
     expect(onClosing).toHaveBeenCalledTimes(1);
     expect(modal.state).toBe('closed');
   });
 
+  describe('isReusable', () => {
+    test('close() keeps the views, fires onClosed and ends in closed', () => {
+      let root = createRoot();
+      let outside = focusable();
+
+      root.addChild(outside);
+
+      let calls: string[] = [];
+      let content = {...panel([focusable()]), destroy: vitest.fn<() => void>()};
+      let modal = new Modal({
+        children: [content],
+        isReusable: true,
+        onClosing: () => {
+          calls.push('closing');
+        },
+        onClosed: () => {
+          calls.push(`closed:${modal.state}:${String(root.children.includes(modal))}`);
+        },
+      });
+
+      root.focus(outside);
+      root.addOverlay(modal);
+      modal.close();
+
+      // onClosed fires last: the modal has already left the root by then.
+      expect(calls).toEqual(['closing', 'closed:closed:false']);
+      expect(modal.state).toBe('closed');
+      expect(root.children).not.toContain(modal);
+      expect(root.topOverlay).toBeNull();
+      expect(root.focused).toBe(outside);
+      expect((modal.view as unknown as MockContainer).destroyed).toBe(false);
+      expect(content.destroy).not.toHaveBeenCalled();
+      expect(modal.children).toEqual([content]);
+
+      modal.destroy();
+    });
+
+    test('a kept modal can be added again, and every close fires both hooks', () => {
+      let root = createRoot();
+      let onClosing = vitest.fn<() => void>();
+      let onClosed = vitest.fn<() => void>();
+      let first = focusable();
+      let second = focusable();
+      let modal = new Modal({
+        children: [panel([first, second])],
+        initialFocus: first,
+        isReusable: true,
+        onClosing,
+        onClosed,
+      });
+
+      root.addOverlay(modal);
+      root.focus(second);
+      modal.close();
+      root.addOverlay(modal);
+
+      // Keyboard focus is not kept: initialFocus is applied on every attach.
+      expect(modal.state).toBe('open');
+      expect(root.topOverlay).toBe(modal);
+      expect(root.focused).toBe(first);
+      expect(root.isRingVisible).toBe(false);
+
+      modal.close();
+
+      expect(onClosing).toHaveBeenCalledTimes(2);
+      expect(onClosed).toHaveBeenCalledTimes(2);
+      expect((modal.view as unknown as MockContainer).destroyed).toBe(false);
+
+      modal.destroy();
+    });
+
+    test('a kept modal fades in again from alpha 0', () => {
+      let root = createRoot();
+      let scheduler = new Scheduler();
+      let modal = new Modal({isReusable: true, scheduler, fadeDuration: 200});
+      let view = modal.view as unknown as MockContainer;
+
+      root.addOverlay(modal);
+      scheduler.update(tick(200)); // open
+      modal.close();
+      scheduler.update(tick(200)); // closed, alpha 0
+
+      expect(modal.state).toBe('closed');
+      expect(view.alpha).toBe(0);
+      expect(view.destroyed).toBe(false);
+
+      root.addOverlay(modal);
+
+      expect(modal.state).toBe('opening');
+      expect(view.alpha).toBe(0);
+
+      scheduler.update(tick(100));
+
+      expect(view.alpha).toBeCloseTo(0.75); // easeOutQuad(0.5)
+
+      scheduler.update(tick(100));
+
+      expect(view.alpha).toBe(1);
+      expect(modal.state).toBe('open');
+
+      modal.destroy();
+    });
+
+    test('adding a kept modal that is still fading out throws', () => {
+      let root = createRoot();
+      let scheduler = new Scheduler();
+      let modal = new Modal({isReusable: true, scheduler, fadeDuration: 200});
+
+      root.addOverlay(modal);
+      scheduler.update(tick(200)); // open
+      modal.close();
+
+      expect(() => {
+        root.addOverlay(modal);
+      }).toThrow('Overlay was already added to the UI root!');
+
+      scheduler.update(tick(200)); // closed
+
+      expect(() => {
+        root.addOverlay(modal);
+      }).not.toThrow();
+
+      modal.destroy();
+    });
+
+    test('destroy() destroys a kept modal, attached or not', () => {
+      let root = createRoot();
+      let onClosing = vitest.fn<() => void>();
+      let onClosed = vitest.fn<() => void>();
+      let attachedContent = {...panel([]), destroy: vitest.fn<() => void>()};
+      let attached = new Modal({
+        children: [attachedContent],
+        isReusable: true,
+        onClosing,
+        onClosed,
+      });
+      let kept = new Modal({isReusable: true, onClosing, onClosed});
+
+      root.addOverlay(attached);
+      attached.destroy();
+
+      root.addOverlay(kept);
+      kept.close();
+      kept.destroy();
+
+      expect(root.children).toEqual([]);
+      expect((attached.view as unknown as MockContainer).destroyed).toBe(true);
+      expect(attachedContent.destroy).toHaveBeenCalledTimes(1);
+      expect((kept.view as unknown as MockContainer).destroyed).toBe(true);
+      // Only kept.close() fired hooks; destroy() never does.
+      expect(onClosing).toHaveBeenCalledTimes(1);
+      expect(onClosed).toHaveBeenCalledTimes(1);
+    });
+
+    test('adding a destroyed kept modal throws', () => {
+      let root = createRoot();
+      let modal = new Modal({isReusable: true});
+
+      root.addOverlay(modal);
+      modal.close();
+      modal.destroy();
+
+      expect(() => {
+        root.addOverlay(modal);
+      }).toThrow('Overlay is destroyed!');
+    });
+  });
+
   describe('fade (scheduler + fadeDuration)', () => {
-    test('open() fades in: opening at alpha 0, open at alpha 1', () => {
+    test('adding fades in: opening at alpha 0, open at alpha 1', () => {
       let root = createRoot();
       let scheduler = new Scheduler();
       let inside = focusable();
       let modal = new Modal({children: [panel([inside])], scheduler, fadeDuration: 200});
       let view = modal.view as unknown as MockContainer;
 
-      modal.open(root);
+      root.addOverlay(modal);
 
       expect(modal.state).toBe('opening');
       expect(view.alpha).toBe(0);
@@ -303,7 +553,7 @@ describe(Modal, () => {
       let view = modal.view as unknown as MockContainer;
 
       root.focus(outside);
-      modal.open(root);
+      root.addOverlay(modal);
       scheduler.update(tick(100)); // mid fade-in, alpha 0.75
 
       modal.close();
@@ -337,7 +587,7 @@ describe(Modal, () => {
       let onClosed = vitest.fn<() => void>();
       let modal = new Modal({scheduler, fadeDuration: 200, onClosing, onClosed});
 
-      modal.open(root);
+      root.addOverlay(modal);
       scheduler.update(tick(200)); // open
       modal.close();
       modal.close();
@@ -345,6 +595,61 @@ describe(Modal, () => {
 
       expect(onClosing).toHaveBeenCalledTimes(1);
       expect(onClosed).toHaveBeenCalledTimes(1);
+    });
+
+    test('adding a modal that is still fading out throws', () => {
+      let root = createRoot();
+      let scheduler = new Scheduler();
+      let modal = new Modal({scheduler, fadeDuration: 200});
+
+      root.addOverlay(modal);
+      scheduler.update(tick(200)); // open
+      modal.close();
+
+      expect(modal.state).toBe('closing');
+
+      expect(() => {
+        root.addOverlay(modal);
+      }).toThrow('Overlay was already added to the UI root!');
+
+      expect(modal.state).toBe('closing');
+
+      scheduler.update(tick(200)); // the fade-out still completes
+
+      expect(modal.state).toBe('closed');
+      expect(root.children).not.toContain(modal);
+    });
+
+    test('ui.removeOverlay(modal) during a fade cancels the tween', () => {
+      let root = createRoot();
+      let scheduler = new Scheduler();
+      let onClosing = vitest.fn<() => void>();
+      let onClosed = vitest.fn<() => void>();
+      let modal = new Modal({scheduler, fadeDuration: 200, onClosing, onClosed});
+      let view = modal.view as unknown as MockContainer;
+
+      root.addOverlay(modal);
+      scheduler.update(tick(200)); // open
+      modal.close();
+      scheduler.update(tick(100)); // mid fade-out
+
+      root.removeOverlay(modal);
+
+      let alphaAtRemoval = view.alpha;
+
+      expect(modal.state).toBe('closed');
+      expect(view.destroyed).toBe(false);
+
+      scheduler.update(tick(1000));
+
+      // onClosing fired at close-start; the cancelled fade never reaches
+      // onClosed, and the view is left alone.
+      expect(view.alpha).toBe(alphaAtRemoval);
+      expect(view.destroyed).toBe(false);
+      expect(onClosing).toHaveBeenCalledTimes(1);
+      expect(onClosed).not.toHaveBeenCalled();
+
+      modal.destroy();
     });
 
     test('destroy() mid-fade cancels the tween and fires neither close hook', () => {
@@ -355,7 +660,7 @@ describe(Modal, () => {
       let modal = new Modal({scheduler, fadeDuration: 200, onClosing, onClosed});
       let view = modal.view as unknown as MockContainer;
 
-      modal.open(root);
+      root.addOverlay(modal);
       scheduler.update(tick(100)); // mid fade-in
       modal.destroy();
 

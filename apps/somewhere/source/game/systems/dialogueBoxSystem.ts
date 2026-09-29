@@ -206,16 +206,16 @@ export const dialogueBoxSystem = new System({
     if (box === null) {
       box = createBox();
 
-      // The Modal precedent: the box opens into the screen's ui and holds a
-      // focus scope, so focus commands stay on its choices (or nothing) and
-      // never wander to HUD widgets. Headless harnesses without a screen fall
-      // back to the world layer; the box works there minus keyboard focus.
+      // The box is added to the screen's ui as an overlay and holds the focus
+      // scope, so focus commands stay on its choices (or nothing) and never
+      // wander to HUD widgets. Headless harnesses without a screen fall back
+      // to the world layer; the box works there minus keyboard focus.
       let ui = game.currentScreen?.ui;
 
       if (ui === undefined) {
         layer.addChild(box.view);
       } else {
-        box.open(ui);
+        ui.addOverlay(box);
       }
 
       resetSyncState();

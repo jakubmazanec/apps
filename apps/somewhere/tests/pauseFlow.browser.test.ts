@@ -81,7 +81,7 @@ describe('pauseFlow', () => {
       },
     });
 
-    modal.open(root);
+    root.addOverlay(modal);
 
     // Escape reaches the modal as the topmost overlay; the world must not be
     // left frozen behind a closed overlay. A Resume click racing it is a no-op.
