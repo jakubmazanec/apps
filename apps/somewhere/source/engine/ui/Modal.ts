@@ -11,12 +11,7 @@ import {type Overlay} from './Overlay.js';
 import {type UiChild} from './UiChild.js';
 import {type UiRoot} from './UiRoot.js';
 
-// A modal: a flat widget in the existing Container/Panel idiom (public
-// `children` + `view`, no inheritance) and the general-purpose overlay, added
-// with ui.addOverlay(modal). Constructed per open by whatever handler opens
-// it, unless isReusable keeps it alive after close(); the owning screen tracks
-// the instance and calls destroy() (never the animated close()) from its
-// onHide.
+/** TBD */
 export class Modal implements Overlay {
   /** TBD */
   readonly children: UiChild[] = [];
@@ -48,7 +43,9 @@ export class Modal implements Overlay {
   constructor({
     children,
     layout,
-    scrimAlpha = 0.5,
+    scrimColor,
+    scrimAlpha,
+    theme,
     initialFocus,
     isReusable = false,
     onClosing,
@@ -71,18 +68,10 @@ export class Modal implements Overlay {
       scheduler,
     };
 
-    // The scrim is a raw pixi child behind the layout children and deliberately
-    // NOT in `children`, so the focus walk never sees it. It is interactive so
-    // every pointer event lands on UI (UiRoot already stops taps on UI from
-    // reaching the game view, which blocks click-to-move for free). It sits
-    // out of flow and is drawn once as a 1x1 rectangle that yoga stretches over
-    // the root (a leaf's objectFit defaults to 'fill'). Its hit area accepts
-    // every point, so it blocks from the moment it is attached, before the
-    // first layout pass has sized it.
-    this.#parts.scrim.rect(0, 0, 1, 1).fill(0x000000);
-    this.#parts.scrim.alpha = scrimAlpha;
+    this.#parts.scrim.rect(0, 0, 1, 1).fill(scrimColor ?? theme?.modal.scrimColor ?? 0x000000);
+    this.#parts.scrim.alpha = scrimAlpha ?? theme?.modal.scrimAlpha ?? 0.5;
     this.#parts.scrim.eventMode = 'static';
-    this.#parts.scrim.hitArea = {contains: () => true};
+    this.#parts.scrim.hitArea = {contains: () => true}; // Accept every point, so the scrim block interactino with object behind it immediatelly.
     this.#parts.scrim.layout = {
       position: 'absolute',
       left: 0,
@@ -90,6 +79,7 @@ export class Modal implements Overlay {
       width: '100%',
       height: '100%',
     };
+
     this.view.addChild(this.#parts.scrim);
 
     if (children !== undefined) {
@@ -177,9 +167,6 @@ export class Modal implements Overlay {
     this.#onClosing?.();
 
     if (this.#config.scheduler !== undefined && this.#config.fadeDuration !== undefined) {
-      // Tweens don't reverse: cancel any in-flight fade-in and start a new
-      // tween toward 0 — Tween captures its from-value from the current alpha
-      // at construction, so the replacement picks up with no visual jump.
       this.#runtime.cancelFade?.();
       this.#state = 'closing';
       this.#runtime.cancelFade = this.#config.scheduler.tween({

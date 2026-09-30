@@ -3,14 +3,14 @@ import type * as pixi from 'pixi.js';
 import {type Scheduler} from '../scheduler/Scheduler.js';
 import {type Focusable} from './Focusable.js';
 import {type UiChild} from './UiChild.js';
+import {type UiComponentThemeOptions} from './UiTheme.js';
 
-export type ModalOptions = {
+export type ModalOptions = UiComponentThemeOptions<'modal'> & {
   children?: UiChild[] | undefined;
   // Content placement inside the full-screen root (e.g. {justifyContent:
   // 'center', alignItems: 'center'} for a centered dialog); passed through
   // verbatim — the primitive has no placement opinion for its content.
   layout?: pixi.ContainerOptions['layout'] | undefined;
-  scrimAlpha?: number | undefined;
   // Applied via ui.focus() on every attach (programmatic, no ring shown).
   // When omitted nothing is focused, same as screens.
   initialFocus?: Focusable | undefined;
@@ -31,5 +31,5 @@ export type ModalOptions = {
   // screen's Scheduler (which deliberately keeps running while the world is
   // paused).
 } & (
-  {fadeDuration: number; scheduler: Scheduler} | {fadeDuration?: undefined; scheduler?: undefined}
-);
+    {fadeDuration: number; scheduler: Scheduler} | {fadeDuration?: undefined; scheduler?: undefined}
+  );

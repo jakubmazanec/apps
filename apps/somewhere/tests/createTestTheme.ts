@@ -38,6 +38,7 @@ export function createTestTheme(): ResolvedUiTheme {
       disabledChecked: texture('toggle-disabled-checked'),
     },
     panel: {background: texture('banner')},
+    modal: {scrimColor: 0x000000, scrimAlpha: 0.5},
     focusRing: {texture: texture('focus-ring'), padding: 2},
     text: {
       label: {fontFamily: 'monogram-outline', fontSize: 12, fill: 0xffffff},

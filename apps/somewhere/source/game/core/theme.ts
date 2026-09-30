@@ -34,6 +34,10 @@ export const theme: UiThemeDescription = {
   panel: {
     background: ['ui', 'banner'],
   },
+  modal: {
+    scrimColor: 0x000000,
+    scrimAlpha: 0.5,
+  },
   focusRing: {
     texture: ['ui', 'focus-ring'],
     padding: 2,

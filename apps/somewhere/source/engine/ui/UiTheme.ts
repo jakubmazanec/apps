@@ -46,6 +46,10 @@ export type UiTheme<Background> = {
     background: Background;
     layout?: LayoutStyles;
   };
+  modal: {
+    scrimColor: number | string;
+    scrimAlpha: number;
+  };
   focusRing: {
     texture: Background;
     padding: number;
@@ -78,11 +82,11 @@ type ComponentWithBackground = {
 }[keyof UiThemeWithSlot];
 
 /** Helper type that specifies available options for a component. */
-export type UiComponentThemeOptions<Component extends ComponentWithBackground> = Simplify<{
+export type UiComponentThemeOptions<Component extends keyof UiThemeWithSlot> = Simplify<{
   [Key in Exclude<keyof UiThemeWithSlot[Component], UiThemeComponentBackgroundKeys<Component>>]?:
     UiThemeWithSlot[Component][Key] | undefined;
 }> &
-  (
+  (Component extends ComponentWithBackground ?
     | {
         theme: ResolvedUiTheme;
         backgrounds?: Partial<
@@ -93,4 +97,4 @@ export type UiComponentThemeOptions<Component extends ComponentWithBackground> =
         theme?: undefined;
         backgrounds: Simplify<Record<UiThemeComponentBackgroundKeys<Component>, pixi.Container>>;
       }
-  );
+  : {theme?: ResolvedUiTheme | undefined});

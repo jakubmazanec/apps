@@ -292,6 +292,20 @@ describe(Modal, () => {
     expect(modal.children).toEqual([content]); // the focus walk never sees the scrim
   });
 
+  test('the scrim takes its color and alpha from the theme, and options override them', () => {
+    let theme = {...createTestTheme(), modal: {scrimColor: 0x112233, scrimAlpha: 0.3}};
+    let themed = (new Modal({theme}).view as unknown as MockContainer)
+      .children[0] as unknown as Graphics;
+    let overridden = (
+      new Modal({theme, scrimColor: 0x445566, scrimAlpha: 0.7}).view as unknown as MockContainer
+    ).children[0] as unknown as Graphics;
+
+    expect(themed.alpha).toBeCloseTo(0.3);
+    expect(themed.context.instructions[0]).toMatchObject({data: {style: {color: 0x112233}}});
+    expect(overridden.alpha).toBeCloseTo(0.7);
+    expect(overridden.context.instructions[0]).toMatchObject({data: {style: {color: 0x445566}}});
+  });
+
   test('ui.removeOverlay(modal) leaves the modal alive and fires neither close hook', () => {
     let root = createRoot();
     let outside = focusable();
