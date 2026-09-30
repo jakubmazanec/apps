@@ -92,6 +92,7 @@ function openOptionsModal(screen: GameScreen<MainMenuScreenContents>) {
     },
   });
   let modal = new Modal({
+    theme: game.theme,
     children: [panel],
     layout: {justifyContent: 'center', alignItems: 'center'},
     scheduler: screen.scheduler,

@@ -86,6 +86,7 @@ function buildPauseModal(screen: GameScreen<WorldScreenContents, UIEventMap>): M
   });
 
   return new Modal({
+    theme: game.theme,
     children: [panel],
     layout: {justifyContent: 'center', alignItems: 'center'},
     scheduler: screen.scheduler,
