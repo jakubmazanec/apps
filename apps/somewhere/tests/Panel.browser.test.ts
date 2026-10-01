@@ -49,6 +49,21 @@ describe('Panel children', () => {
 
     expect(child.destroy).toHaveBeenCalledTimes(1);
   });
+
+  test('destroy() leaves a child component removed with removeChild() alive', () => {
+    let removed = {view: new pixi.Container(), destroy: vitest.fn<() => void>()};
+    let kept = {view: new pixi.Container(), destroy: vitest.fn<() => void>()};
+    let panel = new Panel({
+      backgrounds: {background: new pixi.Container()},
+      children: [removed, kept],
+    });
+
+    panel.removeChild(removed);
+    panel.destroy();
+
+    expect(removed.destroy).not.toHaveBeenCalled();
+    expect(kept.destroy).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe('Panel theme', () => {

@@ -151,6 +151,18 @@ describe('Button focus', () => {
     expect(child.destroy).toHaveBeenCalledTimes(1);
   });
 
+  test('destroy() leaves a child component removed with removeChild() alive', () => {
+    let removed = {view: new pixi.Container(), destroy: vitest.fn<() => void>()};
+    let kept = {view: new pixi.Container(), destroy: vitest.fn<() => void>()};
+    let button = new Button({backgrounds: backgrounds(), children: [removed, kept]});
+
+    button.removeChild(removed);
+    button.destroy();
+
+    expect(removed.destroy).not.toHaveBeenCalled();
+    expect(kept.destroy).toHaveBeenCalledTimes(1);
+  });
+
   test('is focusable unless disabled', () => {
     let button = new Button({backgrounds: backgrounds()});
 
