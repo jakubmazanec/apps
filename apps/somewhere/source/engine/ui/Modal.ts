@@ -2,6 +2,7 @@ import * as pixi from 'pixi.js';
 
 import {easeOutQuad} from '../scheduler/easing.js';
 import {type Disposables} from '../utilities/Disposables.js';
+import {adoptChildren} from './internals/adoptChildren.js';
 import {resolveView} from './internals/resolveView.js';
 import {type ModalConfig} from './ModalConfig.js';
 import {type ModalOptions} from './ModalOptions.js';
@@ -106,6 +107,13 @@ export class Modal implements Overlay {
     };
 
     this.#disposables.instance.defer(() => this.view.destroy({children: true}));
+    adoptChildren(this.#disposables.instance, this.children);
+    // Leaves the root first, while the children are alive: removeOverlay
+    // deactivates the focusables inside and restores the previous focus, then
+    // calls detach(), which cancels a running fade.
+    this.#disposables.instance.defer(() => {
+      this.#runtime.ui?.removeOverlay(this);
+    });
   }
 
   /** TBD */
@@ -137,22 +145,11 @@ export class Modal implements Overlay {
       ui.focus(this.#config.initialFocus);
     }
 
-    if (this.#config.scheduler !== undefined && this.#config.fadeDuration !== undefined) {
-      this.#state = 'opening';
-      this.view.alpha = 0;
-      this.#runtime.cancelFade = this.#config.scheduler.tween({
-        target: this.view,
-        to: {alpha: 1},
-        duration: this.#config.fadeDuration,
-        easing: easeOutQuad,
-        onComplete: () => {
-          this.#runtime.cancelFade = null;
-          this.#state = 'open';
-        },
-      });
-    } else {
+    this.#state = 'opening';
+    this.view.alpha = 0;
+    this.#fade(1, () => {
       this.#state = 'open';
-    }
+    });
   }
 
   /**
@@ -166,33 +163,29 @@ export class Modal implements Overlay {
     }
 
     this.#onClosing?.();
+    this.#state = 'closing';
+    // removeOverlay releases this modal's own scope before removing it, so the
+    // previousFocus restoration (the Options flow depends on it) cannot be lost
+    // to ordering here; it then calls detach(), which leaves the destroy below
+    // nothing to leave. A kept modal skips the destroy and can be added again.
+    this.#fade(0, () => {
+      this.#runtime.ui?.removeOverlay(this);
 
-    if (this.#config.scheduler !== undefined && this.#config.fadeDuration !== undefined) {
-      this.#runtime.cancelFade?.();
-      this.#state = 'closing';
-      this.#runtime.cancelFade = this.#config.scheduler.tween({
-        target: this.view,
-        to: {alpha: 0},
-        duration: this.#config.fadeDuration,
-        easing: easeOutQuad,
-        onComplete: () => {
-          this.#runtime.cancelFade = null;
-          this.#finishClose();
-        },
-      });
-    } else {
-      this.#finishClose();
-    }
+      if (!this.#config.isReusable) {
+        this.destroy();
+      }
+
+      this.#onClosed?.();
+    });
   }
 
   // Teardown path (owning-screen onHide, or any out-of-band cleanup): leaves
-  // the UiRoot if still attached (tolerant of an already-empty scope stack)
-  // and synchronously destroys; callable from any state, never animated, never
-  // fires onClosing or onClosed, and destroys a kept modal too.
+  // the UiRoot if still attached and synchronously destroys; callable from any
+  // state, never animated, never fires onClosing or onClosed, and destroys a
+  // kept modal too.
   /** Destroys the instance. */
   destroy() {
-    this.#runtime.ui?.removeOverlay(this);
-    this.#destroyViews();
+    this.#disposables.instance.dispose();
   }
 
   // Undoes attach() and nothing more: it destroys nothing and fires neither
@@ -209,33 +202,29 @@ export class Modal implements Overlay {
     this.#state = 'closed';
   }
 
-  /** TBD */
-  #destroyViews() {
-    if (this.view.destroyed) {
+  /** Fades the view to `alpha`, or sets it at once without a scheduler, then calls `onComplete`. */
+  #fade(alpha: number, onComplete: () => void) {
+    this.#runtime.cancelFade?.();
+    this.#runtime.cancelFade = null;
+
+    let {scheduler, fadeDuration} = this.#config;
+
+    if (scheduler === undefined || fadeDuration === undefined) {
+      this.view.alpha = alpha;
+      onComplete();
+
       return;
     }
 
-    for (let child of this.children) {
-      if ('view' in child) {
-        child.destroy?.();
-      }
-    }
-
-    this.#disposables.instance.dispose();
-  }
-
-  // removeOverlay releases this modal's own scope before removing it, so the
-  // previousFocus restoration (the Options flow depends on it) cannot be lost
-  // to ordering here; it then calls detach(). A kept modal skips the destroy
-  // and can be added again.
-  /** TBD */
-  #finishClose() {
-    this.#runtime.ui?.removeOverlay(this);
-
-    if (!this.#config.isReusable) {
-      this.#destroyViews();
-    }
-
-    this.#onClosed?.();
+    this.#runtime.cancelFade = scheduler.tween({
+      target: this.view,
+      to: {alpha},
+      duration: fadeDuration,
+      easing: easeOutQuad,
+      onComplete: () => {
+        this.#runtime.cancelFade = null;
+        onComplete();
+      },
+    });
   }
 }
