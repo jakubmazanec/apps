@@ -27,6 +27,16 @@ describe('Container children', () => {
     expect(child.destroy).toHaveBeenCalledTimes(1);
   });
 
+  test('a second destroy() leaves child components alone', () => {
+    let child = {view: new pixi.Container(), destroy: vitest.fn<() => void>()};
+    let container = new Container({children: [child]});
+
+    container.destroy();
+    container.destroy();
+
+    expect(child.destroy).toHaveBeenCalledTimes(1);
+  });
+
   test('destroy() leaves a child component removed with removeChild() alive', () => {
     let removed = {view: new pixi.Container(), destroy: vitest.fn<() => void>()};
     let kept = {view: new pixi.Container(), destroy: vitest.fn<() => void>()};

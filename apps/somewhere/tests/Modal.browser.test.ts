@@ -267,6 +267,18 @@ describe(Modal, () => {
     expect(onClosed).not.toHaveBeenCalled();
   });
 
+  test('destroy() leaves the root before the views go, so the focusables are deactivated', () => {
+    let root = createRoot();
+    let inside = {...focusable(), deactivate: vitest.fn<() => void>()};
+    let modal = new Modal({children: [panel([inside])]});
+
+    root.addOverlay(modal);
+    modal.destroy();
+
+    expect(inside.deactivate).toHaveBeenCalledTimes(1);
+    expect(modal.view.destroyed).toBe(true);
+  });
+
   test('the root asks yoga for the whole UiRoot view, out of its flow', () => {
     let modal = new Modal({});
 

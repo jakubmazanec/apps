@@ -3,6 +3,8 @@ import * as pixi from 'pixi.js';
 import {beforeAll, beforeEach, describe, expect, test, vitest} from 'vitest';
 
 import {wrapText} from '../source/engine/dialogue/wrapText.js';
+import {type Focusable} from '../source/engine/ui/Focusable.js';
+import {type UiParent} from '../source/engine/ui/UiChild.js';
 import {createTestTheme} from './createTestTheme.js';
 
 let layoutSystem: LayoutSystem;
@@ -467,6 +469,30 @@ describe('DialogueBox focus integration', () => {
 
     expect(box.view.destroyed).toBe(true);
     expect(box.focusedChoiceIndex).toBe(-1);
+  });
+
+  test('destroy() leaves the root before the views go, so the choices are deactivated', async () => {
+    let {ui} = await createUiWithOutsideButton();
+    let {box} = createBox();
+
+    box.resize(10, 100);
+    ui.addOverlay(box);
+    box.showNode({page: 'Q'});
+    box.setChoices(['Yes', 'No'], 0);
+
+    // Button has nothing to end on deactivate; the spy stands in for an engine
+    // user's focusable that does.
+    let deactivate = vitest.fn<() => void>();
+    let [choicesPanel] = box.children as [UiParent];
+
+    for (let choice of choicesPanel.children as Focusable[]) {
+      choice.deactivate = deactivate;
+    }
+
+    box.destroy();
+
+    expect(deactivate).toHaveBeenCalledTimes(2);
+    expect(box.view.destroyed).toBe(true);
   });
 
   test('destroy releases the scope back to the screen', async () => {
