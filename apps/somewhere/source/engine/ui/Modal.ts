@@ -2,6 +2,7 @@ import * as pixi from 'pixi.js';
 
 import {easeOutQuad} from '../scheduler/easing.js';
 import {type Disposables} from '../utilities/Disposables.js';
+import {resolveView} from './internals/resolveView.js';
 import {type ModalConfig} from './ModalConfig.js';
 import {type ModalOptions} from './ModalOptions.js';
 import {type ModalParts} from './ModalParts.js';
@@ -85,7 +86,7 @@ export class Modal implements Overlay {
     if (children !== undefined) {
       for (let child of children) {
         this.children.push(child);
-        this.view.addChild('view' in child ? child.view : child);
+        this.view.addChild(resolveView(child));
       }
     }
 

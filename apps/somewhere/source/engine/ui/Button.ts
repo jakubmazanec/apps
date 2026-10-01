@@ -10,6 +10,7 @@ import {adoptDetachedBackgrounds} from './internals/adoptDetachedBackgrounds.js'
 import {applyPressShift} from './internals/applyPressShift.js';
 import {attachWidgetInteraction} from './internals/attachWidgetInteraction.js';
 import {resolveThemedBackgrounds} from './internals/resolveThemedBackgrounds.js';
+import {resolveView} from './internals/resolveView.js';
 import {setInteractionEnabled} from './internals/setInteractionEnabled.js';
 import {swapBackground} from './internals/swapBackground.js';
 import {type UiChild, type UiParent} from './UiChild.js';
@@ -164,7 +165,7 @@ export class Button implements Focusable, UiParent {
   addChild(...children: UiChild[]): this {
     for (let child of children) {
       this.children.push(child);
-      this.view.addChild('view' in child ? child.view : child);
+      this.view.addChild(resolveView(child));
 
       if (this.#config.pressOffset !== 0) {
         applyPressShift([child], this.#state, this.#config.pressOffset);
@@ -232,7 +233,7 @@ export class Button implements Focusable, UiParent {
         applyPressShift([child], 'normal', this.#config.pressOffset);
       }
 
-      this.view.removeChild('view' in child ? child.view : child);
+      this.view.removeChild(resolveView(child));
     }
 
     return this;

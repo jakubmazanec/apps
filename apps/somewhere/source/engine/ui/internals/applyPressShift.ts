@@ -1,5 +1,6 @@
 import {type ButtonState} from '../ButtonState.js';
 import {type UiChild} from '../UiChild.js';
+import {resolveView} from './resolveView.js';
 
 // Position composes on top of the yoga-computed placement rather than replacing it, so
 // shifting children directly never touches yoga's style or triggers a relayout, unlike
@@ -12,6 +13,6 @@ export function applyPressShift(
   let shift = state === 'active' ? pressOffset : 0;
 
   for (let child of children) {
-    ('view' in child ? child.view : child).y = shift;
+    resolveView(child).y = shift;
   }
 }
