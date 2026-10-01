@@ -6,6 +6,7 @@ import {type ButtonOptions} from './ButtonOptions.js';
 import {type ButtonParts} from './ButtonParts.js';
 import {type ButtonState} from './ButtonState.js';
 import {type Focusable} from './Focusable.js';
+import {adoptChildren} from './internals/adoptChildren.js';
 import {adoptDetachedBackgrounds} from './internals/adoptDetachedBackgrounds.js';
 import {applyPressShift} from './internals/applyPressShift.js';
 import {attachWidgetInteraction} from './internals/attachWidgetInteraction.js';
@@ -135,6 +136,7 @@ export class Button implements Focusable, UiParent {
     };
 
     this.#disposables.instance.defer(() => this.view.destroy({children: true}));
+    adoptChildren(this.#disposables.instance, this.children);
   }
 
   /** TBD */
@@ -177,12 +179,6 @@ export class Button implements Focusable, UiParent {
 
   /** Destroys the instance. */
   destroy() {
-    for (let child of this.children) {
-      if ('view' in child) {
-        child.destroy?.();
-      }
-    }
-
     this.#disposables.instance.dispose();
   }
 
