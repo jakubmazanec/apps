@@ -9,6 +9,7 @@ import {type UiChild} from '../ui/UiChild.js';
 import {type UiRoot} from '../ui/UiRoot.js';
 import {type ResolvedUiTheme} from '../ui/UiTheme.js';
 import {attachHitArea} from '../utilities/attachHitArea.js';
+import {type Disposables} from '../utilities/Disposables.js';
 import {wrapText} from './wrapText.js';
 
 export type DialogueBoxMetrics = {
@@ -129,6 +130,9 @@ export class DialogueBox implements Overlay {
   /** TBD */
   #content: Text | null = null;
 
+  /** Stacks to register disposers that cleanup resources when needed. */
+  readonly #disposables: Disposables<'instance'> = {instance: new DisposableStack()};
+
   /** TBD */
   readonly #font: {fontFamily: string; fontSize: number; fill: pixi.ColorSource};
 
@@ -211,6 +215,19 @@ export class DialogueBox implements Overlay {
     } else {
       this.#measure = measure;
     }
+
+    this.#disposables.instance.defer(() => this.view.destroy({children: true}));
+    // The box is rebuilt per node, so this reads the field at dispose time; its
+    // Container.destroy() cascades into the panels and buttons, which a bare
+    // view.destroy() would not reach.
+    this.#disposables.instance.defer(() => {
+      this.#box?.destroy();
+    });
+    // Leaves the root first: removeOverlay releases this box's own scope, not
+    // whatever sits on top, and calls detach(), which clears #ui.
+    this.#disposables.instance.defer(() => {
+      this.#ui?.removeOverlay(this);
+    });
   }
 
   /** Pause offsets for the current page (window boundaries), in page-character space. */
@@ -253,22 +270,7 @@ export class DialogueBox implements Overlay {
 
   /** Destroys the instance. */
   destroy(): void {
-    // removeOverlay releases this box's own scope, not whatever sits on top,
-    // owns the scope-then-child order that keeps previousFocus restored, and
-    // calls detach(), which needs #ui still set. The reset below covers a root
-    // that was destroyed first.
-    let ui = this.#ui;
-
-    if (ui !== null && !ui.view.destroyed) {
-      ui.removeOverlay(this);
-    }
-
-    this.#ui = null;
-
-    this.#choiceButtons = [];
-    this.#box?.destroy();
-    this.#box = null;
-    this.view.destroy({children: true});
+    this.#disposables.instance.dispose();
   }
 
   /** @internal Called by `UiRoot`. */
