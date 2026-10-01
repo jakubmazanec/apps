@@ -218,6 +218,46 @@ describe(Modal, () => {
     expect(calls).toEqual(['closing', 'closed']);
   });
 
+  test('destroy() inside onClosing ends the close: closed, and onClosed never fires', () => {
+    let root = createRoot();
+    let onClosed = vitest.fn<() => void>();
+    let modal: Modal = new Modal({
+      onClosing: () => {
+        modal.destroy();
+      },
+      onClosed,
+    });
+
+    root.addOverlay(modal);
+    modal.close();
+
+    expect(modal.state).toBe('closed');
+    expect(modal.view.destroyed).toBe(true);
+    expect(root.children).not.toContain(modal);
+    expect(onClosed).not.toHaveBeenCalled();
+  });
+
+  test('ui.removeOverlay(modal) inside onClosing ends the close and keeps the views', () => {
+    let root = createRoot();
+    let onClosed = vitest.fn<() => void>();
+    let modal: Modal = new Modal({
+      onClosing: () => {
+        root.removeOverlay(modal);
+      },
+      onClosed,
+    });
+
+    root.addOverlay(modal);
+    modal.close();
+
+    expect(modal.state).toBe('closed');
+    expect(modal.view.destroyed).toBe(false);
+    expect(root.children).not.toContain(modal);
+    expect(onClosed).not.toHaveBeenCalled();
+
+    modal.destroy();
+  });
+
   test('destroy() tears down synchronously from any state and fires neither close hook', () => {
     let root = createRoot();
     let outside = focusable();
@@ -698,6 +738,38 @@ describe(Modal, () => {
       expect(onClosed).not.toHaveBeenCalled();
 
       modal.destroy();
+    });
+
+    test('destroy() inside onClosing starts no fade-out and never fires onClosed', () => {
+      let root = createRoot();
+      let scheduler = new Scheduler();
+      let onClosed = vitest.fn<() => void>();
+      let modal: Modal = new Modal({
+        scheduler,
+        fadeDuration: 200,
+        onClosing: () => {
+          modal.destroy();
+        },
+        onClosed,
+      });
+      let view = modal.view as unknown as MockContainer;
+
+      root.addOverlay(modal);
+      scheduler.update(tick(200)); // open
+      modal.close();
+
+      expect(modal.state).toBe('closed');
+      expect(view.destroyed).toBe(true);
+
+      let alphaAtDestroy = view.alpha;
+
+      expect(() => {
+        scheduler.update(tick(1000));
+      }).not.toThrow();
+
+      expect(view.alpha).toBe(alphaAtDestroy); // no fade-out ran on the destroyed view
+      expect(modal.state).toBe('closed');
+      expect(onClosed).not.toHaveBeenCalled();
     });
 
     test('destroy() mid-fade cancels the tween and fires neither close hook', () => {

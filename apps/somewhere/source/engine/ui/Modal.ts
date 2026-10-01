@@ -163,6 +163,13 @@ export class Modal implements Overlay {
     }
 
     this.#onClosing?.();
+
+    // The hook may have destroyed the modal or taken it off the root; detach()
+    // has then set the state to closed, and there is nothing left to close.
+    if (this.#runtime.ui === null) {
+      return;
+    }
+
     this.#state = 'closing';
     // removeOverlay releases this modal's own scope before removing it, so the
     // previousFocus restoration (the Options flow depends on it) cannot be lost

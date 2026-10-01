@@ -24,7 +24,8 @@ export type ModalOptions = UiComponentThemeOptions<'modal'> & {
   // pause menu unfreezes the world at close-start, behind the fading scrim.
   onClosing?: (() => void) | undefined;
   // Fired when a user-facing close() completes (never on destroy() or
-  // ui.removeOverlay(), and never if the modal is removed during the fade-out);
+  // ui.removeOverlay(), and never if the modal is removed in onClosing or
+  // during the fade-out);
   // the owning screen clears its `openModal` reference here.
   onClosed?: (() => void) | undefined;
   // Both or neither — enables the open/close fade, driven by the owning
