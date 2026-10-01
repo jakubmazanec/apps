@@ -245,6 +245,28 @@ describe(Modal, () => {
     }).not.toThrow();
   });
 
+  test('destroy() survives a root whose view was destroyed in place', () => {
+    let root = createRoot();
+    let onClosing = vitest.fn<() => void>();
+    let onClosed = vitest.fn<() => void>();
+    let modal = new Modal({children: [panel([focusable()])], onClosing, onClosed});
+
+    root.addOverlay(modal);
+    // Not through root.destroy(), which would cascade into modal.destroy():
+    // the root's view is gone while the modal still points at the root.
+    root.view.destroy();
+
+    expect(() => {
+      modal.destroy();
+    }).not.toThrow();
+
+    expect(modal.view.destroyed).toBe(true);
+    expect(root.children).not.toContain(modal);
+    expect(modal.state).toBe('closed');
+    expect(onClosing).not.toHaveBeenCalled();
+    expect(onClosed).not.toHaveBeenCalled();
+  });
+
   test('the root asks yoga for the whole UiRoot view, out of its flow', () => {
     let modal = new Modal({});
 
