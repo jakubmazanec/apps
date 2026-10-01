@@ -4,6 +4,7 @@ import {type Disposables} from '../utilities/Disposables.js';
 import {type Focusable} from './Focusable.js';
 import {type FocusDirection} from './FocusDirection.js';
 import {type FocusScope} from './FocusScope.js';
+import {adoptChildren} from './internals/adoptChildren.js';
 import {collectFocusables} from './internals/collectFocusables.js';
 import {nearestInDirection} from './internals/nearestInDirection.js';
 import {nearestTopLeft} from './internals/nearestTopLeft.js';
@@ -107,6 +108,7 @@ export class UiRoot implements UiParent {
       globalThis.removeEventListener('pointerdown', handlePointerDown);
     });
     this.#disposables.instance.defer(() => this.view.destroy({children: true}));
+    adoptChildren(this.#disposables.instance, this.children);
   }
 
   /** TBD */
@@ -204,16 +206,6 @@ export class UiRoot implements UiParent {
 
   /** Destroys the instance. */
   destroy() {
-    // Iterate a copy; child that is an overlay splices itself out of children when its destyroyed,
-    // which would make the live loop skip the next overlay.
-    let children = [...this.children];
-
-    for (let child of children) {
-      if ('view' in child) {
-        child.destroy?.();
-      }
-    }
-
     this.#disposables.instance.dispose();
   }
 

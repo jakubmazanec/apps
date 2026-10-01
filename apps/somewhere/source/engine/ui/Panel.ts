@@ -1,6 +1,7 @@
 import {LayoutContainer} from '@pixi/layout/components';
 
 import {type Disposables} from '../utilities/Disposables.js';
+import {adoptChildren} from './internals/adoptChildren.js';
 import {resolveThemedBackgrounds} from './internals/resolveThemedBackgrounds.js';
 import {resolveView} from './internals/resolveView.js';
 import {type PanelConfig} from './PanelConfig.js';
@@ -37,6 +38,7 @@ export class Panel implements UiParent {
     this.view.layout = {...this.#config.theme?.panel.layout, ...layout};
 
     this.#disposables.instance.defer(() => this.view.destroy({children: true}));
+    adoptChildren(this.#disposables.instance, this.children);
   }
 
   /** TBD */
@@ -51,12 +53,6 @@ export class Panel implements UiParent {
 
   /** Destroys the instance. */
   destroy() {
-    for (let child of this.children) {
-      if ('view' in child) {
-        child.destroy?.();
-      }
-    }
-
     this.#disposables.instance.dispose();
   }
 

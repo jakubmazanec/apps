@@ -2,6 +2,7 @@ import * as pixi from 'pixi.js';
 
 import {type Disposables} from '../utilities/Disposables.js';
 import {type ContainerOptions} from './ContainerOptions.js';
+import {adoptChildren} from './internals/adoptChildren.js';
 import {resolveView} from './internals/resolveView.js';
 import {type UiChild, type UiParent} from './UiChild.js';
 
@@ -27,6 +28,7 @@ export class Container implements UiParent {
     };
 
     this.#disposables.instance.defer(() => this.view.destroy({children: true}));
+    adoptChildren(this.#disposables.instance, this.children);
   }
 
   /** TBD */
@@ -41,12 +43,6 @@ export class Container implements UiParent {
 
   /** Destroys the instance. */
   destroy() {
-    for (let child of this.children) {
-      if ('view' in child) {
-        child.destroy?.();
-      }
-    }
-
     this.#disposables.instance.dispose();
   }
 
