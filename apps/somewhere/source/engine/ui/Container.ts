@@ -2,6 +2,7 @@ import * as pixi from 'pixi.js';
 
 import {type Disposables} from '../utilities/Disposables.js';
 import {type ContainerOptions} from './ContainerOptions.js';
+import {resolveView} from './internals/resolveView.js';
 import {type UiChild, type UiParent} from './UiChild.js';
 
 export class Container implements UiParent {
@@ -32,7 +33,7 @@ export class Container implements UiParent {
   addChild(...children: UiChild[]): this {
     for (let child of children) {
       this.children.push(child);
-      this.view.addChild('view' in child ? child.view : child);
+      this.view.addChild(resolveView(child));
     }
 
     return this;
@@ -58,7 +59,7 @@ export class Container implements UiParent {
         this.children.splice(index, 1);
       }
 
-      this.view.removeChild('view' in child ? child.view : child);
+      this.view.removeChild(resolveView(child));
     }
 
     return this;

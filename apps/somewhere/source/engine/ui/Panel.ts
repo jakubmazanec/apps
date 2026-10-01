@@ -2,6 +2,7 @@ import {LayoutContainer} from '@pixi/layout/components';
 
 import {type Disposables} from '../utilities/Disposables.js';
 import {resolveThemedBackgrounds} from './internals/resolveThemedBackgrounds.js';
+import {resolveView} from './internals/resolveView.js';
 import {type PanelConfig} from './PanelConfig.js';
 import {type PanelOptions} from './PanelOptions.js';
 import {type PanelParts} from './PanelParts.js';
@@ -42,7 +43,7 @@ export class Panel implements UiParent {
   addChild(...children: UiChild[]): this {
     for (let child of children) {
       this.children.push(child);
-      this.view.addChild('view' in child ? child.view : child);
+      this.view.addChild(resolveView(child));
     }
 
     return this;
@@ -68,7 +69,7 @@ export class Panel implements UiParent {
         this.children.splice(index, 1);
       }
 
-      this.view.removeChild('view' in child ? child.view : child);
+      this.view.removeChild(resolveView(child));
     }
 
     return this;

@@ -7,6 +7,7 @@ import {type FocusScope} from './FocusScope.js';
 import {collectFocusables} from './internals/collectFocusables.js';
 import {nearestInDirection} from './internals/nearestInDirection.js';
 import {nearestTopLeft} from './internals/nearestTopLeft.js';
+import {resolveView} from './internals/resolveView.js';
 import {type Overlay} from './Overlay.js';
 import {type UiChild, type UiParent} from './UiChild.js';
 import {type UiFocusEvent} from './UiFocusEvent.js';
@@ -147,7 +148,7 @@ export class UiRoot implements UiParent {
   addChild(...children: UiChild[]): this {
     for (let child of children) {
       this.children.push(child);
-      this.view.addChildAt('view' in child ? child.view : child, this.view.children.length - 1); // The focus ring must stay last child, to render above other children.
+      this.view.addChildAt(resolveView(child), this.view.children.length - 1); // The focus ring must stay last child, to render above other children.
     }
 
     return this;
@@ -359,7 +360,7 @@ export class UiRoot implements UiParent {
         this.children.splice(index, 1);
       }
 
-      this.view.removeChild('view' in child ? child.view : child);
+      this.view.removeChild(resolveView(child));
     }
 
     if (this.#runtime.focused !== null && !this.#focusables.includes(this.#runtime.focused)) {
