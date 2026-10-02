@@ -48,7 +48,6 @@ FROM base
 COPY package-lock.json package.json /workspace/
 COPY --from=build /workspace/apps/foam/build /workspace/apps/foam/build
 COPY --from=build /workspace/apps/foam/package.json /workspace/apps/foam/package.json
-COPY --from=build /workspace/packages/tellurion/build /workspace/packages/tellurion/build
 COPY --from=build /workspace/packages/tellurion/package.json /workspace/packages/tellurion/package.json
 
 # Install dependencies
