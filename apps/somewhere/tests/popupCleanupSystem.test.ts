@@ -1,8 +1,7 @@
 import type * as pixi from 'pixi.js';
+import {Entity, World} from 'tellurion';
 import {describe, expect, test} from 'vitest';
 
-import {Entity} from '../source/engine/ecs/Entity.js';
-import {World} from '../source/engine/ecs/World.js';
 import {PopupExpired} from '../source/game/events/PopupExpired.js';
 import {popupExpiredChannel} from '../source/game/events/popupExpiredChannel.js';
 import {popupCleanupSystem} from '../source/game/systems/popupCleanupSystem.js';

@@ -1,9 +1,6 @@
 import {readFileSync} from 'node:fs';
+import {spritesetSchema, tiledTilemapSchema, tiledUnsourcedTilesetSchema} from 'tellurion';
 import {describe, expect, test} from 'vitest';
-
-import {spritesetSchema} from '../source/engine/graphics/Spriteset.js';
-import {tiledTilemapSchema} from '../source/engine/tiled-tools/TiledTilemap.js';
-import {tiledUnsourcedTilesetSchema} from '../source/engine/tiled-tools/TiledTileset.js';
 
 // The export script runs this file after every re-export; it also runs in
 // every `npm test`, so a drifted hand edit fails just as loudly.

@@ -1,5 +1,5 @@
-import {System} from '../../engine/ecs/System.js';
-import {doRectanglesOverlap} from '../../engine/utilities/doRectanglesOverlap.js';
+import {doRectanglesOverlap, System} from 'tellurion';
+
 import {GraphicsComponent} from '../components/GraphicsComponent.js';
 import {MotionComponent} from '../components/MotionComponent.js';
 import {TriggerComponent} from '../components/TriggerComponent.js';

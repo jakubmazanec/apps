@@ -1,4 +1,5 @@
-import {Entity} from '../../engine/ecs/Entity.js';
+import {Entity} from 'tellurion';
+
 import {DialogueComponent} from '../components/DialogueComponent.js';
 
 // The dialogue singleton (query-per-singleton boilerplate; T2.15 world

@@ -1,6 +1,6 @@
+import {Dialogue} from 'tellurion';
 import {describe, expect, test} from 'vitest';
 
-import {Dialogue} from '../source/engine/dialogue/Dialogue.js';
 import {dialogueRegistry, miraScript} from '../source/game/core/dialogueRegistry.js';
 
 describe('dialogueRegistry', () => {

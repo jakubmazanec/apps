@@ -1,4 +1,5 @@
-import {type UiFocusEvent} from '../../engine/ui/UiFocusEvent.js';
+import {type UiFocusEvent} from 'tellurion';
+
 import {assets} from './assets.js';
 import {audio} from './audio.js';
 

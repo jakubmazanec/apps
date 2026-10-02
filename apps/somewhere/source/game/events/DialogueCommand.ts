@@ -1,4 +1,4 @@
-import {defineEvent} from '../../engine/ecs/Event.js';
+import {defineEvent} from 'tellurion';
 
 export type DialogueCommandType = 'advance' | 'choose' | 'down' | 'interact' | 'select' | 'up';
 

@@ -1,0 +1,84 @@
+{
+  "name": "tellurion",
+  "version": "0.0.0",
+  "private": true,
+  "description": "TypeScript-first 2D game engine on top of Pixi.js.",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jakubmazanec/apps",
+    "directory": "packages/tellurion"
+  },
+  "license": "LGPL-3.0-only",
+  "author": "Jakub Mazanec <jakub@mazanec.dev>",
+  "sideEffects": false,
+  "type": "module",
+  "exports": {
+    ".": "./build/main.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "build",
+    "source"
+  ],
+  "scripts": {
+    "build": "del-cli build tsconfig.tsbuildinfo && esbuild \"source/**/*\" --platform=node --target=node24.18 --outdir=build --sourcemap --loader:.woff2=copy && tsc && storybook build",
+    "clean": "del-cli coverage build *.tsbuildinfo",
+    "develop": "concurrently \"esbuild \\\"source/**/*\\\" --platform=node --target=node24.18 --outdir=build --sourcemap --loader:.woff2=copy --watch\" \"tsc --watch\" \"storybook dev -p 6006 --no-open\"",
+    "document": "del-cli docs && typedoc --options typedoc.config.cjs",
+    "format": "prettier . --write --ignore-unknown",
+    "lint": "eslint .",
+    "test": "del-cli coverage && vitest run --coverage --passWithNoTests",
+    "typecheck": "tsc --project tsconfig.typecheck.json"
+  },
+  "dependencies": {
+    "@jakubmazanec/ts-utils": "^3.0.18",
+    "@pixi/layout": "^3.2.0",
+    "eventemitter3": "^5.0.4",
+    "pixi-filters": "^6.1.5",
+    "pixi.js": "^8.19.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@chromatic-com/storybook": "^5.0.0",
+    "@jakubmazanec/eslint-config": "6.0.0-unstable.72f063e3",
+    "@storybook/addon-docs": "^10.0.0",
+    "@storybook/addon-links": "^10.0.0",
+    "@storybook/react-vite": "^10.0.0",
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/lodash": "^4.17.24",
+    "@types/node": "^24.13.3",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@vitest/browser-playwright": "^4.0.0",
+    "@vitest/coverage-v8": "^4.1.10",
+    "chromatic": "^18.0.0",
+    "concurrently": "^10.0.0",
+    "del-cli": "^7.0.0",
+    "esbuild": "^0.28.0",
+    "eslint": "^9.39.5",
+    "lodash": "^4.18.1",
+    "playwright": "^1.60.0",
+    "prettier": "^3.9.6",
+    "prettier-plugin-packagejson": "^2.5.22",
+    "prettier-plugin-tailwindcss": "^0.6.14",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "storybook": "^10.0.0",
+    "tailwindcss": "^4.3.3",
+    "typedoc": "^0.28.0",
+    "typedoc-plugin-markdown": "^4.0.0",
+    "typescript": "^6.0.3",
+    "vite": "^8.1.5",
+    "vitest": "^4.1.10",
+    "vitest-browser-react": "^2.0.0"
+  },
+  "peerDependencies": {
+    "react": "19.x",
+    "react-dom": "19.x"
+  },
+  "packageManager": "npm@11.18.0",
+  "engines": {
+    "node": "^24.18.0",
+    "npm": "^11.18.0"
+  }
+}

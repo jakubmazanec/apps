@@ -1,5 +1,5 @@
-import {type Dialogue} from '../../engine/dialogue/Dialogue.js';
-import {defineComponent} from '../../engine/ecs/Component.js';
+import {defineComponent, type Dialogue} from 'tellurion';
+
 import {type Flags} from '../core/flags.js';
 
 // One dialogue at a time, structurally: the singleton entity carries the

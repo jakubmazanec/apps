@@ -1,7 +1,6 @@
+import {Tilemap, toTileGid} from 'tellurion';
 import {afterEach, describe, expect, test, vitest} from 'vitest';
 
-import {toTileGid} from '../source/engine/tiled/TileGid.js';
-import {Tilemap} from '../source/engine/tiled/Tilemap.js';
 import {LevelComponent} from '../source/game/components/LevelComponent.js';
 import {assets} from '../source/game/core/assets.js';
 import {getMapPool} from '../source/game/levels/mapPool.js';

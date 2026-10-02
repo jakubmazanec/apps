@@ -1,4 +1,4 @@
-import {GameAssets} from '../../engine/app/GameAssets.js';
+import {GameAssets} from 'tellurion';
 
 export const assets = new GameAssets({
   bundles: [

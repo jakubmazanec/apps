@@ -29,6 +29,7 @@ COPY --link apps/foam/package.json apps/foam/package.json
 COPY --link apps/headwind/package.json apps/headwind/package.json
 COPY --link apps/riffle/package.json apps/riffle/package.json
 COPY --link apps/somewhere/package.json apps/somewhere/package.json
+COPY --link packages/tellurion/package.json packages/tellurion/package.json
 RUN npm ci --include=dev --ignore-scripts
 
 # Copy the workspace
@@ -47,6 +48,8 @@ FROM base
 COPY package-lock.json package.json /workspace/
 COPY --from=build /workspace/apps/dram/build /workspace/apps/dram/build
 COPY --from=build /workspace/apps/dram/package.json /workspace/apps/dram/package.json
+COPY --from=build /workspace/packages/tellurion/build /workspace/packages/tellurion/build
+COPY --from=build /workspace/packages/tellurion/package.json /workspace/packages/tellurion/package.json
 
 # Install dependencies
 RUN npm ci --omit=dev --ignore-scripts && npm cache clean --force

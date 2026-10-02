@@ -1,5 +1,5 @@
-import {Game} from '../../engine/app/Game.js';
-import {GameTheme} from '../../engine/app/GameTheme.js';
+import {Game, GameTheme} from 'tellurion';
+
 import {assets} from './assets.js';
 import {input} from './input.js';
 import {theme} from './theme.js';

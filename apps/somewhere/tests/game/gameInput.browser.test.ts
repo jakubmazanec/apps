@@ -1,6 +1,6 @@
+import {type Game} from 'tellurion';
 import {afterEach, beforeEach, describe, expect, test} from 'vitest';
 
-import {type Game} from '../../source/engine/app/Game.js';
 import {input} from '../../source/game/core/input.js';
 
 // The game's own control table, tested through the same reads Game and the

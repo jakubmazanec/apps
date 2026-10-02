@@ -1,5 +1,4 @@
-import {Component} from '../../engine/ecs/Component.js';
-import {type Vector} from '../../engine/utilities/Vector.js';
+import {Component, type Vector} from 'tellurion';
 
 // Hardcoded by design: stroll timing has no authoring surface.
 const MIN_WAIT_MS = 3000;

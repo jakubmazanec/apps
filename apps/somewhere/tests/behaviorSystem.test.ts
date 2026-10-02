@@ -1,10 +1,7 @@
 import type * as pixi from 'pixi.js';
+import {Dialogue, Entity, Vector, World} from 'tellurion';
 import {afterEach, describe, expect, test, vitest} from 'vitest';
 
-import {Dialogue} from '../source/engine/dialogue/Dialogue.js';
-import {Entity} from '../source/engine/ecs/Entity.js';
-import {World} from '../source/engine/ecs/World.js';
-import {Vector} from '../source/engine/utilities/Vector.js';
 import {
   BehaviorComponent,
   type StrollBehavior,

@@ -1,6 +1,6 @@
+import {PersistedStore} from 'tellurion';
 import {z} from 'zod';
 
-import {PersistedStore} from '../../engine/storage/PersistedStore.js';
 import {MotionComponent} from '../components/MotionComponent.js';
 import {
   DEFAULT_MAP_NAME,

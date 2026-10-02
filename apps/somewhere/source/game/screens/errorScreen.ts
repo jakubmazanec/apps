@@ -1,7 +1,5 @@
-import {type ErrorScreenContents} from '../../engine/app/ErrorScreenContents.js';
-import {GameScreen} from '../../engine/app/GameScreen.js';
-import {Panel} from '../../engine/ui/Panel.js';
-import {Text} from '../../engine/ui/Text.js';
+import {type ErrorScreenContents, GameScreen, Panel, Text} from 'tellurion';
+
 import {game} from '../core/game.js';
 
 // The end of the line for a failed transition: no buttons, because retrying would have to

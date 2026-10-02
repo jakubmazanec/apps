@@ -1,10 +1,6 @@
 import * as pixi from 'pixi.js';
+import {type Component, Entity, failUnsupported, type TilemapObject, Vector} from 'tellurion';
 
-import {type Component} from '../../engine/ecs/Component.js';
-import {Entity} from '../../engine/ecs/Entity.js';
-import {type TilemapObject} from '../../engine/tiled/Tilemap.js';
-import {failUnsupported} from '../../engine/utilities/failUnsupported.js';
-import {Vector} from '../../engine/utilities/Vector.js';
 import {BehaviorComponent, randomStrollWait} from '../components/BehaviorComponent.js';
 import {GraphicsComponent} from '../components/GraphicsComponent.js';
 import {MotionComponent} from '../components/MotionComponent.js';

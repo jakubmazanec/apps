@@ -1,8 +1,7 @@
 import {useEffect, useState} from 'react';
 import {type MetaFunction} from 'react-router';
+import {type Game, GameProvider} from 'tellurion';
 
-import {type Game} from '../engine/app/Game.js';
-import {GameProvider} from '../engine/app/GameProvider.js';
 import Renderer from '../ui/Renderer.js';
 
 export const meta: MetaFunction = () => [{title: 'Somewhere'}];

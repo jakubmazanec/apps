@@ -1,4 +1,5 @@
-import {System} from '../../engine/ecs/System.js';
+import {System} from 'tellurion';
+
 import {CameraComponent} from '../components/CameraComponent.js';
 import {LevelComponent} from '../components/LevelComponent.js';
 import {MotionComponent} from '../components/MotionComponent.js';

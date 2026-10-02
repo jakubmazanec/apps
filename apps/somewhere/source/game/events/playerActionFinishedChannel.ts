@@ -1,4 +1,5 @@
-import {EventChannel} from '../../engine/ecs/EventChannel.js';
+import {EventChannel} from 'tellurion';
+
 import {PlayerActionFinished} from './PlayerActionFinished.js';
 
 export const playerActionFinishedChannel = new EventChannel({

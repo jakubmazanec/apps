@@ -1,4 +1,5 @@
-import {System} from '../../engine/ecs/System.js';
+import {System} from 'tellurion';
+
 import {popupExpiredChannel} from '../events/popupExpiredChannel.js';
 
 export const popupCleanupSystem = new System({

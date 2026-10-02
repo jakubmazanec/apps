@@ -1,4 +1,5 @@
-import {EventChannel} from '../../engine/ecs/EventChannel.js';
+import {EventChannel} from 'tellurion';
+
 import {PlaySoundEvent} from '../events/PlaySoundEvent.js';
 
 // A game module singleton, imported directly by SFX producers (like

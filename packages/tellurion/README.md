@@ -1,0 +1,43 @@
+<!-- header -->
+<div align="center">
+
+# tellurion
+
+TypeScript-first 2D game engine on top of Pixi.js.
+</div>
+<!-- header -->
+
+## Installation
+
+```sh
+npm install tellurion
+```
+
+⚠️ This is an [ESM](https://gist.github.com/sindresorhus/a39789f98801d908bbc7ff3ecc99d99c) package!
+It cannot be required from a CommonJS module.
+
+<!-- prerequisites -->
+
+#### Prerequisites
+
+- Node.js 24 or later
+- TypeScript 6 or later
+
+<!-- prerequisites -->
+
+## Usage
+
+🚧 This section is under development. Please check back later for updates.
+
+## Documentation
+
+See [API reference](./docs) for auto-generated documentation.
+
+## Contributing
+
+If you want to contribute, see [CONTRIBUTING](./CONTRIBUTING.md) for details.
+
+## License
+
+This package is licensed under the GNU Lesser General Public License v3. See [LICENSE](./LICENSE.md)
+for details.

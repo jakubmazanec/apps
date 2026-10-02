@@ -1,4 +1,3 @@
-import {defineComponent} from '../../engine/ecs/Component.js';
-import {type Vector} from '../../engine/utilities/Vector.js';
+import {defineComponent, type Vector} from 'tellurion';
 
 export const CameraComponent = defineComponent<{position: Vector}>();

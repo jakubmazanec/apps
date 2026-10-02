@@ -1,6 +1,5 @@
 import type * as pixi from 'pixi.js';
-
-import {Vector} from '../../engine/utilities/Vector.js';
+import {Vector} from 'tellurion';
 
 /**
  * The entity position that centers its bounding box on `center` (map-space

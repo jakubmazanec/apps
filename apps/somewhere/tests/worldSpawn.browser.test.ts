@@ -1,10 +1,7 @@
 import * as pixi from 'pixi.js';
+import {Dialogue, Spriteset, Tilemap, type TilemapObject, toTileGid} from 'tellurion';
 import {afterEach, describe, expect, test, vitest} from 'vitest';
 
-import {Dialogue} from '../source/engine/dialogue/Dialogue.js';
-import {Spriteset} from '../source/engine/graphics/Spriteset.js';
-import {toTileGid} from '../source/engine/tiled/TileGid.js';
-import {Tilemap, type TilemapObject} from '../source/engine/tiled/Tilemap.js';
 import {DialogueComponent} from '../source/game/components/DialogueComponent.js';
 import {MotionComponent} from '../source/game/components/MotionComponent.js';
 import {TriggerComponent} from '../source/game/components/TriggerComponent.js';

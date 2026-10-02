@@ -9,9 +9,7 @@ vitest.mock(import('../source/game/core/game.js'), () => {
   return {game: game as never};
 });
 
-const {Spriteset} = await import('../source/engine/graphics/Spriteset.js');
-const {toTileGid} = await import('../source/engine/tiled/TileGid.js');
-const {Tilemap} = await import('../source/engine/tiled/Tilemap.js');
+const {Entity, Spriteset, System, Tilemap, toTileGid, Vector, World} = await import('tellurion');
 const {assets} = await import('../source/game/core/assets.js');
 const {
   DEFAULT_MAP_NAME,
@@ -26,9 +24,6 @@ const {
   spawnMap,
 } = await import('../source/game/levels/levelManager.js');
 const {TriggerComponent} = await import('../source/game/components/TriggerComponent.js');
-const {World} = await import('../source/engine/ecs/World.js');
-const {System} = await import('../source/engine/ecs/System.js');
-const {Entity} = await import('../source/engine/ecs/Entity.js');
 const {camera} = await import('../source/game/core/camera.js');
 const {CameraComponent} = await import('../source/game/components/CameraComponent.js');
 const {cameraQuery} = await import('../source/game/queries/cameraQuery.js');
@@ -38,15 +33,14 @@ const {playersQuery} = await import('../source/game/queries/playersQuery.js');
 const {playerPool} = await import('../source/game/levels/playerPool.js');
 const {MotionComponent} = await import('../source/game/components/MotionComponent.js');
 const {LevelComponent} = await import('../source/game/components/LevelComponent.js');
-const {Vector} = await import('../source/engine/utilities/Vector.js');
 
 // `const {Tilemap} = await import(...)` only binds Tilemap as a value (unlike
 // a static `import {Tilemap} from ...`, which merges value and type); the
 // separate type alias lets buildTilemap/stubAssets below annotate with it.
-type Tilemap = import('../source/engine/tiled/Tilemap.js').Tilemap;
-type TilemapObject = import('../source/engine/tiled/Tilemap.js').TilemapObject;
-type World = import('../source/engine/ecs/World.js').World;
-type Entity = import('../source/engine/ecs/Entity.js').Entity;
+type Tilemap = import('tellurion').Tilemap;
+type TilemapObject = import('tellurion').TilemapObject;
+type World = import('tellurion').World;
+type Entity = import('tellurion').Entity;
 
 const SPRITE_NAMES = [
   'standing-down',

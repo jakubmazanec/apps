@@ -1,4 +1,5 @@
-import {EntityQuery} from '../../engine/ecs/EntityQuery.js';
+import {EntityQuery} from 'tellurion';
+
 import {CameraComponent} from '../components/CameraComponent.js';
 
 export const cameraQuery = new EntityQuery({

@@ -51,6 +51,16 @@ export default defineConfig(
       },
     },
     {
+      optimizeDeps: {
+        include: [
+          '@pixi/layout',
+          '@pixi/layout/components',
+          'eventemitter3',
+          'pixi-filters',
+          'pixi.js',
+          'zod',
+        ],
+      },
       test: {
         projects: [
           {

@@ -1,6 +1,6 @@
 import * as pixi from 'pixi.js';
+import {System} from 'tellurion';
 
-import {System} from '../../engine/ecs/System.js';
 import {GraphicsComponent} from '../components/GraphicsComponent.js';
 import {LevelComponent} from '../components/LevelComponent.js';
 import {MotionComponent} from '../components/MotionComponent.js';

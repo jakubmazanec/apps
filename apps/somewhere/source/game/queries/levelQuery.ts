@@ -1,4 +1,5 @@
-import {EntityQuery} from '../../engine/ecs/EntityQuery.js';
+import {EntityQuery} from 'tellurion';
+
 import {LevelComponent} from '../components/LevelComponent.js';
 
 export const levelQuery = new EntityQuery({

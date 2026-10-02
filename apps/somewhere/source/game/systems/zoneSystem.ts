@@ -1,4 +1,5 @@
-import {System} from '../../engine/ecs/System.js';
+import {System} from 'tellurion';
+
 import {TriggerComponent} from '../components/TriggerComponent.js';
 import {playSoundChannel} from '../core/playSoundChannel.js';
 import {PlaySoundEvent} from '../events/PlaySoundEvent.js';

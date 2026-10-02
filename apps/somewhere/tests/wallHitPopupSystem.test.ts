@@ -1,11 +1,7 @@
 import * as pixi from 'pixi.js';
+import {Entity, type MapTile, Spriteset, Vector, World} from 'tellurion';
 import {afterEach, describe, expect, test, vitest} from 'vitest';
 
-import {Entity} from '../source/engine/ecs/Entity.js';
-import {World} from '../source/engine/ecs/World.js';
-import {Spriteset} from '../source/engine/graphics/Spriteset.js';
-import {type MapTile} from '../source/engine/tiled/Map.js';
-import {Vector} from '../source/engine/utilities/Vector.js';
 import {GraphicsComponent} from '../source/game/components/GraphicsComponent.js';
 import {MotionComponent} from '../source/game/components/MotionComponent.js';
 import {assets} from '../source/game/core/assets.js';

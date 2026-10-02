@@ -1,6 +1,5 @@
 import {useEffect, useRef} from 'react';
-
-import {useGame} from '../engine/app/useGame.js';
+import {useGame} from 'tellurion';
 
 export default function Renderer() {
   let game = useGame();

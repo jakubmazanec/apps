@@ -1,5 +1,5 @@
-import {GameScreen} from '../../engine/app/GameScreen.js';
-import {Text} from '../../engine/ui/Text.js';
+import {GameScreen, Text} from 'tellurion';
+
 import {game} from '../core/game.js';
 
 type LoadingScreenContents = {label: Text};
