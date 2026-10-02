@@ -1,10 +1,7 @@
 import type * as pixi from 'pixi.js';
+import {Dialogue, Entity, type GameInput, World} from 'tellurion';
 import {afterEach, describe, expect, test, vitest} from 'vitest';
 
-import {Dialogue} from '../source/engine/dialogue/Dialogue.js';
-import {Entity} from '../source/engine/ecs/Entity.js';
-import {World} from '../source/engine/ecs/World.js';
-import {type GameInput} from '../source/engine/input/GameInput.js';
 import {DialogueComponent} from '../source/game/components/DialogueComponent.js';
 import {flags} from '../source/game/core/flags.js';
 import {dialogueCommandChannel} from '../source/game/events/dialogueCommandChannel.js';

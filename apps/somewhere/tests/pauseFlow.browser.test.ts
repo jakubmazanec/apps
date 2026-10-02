@@ -1,7 +1,7 @@
-import {describe, expect, test} from 'vitest';
+import {LayoutSystem} from '@pixi/layout';
+import {Modal, UiRoot} from 'tellurion';
+import {beforeAll, describe, expect, test} from 'vitest';
 
-import {Modal} from '../source/engine/ui/Modal.js';
-import {UiRoot} from '../source/engine/ui/UiRoot.js';
 import {openPauseMenu, teardownWorldScreen} from '../source/game/screens/pauseFlow.js';
 import {createTestTheme} from './createTestTheme.js';
 
@@ -14,6 +14,16 @@ import {createTestTheme} from './createTestTheme.js';
 import 'pixi.js/events';
 
 describe('pauseFlow', () => {
+  // Importing tellurion evaluates its Game module, whose `import '@pixi/layout'`
+  // installs the layout mixin on every pixi Container, so the real Modal builds
+  // yoga nodes; with no renderer here to init the layout system, the suite
+  // loads yoga itself (the engine tests' setup).
+  beforeAll(async () => {
+    await new LayoutSystem().init({
+      layout: {autoUpdate: false, enableDebug: false, throttle: 0, debugModificationCount: 50},
+    });
+  });
+
   test('openPauseMenu pauses the world before opening the modal', () => {
     let calls: string[] = [];
 
@@ -74,6 +84,11 @@ describe('pauseFlow', () => {
   test('cancel on the pause modal resumes the world once, like the Resume button', () => {
     let calls: string[] = [];
     let root = new UiRoot({theme: createTestTheme()});
+
+    // Modal sizes itself against the root's layout; the game's screens give
+    // their UiRoot one (worldScreen: 100% of the screen).
+    root.view.layout = {width: '100%', height: '100%'};
+
     let modal = new Modal({
       children: [],
       onClosing: () => {

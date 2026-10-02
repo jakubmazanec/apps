@@ -1,5 +1,5 @@
-import {Dialogue} from '../../engine/dialogue/Dialogue.js';
-import {System} from '../../engine/ecs/System.js';
+import {Dialogue, System} from 'tellurion';
+
 import {DialogueComponent} from '../components/DialogueComponent.js';
 import {MotionComponent} from '../components/MotionComponent.js';
 import {TriggerComponent} from '../components/TriggerComponent.js';

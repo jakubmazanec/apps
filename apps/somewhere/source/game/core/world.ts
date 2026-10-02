@@ -1,6 +1,5 @@
-import {World} from '../../engine/ecs/World.js';
-import {failUnsupported} from '../../engine/utilities/failUnsupported.js';
-import {Vector} from '../../engine/utilities/Vector.js';
+import {failUnsupported, Vector, World} from 'tellurion';
+
 import {CameraComponent} from '../components/CameraComponent.js';
 import {DialogueComponent} from '../components/DialogueComponent.js';
 import {GraphicsComponent} from '../components/GraphicsComponent.js';

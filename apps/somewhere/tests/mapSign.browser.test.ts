@@ -3,19 +3,15 @@
 // auto-shown dialogue) without being a trap on the normal walking routes.
 // The real public/map.json and public/tileset.json drive the world; only the
 // render/audio edges are stubbed so the simulation runs headless.
+import {LayoutSystem} from '@pixi/layout';
 import * as pixi from 'pixi.js';
-import {afterEach, describe, expect, test, vitest} from 'vitest';
+import {type Game, Spriteset, Tilemap, Tileset, toTileId, Vector} from 'tellurion';
+import {afterEach, beforeAll, describe, expect, test, vitest} from 'vitest';
 
 import exteriorTilesetJsonRaw from '../public/exterior-tileset.json?raw';
 import mapJsonRaw from '../public/map.json?raw';
 import shopInteriorJsonRaw from '../public/shop-interior.json?raw';
 import tilesetJsonRaw from '../public/tileset.json?raw';
-import {type Game} from '../source/engine/app/Game.js';
-import {Spriteset} from '../source/engine/graphics/Spriteset.js';
-import {toTileId} from '../source/engine/tiled/TileId.js';
-import {Tilemap} from '../source/engine/tiled/Tilemap.js';
-import {Tileset} from '../source/engine/tiled/Tileset.js';
-import {Vector} from '../source/engine/utilities/Vector.js';
 import {DialogueComponent} from '../source/game/components/DialogueComponent.js';
 import {MotionComponent} from '../source/game/components/MotionComponent.js';
 import {TriggerComponent} from '../source/game/components/TriggerComponent.js';
@@ -27,39 +23,6 @@ import {input} from '../source/game/core/input.js';
 import {world} from '../source/game/core/world.js';
 import {playersQuery} from '../source/game/queries/playersQuery.js';
 import {dialogueBoxSystem} from '../source/game/systems/dialogueBoxSystem.js';
-
-// The real DialogueBox runs; only the primitives that need an installed
-// bitmap font or the layout runtime are mocked (the DialogueBox.test setup).
-vitest.mock(import('../source/engine/ui/Text.js'), async () => {
-  let {Container} = await import('pixi.js');
-
-  class Text {
-    text: string;
-    view = new Container();
-
-    constructor({text}: {text: string}) {
-      this.text = text;
-    }
-
-    destroy() {
-      this.view.destroy();
-    }
-
-    setAnchor() {
-      return this;
-    }
-
-    setText(value: string) {
-      this.text = value;
-
-      return this;
-    }
-  }
-
-  // `as never`: the real Text is nominally typed (it has #private fields), so no
-  // structural stand-in can satisfy the mocked module's declared shape.
-  return {Text: Text as never};
-});
 
 vitest.mock(import('../source/game/core/assets.js'), async () => {
   let {Texture} = await import('pixi.js');
@@ -88,7 +51,7 @@ vitest.mock(import('../source/game/core/game.js'), async () => {
   prototype.addEventListener ??= () => {};
   prototype.removeEventListener ??= () => {};
 
-  let {UiRoot} = await import('../source/engine/ui/UiRoot.js');
+  let {UiRoot} = await import('tellurion');
   // Dynamic, not static: this file statically imports dialogueBoxSystem.js, whose
   // resolution runs this hoisted mock factory first; a static createTestTheme
   // binding here would still be in its TDZ at that point and crash.
@@ -255,6 +218,16 @@ function walkUntil(target: Vector, frames: number, stop: () => boolean) {
 }
 
 describe('the keep-out sign on the exported map', () => {
+  // Importing tellurion evaluates its Game module, whose `import '@pixi/layout'`
+  // installs the layout mixin on every pixi Container, so the real DialogueBox,
+  // Panel and Text build yoga nodes; with no renderer here to init the layout
+  // system, the suite loads yoga itself (the engine tests' setup).
+  beforeAll(async () => {
+    await new LayoutSystem().init({
+      layout: {autoUpdate: false, enableDebug: false, throttle: 0, debugModificationCount: 50},
+    });
+  });
+
   afterEach(() => {
     if (world.isRunning) {
       world.stop();

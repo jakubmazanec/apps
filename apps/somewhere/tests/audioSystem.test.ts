@@ -1,8 +1,7 @@
 import type * as pixi from 'pixi.js';
+import {type AudioMixer, World} from 'tellurion';
 import {afterEach, describe, expect, test, vitest} from 'vitest';
 
-import {type AudioMixer} from '../source/engine/audio/AudioMixer.js';
-import {World} from '../source/engine/ecs/World.js';
 import {assets} from '../source/game/core/assets.js';
 import {playSoundChannel} from '../source/game/core/playSoundChannel.js';
 import {PlaySoundEvent} from '../source/game/events/PlaySoundEvent.js';

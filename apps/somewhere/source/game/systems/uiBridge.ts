@@ -1,4 +1,5 @@
-import {System} from '../../engine/ecs/System.js';
+import {System} from 'tellurion';
+
 import {uiEvents} from '../core/uiEvents.js';
 import {wallHitChannel} from '../events/wallHitChannel.js';
 

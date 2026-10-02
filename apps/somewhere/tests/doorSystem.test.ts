@@ -1,12 +1,7 @@
 import * as pixi from 'pixi.js';
+import {type Component, type Constructor, Dialogue, Entity, Vector, World} from 'tellurion';
 import {afterEach, describe, expect, test} from 'vitest';
 
-import {Dialogue} from '../source/engine/dialogue/Dialogue.js';
-import {type Component} from '../source/engine/ecs/Component.js';
-import {Entity} from '../source/engine/ecs/Entity.js';
-import {World} from '../source/engine/ecs/World.js';
-import {type Constructor} from '../source/engine/utilities/Constructor.js';
-import {Vector} from '../source/engine/utilities/Vector.js';
 import {DialogueComponent} from '../source/game/components/DialogueComponent.js';
 import {GraphicsComponent} from '../source/game/components/GraphicsComponent.js';
 import {MotionComponent} from '../source/game/components/MotionComponent.js';

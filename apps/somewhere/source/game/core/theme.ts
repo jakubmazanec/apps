@@ -1,4 +1,4 @@
-import {type UiThemeDescription} from '../../engine/ui/UiTheme.js';
+import {type UiThemeDescription} from 'tellurion';
 
 // All UI art lives in the `ui` spriteset in the `default` bundle, which is the
 // only bundle loaded when Game.init resolves this. Nine-slice insets ship as

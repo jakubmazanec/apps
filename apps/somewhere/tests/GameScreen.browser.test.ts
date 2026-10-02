@@ -1,12 +1,9 @@
 import {EventEmitter} from 'eventemitter3';
 import type * as pixiTypes from 'pixi.js';
 import {Container} from 'pixi.js';
+import {type Game, GameScreen, type MapTile, type ResolvedUiTheme} from 'tellurion';
 import {describe, expect, test, vitest} from 'vitest';
 
-import {type Game} from '../source/engine/app/Game.js';
-import {GameScreen} from '../source/engine/app/GameScreen.js';
-import {type MapTile} from '../source/engine/tiled/Map.js';
-import {type ResolvedUiTheme} from '../source/engine/ui/UiTheme.js';
 import {type UIEventMap} from '../source/game/core/uiEvents.js';
 import {createTestTheme} from './createTestTheme.js';
 

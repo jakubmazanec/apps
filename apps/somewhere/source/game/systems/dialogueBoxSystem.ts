@@ -1,9 +1,6 @@
 import * as pixi from 'pixi.js';
+import {DialogueBox, type DialogueNode, type Spriteset, System} from 'tellurion';
 
-import {DialogueBox} from '../../engine/dialogue/DialogueBox.js';
-import {type DialogueNode} from '../../engine/dialogue/DialogueScript.js';
-import {System} from '../../engine/ecs/System.js';
-import {type Spriteset} from '../../engine/graphics/Spriteset.js';
 import {CameraComponent} from '../components/CameraComponent.js';
 import {DialogueComponent} from '../components/DialogueComponent.js';
 import {GraphicsComponent} from '../components/GraphicsComponent.js';

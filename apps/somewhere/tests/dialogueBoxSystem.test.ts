@@ -1,8 +1,7 @@
 import type * as pixi from 'pixi.js';
+import {Entity, World} from 'tellurion';
 import {afterEach, describe, expect, test, vitest} from 'vitest';
 
-import {Entity} from '../source/engine/ecs/Entity.js';
-import {World} from '../source/engine/ecs/World.js';
 import {createTestTheme} from './createTestTheme.js';
 
 vitest.mock(import('../source/game/core/game.js'), () => {

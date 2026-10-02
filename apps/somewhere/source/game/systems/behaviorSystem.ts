@@ -1,4 +1,5 @@
-import {System} from '../../engine/ecs/System.js';
+import {System} from 'tellurion';
+
 import {BehaviorComponent, randomStrollWait} from '../components/BehaviorComponent.js';
 import {DialogueComponent} from '../components/DialogueComponent.js';
 import {MotionComponent} from '../components/MotionComponent.js';

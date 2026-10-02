@@ -1,8 +1,6 @@
 import * as pixi from 'pixi.js';
+import {Entity, ObjectPool, Vector} from 'tellurion';
 
-import {Entity} from '../../engine/ecs/Entity.js';
-import {ObjectPool} from '../../engine/utilities/ObjectPool.js';
-import {Vector} from '../../engine/utilities/Vector.js';
 import {GraphicsComponent} from '../components/GraphicsComponent.js';
 import {MotionComponent} from '../components/MotionComponent.js';
 import {PlayerComponent} from '../components/PlayerComponent.js';

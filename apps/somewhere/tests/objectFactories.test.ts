@@ -1,8 +1,7 @@
 import * as pixi from 'pixi.js';
+import {Spriteset, type TilemapObject} from 'tellurion';
 import {afterEach, describe, expect, test, vitest} from 'vitest';
 
-import {Spriteset} from '../source/engine/graphics/Spriteset.js';
-import {type TilemapObject} from '../source/engine/tiled/Tilemap.js';
 import {BehaviorComponent} from '../source/game/components/BehaviorComponent.js';
 import {GraphicsComponent} from '../source/game/components/GraphicsComponent.js';
 import {MotionComponent} from '../source/game/components/MotionComponent.js';

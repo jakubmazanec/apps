@@ -1,4 +1,5 @@
-import {System} from '../../engine/ecs/System.js';
+import {System} from 'tellurion';
+
 import {DialogueComponent} from '../components/DialogueComponent.js';
 import {input} from '../core/input.js';
 import {DialogueCommand} from '../events/DialogueCommand.js';

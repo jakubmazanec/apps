@@ -1,6 +1,5 @@
-import {AudioBus} from '../../engine/audio/AudioBus.js';
-import {AudioMixer} from '../../engine/audio/AudioMixer.js';
-import {setAudioDecodeContext} from '../../engine/pixi-tools/audioBufferAsset.js';
+import {AudioBus, AudioMixer, setAudioDecodeContext} from 'tellurion';
+
 import {settings} from './settings.js';
 
 // The one mixer for the whole app. The UI/screen layer imports `audio` and

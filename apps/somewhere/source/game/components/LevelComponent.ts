@@ -1,5 +1,4 @@
-import {Component} from '../../engine/ecs/Component.js';
-import {Map, type MapOptions} from '../../engine/tiled/Map.js';
+import {Component, Map, type MapOptions} from 'tellurion';
 
 export type LevelComponentOptions = {
   mapOptions: MapOptions;

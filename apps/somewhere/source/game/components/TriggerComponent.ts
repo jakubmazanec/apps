@@ -1,6 +1,5 @@
 import type * as pixi from 'pixi.js';
-
-import {Component} from '../../engine/ecs/Component.js';
+import {Component} from 'tellurion';
 
 export type TriggerComponentOptions = {
   id: number; // Tiled object id; door targets resolve against this

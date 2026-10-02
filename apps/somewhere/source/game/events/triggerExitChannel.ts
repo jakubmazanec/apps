@@ -1,4 +1,5 @@
-import {EventChannel} from '../../engine/ecs/EventChannel.js';
+import {EventChannel} from 'tellurion';
+
 import {TriggerExit} from './TriggerExit.js';
 
 export const triggerExitChannel = new EventChannel({

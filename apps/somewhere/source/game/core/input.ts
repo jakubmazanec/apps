@@ -1,4 +1,4 @@
-import {GameInput} from '../../engine/input/GameInput.js';
+import {GameInput} from 'tellurion';
 
 // One table: the focus half is consumed by Game's router, the actions half by
 // world systems. A key may appear in exactly one entry (GameInput throws on a

@@ -1,12 +1,6 @@
 import * as pixi from 'pixi.js';
+import {Button, Container, type Disposables, GameScreen, Modal, Panel, Text} from 'tellurion';
 
-import {GameScreen} from '../../engine/app/GameScreen.js';
-import {Button} from '../../engine/ui/Button.js';
-import {Container} from '../../engine/ui/Container.js';
-import {Modal} from '../../engine/ui/Modal.js';
-import {Panel} from '../../engine/ui/Panel.js';
-import {Text} from '../../engine/ui/Text.js';
-import {type Disposables} from '../../engine/utilities/Disposables.js';
 import {assets} from '../core/assets.js';
 import {audio} from '../core/audio.js';
 import {game} from '../core/game.js';

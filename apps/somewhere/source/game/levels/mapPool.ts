@@ -1,5 +1,5 @@
-import {Entity} from '../../engine/ecs/Entity.js';
-import {ObjectPool} from '../../engine/utilities/ObjectPool.js';
+import {Entity, ObjectPool} from 'tellurion';
+
 import {LevelComponent} from '../components/LevelComponent.js';
 import {assets} from '../core/assets.js';
 import {type MapName} from './levelManager.js';

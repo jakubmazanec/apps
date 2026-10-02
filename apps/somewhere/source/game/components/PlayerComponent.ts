@@ -1,3 +1,3 @@
-import {defineComponent} from '../../engine/ecs/Component.js';
+import {defineComponent} from 'tellurion';
 
 export const PlayerComponent = defineComponent<{name: string}>();

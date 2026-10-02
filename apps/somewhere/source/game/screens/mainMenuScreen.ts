@@ -1,12 +1,15 @@
-import {GameScreen} from '../../engine/app/GameScreen.js';
-import {type AudioBus} from '../../engine/audio/AudioBus.js';
-import {Button} from '../../engine/ui/Button.js';
-import {Container} from '../../engine/ui/Container.js';
-import {Modal} from '../../engine/ui/Modal.js';
-import {Panel} from '../../engine/ui/Panel.js';
-import {Slider} from '../../engine/ui/Slider.js';
-import {Text} from '../../engine/ui/Text.js';
-import {TextInput} from '../../engine/ui/TextInput.js';
+import {
+  type AudioBus,
+  Button,
+  Container,
+  GameScreen,
+  Modal,
+  Panel,
+  Slider,
+  Text,
+  TextInput,
+} from 'tellurion';
+
 import {assets} from '../core/assets.js';
 import {audio} from '../core/audio.js';
 import {game} from '../core/game.js';

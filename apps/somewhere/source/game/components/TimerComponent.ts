@@ -1,4 +1,3 @@
-import {defineComponent} from '../../engine/ecs/Component.js';
-import {type Timer} from '../../engine/scheduler/Timer.js';
+import {defineComponent, type Timer} from 'tellurion';
 
 export const TimerComponent = defineComponent<{timers: Timer[]}>();

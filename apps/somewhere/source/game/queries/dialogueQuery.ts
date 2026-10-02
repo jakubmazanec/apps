@@ -1,4 +1,5 @@
-import {EntityQuery} from '../../engine/ecs/EntityQuery.js';
+import {EntityQuery} from 'tellurion';
+
 import {DialogueComponent} from '../components/DialogueComponent.js';
 
 export const dialogueQuery = new EntityQuery({

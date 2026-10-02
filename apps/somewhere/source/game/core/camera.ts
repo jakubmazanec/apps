@@ -1,5 +1,5 @@
-import {Entity} from '../../engine/ecs/Entity.js';
-import {Vector} from '../../engine/utilities/Vector.js';
+import {Entity, Vector} from 'tellurion';
+
 import {CameraComponent} from '../components/CameraComponent.js';
 
 export const camera = new Entity({

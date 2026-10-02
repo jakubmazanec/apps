@@ -1,9 +1,12 @@
-import {type Entity} from '../../engine/ecs/Entity.js';
-import {type World} from '../../engine/ecs/World.js';
-import {type TilemapObject} from '../../engine/tiled/Tilemap.js';
-import {doRectanglesOverlap} from '../../engine/utilities/doRectanglesOverlap.js';
-import {failUnsupported} from '../../engine/utilities/failUnsupported.js';
-import {Vector} from '../../engine/utilities/Vector.js';
+import {
+  doRectanglesOverlap,
+  type Entity,
+  failUnsupported,
+  type TilemapObject,
+  Vector,
+  type World,
+} from 'tellurion';
+
 import {CameraComponent} from '../components/CameraComponent.js';
 import {GraphicsComponent} from '../components/GraphicsComponent.js';
 import {LevelComponent} from '../components/LevelComponent.js';

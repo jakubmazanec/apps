@@ -1,7 +1,6 @@
 import type * as pixi from 'pixi.js';
+import {doRectanglesOverlap, type Entity} from 'tellurion';
 
-import {type Entity} from '../../engine/ecs/Entity.js';
-import {doRectanglesOverlap} from '../../engine/utilities/doRectanglesOverlap.js';
 import {GraphicsComponent} from '../components/GraphicsComponent.js';
 import {MotionComponent} from '../components/MotionComponent.js';
 import {TriggerComponent} from '../components/TriggerComponent.js';

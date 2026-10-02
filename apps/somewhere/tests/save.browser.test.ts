@@ -1,8 +1,6 @@
+import {Entity, Vector, World} from 'tellurion';
 import {afterEach, describe, expect, test, vitest} from 'vitest';
 
-import {Entity} from '../source/engine/ecs/Entity.js';
-import {World} from '../source/engine/ecs/World.js';
-import {Vector} from '../source/engine/utilities/Vector.js';
 import {MotionComponent} from '../source/game/components/MotionComponent.js';
 import {PlayerComponent} from '../source/game/components/PlayerComponent.js';
 import {flags, resetFlags} from '../source/game/core/flags.js';

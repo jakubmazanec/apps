@@ -1,4 +1,5 @@
-import {System} from '../../engine/ecs/System.js';
+import {System} from 'tellurion';
+
 import {assets} from '../core/assets.js';
 import {audio} from '../core/audio.js';
 import {playSoundChannel} from '../core/playSoundChannel.js';

@@ -1,4 +1,3 @@
-import {type Entity} from '../../engine/ecs/Entity.js';
-import {defineEvent} from '../../engine/ecs/Event.js';
+import {defineEvent, type Entity} from 'tellurion';
 
 export const PopupExpired = defineEvent<{entity: Entity}>();

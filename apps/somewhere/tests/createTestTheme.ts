@@ -1,6 +1,5 @@
 import type * as pixi from 'pixi.js';
-
-import {type ResolvedUiTheme} from '../source/engine/ui/UiTheme.js';
+import {type ResolvedUiTheme} from 'tellurion';
 
 function texture(label: string): pixi.Texture {
   let sentinel = {label};

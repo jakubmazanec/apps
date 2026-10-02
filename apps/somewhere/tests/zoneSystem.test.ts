@@ -1,8 +1,7 @@
 import * as pixi from 'pixi.js';
+import {Entity, World} from 'tellurion';
 import {afterEach, describe, expect, test} from 'vitest';
 
-import {Entity} from '../source/engine/ecs/Entity.js';
-import {World} from '../source/engine/ecs/World.js';
 import {TriggerComponent} from '../source/game/components/TriggerComponent.js';
 import {playSoundChannel} from '../source/game/core/playSoundChannel.js';
 import {TriggerEnter} from '../source/game/events/TriggerEnter.js';

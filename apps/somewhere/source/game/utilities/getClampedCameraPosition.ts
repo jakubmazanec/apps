@@ -1,4 +1,4 @@
-import {type Map} from '../../engine/tiled/Map.js';
+import {type Map} from 'tellurion';
 
 /**
  * The camera clamp shared by cameraSystem (every frame) and the travel flush

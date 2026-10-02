@@ -1,11 +1,7 @@
 import type * as pixi from 'pixi.js';
+import {defineEvent, Entity, EventChannel, Tween, World} from 'tellurion';
 import {describe, expect, test} from 'vitest';
 
-import {Entity} from '../source/engine/ecs/Entity.js';
-import {defineEvent} from '../source/engine/ecs/Event.js';
-import {EventChannel} from '../source/engine/ecs/EventChannel.js';
-import {World} from '../source/engine/ecs/World.js';
-import {Tween} from '../source/engine/scheduler/Tween.js';
 import {TweenComponent} from '../source/game/components/TweenComponent.js';
 import {tweenSystem} from '../source/game/systems/tweenSystem.js';
 

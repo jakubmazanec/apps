@@ -1,7 +1,7 @@
 import * as pixi from 'pixi.js';
+import {Vector} from 'tellurion';
 import {describe, expect, test} from 'vitest';
 
-import {Vector} from '../source/engine/utilities/Vector.js';
 import {getPositionForBoundingBoxCenter} from '../source/game/utilities/getPositionForBoundingBoxCenter.js';
 
 describe(getPositionForBoundingBoxCenter, () => {

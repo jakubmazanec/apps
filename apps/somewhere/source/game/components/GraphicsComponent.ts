@@ -1,7 +1,6 @@
 import type * as pixi from 'pixi.js';
+import {Component, Sprite} from 'tellurion';
 
-import {Component} from '../../engine/ecs/Component.js';
-import {Sprite} from '../../engine/graphics/Sprite.js';
 import {assets} from '../core/assets.js';
 
 export type GraphicsComponentOptions = {

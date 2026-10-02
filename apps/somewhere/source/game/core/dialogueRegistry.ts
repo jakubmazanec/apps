@@ -1,4 +1,5 @@
-import {defineDialogueScript, type DialogueChoice} from '../../engine/dialogue/DialogueScript.js';
+import {defineDialogueScript, type DialogueChoice} from 'tellurion';
+
 import {type Flags} from './flags.js';
 
 // One shared menu keeps the first and every repeat conversation offering the

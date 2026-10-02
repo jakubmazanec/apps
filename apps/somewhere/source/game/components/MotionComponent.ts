@@ -1,5 +1,4 @@
-import {Component} from '../../engine/ecs/Component.js';
-import {type Vector} from '../../engine/utilities/Vector.js';
+import {Component, type Vector} from 'tellurion';
 
 export type MotionComponentOptions = {
   position: Vector;

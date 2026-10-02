@@ -1,11 +1,6 @@
 import * as pixi from 'pixi.js';
+import {easeOutQuad, Entity, System, Timer, Tween, Vector} from 'tellurion';
 
-import {Entity} from '../../engine/ecs/Entity.js';
-import {System} from '../../engine/ecs/System.js';
-import {easeOutQuad} from '../../engine/scheduler/easing.js';
-import {Timer} from '../../engine/scheduler/Timer.js';
-import {Tween} from '../../engine/scheduler/Tween.js';
-import {Vector} from '../../engine/utilities/Vector.js';
 import {GraphicsComponent} from '../components/GraphicsComponent.js';
 import {MotionComponent} from '../components/MotionComponent.js';
 import {TimerComponent} from '../components/TimerComponent.js';

@@ -1,4 +1,4 @@
-import {defineEvent} from '../../engine/ecs/Event.js';
+import {defineEvent} from 'tellurion';
 
 // Gameplay SFX, identified by its asset cache key. No bus field — gameplay
 // SFX are always the `sfx` bus (§1 boundary rule). Per-play pitch/gain

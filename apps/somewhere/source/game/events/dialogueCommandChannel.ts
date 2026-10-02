@@ -1,4 +1,5 @@
-import {EventChannel} from '../../engine/ecs/EventChannel.js';
+import {EventChannel} from 'tellurion';
+
 import {DialogueCommand} from './DialogueCommand.js';
 
 // One game-owned channel, multiple producers (dialogueInputSystem, pointer

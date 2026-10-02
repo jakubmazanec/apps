@@ -1,5 +1,5 @@
-import {System} from '../../engine/ecs/System.js';
-import {Vector} from '../../engine/utilities/Vector.js';
+import {System, Vector} from 'tellurion';
+
 import {CameraComponent} from '../components/CameraComponent.js';
 import {DialogueComponent} from '../components/DialogueComponent.js';
 import {GraphicsComponent} from '../components/GraphicsComponent.js';
