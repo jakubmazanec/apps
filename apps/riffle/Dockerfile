@@ -48,7 +48,6 @@ FROM base
 COPY package-lock.json package.json /workspace/
 COPY --from=build /workspace/apps/riffle/build /workspace/apps/riffle/build
 COPY --from=build /workspace/apps/riffle/package.json /workspace/apps/riffle/package.json
-COPY --from=build /workspace/packages/tellurion/build /workspace/packages/tellurion/build
 COPY --from=build /workspace/packages/tellurion/package.json /workspace/packages/tellurion/package.json
 
 # Install dependencies
