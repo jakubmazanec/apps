@@ -1,0 +1,137 @@
+# Foam: direction
+
+Date: 2026-10-03. App: `apps/foam`. Status: draft for review. This is a living document: it is
+updated at the review that closes each phase.
+
+## What Foam is
+
+Foam is a text-first game about one night in Brno. The player arrives in the evening with a quest,
+moves between real places, and spends the night as a budget of hours: every action costs time, and
+money and the player's state (how drunk they are, for a start) limit what is possible. What the
+player takes away is stories. Each night is different, and the stories found are kept.
+
+The author made the game to show people the "real" Brno. The game knows it is a game.
+
+Foam runs on the `tellurion` engine, as Somewhere does.
+
+## Principles
+
+- **The fun is the stories and the uniqueness of each run.** The quest frames the night; it is not
+  the main reward.
+- **The game knows it is a game.** Meta jokes are used sparingly.
+- **The author is the storyteller.** He has the avatar Jakub, speaks to the player through the
+  in-game phone, and can sometimes be met in a place as an NPC. The player has their own avatar.
+- **Sex and drugs are never romanticised.** They are described realistically, raw where needed, and
+  can turn out well or badly.
+- **Real places, changed people.** Bars, streets and tram lines keep their real names. Every person
+  except the author's avatar gets a different name and altered identifying details. A scene that
+  puts a real bar in a bad light may need an invented bar.
+- **Foam is a living game.** It has no finished state. It keeps evolving through content updates.
+
+## Decisions
+
+| Topic        | Decision                                                                                                                                           |
+| ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Purpose      | A free public web game that a stranger can enjoy. What is planned here is a first version (proof of concept, prototype or v0), not the final game. |
+| Run          | One night is one run. Runs feel rogue-like, and some things are saved between runs. The four-seasons structure from the idea notes is dropped.     |
+| Goal         | Each night has a quest. There is no long arc across nights for now.                                                                                |
+| Presentation | Text-first, with a permanent illustration slot. The art can be animated: an abstract background animation that sets the mood of a place.           |
+| Rendering    | Everything is drawn in Tellurion, with its own UI components.                                                                                      |
+| Language     | English only for the prototype.                                                                                                                    |
+| Text         | For the first version the author gives notes, and temporary game text is generated from them. The final text is written by the author by hand.     |
+| Journal      | A plain log of the night. Nothing is rewritten into novel prose yet.                                                                               |
+| Music        | Static stock synthwave for now; the author's own songs come later. Stock tracks need a licence that allows use in a public web game.               |
+
+## Shelved questions
+
+These are important and deliberately not decided yet. Each is decided inside the phase that first
+needs it, or at a phase review.
+
+| Question                                                                  | Reopens                                                     |
+| ------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| Content model: how the story is broken into pieces and how the game picks | At the review after phase 6, or earlier if a phase needs it |
+| The exact hours of the night (17:00, or 16:00 to 8:00)                    | Phases 4 and 5                                              |
+| What is saved between runs beyond the story collection                    | Phase 7                                                     |
+| A long arc across nights (phone contacts unlocked by flashbacks)          | After phase 8                                               |
+| Art style of real illustrations (pixel art or low-res 3D)                 | When the first real illustration is needed                  |
+| The journal as a novel                                                    | After logs from phase 6 have been read                      |
+| Adaptive music built from blocks                                          | When the author's own songs exist                           |
+| Languages other than English                                              | Not before the first public version                         |
+
+## How the work is organised
+
+The work is split into phases, done in order.
+
+- **A phase is one design-and-plan cycle** that ends in something that can be run. It is about the
+  size of one spec in Somewhere.
+- **Size follows difficulty.** Work that Somewhere already shows how to do is bundled into one
+  phase. Only work that is new gets a phase of its own.
+- **Real things before abstract things.** Each game phase adds a real, playable piece of the game
+  with real text, and builds only the rules that piece needs. No system is designed ahead of use.
+- **Reuse first.** Start from Tellurion's components and Somewhere's patterns. Tellurion gets an
+  addition only when a phase hits a real gap, and that addition is built to the engine's standard,
+  with its own spec.
+- **Somewhere is only a model.** Its code is read, not changed, and nothing is moved from it into
+  Tellurion. What Foam needs from Somewhere's app code, Foam writes itself in `apps/foam`.
+- **One branch.** The work is committed to the `somewhere-update` branch. There are no other
+  branches and no merges. The pull request already open from that branch does the deployment.
+- **Plan as far as can be seen.** Phases are detailed up to the first complete night. After that the
+  list stays loose.
+
+Each phase runs the same way, following the flow of the Superpowers plugin:
+
+1. Brainstorm the phase in conversation and write its design spec.
+2. Write its implementation plan from the spec.
+3. Implement the plan with the subagent workflow.
+4. Review it: what was learned, what is kept or rewritten, which shelved question reopens, and
+   whether the next phase is still the right one. This document is updated.
+
+Where things are written down:
+
+- Raw ideas stay in Notion (see Sources).
+- This document holds the direction.
+- Foam's specs and plans go under `apps/foam/docs/superpowers/`, laid out as in Somewhere.
+- Specs for Tellurion additions go under the root `docs/superpowers/`, where the Tellurion package
+  spec already is.
+
+## Phases
+
+### Basic UI
+
+| #   | Phase       | When it is done                                                                                                                                          | Leans on                                                                      |
+| --- | ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| 1   | Menus       | Foam boots on Tellurion to a main menu with options, menu music and UI sounds. UI art and font are borrowed from Somewhere for now.                      | Somewhere's boot route, `core/` modules, main menu, loading and error screens |
+| 2   | Game screen | New game opens the screen a night is played on: text, action buttons, status line and illustration slot, with pause and quit. It shows sample text only. | Tellurion's `Text`, `Button`, `Panel` and `Container`; Somewhere's pause flow |
+| 3   | UI art      | The menu and the game screen have Foam's own look: palette, font, panels and buttons, and one abstract animated background.                              | Tellurion's UI theme, which reads its art from one spriteset                  |
+
+Tellurion has no component for text longer than its area. Whether the game screen needs one is
+decided in phase 2.
+
+### The game
+
+Each phase adds a real piece of Brno and brings in only the rules that piece needs.
+
+| #   | Phase       | When it is done                                                                                                              | Rules it brings in                                                                     |
+| --- | ----------- | ---------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| 4   | First place | The player can spend an evening in one real bar: order, talk, listen in, leave. The log of the evening is shown at the end.  | Clock, money, drunkenness, actions that depend on time and state, dice with shown odds |
+| 5   | The city    | The player can move between a few real places on foot or by tram until morning. Some people are only there at certain hours. | Places, travel, the full night                                                         |
+| 6   | Quest       | The night has a quest with a good and a bad ending. The stories found are listed at the end.                                 | Quest, endings, story list                                                             |
+| 7   | Runs        | A second night differs from the first, and the story collection is kept.                                                     | Seed, saving, Continue                                                                 |
+| 8   | The author  | The phone works, the author writes to the player, and Jakub can be met in a place.                                           | Phone, the meta voice                                                                  |
+
+**Phase 6 completes the first prototype: one whole night.** Its review decides what is kept and what
+is rewritten, and reopens the content model.
+
+### After phase 8
+
+The list stays loose and is ordered at each review:
+
+- Content updates: new places, quests and stories.
+- One feature per phase when its time comes: flashbacks, flashforwards, taxi, the author's own
+  music, the journal as a novel, real illustrations.
+
+## Sources
+
+- [Game design exploration](https://app.notion.com/p/Game-design-exploration-3018713d285680f9bccbcdc91105f5c8)
+  (Notion)
+- [Ideas](https://app.notion.com/p/Ideas-2eb8713d28568089979ac320efec9486) (Notion, in Czech)
