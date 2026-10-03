@@ -13,6 +13,7 @@
 - [headwind](./apps/headwind) – Age of Sail rogue-like deck-building game.
 - [riffle](./apps/riffle) – A rogue-like deck-building game with letters and words.
 - [somewhere](./apps/somewhere) – Location-based game.
+- [tellurion](./packages/tellurion) – TypeScript-first 2D game engine on top of Pixi.js.
 
 <!-- projects -->
 

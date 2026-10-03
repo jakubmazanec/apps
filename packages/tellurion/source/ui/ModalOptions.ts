@@ -1,0 +1,36 @@
+import type * as pixi from 'pixi.js';
+
+import {type Scheduler} from '../scheduler/Scheduler.js';
+import {type Focusable} from './Focusable.js';
+import {type UiChild} from './UiChild.js';
+import {type UiComponentThemeOptions} from './UiTheme.js';
+
+export type ModalOptions = UiComponentThemeOptions<'modal'> & {
+  children?: UiChild[] | undefined;
+  // Content placement inside the full-screen root (e.g. {justifyContent:
+  // 'center', alignItems: 'center'} for a centered dialog); passed through
+  // verbatim — the primitive has no placement opinion for its content.
+  layout?: pixi.ContainerOptions['layout'] | undefined;
+  // Applied via ui.focus() on every attach (programmatic, no ring shown).
+  // When omitted nothing is focused, same as screens.
+  initialFocus?: Focusable | undefined;
+  // Keeps the modal alive after close(), so the same instance can be added
+  // again with ui.addOverlay(); its owner then destroys it. Off by default:
+  // close() destroys the modal.
+  isReusable?: boolean | undefined;
+  // Fired once when a user-facing close begins, before any fade, never on
+  // destroy() or ui.removeOverlay(). Side effects of dismissal belong here, so
+  // the cancel command and the modal's own close button cannot diverge: the
+  // pause menu unfreezes the world at close-start, behind the fading scrim.
+  onClosing?: (() => void) | undefined;
+  // Fired when a user-facing close() completes (never on destroy() or
+  // ui.removeOverlay(), and never if the modal is removed in onClosing or
+  // during the fade-out);
+  // the owning screen clears its `openModal` reference here.
+  onClosed?: (() => void) | undefined;
+  // Both or neither — enables the open/close fade, driven by the owning
+  // screen's Scheduler (which deliberately keeps running while the world is
+  // paused).
+} & (
+    {fadeDuration: number; scheduler: Scheduler} | {fadeDuration?: undefined; scheduler?: undefined}
+  );
