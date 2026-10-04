@@ -1,0 +1,20 @@
+import {GameInput} from 'tellurion';
+
+// Focus commands only: nothing in Foam polls game actions yet. A key may
+// appear in exactly one entry (GameInput throws on a duplicate at
+// construction).
+export const input = new GameInput({
+  focus: {
+    up: {keys: ['ArrowUp']},
+    down: {keys: ['ArrowDown']},
+    left: {keys: ['ArrowLeft']},
+    right: {keys: ['ArrowRight']},
+    next: {keys: ['Tab']},
+    previous: {keys: ['Shift+Tab']},
+    activate: {keys: ['Enter', 'Space']},
+    // Dismisses the topmost overlay, which is the Options window.
+    cancel: {keys: ['Escape']},
+    increase: {keys: ['Equal', 'PageUp']},
+    decrease: {keys: ['Minus', 'PageDown']},
+  },
+});
