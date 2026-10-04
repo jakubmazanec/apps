@@ -8,6 +8,7 @@
 
 import {reactRouter} from '@react-router/dev/vite';
 import tailwindcss from '@tailwindcss/vite';
+import {playwright} from '@vitest/browser-playwright';
 import _ from 'lodash';
 import {defineConfig} from 'vitest/config';
 
@@ -23,10 +24,43 @@ export default defineConfig(
         coverage: {
           include: ['source/**'],
         },
-        environment: 'node',
-        include: ['tests/**/*.test.?(c|m)[jt]s?(x)'],
+        projects: [
+          {
+            extends: true as const,
+            test: {
+              name: 'unit',
+              environment: 'node',
+              include: ['tests/**/*.test.?(c|m)[jt]s?(x)'],
+              exclude: ['tests/**/*.browser.test.?(c|m)[jt]s?(x)'],
+            },
+          },
+          {
+            extends: true as const,
+            test: {
+              name: 'browser',
+              include: ['tests/**/*.browser.test.?(c|m)[jt]s?(x)'],
+              browser: {
+                enabled: true,
+                headless: true,
+                provider: playwright(),
+                instances: [{browser: 'chromium' as const}],
+              },
+            },
+          },
+        ],
       },
     },
-    {},
+    {
+      optimizeDeps: {
+        include: [
+          '@pixi/layout',
+          '@pixi/layout/components',
+          'eventemitter3',
+          'pixi-filters',
+          'pixi.js',
+          'zod',
+        ],
+      },
+    },
   ),
 );
