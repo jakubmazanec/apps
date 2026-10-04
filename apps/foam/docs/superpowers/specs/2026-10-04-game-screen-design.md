@@ -6,7 +6,8 @@ Date: 2026-10-04. App: `apps/foam`. Status: implemented by
 
 ## Background
 
-Foam boots on Tellurion to a main menu with an Options window. New Game is shown but disabled.
+Phase 2 starts from the result of phase 1: Foam boots on Tellurion to a main menu with an Options
+window, and New Game is shown but disabled.
 
 Phase 2 builds the screen a night is played on, which this document calls the night screen. The
 picture of a place fills the screen. Buttons placed freely on it stand for what the player can act
@@ -148,14 +149,16 @@ New files, under `apps/foam/source/game/`:
 
 Changed files, relative to `apps/foam/`:
 
-| File                                    | Change                                            |
-| --------------------------------------- | ------------------------------------------------- |
-| `source/game/screens/mainMenuScreen.ts` | New Game is enabled and shows the night screen    |
-| `source/routes/_index.tsx`              | Registers the night screen                        |
-| `source/game/core/assets.ts`            | Adds the `blip` sound                             |
-| `public/blip.wav`                       | Copied unchanged from `apps/somewhere/public/`    |
-| `package.json`                          | Adds the dependency `pixi.js` `^8.19.0`           |
-| `tests/mainMenu.browser.test.tsx`       | Follows the enabled New Game button (see Testing) |
+| File                                    | Change                                                                               |
+| --------------------------------------- | ------------------------------------------------------------------------------------ |
+| `source/game/screens/mainMenuScreen.ts` | New Game is enabled and shows the night screen                                       |
+| `source/routes/_index.tsx`              | Registers the night screen                                                           |
+| `source/game/core/assets.ts`            | Adds the `blip` sound                                                                |
+| `public/blip.wav`                       | Copied unchanged from `apps/somewhere/public/`                                       |
+| `package.json`                          | Adds the dependency `pixi.js` `^8.19.0`                                              |
+| `tests/mainMenu.browser.test.tsx`       | Follows the enabled New Game button (see Testing)                                    |
+| `source/game/core/input.ts`             | The comment on the cancel command covers the story window and the menu               |
+| `.gitignore`                            | Ignores `tests/__screenshots__/`, where a failed browser test leaves its screenshots |
 
 Foam imports `pixi.js` directly for two things: measuring text and drawing the placeholder
 background. `^8.19.0` is the range Somewhere and Tellurion use. The root `package-lock.json` records
@@ -523,6 +526,8 @@ Unit tests, in the node project:
   lines.
 - A longer text has a break after every full page, each just after a newline.
 - The end of the text is not a break, also when the last page is full.
+- An empty line counts as a line.
+- A page size below 1 counts as 1.
 
 **`tests/getSceneArea.test.ts`**
 
@@ -533,8 +538,10 @@ Unit tests, in the node project:
 **`tests/getSpotPosition.test.ts`**
 
 - A spot at 0.5 and 0.5 is centred in the area.
-- A spot near each of the four edges is moved fully on screen, the margin away from the edge.
+- A spot at the left, right or bottom edge is moved fully on screen, the margin away from that edge.
 - A spot at `y` 0 starts at `area.top`, so it never covers the top row.
+- The position is in whole pixels.
+- A button wider than the screen starts at the left margin.
 
 **`tests/night.test.ts`**
 
@@ -545,9 +552,11 @@ Unit tests, in the node project:
 Browser tests. The two night screen files boot the real game once each through `bootGame` in
 `tests/nightScreenHelpers.tsx`. It sets the viewport, imports the page's stylesheet so that the
 canvas fills the viewport, and renders the index route inside React's strict mode, as
-`tests/mainMenu.browser.test.tsx` does. The viewport is set before the game modules are imported,
-because `Game` picks the pixel scale when its module is evaluated. Headless Chromium has a device
-pixel ratio of 1. The helper file holds the JSX, so the two test files are `.ts` files.
+`tests/mainMenu.browser.test.tsx` does. It returns the game modules a test needs, and the
+`StoryWindow` class for a test that opens a window with a script of its own. The viewport is set
+before the game modules are imported, because `Game` picks the pixel scale when its module is
+evaluated. Headless Chromium has a device pixel ratio of 1. The helper file holds the JSX, so the
+two test files are `.ts` files.
 
 **`tests/nightScreen.browser.test.ts`** uses a 1440 × 810 viewport, which is 480 × 270 art pixels.
 It watches the calls the real mixer receives and plays through the screen:
@@ -600,13 +609,17 @@ It watches the calls the real mixer receives and plays through the screen:
     the hidden night screen.
 36. A tap on Quit to menu makes the main menu the current screen, and `storyWindow`, `menuModal` and
     `optionsModal` are `null`.
+37. The background fills the screen.
+38. A choice without a next node closes the window, and the status text keeps its values.
+39. Escape closes the menu.
+40. Escape in a story window closes the window and opens no menu.
 
 **`tests/nightScreenNarrow.browser.test.ts`** uses a 438 × 786 viewport, which is 146 × 262 art
 pixels:
 
 1. The status text lies under the place button.
 2. Every scene button lies fully inside the screen and under the top row.
-3. The story window is 138 wide.
+3. The story window is 138 wide and lies in the scene area.
 4. The description takes more than one page, no page has more than 13 lines, and no line is wider
    than the text width.
 5. The choice "Ask about the ceiling" wraps to two lines inside its button, and the window stays in
@@ -615,6 +628,7 @@ pixels:
    nothing while the choices are offered.
 7. With no press, the description stops at the end of its first page: the window shows a full page
    of 13 lines, Continue is focused, and no more text appears.
+8. The screen is 146 × 262 art pixels.
 
 **`tests/mainMenu.browser.test.tsx`** follows the enabled button: New Game is enabled, the first
 focus command lands on New Game, and the next one lands on Options. Its other checks are unchanged.
