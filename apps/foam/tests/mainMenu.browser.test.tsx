@@ -207,11 +207,11 @@ describe('main menu', () => {
     expect(playMusic.mock.calls[0]?.[0]).toBe(assets.sound('menu-music'));
   });
 
-  test('New Game is disabled', () => {
-    expect(mainMenuScreen.contents.newGameButton.isDisabled).toBe(true);
+  test('New Game is enabled', () => {
+    expect(mainMenuScreen.contents.newGameButton.isDisabled).toBe(false);
   });
 
-  test('the first focus command lands on Options, skipping New Game', async () => {
+  test('the first focus command lands on New Game, and the next on Options', async () => {
     mainMenuScreen.ui.clearFocus();
 
     let clicks = (): number =>
@@ -223,9 +223,14 @@ describe('main menu', () => {
 
     await press('Tab');
 
-    expect(mainMenuScreen.ui.focused).toBe(mainMenuScreen.contents.optionsButton);
+    expect(mainMenuScreen.ui.focused).toBe(mainMenuScreen.contents.newGameButton);
     expect(play).toHaveBeenCalledWith(assets.sound('ui-click'), {bus: 'ui'});
-    expect(clicks()).toBeGreaterThan(0);
+    expect(clicks()).toBe(1);
+
+    await press('Tab');
+
+    expect(mainMenuScreen.ui.focused).toBe(mainMenuScreen.contents.optionsButton);
+    expect(clicks()).toBe(2);
   });
 
   test('activating Options opens the window', async () => {

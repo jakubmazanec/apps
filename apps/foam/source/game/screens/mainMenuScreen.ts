@@ -4,6 +4,7 @@ import {assets} from '../core/assets.js';
 import {audio} from '../core/audio.js';
 import {game} from '../core/game.js';
 import {playFocusSound} from '../core/playFocusSound.js';
+import {nightScreen} from './nightScreen.js';
 import {openOptionsModal} from './optionsModal.js';
 
 type MainMenuScreenContents = {
@@ -30,11 +31,13 @@ export const mainMenuScreen = new GameScreen<MainMenuScreenContents>({
     };
 
     let title = new Text({text: 'Foam', theme: game.theme, layout: true});
-    // No onClick: the screen New Game opens does not exist yet. The button is
-    // disabled below, which also takes it out of the focus order.
     let newGameButton = new Button({
       theme: game.theme,
       children: [new Text({text: 'New Game', theme: game.theme, layout: true})],
+      onClick: () => {
+        // showScreen never rejects; a failure lands on the error screen.
+        void game.showScreen(nightScreen);
+      },
     });
     let optionsButton = new Button({
       theme: game.theme,
@@ -50,7 +53,6 @@ export const mainMenuScreen = new GameScreen<MainMenuScreenContents>({
       },
     });
 
-    newGameButton.disable();
     screen.ui.addChild(
       new Panel({
         theme: game.theme,
