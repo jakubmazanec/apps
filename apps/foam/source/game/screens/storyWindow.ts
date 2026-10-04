@@ -136,9 +136,20 @@ export class StoryWindow {
       return;
     }
 
+    // The buttons are built again, and the focus stays at the same position:
+    // a player who moved to another choice keeps it.
+    let previousFocus = this.#ui.focused;
+    let focusedIndex = previousFocus instanceof Button ? this.#buttons.indexOf(previousFocus) : -1;
+
     this.#area = area;
     this.modal.view.layout = {paddingTop: area.top};
     this.#showNode();
+
+    let focusedButton = this.#buttons[focusedIndex];
+
+    if (focusedButton !== undefined) {
+      this.#ui.focus(focusedButton);
+    }
   }
 
   update(deltaMS: number): void {
