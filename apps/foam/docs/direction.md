@@ -30,17 +30,18 @@ Foam runs on the `tellurion` engine, as Somewhere does.
 
 ## Decisions
 
-| Topic        | Decision                                                                                                                                                                                             |
-| ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Purpose      | A free public web game that a stranger can enjoy. What is planned here is a first version (proof of concept, prototype or v0), not the final game.                                                   |
-| Run          | One night is one run. Runs feel rogue-like, and some things are saved between runs. The four-seasons structure in the idea notes is not used.                                                        |
-| Goal         | Each night has a quest. There is no long arc across nights for now.                                                                                                                                  |
-| Presentation | Text-first, with a permanent illustration slot. The art can be animated: an abstract background animation that sets the mood of a place.                                                             |
-| Rendering    | The game is drawn in Tellurion, with its own UI components. The only plain page text is the line shown while the engine starts or when it cannot start.                                              |
-| Language     | English only for the prototype.                                                                                                                                                                      |
-| Text         | For the first version the author gives notes, and temporary game text is generated from them. The final text is written by the author by hand.                                                       |
-| Journal      | A plain log of the night. Nothing is rewritten into novel prose yet.                                                                                                                                 |
-| Music        | Static stock synthwave for now; the author's own songs come later. Stock tracks need a licence that allows use in a public web game. Until a track is chosen, the menu plays Somewhere's menu music. |
+| Topic        | Decision                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Purpose      | A free public web game that a stranger can enjoy. What is planned here is a first version (proof of concept, prototype or v0), not the final game.                                                                                                                                                                                                                                                                            |
+| Run          | One night is one run. Runs feel rogue-like, and some things are saved between runs. The four-seasons structure in the idea notes is not used.                                                                                                                                                                                                                                                                                 |
+| Goal         | Each night has a quest. There is no long arc across nights for now.                                                                                                                                                                                                                                                                                                                                                           |
+| Presentation | The illustration of a place fills the screen as the background. It is abstract art rather than figurative pixel art, and it can be animated to set the mood of the place. Buttons placed freely on it stand for what the player can act on; choosing one opens a window where its text is typed out and its options are offered. The same screen shows the time, the money, the state of mind and a description of the place. |
+| Rendering    | The game is drawn in Tellurion, with its own UI components. The only plain page text is the line shown while the engine starts or when it cannot start.                                                                                                                                                                                                                                                                       |
+| Language     | English only for the prototype.                                                                                                                                                                                                                                                                                                                                                                                               |
+| Text         | For the first version the author gives notes, and temporary game text is generated from them. The final text is written by the author by hand.                                                                                                                                                                                                                                                                                |
+| Font         | Monogram, the font Somewhere uses. No other font is added. It has a regular and an italic version, each with and without an outline. The regular version is in `public/`; the italic version is added by the phase that first uses it.                                                                                                                                                                                        |
+| Journal      | A plain log of the night. Nothing is rewritten into novel prose yet.                                                                                                                                                                                                                                                                                                                                                          |
+| Music        | Static stock synthwave for now; the author's own songs come later. Stock tracks need a licence that allows use in a public web game. Until a track is chosen, the menu plays Somewhere's menu music.                                                                                                                                                                                                                          |
 
 ## Shelved questions
 
@@ -53,7 +54,7 @@ needs it, or at a phase review.
 | The exact hours of the night (17:00, or 16:00 to 8:00)                    | Phases 4 and 5                                              |
 | What is saved between runs beyond the story collection                    | Phase 7                                                     |
 | A long arc across nights (phone contacts unlocked by flashbacks)          | After phase 8                                               |
-| Art style of real illustrations (pixel art or low-res 3D)                 | When the first real illustration is needed                  |
+| The style of the real background art, beyond it being abstract            | When the first real background is needed                    |
 | The journal as a novel                                                    | After logs from phase 6 have been read                      |
 | Adaptive music built from blocks                                          | When the author's own songs exist                           |
 | Languages other than English                                              | Not before the first public version                         |
@@ -98,20 +99,26 @@ Where things are written down:
 
 ### Basic UI
 
-| #   | Phase       | When it is done                                                                                                                                                                        | Leans on                                                                      |
-| --- | ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| 1   | Menus       | Foam boots on Tellurion to a main menu with options, menu music and UI sounds. New Game is shown but disabled. UI art, font, music and sounds are copies of Somewhere's files for now. | Somewhere's boot route, `core/` modules, main menu and error screen           |
-| 2   | Game screen | New game opens the screen a night is played on: text, action buttons, status line and illustration slot, with pause and quit. It shows sample text only.                               | Tellurion's `Text`, `Button`, `Panel` and `Container`; Somewhere's pause flow |
-| 3   | UI art      | The menu and the game screen have Foam's own look: palette, font, panels and buttons, and one abstract animated background.                                                            | Tellurion's UI theme, which reads its art from one spriteset                  |
+| #   | Phase       | When it is done                                                                                                                                                                                                                                                                               | Leans on                                                                                     |
+| --- | ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| 1   | Menus       | Foam boots on Tellurion to a main menu with options, menu music and UI sounds. New Game is shown but disabled. UI art, music and sounds are copies of Somewhere's files for now; the font is Somewhere's monogram.                                                                            | Somewhere's boot route, `core/` modules, main menu and error screen                          |
+| 2   | Game screen | New game opens the screen a night is played on: a full-screen background with freely placed buttons, a window that types out the description of the place and each button's text and options, and the status (time, money, state of mind), with pause and quit. It shows sample content only. | Tellurion's `Dialogue` runner, `Modal`, `Panel`, `Text` and `Button`; Somewhere's pause flow |
+| 3   | UI art      | The menu and the game screen have Foam's own look: palette, panels and buttons, and one abstract animated background. The font stays monogram.                                                                                                                                                | Tellurion's UI theme, which reads its art from one spriteset                                 |
 
 Phase 1 is built: [spec](superpowers/specs/2026-10-03-menus-design.md),
 [plan](superpowers/plans/2026-10-04-menus.md).
 
+Phase 2 is designed: [spec](superpowers/specs/2026-10-04-game-screen-design.md).
+
 Tellurion shows its loading screen only when a screen needs an asset bundle that is not loaded yet.
 Foam has one bundle, so the loading screen is added by the first phase that adds a second one.
 
-Tellurion has no component for text longer than its area. Whether the game screen needs one is
-decided in phase 2.
+Text longer than its area is cut into pages that the player turns, so the game screen needs no
+scrolling component.
+
+Tellurion picks the pixel scale from the height of the screen. On a phone held upright that leaves
+about 24 characters per line, so the game screen works there but is cramped. The scale for such
+screens is settled in phase 3.
 
 ### The game
 
