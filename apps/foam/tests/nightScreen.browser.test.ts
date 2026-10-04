@@ -1,4 +1,4 @@
-import {AudioMixer} from 'tellurion';
+import {AudioMixer, Button, type Modal, Panel} from 'tellurion';
 import {
   afterAll,
   beforeAll,
@@ -31,6 +31,7 @@ import {
   readPages,
   readText,
   startNewGame,
+  tap,
   waitForNoStoryWindow,
 } from './nightScreenHelpers.js';
 
@@ -46,6 +47,26 @@ function findOverlap(boxes: Box[]): [Box, Box] | null {
   }
 
   return null;
+}
+
+// The menu is a Modal holding one Panel: the title, then the buttons Resume,
+// Options and Quit to menu.
+function getMenuButton(menu: Modal, label: string): Button {
+  let [panel] = menu.children;
+
+  if (!(panel instanceof Panel)) {
+    throw new TypeError('The menu has no panel!');
+  }
+
+  let button = panel.children.find(
+    (child) => child instanceof Button && getButtonLabel(child) === label,
+  );
+
+  if (!(button instanceof Button)) {
+    throw new TypeError(`The menu has no "${label}" button!`);
+  }
+
+  return button;
 }
 
 // 1440 × 810 CSS pixels are 480 × 270 art pixels: headless Chromium has a
@@ -64,12 +85,38 @@ describe('night screen', {timeout: 60_000}, () => {
     return getStoryWindow(harness);
   }
 
+  function getMenu(): Modal {
+    let {menuModal} = harness.nightScreen.contents;
+
+    if (menuModal === null) {
+      throw new Error('The menu is not open!');
+    }
+
+    return menuModal;
+  }
+
+  // The menu closes after a 200 ms fade, so closing is awaited.
+  async function waitForNoMenu(): Promise<void> {
+    await vitest.waitFor(
+      () => {
+        if (harness.nightScreen.contents.menuModal !== null) {
+          throw new Error('The menu is still open.');
+        }
+      },
+      {timeout: 5000},
+    );
+  }
+
   // Leaves the scene with no window open, whatever the test before did.
   function clearScene(): void {
     let {contents} = harness.nightScreen;
 
+    contents.optionsModal?.destroy();
+    contents.menuModal?.destroy();
     contents.storyWindow?.destroy();
 
+    contents.optionsModal = null;
+    contents.menuModal = null;
     contents.storyWindow = null;
   }
 
@@ -450,22 +497,122 @@ describe('night screen', {timeout: 60_000}, () => {
     });
   });
 
+  describe('menu', () => {
+    beforeEach(() => {
+      clearScene();
+    });
+
+    test('Escape on the scene opens the menu with Resume focused, and Resume closes it', async () => {
+      let {nightScreen} = harness;
+
+      await press('Escape');
+
+      let menu = getMenu();
+
+      expect(nightScreen.ui.topOverlay).toBe(menu);
+      expect(nightScreen.ui.focused).toBe(getMenuButton(menu, 'Resume'));
+
+      await press('Enter');
+      await waitForNoMenu();
+
+      expect(nightScreen.ui.topOverlay).toBeNull();
+    });
+
+    test('Escape closes the menu', async () => {
+      await press('Escape');
+
+      expect(harness.nightScreen.ui.topOverlay).toBe(getMenu());
+
+      await press('Escape');
+      await waitForNoMenu();
+
+      expect(harness.nightScreen.ui.topOverlay).toBeNull();
+    });
+
+    test('Escape in a story window closes the window and opens no menu', async () => {
+      let {nightScreen} = harness;
+
+      await openSpot('Two women talking');
+      await press('Escape');
+      await waitForNoStoryWindow(harness);
+      await nextFrame();
+
+      expect(nightScreen.contents.menuModal).toBeNull();
+      expect(nightScreen.ui.topOverlay).toBeNull();
+    });
+
+    test('a tap on the Menu button opens the menu, and a tap on Resume closes it', async () => {
+      let {nightScreen} = harness;
+      // The UI root holds the place button, the status text, the Menu button
+      // and the scene buttons, in that order.
+      let menuButton = nightScreen.ui.children[2];
+
+      if (!(menuButton instanceof Button) || getButtonLabel(menuButton) !== 'Menu') {
+        throw new TypeError('The third child of the UI root is not the Menu button!');
+      }
+
+      await tap(harness, getBox(harness, menuButton));
+
+      let menu = getMenu();
+
+      expect(nightScreen.ui.topOverlay).toBe(menu);
+
+      await tap(harness, getBox(harness, getMenuButton(menu, 'Resume')));
+      await waitForNoMenu();
+
+      expect(nightScreen.ui.topOverlay).toBeNull();
+    });
+
+    test('Options opens over the menu, and closing it returns to the menu', async () => {
+      let {nightScreen} = harness;
+
+      await press('Escape');
+
+      let menu = getMenu();
+      let optionsButton = getMenuButton(menu, 'Options');
+
+      nightScreen.ui.focus(optionsButton);
+      await press('Enter');
+
+      let options = nightScreen.contents.optionsModal;
+
+      expect(options).not.toBeNull();
+      expect(nightScreen.ui.topOverlay).toBe(options);
+
+      await press('Escape');
+      await vitest.waitFor(
+        () => {
+          expect(nightScreen.contents.optionsModal).toBeNull();
+        },
+        {timeout: 5000},
+      );
+
+      expect(nightScreen.contents.menuModal).toBe(menu);
+      expect(nightScreen.ui.topOverlay).toBe(menu);
+      expect(nightScreen.ui.focused).toBe(optionsButton);
+    });
+  });
+
   // These tests leave the night screen, in order.
   describe('leaving', () => {
     beforeEach(() => {
       clearScene();
     });
 
-    test('hiding the screen with a window open destroys the window at once', async () => {
+    test('Quit to menu shows the main menu and starts its music again', async () => {
       let {game, mainMenuScreen, nightScreen} = harness;
-      let storyWindow = await openSpot('Two women talking');
 
-      // What the engine does when the error screen takes over.
-      await game.showScreen(mainMenuScreen);
+      await press('Escape');
+      nightScreen.ui.focus(getMenuButton(getMenu(), 'Quit to menu'));
+      await press('Enter');
+      await vitest.waitFor(() => {
+        expect(mainMenuScreen.state).toBe('shown');
+      });
 
       expect(game.currentScreen).toBe(mainMenuScreen);
-      expect(storyWindow.modal.state).toBe('closed');
       expect(nightScreen.contents.storyWindow).toBeNull();
+      expect(nightScreen.contents.menuModal).toBeNull();
+      expect(nightScreen.contents.optionsModal).toBeNull();
       expect(nightScreen.ui.topOverlay).toBeNull();
       expect(playMusic).toHaveBeenCalledTimes(2);
     });
@@ -478,6 +625,26 @@ describe('night screen', {timeout: 60_000}, () => {
 
       expect(readText(nightScreen.contents.statusText)).toBe(STARTING_STATUS);
       expect(getStoryWindow(harness).dialogue.node?.speaker).toBe(samplePlace.name);
+    });
+
+    test('hiding the screen with a window open destroys the window at once', async () => {
+      let {game, mainMenuScreen, nightScreen} = harness;
+      let storyWindow = await openSpot('Two women talking');
+
+      // What the engine does when the error screen takes over.
+      await game.showScreen(mainMenuScreen);
+
+      expect(storyWindow.modal.state).toBe('closed');
+      expect(nightScreen.contents.storyWindow).toBeNull();
+      expect(nightScreen.ui.topOverlay).toBeNull();
+
+      // The screen still works after it: the description opens and closes.
+      await startNewGame(harness);
+      await press('Enter');
+      await press('Enter');
+      await waitForNoStoryWindow(harness);
+
+      expect(nightScreen.ui.topOverlay).toBeNull();
     });
   });
 });

@@ -1,4 +1,4 @@
-import {Button, GameScreen, type RunnableDialogueScript, Text} from 'tellurion';
+import {Button, GameScreen, type Modal, type RunnableDialogueScript, Text} from 'tellurion';
 
 import {samplePlace} from '../content/samplePlace.js';
 import {game} from '../core/game.js';
@@ -11,15 +11,25 @@ import {
   type SceneArea,
 } from '../core/getSceneArea.js';
 import {getSpotPosition} from '../core/getSpotPosition.js';
+import {input} from '../core/input.js';
 import {measureText} from '../core/measureText.js';
 import {createNight, formatStatus, type Night} from '../core/night.js';
 import {playFocusSound} from '../core/playFocusSound.js';
+// The nightScreen <-> mainMenuScreen static import cycle is deliberate and
+// safe: each module reads the other's binding only inside a click handler
+// (Quit to menu here, New Game there), long after both modules have evaluated.
+// eslint-disable-next-line import/no-cycle -- see comment above: the cycle only resolves inside event handlers, long after both modules evaluate
+import {mainMenuScreen} from './mainMenuScreen.js';
+import {openMenuModal} from './menuModal.js';
+import {openOptionsModal} from './optionsModal.js';
 import {PlaceholderBackground} from './placeholderBackground.js';
 import {StoryWindow} from './storyWindow.js';
 
 type NightScreenContents = {
   background: PlaceholderBackground;
+  menuModal: Modal | null;
   night: Night;
+  optionsModal: Modal | null;
   placeButton: Button;
   spotButtons: Button[];
   statusText: Text;
@@ -108,6 +118,34 @@ function openStory(screen: NightScreen, script: RunnableDialogueScript<Night>): 
   });
 }
 
+function openMenu(screen: NightScreen): void {
+  if (screen.contents.menuModal !== null || screen.contents.storyWindow !== null) {
+    return;
+  }
+
+  screen.contents.menuModal = openMenuModal({
+    ui: screen.ui,
+    scheduler: screen.scheduler,
+    onOptions: () => {
+      screen.contents.optionsModal = openOptionsModal({
+        ui: screen.ui,
+        scheduler: screen.scheduler,
+        onClosed: () => {
+          screen.contents.optionsModal = null;
+        },
+      });
+    },
+    onQuit: () => {
+      // The swap runs this screen's onHide, which destroys the menu.
+      // showScreen never rejects; a failure lands on the error screen.
+      void game.showScreen(mainMenuScreen);
+    },
+    onClosed: () => {
+      screen.contents.menuModal = null;
+    },
+  });
+}
+
 export const nightScreen = new GameScreen<NightScreenContents>({
   assetBundles: ['default'],
   onFocusEvent: playFocusSound,
@@ -138,7 +176,6 @@ export const nightScreen = new GameScreen<NightScreenContents>({
       theme: game.theme,
       layout: {position: 'absolute', left: 0, top: 0, width: 0, height: LINE_HEIGHT},
     });
-    // It does nothing yet: the menu it opens does not exist.
     let menuButton = new Button({
       theme: game.theme,
       children: [createLabel('Menu')],
@@ -148,6 +185,9 @@ export const nightScreen = new GameScreen<NightScreenContents>({
         top: MARGIN,
         width: getButtonWidth('Menu'),
         height: BUTTON_HEIGHT,
+      },
+      onClick: () => {
+        openMenu(screen);
       },
     });
     // layOut() positions the scene buttons.
@@ -173,7 +213,9 @@ export const nightScreen = new GameScreen<NightScreenContents>({
 
     return {
       background: new PlaceholderBackground(),
+      menuModal: null,
       night: createNight(),
+      optionsModal: null,
       placeButton,
       spotButtons,
       statusText,
@@ -189,14 +231,27 @@ export const nightScreen = new GameScreen<NightScreenContents>({
   },
   onHide: (screen) => {
     // Owning-screen teardown rule: synchronous destroy(), never the animated
-    // close(), because the scheduler was already cleared before onHide.
+    // close(), because the scheduler was already cleared before onHide. The
+    // topmost window goes first.
+    screen.contents.optionsModal?.destroy();
+    screen.contents.menuModal?.destroy();
     screen.contents.storyWindow?.destroy();
 
+    screen.contents.optionsModal = null;
+    screen.contents.menuModal = null;
     screen.contents.storyWindow = null;
     screen.removeFromView(screen.contents.background);
   },
   onUpdate: (ticker, screen) => {
     screen.contents.storyWindow?.update(ticker.deltaMS);
+
+    // The engine has already sent this frame's cancel command to the topmost
+    // overlay. With no overlay there was nothing to dismiss, and the command
+    // opens the menu. focusPressed only reads the latched state, so reading it
+    // again here is safe.
+    if (input.focusPressed('cancel') && screen.ui.topOverlay === null) {
+      openMenu(screen);
+    }
   },
   onResize: (screen) => {
     layOut(screen);
