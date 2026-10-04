@@ -136,8 +136,9 @@ The review of phase 2 decided three changes to how the game screen is used. They
   It keeps a press that was meant to continue the text from taking the first choice.
 - Nobody closes a story window before its end, and Escape does not close it. A window ends through
   its text or through a choice, so every node with choices offers a way out that costs nothing.
-  Tellurion's `Modal` always closes on the cancel command, so this needs a modal that the command
-  passes over.
+  Tellurion's `Modal` always closes on the cancel command, so the window is an overlay of its own
+  without `close`, as Somewhere's dialogue box is. Escape over a story window opens the menu above
+  it, as Somewhere's pause menu opens above its dialogue box.
 - Tellurion shows the focus ring on a focus that is set in code when the last input was a key, and
   not after a tap or a click. Today such a focus never shows the ring, so the menu's Resume button
   is focused without a mark.
