@@ -237,17 +237,22 @@ All three test files run in the browser project.
 route inside React's strict mode, as the app does. The route runs `game.init()` with the real files
 from `public/`, mounts the canvas, registers the screens and shows the main menu. A browser test
 serves `public/` at the server root, so the asset paths resolve as they do in the app. The test
-stores a music volume before the boot, and then drives the menu with key presses, as a player does:
+stores a music volume before the boot, watches the calls the real mixer receives, and then drives
+the menu with key presses, as a player does:
 
 - The main menu is the current screen.
+- The error screen is registered on the game.
+- The stored volumes reach the mixer at boot: music at the stored 0.4, the other buses at 1.
+- The menu music starts exactly once, with the `menu-music` buffer.
 - New Game is disabled.
-- The first focus command lands on Options.
+- The first focus command lands on Options and plays the `ui-click` sound on the `ui` bus.
 - Activating Options opens the window.
 - The sliders show the stored volumes.
-- With the Master slider focused, the decrease key lowers `settings.volumes.master`.
+- With the Master slider focused, the decrease key lowers `settings.volumes.master`, and the mixer's
+  master volume follows.
 - Escape closes the window. After the fade no modal is open, `foam:settings` in `localStorage` holds
   the lowered value, and focus is back on Options.
-- A window opened again shows the changed value.
+- A window opened again shows the value lowered by its own key press.
 - The Close button closes the window.
 
 **`tests/bootFailure.browser.test.tsx`** replaces the game module with one whose `init()` fails,

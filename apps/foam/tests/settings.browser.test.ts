@@ -1,4 +1,4 @@
-import {afterEach, describe, expect, test} from 'vitest';
+import {afterEach, beforeEach, describe, expect, test} from 'vitest';
 
 const SETTINGS_KEY = 'foam:settings';
 const DEFAULT_VOLUMES = {master: 1, music: 1, sfx: 1, ui: 1};
@@ -26,6 +26,10 @@ async function importSettings() {
 }
 
 describe('settings', () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
   afterEach(() => {
     localStorage.clear();
   });

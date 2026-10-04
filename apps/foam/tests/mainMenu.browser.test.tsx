@@ -1,8 +1,27 @@
 import {StrictMode} from 'react';
 import {createRoot, type Root} from 'react-dom/client';
-import {Button, Container, type Game, type GameScreen, type Modal, Panel, Slider} from 'tellurion';
-import {afterAll, beforeAll, describe, expect, test, vitest} from 'vitest';
+import {
+  AudioMixer,
+  Button,
+  Container,
+  type Game,
+  type GameScreen,
+  type Modal,
+  Panel,
+  Slider,
+} from 'tellurion';
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  describe,
+  expect,
+  type MockInstance,
+  test,
+  vitest,
+} from 'vitest';
 
+import {type assets as assetsValue} from '../source/game/core/assets.js';
 import Index from '../source/routes/_index.js';
 
 const SETTINGS_KEY = 'foam:settings';
@@ -66,6 +85,12 @@ describe('main menu', () => {
   let game: Game;
   let mainMenuScreen: MainMenuScreen;
   let settings: Settings;
+  let assets: typeof assetsValue;
+  let errorScreen: unknown;
+  // The spies call through to the real mixer; they only record the calls.
+  let setVolume: MockInstance<AudioMixer['setVolume']>;
+  let playMusic: MockInstance<AudioMixer['playMusic']>;
+  let play: MockInstance<AudioMixer['play']>;
 
   async function openOptions(): Promise<Modal> {
     mainMenuScreen.ui.focus(mainMenuScreen.contents.optionsButton);
@@ -108,6 +133,12 @@ describe('main menu', () => {
       JSON.stringify({volumes: {master: 1, music: 0.4, sfx: 1, ui: 1}}),
     );
 
+    // Installed before the route's dynamic imports evaluate audio.ts, which
+    // sets the volumes at module load.
+    setVolume = vitest.spyOn(AudioMixer.prototype, 'setVolume');
+    playMusic = vitest.spyOn(AudioMixer.prototype, 'playMusic');
+    play = vitest.spyOn(AudioMixer.prototype, 'play');
+
     container = document.createElement('div');
     document.body.append(container);
     root = createRoot(container);
@@ -120,6 +151,8 @@ describe('main menu', () => {
     ({game} = await import('../source/game/core/game.js'));
     ({mainMenuScreen} = await import('../source/game/screens/mainMenuScreen.js'));
     ({settings} = await import('../source/game/core/settings.js'));
+    ({assets} = await import('../source/game/core/assets.js'));
+    ({errorScreen} = await import('../source/game/screens/errorScreen.js'));
 
     await vitest.waitFor(
       () => {
@@ -135,7 +168,20 @@ describe('main menu', () => {
     );
   }, 30_000);
 
+  // A failed test must not leave the window open for the next one.
+  afterEach(() => {
+    let modal = mainMenuScreen.contents.openModal;
+
+    if (modal !== null) {
+      modal.destroy();
+      mainMenuScreen.contents.openModal = null;
+    }
+  });
+
   afterAll(() => {
+    setVolume.mockRestore();
+    playMusic.mockRestore();
+    play.mockRestore();
     root.unmount();
     container.remove();
     localStorage.clear();
@@ -145,15 +191,41 @@ describe('main menu', () => {
     expect(game.currentScreen).toBe(mainMenuScreen);
   });
 
+  test('the error screen is registered', () => {
+    expect(game.errorScreen).toBe(errorScreen);
+  });
+
+  test('the stored volumes reach the mixer at boot', () => {
+    expect(setVolume).toHaveBeenCalledWith('music', 0.4);
+    expect(setVolume).toHaveBeenCalledWith('master', 1);
+    expect(setVolume).toHaveBeenCalledWith('sfx', 1);
+    expect(setVolume).toHaveBeenCalledWith('ui', 1);
+  });
+
+  test('the menu music starts once', () => {
+    expect(playMusic).toHaveBeenCalledTimes(1);
+    expect(playMusic.mock.calls[0]?.[0]).toBe(assets.sound('menu-music'));
+  });
+
   test('New Game is disabled', () => {
     expect(mainMenuScreen.contents.newGameButton.isDisabled).toBe(true);
   });
 
   test('the first focus command lands on Options, skipping New Game', async () => {
     mainMenuScreen.ui.clearFocus();
+
+    let clicks = (): number =>
+      play.mock.calls.filter(([buffer]) => buffer === assets.sound('ui-click')).length;
+
+    play.mockClear();
+
+    expect(clicks()).toBe(0);
+
     await press('Tab');
 
     expect(mainMenuScreen.ui.focused).toBe(mainMenuScreen.contents.optionsButton);
+    expect(play).toHaveBeenCalledWith(assets.sound('ui-click'), {bus: 'ui'});
+    expect(clicks()).toBeGreaterThan(0);
   });
 
   test('activating Options opens the window', async () => {
@@ -190,6 +262,11 @@ describe('main menu', () => {
 
     expect(settings.volumes.master).toBeCloseTo(before - 0.1);
 
+    let lastCall = setVolume.mock.calls.at(-1);
+
+    expect(lastCall?.[0]).toBe('master');
+    expect(lastCall?.[1]).toBeCloseTo(before - 0.1);
+
     await closeWithEscape();
 
     let stored = JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? '{}') as Settings;
@@ -200,6 +277,8 @@ describe('main menu', () => {
   });
 
   test('a reopened window shows the changed volume', async () => {
+    let before = settings.volumes.master;
+
     await openOptions();
     await press('Tab');
     await press('Minus');
@@ -209,7 +288,7 @@ describe('main menu', () => {
     let [masterSlider] = getSliders(modal);
 
     expect(masterSlider?.value).toBeCloseTo(settings.volumes.master);
-    expect(masterSlider?.value).toBeLessThan(1);
+    expect(masterSlider?.value).toBeCloseTo(before - 0.1);
 
     await closeWithEscape();
   });
