@@ -37,11 +37,12 @@ type NightScreenContents = {
 };
 type NightScreen = GameScreen<NightScreenContents>;
 
-// A button's padding on both sides of its label, as in the theme.
-const BUTTON_PADDING = 4;
+// Padding of a button, as in the theme. A button is as wide as its label plus
+// this padding on both sides.
+const BUTTON_PADDING = 2;
 
 function getButtonWidth(label: string): number {
-  return measureText(label, 'label') + BUTTON_PADDING;
+  return measureText(label, 'label') + 2 * BUTTON_PADDING;
 }
 
 // A label with an explicit size: a leaf sized by its own bounds is measured
@@ -118,8 +119,15 @@ function openStory(screen: NightScreen, script: RunnableDialogueScript<Night>): 
   });
 }
 
+// A hidden screen opens no menu. Quit to menu hides the screen inside its
+// click, and an Escape in the same frame still reaches onUpdate, where the
+// screen has no overlay left.
 function openMenu(screen: NightScreen): void {
-  if (screen.contents.menuModal !== null || screen.contents.storyWindow !== null) {
+  if (
+    screen.state !== 'shown' ||
+    screen.contents.menuModal !== null ||
+    screen.contents.storyWindow !== null
+  ) {
     return;
   }
 

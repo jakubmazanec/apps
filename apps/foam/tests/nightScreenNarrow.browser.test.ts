@@ -1,4 +1,5 @@
-import {afterAll, beforeAll, describe, expect, test} from 'vitest';
+import {type Ticker} from 'pixi.js';
+import {afterAll, beforeAll, describe, expect, test, vitest} from 'vitest';
 
 import {
   bootGame,
@@ -73,6 +74,58 @@ describe('night screen on a narrow screen', {timeout: 60_000}, () => {
     expect(box.top + box.height).toBeLessThanOrEqual(262 - 4);
   });
 
+  test(
+    'the text stops by itself at the end of a full page, and Continue waits',
+    {timeout: 120_000},
+    async () => {
+      let {game, nightScreen} = harness;
+      let storyWindow = getStoryWindow(harness);
+      let elapsed = 0;
+      let addTime = (ticker: Ticker) => {
+        elapsed += ticker.deltaMS;
+      };
+
+      // No press: the first page types to its end. Game time advances by at
+      // most 100 ms per frame, so that takes seconds.
+      await vitest.waitFor(
+        () => {
+          expect(storyWindow.dialogue.phase).toBe('idle');
+        },
+        {timeout: 60_000},
+      );
+
+      let revealed = storyWindow.dialogue.revealedCount;
+      let shown = storyWindow.text;
+      let continueButton = getWindowButton(storyWindow, 0);
+
+      expect(revealed).toBeLessThan(storyWindow.dialogue.pageText.length);
+      // A full page: 13 lines, the last ending where the page ends.
+      expect(shown.trimEnd().split('\n')).toHaveLength(13);
+      expect(shown.replaceAll('\n', ' ')).toBe(storyWindow.dialogue.pageText.slice(0, revealed));
+      expect(getButtonLabel(continueButton)).toBe('Continue');
+      expect(nightScreen.ui.focused).toBe(continueButton);
+
+      // A second of game time would type 40 more characters.
+      game.app.ticker.add(addTime);
+
+      try {
+        await vitest.waitFor(
+          () => {
+            expect(elapsed).toBeGreaterThanOrEqual(1000);
+          },
+          {timeout: 60_000},
+        );
+      } finally {
+        game.app.ticker.remove(addTime);
+      }
+
+      expect(storyWindow.dialogue.phase).toBe('idle');
+      expect(storyWindow.dialogue.revealedCount).toBe(revealed);
+      expect(storyWindow.text).toBe(shown);
+    },
+  );
+
+  // It starts where the test before ended, at the end of the first page.
   test('the description takes more than one page of at most 13 lines', async () => {
     let storyWindow = getStoryWindow(harness);
     let whole = storyWindow.dialogue.pageText;
@@ -149,10 +202,12 @@ describe('night screen on a narrow screen', {timeout: 60_000}, () => {
     await tap(harness, getBox(harness, getSpotButton(harness, 'The door')));
 
     let storyWindow = getStoryWindow(harness);
+    let doorNode = storyWindow.dialogue.node;
 
-    expect(storyWindow.dialogue.node?.speaker).toBe('The door');
-    expect(storyWindow.dialogue.phase).toBe('revealing');
+    expect(doorNode?.speaker).toBe('The door');
 
+    // A real tap takes seconds, and the text may have typed to its end by
+    // itself in that time. Otherwise the tap on the text finishes it.
     await tap(harness, getBox(harness, getWindowParts(storyWindow).textLeaf));
 
     expect(storyWindow.dialogue.revealedCount).toBe(storyWindow.dialogue.pageText.length);
@@ -168,12 +223,18 @@ describe('night screen on a narrow screen', {timeout: 60_000}, () => {
 
     await tap(harness, getBox(harness, getWindowButton(storyWindow, 0)));
 
-    expect(storyWindow.dialogue.phase).toBe('revealing');
+    expect(storyWindow.dialogue.node).not.toBe(doorNode);
     expect(getWindowParts(storyWindow).buttons.map(getButtonLabel)).toEqual(['Continue']);
 
-    // The keyboard finishes the page and closes the window.
-    await press('Enter');
-    await press('Enter');
+    // The keyboard finishes the text, if it is still typing, and closes the
+    // window. The presses stop once the runner has ended: one more would open
+    // the window again from the scene button that got the focus back.
+    for (let count = 0; count < 3 && storyWindow.dialogue.phase !== 'ended'; count += 1) {
+      await press('Enter');
+    }
+
     await waitForNoStoryWindow(harness);
+
+    expect(storyWindow.dialogue.phase).toBe('ended');
   });
 });

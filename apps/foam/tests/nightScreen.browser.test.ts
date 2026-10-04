@@ -1,4 +1,4 @@
-import {AudioMixer, Button, type Modal, Panel} from 'tellurion';
+import {AudioMixer, Button, defineDialogueScript, type Modal, Panel} from 'tellurion';
 import {
   afterAll,
   beforeAll,
@@ -14,6 +14,7 @@ import {page} from 'vitest/browser';
 import {samplePlace} from '../source/game/content/samplePlace.js';
 import {getSceneArea} from '../source/game/core/getSceneArea.js';
 import {getSpotPosition} from '../source/game/core/getSpotPosition.js';
+import {type Night} from '../source/game/core/night.js';
 import {type StoryWindow} from '../source/game/screens/storyWindow.js';
 import {
   bootGame,
@@ -107,6 +108,16 @@ describe('night screen', {timeout: 60_000}, () => {
     );
   }
 
+  // Back to 1440 × 810 after a test that changed the viewport.
+  async function restoreViewport(): Promise<void> {
+    await page.viewport(1440, 810);
+    await vitest.waitFor(() => {
+      if (harness.game.app.screen.width !== 1440) {
+        throw new Error('The screen is not back at its size yet.');
+      }
+    });
+  }
+
   // Leaves the scene with no window open, whatever the test before did.
   function clearScene(): void {
     let {contents} = harness.nightScreen;
@@ -154,10 +165,11 @@ describe('night screen', {timeout: 60_000}, () => {
 
     test('the description opens by itself', () => {
       let storyWindow = getStoryWindow(harness);
+      let {title} = getWindowParts(storyWindow);
 
       expect(harness.nightScreen.ui.topOverlay).toBe(storyWindow.modal);
       expect(storyWindow.dialogue.node?.speaker).toBe(samplePlace.name);
-      expect(readText(getWindowParts(storyWindow).title)).toBe(samplePlace.name);
+      expect(title === null ? null : readText(title)).toBe(samplePlace.name);
     });
 
     test('the text types out with the blip, and Enter finishes the page', async () => {
@@ -269,6 +281,51 @@ describe('night screen', {timeout: 60_000}, () => {
       expect(nightScreen.ui.focused).toBe(buttons[0]);
     });
 
+    test(
+      'the choices appear when the text has typed to its end, with no press',
+      {timeout: 120_000},
+      async () => {
+        let {nightScreen} = harness;
+        let storyWindow = await openSpot('The bartender');
+
+        expect(storyWindow.dialogue.phase).toBe('revealing');
+
+        // Game time advances by at most 100 ms per frame, so the text takes
+        // seconds to type.
+        await vitest.waitFor(
+          () => {
+            expect(storyWindow.dialogue.phase).toBe('choosing');
+          },
+          {timeout: 60_000},
+        );
+
+        let {buttons} = getWindowParts(storyWindow);
+
+        expect(storyWindow.text.replaceAll('\n', ' ')).toBe(storyWindow.dialogue.pageText);
+        expect(buttons.map(getButtonLabel)).toEqual(['Order a beer', 'Leave her alone']);
+        expect(nightScreen.ui.focused).toBe(buttons[0]);
+      },
+    );
+
+    test('the window keeps its size when the choices replace Continue', async () => {
+      let storyWindow = await openSpot('The bartender');
+      let {panel} = getWindowParts(storyWindow);
+
+      await nextFrame();
+
+      let before = getBox(harness, panel);
+
+      expect(getWindowParts(storyWindow).buttons.map(getButtonLabel)).toEqual(['Continue']);
+
+      await press('Enter');
+
+      expect(getWindowParts(storyWindow).buttons.map(getButtonLabel)).toEqual([
+        'Order a beer',
+        'Leave her alone',
+      ]);
+      expect(getBox(harness, panel)).toEqual(before);
+    });
+
     test('a choice without a next node closes the window', async () => {
       let {nightScreen} = harness;
       let storyWindow = await openSpot('The bartender');
@@ -321,6 +378,27 @@ describe('night screen', {timeout: 60_000}, () => {
 
       await press('Enter');
       await waitForNoStoryWindow(harness);
+    });
+
+    test('the window keeps its size on every page of the long text', async () => {
+      let storyWindow = await openSpot('A patron');
+      let {panel} = getWindowParts(storyWindow);
+      let boxes: Box[] = [];
+
+      // Finish the text and take "Talk to him", then the same for "Ask about
+      // the ceiling".
+      await press('Enter');
+      await press('Enter');
+      await press('Enter');
+      await press('Enter');
+      await readPages(storyWindow, () => {
+        boxes.push(getBox(harness, panel));
+      });
+
+      let [first] = boxes;
+
+      expect(boxes).toHaveLength(3);
+      expect(boxes).toEqual([first, first, first]);
     });
 
     test('ordering a beer changes the status, and the focus returns', async () => {
@@ -415,7 +493,7 @@ describe('night screen', {timeout: 60_000}, () => {
     });
 
     test('a resize in the middle of a text keeps the place and wraps the text again', async () => {
-      let {game, measureText} = harness;
+      let {measureText} = harness;
       let storyWindow = await openSpot('A patron');
 
       // To the long text: finish the text and take "Talk to him", then the
@@ -461,12 +539,101 @@ describe('night screen', {timeout: 60_000}, () => {
         expect(whole.endsWith(pages.join('').replaceAll('\n', ' '))).toBe(true);
         expect(storyWindow.dialogue.revealedCount).toBe(whole.length);
       } finally {
-        await page.viewport(1440, 810);
+        await restoreViewport();
+      }
+    });
+
+    test('a resize keeps the focus on the choice that had it', async () => {
+      let {nightScreen} = harness;
+      let storyWindow = await openSpot('The bartender');
+
+      // Finish the text and move to the second choice.
+      await press('Enter');
+      nightScreen.ui.focus(getWindowButton(storyWindow, 1));
+
+      try {
+        // 300 × 270 art pixels: the window is 292 wide.
+        await page.viewport(900, 810);
         await vitest.waitFor(() => {
-          if (game.app.screen.width !== 1440) {
-            throw new Error('The screen is not back at its size yet.');
-          }
+          expect(getBox(harness, getWindowParts(storyWindow).panel).width).toBe(292);
         });
+
+        let secondChoice = getWindowButton(storyWindow, 1);
+
+        expect(getButtonLabel(secondChoice)).toBe('Leave her alone');
+        expect(nightScreen.ui.focused).toBe(secondChoice);
+      } finally {
+        await restoreViewport();
+      }
+    });
+
+    test('a node without a speaker has no title, and the window is shorter by it', async () => {
+      let {contents, scheduler, ui} = harness.nightScreen;
+      let text = 'The lamp over the counter flickers once and then burns steady again.';
+      let opened: StoryWindow[] = [];
+
+      // The screen ticks the window it holds, so the window types and closes
+      // as one the screen opened.
+      function openWindow(speaker: string | undefined): StoryWindow {
+        let storyWindow = new harness.StoryWindow({
+          ui,
+          scheduler,
+          script: defineDialogueScript<Night>()({
+            start: speaker === undefined ? {text} : {speaker, text},
+          }),
+          context: contents.night,
+          area: getSceneArea(480, 270),
+          onClosed: () => {
+            contents.storyWindow = null;
+          },
+        });
+
+        opened.push(storyWindow);
+        contents.storyWindow = storyWindow;
+
+        return storyWindow;
+      }
+
+      try {
+        let withSpeaker = openWindow('A lamp');
+
+        await nextFrame();
+        await nextFrame();
+
+        let heightWithTitle = getBox(harness, getWindowParts(withSpeaker).panel).height;
+
+        withSpeaker.destroy();
+        contents.storyWindow = null;
+
+        let storyWindow = openWindow(undefined);
+
+        await nextFrame();
+        await nextFrame();
+
+        let {panel, title} = getWindowParts(storyWindow);
+        let box = getBox(harness, panel);
+
+        expect(title).toBeNull();
+        expect(panel.children).toHaveLength(2);
+        // The title's line of 12 and the gap of 4 under it.
+        expect(box.height).toBe(heightWithTitle - 16);
+        expect(box.top).toBeGreaterThanOrEqual(24 + 4);
+        expect(box.top + box.height).toBeLessThanOrEqual(270 - 4);
+
+        await press('Enter');
+
+        expect(storyWindow.text.replaceAll('\n', ' ')).toBe(text);
+
+        await press('Enter');
+        await waitForNoStoryWindow(harness);
+
+        expect(storyWindow.dialogue.phase).toBe('ended');
+      } finally {
+        for (let storyWindow of opened) {
+          storyWindow.destroy();
+        }
+
+        contents.storyWindow = null;
       }
     });
 
@@ -591,6 +758,53 @@ describe('night screen', {timeout: 60_000}, () => {
       expect(nightScreen.ui.topOverlay).toBe(menu);
       expect(nightScreen.ui.focused).toBe(optionsButton);
     });
+
+    test('Options does nothing once the menu is closing', async () => {
+      let {nightScreen} = harness;
+
+      await press('Escape');
+
+      let menu = getMenu();
+
+      nightScreen.ui.focus(getMenuButton(menu, 'Options'));
+      // What Escape and then Enter do, without a frame between them: on a slow
+      // machine the whole fade can pass between two key presses of a test.
+      nightScreen.ui.cancel();
+
+      expect(menu.state).toBe('closing');
+
+      nightScreen.ui.activate();
+
+      expect(nightScreen.contents.optionsModal).toBeNull();
+
+      await waitForNoMenu();
+
+      expect(nightScreen.contents.optionsModal).toBeNull();
+      expect(nightScreen.ui.topOverlay).toBeNull();
+    });
+
+    test('Quit to menu does nothing once the menu is closing', async () => {
+      let {game, nightScreen} = harness;
+
+      await press('Escape');
+
+      let menu = getMenu();
+
+      nightScreen.ui.focus(getMenuButton(menu, 'Quit to menu'));
+      nightScreen.ui.cancel();
+
+      expect(menu.state).toBe('closing');
+
+      nightScreen.ui.activate();
+
+      // Hiding a screen starts inside the click, so a quit shows at once.
+      expect(nightScreen.state).toBe('shown');
+
+      await waitForNoMenu();
+
+      expect(game.currentScreen).toBe(nightScreen);
+      expect(nightScreen.state).toBe('shown');
+    });
   });
 
   // These tests leave the night screen, in order.
@@ -645,6 +859,52 @@ describe('night screen', {timeout: 60_000}, () => {
       await waitForNoStoryWindow(harness);
 
       expect(nightScreen.ui.topOverlay).toBeNull();
+    });
+
+    test('Escape in the frame of Quit to menu opens no menu on the hidden screen', async () => {
+      let {mainMenuScreen, nightScreen} = harness;
+
+      await press('Escape');
+      nightScreen.ui.focus(getMenuButton(getMenu(), 'Quit to menu'));
+
+      // Both keys in one frame: Quit to menu hides the screen inside its
+      // click, and the same frame's onUpdate then reads the cancel command.
+      for (let code of ['Enter', 'Escape']) {
+        globalThis.dispatchEvent(new KeyboardEvent('keydown', {code, cancelable: true}));
+        globalThis.dispatchEvent(new KeyboardEvent('keyup', {code, cancelable: true}));
+      }
+
+      await vitest.waitFor(
+        () => {
+          expect(mainMenuScreen.state).toBe('shown');
+        },
+        {timeout: 5000},
+      );
+
+      expect(nightScreen.contents.menuModal).toBeNull();
+      expect(nightScreen.ui.topOverlay).toBeNull();
+    });
+
+    test('a tap on Quit to menu shows the main menu', async () => {
+      let {game, mainMenuScreen, nightScreen} = harness;
+
+      // The description opens on arrival, and Escape closes it.
+      await startNewGame(harness);
+      await press('Escape');
+      await waitForNoStoryWindow(harness);
+      await press('Escape');
+      await tap(harness, getBox(harness, getMenuButton(getMenu(), 'Quit to menu')));
+      await vitest.waitFor(
+        () => {
+          expect(mainMenuScreen.state).toBe('shown');
+        },
+        {timeout: 5000},
+      );
+
+      expect(game.currentScreen).toBe(mainMenuScreen);
+      expect(nightScreen.contents.storyWindow).toBeNull();
+      expect(nightScreen.contents.menuModal).toBeNull();
+      expect(nightScreen.contents.optionsModal).toBeNull();
     });
   });
 });

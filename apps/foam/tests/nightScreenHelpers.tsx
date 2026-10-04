@@ -24,6 +24,9 @@ export type Harness = {
   measureText: typeof measureTextValue;
   nightScreen: typeof nightScreenValue;
 
+  /** The class, for a test that opens a window with a script of its own. */
+  StoryWindow: typeof StoryWindow;
+
   /** Removes the page the game was booted on. */
   unmount: () => void;
 };
@@ -74,6 +77,7 @@ export async function bootGame(width: number, height: number): Promise<Harness> 
   let {measureText} = await import('../source/game/core/measureText.js');
   let {mainMenuScreen} = await import('../source/game/screens/mainMenuScreen.js');
   let {nightScreen} = await import('../source/game/screens/nightScreen.js');
+  let storyWindowModule = await import('../source/game/screens/storyWindow.js');
 
   await vitest.waitFor(
     () => {
@@ -94,6 +98,7 @@ export async function bootGame(width: number, height: number): Promise<Harness> 
     mainMenuScreen,
     measureText,
     nightScreen,
+    StoryWindow: storyWindowModule.StoryWindow,
     unmount: () => {
       root.unmount();
       container.remove();
@@ -217,12 +222,13 @@ export async function waitForNoStoryWindow({nightScreen}: Harness): Promise<void
 }
 
 // The window is a Modal holding one Panel: the title, the text leaf and the
-// button area (a Container of Buttons), in that order.
+// button area (a Container of Buttons), in that order. A node without a
+// speaker has no title.
 export function getWindowParts(storyWindow: StoryWindow): {
   buttons: Button[];
   panel: Panel;
   textLeaf: Text;
-  title: Text;
+  title: Text | null;
 } {
   let [panel] = storyWindow.modal.children;
 
@@ -230,14 +236,15 @@ export function getWindowParts(storyWindow: StoryWindow): {
     throw new TypeError('The story window has no panel!');
   }
 
-  let [title, textLeaf, buttonArea] = panel.children;
+  let [title, textLeaf, buttonArea] =
+    panel.children.length === 2 ? [null, ...panel.children] : panel.children;
 
   if (
-    !(title instanceof Text) ||
+    !(title === null || title instanceof Text) ||
     !(textLeaf instanceof Text) ||
     !(buttonArea instanceof Container)
   ) {
-    throw new TypeError('The story window has no title, no text or no button area!');
+    throw new TypeError('The story window has no text or no button area!');
   }
 
   return {buttons: buttonArea.children as Button[], panel, textLeaf, title};
@@ -255,15 +262,21 @@ export function getWindowButton(storyWindow: StoryWindow, index: number): Button
 }
 
 // Presses Enter through the node's text and returns what the window showed
-// each time a page was fully typed. It stops on the last page, with the node's
-// choices offered or Continue waiting.
-export async function readPages(storyWindow: StoryWindow): Promise<string[]> {
+// each time a page was fully typed, calling onPage at each of those moments.
+// It starts on a page that is typing or that waits at its end, and stops on
+// the last page, with the node's choices offered or Continue waiting.
+export async function readPages(storyWindow: StoryWindow, onPage?: () => void): Promise<string[]> {
   let pages: string[] = [];
 
   for (;;) {
-    // Finishes the page that is typing.
-    await press('Enter');
+    // Finishes the page that is typing. A page that typed to its end by
+    // itself waits for no press.
+    if (storyWindow.dialogue.phase === 'revealing') {
+      await press('Enter');
+    }
+
     pages.push(storyWindow.text);
+    onPage?.();
 
     if (storyWindow.dialogue.revealedCount >= storyWindow.dialogue.pageText.length) {
       return pages;

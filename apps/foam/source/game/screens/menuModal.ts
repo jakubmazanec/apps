@@ -43,8 +43,11 @@ export function openMenuModal({
     fadeDuration: 200,
     onClosed,
   });
-  // The buttons are added after the modal exists, because Resume closes that
-  // modal.
+  // The buttons are added after the modal exists, because they read it. A
+  // press can still arrive during the fade: Escape and then Enter must not
+  // quit the night or open the Options window over a closing menu. Resume
+  // needs no check, as close() does nothing on a closing modal.
+  let isClosing = () => modal.state === 'closing' || modal.state === 'closed';
   let resumeButton = new Button({
     theme: game.theme,
     children: [new Text({text: 'Resume', theme: game.theme, layout: true})],
@@ -58,12 +61,20 @@ export function openMenuModal({
     new Button({
       theme: game.theme,
       children: [new Text({text: 'Options', theme: game.theme, layout: true})],
-      onClick: onOptions,
+      onClick: () => {
+        if (!isClosing()) {
+          onOptions();
+        }
+      },
     }),
     new Button({
       theme: game.theme,
       children: [new Text({text: 'Quit to menu', theme: game.theme, layout: true})],
-      onClick: onQuit,
+      onClick: () => {
+        if (!isClosing()) {
+          onQuit();
+        }
+      },
     }),
   );
   ui.addOverlay(modal);

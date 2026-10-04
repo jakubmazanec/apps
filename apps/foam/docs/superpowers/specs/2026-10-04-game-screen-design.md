@@ -398,7 +398,8 @@ through the engine's cancel command.
 once, without the fade and without calling `onClosed`.
 
 **Resizing.** `resize` stores the new area, sets the modal's top padding and shows the current node
-again, with its choices if they were shown. The runner keeps its count of revealed characters and
+again, with its choices if they were shown, and with the focus on the button at the same position
+when one of the window's buttons had it. The runner keeps its count of revealed characters and
 ignores breaks that lie before it. `resize` does nothing once the modal is closed.
 
 ### Night screen (`screens/nightScreen.ts`)
@@ -431,6 +432,8 @@ type NightScreenContents = {
 - A story window's `onClosed` clears `storyWindow` and writes the status text from `night`.
 - `onUpdate` calls `storyWindow.update(ticker.deltaMS)` when one is open. It opens the menu when the
   cancel command was pressed this frame and the UI root has no overlay.
+- The menu opens only while the screen is shown and no story window or menu is open. Quit to menu
+  hides the screen inside its click, and an Escape in the same frame still reaches `onUpdate`.
 - `onResize` computes the scene area with `getSceneArea`, puts the status text beside or under the
   place button, positions the scene buttons with `getSpotPosition`, resizes the background and calls
   `storyWindow.resize(area)` when one is open.
@@ -480,8 +483,8 @@ export function openMenuModal(options: MenuModalOptions): Modal;
 
 It builds a `Modal` with a centred `Panel`: the title "Menu" and the buttons Resume, Options and
 Quit to menu. It fades for 200 ms and focuses Resume. Resume closes the modal. Options and Quit to
-menu call `onOptions` and `onQuit`. The function adds the modal to `ui` as an overlay and returns
-it, as `openOptionsModal` does.
+menu call `onOptions` and `onQuit`, and do nothing once the modal is closing. The function adds the
+modal to `ui` as an overlay and returns it, as `openOptionsModal` does.
 
 ### Main menu and boot
 
@@ -504,7 +507,8 @@ it, as `openOptionsModal` does.
 - **A press arrives as the window closes.** Once the modal is closing, `update` does nothing and the
   window passes no press on to the runner. This matters after Escape, when the runner has not ended
   and a choice could still change the night's state. The runner itself ignores `advance()` and
-  `choose()` once it has ended.
+  `choose()` once it has ended. The menu's Options and Quit to menu do nothing once the menu is
+  closing, so Escape and then Enter neither quits the night nor opens Options over a closing menu.
 - **The screen is hidden with a window open,** which happens when the error screen takes over.
   `onHide` destroys every open window at once.
 - **The boot fails, or settings cannot be read or saved.** These behave as in phase 1.
@@ -582,6 +586,20 @@ It watches the calls the real mixer receives and plays through the screen:
 26. A tap on the Menu button opens the menu, and a tap on Resume closes it.
 27. The menu music is started once before Quit to menu, and once more when the main menu is shown
     again.
+28. With no press, the choices replace Continue when the text is typed to its end, and the first is
+    focused.
+29. The window keeps its size when the choices replace Continue.
+30. The window keeps its size on every page of the long text.
+31. A resize while the choices are shown keeps the focus on the choice that had it.
+32. A node without `speaker` has no title, and its window is shorter by the title's line and gap.
+    Continue closes it.
+33. Options, activated during the menu's closing fade after Escape, opens no Options window.
+34. Quit to menu, activated during the menu's closing fade after Escape, leaves the night screen the
+    current screen.
+35. With Quit to menu focused, Enter and Escape in one frame show the main menu and leave no menu on
+    the hidden night screen.
+36. A tap on Quit to menu makes the main menu the current screen, and `storyWindow`, `menuModal` and
+    `optionsModal` are `null`.
 
 **`tests/nightScreenNarrow.browser.test.ts`** uses a 438 × 786 viewport, which is 146 × 262 art
 pixels:
@@ -595,6 +613,8 @@ pixels:
    the scene area.
 6. Taps open a scene button's window, finish its text and take a choice. A tap on the text does
    nothing while the choices are offered.
+7. With no press, the description stops at the end of its first page: the window shows a full page
+   of 13 lines, Continue is focused, and no more text appears.
 
 **`tests/mainMenu.browser.test.tsx`** follows the enabled button: New Game is enabled, the first
 focus command lands on New Game, and the next one lands on Options. Its other checks are unchanged.

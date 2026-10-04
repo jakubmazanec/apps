@@ -12,7 +12,8 @@ export const input = new GameInput({
     next: {keys: ['Tab']},
     previous: {keys: ['Shift+Tab']},
     activate: {keys: ['Enter', 'Space']},
-    // Dismisses the topmost overlay, which is the Options window.
+    // Closes the topmost overlay: a story window, the menu or the Options
+    // window. On the night screen with no overlay open, it opens the menu.
     cancel: {keys: ['Escape']},
     increase: {keys: ['Equal', 'PageUp']},
     decrease: {keys: ['Minus', 'PageDown']},
