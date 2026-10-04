@@ -61,6 +61,20 @@ export default defineConfig(
           'zod',
         ],
       },
+      test: {
+        projects: [
+          {},
+          {
+            test: {
+              browser: {
+                api: {
+                  port: 63317,
+                },
+              },
+            },
+          },
+        ],
+      },
     },
   ),
 );
