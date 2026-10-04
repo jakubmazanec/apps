@@ -142,7 +142,8 @@ The review of phase 2 decided three changes to how the game screen is used. They
 - A menu's default button shows the focus ring when the menu opens, whatever opened it. After that
   the ring follows the rule it follows everywhere: a pointer press hides it, and a focus key shows
   it again. Today a default focus never shows the ring, so the menu's Resume button is focused
-  without a mark. This is a Tellurion addition.
+  without a mark. This is a Tellurion addition:
+  [spec](../../../docs/superpowers/specs/2026-10-04-ui-overlay-initial-focus-design.md).
 
 ### The game
 
