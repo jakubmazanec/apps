@@ -1,7 +1,8 @@
 # Game screen (Foam phase 2): design
 
-Date: 2026-10-04. App: `apps/foam`. Status: approved design, pending implementation plan. This is
-phase 2 of [the direction document](../../direction.md).
+Date: 2026-10-04. App: `apps/foam`. Status: approved design; the implementation plan is
+[2026-10-04-game-screen.md](../plans/2026-10-04-game-screen.md). This is phase 2 of
+[the direction document](../../direction.md).
 
 ## Background
 
@@ -157,7 +158,8 @@ Changed files, relative to `apps/foam/`:
 | `tests/mainMenu.browser.test.tsx`       | Follows the enabled New Game button (see Testing) |
 
 Foam imports `pixi.js` directly for two things: measuring text and drawing the placeholder
-background. `^8.19.0` is the range Somewhere and Tellurion use.
+background. `^8.19.0` is the range Somewhere and Tellurion use. The root `package-lock.json` records
+the dependency.
 
 `core/night.ts`, `core/getPageBreaks.ts`, `core/getSceneArea.ts` and `core/getSpotPosition.ts`
 import neither `tellurion` nor `pixi.js`, so their tests run in the node project.
@@ -176,6 +178,10 @@ All sizes are in art pixels.
 | Window padding | 8     | Inside the story window's panel                                  |
 | Window gap     | 4     | Between title, text and buttons                                  |
 | Button gap     | 2     | Between buttons in the story window                              |
+
+`core/getSceneArea.ts` exports the margin, the line height, the button height and the narrow width,
+because the scene and the story window both use them. The other four sizes are constants in
+`screens/storyWindow.ts`.
 
 ### State (`core/night.ts`)
 
@@ -267,7 +273,8 @@ export function getPageBreaks(wrapped: string, linesPerPage: number): number[];
 
 `getPageBreaks` takes a text already wrapped with `wrapText` and returns the offsets at which the
 runner pauses: the offset just after the newline that ends each full page. The end of the text is
-never a break. A text of `linesPerPage` lines or fewer has no breaks.
+never a break. A text of `linesPerPage` lines or fewer has no breaks. A `linesPerPage` below 1
+counts as 1.
 
 ### Scene layout (`core/getSceneArea.ts`, `core/getSpotPosition.ts`)
 
@@ -382,15 +389,17 @@ node or page, and when it is resized:
    button per visible choice and focuses the first.
 6. When the runner has ended, it calls `modal.close()`.
 
-**Input.** Continue calls `dialogue.advance()`. A tap on the text leaf calls `dialogue.advance()`
-unless the runner is choosing. A choice button calls `dialogue.choose()` with its index. Escape
-closes the modal through the engine's cancel command.
+**Input.** Continue and a tap on the text leaf call `dialogue.advance()`, unless the runner is
+choosing: there `advance()` would take the first choice. A choice button calls `dialogue.choose()`
+with its index. None of these reaches the runner once the modal is closing. Escape closes the modal
+through the engine's cancel command.
 
 **Closing.** The modal's `onClosed` calls the window's `onClosed`. `destroy()` destroys the modal at
 once, without the fade and without calling `onClosed`.
 
 **Resizing.** `resize` stores the new area, sets the modal's top padding and shows the current node
-again. The runner keeps its count of revealed characters and ignores breaks that lie before it.
+again, with its choices if they were shown. The runner keeps its count of revealed characters and
+ignores breaks that lie before it. `resize` does nothing once the modal is closed.
 
 ### Night screen (`screens/nightScreen.ts`)
 
@@ -492,8 +501,10 @@ it, as `openOptionsModal` does.
   that no word in the sample content is longer than 16.
 - **The screen is resized while a text types.** The window wraps the page again and hands the runner
   new page ends. The count of revealed characters is kept.
-- **A press arrives as the window closes.** `update` does nothing once the modal is closing, and the
-  runner ignores `advance()` and `choose()` once it has ended.
+- **A press arrives as the window closes.** Once the modal is closing, `update` does nothing and the
+  window passes no press on to the runner. This matters after Escape, when the runner has not ended
+  and a choice could still change the night's state. The runner itself ignores `advance()` and
+  `choose()` once it has ended.
 - **The screen is hidden with a window open,** which happens when the error screen takes over.
   `onHide` destroys every open window at once.
 - **The boot fails, or settings cannot be read or saved.** These behave as in phase 1.
@@ -527,11 +538,14 @@ Unit tests, in the node project:
 - `formatStatus()` gives `19:40   350 Kč   Sober` for the starting values, pads hours and minutes to
   two digits, and wraps past midnight.
 
-Browser tests. Each file boots the real game once by rendering the index route inside React's strict
-mode, as `tests/mainMenu.browser.test.tsx` does, and sets the viewport before the boot. Headless
-Chromium has a device pixel ratio of 1.
+Browser tests. The two night screen files boot the real game once each through `bootGame` in
+`tests/nightScreenHelpers.tsx`. It sets the viewport, imports the page's stylesheet so that the
+canvas fills the viewport, and renders the index route inside React's strict mode, as
+`tests/mainMenu.browser.test.tsx` does. The viewport is set before the game modules are imported,
+because `Game` picks the pixel scale when its module is evaluated. Headless Chromium has a device
+pixel ratio of 1. The helper file holds the JSX, so the two test files are `.ts` files.
 
-**`tests/nightScreen.browser.test.tsx`** uses a 1440 × 810 viewport, which is 480 × 270 art pixels.
+**`tests/nightScreen.browser.test.ts`** uses a 1440 × 810 viewport, which is 480 × 270 art pixels.
 It watches the calls the real mixer receives and plays through the screen:
 
 1. Activating New Game makes the night screen the current screen.
@@ -557,8 +571,19 @@ It watches the calls the real mixer receives and plays through the screen:
     `optionsModal` are `null`.
 19. A second New Game shows the starting status and opens the description again.
 20. No word in any text or choice of `samplePlace` is longer than 16 characters.
+21. An arrow key moves the focus to the nearest scene button, and the click sound reaches the mixer
+    on the `ui` bus.
+22. A scene button and the place button do nothing while a story window is open.
+23. A choice activated during the closing fade after Escape does not change the night's state.
+24. A resize in the middle of the long text keeps the count of revealed characters, and the pages
+    that follow fit the new window.
+25. Hiding the screen with a story window open destroys the window at once, and the screen works
+    when it is shown again.
+26. A tap on the Menu button opens the menu, and a tap on Resume closes it.
+27. The menu music is started once before Quit to menu, and once more when the main menu is shown
+    again.
 
-**`tests/nightScreenNarrow.browser.test.tsx`** uses a 438 × 786 viewport, which is 146 × 262 art
+**`tests/nightScreenNarrow.browser.test.ts`** uses a 438 × 786 viewport, which is 146 × 262 art
 pixels:
 
 1. The status text lies under the place button.
@@ -566,6 +591,10 @@ pixels:
 3. The story window is 138 wide.
 4. The description takes more than one page, no page has more than 13 lines, and no line is wider
    than the text width.
+5. The choice "Ask about the ceiling" wraps to two lines inside its button, and the window stays in
+   the scene area.
+6. Taps open a scene button's window, finish its text and take a choice. A tap on the text does
+   nothing while the choices are offered.
 
 **`tests/mainMenu.browser.test.tsx`** follows the enabled button: New Game is enabled, the first
 focus command lands on New Game, and the next one lands on Options. Its other checks are unchanged.
