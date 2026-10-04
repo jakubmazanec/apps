@@ -1,6 +1,6 @@
 # Menus (Foam phase 1): design
 
-Date: 2026-10-03. App: `apps/foam`. Status: approved design; the implementation plan is
+Date: 2026-10-03. App: `apps/foam`. Status: implemented by
 [2026-10-04-menus.md](../plans/2026-10-04-menus.md). This is phase 1 of
 [the direction document](../../direction.md).
 

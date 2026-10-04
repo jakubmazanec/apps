@@ -1,8 +1,7 @@
 # Foam: direction
 
-Started: 2026-10-03. App: `apps/foam`. Status: the direction is agreed; phase 1 is designed and
-planned, and not yet built. This is a living document: it describes the current state and plan, and
-is kept correct as they change.
+Started: 2026-10-03. App: `apps/foam`. Status: the direction is agreed; phase 1 is built. This is a
+living document: it describes the current state and plan, and is kept correct as they change.
 
 ## What Foam is
 
@@ -105,8 +104,8 @@ Where things are written down:
 | 2   | Game screen | New game opens the screen a night is played on: text, action buttons, status line and illustration slot, with pause and quit. It shows sample text only.                               | Tellurion's `Text`, `Button`, `Panel` and `Container`; Somewhere's pause flow |
 | 3   | UI art      | The menu and the game screen have Foam's own look: palette, font, panels and buttons, and one abstract animated background.                                                            | Tellurion's UI theme, which reads its art from one spriteset                  |
 
-Phase 1 has a design spec and an implementation plan:
-[spec](superpowers/specs/2026-10-03-menus-design.md), [plan](superpowers/plans/2026-10-04-menus.md).
+Phase 1 is built: [spec](superpowers/specs/2026-10-03-menus-design.md),
+[plan](superpowers/plans/2026-10-04-menus.md).
 
 Tellurion shows its loading screen only when a screen needs an asset bundle that is not loaded yet.
 Foam has one bundle, so the loading screen is added by the first phase that adds a second one.
