@@ -1,11 +1,12 @@
 # Menus (Foam phase 1): design
 
-Date: 2026-10-03. App: `apps/foam`. Status: approved design, pending implementation plan. This is
-phase 1 of [the direction document](../../direction.md).
+Date: 2026-10-03. App: `apps/foam`. Status: approved design; the implementation plan is
+[2026-10-04-menus.md](../plans/2026-10-04-menus.md). This is phase 1 of
+[the direction document](../../direction.md).
 
 ## Background
 
-Foam is a React Router skeleton with a placeholder page. It does not depend on `tellurion`, has no
+Phase 1 starts from a React Router skeleton with a placeholder page: no `tellurion` dependency, no
 `public/` folder and no tests.
 
 Somewhere (`apps/somewhere`) already shows how an app boots on Tellurion and reaches a main menu
@@ -220,7 +221,7 @@ When the synthwave track arrives it replaces `menu-music.wav`. Tellurion's audio
 
 ## Testing
 
-Both test files run in the browser project.
+All three test files run in the browser project.
 
 **`tests/settings.browser.test.ts`**, modelled on Somewhere's:
 
@@ -228,20 +229,30 @@ Both test files run in the browser project.
 - A stored valid payload is loaded.
 - A value of the wrong type resets alone and leaves the other volumes as stored.
 - An out-of-range volume snaps back to 1 and leaves the others.
+- Stored text that is not JSON gives the defaults, and so does a `volumes` value of the wrong type.
 - `saveSettings()` writes the current object under `foam:settings`.
+- `saveSettingsSoon()` waits, and its `flush()` writes at once.
 
-**`tests/mainMenu.browser.test.ts`** boots the real game once for the file: it imports the real
-modules, runs `game.init()` with the real files from `public/`, mounts the canvas, registers the
-screens and shows the main menu. A browser test serves `public/` at the server root, so the asset
-paths resolve as they do in the app. It then drives the menu with key presses, as a player does:
+**`tests/mainMenu.browser.test.tsx`** boots the real game once for the file by rendering the index
+route inside React's strict mode, as the app does. The route runs `game.init()` with the real files
+from `public/`, mounts the canvas, registers the screens and shows the main menu. A browser test
+serves `public/` at the server root, so the asset paths resolve as they do in the app. The test
+stores a music volume before the boot, and then drives the menu with key presses, as a player does:
 
 - The main menu is the current screen.
 - New Game is disabled.
+- The first focus command lands on Options.
 - Activating Options opens the window.
-- With the window open, focusing the Master slider and pressing the decrease key lowers
-  `settings.volumes.master`.
-- Escape closes the window. After the fade no modal is open, and `foam:settings` in `localStorage`
-  holds the lowered value.
+- The sliders show the stored volumes.
+- With the Master slider focused, the decrease key lowers `settings.volumes.master`.
+- Escape closes the window. After the fade no modal is open, `foam:settings` in `localStorage` holds
+  the lowered value, and focus is back on Options.
+- A window opened again shows the changed value.
+- The Close button closes the window.
+
+**`tests/bootFailure.browser.test.tsx`** replaces the game module with one whose `init()` fails,
+renders the index route, and checks that "Loading…" gives way to the "could not start" line and that
+the error is logged.
 
 Commands, run from the repository root:
 
