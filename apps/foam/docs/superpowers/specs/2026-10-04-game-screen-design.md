@@ -186,6 +186,21 @@ All sizes are in art pixels.
 because the scene and the story window both use them. The other four sizes are constants in
 `screens/storyWindow.ts`.
 
+### Limits on a 146 × 262 screen
+
+The layout takes every label at its measured width, 6 art pixels per character, and neither wraps
+nor cuts it. Only the window's text and its choices wrap. A label longer than its room runs off:
+
+| Element            | Room                        | Fits          | Beyond that                                                 |
+| ------------------ | --------------------------- | ------------- | ----------------------------------------------------------- |
+| Status line        | 138                         | 23 characters | Runs off the right edge                                     |
+| Window title       | 122                         | 20 characters | Runs past the window's edge                                 |
+| Scene button label | 134                         | 22 characters | The button starts at the left margin and runs off the right |
+| Place button label | 106, beside the Menu button | 17 characters | The button covers the Menu button                           |
+
+On a wider screen the status sits beside the place button, so a long place name pushes the status
+into the Menu button.
+
 ### State (`core/night.ts`)
 
 ```ts
