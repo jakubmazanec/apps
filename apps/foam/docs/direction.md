@@ -1,8 +1,8 @@
 # Foam: direction
 
-Started: 2026-10-03. App: `apps/foam`. Status: the direction is agreed; phase 1 is built, and phase
-2 is designed and planned. This is a living document: it describes the current state and plan, and
-is kept correct as they change.
+Started: 2026-10-03. App: `apps/foam`. Status: the direction is agreed; phases 1 and 2 are built.
+This is a living document: it describes the current state and plan, and is kept correct as they
+change.
 
 ## What Foam is
 
@@ -109,8 +109,7 @@ Where things are written down:
 Phase 1 is built: [spec](superpowers/specs/2026-10-03-menus-design.md),
 [plan](superpowers/plans/2026-10-04-menus.md).
 
-Phase 2 has a design spec and an implementation plan:
-[spec](superpowers/specs/2026-10-04-game-screen-design.md),
+Phase 2 is built: [spec](superpowers/specs/2026-10-04-game-screen-design.md),
 [plan](superpowers/plans/2026-10-04-game-screen.md).
 
 Tellurion shows its loading screen only when a screen needs an asset bundle that is not loaded yet.

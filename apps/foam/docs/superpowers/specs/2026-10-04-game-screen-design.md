@@ -1,6 +1,6 @@
 # Game screen (Foam phase 2): design
 
-Date: 2026-10-04. App: `apps/foam`. Status: approved design; the implementation plan is
+Date: 2026-10-04. App: `apps/foam`. Status: implemented by
 [2026-10-04-game-screen.md](../plans/2026-10-04-game-screen.md). This is phase 2 of
 [the direction document](../../direction.md).
 
