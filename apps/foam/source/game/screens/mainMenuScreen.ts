@@ -1,12 +1,14 @@
-import {Button, GameScreen, Panel, Text} from 'tellurion';
+import {Button, GameScreen, type Modal, Panel, Text} from 'tellurion';
 
 import {assets} from '../core/assets.js';
 import {audio} from '../core/audio.js';
 import {game} from '../core/game.js';
 import {playFocusSound} from '../core/playFocusSound.js';
+import {openOptionsModal} from './optionsModal.js';
 
 type MainMenuScreenContents = {
   newGameButton: Button;
+  openModal: Modal | null;
   optionsButton: Button;
 };
 
@@ -37,6 +39,15 @@ export const mainMenuScreen = new GameScreen<MainMenuScreenContents>({
     let optionsButton = new Button({
       theme: game.theme,
       children: [new Text({text: 'Options', theme: game.theme, layout: true})],
+      onClick: () => {
+        screen.contents.openModal = openOptionsModal({
+          ui: screen.ui,
+          scheduler: screen.scheduler,
+          onClosed: () => {
+            screen.contents.openModal = null;
+          },
+        });
+      },
     });
 
     newGameButton.disable();
@@ -53,11 +64,18 @@ export const mainMenuScreen = new GameScreen<MainMenuScreenContents>({
       }),
     );
 
-    return {newGameButton, optionsButton};
+    return {newGameButton, openModal: null, optionsButton};
   },
   onShow: () => {
     // Music is driven by direct mixer calls from the screen. playMusic
     // replaces the current track.
     audio.playMusic(assets.sound('menu-music'));
+  },
+  onHide: (screen) => {
+    // Owning-screen teardown rule: synchronous destroy(), never the animated
+    // close(), because the scheduler was already cleared before onHide.
+    screen.contents.openModal?.destroy();
+
+    screen.contents.openModal = null;
   },
 });
