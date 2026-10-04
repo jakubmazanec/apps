@@ -1,7 +1,8 @@
 # Foam: direction
 
-Date: 2026-10-03. App: `apps/foam`. Status: draft for review. This is a living document: it is
-updated at the review that closes each phase.
+Started: 2026-10-03. App: `apps/foam`. Status: the direction is agreed; phase 1 is designed and not
+yet built. This is a living document: it describes the current state and plan, and is kept correct
+as they change.
 
 ## What Foam is
 
@@ -30,17 +31,17 @@ Foam runs on the `tellurion` engine, as Somewhere does.
 
 ## Decisions
 
-| Topic        | Decision                                                                                                                                           |
-| ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Purpose      | A free public web game that a stranger can enjoy. What is planned here is a first version (proof of concept, prototype or v0), not the final game. |
-| Run          | One night is one run. Runs feel rogue-like, and some things are saved between runs. The four-seasons structure from the idea notes is dropped.     |
-| Goal         | Each night has a quest. There is no long arc across nights for now.                                                                                |
-| Presentation | Text-first, with a permanent illustration slot. The art can be animated: an abstract background animation that sets the mood of a place.           |
-| Rendering    | Everything is drawn in Tellurion, with its own UI components.                                                                                      |
-| Language     | English only for the prototype.                                                                                                                    |
-| Text         | For the first version the author gives notes, and temporary game text is generated from them. The final text is written by the author by hand.     |
-| Journal      | A plain log of the night. Nothing is rewritten into novel prose yet.                                                                               |
-| Music        | Static stock synthwave for now; the author's own songs come later. Stock tracks need a licence that allows use in a public web game.               |
+| Topic        | Decision                                                                                                                                                                                             |
+| ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Purpose      | A free public web game that a stranger can enjoy. What is planned here is a first version (proof of concept, prototype or v0), not the final game.                                                   |
+| Run          | One night is one run. Runs feel rogue-like, and some things are saved between runs. The four-seasons structure in the idea notes is not used.                                                        |
+| Goal         | Each night has a quest. There is no long arc across nights for now.                                                                                                                                  |
+| Presentation | Text-first, with a permanent illustration slot. The art can be animated: an abstract background animation that sets the mood of a place.                                                             |
+| Rendering    | The game is drawn in Tellurion, with its own UI components. The only plain page text is the line shown while the engine starts or when it cannot start.                                              |
+| Language     | English only for the prototype.                                                                                                                                                                      |
+| Text         | For the first version the author gives notes, and temporary game text is generated from them. The final text is written by the author by hand.                                                       |
+| Journal      | A plain log of the night. Nothing is rewritten into novel prose yet.                                                                                                                                 |
+| Music        | Static stock synthwave for now; the author's own songs come later. Stock tracks need a licence that allows use in a public web game. Until a track is chosen, the menu plays Somewhere's menu music. |
 
 ## Shelved questions
 
@@ -98,11 +99,16 @@ Where things are written down:
 
 ### Basic UI
 
-| #   | Phase       | When it is done                                                                                                                                          | Leans on                                                                      |
-| --- | ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| 1   | Menus       | Foam boots on Tellurion to a main menu with options, menu music and UI sounds. UI art and font are borrowed from Somewhere for now.                      | Somewhere's boot route, `core/` modules, main menu, loading and error screens |
-| 2   | Game screen | New game opens the screen a night is played on: text, action buttons, status line and illustration slot, with pause and quit. It shows sample text only. | Tellurion's `Text`, `Button`, `Panel` and `Container`; Somewhere's pause flow |
-| 3   | UI art      | The menu and the game screen have Foam's own look: palette, font, panels and buttons, and one abstract animated background.                              | Tellurion's UI theme, which reads its art from one spriteset                  |
+| #   | Phase       | When it is done                                                                                                                                                                        | Leans on                                                                      |
+| --- | ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| 1   | Menus       | Foam boots on Tellurion to a main menu with options, menu music and UI sounds. New Game is shown but disabled. UI art, font, music and sounds are copies of Somewhere's files for now. | Somewhere's boot route, `core/` modules, main menu and error screen           |
+| 2   | Game screen | New game opens the screen a night is played on: text, action buttons, status line and illustration slot, with pause and quit. It shows sample text only.                               | Tellurion's `Text`, `Button`, `Panel` and `Container`; Somewhere's pause flow |
+| 3   | UI art      | The menu and the game screen have Foam's own look: palette, font, panels and buttons, and one abstract animated background.                                                            | Tellurion's UI theme, which reads its art from one spriteset                  |
+
+Phase 1 has a design spec: [Menus](superpowers/specs/2026-10-03-menus-design.md).
+
+Tellurion shows its loading screen only when a screen needs an asset bundle that is not loaded yet.
+Foam has one bundle, so the loading screen is added by the first phase that adds a second one.
 
 Tellurion has no component for text longer than its area. Whether the game screen needs one is
 decided in phase 2.
