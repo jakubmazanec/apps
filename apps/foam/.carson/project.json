@@ -85,6 +85,9 @@
           "pixi.js",
           "zod"
         ]
+      },
+      "test": {
+        "projects": [{}, {"test": {"browser": {"api": {"port": 63317}}}}]
       }
     }
   }
