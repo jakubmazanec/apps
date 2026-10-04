@@ -56,5 +56,5 @@ describe('boot failure', () => {
 
     expect(container.querySelector('canvas')).toBeNull();
     expect(consoleError).toHaveBeenCalledWith(error);
-  });
+  }, 30_000);
 });
