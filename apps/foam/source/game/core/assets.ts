@@ -12,6 +12,7 @@ export const assets = new GameAssets({
         'ui-click': ['ui-click.wav'],
         'ui-error': ['ui-error.wav'],
         'menu-music': ['menu-music.wav'],
+        blip: ['blip.wav'],
       },
     },
   ],

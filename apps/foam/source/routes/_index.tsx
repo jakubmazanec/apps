@@ -14,14 +14,16 @@ export default function Index() {
     let controller = new AbortController();
 
     (async () => {
-      let [{game: importedGame}, {errorScreen}, {mainMenuScreen}] = await Promise.all([
-        import('../game/core/game.js'),
-        import('../game/screens/errorScreen.js'),
-        import('../game/screens/mainMenuScreen.js'),
-        // Evaluates the audio bootstrap (decode context and first-gesture
-        // unlock) before init() below loads the default bundle's sounds.
-        import('../game/core/audio.js'),
-      ]);
+      let [{game: importedGame}, {errorScreen}, {mainMenuScreen}, {nightScreen}] =
+        await Promise.all([
+          import('../game/core/game.js'),
+          import('../game/screens/errorScreen.js'),
+          import('../game/screens/mainMenuScreen.js'),
+          import('../game/screens/nightScreen.js'),
+          // Evaluates the audio bootstrap (decode context and first-gesture
+          // unlock) before init() below loads the default bundle's sounds.
+          import('../game/core/audio.js'),
+        ]);
 
       if (controller.signal.aborted) {
         return;
@@ -34,11 +36,12 @@ export default function Index() {
         return;
       }
 
-      // Both screens are registered here, once: screens are static for the
+      // The screens are registered here, once: screens are static for the
       // rest of the game process, and Game.showScreen rejects a screen that
       // was never added.
       importedGame.addErrorScreen(errorScreen);
       importedGame.addScreen(mainMenuScreen);
+      importedGame.addScreen(nightScreen);
       // Not awaited: setGame below must run in the same tick so React mounts
       // the canvas during the first transition rather than after it.
       // showScreen never rejects; a failure lands on the error screen.
