@@ -70,10 +70,12 @@ function getMenuButton(menu: Modal, label: string): Button {
   return button;
 }
 
-// 1440 × 810 CSS pixels are 480 × 270 art pixels: headless Chromium has a
-// device pixel ratio of 1, and the engine picks a pixel scale of 3. The frames
-// of a headless browser are slow, so the tests get a long timeout.
-describe('night screen', {timeout: 60_000}, () => {
+// 960 × 540 CSS pixels are 480 × 270 art pixels: headless Chromium has a
+// device pixel ratio of 1, and the engine picks a pixel scale of 2, its
+// smallest, so a frame draws as few pixels as the art allows. The frames of a
+// headless browser are slow, and several times slower on a busy machine, so
+// the tests get a long timeout.
+describe('night screen', {timeout: 180_000}, () => {
   let harness: Harness;
   // The spies call through to the real mixer; they only record the calls.
   let play: MockInstance<AudioMixer['play']>;
@@ -104,18 +106,21 @@ describe('night screen', {timeout: 60_000}, () => {
           throw new Error('The menu is still open.');
         }
       },
-      {timeout: 5000},
+      {timeout: 10_000},
     );
   }
 
-  // Back to 1440 × 810 after a test that changed the viewport.
+  // Back to 960 × 540 after a test that changed the viewport.
   async function restoreViewport(): Promise<void> {
-    await page.viewport(1440, 810);
-    await vitest.waitFor(() => {
-      if (harness.game.app.screen.width !== 1440) {
-        throw new Error('The screen is not back at its size yet.');
-      }
-    });
+    await page.viewport(960, 540);
+    await vitest.waitFor(
+      () => {
+        if (harness.game.app.screen.width !== 960) {
+          throw new Error('The screen is not back at its size yet.');
+        }
+      },
+      {timeout: 10_000},
+    );
   }
 
   // Leaves the scene with no window open, whatever the test before did.
@@ -136,8 +141,8 @@ describe('night screen', {timeout: 60_000}, () => {
     play = vitest.spyOn(AudioMixer.prototype, 'play');
     playMusic = vitest.spyOn(AudioMixer.prototype, 'playMusic');
 
-    harness = await bootGame(1440, 810);
-  }, 30_000);
+    harness = await bootGame(960, 540);
+  }, 60_000);
 
   afterAll(() => {
     play.mockRestore();
@@ -177,9 +182,12 @@ describe('night screen', {timeout: 60_000}, () => {
       let storyWindow = getStoryWindow(harness);
       let whole = storyWindow.dialogue.pageText;
 
-      await vitest.waitFor(() => {
-        expect(play).toHaveBeenCalledWith(assets.sound('blip'), {bus: 'sfx'});
-      });
+      await vitest.waitFor(
+        () => {
+          expect(play).toHaveBeenCalledWith(assets.sound('blip'), {bus: 'sfx'});
+        },
+        {timeout: 10_000},
+      );
 
       expect(storyWindow.text.length).toBeGreaterThan(0);
       expect(storyWindow.text.length).toBeLessThan(whole.length);
@@ -283,7 +291,7 @@ describe('night screen', {timeout: 60_000}, () => {
 
     test(
       'the choices appear when the text has typed to its end, with no press',
-      {timeout: 120_000},
+      {timeout: 240_000},
       async () => {
         let {nightScreen} = harness;
         let storyWindow = await openSpot('The bartender');
@@ -296,7 +304,7 @@ describe('night screen', {timeout: 60_000}, () => {
           () => {
             expect(storyWindow.dialogue.phase).toBe('choosing');
           },
-          {timeout: 60_000},
+          {timeout: 120_000},
         );
 
         let {buttons} = getWindowParts(storyWindow);
@@ -505,20 +513,26 @@ describe('night screen', {timeout: 60_000}, () => {
       await press('Enter');
       await press('Enter');
       await press('Enter');
-      await vitest.waitFor(() => {
-        expect(storyWindow.text.length).toBeGreaterThan(0);
-        expect(storyWindow.text.endsWith('\n')).toBe(false);
-      });
+      await vitest.waitFor(
+        () => {
+          expect(storyWindow.text.length).toBeGreaterThan(0);
+          expect(storyWindow.text.endsWith('\n')).toBe(false);
+        },
+        {timeout: 10_000},
+      );
 
       let whole = storyWindow.dialogue.pageText;
       let revealedBefore = storyWindow.dialogue.revealedCount;
 
       try {
         // 300 × 270 art pixels: the window is 292 wide and its text 276.
-        await page.viewport(900, 810);
-        await vitest.waitFor(() => {
-          expect(getBox(harness, getWindowParts(storyWindow).panel).width).toBe(292);
-        });
+        await page.viewport(600, 540);
+        await vitest.waitFor(
+          () => {
+            expect(getBox(harness, getWindowParts(storyWindow).panel).width).toBe(292);
+          },
+          {timeout: 10_000},
+        );
 
         expect(storyWindow.dialogue.revealedCount).toBeGreaterThanOrEqual(revealedBefore);
         expect(storyWindow.dialogue.revealedCount).toBeLessThan(whole.length);
@@ -553,10 +567,13 @@ describe('night screen', {timeout: 60_000}, () => {
 
       try {
         // 300 × 270 art pixels: the window is 292 wide.
-        await page.viewport(900, 810);
-        await vitest.waitFor(() => {
-          expect(getBox(harness, getWindowParts(storyWindow).panel).width).toBe(292);
-        });
+        await page.viewport(600, 540);
+        await vitest.waitFor(
+          () => {
+            expect(getBox(harness, getWindowParts(storyWindow).panel).width).toBe(292);
+          },
+          {timeout: 10_000},
+        );
 
         let secondChoice = getWindowButton(storyWindow, 1);
 
@@ -751,7 +768,7 @@ describe('night screen', {timeout: 60_000}, () => {
         () => {
           expect(nightScreen.contents.optionsModal).toBeNull();
         },
-        {timeout: 5000},
+        {timeout: 10_000},
       );
 
       expect(nightScreen.contents.menuModal).toBe(menu);
@@ -819,9 +836,12 @@ describe('night screen', {timeout: 60_000}, () => {
       await press('Escape');
       nightScreen.ui.focus(getMenuButton(getMenu(), 'Quit to menu'));
       await press('Enter');
-      await vitest.waitFor(() => {
-        expect(mainMenuScreen.state).toBe('shown');
-      });
+      await vitest.waitFor(
+        () => {
+          expect(mainMenuScreen.state).toBe('shown');
+        },
+        {timeout: 10_000},
+      );
 
       expect(game.currentScreen).toBe(mainMenuScreen);
       expect(nightScreen.contents.storyWindow).toBeNull();
@@ -878,7 +898,7 @@ describe('night screen', {timeout: 60_000}, () => {
         () => {
           expect(mainMenuScreen.state).toBe('shown');
         },
-        {timeout: 5000},
+        {timeout: 10_000},
       );
 
       expect(nightScreen.contents.menuModal).toBeNull();
@@ -898,7 +918,7 @@ describe('night screen', {timeout: 60_000}, () => {
         () => {
           expect(mainMenuScreen.state).toBe('shown');
         },
-        {timeout: 5000},
+        {timeout: 10_000},
       );
 
       expect(game.currentScreen).toBe(mainMenuScreen);

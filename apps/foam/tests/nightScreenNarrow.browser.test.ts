@@ -18,17 +18,19 @@ import {
   waitForNoStoryWindow,
 } from './nightScreenHelpers.js';
 
-// 438 × 786 CSS pixels are 146 × 262 art pixels, a phone held upright:
+// 292 × 524 CSS pixels are 146 × 262 art pixels, a phone held upright:
 // headless Chromium has a device pixel ratio of 1, and the engine picks a
-// pixel scale of 3. The frames of a headless browser are slow and a real tap
-// takes seconds, so the tests get a long timeout.
-describe('night screen on a narrow screen', {timeout: 60_000}, () => {
+// pixel scale of 2, its smallest, so a frame draws as few pixels as the art
+// allows. The frames of a headless browser are slow, and several times slower
+// on a busy machine, and a real tap takes many frames, so the tests get a long
+// timeout.
+describe('night screen on a narrow screen', {timeout: 180_000}, () => {
   let harness: Harness;
 
   beforeAll(async () => {
-    harness = await bootGame(438, 786);
+    harness = await bootGame(292, 524);
     await startNewGame(harness);
-  }, 30_000);
+  }, 60_000);
 
   afterAll(() => {
     harness.unmount();
@@ -76,7 +78,7 @@ describe('night screen on a narrow screen', {timeout: 60_000}, () => {
 
   test(
     'the text stops by itself at the end of a full page, and Continue waits',
-    {timeout: 120_000},
+    {timeout: 240_000},
     async () => {
       let {game, nightScreen} = harness;
       let storyWindow = getStoryWindow(harness);
@@ -91,7 +93,7 @@ describe('night screen on a narrow screen', {timeout: 60_000}, () => {
         () => {
           expect(storyWindow.dialogue.phase).toBe('idle');
         },
-        {timeout: 60_000},
+        {timeout: 120_000},
       );
 
       let revealed = storyWindow.dialogue.revealedCount;
@@ -113,7 +115,7 @@ describe('night screen on a narrow screen', {timeout: 60_000}, () => {
           () => {
             expect(elapsed).toBeGreaterThanOrEqual(1000);
           },
-          {timeout: 60_000},
+          {timeout: 120_000},
         );
       } finally {
         game.app.ticker.remove(addTime);

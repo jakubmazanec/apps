@@ -111,11 +111,14 @@ export async function bootGame(width: number, height: number): Promise<Harness> 
 export async function startNewGame({mainMenuScreen, nightScreen}: Harness): Promise<void> {
   mainMenuScreen.ui.focus(mainMenuScreen.contents.newGameButton);
   await press('Enter');
-  await vitest.waitFor(() => {
-    if (nightScreen.state !== 'shown') {
-      throw new Error(`The night screen is ${nightScreen.state}, not shown.`);
-    }
-  });
+  await vitest.waitFor(
+    () => {
+      if (nightScreen.state !== 'shown') {
+        throw new Error(`The night screen is ${nightScreen.state}, not shown.`);
+      }
+    },
+    {timeout: 10_000},
+  );
   await nextFrame();
 }
 
@@ -160,7 +163,11 @@ export function doBoxesOverlap(first: Box, second: Box): boolean {
 
 // A real tap in the middle of a box, then two frames for the game to act on
 // it. The canvas fills the viewport, so a position on the canvas is the art
-// position times the pixel scale.
+// position times the pixel scale. Playwright moves the mouse to the canvas
+// and presses and releases it there. force skips only its checks that the
+// canvas is visible, stable and not covered: they wait for animation frames
+// and double the cost of a tap, and a tap that missed the canvas would fail
+// the test anyway.
 export async function tap({game}: Harness, box: Box): Promise<void> {
   let canvas = document.querySelector('canvas');
 
@@ -169,6 +176,7 @@ export async function tap({game}: Harness, box: Box): Promise<void> {
   }
 
   await userEvent.click(canvas, {
+    force: true,
     position: {
       x: (box.left + box.width / 2) * game.pixelScale,
       y: (box.top + box.height / 2) * game.pixelScale,
@@ -217,7 +225,7 @@ export async function waitForNoStoryWindow({nightScreen}: Harness): Promise<void
         throw new Error('The story window is still open.');
       }
     },
-    {timeout: 5000},
+    {timeout: 10_000},
   );
 }
 

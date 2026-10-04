@@ -555,11 +555,13 @@ canvas fills the viewport, and renders the index route inside React's strict mod
 `tests/mainMenu.browser.test.tsx` does. It returns the game modules a test needs, and the
 `StoryWindow` class for a test that opens a window with a script of its own. The viewport is set
 before the game modules are imported, because `Game` picks the pixel scale when its module is
-evaluated. Headless Chromium has a device pixel ratio of 1. The helper file holds the JSX, so the
+evaluated. Headless Chromium has a device pixel ratio of 1. Both viewports give a pixel scale of 2,
+the smallest, so that a frame draws as few pixels as the art allows: the frames of a headless
+browser are slow, and several times slower on a busy machine. The helper file holds the JSX, so the
 two test files are `.ts` files.
 
-**`tests/nightScreen.browser.test.ts`** uses a 1440 × 810 viewport, which is 480 × 270 art pixels.
-It watches the calls the real mixer receives and plays through the screen:
+**`tests/nightScreen.browser.test.ts`** uses a 960 × 540 viewport, which is 480 × 270 art pixels. It
+watches the calls the real mixer receives and plays through the screen:
 
 1. Activating New Game makes the night screen the current screen.
 2. The description window is open, and its runner is on a node whose `speaker` is the place's name.
@@ -614,7 +616,7 @@ It watches the calls the real mixer receives and plays through the screen:
 39. Escape closes the menu.
 40. Escape in a story window closes the window and opens no menu.
 
-**`tests/nightScreenNarrow.browser.test.ts`** uses a 438 × 786 viewport, which is 146 × 262 art
+**`tests/nightScreenNarrow.browser.test.ts`** uses a 292 × 524 viewport, which is 146 × 262 art
 pixels:
 
 1. The status text lies under the place button.
