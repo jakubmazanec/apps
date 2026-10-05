@@ -3,9 +3,7 @@ import {Button, Modal, Panel, type Scheduler, Text, type UiRoot} from 'tellurion
 import {game} from '../core/game.js';
 import {BUTTON_PADDING_X} from '../core/getSceneArea.js';
 import {measureText} from '../core/measureText.js';
-import {createWindowTitle} from './windowTitle.js';
-
-const WINDOW_PADDING = {paddingTop: 8, paddingBottom: 8, paddingLeft: 12, paddingRight: 12};
+import {createWindowTitle, WINDOW_PADDING} from './windowTitle.js';
 
 export type MenuModalOptions = {
   /** UI root of the screen that opens the window. */

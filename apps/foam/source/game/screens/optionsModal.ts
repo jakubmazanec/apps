@@ -13,7 +13,7 @@ import {
 import {audio} from '../core/audio.js';
 import {game} from '../core/game.js';
 import {saveSettingsSoon, settings} from '../core/settings.js';
-import {createWindowTitle} from './windowTitle.js';
+import {createWindowTitle, WINDOW_PADDING} from './windowTitle.js';
 
 export type OptionsModalOptions = {
   /** UI root of the screen that opens the window. */
@@ -26,7 +26,6 @@ export type OptionsModalOptions = {
   onClosed: () => void;
 };
 
-const WINDOW_PADDING = {paddingTop: 8, paddingBottom: 8, paddingLeft: 12, paddingRight: 12};
 const NAME_WIDTH = 36;
 const VALUE_WIDTH = 24;
 const ROW_GAP = 6;

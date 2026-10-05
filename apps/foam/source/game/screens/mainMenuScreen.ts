@@ -76,7 +76,7 @@ export const mainMenuScreen = new GameScreen<MainMenuScreenContents>({
       },
     });
 
-    // There is no panel: the picture plan draws the title and the buttons on the scene.
+    // The main menu has no window: the title and the buttons stand on the screen's background.
     screen.ui.addChild(title, newGameButton, optionsButton);
 
     return {title, newGameButton, openModal: null, optionsButton};

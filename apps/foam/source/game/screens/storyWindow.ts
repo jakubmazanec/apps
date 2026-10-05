@@ -27,10 +27,15 @@ import {
   type SceneArea,
 } from '../core/getSceneArea.js';
 import {input} from '../core/input.js';
-import {splitMarked, stripMarks} from '../core/markedText.js';
+import {MARK, splitMarked, stripMarks} from '../core/markedText.js';
 import {measureText} from '../core/measureText.js';
 import {type Night} from '../core/night.js';
-import {createWindowTitle} from './windowTitle.js';
+import {
+  createWindowTitle,
+  TITLE_HEIGHT,
+  WINDOW_PADDING_X,
+  WINDOW_PADDING_Y,
+} from './windowTitle.js';
 
 export type StoryWindowOptions = {
   /** Scheduler of the screen that opens the window; it drives the fade. */
@@ -48,16 +53,12 @@ export type StoryWindowState = 'closed' | 'closing' | 'open' | 'opening';
 
 // Sizes in art pixels.
 const WINDOW_WIDTH = 300;
-const WINDOW_PADDING_X = 12;
-const WINDOW_PADDING_Y = 8;
 // Between the title block and the text.
 const WINDOW_GAP = 4;
 // Between the text and the first choice.
 const CHOICES_GAP = 8;
 // Between two choices: a focus ring reaches 2 out and does not touch the next button.
 const BUTTON_GAP = 4;
-// The title's line of 12, a gap of 2 and the rule of 1.
-const TITLE_HEIGHT = 15;
 // Every letter of monogram, regular and italic, advances by this much.
 const GLYPH_WIDTH = 6;
 // From a letter cell's top left corner to the cursor's.
@@ -456,7 +457,7 @@ export class StoryWindow implements Overlay {
     let glyphs = 0;
 
     for (let character of this.#wrapped.slice(this.#lastRevealedCount, revealedCount)) {
-      if (character !== ' ' && character !== '\n' && character !== '*') {
+      if (character !== ' ' && character !== '\n' && character !== MARK) {
         glyphs += 1;
       }
     }

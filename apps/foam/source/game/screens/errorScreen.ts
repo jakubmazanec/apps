@@ -1,7 +1,7 @@
 import {type ErrorScreenContents, GameScreen, Panel, Text} from 'tellurion';
 
 import {game} from '../core/game.js';
-import {createWindowTitle} from './windowTitle.js';
+import {createWindowTitle, WINDOW_PADDING} from './windowTitle.js';
 
 // The end of the line for a failed transition: no buttons, because retrying
 // would have to re-enter a screen whose show() never completed. The player
@@ -43,10 +43,7 @@ export const errorScreen = new GameScreen<ErrorScreenContents>({
         theme: game.theme,
         children: [createWindowTitle('Something went wrong', 120), message],
         layout: {
-          paddingTop: 8,
-          paddingBottom: 8,
-          paddingLeft: 12,
-          paddingRight: 12,
+          ...WINDOW_PADDING,
           alignItems: 'center',
           flexDirection: 'column',
           gap: 4,
