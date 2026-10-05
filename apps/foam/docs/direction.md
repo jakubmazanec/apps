@@ -1,8 +1,8 @@
 # Foam: direction
 
-Started: 2026-10-03. App: `apps/foam`. Status: the direction is agreed; phases 1 and 2 are built;
-phase 3 is built: the pixel scale, the look and the picture. This is a living document: it describes
-the current state and plan, and is kept correct as they change.
+Started: 2026-10-03. App: `apps/foam`. Status: the direction is agreed; phases 1 to 3 are built.
+This is a living document: it describes the current state and plan, and is kept correct as they
+change.
 
 ## What Foam is
 
