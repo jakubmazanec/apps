@@ -1,6 +1,11 @@
 import {Button, Modal, Panel, type Scheduler, Text, type UiRoot} from 'tellurion';
 
 import {game} from '../core/game.js';
+import {BUTTON_PADDING_X} from '../core/getSceneArea.js';
+import {measureText} from '../core/measureText.js';
+import {createWindowTitle} from './windowTitle.js';
+
+const WINDOW_PADDING = {paddingTop: 8, paddingBottom: 8, paddingLeft: 12, paddingRight: 12};
 
 export type MenuModalOptions = {
   /** UI root of the screen that opens the window. */
@@ -25,14 +30,18 @@ export function openMenuModal({
   onQuit,
   onClosed,
 }: MenuModalOptions): Modal {
+  // The three buttons share the width of the longest label; the panel stretches them.
+  let width =
+    Math.max(...['Resume', 'Options', 'Quit to menu'].map((label) => measureText(label, 'label'))) +
+    2 * BUTTON_PADDING_X;
   let panel = new Panel({
     theme: game.theme,
-    children: [new Text({text: 'Menu', theme: game.theme, layout: true})],
+    children: [createWindowTitle('Menu', width)],
     layout: {
-      padding: 8,
-      alignItems: 'center',
+      ...WINDOW_PADDING,
       flexDirection: 'column',
       gap: 4,
+      alignItems: 'stretch',
     },
   });
   // Resume is built before the modal, which declares it as its initial focus,
