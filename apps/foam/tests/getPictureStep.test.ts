@@ -3,7 +3,7 @@ import {describe, expect, test} from 'vitest';
 import {advancePictureTime, getPictureStep} from '../source/game/core/getPictureStep.js';
 import {palette} from '../source/game/core/palette.js';
 
-const INKS = {
+const PICTURE_INKS = {
   pink: 0xff6281,
   plum: 0x5e0960,
   magenta: 0xc20265,
@@ -46,7 +46,7 @@ describe(getPictureStep, () => {
 
 describe('palette', () => {
   test('the palette has the six inks', () => {
-    expect(palette).toMatchObject(INKS);
-    expect(Object.keys(palette).slice(-6)).toEqual(Object.keys(INKS));
+    expect(palette).toMatchObject(PICTURE_INKS);
+    expect(Object.keys(palette).slice(-6)).toEqual(Object.keys(PICTURE_INKS));
   });
 });

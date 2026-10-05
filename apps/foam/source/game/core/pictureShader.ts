@@ -34,14 +34,14 @@ void main() {
 const inkNames = Object.keys(palette);
 // One constant per colour of the palette, in the order of palette.ts, which is
 // the order of uPalette.
-const INKS = [
+const INK_DECLARATIONS = [
   `const int PALETTE_SIZE = ${inkNames.length};`,
   ...inkNames.map((name, index) => `const int INK_${name.toUpperCase()} = ${index};`),
 ].join('\n');
 // The code every picture shares. A place's GLSL comes after it and defines
 // `vec3 picture(ivec2 pixel, vec2 point, float t)`.
 const SHARED = `
-${INKS}
+${INK_DECLARATIONS}
 
 uniform vec2 uSize;
 uniform int uStep;

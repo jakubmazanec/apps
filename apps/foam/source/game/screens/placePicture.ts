@@ -11,28 +11,30 @@ export type PlacePictureOptions = {
   picture: string;
 };
 
-const INKS = Object.values(palette);
+const PALETTE_INKS = Object.values(palette);
 
 // The palette as the shader takes it: red, green and blue of each ink, from 0
 // to 1, in the order of palette.ts.
 function getPaletteUniform(): Float32Array {
-  return new Float32Array(INKS.flatMap((ink) => [...new pixi.Color(ink).toRgbArray()]));
+  return new Float32Array(PALETTE_INKS.flatMap((ink) => [...new pixi.Color(ink).toRgbArray()]));
 }
 
 function compileStage(
   gl: WebGL2RenderingContext,
   shader: WebGLShader | null,
-  source: string,
+  {stage, source}: {stage: 'fragment' | 'vertex'; source: string},
 ): void {
   if (shader === null) {
-    throw new Error('Picture shader failed to compile: no shader object!');
+    throw new Error(`Picture shader failed to compile (${stage}): no shader object!`);
   }
 
   gl.shaderSource(shader, source);
   gl.compileShader(shader);
 
   if (gl.getShaderParameter(shader, gl.COMPILE_STATUS) !== true) {
-    throw new Error(`Picture shader failed to compile: ${gl.getShaderInfoLog(shader) ?? ''}`);
+    throw new Error(
+      `Picture shader failed to compile (${stage}): ${gl.getShaderInfoLog(shader) ?? ''}`,
+    );
   }
 }
 
@@ -55,8 +57,8 @@ function checkShaderSource({vertex, fragment}: PictureShaderSource): void {
   let program = gl.createProgram();
 
   try {
-    compileStage(gl, vertexShader, vertex);
-    compileStage(gl, fragmentShader, fragment);
+    compileStage(gl, vertexShader, {stage: 'vertex', source: vertex});
+    compileStage(gl, fragmentShader, {stage: 'fragment', source: fragment});
 
     if (vertexShader === null || fragmentShader === null) {
       throw new Error('Picture shader failed to link: no shader object!');
@@ -127,7 +129,7 @@ export class PlacePicture implements Renderable {
     checkShaderSource(source);
 
     this.#uniforms = new pixi.UniformGroup({
-      uPalette: {value: getPaletteUniform(), type: 'vec3<f32>', size: INKS.length},
+      uPalette: {value: getPaletteUniform(), type: 'vec3<f32>', size: PALETTE_INKS.length},
       uSize: {value: new Float32Array(2), type: 'vec2<f32>'},
       uStep: {value: 0, type: 'i32'},
     });
