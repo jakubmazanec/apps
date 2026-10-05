@@ -24,6 +24,7 @@ const cache: pixi.CacheParser<Spriteset> = {
 };
 const loader: pixi.LoaderParser<unknown> = {
   id: 'SpritesetAsset',
+  name: 'SpritesetAsset',
   extension: {
     type: pixi.ExtensionType.LoadParser,
     // High, not Normal: pixi's built-in spritesheet parser claims any .json

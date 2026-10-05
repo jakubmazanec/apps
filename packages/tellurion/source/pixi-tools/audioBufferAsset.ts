@@ -18,6 +18,7 @@ const AUDIO_EXTENSION = /\.(?:ogg|wav)$/i;
 // AudioBuffer lands in the normal Assets cache under its asset name.
 const loader: pixi.LoaderParser<AudioBuffer> = {
   id: 'audioBufferAsset',
+  name: 'audioBufferAsset',
   extension: {
     type: pixi.ExtensionType.LoadParser,
     priority: pixi.LoaderParserPriority.High,
