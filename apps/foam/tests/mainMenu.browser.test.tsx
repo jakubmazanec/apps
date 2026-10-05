@@ -1,3 +1,4 @@
+import * as pixi from 'pixi.js';
 import {StrictMode} from 'react';
 import {createRoot, type Root} from 'react-dom/client';
 import {
@@ -9,6 +10,7 @@ import {
   type Modal,
   Panel,
   Slider,
+  Text,
 } from 'tellurion';
 import {
   afterAll,
@@ -30,6 +32,7 @@ type MainMenuScreen = GameScreen<{
   newGameButton: Button;
   openModal: Modal | null;
   optionsButton: Button;
+  title: Text;
 }>;
 type Settings = {volumes: {master: number; music: number; sfx: number; ui: number}};
 
@@ -51,8 +54,18 @@ async function press(code: string): Promise<void> {
   await nextFrame();
 }
 
-// The window is a Modal holding one Panel: a title, four rows (a Container
-// with a label and a Slider each) and the Close button, in that order.
+function readText(text: Text): string {
+  let [content] = text.view.children;
+
+  if (!(content instanceof pixi.BitmapText)) {
+    throw new TypeError('The text has no BitmapText!');
+  }
+
+  return content.text;
+}
+
+// The window is a Modal holding one Panel: the title block, four rows (a Container
+// with a name, a Slider and a value each) and the Close button, in that order.
 function getPanel(modal: Modal): Panel {
   let [panel] = modal.children;
 
@@ -306,5 +319,87 @@ describe('main menu', () => {
     await waitForClosed();
 
     expect(mainMenuScreen.ui.topOverlay).toBeNull();
+  });
+
+  test('the title is 96 × 48 and both buttons are 96 wide', () => {
+    let {title, newGameButton, optionsButton} = mainMenuScreen.contents;
+    let scale = game.pixelScale;
+    let titleSize = title.view.layout?.computedLayout;
+    let newGameSize = newGameButton.view.layout?.computedLayout;
+    let optionsSize = optionsButton.view.layout?.computedLayout;
+
+    expect([titleSize?.width, titleSize?.height]).toEqual([96, 48]);
+    expect(newGameSize?.width).toBe(96);
+    expect(optionsSize?.width).toBe(96);
+
+    let titleBounds = title.view.getBounds();
+    let newGameBounds = newGameButton.view.getBounds();
+    let optionsBounds = optionsButton.view.getBounds();
+
+    expect(newGameBounds.y / scale - titleBounds.maxY / scale).toBeCloseTo(24);
+    expect(optionsBounds.y / scale - newGameBounds.maxY / scale).toBeCloseTo(6);
+  });
+
+  test('the main menu has no panel', () => {
+    let panelViews = new Set<unknown>(
+      mainMenuScreen.ui.children.filter((child) => child instanceof Panel).map((p) => p.view),
+    );
+
+    expect(mainMenuScreen.ui.children.some((child) => child instanceof Panel)).toBe(false);
+    expect(mainMenuScreen.ui.view.children.some((child) => panelViews.has(child))).toBe(false);
+  });
+
+  test('the focus ring lies 2 pixels outside the focused button', async () => {
+    mainMenuScreen.ui.clearFocus();
+    await press('Tab');
+
+    let scale = game.pixelScale;
+    let ringHolder = mainMenuScreen.ui.view.children.at(-1);
+    let ring = ringHolder?.children[0];
+
+    expect(ringHolder?.children).toHaveLength(1);
+
+    await nextFrame();
+
+    let ringBounds = ring?.getBounds();
+    let buttonBounds = mainMenuScreen.contents.newGameButton.view.getBounds();
+
+    expect(ringBounds?.x).toBeCloseTo(buttonBounds.x - 2 * scale);
+    expect(ringBounds?.y).toBeCloseTo(buttonBounds.y - 2 * scale);
+    expect(ringBounds?.maxX).toBeCloseTo(buttonBounds.maxX + 2 * scale);
+    expect(ringBounds?.maxY).toBeCloseTo(buttonBounds.maxY + 2 * scale);
+  });
+
+  test('the value after a slider follows the slider', async () => {
+    let modal = await openOptions();
+    // The title block is a Container too, but holds no slider.
+    let rows = getPanel(modal).children.flatMap((child) =>
+      child instanceof Container && child.children.some((part) => part instanceof Slider) ?
+        [child]
+      : [],
+    );
+    let readValues = (): string[] =>
+      rows.map((row) => {
+        let value = row.children[2];
+
+        if (!(value instanceof Text)) {
+          throw new TypeError('The row has no value!');
+        }
+
+        return readText(value);
+      });
+    let sliders = getSliders(modal);
+
+    expect(rows).toHaveLength(4);
+    expect(readValues()).toEqual(sliders.map((slider) => `${Math.round(slider.value * 100)}%`));
+
+    let before = sliders[0]?.value ?? 0;
+
+    await press('Tab');
+    await press('Minus');
+
+    expect(readValues()[0]).toBe(`${Math.round((before - 0.1) * 100)}%`);
+
+    await closeWithEscape();
   });
 });

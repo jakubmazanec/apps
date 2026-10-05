@@ -982,6 +982,23 @@ describe('night screen', {timeout: 180_000}, () => {
       expect(nightScreen.ui.topOverlay).toBeNull();
     });
 
+    test('two buttons in the menu are 4 apart', async () => {
+      await press('Escape');
+
+      let menu = getMenu();
+      let resume = getBox(harness, getMenuButton(menu, 'Resume'));
+      let options = getBox(harness, getMenuButton(menu, 'Options'));
+      let quit = getBox(harness, getMenuButton(menu, 'Quit to menu'));
+      let [panel] = menu.children;
+
+      expect(options.top - (resume.top + resume.height)).toBeCloseTo(4);
+      expect([resume.width, options.width, quit.width]).toEqual([84, 84, 84]);
+      expect(panel instanceof Panel ? getBox(harness, panel).width : 0).toBe(108);
+
+      await press('Escape');
+      await waitForNoMenu();
+    });
+
     test('Escape closes the menu', async () => {
       await press('Escape');
 

@@ -1,8 +1,9 @@
-import {Button, GameScreen, type Modal, Panel, Text} from 'tellurion';
+import {Button, GameScreen, type Modal, Text} from 'tellurion';
 
 import {assets} from '../core/assets.js';
 import {audio} from '../core/audio.js';
 import {game} from '../core/game.js';
+import {measureText} from '../core/measureText.js';
 import {playFocusSound} from '../core/playFocusSound.js';
 // The mainMenuScreen <-> nightScreen static import cycle is deliberate and
 // safe: each module reads the other's binding only inside a click handler (New
@@ -12,10 +13,20 @@ import {nightScreen} from './nightScreen.js';
 import {openOptionsModal} from './optionsModal.js';
 
 type MainMenuScreenContents = {
+  title: Text;
   newGameButton: Button;
   openModal: Modal | null;
   optionsButton: Button;
 };
+
+// The size is explicit so that the button centres a leaf of known width.
+function labelText(label: string): Text {
+  return new Text({
+    text: label,
+    theme: game.theme,
+    layout: {width: measureText(label, 'label'), height: 12},
+  });
+}
 
 export const mainMenuScreen = new GameScreen<MainMenuScreenContents>({
   assetBundles: ['default'],
@@ -32,12 +43,19 @@ export const mainMenuScreen = new GameScreen<MainMenuScreenContents>({
       height: '100%',
       justifyContent: 'center',
       alignItems: 'center',
+      flexDirection: 'column',
     };
 
-    let title = new Text({text: 'Foam', theme: game.theme, layout: true});
+    let title = new Text({
+      text: 'Foam',
+      theme: game.theme,
+      fontSize: 48,
+      layout: {width: 96, height: 48},
+    });
     let newGameButton = new Button({
       theme: game.theme,
-      children: [new Text({text: 'New Game', theme: game.theme, layout: true})],
+      children: [labelText('New Game')],
+      layout: {width: 96, marginTop: 24},
       onClick: () => {
         // showScreen never rejects; a failure lands on the error screen.
         void game.showScreen(nightScreen);
@@ -45,7 +63,8 @@ export const mainMenuScreen = new GameScreen<MainMenuScreenContents>({
     });
     let optionsButton = new Button({
       theme: game.theme,
-      children: [new Text({text: 'Options', theme: game.theme, layout: true})],
+      children: [labelText('Options')],
+      layout: {width: 96, marginTop: 6},
       onClick: () => {
         screen.contents.openModal = openOptionsModal({
           ui: screen.ui,
@@ -57,20 +76,10 @@ export const mainMenuScreen = new GameScreen<MainMenuScreenContents>({
       },
     });
 
-    screen.ui.addChild(
-      new Panel({
-        theme: game.theme,
-        children: [title, newGameButton, optionsButton],
-        layout: {
-          padding: 8,
-          alignItems: 'center',
-          flexDirection: 'column',
-          gap: 4,
-        },
-      }),
-    );
+    // There is no panel: the picture plan draws the title and the buttons on the scene.
+    screen.ui.addChild(title, newGameButton, optionsButton);
 
-    return {newGameButton, openModal: null, optionsButton};
+    return {title, newGameButton, openModal: null, optionsButton};
   },
   onShow: () => {
     // Music is driven by direct mixer calls from the screen. playMusic

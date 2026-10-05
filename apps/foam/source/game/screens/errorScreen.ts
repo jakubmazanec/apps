@@ -1,6 +1,7 @@
 import {type ErrorScreenContents, GameScreen, Panel, Text} from 'tellurion';
 
 import {game} from '../core/game.js';
+import {createWindowTitle} from './windowTitle.js';
 
 // The end of the line for a failed transition: no buttons, because retrying
 // would have to re-enter a screen whose show() never completed. The player
@@ -22,19 +23,17 @@ export const errorScreen = new GameScreen<ErrorScreenContents>({
       alignItems: 'center',
     };
 
-    let title = new Text({text: 'Something went wrong', theme: game.theme, layout: true});
     let message = new Text({
       text: '',
       theme: game.theme,
       role: 'body',
       // The DEV branch below renders an arbitrary Error.message; unwrapped it
-      // runs off the panel and off the viewport. 128 art px is the panel's
-      // content width on the narrowest viewport the engine's pixel scale
-      // produces (a tall phone bottoms out near 147 art px, less the panel's
-      // 8 px padding either side). breakWords covers the long unbroken tokens
+      // runs off the panel and off the viewport. 120 is the title's width, so
+      // the window is 144 wide (12 px padding either side) and fits a 146-pixel
+      // screen, the narrowest the tests keep. breakWords covers the long unbroken tokens
       // error messages are full of: urls, module paths, minified identifiers.
       wordWrap: true,
-      wordWrapWidth: 128,
+      wordWrapWidth: 120,
       breakWords: true,
       layout: true,
     });
@@ -42,9 +41,12 @@ export const errorScreen = new GameScreen<ErrorScreenContents>({
     screen.ui.addChild(
       new Panel({
         theme: game.theme,
-        children: [title, message],
+        children: [createWindowTitle('Something went wrong', 120), message],
         layout: {
-          padding: 8,
+          paddingTop: 8,
+          paddingBottom: 8,
+          paddingLeft: 12,
+          paddingRight: 12,
           alignItems: 'center',
           flexDirection: 'column',
           gap: 4,
