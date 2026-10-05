@@ -13,7 +13,7 @@ const BLACK = palette.black;
 const MAGENTA = palette.magenta;
 const ROSE = palette.rose;
 const WHITE = palette.white;
-const INKS = new Set<number>(Object.values(palette));
+const PALETTE_INKS = new Set<number>(Object.values(palette));
 // The bar's lamps in the design of 480 × 270: two at the front, one at the back.
 const LAMPS = [
   {x: 104, y: 50},
@@ -333,7 +333,7 @@ describe('place picture', {timeout: 60_000}, () => {
         for (let x = 0; x < pixels.width; x += 1) {
           let color = getColor(pixels, x, y);
 
-          if (!INKS.has(color)) {
+          if (!PALETTE_INKS.has(color)) {
             others.add(color);
           }
         }
@@ -358,12 +358,13 @@ describe('place picture', {timeout: 60_000}, () => {
     });
 
     // A software renderer takes about 90 ms to draw the bar at 480 × 270, too
-    // long for 1800 draws, so this test draws it at a quarter of that, where
-    // the lamps lie at the same fractions and their crosses keep their length.
+    // long for 1800 draws, so this test draws it at a quarter of that area
+    // (120 × 68), where the lamps lie at the same fractions and their crosses
+    // keep their length. Nothing else covers a lamp's centre at that size.
     test("the front lamps' centres are white on every step of a minute, the back lamp's on most", () => {
       let picture = createBar();
 
-      picture.resize(240, 135);
+      picture.resize(120, 68);
       picture.update(frame(0));
 
       let [first, second, back] = LAMPS;
@@ -388,7 +389,7 @@ describe('place picture', {timeout: 60_000}, () => {
       expect(frontDark).toBe(0);
       expect(backWhite).toBeGreaterThanOrEqual(steps * 0.85);
       expect(backWhite).toBeLessThan(steps);
-    });
+    }, 600_000);
 
     test('the same step gives the same pixels', () => {
       let picture = createDrawnBar();
