@@ -116,12 +116,24 @@ describe(Modal, () => {
     expect(root.focused).toBe(first); // wraps within the scope; outside is unreachable
   });
 
-  test('adding applies initialFocus programmatically (no ring)', () => {
+  test('adding focuses initialFocus and shows the ring', () => {
     let root = createRoot();
     let resume = focusable();
     let modal = new Modal({children: [panel([resume])], initialFocus: resume});
 
     root.addOverlay(modal);
+
+    expect(root.focused).toBe(resume);
+    expect(root.isRingVisible).toBe(true);
+  });
+
+  test('a pointer press after the modal opened hides the ring and keeps the focus', () => {
+    let root = createRoot();
+    let resume = focusable();
+    let modal = new Modal({children: [panel([resume])], initialFocus: resume});
+
+    root.addOverlay(modal);
+    globalThis.dispatchEvent(new Event('pointerdown'));
 
     expect(root.focused).toBe(resume);
     expect(root.isRingVisible).toBe(false);
@@ -135,6 +147,7 @@ describe(Modal, () => {
     root.addOverlay(modal);
 
     expect(root.focused).toBeNull();
+    expect(root.isRingVisible).toBe(false);
   });
 
   test('adding an attached modal throws', () => {
@@ -491,11 +504,11 @@ describe(Modal, () => {
       modal.close();
       root.addOverlay(modal);
 
-      // Keyboard focus is not kept: initialFocus is applied on every attach.
+      // Keyboard focus is not kept: initialFocus is applied each time the modal is added.
       expect(modal.state).toBe('open');
       expect(root.topOverlay).toBe(modal);
       expect(root.focused).toBe(first);
-      expect(root.isRingVisible).toBe(false);
+      expect(root.isRingVisible).toBe(true);
 
       modal.close();
 

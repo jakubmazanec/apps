@@ -2,6 +2,7 @@ import * as pixi from 'pixi.js';
 
 import {easeOutQuad} from '../scheduler/easing.js';
 import {type Disposables} from '../utilities/Disposables.js';
+import {type Focusable} from './Focusable.js';
 import {adoptChildren} from './internals/adoptChildren.js';
 import {resolveView} from './internals/resolveView.js';
 import {type ModalConfig} from './ModalConfig.js';
@@ -19,6 +20,9 @@ import '@pixi/layout';
 export class Modal implements Overlay {
   /** TBD */
   readonly children: UiChild[] = [];
+
+  /** The component that takes the focus, with the ring shown, each time the modal is added. */
+  readonly initialFocus: Focusable | undefined;
 
   /** View. */
   readonly view: pixi.Container = new pixi.Container();
@@ -65,9 +69,9 @@ export class Modal implements Overlay {
       this.#onClosed = onClosed;
     }
 
+    this.initialFocus = initialFocus;
     this.#config = {
       fadeDuration,
-      initialFocus,
       isReusable,
       scheduler,
     };
@@ -126,8 +130,8 @@ export class Modal implements Overlay {
   // The root is not a constructor option: UiRoot passes itself in when the
   // modal is added, so a kept modal can be added again. By then the modal is
   // the last UI child (above the HUD by insertion order; UiRoot keeps the
-  // focus ring topmost) and holds the focus scope, which is why initialFocus
-  // lands inside it. The root is recorded before the layout check, the way
+  // focus ring topmost) and holds the focus scope, and UiRoot has applied the
+  // modal's initialFocus. The root is recorded before the layout check, the way
   // System.attach sets its world before onAttach: UiRoot does not roll back a
   // throwing attach, so the modal is already a child holding a scope when the
   // check throws, and destroy() needs #runtime.ui set to leave the root.
@@ -141,10 +145,6 @@ export class Modal implements Overlay {
 
     if (ui.view.layout === null) {
       throw new Error('UI root has no layout, the modal is sized against it!');
-    }
-
-    if (this.#config.initialFocus !== undefined) {
-      ui.focus(this.#config.initialFocus);
     }
 
     this.#state = 'opening';

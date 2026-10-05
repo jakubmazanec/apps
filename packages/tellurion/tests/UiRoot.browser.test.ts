@@ -1067,6 +1067,51 @@ describe(UiRoot, () => {
       expect(root.focused).toBe(inside);
     });
 
+    test('an overlay that declares initialFocus opens with it focused and the ring shown', () => {
+      let inside = focusable();
+      let root = createRootWith(focusable());
+      let overlay = {...panel([inside]), initialFocus: inside};
+
+      root.addOverlay(overlay);
+
+      expect(root.focused).toBe(inside);
+      expect(root.isRingVisible).toBe(true);
+    });
+
+    test('an overlay without initialFocus opens with nothing focused and the ring as it was', () => {
+      let root = createRootWith(focusable());
+      let first = panel([focusable()]);
+
+      root.addOverlay(first);
+
+      expect(root.focused).toBeNull();
+      expect(root.isRingVisible).toBe(false);
+
+      root.removeOverlay(first);
+      root.focusNext();
+      root.addOverlay(panel([focusable()]));
+
+      expect(root.focused).toBeNull();
+      expect(root.isRingVisible).toBe(true);
+    });
+
+    test('a focus set inside attach wins over a declared initialFocus', () => {
+      let declared = focusable();
+      let chosen = focusable();
+      let root = createRootWith(focusable());
+      let overlay = {
+        ...panel([declared, chosen]),
+        initialFocus: declared,
+        attach: (ui: UiRoot) => {
+          ui.focus(chosen);
+        },
+      };
+
+      root.addOverlay(overlay);
+
+      expect(root.focused).toBe(chosen);
+    });
+
     test('addOverlay throws for an overlay that is already attached and changes nothing', () => {
       let a = focusable();
       let lower = {...panel([focusable()]), attach: vitest.fn<(ui: UiRoot) => void>()};
