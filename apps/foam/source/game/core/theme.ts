@@ -1,16 +1,25 @@
 import {type UiThemeDescription} from 'tellurion';
 
+import {BUTTON_PADDING_X, BUTTON_PADDING_Y} from './getSceneArea.js';
+import {palette} from './palette.js';
+
 // All UI art lives in the `ui` spriteset in the `default` bundle, which is the
 // only bundle loaded when Game.init resolves this. Nine-slice insets ship as
-// per-frame `borders` in ui.json, so nothing here declares them.
+// per-frame `borders` in ui.json, so nothing here declares them. The art is
+// drawn by scripts/generate-ui-atlas.mjs. The status line, which lies on the
+// picture, takes `monogram-outline` where it is created.
 export const theme: UiThemeDescription = {
   button: {
     normal: ['ui', 'button-normal'],
     hovered: ['ui', 'button-hovered'],
     active: ['ui', 'button-active'],
     disabled: ['ui', 'button-disabled'],
-    layout: {padding: 2},
-    pressOffset: 1,
+    layout: {
+      paddingTop: BUTTON_PADDING_Y,
+      paddingBottom: BUTTON_PADDING_Y,
+      paddingLeft: BUTTON_PADDING_X,
+      paddingRight: BUTTON_PADDING_X,
+    },
   },
   textInput: {
     normal: ['ui', 'text-input-normal'],
@@ -32,11 +41,11 @@ export const theme: UiThemeDescription = {
     disabledChecked: ['ui', 'toggle-disabled-checked'],
   },
   panel: {
-    background: ['ui', 'banner'],
+    background: ['ui', 'window'],
   },
   modal: {
-    scrimColor: 0x000000,
-    scrimAlpha: 0.5,
+    scrimColor: palette.black,
+    scrimAlpha: 0.6,
   },
   focusRing: {
     texture: ['ui', 'focus-ring'],
@@ -44,14 +53,14 @@ export const theme: UiThemeDescription = {
   },
   text: {
     label: {
-      fontFamily: 'monogram-outline',
+      fontFamily: 'monogram',
       fontSize: 12,
-      fill: 0xffffff,
+      fill: palette.white,
     },
     body: {
       fontFamily: 'monogram',
       fontSize: 12,
-      fill: 0xffffff,
+      fill: palette.white,
     },
   },
 };

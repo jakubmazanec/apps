@@ -1,7 +1,9 @@
 import * as pixi from 'pixi.js';
 import {type Renderable} from 'tellurion';
 
-const BAND_COLORS = [0x1a1a2e, 0x2a2350, 0x3b2a4a];
+import {palette} from '../core/palette.js';
+
+const BAND_COLORS = [palette.ground, palette.shade, palette.line];
 
 // The picture of the place until phase 3 brings the animated background: three
 // horizontal bands of equal height.

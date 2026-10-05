@@ -19,7 +19,13 @@ import {assets} from '../core/assets.js';
 import {audio} from '../core/audio.js';
 import {game} from '../core/game.js';
 import {getPageBreaks} from '../core/getPageBreaks.js';
-import {LINE_HEIGHT, MARGIN, type SceneArea} from '../core/getSceneArea.js';
+import {
+  BUTTON_PADDING_X,
+  BUTTON_PADDING_Y,
+  LINE_HEIGHT,
+  MARGIN,
+  type SceneArea,
+} from '../core/getSceneArea.js';
 import {input} from '../core/input.js';
 import {measureText} from '../core/measureText.js';
 import {type Night} from '../core/night.js';
@@ -43,9 +49,6 @@ const WINDOW_WIDTH = 300;
 const WINDOW_PADDING = 8;
 const WINDOW_GAP = 4;
 const BUTTON_GAP = 2;
-// Padding of a button, as in the theme. A label is wrapped to the button's
-// width minus this padding on both sides.
-const BUTTON_PADDING = 2;
 const BLIP_EVERY_GLYPHS = 3;
 // A frame that reveals this many characters is a skip: one blip at most.
 const SKIP_THRESHOLD = 4;
@@ -144,7 +147,7 @@ export class StoryWindow implements Overlay {
     });
     this.children = [this.#panel];
 
-    this.#marker = new pixi.Sprite({texture: assets.spriteset('ui').texture('advance-marker')});
+    this.#marker = new pixi.Sprite({texture: assets.spriteset('ui').texture('cursor')});
     this.#marker.visible = false;
 
     // A sibling of the choice buttons, not their parent, so a tap on a choice
@@ -333,8 +336,7 @@ export class StoryWindow implements Overlay {
           }),
         ],
         layout: {
-          padding: BUTTON_PADDING,
-          height: lineCount * LINE_HEIGHT + 2 * BUTTON_PADDING,
+          height: lineCount * LINE_HEIGHT + 2 * BUTTON_PADDING_Y,
           justifyContent: 'flex-start',
         },
         onClick: () => {
@@ -453,7 +455,7 @@ export class StoryWindow implements Overlay {
     let windowWidth = Math.min(WINDOW_WIDTH, Math.floor(this.#area.width - 2 * MARGIN));
     let textWidth = Math.max(1, windowWidth - 2 * WINDOW_PADDING);
 
-    this.#labelWidth = Math.max(1, textWidth - 2 * BUTTON_PADDING);
+    this.#labelWidth = Math.max(1, textWidth - 2 * BUTTON_PADDING_X);
     this.#choiceLabels = visibleChoices.map((choice) =>
       wrapText(choice.text, this.#labelWidth, measureLabel),
     );
@@ -467,7 +469,7 @@ export class StoryWindow implements Overlay {
       buttonAreaHeight = (this.#choiceLabels.length - 1) * BUTTON_GAP;
 
       for (let label of this.#choiceLabels) {
-        buttonAreaHeight += label.split('\n').length * LINE_HEIGHT + 2 * BUTTON_PADDING;
+        buttonAreaHeight += label.split('\n').length * LINE_HEIGHT + 2 * BUTTON_PADDING_Y;
       }
     }
 

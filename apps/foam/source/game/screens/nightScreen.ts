@@ -4,6 +4,7 @@ import {samplePlace} from '../content/samplePlace.js';
 import {game} from '../core/game.js';
 import {
   BUTTON_HEIGHT,
+  BUTTON_PADDING_X,
   getSceneArea,
   LINE_HEIGHT,
   MARGIN,
@@ -27,6 +28,7 @@ import {StoryWindow} from './storyWindow.js';
 
 type NightScreenContents = {
   background: PlaceholderBackground;
+  menuButton: Button;
   menuModal: Modal | null;
   night: Night;
   optionsModal: Modal | null;
@@ -37,12 +39,8 @@ type NightScreenContents = {
 };
 type NightScreen = GameScreen<NightScreenContents>;
 
-// Padding of a button, as in the theme. A button is as wide as its label plus
-// this padding on both sides.
-const BUTTON_PADDING = 2;
-
 function getButtonWidth(label: string): number {
-  return measureText(label, 'label') + 2 * BUTTON_PADDING;
+  return measureText(label, 'label') + 2 * BUTTON_PADDING_X;
 }
 
 // A label with an explicit size: a leaf sized by its own bounds is measured
@@ -181,6 +179,7 @@ export const nightScreen = new GameScreen<NightScreenContents>({
     let statusText = new Text({
       text: '',
       theme: game.theme,
+      fontFamily: 'monogram-outline',
       layout: {position: 'absolute', left: 0, top: 0, width: 0, height: LINE_HEIGHT},
     });
     let menuButton = new Button({
@@ -220,6 +219,7 @@ export const nightScreen = new GameScreen<NightScreenContents>({
 
     return {
       background: new PlaceholderBackground(),
+      menuButton,
       menuModal: null,
       night: createNight(),
       optionsModal: null,
