@@ -1,7 +1,7 @@
 # Story window controls (Foam, after phase 2): design
 
-Date: 2026-10-04. App: `apps/foam`. Status: approved design from the review of phase 2, not
-implemented. It changes the screen that [phase 2](2026-10-04-game-screen-design.md) built.
+Date: 2026-10-04. App: `apps/foam`. Status: implemented. It follows from the review of phase 2 and
+changes the screen that [phase 2](2026-10-04-game-screen-design.md) built.
 
 ## Background
 
@@ -44,6 +44,29 @@ topmost overlay declares no `close`, so the pause menu opens above the dialogue 
 These stay as phase 2 built them: a touch player cannot open the menu while a story window is open,
 because the Menu button lies under the dimmed scene; the description opens by itself at every New
 Game; the main menu opens with nothing focused.
+
+Rejected:
+
+- **A short time in which fresh choices do not react.** Dialogic does this with its `block_delay` of
+  0.2 s ("Can prevent accidental selection"), and Yarn Spinner keeps its options from reacting
+  during a 0.25 s fade. It treats the symptom: the first choice still takes Continue's place.
+- **Only taking the focus off the first choice.** It does nothing for a tap on the spot where
+  Continue was.
+- **A row of its own for Continue under the choices.** It does nothing for keys, and it costs two
+  lines of text per page on every node with choices.
+- **A close mark in the window's corner, or closing by a tap on the dimmed scene.** Both keep the
+  early way out and give it to touch players too. The window was made impossible to leave early
+  instead.
+- **Keeping Escape as a way out for keys only.** The two inputs would stay unequal.
+- **A `Modal` that the cancel command passes over,** through a flag on the `Overlay` type or a
+  `cancel` method on overlays. Both redefine the rule that declaring `close` is what makes an
+  overlay dismissible, which Tellurion's overlay spec of 2026-09-25 decided and which Somewhere's
+  world screen reads when it opens its pause menu.
+- **Tellurion's `DialogueBox` as the story window.** It has no Continue button and is not
+  dismissible, but it is a bottom bar with a fixed height, without a scrim or a fade, with one font,
+  and it always focuses its first choice.
+- **A scrim component or a second general overlay class in Tellurion.** One user does not justify
+  either; the window draws its own scrim and runs its own fade.
 
 ## Design
 
@@ -130,7 +153,8 @@ every pointer event. Its second child is the `Panel`, the only entry of `childre
 `closing` and fades to 0; when the fade is over it calls `ui.removeOverlay(this)`, destroys itself
 and calls `onClosed`. `detach` cancels a running fade, forgets the root and sets the state to
 `closed`. `destroy()` leaves the root if the window is still attached and destroys the view at once,
-from any state, without the fade and without calling `onClosed`.
+from any state, without the fade and without calling `onClosed`; a second call does nothing.
+`attach` throws when the window is already attached, and `detach` when it is not, as `Modal` does.
 
 **Showing a node.** As in phase 2, with these differences:
 
@@ -162,12 +186,17 @@ window is the topmost overlay of its root. Otherwise:
 
 **Continuing the text.** A press on the window above the choices and the key rule of step 1 call the
 same function. It calls `dialogue.advance()` unless the runner is choosing, where `advance()` would
-take the first choice, and unless the state is `closing` or `closed`. The press surface is the panel
-from its top edge to the bottom edge of the text, across the panel's width. A press in the room of
-the choices does nothing.
+take the first choice, and unless the state is `closing` or `closed`.
+
+The press surface spans the panel's width from its top edge. For a node without choices it reaches
+the panel's bottom edge, so a tap on the marker or on the padding around it continues the text. For
+a node with choices it ends at the bottom edge of the text, and a press in the room of the choices
+does nothing. The surface is a container of its own beside the choices, so a tap on a choice does
+not reach it.
 
 **Resizing.** As in phase 2: it stores the area, sets the top padding and shows the current node
-again. When one of the choices had the focus, the choice at the same position has it afterwards.
+again. When one of the choices had the focus, the choice at the same position has it afterwards. A
+window that is not attached only stores the area.
 
 ### Night screen (`screens/nightScreen.ts`)
 
@@ -206,6 +235,13 @@ No change. Every node with choices already offers a way out that costs nothing: 
 - **A script points at a node that does not exist, or a word is wider than the text.** As in
   phase 2.
 
+One limit is known and left as it is. After a choice is taken with Enter, the UI root's focus still
+points at the removed choice button, and Tellurion drops such a focus only at the next focus
+command. When the next node offers choices, the first arrow or Tab press therefore does nothing that
+can be seen, and the second one focuses the first choice. Enter and Space are not affected. The same
+holds after a tap on the text finished it. A resize while the menu is open above the window loses
+which choice had the focus.
+
 ## Testing
 
 `tests/nightScreenHelpers.tsx` follows the new window: its parts are read from
@@ -232,10 +268,19 @@ these:
     topmost overlay again and the text goes on.
 11. Quit to menu from a menu above a story window makes the main menu the current screen, and
     `storyWindow`, `menuModal` and `optionsModal` are `null`.
-12. The menu's modal declares the Resume button as `initialFocus`.
+12. The menu opens with Resume focused and the focus ring shown, after Escape and after a tap on the
+    Menu button.
 13. A page of a node without choices has at most 17 lines, and the long text takes more than one
     page.
 14. A resize keeps the focus on the choice that had it, after an arrow key focused it.
+15. With no press, the choices appear when the text is typed to its end, with nothing focused.
+16. A tap on a choice does not also finish the next text.
+17. A tap on the text finishes the page, and the next tap turns it.
+18. On a complete page of a node without choices, a tap on the marker turns the page, and so does a
+    tap on the padding under the text.
+
+Checks 8, 16, 17 and 18 use the long text, whose pages take more than ten seconds to type, so that a
+tap of a few seconds cannot be mistaken for the text finishing by itself.
 
 The checks of phase 2 that Escape closes a story window, and that a press during the closing fade
 after Escape does not reach the choices, are gone with the behaviour.

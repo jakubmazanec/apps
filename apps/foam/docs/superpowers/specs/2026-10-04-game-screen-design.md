@@ -201,6 +201,11 @@ nor cuts it. Only the window's text and its choices wrap. A label longer than it
 On a wider screen the status sits beside the place button, so a long place name pushes the status
 into the Menu button.
 
+Scene buttons are kept apart at the two screen sizes the tests check. On a screen that is both
+narrower than about 188 and shorter than about 200 art pixels, which is a browser window under
+roughly 376 × 400 CSS pixels, "The bartender" and "Two women talking" overlap. No phone has that
+size.
+
 ### State (`core/night.ts`)
 
 ```ts
@@ -574,6 +579,10 @@ evaluated. Headless Chromium has a device pixel ratio of 1. Both viewports give 
 the smallest, so that a frame draws as few pixels as the art allows: the frames of a headless
 browser are slow, and several times slower on a busy machine. The helper file holds the JSX, so the
 two test files are `.ts` files.
+
+Vitest's browser server for Foam listens on port 63317, set through `.carson/project.json`. Foam's
+and Somewhere's Vite configs both insist on their port, and the pull request checks run the two
+apps' tests at the same time, so they cannot share the default port 63315.
 
 **`tests/nightScreen.browser.test.ts`** uses a 960 × 540 viewport, which is 480 × 270 art pixels. It
 watches the calls the real mixer receives and plays through the screen:
