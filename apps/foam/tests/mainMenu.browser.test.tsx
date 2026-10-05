@@ -23,8 +23,21 @@ import {
   vitest,
 } from 'vitest';
 
+import {type barPicture as barPictureValue} from '../source/game/content/barPicture.js';
 import {type assets as assetsValue} from '../source/game/core/assets.js';
+import {type PlacePicture} from '../source/game/screens/placePicture.js';
 import Index from '../source/routes/_index.js';
+
+// Headless Chromium draws the bar in software, at about 90 ms a frame, which
+// slows every frame of these tests. They check placement and speed, not the
+// picture's pixels (tests/placePicture.browser.test.ts does), so the place gets
+// the pipeline's proof, a shader of a few lines. The bar's GLSL has its text as
+// its type, so the stub's text is cast to it.
+vitest.mock(import('../source/game/content/barPicture.js'), async () => {
+  let {PROOF_PICTURE} = await import('./proofPicture.js');
+
+  return {barPicture: PROOF_PICTURE as typeof barPictureValue};
+});
 
 const SETTINGS_KEY = 'foam:settings';
 
@@ -32,6 +45,8 @@ type MainMenuScreen = GameScreen<{
   newGameButton: Button;
   openModal: Modal | null;
   optionsButton: Button;
+  picture: PlacePicture;
+  plate: pixi.Graphics;
   title: Text;
 }>;
 type Settings = {volumes: {master: number; music: number; sfx: number; ui: number}};
@@ -401,5 +416,62 @@ describe('main menu', () => {
     expect(readValues()[0]).toBe(`${Math.round((before - 0.1) * 100)}%`);
 
     await closeWithEscape();
+  });
+
+  test('the main menu shows the picture', () => {
+    let {picture} = mainMenuScreen.contents;
+    let scale = game.pixelScale;
+    let {children} = mainMenuScreen.view;
+    let size = picture.view.getBounds();
+
+    expect(picture.view.parent).toBe(mainMenuScreen.view);
+    expect(children.indexOf(picture.view)).toBeLessThan(children.indexOf(mainMenuScreen.ui.view));
+    expect(size.width / scale).toBeCloseTo(game.app.screen.width / scale);
+    expect(size.height / scale).toBeCloseTo(game.app.screen.height / scale);
+  });
+
+  test("the title's plate lies behind the title and in front of the picture", () => {
+    let {title, plate, newGameButton} = mainMenuScreen.contents;
+    let scale = game.pixelScale;
+    let titleBounds = title.view.getBounds();
+    let plateBounds = plate.getBounds();
+    let newGameBounds = newGameButton.view.getBounds();
+
+    expect(plate.parent).toBe(title.view.parent);
+    expect(plate.parent?.children.indexOf(plate)).toBeLessThan(
+      plate.parent?.children.indexOf(title.view) ?? -1,
+    );
+    expect(plateBounds.x / scale).toBeCloseTo(titleBounds.x / scale - 8);
+    expect(plateBounds.y / scale).toBeCloseTo(titleBounds.y / scale - 8);
+    expect(plateBounds.width / scale).toBeCloseTo(112);
+    expect(plateBounds.height / scale).toBeCloseTo(64);
+    expect(newGameBounds.y / scale - titleBounds.maxY / scale).toBeCloseTo(24);
+  });
+
+  test('the picture runs at half speed while Options is open', async () => {
+    let {picture} = mainMenuScreen.contents;
+
+    await nextFrame();
+
+    expect(picture.speed).toBe(1);
+
+    await openOptions();
+    await nextFrame();
+
+    expect(picture.speed).toBe(0.5);
+
+    await closeWithEscape();
+    await nextFrame();
+
+    expect(picture.speed).toBe(1);
+  });
+
+  test('the error screen has no picture', () => {
+    let {view} = errorScreen as MainMenuScreen;
+    let hasPicture = (node: pixi.Container): boolean =>
+      (node instanceof pixi.Sprite && node.texture instanceof pixi.RenderTexture) ||
+      node.children.some((child) => hasPicture(child));
+
+    expect(hasPicture(view)).toBe(false);
   });
 });
