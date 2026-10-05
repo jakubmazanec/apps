@@ -27,10 +27,11 @@ export const errorScreen = new GameScreen<ErrorScreenContents>({
       theme: game.theme,
       role: 'body',
       // The DEV branch below renders an arbitrary Error.message; unwrapped it runs off the
-      // panel and off the viewport. 128 art px is the panel's content width on the narrowest
-      // viewport defaultChoosePixelScale produces (a tall phone bottoms out near 147 art px,
-      // less the panel's 8 px padding either side). breakWords covers the long unbroken
-      // tokens error messages are full of: urls, module paths, minified identifiers.
+      // panel and off the viewport. 128 art px plus the panel's 8 px padding either side is a
+      // window 144 art px wide. An upright phone is about 180 to 216 art px wide under
+      // getPixelScale, so the window fits it; only a window under 288 device px is narrower.
+      // breakWords covers the long unbroken tokens error messages are full of: urls, module
+      // paths, minified identifiers.
       wordWrap: true,
       wordWrapWidth: 128,
       breakWords: true,
