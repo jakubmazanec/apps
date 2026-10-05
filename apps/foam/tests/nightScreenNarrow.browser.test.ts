@@ -181,9 +181,10 @@ describe('night screen on a narrow screen', {timeout: 180_000}, () => {
 
     expect(buttons.map(getButtonLabel)).toEqual(['Ask about the\nceiling', 'Let him be']);
 
-    // A label is the text width less 2 of button padding on both sides.
+    // A label is the text width of 122 less 6 of button padding on both sides, 110 (Task 3 makes
+    // it 102).
     for (let line of buttons.flatMap((button) => getButtonLabel(button).split('\n'))) {
-      expect(harness.measureText(line, 'label')).toBeLessThanOrEqual(118);
+      expect(harness.measureText(line, 'label')).toBeLessThanOrEqual(110);
     }
 
     if (first === undefined || second === undefined) {

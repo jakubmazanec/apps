@@ -295,7 +295,7 @@ describe('night screen', {timeout: 180_000}, () => {
     test('no two scene buttons overlap on a 146 × 262 screen', () => {
       let area = getSceneArea(146, 262);
       let boxes = samplePlace.spots.map((spot) => {
-        let size = {width: harness.measureText(spot.label, 'label') + 4, height: 16};
+        let size = {width: harness.measureText(spot.label, 'label') + 12, height: 16};
 
         return {...getSpotPosition({x: spot.x, y: spot.y, ...size, area}), ...size};
       });

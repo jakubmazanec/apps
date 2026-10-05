@@ -50,6 +50,7 @@
     "@vitest/coverage-v8": "^4.1.10",
     "del-cli": "^7.0.0",
     "eslint": "^9.39.5",
+    "fast-png": "^8.0.0",
     "playwright": "^1.60.0",
     "prettier": "^3.9.6",
     "prettier-plugin-packagejson": "^2.5.22",
