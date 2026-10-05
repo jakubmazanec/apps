@@ -77,7 +77,7 @@ describe('night screen on a narrow screen', {timeout: 180_000}, () => {
   });
 
   test(
-    'the text stops by itself at the end of a full page, and Continue waits',
+    'the text stops by itself at the end of a full page, and the marker shows',
     {timeout: 240_000},
     async () => {
       let {game, nightScreen} = harness;
@@ -98,14 +98,22 @@ describe('night screen on a narrow screen', {timeout: 180_000}, () => {
 
       let revealed = storyWindow.dialogue.revealedCount;
       let shown = storyWindow.text;
-      let continueButton = getWindowButton(storyWindow, 0);
+      let {buttons, marker} = getWindowParts(storyWindow);
 
       expect(revealed).toBeLessThan(storyWindow.dialogue.pageText.length);
-      // A full page: 13 lines, the last ending where the page ends.
-      expect(shown.trimEnd().split('\n')).toHaveLength(13);
+      // A full page: 15 lines, the last ending where the page ends.
+      expect(shown.trimEnd().split('\n')).toHaveLength(15);
       expect(shown.replaceAll('\n', ' ')).toBe(storyWindow.dialogue.pageText.slice(0, revealed));
-      expect(getButtonLabel(continueButton)).toBe('Continue');
-      expect(nightScreen.ui.focused).toBe(continueButton);
+      expect(buttons).toEqual([]);
+      expect(nightScreen.ui.focused).toBeNull();
+
+      // It blinks: on for 500 ms of game time, then off for as long.
+      await vitest.waitFor(
+        () => {
+          expect(marker.visible).toBe(true);
+        },
+        {timeout: 10_000},
+      );
 
       // A second of game time would type 40 more characters.
       game.app.ticker.add(addTime);
@@ -128,7 +136,7 @@ describe('night screen on a narrow screen', {timeout: 180_000}, () => {
   );
 
   // It starts where the test before ended, at the end of the first page.
-  test('the description takes more than one page of at most 13 lines', async () => {
+  test('the description takes more than one page of at most 15 lines', async () => {
     let storyWindow = getStoryWindow(harness);
     let whole = storyWindow.dialogue.pageText;
     let pages = await readPages(storyWindow);
@@ -138,7 +146,7 @@ describe('night screen on a narrow screen', {timeout: 180_000}, () => {
     for (let shown of pages) {
       let lines = shown.trimEnd().split('\n');
 
-      expect(lines.length).toBeLessThanOrEqual(13);
+      expect(lines.length).toBeLessThanOrEqual(15);
 
       // The text is 138 wide less 8 of padding on both sides.
       for (let line of lines) {
@@ -163,6 +171,7 @@ describe('night screen on a narrow screen', {timeout: 180_000}, () => {
 
     // Finish the text, take "Talk to him", finish its text.
     await press('Enter');
+    nightScreen.ui.focus(getWindowButton(storyWindow, 0));
     await press('Enter');
     await press('Enter');
 
@@ -201,6 +210,8 @@ describe('night screen on a narrow screen', {timeout: 180_000}, () => {
   });
 
   test('taps open a window, finish its text and take a choice', async () => {
+    let {nightScreen} = harness;
+
     await tap(harness, getBox(harness, getSpotButton(harness, 'The door')));
 
     let storyWindow = getStoryWindow(harness);
@@ -218,15 +229,17 @@ describe('night screen on a narrow screen', {timeout: 180_000}, () => {
       'Stay',
     ]);
 
-    // A tap on the text does nothing while the choices are offered.
+    // A tap on the text does nothing while the choices are offered, and
+    // focuses nothing.
     await tap(harness, getBox(harness, getWindowParts(storyWindow).textLeaf));
 
     expect(storyWindow.dialogue.phase).toBe('choosing');
+    expect(nightScreen.ui.focused).toBeNull();
 
     await tap(harness, getBox(harness, getWindowButton(storyWindow, 0)));
 
     expect(storyWindow.dialogue.node).not.toBe(doorNode);
-    expect(getWindowParts(storyWindow).buttons.map(getButtonLabel)).toEqual(['Continue']);
+    expect(getWindowParts(storyWindow).buttons).toEqual([]);
 
     // The keyboard finishes the text, if it is still typing, and closes the
     // window. The presses stop once the runner has ended: one more would open

@@ -106,8 +106,7 @@ function openStory(screen: NightScreen, script: RunnableDialogueScript<Night>): 
     return;
   }
 
-  screen.contents.storyWindow = new StoryWindow({
-    ui: screen.ui,
+  let storyWindow = new StoryWindow({
     scheduler: screen.scheduler,
     script,
     context: screen.contents.night,
@@ -117,17 +116,17 @@ function openStory(screen: NightScreen, script: RunnableDialogueScript<Night>): 
       writeStatus(screen);
     },
   });
+
+  screen.contents.storyWindow = storyWindow;
+  screen.ui.addOverlay(storyWindow);
 }
 
-// A hidden screen opens no menu. Quit to menu hides the screen inside its
-// click, and an Escape in the same frame still reaches onUpdate, where the
-// screen has no overlay left.
+// The menu also opens above a story window, whose text waits meanwhile. A
+// hidden screen opens no menu: Quit to menu hides the screen inside its click,
+// and an Escape in the same frame still reaches onUpdate, where the screen has
+// no overlay left.
 function openMenu(screen: NightScreen): void {
-  if (
-    screen.state !== 'shown' ||
-    screen.contents.menuModal !== null ||
-    screen.contents.storyWindow !== null
-  ) {
+  if (screen.state !== 'shown' || screen.contents.menuModal !== null) {
     return;
   }
 
@@ -254,10 +253,11 @@ export const nightScreen = new GameScreen<NightScreenContents>({
     screen.contents.storyWindow?.update(ticker.deltaMS);
 
     // The engine has already sent this frame's cancel command to the topmost
-    // overlay. With no overlay there was nothing to dismiss, and the command
-    // opens the menu. focusPressed only reads the latched state, so reading it
-    // again here is safe.
-    if (input.focusPressed('cancel') && screen.ui.topOverlay === null) {
+    // overlay, which it closed if the overlay declares close: the menu or the
+    // Options window. With no overlay, or with a story window on top, which
+    // declares none, the command opens the menu. focusPressed only reads the
+    // latched state, so reading it again here is safe.
+    if (input.focusPressed('cancel') && screen.ui.topOverlay?.close === undefined) {
       openMenu(screen);
     }
   },

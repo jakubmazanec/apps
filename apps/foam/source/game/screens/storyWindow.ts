@@ -4,11 +4,13 @@ import {
   Container,
   Dialogue,
   type DialogueNode,
-  Modal,
+  easeOutQuad,
+  type Overlay,
   Panel,
   type RunnableDialogueScript,
   type Scheduler,
   Text,
+  type UiChild,
   type UiRoot,
   wrapText,
 } from 'tellurion';
@@ -17,15 +19,13 @@ import {assets} from '../core/assets.js';
 import {audio} from '../core/audio.js';
 import {game} from '../core/game.js';
 import {getPageBreaks} from '../core/getPageBreaks.js';
-import {BUTTON_HEIGHT, LINE_HEIGHT, MARGIN, type SceneArea} from '../core/getSceneArea.js';
+import {LINE_HEIGHT, MARGIN, type SceneArea} from '../core/getSceneArea.js';
+import {input} from '../core/input.js';
 import {measureText} from '../core/measureText.js';
 import {type Night} from '../core/night.js';
 
 export type StoryWindowOptions = {
-  /** UI root of the screen that opens the window. */
-  ui: UiRoot;
-
-  /** Scheduler of that screen; it drives the fade. */
+  /** Scheduler of the screen that opens the window; it drives the fade. */
   scheduler: Scheduler;
 
   script: RunnableDialogueScript<Night>;
@@ -35,6 +35,8 @@ export type StoryWindowOptions = {
   /** Called once the window has closed. */
   onClosed: () => void;
 };
+
+export type StoryWindowState = 'closed' | 'closing' | 'open' | 'opening';
 
 // Sizes in art pixels.
 const WINDOW_WIDTH = 300;
@@ -47,6 +49,8 @@ const BUTTON_PADDING = 2;
 const BLIP_EVERY_GLYPHS = 3;
 // A frame that reveals this many characters is a skip: one blip at most.
 const SKIP_THRESHOLD = 4;
+const FADE_DURATION = 200;
+const MARKER_BLINK_MS = 500;
 
 function measureLabel(text: string): number {
   return measureText(text, 'label');
@@ -57,19 +61,28 @@ function measureLabel(text: string): number {
  * drives it: the window shows the runner's node, types its text, cuts it into
  * pages and offers its choices.
  *
+ * It is an overlay without `close`, so the cancel command passes over it: the
+ * window ends only through its text or through a choice. The night screen adds
+ * it with `ui.addOverlay`, and the window draws its own scrim and runs its own
+ * fade, as a `Modal` would.
+ *
  * The layout is settled when a node is shown, from the whole text and the
  * node's choices, so nothing moves while the text types or the pages turn.
- * The buttons only tell the runner what was pressed; `update` then brings the
- * window in line with the runner.
+ * A press on the text and the choice buttons only tell the runner what was
+ * pressed; `update` then brings the window in line with the runner.
  */
-export class StoryWindow {
+export class StoryWindow implements Overlay {
+  readonly children: UiChild[];
   readonly dialogue: Dialogue<Night>;
-  readonly modal: Modal;
+  readonly view: pixi.Container = new pixi.Container();
 
   #area: SceneArea;
 
-  /** Whether the choice buttons have replaced Continue for the shown node. */
+  /** Whether the choice buttons are built for the shown node. */
   #areChoicesShown = false;
+
+  /** Time in ms the marker has blinked since the runner became idle. */
+  #blinkTime = 0;
 
   /** Characters revealed since the last blip, spaces and line ends not counted. */
   #blipGlyphs = 0;
@@ -77,48 +90,99 @@ export class StoryWindow {
   /** Offsets in the wrapped text where a page ends. */
   #breaks: number[] = [];
 
+  /** Room for the choices; a node without choices has none. */
   #buttonArea: Container | null = null;
+
   #buttons: Button[] = [];
+
+  /** Cancels the running fade. */
+  #cancelFade: (() => void) | null = null;
 
   /** The visible choices' texts, each wrapped to the inside of its button. */
   #choiceLabels: string[] = [];
+
+  /** Whether `update` has run since the window was added. */
+  #hasUpdated = false;
 
   /** Width of a button's label. */
   #labelWidth = 1;
 
   #lastRevealedCount = 0;
+
+  /** Shows that a press turns the page or closes the window. */
+  readonly #marker: pixi.Sprite;
+
+  readonly #onClosed: () => void;
   readonly #panel: Panel;
+
+  /** Takes the presses on the window above the choices. */
+  readonly #pressSurface: pixi.Container = new pixi.Container();
+
+  readonly #scheduler: Scheduler;
   #shownNode: DialogueNode<Night, string> | null = null;
   #shownPageIndex = 0;
+  #state: StoryWindowState = 'closed';
   #text = '';
   #textLeaf: Text | null = null;
   #title: Text | null = null;
-  readonly #ui: UiRoot;
+  #ui: UiRoot | null = null;
+
+  /** Whether the runner was idle at the last `update`. */
+  #wasIdle = false;
 
   /** The runner's page, wrapped to the width of the text. */
   #wrapped = '';
 
-  constructor({ui, scheduler, script, context, area, onClosed}: StoryWindowOptions) {
-    this.#ui = ui;
+  constructor({scheduler, script, context, area, onClosed}: StoryWindowOptions) {
+    this.#scheduler = scheduler;
     this.#area = area;
+    this.#onClosed = onClosed;
     this.dialogue = new Dialogue({script, context});
     this.#panel = new Panel({
       theme: game.theme,
       layout: {flexDirection: 'column', padding: WINDOW_PADDING, gap: WINDOW_GAP},
     });
-    // The top padding leaves the top row out, so the panel is centred in the
-    // scene area.
-    this.modal = new Modal({
-      theme: game.theme,
-      children: [this.#panel],
-      layout: {justifyContent: 'center', alignItems: 'center', paddingTop: area.top},
-      scheduler,
-      fadeDuration: 200,
-      onClosed,
+    this.children = [this.#panel];
+
+    this.#marker = new pixi.Sprite({texture: assets.spriteset('ui').texture('advance-marker')});
+    this.#marker.visible = false;
+
+    // A sibling of the choice buttons, not their parent, so a tap on a choice
+    // does not reach it as well.
+    this.#pressSurface.eventMode = 'static';
+    this.#pressSurface.on('pointertap', () => {
+      this.#continueText();
     });
 
-    ui.addOverlay(this.modal);
+    // The scrim takes every pointer event, so nothing behind the window can be
+    // pressed while it is open.
+    let scrim = new pixi.Graphics();
+
+    scrim.rect(0, 0, 1, 1).fill(game.theme.modal.scrimColor);
+    scrim.alpha = game.theme.modal.scrimAlpha;
+    scrim.eventMode = 'static';
+    scrim.hitArea = {contains: () => true};
+    scrim.layout = {position: 'absolute', left: 0, top: 0, width: '100%', height: '100%'};
+
+    // The view covers the screen; position: 'absolute' keeps it out of the flex
+    // flow of the UI root's view. The top padding leaves the top row out, so
+    // the panel is centred in the scene area.
+    this.view.layout = {
+      position: 'absolute',
+      left: 0,
+      top: 0,
+      width: '100%',
+      height: '100%',
+      justifyContent: 'center',
+      alignItems: 'center',
+      paddingTop: area.top,
+    };
+    this.view.addChild(scrim, this.#panel.view);
     this.#showNode();
+  }
+
+  get state(): StoryWindowState {
+    return this.#state;
   }
 
   /** Text the window shows at the moment. */
@@ -126,35 +190,88 @@ export class StoryWindow {
     return this.#text;
   }
 
+  /** @internal Called by `UiRoot`. */
+  attach(ui: UiRoot): void {
+    if (this.#ui !== null) {
+      throw new Error('Story window is already attached to a UI root!');
+    }
+
+    this.#ui = ui;
+    this.#state = 'opening';
+    this.view.alpha = 0;
+    this.#fade(1, () => {
+      this.#state = 'open';
+    });
+  }
+
   /** Destroys the window at once, without the fade and without calling `onClosed`. */
   destroy(): void {
-    this.modal.destroy();
+    if (this.view.destroyed) {
+      return;
+    }
+
+    // Leaves the root first, while the buttons are alive: removeOverlay gives
+    // the focus back to what had it before the window and calls detach(),
+    // which cancels a running fade.
+    this.#ui?.removeOverlay(this);
+    this.#panel.destroy();
+    this.view.destroy({children: true});
+  }
+
+  /** @internal Called by `UiRoot`. */
+  detach(): void {
+    if (this.#ui === null) {
+      throw new Error('Story window is not attached to a UI root!');
+    }
+
+    this.#cancelFade?.();
+    this.#cancelFade = null;
+    this.#ui = null;
+    this.#state = 'closed';
   }
 
   resize(area: SceneArea): void {
-    if (this.modal.state === 'closed') {
+    let ui = this.#ui;
+
+    // A window that is not attached has nothing on the screen to lay out.
+    if (ui === null) {
       return;
     }
 
     // The buttons are built again, and the focus stays at the same position:
     // a player who moved to another choice keeps it.
-    let previousFocus = this.#ui.focused;
+    let previousFocus = ui.focused;
     let focusedIndex = previousFocus instanceof Button ? this.#buttons.indexOf(previousFocus) : -1;
 
     this.#area = area;
-    this.modal.view.layout = {paddingTop: area.top};
+    this.view.layout = {paddingTop: area.top};
     this.#showNode();
 
     let focusedButton = this.#buttons[focusedIndex];
 
     if (focusedButton !== undefined) {
-      this.#ui.focus(focusedButton);
+      ui.focus(focusedButton);
     }
   }
 
   update(deltaMS: number): void {
-    if (this.#isClosing()) {
+    let ui = this.#ui;
+
+    // The text waits while another overlay, the menu, lies above the window,
+    // and a window that fades out takes no press.
+    if (ui?.topOverlay !== this || (this.#state !== 'open' && this.#state !== 'opening')) {
       return;
+    }
+
+    let isFirstUpdate = !this.#hasUpdated;
+
+    this.#hasUpdated = true;
+
+    // On the first update the frame's press is the one that opened the
+    // window. A press that a focused choice took leaves the focus on that
+    // choice, so it does not continue the next node's text.
+    if (input.focusPressed('activate') && ui.focused === null && !isFirstUpdate) {
+      this.#continueText();
     }
 
     this.dialogue.tick(deltaMS);
@@ -176,42 +293,26 @@ export class StoryWindow {
 
     if (this.dialogue.phase === 'choosing' && !this.#areChoicesShown) {
       this.#areChoicesShown = true;
-      this.#buildButtons();
+      this.#buildChoices();
     }
+
+    this.#updateMarker(deltaMS);
 
     if (this.dialogue.phase === 'ended') {
-      this.modal.close();
+      this.#close();
     }
   }
 
-  // Continue and a tap on the text. While the runner is choosing, advance()
-  // would confirm the first choice, so a second press that arrives before the
-  // choice buttons are built must not reach the runner.
-  #advance(): void {
-    if (this.#isClosing() || this.dialogue.phase === 'choosing') {
-      return;
-    }
-
-    this.dialogue.advance();
-  }
-
-  // Replaces the buttons with Continue, or with one button per choice once the
-  // runner is choosing, and focuses the first.
-  #buildButtons(): void {
+  // One button per visible choice, in the room the node reserved for them.
+  // None is focused: the first arrow or Tab press focuses the first.
+  #buildChoices(): void {
     let buttonArea = this.#buttonArea;
 
     if (buttonArea === null) {
       return;
     }
 
-    for (let button of this.#buttons) {
-      buttonArea.removeChild(button);
-      button.destroy();
-    }
-
-    let labels = this.#areChoicesShown ? this.#choiceLabels : ['Continue'];
-
-    this.#buttons = labels.map((label, index) => {
+    this.#buttons = this.#choiceLabels.map((label, index) => {
       let lineCount = label.split('\n').length;
 
       // The label has an explicit size: a leaf sized by its own bounds is
@@ -231,37 +332,52 @@ export class StoryWindow {
           justifyContent: 'flex-start',
         },
         onClick: () => {
-          if (this.#areChoicesShown) {
-            this.#choose(index);
-          } else {
-            this.#advance();
-          }
+          this.dialogue.choose(index);
         },
       });
     });
 
     buttonArea.addChild(...this.#buttons);
-
-    let [firstButton] = this.#buttons;
-
-    if (firstButton !== undefined) {
-      this.#ui.focus(firstButton);
-    }
   }
 
-  #choose(index: number): void {
-    if (this.#isClosing()) {
+  // The runner has ended: the window fades out, then destroy() takes it off
+  // the root and the owner hears of it.
+  #close(): void {
+    this.#state = 'closing';
+    this.#fade(0, () => {
+      this.destroy();
+      this.#onClosed();
+    });
+  }
+
+  // A press on the text, and Enter or Space with nothing focused. While the
+  // runner is choosing, advance() would take the first choice, which only a
+  // press on a choice may do. While the window fades out, the runner has ended.
+  #continueText(): void {
+    if (
+      this.#state === 'closing' ||
+      this.#state === 'closed' ||
+      this.dialogue.phase === 'choosing'
+    ) {
       return;
     }
 
-    this.dialogue.choose(index);
+    this.dialogue.advance();
   }
 
-  // A press can still arrive during the fade, and after Escape the runner has
-  // not ended: such a press must not move the runner, whose nodes change the
-  // night's state.
-  #isClosing(): boolean {
-    return this.modal.state === 'closing' || this.modal.state === 'closed';
+  /** Fades the view to `alpha` on the scheduler, then calls `onComplete`. */
+  #fade(alpha: number, onComplete: () => void): void {
+    this.#cancelFade?.();
+    this.#cancelFade = this.#scheduler.tween({
+      target: this.view,
+      to: {alpha},
+      duration: FADE_DURATION,
+      easing: easeOutQuad,
+      onComplete: () => {
+        this.#cancelFade = null;
+        onComplete();
+      },
+    });
   }
 
   // Plays the blip once per three revealed characters other than spaces and
@@ -303,7 +419,7 @@ export class StoryWindow {
   }
 
   // Settles the layout for the runner's node and replaces the panel's content:
-  // the title, the text leaf and the button area.
+  // the title, the text leaf and, for a node with choices, the button area.
   #showNode(): void {
     let {node, pageIndex, pageText, visibleChoices} = this.dialogue;
 
@@ -336,10 +452,10 @@ export class StoryWindow {
       wrapText(choice.text, this.#labelWidth, measureLabel),
     );
 
-    // The button area is as tall as the choices need, from the start, so the
+    // A node with choices reserves the room they need from the start, so the
     // choices later fill room that already exists. A node without choices
-    // needs room for Continue only.
-    let buttonAreaHeight = BUTTON_HEIGHT;
+    // reserves none.
+    let buttonAreaHeight = 0;
 
     if (this.#choiceLabels.length > 0) {
       buttonAreaHeight = (this.#choiceLabels.length - 1) * BUTTON_GAP;
@@ -349,14 +465,10 @@ export class StoryWindow {
       }
     }
 
+    let choicesHeight = buttonAreaHeight === 0 ? 0 : WINDOW_GAP + buttonAreaHeight;
     let titleHeight = node.speaker === undefined ? 0 : LINE_HEIGHT + WINDOW_GAP;
     let textRoom =
-      this.#area.height -
-      2 * MARGIN -
-      2 * WINDOW_PADDING -
-      titleHeight -
-      WINDOW_GAP -
-      buttonAreaHeight;
+      this.#area.height - 2 * MARGIN - 2 * WINDOW_PADDING - titleHeight - choicesHeight;
     let linesPerPage = Math.max(1, Math.floor(textRoom / LINE_HEIGHT));
 
     this.#wrapped = wrapText(pageText, textWidth, measureText);
@@ -383,23 +495,41 @@ export class StoryWindow {
       role: 'body',
       layout: {width: textWidth, height: textHeight},
     });
-    this.#textLeaf.view.eventMode = 'static';
-    this.#textLeaf.view.hitArea = new pixi.Rectangle(0, 0, textWidth, textHeight);
-    this.#textLeaf.view.on('pointertap', () => {
-      this.#advance();
-    });
+    this.#panel.addChild(this.#textLeaf);
 
-    this.#buttonArea = new Container({
-      layout: {
-        flexDirection: 'column',
-        alignItems: 'stretch',
-        gap: BUTTON_GAP,
-        width: textWidth,
-        height: buttonAreaHeight,
-      },
-    });
-    this.#panel.addChild(this.#textLeaf, this.#buttonArea);
-    this.#buildButtons();
+    if (buttonAreaHeight > 0) {
+      this.#buttonArea = new Container({
+        layout: {
+          flexDirection: 'column',
+          alignItems: 'stretch',
+          gap: BUTTON_GAP,
+          width: textWidth,
+          height: buttonAreaHeight,
+        },
+      });
+      this.#panel.addChild(this.#buttonArea);
+
+      // After a resize the choices are built again at once.
+      if (this.#areChoicesShown) {
+        this.#buildChoices();
+      }
+    }
+
+    // The press surface and the marker sit out of the layout flow, in the
+    // panel's own coordinates, and are added again on top after each rebuild.
+    // The surface reaches from the panel's top edge to the bottom edge of the
+    // text, across the panel's width; the marker sits in the bottom right
+    // corner, inside the padding.
+    let panelWidth = textWidth + 2 * WINDOW_PADDING;
+    let textBottom = WINDOW_PADDING + titleHeight + textHeight;
+    let panelHeight = textBottom + choicesHeight + WINDOW_PADDING;
+
+    this.#pressSurface.hitArea = new pixi.Rectangle(0, 0, panelWidth, textBottom);
+    this.#marker.position.set(
+      panelWidth - WINDOW_PADDING - this.#marker.width,
+      panelHeight - WINDOW_PADDING - this.#marker.height,
+    );
+    this.#panel.view.addChild(this.#pressSurface, this.#marker);
     this.#showRevealed();
   }
 
@@ -423,5 +553,16 @@ export class StoryWindow {
       this.#text = text;
       this.#textLeaf?.setText(text);
     }
+  }
+
+  // The marker blinks while the runner is idle, that is while a press would
+  // turn the page or close the window. The blink starts in the on state
+  // whenever the runner becomes idle.
+  #updateMarker(deltaMS: number): void {
+    let isIdle = this.dialogue.phase === 'idle';
+
+    this.#blinkTime = isIdle && this.#wasIdle ? this.#blinkTime + deltaMS : 0;
+    this.#wasIdle = isIdle;
+    this.#marker.visible = isIdle && Math.floor(this.#blinkTime / MARKER_BLINK_MS) % 2 === 0;
   }
 }
