@@ -1,6 +1,7 @@
 # Pixel scale from width and height: design
 
-Date: 2026-10-05. Package: `packages/tellurion`. Status: draft, awaiting review.
+Date: 2026-10-05. Package: `packages/tellurion`. Status: implemented by
+[2026-10-05-pixel-scale.md](../plans/2026-10-05-pixel-scale.md).
 
 This is the first of the three specs of Foam's phase 3. The other two are Foam's own:
 [the look](../../../apps/foam/docs/superpowers/specs/2026-10-05-look-design.md) and
