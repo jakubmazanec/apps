@@ -83,9 +83,13 @@ uint mixBits(uint value) {
 }
 
 // A number in [0, 1) for a cell and a seed, from whole-number arithmetic only,
-// so that it is the same on every device.
+// so that it is the same on every device. The cell and the seed are mixed in
+// one round, because a software renderer, as in the tests, pays for every
+// round on every pixel.
 float hash(ivec2 cell, int seed) {
-  uint value = mixBits(uint(cell.x) + mixBits(uint(cell.y) + mixBits(uint(seed))));
+  uint value = mixBits(
+    uint(cell.x) * 0x8da6b343u + uint(cell.y) * 0xd8163841u + uint(seed) * 0xcb1ab31fu
+  );
 
   return float(value >> 8u) / 16777216.0;
 }
@@ -116,24 +120,19 @@ vec3 tone(vec3 below, float intensity, Ladder ladder, float jitter) {
     clamp(intensity, 0.0, 0.999) * 7.0 + jitter * (hash(currentPixel, TONE_SEED) - 0.5)
   );
   int index = int(clamp(level, 0.0, 6.0));
-  bool isUpper = ((currentPixel.x + currentPixel.y) & 1) == 1;
 
-  switch (index) {
-    case 0:
-      return below;
-    case 1:
-      return isUpper ? ink(ladder.lo) : ink(INK_BLACK);
-    case 2:
-      return ink(ladder.lo);
-    case 3:
-      return isUpper ? ink(ladder.hi) : ink(ladder.lo);
-    case 4:
-      return ink(ladder.hi);
-    case 5:
-      return isUpper ? ink(ladder.top) : ink(ladder.hi);
-    default:
-      return ink(ladder.top);
+  if (index == 0) {
+    return below;
   }
+
+  // The steps of the ladder are black, lo, hi and top. A tone's lower ink is
+  // step index / 2 and its upper ink step (index + 1) / 2. The palette is
+  // looked up once, not in a branch per tone, because a software renderer, as
+  // in the tests, runs every branch on every pixel.
+  bool isUpper = ((currentPixel.x + currentPixel.y) & 1) == 1;
+  int step = isUpper ? (index + 1) / 2 : index / 2;
+
+  return ink(step == 0 ? INK_BLACK : step == 1 ? ladder.lo : step == 2 ? ladder.hi : ladder.top);
 }
 
 // The brightness of a round light at a distance from its centre.
