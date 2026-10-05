@@ -35,19 +35,10 @@ export function openMenuModal({
       gap: 4,
     },
   });
-  let modal = new Modal({
-    theme: game.theme,
-    children: [panel],
-    layout: {justifyContent: 'center', alignItems: 'center'},
-    scheduler,
-    fadeDuration: 200,
-    onClosed,
-  });
-  // The buttons are added after the modal exists, because they read it. A
-  // press can still arrive during the fade: Escape and then Enter must not
-  // quit the night or open the Options window over a closing menu. Resume
-  // needs no check, as close() does nothing on a closing modal.
-  let isClosing = () => modal.state === 'closing' || modal.state === 'closed';
+  // Resume is built before the modal, which declares it as its initial focus,
+  // so the menu opens with the ring on Resume. Its click reads the modal from
+  // this variable, assigned when the modal is built.
+  let modal: Modal;
   let resumeButton = new Button({
     theme: game.theme,
     children: [new Text({text: 'Resume', theme: game.theme, layout: true})],
@@ -55,6 +46,22 @@ export function openMenuModal({
       modal.close();
     },
   });
+
+  modal = new Modal({
+    theme: game.theme,
+    children: [panel],
+    layout: {justifyContent: 'center', alignItems: 'center'},
+    scheduler,
+    fadeDuration: 200,
+    initialFocus: resumeButton,
+    onClosed,
+  });
+
+  // The other buttons are added after the modal exists, because they read it.
+  // A press can still arrive during the fade: Escape and then Enter must not
+  // quit the night or open the Options window over a closing menu. Resume
+  // needs no check, as close() does nothing on a closing modal.
+  let isClosing = () => modal.state === 'closing' || modal.state === 'closed';
 
   panel.addChild(
     resumeButton,
@@ -77,10 +84,8 @@ export function openMenuModal({
       },
     }),
   );
+  // The focus goes back to whatever had it before once the window closes.
   ui.addOverlay(modal);
-  // After addOverlay, which clears the focus for the new scope. The focus goes
-  // back to whatever had it before once the window closes.
-  ui.focus(resumeButton);
 
   return modal;
 }

@@ -229,36 +229,43 @@ export async function waitForNoStoryWindow({nightScreen}: Harness): Promise<void
   );
 }
 
-// The window is a Modal holding one Panel: the title, the text leaf and the
-// button area (a Container of Buttons), in that order. A node without a
-// speaker has no title.
+// The window's only child is a Panel: the title, the text leaf and, for a
+// node with choices, the button area (a Container of Buttons), in that order.
+// A node without a speaker has no title. The marker is a Sprite the panel's
+// view holds out of the layout flow.
 export function getWindowParts(storyWindow: StoryWindow): {
   buttons: Button[];
+  marker: pixi.Sprite;
   panel: Panel;
   textLeaf: Text;
   title: Text | null;
 } {
-  let [panel] = storyWindow.modal.children;
+  let [panel] = storyWindow.children;
 
   if (!(panel instanceof Panel)) {
     throw new TypeError('The story window has no panel!');
   }
 
-  let [title, textLeaf, buttonArea] =
-    panel.children.length === 2 ? [null, ...panel.children] : panel.children;
+  let texts = panel.children.filter((child) => child instanceof Text);
+  let buttonArea = panel.children.find((child) => child instanceof Container);
+  let title = texts.length === 2 ? texts[0] : null;
+  let textLeaf = texts.at(-1);
+  let marker = panel.view.overflowContainer.children.find((child) => child instanceof pixi.Sprite);
 
-  if (
-    !(title === null || title instanceof Text) ||
-    !(textLeaf instanceof Text) ||
-    !(buttonArea instanceof Container)
-  ) {
-    throw new TypeError('The story window has no text or no button area!');
+  if (textLeaf === undefined || marker === undefined) {
+    throw new TypeError('The story window has no text or no marker!');
   }
 
-  return {buttons: buttonArea.children as Button[], panel, textLeaf, title};
+  return {
+    buttons: (buttonArea?.children ?? []) as Button[],
+    marker,
+    panel,
+    textLeaf,
+    title: title ?? null,
+  };
 }
 
-// The window's button at the given position: Continue, or a choice.
+// The window's choice at the given position.
 export function getWindowButton(storyWindow: StoryWindow, index: number): Button {
   let button = getWindowParts(storyWindow).buttons[index];
 
@@ -272,7 +279,8 @@ export function getWindowButton(storyWindow: StoryWindow, index: number): Button
 // Presses Enter through the node's text and returns what the window showed
 // each time a page was fully typed, calling onPage at each of those moments.
 // It starts on a page that is typing or that waits at its end, and stops on
-// the last page, with the node's choices offered or Continue waiting.
+// the last page, with the node's choices offered or the window waiting for the
+// press that closes it.
 export async function readPages(storyWindow: StoryWindow, onPage?: () => void): Promise<string[]> {
   let pages: string[] = [];
 
