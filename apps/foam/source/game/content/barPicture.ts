@@ -168,8 +168,8 @@ float getPower(Lamp lamp, float t, bool isFlickering) {
   return 1.0 + 0.25 * sin(0.8 * t + p) + 0.08 * sin(2.3 * t + 3.0 * p);
 }
 
-// The cone ends at its reach or above the counter, whichever comes first, and
-// is not drawn over the shelf.
+// The cone ends at its reach or above the counter, whichever comes first. It
+// goes on over the shelf, which lies behind the lamps.
 bool isInCone(Lamp lamp, ivec2 pixel, vec2 point) {
   float below = point.y - lamp.centre.y;
 
@@ -177,8 +177,7 @@ bool isInCone(Lamp lamp, ivec2 pixel, vec2 point) {
     below > 0.0 &&
     below < lamp.reach &&
     abs(point.x - lamp.centre.x) < below * 0.36 + 2.0 &&
-    pixel.y < counterRow - 1 &&
-    !isOnShelf;
+    pixel.y < counterRow - 1;
 }
 
 // The light of one lamp: the brighter of its cone, darker downwards, and its
@@ -202,9 +201,11 @@ bool isOnCross(Lamp lamp, ivec2 pixel) {
 }
 
 // The lamps' cones and halos, toned once: where two lights meet, a pixel gets
-// the brightest of them, so the faint ring of a halo never puts the black of
-// its darkest tone into a lit cone. The back lamp has no cross while it
-// flickers.
+// the brightest of them. A light only adds colour: where its faintest tone would
+// put black, what lies under it stays, so the faint ring of a halo never
+// punches black dots into a lit shape. On the shelf a light colours every other
+// pixel, those where x + y is odd, so the bottles show through the beam. The
+// back lamp has no cross while it flickers.
 vec3 drawLamps(vec3 color, ivec2 pixel, vec2 point, vec3 powers, bool isBackFlickering) {
   if (
     isOnCross(LAMPS[0], pixel) ||
@@ -218,7 +219,13 @@ vec3 drawLamps(vec3 color, ivec2 pixel, vec2 point, vec3 powers, bool isBackFlic
   float second = getLampLight(LAMPS[1], powers.y, pixel, point);
   float back = getLampLight(LAMPS[BACK_LAMP], powers.z, pixel, point);
 
-  return tone(color, max(max(first, second), back), LIGHT, LAMP_JITTER);
+  vec3 lit = tone(color, max(max(first, second), back), LIGHT, LAMP_JITTER);
+
+  if (lit == ink(INK_BLACK) || (isOnShelf && ((pixel.x + pixel.y) & 1) == 0)) {
+    return color;
+  }
+
+  return lit;
 }
 
 // Each cone is cut into lanes 6 pixels wide, and each lane into cells 6 high
