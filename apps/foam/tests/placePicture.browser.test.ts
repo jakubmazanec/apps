@@ -305,8 +305,7 @@ describe('place picture', {timeout: 60_000}, () => {
     expect(texture.destroyed).toBe(true);
   });
 
-  // The bar is drawn 1800 times in one test, and a headless browser draws it
-  // in software, so these tests get a longer timeout.
+  // A headless browser draws the bar in software, so these tests get a longer timeout.
   describe('the bar', {timeout: 180_000}, () => {
     test("the bar's shader compiles and draws", () => {
       expect(createBar).not.toThrow();
@@ -357,11 +356,13 @@ describe('place picture', {timeout: 60_000}, () => {
       expect(black).toBeGreaterThan((pixels.width * pixels.height) / 2);
     });
 
-    // A software renderer takes about 90 ms to draw the bar at 480 × 270, too
-    // long for 1800 draws, so this test draws it at a quarter of that area
-    // (120 × 68), where the lamps lie at the same fractions and their crosses
-    // keep their length. Nothing else covers a lamp's centre at that size.
-    test("the front lamps' centres are white on every step of a minute, the back lamp's on most", () => {
+    // A lamp's centre depends only on the seventh of a second the step lies in: the white
+    // cross is drawn unless the back lamp flickers, and the flicker is decided once per
+    // seventh of a second. No other shape reaches a centre at 120 × 68 (the lamps lie at the
+    // same fractions as at 480 × 270 and their crosses keep their length). So one draw in
+    // the middle of each seventh of a second of a minute (420 draws) shows every state that
+    // the 1800 steps of the minute can show, and a software renderer can draw it.
+    test("the front lamps' centres are white in every seventh of a second of a minute, the back lamp's in most", () => {
       let picture = createBar();
 
       picture.resize(120, 68);
@@ -370,9 +371,11 @@ describe('place picture', {timeout: 60_000}, () => {
       let [first, second, back] = LAMPS;
       let frontDark = 0;
       let backWhite = 0;
-      let steps = 1800;
+      let windows = 420;
 
-      for (let step = 0; step < steps; step += 1) {
+      picture.update(frame(1000 / 14));
+
+      for (let slot = 0; slot < windows; slot += 1) {
         let pixels = readPixels(picture);
 
         if (!isLampWhite(pixels, first) || !isLampWhite(pixels, second)) {
@@ -383,12 +386,12 @@ describe('place picture', {timeout: 60_000}, () => {
           backWhite += 1;
         }
 
-        picture.update(frame(STEP_MS));
+        picture.update(frame(1000 / 7));
       }
 
       expect(frontDark).toBe(0);
-      expect(backWhite).toBeGreaterThanOrEqual(steps * 0.85);
-      expect(backWhite).toBeLessThan(steps);
+      expect(backWhite).toBeGreaterThanOrEqual(windows * 0.85);
+      expect(backWhite).toBeLessThan(windows);
     }, 600_000);
 
     test('the same step gives the same pixels', () => {
@@ -424,10 +427,13 @@ describe('place picture', {timeout: 60_000}, () => {
       expect(countChangedPixels(first, readPixels(picture))).toBeGreaterThan(0);
     });
 
-    // The tram passes from second 9 to second 12.5 of every 16.
+    // The tram passes from second 9 to second 12.5 of every 16. Every pair of steps of the
+    // passage is compared, at a quarter of the pixels of 480 × 270 to keep a software
+    // renderer fast enough.
     test('fewer than 3% of the pixels change from one step to the next during the tram', () => {
-      let picture = createDrawnBar();
+      let picture = createBar();
 
+      picture.resize(240, 135);
       picture.update(frame(STEP_MS * 270));
 
       let before = readPixels(picture);
@@ -442,8 +448,8 @@ describe('place picture', {timeout: 60_000}, () => {
         before = after;
       }
 
-      expect(most).toBeLessThan(480 * 270 * 0.03);
-    });
+      expect(most).toBeLessThan(240 * 135 * 0.03);
+    }, 600_000);
 
     test('resize to 195 × 350 moves the lamps with it', () => {
       let picture = createDrawnBar();
