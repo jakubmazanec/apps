@@ -1,4 +1,4 @@
-const MARK = '*';
+export const MARK = '*';
 
 /** Returns the text without its marks. */
 export function stripMarks(text: string): string {

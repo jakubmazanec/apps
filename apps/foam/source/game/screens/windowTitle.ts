@@ -10,6 +10,18 @@ import {palette} from '../core/palette.js';
 const TITLE_GAP = 2;
 const RULE_HEIGHT = 1;
 
+// A window's padding in art pixels, shared by every window.
+export const WINDOW_PADDING_X = 12;
+export const WINDOW_PADDING_Y = 8;
+export const WINDOW_PADDING = {
+  paddingTop: WINDOW_PADDING_Y,
+  paddingBottom: WINDOW_PADDING_Y,
+  paddingLeft: WINDOW_PADDING_X,
+  paddingRight: WINDOW_PADDING_X,
+};
+// The title block's height: the line of 12, the gap of 2 and the rule of 1.
+export const TITLE_HEIGHT = LINE_HEIGHT + TITLE_GAP + RULE_HEIGHT;
+
 /**
  * A window's title in rose and the rule under it, as one child for a panel. The block is `width`
  * wide and 15 high: the title's line of 12, a gap of 2 and the rule of 1.
@@ -34,7 +46,7 @@ export function createWindowTitle(text: string, width: number): Container {
       alignItems: 'flex-start',
       gap: TITLE_GAP,
       width,
-      height: LINE_HEIGHT + TITLE_GAP + RULE_HEIGHT,
+      height: TITLE_HEIGHT,
     },
   });
 }
