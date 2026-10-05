@@ -876,7 +876,7 @@ describe('Game pixelScale', () => {
     vitest.restoreAllMocks();
   });
 
-  test('init derives pixelScale from the device-px viewport height', async () => {
+  test('init derives pixelScale from the device-px viewport size', async () => {
     let game = new Game({
       assets: new GameAssets({bundles: [{name: 'default'}]}),
       input: new GameInput({}),
@@ -889,17 +889,25 @@ describe('Game pixelScale', () => {
 
     await game.init();
 
-    expect(game.pixelScale).toBe(getPixelScale(window.innerHeight * window.devicePixelRatio));
+    expect(game.pixelScale).toBe(
+      getPixelScale(
+        window.innerWidth * window.devicePixelRatio,
+        window.innerHeight * window.devicePixelRatio,
+      ),
+    );
   });
 });
 
 describe('Game scaled root', () => {
-  // happy-dom's default 768-px viewport maps to pixelScale 3; these tests pin the
-  // height getPixelScale maps to 4, the scale their expectations are written for.
+  // The test browser's own window is 414 wide and would give pixelScale 2; these tests pin a
+  // 1920 × 1080 window, which gives 4, the scale their expectations are written for.
+  let originalInnerWidth: number;
   let originalInnerHeight: number;
 
   beforeEach(() => {
+    originalInnerWidth = window.innerWidth;
     originalInnerHeight = window.innerHeight;
+    window.innerWidth = 1920;
     window.innerHeight = 1080;
   });
 
@@ -909,6 +917,7 @@ describe('Game scaled root', () => {
     }
 
     cleanups = [];
+    window.innerWidth = originalInnerWidth;
     window.innerHeight = originalInnerHeight;
     vitest.restoreAllMocks();
   });

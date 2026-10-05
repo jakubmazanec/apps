@@ -18,8 +18,8 @@ const BOX_METRICS = {
   height: 64,
   collapseWidth: 200,
 };
-// A Pixel-class phone at pixelScale 8: ~135x300 art px, below collapseWidth,
-// so the speaker header shares the text column with the page.
+// A screen 135 art px wide (and ~300 tall) is below collapseWidth, so the speaker header
+// shares the text column with the page.
 const PHONE_WIDTH = 135;
 const PHONE_HEIGHT = 300;
 const FRAME_MS = 1000 / 60;
