@@ -3,6 +3,8 @@ import {defineDialogueScript, type RunnableDialogueScript} from 'tellurion';
 import {type Night} from '../core/night.js';
 import {barPicture} from './barPicture.js';
 
+// A spot lies on its thing in the place's picture: its button's centre is on
+// the thing on a wide screen, and its box overlaps the thing on a narrow one.
 export type Spot = {
   /** Label of the scene button. */
   label: string;
@@ -152,9 +154,9 @@ export const samplePlace: Place = {
   description,
   picture: barPicture,
   spots: [
-    {label: BARTENDER, x: 0.25, y: 0.2, script: bartender},
-    {label: WOMEN, x: 0.75, y: 0.3, script: women},
-    {label: PATRON, x: 0.15, y: 0.6, script: patron},
-    {label: DOOR, x: 0.8, y: 0.85, script: door},
+    {label: BARTENDER, x: 0.22, y: 0.51, script: bartender},
+    {label: WOMEN, x: 0.7, y: 0.84, script: women},
+    {label: PATRON, x: 0.14, y: 0.93, script: patron},
+    {label: DOOR, x: 0.91, y: 0.4, script: door},
   ],
 };

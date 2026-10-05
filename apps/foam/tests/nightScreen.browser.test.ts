@@ -39,6 +39,30 @@ import {
 } from './nightScreenHelpers.js';
 
 const STARTING_STATUS = '19:40   350 Kč   Sober';
+// The thing of the bar's picture that each scene button lies on, in the design
+// of 480 × 270, which stretches to the screen.
+const THINGS = new Map<string, Box>([
+  ['A patron', {left: 20, top: 244, width: 98, height: 26}],
+  // The first lamp's light above the counter.
+  ['The bartender', {left: 60, top: 110, width: 88, height: 77}],
+  ['The door', {left: 418, top: 70, width: 40, height: 106}],
+  ['Two women talking', {left: 300, top: 222, width: 72, height: 48}],
+]);
+
+function getThing(label: string, width: number, height: number): Box {
+  let thing = THINGS.get(label);
+
+  if (thing === undefined) {
+    throw new Error(`No thing for "${label}"!`);
+  }
+
+  return {
+    left: (thing.left * width) / 480,
+    top: (thing.top * height) / 270,
+    width: (thing.width * width) / 480,
+    height: (thing.height * height) / 270,
+  };
+}
 
 function findOverlap(boxes: Box[]): [Box, Box] | null {
   for (let [index, first] of boxes.entries()) {
@@ -151,6 +175,21 @@ describe('night screen', {timeout: 180_000}, () => {
 
     expect(cursorBox.left).toBe(textBox.left + (lines.at(-1) ?? '').length * 6 + 2);
     expect(cursorBox.top).toBe(textBox.top + (lines.length - 1) * 12 + 2);
+  }
+
+  // The boxes of the scene buttons on a screen of the given size in art
+  // pixels, as the night screen places them.
+  function getSpotBoxes(width: number, height: number): Array<{label: string; box: Box}> {
+    let area = getSceneArea(width, height);
+
+    return samplePlace.spots.map((spot) => {
+      let size = {width: harness.measureText(spot.label, 'label') + 12, height: 16};
+
+      return {
+        label: spot.label,
+        box: {...getSpotPosition({x: spot.x, y: spot.y, ...size, area}), ...size},
+      };
+    });
   }
 
   // Back to 960 × 540 after a test that changed the viewport.
@@ -329,15 +368,39 @@ describe('night screen', {timeout: 180_000}, () => {
       expect(findOverlap(boxes)).toBeNull();
     });
 
+    test('the centre of every scene button lies on its thing', async () => {
+      await nextFrame();
+
+      for (let button of harness.nightScreen.contents.spotButtons) {
+        let box = getBox(harness, button);
+        let thing = getThing(getButtonLabel(button), 480, 270);
+        let x = box.left + box.width / 2;
+        let y = box.top + box.height / 2;
+
+        expect(x).toBeGreaterThanOrEqual(thing.left);
+        expect(x).toBeLessThanOrEqual(thing.left + thing.width);
+        expect(y).toBeGreaterThanOrEqual(thing.top);
+        expect(y).toBeLessThanOrEqual(thing.top + thing.height);
+      }
+    });
+
+    test('no two scene buttons overlap on a 195 × 350 screen', () => {
+      expect(findOverlap(getSpotBoxes(195, 350).map(({box}) => box))).toBeNull();
+    });
+
     test('no two scene buttons overlap on a 146 × 262 screen', () => {
-      let area = getSceneArea(146, 262);
-      let boxes = samplePlace.spots.map((spot) => {
-        let size = {width: harness.measureText(spot.label, 'label') + 12, height: 16};
+      expect(findOverlap(getSpotBoxes(146, 262).map(({box}) => box))).toBeNull();
+    });
 
-        return {...getSpotPosition({x: spot.x, y: spot.y, ...size, area}), ...size};
-      });
-
-      expect(findOverlap(boxes)).toBeNull();
+    test("every button's box overlaps its thing at 195 × 350 and 146 × 262", () => {
+      for (let [width, height] of [
+        [195, 350],
+        [146, 262],
+      ] as const) {
+        for (let {label, box} of getSpotBoxes(width, height)) {
+          expect(doBoxesOverlap(box, getThing(label, width, height))).toBe(true);
+        }
+      }
     });
 
     test('an arrow key moves the focus to the nearest button and plays the click', async () => {
@@ -347,7 +410,9 @@ describe('night screen', {timeout: 180_000}, () => {
       play.mockClear();
       await press('ArrowRight');
 
-      expect(nightScreen.ui.focused).toBe(getSpotButton(harness, 'Two women talking'));
+      // The door is a little farther to the right than the women's table,
+      // but much nearer in height.
+      expect(nightScreen.ui.focused).toBe(getSpotButton(harness, 'The door'));
       expect(play).toHaveBeenCalledWith(assets.sound('ui-click'), {bus: 'ui'});
     });
 
