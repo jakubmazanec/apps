@@ -131,15 +131,16 @@ Foam has one bundle, so the loading screen is added by the first phase that adds
 Text longer than its area is cut into pages that the player turns, so the game screen needs no
 scrolling component.
 
-Tellurion picks the pixel scale from the height of the screen. On a phone held upright that leaves
-about 24 characters per line, so the game screen works there but is cramped. The scale for such
-screens is settled in phase 3.
+Tellurion picks the pixel scale from the width and the height of the screen: the smaller of what
+the two allow, so that about 200 art pixels fit across and about 270 down. A phone held upright at
+1170 × 2100 device pixels gets scale 6 and shows 195 × 350 art pixels, about 32 to 36 letters
+across, so the game screen is comfortable there.
 
 The scale is picked once, when the page loads. A phone that is turned afterwards keeps the scale of
-its first position: loaded upright and then turned sideways, it shows 2 to 4 lines of text per page,
-where the same phone loaded sideways shows 9 to 10. This is left as it is: the scale does not follow
-a screen that changes. Phase 3's new scale rule makes the turned phone easier to read, and a reload
-gives the scale of the new position.
+its first position: loaded upright and then turned sideways, it keeps scale 6 and shows 350 × 195
+art pixels, and loaded sideways and then turned upright, it keeps scale 4 and shows 292 × 525. Both
+are usable. The scale does not follow a screen that changes, and a reload gives the scale of the new
+position.
 
 The review of phase 2 changed how the game screen is used. The changes are built:
 [spec](superpowers/specs/2026-10-04-story-window-controls-design.md).
@@ -177,7 +178,7 @@ Two things from the game screen wait for phase 4:
   and a choice's label is a fixed string.
 - Long names. The game screen neither wraps nor cuts a label, and
   [the phase 2 spec](superpowers/specs/2026-10-04-game-screen-design.md) lists how many characters
-  each one holds. On a phone held upright the place button holds 17.
+  each one holds. The place button holds 14 on a screen of 146 art pixels across and 20 or more on a phone.
 
 **Phase 6 completes the first prototype: one whole night.** Its review decides what is kept and what
 is rewritten, and reopens the content model.
