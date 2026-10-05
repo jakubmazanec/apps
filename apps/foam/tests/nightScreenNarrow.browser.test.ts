@@ -187,7 +187,7 @@ describe('night screen on a narrow screen', {timeout: 180_000}, () => {
     await press('Enter');
     await press('Enter');
 
-    let {buttons, panel} = getWindowParts(storyWindow);
+    let {buttons, panel, textBlock} = getWindowParts(storyWindow);
     let panelBox = getBox(harness, panel);
     let [first, second] = buttons.map((button) => getBox(harness, button));
 
@@ -207,6 +207,13 @@ describe('night screen on a narrow screen', {timeout: 180_000}, () => {
       expect(box.left + box.width).toBeLessThanOrEqual(panelBox.left + panelBox.width - 12);
       expect(box.top + box.height).toBeLessThanOrEqual(panelBox.top + panelBox.height - 8);
     }
+
+    // 4 between two choices, and 8 between the text and the first one.
+    expect(second.top - (first.top + first.height)).toBe(4);
+
+    let textBox = getBox(harness, textBlock);
+
+    expect(first.top - (textBox.top + textBox.height)).toBe(8);
 
     // Two lines and one line of 12, plus 2 of padding on both sides.
     expect(first.height).toBe(28);

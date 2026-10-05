@@ -918,6 +918,9 @@ describe('night screen', {timeout: 180_000}, () => {
 
         expect(storyWindow.text.replaceAll('\n', ' ')).toBe(text);
 
+        // Without a title the cursor still follows the last letter.
+        expectCursorAfter(storyWindow, storyWindow.text);
+
         await press('Enter');
         await waitForNoStoryWindow(harness);
 
@@ -927,6 +930,52 @@ describe('night screen', {timeout: 180_000}, () => {
           storyWindow.destroy();
         }
 
+        contents.storyWindow = null;
+      }
+    });
+
+    test('the cursor after a line that fills the text width stays inside the panel', async () => {
+      let {contents, scheduler, ui} = harness.nightScreen;
+      // 46 letters of 6 are the text width of 276 exactly.
+      let text = 'abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrst';
+      let storyWindow = new harness.StoryWindow({
+        scheduler,
+        script: defineDialogueScript<Night>()({start: {text}}),
+        context: contents.night,
+        area: getSceneArea(480, 270),
+        onClosed: () => {
+          contents.storyWindow = null;
+        },
+      });
+
+      contents.storyWindow = storyWindow;
+      ui.addOverlay(storyWindow);
+
+      try {
+        await nextFrame();
+        await nextFrame();
+        await press('Enter');
+
+        expect(text).toHaveLength(46);
+        expect(storyWindow.text).toBe(text);
+
+        let {cursor, panel, textBlock} = getWindowParts(storyWindow);
+        let panelBox = getBox(harness, panel);
+        let textBox = getBox(harness, textBlock);
+        let cursorBox = getCursorBox(cursor);
+
+        expect(textBox.width).toBe(276);
+        expect(cursorBox.left).toBe(textBox.left + 276 + 2);
+        expect(cursorBox.left).toBeGreaterThanOrEqual(panelBox.left);
+        expect(cursorBox.top).toBeGreaterThanOrEqual(panelBox.top);
+        expect(cursorBox.left + cursorBox.width).toBeLessThanOrEqual(
+          panelBox.left + panelBox.width,
+        );
+        expect(cursorBox.top + cursorBox.height).toBeLessThanOrEqual(
+          panelBox.top + panelBox.height,
+        );
+      } finally {
+        storyWindow.destroy();
         contents.storyWindow = null;
       }
     });
