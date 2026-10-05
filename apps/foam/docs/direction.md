@@ -128,12 +128,13 @@ The scale is picked once, when the page loads. A phone that is turned afterwards
 its first position: loaded upright and then turned sideways, it shows 2 to 4 lines of text per page,
 where the same phone loaded sideways shows 9 to 10. Phase 3 settles this together with the scale.
 
-The review of phase 2 decided three changes to how the game screen is used. They are not built yet:
+The review of phase 2 changed how the game screen is used. The changes are built:
+[spec](superpowers/specs/2026-10-04-story-window-controls-design.md).
 
 - The story window has no Continue button. A tap on the window above the choices, or Enter or Space,
   continues the text, and a small marker shows when a press will continue. The choices are the
-  window's only buttons and appear with nothing focused. This is how Somewhere's dialogue box works.
-  It keeps a press that was meant to continue the text from taking the first choice.
+  window's only buttons and appear with nothing focused. Somewhere's dialogue box has no Continue
+  button either. It keeps a press that was meant to continue the text from taking the first choice.
 - Nobody closes a story window before its end, and Escape does not close it. A window ends through
   its text or through a choice, so every node with choices offers a way out that costs nothing.
   Tellurion's `Modal` always closes on the cancel command, so the window is an overlay of its own
@@ -141,8 +142,7 @@ The review of phase 2 decided three changes to how the game screen is used. They
   it, as Somewhere's pause menu opens above its dialogue box.
 - A menu's default button shows the focus ring when the menu opens, whatever opened it. After that
   the ring follows the rule it follows everywhere: a pointer press hides it, and a focus key shows
-  it again. Today a default focus never shows the ring, so the menu's Resume button is focused
-  without a mark. This is a Tellurion addition:
+  it again. The menu's Resume button is marked this way. It needed a Tellurion addition:
   [spec](../../../docs/superpowers/specs/2026-10-04-ui-overlay-initial-focus-design.md).
 
 ### The game

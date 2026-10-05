@@ -177,9 +177,10 @@ Adding an overlay fires no focus event, so no sound plays for the initial focus.
 - **Somewhere.** Its pause menu passes `initialFocus: resumeButton`, so it opens with the ring on
   Resume, after Escape and after the pause key. No file under `apps/somewhere` changes. Its Options
   modal and its dialogue box declare no initial focus and behave as before.
-- **Foam.** Its in-game menu sets the focus with `ui.focus(resumeButton)` after adding the modal,
-  which shows no ring. Passing `initialFocus` to that modal belongs to Foam's own spec. No file
-  under `apps/foam` changes here.
+- **Foam.** Its in-game menu passes `initialFocus: resumeButton` and opens with the ring on Resume.
+  That change belongs to Foam's own spec,
+  [story window controls](../../../apps/foam/docs/superpowers/specs/2026-10-04-story-window-controls-design.md).
+  No file under `apps/foam` changes here.
 
 ## Invariants
 
