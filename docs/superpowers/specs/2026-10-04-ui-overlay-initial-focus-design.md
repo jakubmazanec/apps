@@ -1,6 +1,6 @@
 # Overlay initial focus: design
 
-Date: 2026-10-04. Package: `packages/tellurion`. Status: approved design, not implemented.
+Date: 2026-10-04. Package: `packages/tellurion`. Status: implemented.
 
 ## Background
 

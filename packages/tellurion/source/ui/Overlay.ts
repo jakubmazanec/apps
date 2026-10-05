@@ -1,3 +1,4 @@
+import {type Focusable} from './Focusable.js';
 import {type UiParent} from './UiChild.js';
 import {type UiRoot} from './UiRoot.js';
 
@@ -8,9 +9,12 @@ import {type UiRoot} from './UiRoot.js';
 // left the tree; nothing else calls them, and an overlay with nothing to do
 // there omits them. Declaring `close` is what makes the cancel command dismiss
 // it; an overlay without one traps focus and ignores cancel (the dialogue
-// box). Modal is the general-purpose overlay.
+// box). Declaring `initialFocus` is what makes the overlay open with that
+// component focused and the ring shown; an overlay without one opens with
+// nothing focused. Modal is the general-purpose overlay.
 export type Overlay = UiParent & {
   attach?: (ui: UiRoot) => void;
   close?: () => void;
   detach?: () => void;
+  readonly initialFocus?: Focusable | undefined;
 };
