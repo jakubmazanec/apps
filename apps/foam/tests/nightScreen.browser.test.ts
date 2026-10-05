@@ -291,11 +291,16 @@ describe('night screen', {timeout: 180_000}, () => {
       clearScene();
     });
 
-    test('the background fills the screen', () => {
-      let {view} = harness.nightScreen.contents.background;
+    test('the picture fills the screen under the top row and the buttons', () => {
+      let {nightScreen} = harness;
+      let {view} = nightScreen.contents.picture;
 
       expect(view.width).toBe(480);
       expect(view.height).toBe(270);
+      expect(nightScreen.view.children.indexOf(view)).toBeGreaterThanOrEqual(0);
+      expect(nightScreen.view.children.indexOf(view)).toBeLessThan(
+        nightScreen.view.children.indexOf(nightScreen.ui.view),
+      );
     });
 
     test('every scene button lies inside the screen and under the top row', async () => {
@@ -1148,6 +1153,50 @@ describe('night screen', {timeout: 180_000}, () => {
       expect(nightScreen.contents.menuModal).toBe(menu);
       expect(nightScreen.ui.topOverlay).toBe(menu);
       expect(nightScreen.ui.focused).toBe(optionsButton);
+    });
+
+    test('the picture runs at half speed while a window is open', async () => {
+      let {nightScreen} = harness;
+
+      await nextFrame();
+
+      expect(nightScreen.contents.picture.speed).toBe(1);
+
+      await press('Escape');
+
+      let menu = getMenu();
+
+      await nextFrame();
+
+      expect(nightScreen.contents.picture.speed).toBe(0.5);
+
+      nightScreen.ui.focus(getMenuButton(menu, 'Options'));
+      await press('Enter');
+
+      expect(nightScreen.contents.optionsModal).not.toBeNull();
+
+      await nextFrame();
+
+      expect(nightScreen.contents.picture.speed).toBe(0.5);
+
+      await press('Escape');
+      await vitest.waitFor(
+        () => {
+          expect(nightScreen.contents.optionsModal).toBeNull();
+        },
+        {timeout: 10_000},
+      );
+      await press('Escape');
+      await waitForNoMenu();
+      await nextFrame();
+
+      expect(nightScreen.ui.topOverlay).toBeNull();
+      expect(nightScreen.contents.picture.speed).toBe(1);
+
+      await openSpot('Two women talking');
+      await nextFrame();
+
+      expect(nightScreen.contents.picture.speed).toBe(0.5);
     });
 
     test('Options does nothing once the menu is closing', async () => {

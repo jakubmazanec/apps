@@ -1,6 +1,7 @@
 import {defineDialogueScript, type RunnableDialogueScript} from 'tellurion';
 
 import {type Night} from '../core/night.js';
+import {barPicture} from './barPicture.js';
 
 export type Spot = {
   /** Label of the scene button. */
@@ -18,6 +19,10 @@ export type Place = {
   name: string;
 
   description: RunnableDialogueScript<Night>;
+
+  /** GLSL of the place: the function that draws its picture (see core/pictureShader.ts). */
+  picture: string;
+
   spots: Spot[];
 };
 
@@ -145,6 +150,7 @@ const door = defineDialogueScript<Night>()({
 export const samplePlace: Place = {
   name: PLACE_NAME,
   description,
+  picture: barPicture,
   spots: [
     {label: BARTENDER, x: 0.25, y: 0.2, script: bartender},
     {label: WOMEN, x: 0.75, y: 0.3, script: women},

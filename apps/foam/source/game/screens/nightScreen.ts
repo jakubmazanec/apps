@@ -23,15 +23,15 @@ import {playFocusSound} from '../core/playFocusSound.js';
 import {mainMenuScreen} from './mainMenuScreen.js';
 import {openMenuModal} from './menuModal.js';
 import {openOptionsModal} from './optionsModal.js';
-import {PlaceholderBackground} from './placeholderBackground.js';
+import {PlacePicture} from './placePicture.js';
 import {StoryWindow} from './storyWindow.js';
 
 type NightScreenContents = {
-  background: PlaceholderBackground;
   menuButton: Button;
   menuModal: Modal | null;
   night: Night;
   optionsModal: Modal | null;
+  picture: PlacePicture;
   placeButton: Button;
   spotButtons: Button[];
   statusText: Text;
@@ -68,7 +68,7 @@ function writeStatus(screen: NightScreen): void {
 }
 
 function layOut(screen: NightScreen): void {
-  let {background, spotButtons, statusText, storyWindow} = screen.contents;
+  let {picture, spotButtons, statusText, storyWindow} = screen.contents;
   let area = getArea();
 
   // Beside the place button, level with its label, or under it on a narrow
@@ -95,7 +95,7 @@ function layOut(screen: NightScreen): void {
     }
   }
 
-  background.resize(area.width, area.top + area.height);
+  picture.resize(area.width, area.top + area.height);
   storyWindow?.resize(area);
 }
 
@@ -218,11 +218,11 @@ export const nightScreen = new GameScreen<NightScreenContents>({
     screen.ui.addChild(placeButton, statusText, menuButton, ...spotButtons);
 
     return {
-      background: new PlaceholderBackground(),
       menuButton,
       menuModal: null,
       night: createNight(),
       optionsModal: null,
+      picture: new PlacePicture({picture: samplePlace.picture}),
       placeButton,
       spotButtons,
       statusText,
@@ -232,7 +232,7 @@ export const nightScreen = new GameScreen<NightScreenContents>({
   onShow: (screen) => {
     screen.contents.night = createNight();
     writeStatus(screen);
-    screen.addToView(screen.contents.background);
+    screen.addToView(screen.contents.picture);
     layOut(screen);
     openStory(screen, samplePlace.description);
   },
@@ -247,9 +247,11 @@ export const nightScreen = new GameScreen<NightScreenContents>({
     screen.contents.optionsModal = null;
     screen.contents.menuModal = null;
     screen.contents.storyWindow = null;
-    screen.removeFromView(screen.contents.background);
+    screen.removeFromView(screen.contents.picture);
   },
   onUpdate: (ticker, screen) => {
+    // The story window, the menu and the Options window are all overlays.
+    screen.contents.picture.speed = screen.ui.topOverlay === null ? 1 : 0.5;
     screen.contents.storyWindow?.update(ticker.deltaMS);
 
     // The engine has already sent this frame's cancel command to the topmost
