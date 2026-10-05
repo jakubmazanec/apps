@@ -18,14 +18,14 @@ export const barPicture = `
 const float PI = 3.14159265;
 const float TAU = 6.28318531;
 
-const int SHELF_SEED = 101;
-const int BOTTLE_SEED = 102;
-const int COUNTER_SEED = 103;
-const int HAZE_SEED = 104;
-const int FLICKER_SEED = 105;
-const int DUST_SEED = 106;
-const int STREET_SEED = 107;
-const int GLINT_SEED = 108;
+const int SHELF_SEED = 100;
+const int BOTTLE_SEED = 200;
+const int COUNTER_SEED = 300;
+const int HAZE_SEED = 400;
+const int FLICKER_SEED = 500;
+const int DUST_SEED = 600;
+const int STREET_SEED = 700;
+const int GLINT_SEED = 800;
 
 // The screen column and row of a design x and y.
 int columnOf(float x) {
@@ -223,10 +223,10 @@ vec3 drawLamps(vec3 color, ivec2 pixel, vec2 point, vec3 powers, bool isBackFlic
 
 // Each cone is cut into lanes 6 pixels wide, and each lane into cells 6 high
 // that move down with the lane's dust. A cell has a dot with a chance of 75%,
-// which is about 0.9 dots per pixel of a cone's reach. A dot sways at most 2
-// pixels from its lane's middle, so it stays in its lane, and a pixel checks
-// one cell. The cones do not overlap, so a pixel checks only the cone of the
-// lamp nearest to it from side to side.
+// which is on average about 0.9 dots per pixel of a cone's reach. A dot sways
+// at most 2 pixels from its lane's middle, so it stays in its lane, and a
+// pixel checks one cell. The cones do not overlap, so a pixel checks only the
+// cone of the lamp nearest to it from side to side.
 const float DUST_LANE = 6.0;
 const float DUST_CELL = 6.0;
 const float DUST_CHANCE = 0.75;

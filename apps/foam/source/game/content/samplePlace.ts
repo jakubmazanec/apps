@@ -3,8 +3,10 @@ import {defineDialogueScript, type RunnableDialogueScript} from 'tellurion';
 import {type Night} from '../core/night.js';
 import {barPicture} from './barPicture.js';
 
-// A spot lies on its thing in the place's picture: its button's centre is on
-// the thing on a wide screen, and its box overlaps the thing on a narrow one.
+/**
+ * A spot lies on its thing in the place's picture: its button's centre is on
+ * the thing on a wide screen, and its box overlaps the thing on a narrow one.
+ */
 export type Spot = {
   /** Label of the scene button. */
   label: string;
