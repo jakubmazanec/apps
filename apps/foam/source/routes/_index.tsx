@@ -49,8 +49,10 @@ export default function Index() {
       setGame(importedGame);
     })().catch((error: unknown) => {
       // A failed boot (WebGL context creation, a script or asset that did not
-      // load) cannot reach the error screen: there is no renderer to draw it
-      // on. The page says so in plain text and the console keeps the details.
+      // load, a picture shader that does not compile or a device without
+      // WebGL 2, which addScreen finds in onAttach) cannot reach the error
+      // screen: there is no renderer to draw it on. The page says so in plain
+      // text and the console keeps the details.
       // eslint-disable-next-line no-console -- no renderer exists to surface this
       console.error(error);
 
