@@ -132,9 +132,9 @@ Text longer than its area is cut into pages that the player turns, so the game s
 scrolling component.
 
 Tellurion picks the pixel scale from the width and the height of the screen: the smaller of what
-the two allow, so that about 200 art pixels fit across and about 270 down. A phone held upright at
-1170 × 2100 device pixels gets scale 6 and shows 195 × 350 art pixels, about 32 to 36 letters
-across, so the game screen is comfortable there.
+the two allow, so that about 200 art pixels fit across and about 270 down, kept between 2 and 8. A
+phone held upright at 1170 × 2100 device pixels gets scale 6 and shows 195 × 350 art pixels, about
+32 letters across.
 
 The scale is picked once, when the page loads. A phone that is turned afterwards keeps the scale of
 its first position: loaded upright and then turned sideways, it keeps scale 6 and shows 350 × 195
@@ -178,7 +178,8 @@ Two things from the game screen wait for phase 4:
   and a choice's label is a fixed string.
 - Long names. The game screen neither wraps nor cuts a label, and
   [the phase 2 spec](superpowers/specs/2026-10-04-game-screen-design.md) lists how many characters
-  each one holds. The place button holds 14 on a screen of 146 art pixels across and 20 or more on a phone.
+  each one holds. The place button holds 14 on a screen of 146 art pixels across and 20 or more
+  on a phone.
 
 **Phase 6 completes the first prototype: one whole night.** Its review decides what is kept and what
 is rewritten, and reopens the content model.
