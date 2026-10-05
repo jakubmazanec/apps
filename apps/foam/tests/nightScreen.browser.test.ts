@@ -481,6 +481,75 @@ describe('night screen', {timeout: 180_000}, () => {
       expect(storyWindow.dialogue.phase).toBe('revealing');
     });
 
+    test('a tap on the text finishes the page, and the next tap turns it', async () => {
+      let storyWindow = await openLongText();
+
+      await tap(harness, getBox(harness, getWindowParts(storyWindow).textLeaf));
+
+      // The first page takes more than ten seconds to type, so the tap
+      // finished it, and the runner waits at the page end.
+      let pageEnd = storyWindow.dialogue.revealedCount;
+
+      expect(storyWindow.dialogue.phase).toBe('idle');
+      expect(pageEnd).toBeLessThan(storyWindow.dialogue.pageText.length);
+      expect(storyWindow.text.trimEnd().split('\n')).toHaveLength(17);
+
+      await tap(harness, getBox(harness, getWindowParts(storyWindow).textLeaf));
+
+      expect(storyWindow.dialogue.phase).toBe('revealing');
+      expect(storyWindow.dialogue.revealedCount).toBeGreaterThan(pageEnd);
+    });
+
+    test('a tap on the marker turns the page', async () => {
+      let {game} = harness;
+      let storyWindow = await openLongText();
+
+      // Finish the first page.
+      await press('Enter');
+
+      let pageEnd = storyWindow.dialogue.revealedCount;
+
+      expect(storyWindow.dialogue.phase).toBe('idle');
+
+      let {marker} = getWindowParts(storyWindow);
+      let origin = marker.toGlobal({x: 0, y: 0});
+
+      await tap(harness, {
+        left: origin.x / game.pixelScale,
+        top: origin.y / game.pixelScale,
+        width: marker.width,
+        height: marker.height,
+      });
+
+      expect(storyWindow.dialogue.phase).toBe('revealing');
+      expect(storyWindow.dialogue.revealedCount).toBeGreaterThan(pageEnd);
+    });
+
+    test('a tap on the padding under the text turns the page', async () => {
+      let {game} = harness;
+      let storyWindow = await openLongText();
+
+      // Finish the first page.
+      await press('Enter');
+
+      let pageEnd = storyWindow.dialogue.revealedCount;
+      let {marker, panel, textLeaf} = getWindowParts(storyWindow);
+      let panelBox = getBox(harness, panel);
+      let textBox = getBox(harness, textLeaf);
+      let origin = marker.toGlobal({x: 0, y: 0});
+
+      // Under the marker, between the bottom edges of the text and the panel.
+      await tap(harness, {
+        left: origin.x / game.pixelScale,
+        top: textBox.top + textBox.height,
+        width: marker.width,
+        height: panelBox.top + panelBox.height - (textBox.top + textBox.height),
+      });
+
+      expect(storyWindow.dialogue.phase).toBe('revealing');
+      expect(storyWindow.dialogue.revealedCount).toBeGreaterThan(pageEnd);
+    });
+
     test('the long text is shown in pages of at most 17 lines', async () => {
       let storyWindow = await openLongText();
       let whole = storyWindow.dialogue.pageText;

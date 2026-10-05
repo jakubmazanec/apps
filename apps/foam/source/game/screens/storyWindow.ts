@@ -101,7 +101,7 @@ export class StoryWindow implements Overlay {
   /** The visible choices' texts, each wrapped to the inside of its button. */
   #choiceLabels: string[] = [];
 
-  /** Whether `update` has run since the window was added. */
+  /** Whether an `update` has got past its guard: the window open or opening, and topmost. */
   #hasUpdated = false;
 
   /** Width of a button's label. */
@@ -231,9 +231,16 @@ export class StoryWindow implements Overlay {
   }
 
   resize(area: SceneArea): void {
+    if (this.view.destroyed) {
+      return;
+    }
+
+    this.#area = area;
+
     let ui = this.#ui;
 
-    // A window that is not attached has nothing on the screen to lay out.
+    // A window that is not attached has nothing on the screen to lay out; it
+    // keeps the area for later.
     if (ui === null) {
       return;
     }
@@ -243,7 +250,6 @@ export class StoryWindow implements Overlay {
     let previousFocus = ui.focused;
     let focusedIndex = previousFocus instanceof Button ? this.#buttons.indexOf(previousFocus) : -1;
 
-    this.#area = area;
     this.view.layout = {paddingTop: area.top};
     this.#showNode();
 
@@ -517,14 +523,17 @@ export class StoryWindow implements Overlay {
 
     // The press surface and the marker sit out of the layout flow, in the
     // panel's own coordinates, and are added again on top after each rebuild.
-    // The surface reaches from the panel's top edge to the bottom edge of the
-    // text, across the panel's width; the marker sits in the bottom right
-    // corner, inside the padding.
+    // The surface spans the panel's width. For a node without choices it
+    // reaches the panel's bottom edge, so a tap on the marker or on the
+    // padding around it continues the text; for a node with choices it ends at
+    // the bottom edge of the text, and a press in the room of the choices does
+    // nothing. The marker sits in the bottom right corner, inside the padding.
     let panelWidth = textWidth + 2 * WINDOW_PADDING;
     let textBottom = WINDOW_PADDING + titleHeight + textHeight;
     let panelHeight = textBottom + choicesHeight + WINDOW_PADDING;
+    let surfaceHeight = choicesHeight === 0 ? panelHeight : textBottom;
 
-    this.#pressSurface.hitArea = new pixi.Rectangle(0, 0, panelWidth, textBottom);
+    this.#pressSurface.hitArea = new pixi.Rectangle(0, 0, panelWidth, surfaceHeight);
     this.#marker.position.set(
       panelWidth - WINDOW_PADDING - this.#marker.width,
       panelHeight - WINDOW_PADDING - this.#marker.height,
