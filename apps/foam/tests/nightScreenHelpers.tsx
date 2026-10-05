@@ -54,7 +54,8 @@ export async function press(code: string): Promise<void> {
 
 // Boots the real game once, through the index route inside StrictMode, as the
 // app does, and waits for the main menu. The viewport is set first: Game picks
-// its pixel scale from the height of the window when game.ts is evaluated.
+// its pixel scale from the width and the height of the window when game.ts is
+// evaluated.
 // That is why the game modules are imported here, after the viewport is set,
 // and why a test file never imports them at its top.
 export async function bootGame(width: number, height: number): Promise<Harness> {
@@ -229,15 +230,19 @@ export async function waitForNoStoryWindow({nightScreen}: Harness): Promise<void
   );
 }
 
-// The window's only child is a Panel: the title, the text leaf and, for a
-// node with choices, the button area (a Container of Buttons), in that order.
-// A node without a speaker has no title. The marker is a Sprite the panel's
-// view holds out of the layout flow.
+// The window's only child is a Panel. Its children are, in this order: the title
+// block (only for a node with a speaker), a Container whose view holds the
+// title Text and the rule Sprite; the text block, a Container of two Texts of
+// the same size, the regular one and then the italic one; and the button area
+// (only for a node with choices), a Container of Buttons. The cursor is a
+// Sprite the panel's view holds out of the layout flow.
 export function getWindowParts(storyWindow: StoryWindow): {
   buttons: Button[];
-  marker: pixi.Sprite;
+  cursor: pixi.Sprite;
+  italicLeaf: Text;
   panel: Panel;
-  textLeaf: Text;
+  regularLeaf: Text;
+  textBlock: Container;
   title: Text | null;
 } {
   let [panel] = storyWindow.children;
@@ -246,22 +251,42 @@ export function getWindowParts(storyWindow: StoryWindow): {
     throw new TypeError('The story window has no panel!');
   }
 
-  let texts = panel.children.filter((child) => child instanceof Text);
-  let buttonArea = panel.children.find((child) => child instanceof Container);
-  let title = texts.length === 2 ? texts[0] : null;
-  let textLeaf = texts.at(-1);
-  let marker = panel.view.overflowContainer.children.find((child) => child instanceof pixi.Sprite);
+  let containers = panel.children.filter((child) => child instanceof Container);
+  let titleBlock = containers.find((container) =>
+    container.view.children.some((child) => child instanceof pixi.Sprite),
+  );
+  let textBlock = containers.find(
+    (container) =>
+      container.children.length === 2 && container.children.every((child) => child instanceof Text),
+  );
+  let buttonArea = containers.find(
+    (container) => container !== titleBlock && container !== textBlock,
+  );
+  let title = titleBlock?.children[0];
+  let [regularLeaf, italicLeaf] = textBlock?.children ?? [];
+  let cursor = panel.view.overflowContainer.children.find((child) => child instanceof pixi.Sprite);
 
-  if (textLeaf === undefined || marker === undefined) {
-    throw new TypeError('The story window has no text or no marker!');
+  if (
+    textBlock === undefined ||
+    !(regularLeaf instanceof Text) ||
+    !(italicLeaf instanceof Text) ||
+    cursor === undefined
+  ) {
+    throw new TypeError('The story window has no text block or no cursor!');
+  }
+
+  if (titleBlock !== undefined && !(title instanceof Text)) {
+    throw new TypeError('The title block has no title!');
   }
 
   return {
     buttons: (buttonArea?.children ?? []) as Button[],
-    marker,
+    cursor,
+    italicLeaf,
     panel,
-    textLeaf,
-    title: title ?? null,
+    regularLeaf,
+    textBlock,
+    title: title instanceof Text ? title : null,
   };
 }
 

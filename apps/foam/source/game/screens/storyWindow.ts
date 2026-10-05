@@ -27,8 +27,10 @@ import {
   type SceneArea,
 } from '../core/getSceneArea.js';
 import {input} from '../core/input.js';
+import {splitMarked, stripMarks} from '../core/markedText.js';
 import {measureText} from '../core/measureText.js';
 import {type Night} from '../core/night.js';
+import {createWindowTitle} from './windowTitle.js';
 
 export type StoryWindowOptions = {
   /** Scheduler of the screen that opens the window; it drives the fade. */
@@ -46,14 +48,25 @@ export type StoryWindowState = 'closed' | 'closing' | 'open' | 'opening';
 
 // Sizes in art pixels.
 const WINDOW_WIDTH = 300;
-const WINDOW_PADDING = 8;
+const WINDOW_PADDING_X = 12;
+const WINDOW_PADDING_Y = 8;
+// Between the title block and the text.
 const WINDOW_GAP = 4;
-const BUTTON_GAP = 2;
+// Between the text and the first choice.
+const CHOICES_GAP = 8;
+// Between two choices: a focus ring reaches 2 out and does not touch the next button.
+const BUTTON_GAP = 4;
+// The title's line of 12, a gap of 2 and the rule of 1.
+const TITLE_HEIGHT = 15;
+// Every letter of monogram, regular and italic, advances by this much.
+const GLYPH_WIDTH = 6;
+// From a letter cell's top left corner to the cursor's.
+const CURSOR_OFFSET = 2;
 const BLIP_EVERY_GLYPHS = 3;
 // A frame that reveals this many characters is a skip: one blip at most.
 const SKIP_THRESHOLD = 4;
 const FADE_DURATION = 200;
-const MARKER_BLINK_MS = 500;
+const CURSOR_BLINK_MS = 500;
 
 function measureLabel(text: string): number {
   return measureText(text, 'label');
@@ -84,10 +97,10 @@ export class StoryWindow implements Overlay {
   /** Whether the choice buttons are built for the shown node. */
   #areChoicesShown = false;
 
-  /** Time in ms the marker has blinked since the runner became idle. */
+  /** Time in ms the cursor has blinked since the runner became idle. */
   #blinkTime = 0;
 
-  /** Characters revealed since the last blip, spaces and line ends not counted. */
+  /** Characters revealed since the last blip, spaces, line ends and marks not counted. */
   #blipGlyphs = 0;
 
   /** Offsets in the wrapped text where a page ends. */
@@ -104,16 +117,19 @@ export class StoryWindow implements Overlay {
   /** The visible choices' texts, each wrapped to the inside of its button. */
   #choiceLabels: string[] = [];
 
+  /** Shows that a press turns the page or closes the window. It sits after the last letter. */
+  readonly #cursor: pixi.Sprite;
+
   /** Whether an `update` has got past its guard: the window open or opening, and topmost. */
   #hasUpdated = false;
+
+  /** The text's leaf in the italic font; it has the regular leaf's size and place. */
+  #italicLeaf: Text | null = null;
 
   /** Width of a button's label. */
   #labelWidth = 1;
 
   #lastRevealedCount = 0;
-
-  /** Shows that a press turns the page or closes the window. */
-  readonly #marker: pixi.Sprite;
 
   readonly #onClosed: () => void;
   readonly #panel: Panel;
@@ -121,19 +137,36 @@ export class StoryWindow implements Overlay {
   /** Takes the presses on the window above the choices. */
   readonly #pressSurface: pixi.Container = new pixi.Container();
 
+  /** The text's leaf in the regular font. */
+  #regularLeaf: Text | null = null;
+
   readonly #scheduler: Scheduler;
   #shownNode: DialogueNode<Night, string> | null = null;
   #shownPageIndex = 0;
+
+  /** The slice of the wrapped text the leaves show, marks kept; null for leaves just made. */
+  #shownSlice: string | null = null;
+
   #state: StoryWindowState = 'closed';
+
+  /** The shown slice without its marks. */
   #text = '';
-  #textLeaf: Text | null = null;
-  #title: Text | null = null;
+
+  /** Holds the two leaves of the text at the same place. */
+  #textBlock: Container | null = null;
+
+  /** The speaker's title and the rule under it; a node without a speaker has none. */
+  #titleBlock: Container | null = null;
+
+  /** Room the title block and the gap under it take, 0 for a node without a speaker. */
+  #titleHeight = 0;
+
   #ui: UiRoot | null = null;
 
   /** Whether the runner was idle at the last `update`. */
   #wasIdle = false;
 
-  /** The runner's page, wrapped to the width of the text. */
+  /** The runner's page, wrapped to the width of the text, marks kept. */
   #wrapped = '';
 
   constructor({scheduler, script, context, area, onClosed}: StoryWindowOptions) {
@@ -143,12 +176,19 @@ export class StoryWindow implements Overlay {
     this.dialogue = new Dialogue({script, context});
     this.#panel = new Panel({
       theme: game.theme,
-      layout: {flexDirection: 'column', padding: WINDOW_PADDING, gap: WINDOW_GAP},
+      layout: {
+        flexDirection: 'column',
+        paddingTop: WINDOW_PADDING_Y,
+        paddingBottom: WINDOW_PADDING_Y,
+        paddingLeft: WINDOW_PADDING_X,
+        paddingRight: WINDOW_PADDING_X,
+        gap: WINDOW_GAP,
+      },
     });
     this.children = [this.#panel];
 
-    this.#marker = new pixi.Sprite({texture: assets.spriteset('ui').texture('cursor')});
-    this.#marker.visible = false;
+    this.#cursor = new pixi.Sprite({texture: assets.spriteset('ui').texture('cursor')});
+    this.#cursor.visible = false;
 
     // A sibling of the choice buttons, not their parent, so a tap on a choice
     // does not reach it as well.
@@ -188,7 +228,7 @@ export class StoryWindow implements Overlay {
     return this.#state;
   }
 
-  /** Text the window shows at the moment. */
+  /** Text the window shows at the moment, without the marks. */
   get text(): string {
     return this.#text;
   }
@@ -305,7 +345,7 @@ export class StoryWindow implements Overlay {
       this.#buildChoices();
     }
 
-    this.#updateMarker(deltaMS);
+    this.#updateCursor(deltaMS);
 
     if (this.dialogue.phase === 'ended') {
       this.#close();
@@ -388,8 +428,23 @@ export class StoryWindow implements Overlay {
     });
   }
 
-  // Plays the blip once per three revealed characters other than spaces and
-  // line ends.
+  // Puts the cursor after the last letter shown. A page that another page
+  // follows ends with the line end its break took; that line end is dropped,
+  // so the cursor stays on the page's last line.
+  #placeCursor(): void {
+    let text = this.#text.endsWith('\n') ? this.#text.slice(0, -1) : this.#text;
+    let lastLineEnd = text.lastIndexOf('\n');
+    let line = text.split('\n').length - 1;
+    let column = text.length - lastLineEnd - 1;
+
+    this.#cursor.position.set(
+      WINDOW_PADDING_X + column * GLYPH_WIDTH + CURSOR_OFFSET,
+      WINDOW_PADDING_Y + this.#titleHeight + line * LINE_HEIGHT + CURSOR_OFFSET,
+    );
+  }
+
+  // Plays the blip once per three revealed characters other than spaces, line
+  // ends and marks, which show nothing.
   #playBlips(): void {
     let {revealedCount} = this.dialogue;
     let newCount = revealedCount - this.#lastRevealedCount;
@@ -401,7 +456,7 @@ export class StoryWindow implements Overlay {
     let glyphs = 0;
 
     for (let character of this.#wrapped.slice(this.#lastRevealedCount, revealedCount)) {
-      if (character !== ' ' && character !== '\n') {
+      if (character !== ' ' && character !== '\n' && character !== '*') {
         glyphs += 1;
       }
     }
@@ -427,24 +482,28 @@ export class StoryWindow implements Overlay {
   }
 
   // Settles the layout for the runner's node and replaces the panel's content:
-  // the title, the text leaf and, for a node with choices, the button area.
+  // the title block, the text block and, for a node with choices, the button
+  // area.
   #showNode(): void {
     let {node, pageIndex, pageText, visibleChoices} = this.dialogue;
 
     this.#shownNode = node;
     this.#shownPageIndex = pageIndex;
 
-    for (let child of [this.#title, this.#textLeaf, this.#buttonArea]) {
+    for (let child of [this.#titleBlock, this.#textBlock, this.#buttonArea]) {
       if (child !== null) {
         this.#panel.removeChild(child);
         child.destroy();
       }
     }
 
-    this.#title = null;
-    this.#textLeaf = null;
+    this.#titleBlock = null;
+    this.#textBlock = null;
+    this.#regularLeaf = null;
+    this.#italicLeaf = null;
     this.#buttonArea = null;
     this.#buttons = [];
+    this.#shownSlice = null;
     this.#text = '';
 
     // The runner ended before it showed a node; update() closes the window.
@@ -453,7 +512,7 @@ export class StoryWindow implements Overlay {
     }
 
     let windowWidth = Math.min(WINDOW_WIDTH, Math.floor(this.#area.width - 2 * MARGIN));
-    let textWidth = Math.max(1, windowWidth - 2 * WINDOW_PADDING);
+    let textWidth = Math.max(1, windowWidth - 2 * WINDOW_PADDING_X);
 
     this.#labelWidth = Math.max(1, textWidth - 2 * BUTTON_PADDING_X);
     this.#choiceLabels = visibleChoices.map((choice) =>
@@ -473,37 +532,54 @@ export class StoryWindow implements Overlay {
       }
     }
 
-    let choicesHeight = buttonAreaHeight === 0 ? 0 : WINDOW_GAP + buttonAreaHeight;
-    let titleHeight = node.speaker === undefined ? 0 : LINE_HEIGHT + WINDOW_GAP;
+    let choicesHeight = buttonAreaHeight === 0 ? 0 : CHOICES_GAP + buttonAreaHeight;
+    let titleHeight = node.speaker === undefined ? 0 : TITLE_HEIGHT + WINDOW_GAP;
     let textRoom =
-      this.#area.height - 2 * MARGIN - 2 * WINDOW_PADDING - titleHeight - choicesHeight;
+      this.#area.height - 2 * MARGIN - 2 * WINDOW_PADDING_Y - titleHeight - choicesHeight;
     let linesPerPage = Math.max(1, Math.floor(textRoom / LINE_HEIGHT));
 
-    this.#wrapped = wrapText(pageText, textWidth, measureText);
+    this.#titleHeight = titleHeight;
+    // Marks show nothing, so a line holds as many letters as without them.
+    // wrapText adds and removes no character, so the breaks and the runner's
+    // revealed count, which both count the marks, point at the same places.
+    this.#wrapped = wrapText(pageText, textWidth, (text) => measureText(stripMarks(text)));
     this.#breaks = getPageBreaks(this.#wrapped, linesPerPage);
     // The runner ignores the breaks that lie before its revealed count, which
     // matters after a resize in the middle of a text.
     this.dialogue.setBreaks(this.#breaks);
 
-    // The leaf is as tall as the longest page, not as the text typed so far.
+    // The leaves are as tall as the longest page, not as the text typed so far.
     let textHeight = Math.min(this.#wrapped.split('\n').length, linesPerPage) * LINE_HEIGHT;
 
     if (node.speaker !== undefined) {
-      this.#title = new Text({
-        text: node.speaker,
-        theme: game.theme,
-        layout: {width: textWidth, height: LINE_HEIGHT},
-      });
-      this.#panel.addChild(this.#title);
+      this.#titleBlock = createWindowTitle(node.speaker, textWidth);
+      this.#panel.addChild(this.#titleBlock);
     }
 
-    this.#textLeaf = new Text({
+    // Two leaves of the same size at the same place, one per font. Every
+    // letter advances by 6 in both, so a letter lands where it would in one
+    // text, and each leaf has spaces where the other one draws.
+    let leafLayout = {
+      position: 'absolute',
+      left: 0,
+      top: 0,
+      width: textWidth,
+      height: textHeight,
+    } as const;
+
+    this.#regularLeaf = new Text({text: '', theme: game.theme, role: 'body', layout: leafLayout});
+    this.#italicLeaf = new Text({
       text: '',
       theme: game.theme,
       role: 'body',
+      fontFamily: 'monogram-italic',
+      layout: leafLayout,
+    });
+    this.#textBlock = new Container({
+      children: [this.#regularLeaf, this.#italicLeaf],
       layout: {width: textWidth, height: textHeight},
     });
-    this.#panel.addChild(this.#textLeaf);
+    this.#panel.addChild(this.#textBlock);
 
     if (buttonAreaHeight > 0) {
       this.#buttonArea = new Container({
@@ -513,6 +589,9 @@ export class StoryWindow implements Overlay {
           gap: BUTTON_GAP,
           width: textWidth,
           height: buttonAreaHeight,
+          // The panel's gap and this make the room between the text and the
+          // first choice.
+          marginTop: CHOICES_GAP - WINDOW_GAP,
         },
       });
       this.#panel.addChild(this.#buttonArea);
@@ -523,24 +602,22 @@ export class StoryWindow implements Overlay {
       }
     }
 
-    // The press surface and the marker sit out of the layout flow, in the
+    // The press surface and the cursor sit out of the layout flow, in the
     // panel's own coordinates, and are added again on top after each rebuild.
     // The surface spans the panel's width. For a node without choices it
-    // reaches the panel's bottom edge, so a tap on the marker or on the
-    // padding around it continues the text; for a node with choices it ends at
-    // the bottom edge of the text, and a press in the room of the choices does
-    // nothing. The marker sits in the bottom right corner, inside the padding.
-    let panelWidth = textWidth + 2 * WINDOW_PADDING;
-    let textBottom = WINDOW_PADDING + titleHeight + textHeight;
-    let panelHeight = textBottom + choicesHeight + WINDOW_PADDING;
+    // reaches the panel's bottom edge, so a tap on the cursor or on the
+    // padding around the text continues the text; for a node with choices it
+    // ends at the bottom edge of the text, and a press in the room of the
+    // choices does nothing. The cursor follows the text: #showRevealed places
+    // it after the last letter, and after a full line it lies in the padding
+    // on the right, which the surface covers too.
+    let panelWidth = textWidth + 2 * WINDOW_PADDING_X;
+    let textBottom = WINDOW_PADDING_Y + titleHeight + textHeight;
+    let panelHeight = textBottom + choicesHeight + WINDOW_PADDING_Y;
     let surfaceHeight = choicesHeight === 0 ? panelHeight : textBottom;
 
     this.#pressSurface.hitArea = new pixi.Rectangle(0, 0, panelWidth, surfaceHeight);
-    this.#marker.position.set(
-      panelWidth - WINDOW_PADDING - this.#marker.width,
-      panelHeight - WINDOW_PADDING - this.#marker.height,
-    );
-    this.#panel.view.addChild(this.#pressSurface, this.#marker);
+    this.#panel.view.addChild(this.#pressSurface, this.#cursor);
     this.#showRevealed();
   }
 
@@ -558,22 +635,31 @@ export class StoryWindow implements Overlay {
       }
     }
 
-    let text = this.#wrapped.slice(pageStart, revealedCount);
+    let slice = this.#wrapped.slice(pageStart, revealedCount);
 
-    if (text !== this.#text) {
-      this.#text = text;
-      this.#textLeaf?.setText(text);
+    if (slice === this.#shownSlice) {
+      return;
     }
+
+    // A page that starts inside an italic passage starts in italic, so the
+    // marks are counted from the start of the text, not of the page.
+    let {regular, italic} = splitMarked(this.#wrapped, pageStart, revealedCount);
+
+    this.#shownSlice = slice;
+    this.#text = stripMarks(slice);
+    this.#regularLeaf?.setText(regular);
+    this.#italicLeaf?.setText(italic);
+    this.#placeCursor();
   }
 
-  // The marker blinks while the runner is idle, that is while a press would
+  // The cursor blinks while the runner is idle, that is while a press would
   // turn the page or close the window. The blink starts in the on state
   // whenever the runner becomes idle.
-  #updateMarker(deltaMS: number): void {
+  #updateCursor(deltaMS: number): void {
     let isIdle = this.dialogue.phase === 'idle';
 
     this.#blinkTime = isIdle && this.#wasIdle ? this.#blinkTime + deltaMS : 0;
     this.#wasIdle = isIdle;
-    this.#marker.visible = isIdle && Math.floor(this.#blinkTime / MARKER_BLINK_MS) % 2 === 0;
+    this.#cursor.visible = isIdle && Math.floor(this.#blinkTime / CURSOR_BLINK_MS) % 2 === 0;
   }
 }

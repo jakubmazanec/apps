@@ -7,7 +7,11 @@ export const assets = new GameAssets({
     {
       name: 'default',
       spritesets: {ui: ['ui.json']},
-      fonts: {monogram: ['monogram.fnt'], 'monogram-outline': ['monogram-outline.fnt']},
+      fonts: {
+        monogram: ['monogram.fnt'],
+        'monogram-italic': ['monogram-italic.fnt'],
+        'monogram-outline': ['monogram-outline.fnt'],
+      },
       sounds: {
         'ui-click': ['ui-click.wav'],
         'ui-error': ['ui-error.wav'],
