@@ -105,8 +105,7 @@ const BOX_METRICS = {
   height: 64,
   collapseWidth: 200,
 };
-// A Pixel-class phone: 412x915 CSS px at DPR 2.625 gives pixelScale 8, so the
-// art-px screen is ~135x300 -- below collapseWidth, hence the collapsed layout.
+// A screen 135 art px wide (and ~300 tall) is below collapseWidth, hence the collapsed layout.
 const PHONE_WIDTH = 135;
 const PHONE_HEIGHT = 300;
 // dialogueRegistry's `greeting` node, which is what the reported bug was seen on.

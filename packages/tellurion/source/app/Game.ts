@@ -33,7 +33,10 @@ export class Game {
   loadingScreen?: AnyGameScreen;
 
   /** Integer representing how much is the rendering scaled up. */
-  readonly pixelScale: number = getPixelScale(window.innerHeight * window.devicePixelRatio);
+  readonly pixelScale: number = getPixelScale(
+    window.innerWidth * window.devicePixelRatio,
+    window.innerHeight * window.devicePixelRatio,
+  );
 
   /** Ref pointing to parent HTML element. */
   ref: React.RefObject<HTMLElement | null> | null = null;
