@@ -1,7 +1,8 @@
 # The look (Foam phase 3): design
 
-Date: 2026-10-05. App: `apps/foam`. Status: draft, awaiting review. This is the second of the three
-specs of phase 3 of [the direction document](../../direction.md). The first is Tellurion's
+Date: 2026-10-05. App: `apps/foam`. Status: implemented by
+[2026-10-05-look.md](../plans/2026-10-05-look.md). This is the second of the three specs of phase 3
+of [the direction document](../../direction.md). The first is Tellurion's
 [pixel scale](../../../../../docs/superpowers/specs/2026-10-05-pixel-scale-design.md), and the third
 is [the picture](2026-10-05-picture-design.md).
 

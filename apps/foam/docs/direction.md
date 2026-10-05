@@ -1,8 +1,9 @@
 # Foam: direction
 
 Started: 2026-10-03. App: `apps/foam`. Status: the direction is agreed; phases 1 and 2 are built;
-phase 3 has its three specs, which await the author's review. This is a living document: it
-describes the current state and plan, and is kept correct as they change.
+phase 3 is built in part: the pixel scale and the look are built, and the picture has its spec and
+plan. This is a living document: it describes the current state and plan, and is kept correct as
+they change.
 
 ## What Foam is
 
@@ -107,7 +108,7 @@ Where things are written down:
 | --- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
 | 1   | Menus       | Foam boots on Tellurion to a main menu with options, menu music and UI sounds. New Game is shown but disabled. UI art, music and sounds are copies of Somewhere's files for now; the font is Somewhere's monogram.                                                                                                                 | Somewhere's boot route, `core/` modules, main menu and error screen                                    |
 | 2   | Game screen | New game opens the screen a night is played on: a full-screen placeholder background with freely placed buttons, a window that types out the description of the place and each button's text and options, the status (time, money, state of mind), and a menu with Resume, Options and Quit to menu. It shows sample content only. | Tellurion's `Dialogue` runner, `Modal`, `Panel`, `Text` and `Button`; Somewhere's pause flow           |
-| 3   | UI art      | The menu and the game screen have Foam's own look: colours, windows, buttons and controls, and one moving picture of a place, drawn by code. The font stays monogram, and its italic version comes into use. A phone held upright shows about 33 letters across.                                                                   | Tellurion's UI theme, which reads its art from one spriteset; Somewhere's script that draws its UI art |
+| 3   | UI art      | The menu and the game screen have Foam's own look: colours, windows, buttons and controls, and one moving picture of a place, drawn by code. The font stays monogram, and its italic version comes into use. A phone held upright shows about 32 letters across.                                                                   | Tellurion's UI theme, which reads its art from one spriteset; Somewhere's script that draws its UI art |
 
 Phase 1 is built: [spec](superpowers/specs/2026-10-03-menus-design.md),
 [plan](superpowers/plans/2026-10-04-menus.md).
@@ -118,12 +119,15 @@ Phase 2 is built: [spec](superpowers/specs/2026-10-04-game-screen-design.md),
 Phase 3 is larger than one design-and-plan cycle. It is cut into three specs, each with its own
 plan, build and review, in this order:
 
-1. [Pixel scale](../../../docs/superpowers/specs/2026-10-05-pixel-scale-design.md), in Tellurion:
-   the helper that picks the scale counts the width of the screen.
-2. [The look](superpowers/specs/2026-10-05-look-design.md): the colours, the script that draws the
-   UI art, every screen laid out again, and italic words.
-3. [The picture](superpowers/specs/2026-10-05-picture-design.md): the bar, drawn and moved by a
-   shader, on the night screen and the main menu.
+1. Pixel scale, in Tellurion: the helper that picks the scale counts the width of the screen. It is
+   built: [spec](../../../docs/superpowers/specs/2026-10-05-pixel-scale-design.md),
+   [plan](../../../docs/superpowers/plans/2026-10-05-pixel-scale.md).
+2. The look: the colours, the script that draws the UI art, every screen laid out again, and italic
+   words. It is built: [spec](superpowers/specs/2026-10-05-look-design.md),
+   [plan](superpowers/plans/2026-10-05-look.md).
+3. The picture: the bar, drawn and moved by a shader, on the night screen and the main menu. It has
+   its [spec](superpowers/specs/2026-10-05-picture-design.md) and
+   [plan](superpowers/plans/2026-10-05-picture.md) and is not built yet.
 
 Tellurion shows its loading screen only when a screen needs an asset bundle that is not loaded yet.
 Foam has one bundle, so the loading screen is added by the first phase that adds a second one.
@@ -131,10 +135,10 @@ Foam has one bundle, so the loading screen is added by the first phase that adds
 Text longer than its area is cut into pages that the player turns, so the game screen needs no
 scrolling component.
 
-Tellurion picks the pixel scale from the width and the height of the screen: the smaller of what
-the two allow, so that about 200 art pixels fit across and about 270 down, kept between 2 and 8. A
-phone held upright at 1170 × 2100 device pixels gets scale 6 and shows 195 × 350 art pixels, about
-32 letters across.
+Tellurion picks the pixel scale from the width and the height of the screen: the smaller of what the
+two allow, so that about 200 art pixels fit across and about 270 down, kept between 2 and 8. A phone
+held upright at 1170 × 2100 device pixels gets scale 6 and shows 195 × 350 art pixels, about 32
+letters across.
 
 The scale is picked once, when the page loads. A phone that is turned afterwards keeps the scale of
 its first position: loaded upright and then turned sideways, it keeps scale 6 and shows 350 × 195
@@ -146,9 +150,10 @@ The review of phase 2 changed how the game screen is used. The changes are built
 [spec](superpowers/specs/2026-10-04-story-window-controls-design.md).
 
 - The story window has no Continue button. A tap on the window above the choices, or Enter or Space,
-  continues the text, and a small marker shows when a press will continue. The choices are the
-  window's only buttons and appear with nothing focused. Somewhere's dialogue box has no Continue
-  button either. It keeps a press that was meant to continue the text from taking the first choice.
+  continues the text, and a rose cursor blinks after the last letter shown, once the page is
+  complete, to show that a press will continue. The choices are the window's only buttons and appear
+  with nothing focused. Somewhere's dialogue box has no Continue button either. It keeps a press
+  that was meant to continue the text from taking the first choice.
 - Nobody closes a story window before its end, and Escape does not close it. A window ends through
   its text or through a choice, so every node with choices offers a way out that costs nothing.
   Tellurion's `Modal` always closes on the cancel command, so the window is an overlay of its own
@@ -178,8 +183,8 @@ Two things from the game screen wait for phase 4:
   and a choice's label is a fixed string.
 - Long names. The game screen neither wraps nor cuts a label, and
   [the phase 2 spec](superpowers/specs/2026-10-04-game-screen-design.md) lists how many characters
-  each one holds. The place button holds 14 on a screen of 146 art pixels across and 20 or more
-  on a phone.
+  each one holds. The place button holds 14 on a screen of 146 art pixels across and 20 or more on a
+  phone.
 
 **Phase 6 completes the first prototype: one whole night.** Its review decides what is kept and what
 is rewritten, and reopens the content model.
