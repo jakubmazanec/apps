@@ -451,6 +451,56 @@ describe('place picture', {timeout: 60_000}, () => {
       expect(most).toBeLessThan(240 * 135 * 0.03);
     }, 600_000);
 
+    // The shelf's checkerboard puts its colour on the pixels where x + y is odd and black on
+    // the others. Its top edge at x 240 lies at y 69.4, right under the middle lamp (240, 54,
+    // radius 6), so the faint ring of the lamp's halo reaches the shelf's first rows there.
+    // The box covers x 232 to 248 (the halo's reach of 6 pixels around the centre column and
+    // some more) and y 70 to 73, far above the shelf's black lines, which start at about y 93.
+    // The old code put black on odd pixels of this box.
+    test("a lamp's light never puts black on the shelf", () => {
+      let pixels = readPixels(createDrawnBar());
+      let black: string[] = [];
+
+      for (let y = 70; y <= 73; y += 1) {
+        for (let x = 232; x <= 248; x += 1) {
+          if ((x + y) % 2 === 1 && getColor(pixels, x, y) === BLACK) {
+            black.push(`${x},${y}`);
+          }
+        }
+      }
+
+      expect(black).toEqual([]);
+    });
+
+    // The middle lamp's cone at y 96 to 112 is 17 to 23 pixels wide to each side, so x 236 to
+    // 244 lies inside it. The shelf there reaches from y 69 to 137, and its black lines at 36%
+    // and 70% of its height lie at about y 93 to 94 and y 116 to 117, so the box lies between
+    // them. Odd pixels (x + y) carry the beam, even ones keep the shelf (or black, or dust).
+    test("the middle lamp's beam crosses the shelf and lets the bottles show through", () => {
+      let pixels = readPixels(createDrawnBar());
+      let beam = new Set<number>([palette.blue, palette.cyan]);
+      let kept = new Set<number>([BLACK, MAGENTA, palette.mint, palette.plum, ROSE, WHITE]);
+      let beamed = 0;
+      let others: string[] = [];
+
+      for (let y = 96; y <= 112; y += 1) {
+        for (let x = 236; x <= 244; x += 1) {
+          let color = getColor(pixels, x, y);
+
+          if ((x + y) % 2 === 1) {
+            if (beam.has(color)) {
+              beamed += 1;
+            }
+          } else if (!kept.has(color)) {
+            others.push(`${x},${y}`);
+          }
+        }
+      }
+
+      expect(beamed).toBeGreaterThan(20);
+      expect(others).toEqual([]);
+    });
+
     test('resize to 195 × 350 moves the lamps with it', () => {
       let picture = createDrawnBar();
       let back = LAMPS[2];

@@ -56,9 +56,9 @@ These facts shape the design:
 ### What the player sees
 
 1. The night screen shows a bar at night: three hanging lamps of falling size, each with a cone of
-   blue light; a shelf of bottles in plum and rose behind them; a counter in rose that runs from the
-   left front into the depth on the right; a door on the right with the street's light falling in
-   through it; and three black tables in front.
+   blue light that goes on over a shelf of bottles in plum and rose behind them, so the bottles show
+   through the beam; a counter in rose that runs from the left front into the depth on the right; a
+   door on the right with the street's light falling in through it; and three black tables in front.
 2. More than half of the picture is black.
 3. The lamps slowly get brighter and darker. The small lamp at the back flickers now and then.
 4. Short bright dashes come and go on the counter.
@@ -240,6 +240,7 @@ Rules the shared code enforces:
   transparency.
 - The checkerboard never moves. Movement changes the intensity that goes into `tone`.
 - A shape never carries its own dither pattern with it.
+- A light never puts black on a pixel: it only adds colour to what lies under it.
 
 ### Composition (`content/barPicture.ts`)
 
@@ -266,13 +267,19 @@ The shapes, in design coordinates, drawn in this order:
 | Shelf              | From x 150 to 392. Its top edge is `64 + (x − 150) × 0.06`, its bottom edge `142 − (x − 150) × 0.05`, so it gets lower to the right        | `DEEP`. Bottles are noise in cells 5 wide and 80 high, brightest in the middle of the shelf's height. Jitter 0.25. Two black lines, 2 thick, at 36% and 70% of its height                     |
 | Counter            | Its top edge is `208 − x × 0.2`, from x 0 to 400. It is 50 high                                                                            | `WARM`, fading downwards and to the right, broken up by noise in cells 8 wide and 50 high. Jitter 0.3. The top edge is a `rose` line with a `white` line above it                             |
 | Haze               | Left of x 412, between y 26 and 205, above the counter                                                                                     | `DEEP` at a low intensity, only on pixels that are still black. See Movement                                                                                                                  |
-| Lamp cones         | Under each lamp, down to the counter, not over the shelf. The half width is `(y − lamp y) × 0.36 + 2`                                      | `LIGHT`, darker downwards. Jitter 0.5                                                                                                                                                         |
-| Lamp halos         | Lamps at 104, 50 with radius 8 and a reach of 140; at 240, 54 with radius 6 and a reach of 108; at 334, 58 with radius 4 and a reach of 84 | `LIGHT` by `glow`, where it is above 0.12. A `white` cross through the centre, twice the radius long each way                                                                                 |
+| Lamp cones         | Under each lamp, down to the counter, over the shelf too. The half width is `(y − lamp y) × 0.36 + 2`                                      | `LIGHT`, darker downwards. Jitter 0.5. On the shelf a cone colours only the pixels where x + y is odd, so the bottles show through                                                            |
+| Lamp halos         | Lamps at 104, 50 with radius 8 and a reach of 140; at 240, 54 with radius 6 and a reach of 108; at 334, 58 with radius 4 and a reach of 84 | `LIGHT` by `glow`, where it is above 0.12. A `white` cross through the centre, twice the radius long each way. The halo follows the shelf rule of the cones                                   |
 | Dust               | Inside each cone                                                                                                                           | Single pixels, a quarter of them `white` and the rest `mint`                                                                                                                                  |
 | Light on the floor | Under the door, from y 176 to 250, widening to the left by 1.3 per row and to the right by 0.25                                            | `LIGHT`, darker downwards. Jitter 0.45                                                                                                                                                        |
 | Door               | From x 418 to 458 and y 70 to 176                                                                                                          | `LIGHT` from noise in cells 40 wide and 6 high. The left and top edges are `white`, the right edge `cyan`. A black bar 2 thick a third of the way down, and a black post 2 wide in the middle |
 | Tables             | Black from their top edge to the bottom of the picture: x 300 to 372 from y 222; x 20 to 118 from y 244; x 196 to 262 from y 252           | Black. Each has a rim line on its top edge, in `rose`, `cyan` and `magenta`                                                                                                                   |
 | Glints             | 22 dashes on the counter's top, 3 to 8 above its edge and 3 to 11 long                                                                     | `cyan`, `pink` or `white`                                                                                                                                                                     |
+
+A lamp's light never puts black on a pixel: where the tone of a cone or a halo would be black, the
+pixel keeps what lies under it. So the faint ring of a halo does not punch black dots into a lit
+shape. On the shelf a light colours only the pixels where x + y is odd and leaves the others to the
+shelf, so the bottles show through the beam, and the beam still gets darker downwards on the pixels
+it colours.
 
 The exact pattern of the noise will differ from the sketch, because the shader's hash is not the
 sketch's random number generator. The shapes and the rules are the same.
