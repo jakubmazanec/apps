@@ -1,3 +1,4 @@
+import * as pixi from 'pixi.js';
 import {AudioMixer, Button, defineDialogueScript, type Modal, Panel} from 'tellurion';
 import {
   afterAll,
@@ -14,6 +15,7 @@ import {page} from 'vitest/browser';
 import {samplePlace} from '../source/game/content/samplePlace.js';
 import {getSceneArea} from '../source/game/core/getSceneArea.js';
 import {getSpotPosition} from '../source/game/core/getSpotPosition.js';
+import {stripMarks} from '../source/game/core/markedText.js';
 import {type Night} from '../source/game/core/night.js';
 import {type StoryWindow} from '../source/game/screens/storyWindow.js';
 import {
@@ -125,6 +127,32 @@ describe('night screen', {timeout: 180_000}, () => {
     );
   }
 
+  // The cursor's box in art pixels. It lies out of the layout flow, so its
+  // position comes from its transform.
+  function getCursorBox(cursor: pixi.Sprite): Box {
+    let origin = cursor.toGlobal({x: 0, y: 0});
+
+    return {
+      left: origin.x / harness.game.pixelScale,
+      top: origin.y / harness.game.pixelScale,
+      width: cursor.width,
+      height: cursor.height,
+    };
+  }
+
+  // Expects the cursor to sit after the last letter of the shown text, which
+  // has no line end at its end: 6 per letter and 12 per line, and 2 from the
+  // letter cell's top left corner.
+  function expectCursorAfter(storyWindow: StoryWindow, shown: string): void {
+    let {cursor, textBlock} = getWindowParts(storyWindow);
+    let textBox = getBox(harness, textBlock);
+    let cursorBox = getCursorBox(cursor);
+    let lines = stripMarks(shown).split('\n');
+
+    expect(cursorBox.left).toBe(textBox.left + (lines.at(-1) ?? '').length * 6 + 2);
+    expect(cursorBox.top).toBe(textBox.top + (lines.length - 1) * 12 + 2);
+  }
+
   // Back to 960 × 540 after a test that changed the viewport.
   async function restoreViewport(): Promise<void> {
     await page.viewport(960, 540);
@@ -206,41 +234,45 @@ describe('night screen', {timeout: 180_000}, () => {
         {timeout: 10_000},
       );
 
-      let {buttons, marker} = getWindowParts(storyWindow);
+      let {buttons, cursor} = getWindowParts(storyWindow);
 
       expect(storyWindow.text.length).toBeGreaterThan(0);
-      expect(storyWindow.text.length).toBeLessThan(whole.length);
+      expect(storyWindow.text.length).toBeLessThan(stripMarks(whole).length);
       expect(buttons).toEqual([]);
-      expect(marker.visible).toBe(false);
+      expect(cursor.visible).toBe(false);
 
       await press('Enter');
 
       // wrapText only turns spaces into line ends.
-      expect(storyWindow.text.replaceAll('\n', ' ')).toBe(whole);
+      expect(storyWindow.text.replaceAll('\n', ' ')).toBe(stripMarks(whole));
     });
 
-    test('the marker shows on the complete page, inside the window', async () => {
+    // The description is one page, so the shown text has no line end at its end.
+    test('the cursor shows after the last letter of the complete page, inside the window', async () => {
       let storyWindow = getStoryWindow(harness);
-      let {marker, panel} = getWindowParts(storyWindow);
+      let {cursor, panel} = getWindowParts(storyWindow);
+      let shown = storyWindow.text;
 
       expect(storyWindow.dialogue.phase).toBe('idle');
+      expect(shown.endsWith('\n')).toBe(false);
 
       // It blinks: on for 500 ms of game time, then off for as long.
       await vitest.waitFor(
         () => {
-          expect(marker.visible).toBe(true);
+          expect(cursor.visible).toBe(true);
         },
         {timeout: 10_000},
       );
 
-      let box = getBox(harness, panel);
-      let origin = marker.toGlobal({x: 0, y: 0});
-      let left = origin.x / harness.game.pixelScale;
-      let top = origin.y / harness.game.pixelScale;
+      let panelBox = getBox(harness, panel);
+      let cursorBox = getCursorBox(cursor);
 
-      // In the bottom right corner, inside the padding of 8.
-      expect(left + marker.width).toBe(box.left + box.width - 8);
-      expect(top + marker.height).toBe(box.top + box.height - 8);
+      expectCursorAfter(storyWindow, shown);
+
+      expect(cursorBox.left).toBeGreaterThanOrEqual(panelBox.left);
+      expect(cursorBox.top).toBeGreaterThanOrEqual(panelBox.top);
+      expect(cursorBox.left + cursorBox.width).toBeLessThanOrEqual(panelBox.left + panelBox.width);
+      expect(cursorBox.top + cursorBox.height).toBeLessThanOrEqual(panelBox.top + panelBox.height);
     });
 
     test('Enter on the last page closes the window', async () => {
@@ -330,17 +362,17 @@ describe('night screen', {timeout: 180_000}, () => {
 
       await press('Enter');
 
-      let {buttons, marker} = getWindowParts(storyWindow);
+      let {buttons, cursor} = getWindowParts(storyWindow);
 
       expect(storyWindow.dialogue.phase).toBe('choosing');
       expect(buttons.map(getButtonLabel)).toEqual(['Order a beer', 'Leave her alone']);
       expect(nightScreen.ui.focused).toBeNull();
-      expect(marker.visible).toBe(false);
+      expect(cursor.visible).toBe(false);
 
       await nextFrame();
       await nextFrame();
 
-      expect(marker.visible).toBe(false);
+      expect(cursor.visible).toBe(false);
     });
 
     test('Enter with no choice focused does nothing', async () => {
@@ -380,7 +412,9 @@ describe('night screen', {timeout: 180_000}, () => {
 
         let {buttons} = getWindowParts(storyWindow);
 
-        expect(storyWindow.text.replaceAll('\n', ' ')).toBe(storyWindow.dialogue.pageText);
+        expect(storyWindow.text.replaceAll('\n', ' ')).toBe(
+          stripMarks(storyWindow.dialogue.pageText),
+        );
         expect(buttons.map(getButtonLabel)).toEqual(['Order a beer', 'Leave her alone']);
         expect(nightScreen.ui.focused).toBeNull();
       },
@@ -484,7 +518,7 @@ describe('night screen', {timeout: 180_000}, () => {
     test('a tap on the text finishes the page, and the next tap turns it', async () => {
       let storyWindow = await openLongText();
 
-      await tap(harness, getBox(harness, getWindowParts(storyWindow).textLeaf));
+      await tap(harness, getBox(harness, getWindowParts(storyWindow).textBlock));
 
       // The first page takes more than ten seconds to type, so the tap
       // finished it, and the runner waits at the page end.
@@ -492,16 +526,129 @@ describe('night screen', {timeout: 180_000}, () => {
 
       expect(storyWindow.dialogue.phase).toBe('idle');
       expect(pageEnd).toBeLessThan(storyWindow.dialogue.pageText.length);
-      expect(storyWindow.text.trimEnd().split('\n')).toHaveLength(17);
+      expect(storyWindow.text.trimEnd().split('\n')).toHaveLength(16);
 
-      await tap(harness, getBox(harness, getWindowParts(storyWindow).textLeaf));
+      await tap(harness, getBox(harness, getWindowParts(storyWindow).textBlock));
 
       expect(storyWindow.dialogue.phase).toBe('revealing');
       expect(storyWindow.dialogue.revealedCount).toBeGreaterThan(pageEnd);
     });
 
-    test('a tap on the marker turns the page', async () => {
-      let {game} = harness;
+    test('the cursor sits after the last letter of a page that has a next page', async () => {
+      let storyWindow = await openLongText();
+
+      // Finish the first page.
+      await press('Enter');
+
+      let shown = storyWindow.text;
+
+      expect(storyWindow.dialogue.phase).toBe('idle');
+      expect(storyWindow.dialogue.revealedCount).toBeLessThan(storyWindow.dialogue.pageText.length);
+      // A page followed by another ends with the line end the page break took.
+      expect(shown.endsWith('\n')).toBe(true);
+
+      let withoutEnd = shown.slice(0, -1);
+
+      // On the page's 16th line, not on a new line after it.
+      expect(withoutEnd.split('\n')).toHaveLength(16);
+
+      expectCursorAfter(storyWindow, withoutEnd);
+    });
+
+    test(
+      'the cursor is hidden while the text types and blinks when the page is complete',
+      {timeout: 120_000},
+      async () => {
+        // A node without choices: the runner waits at the end of its text.
+        let storyWindow = await openSpot('Two women talking');
+        let {cursor} = getWindowParts(storyWindow);
+
+        expect(storyWindow.dialogue.phase).toBe('revealing');
+        expect(cursor.visible).toBe(false);
+
+        await press('Enter');
+
+        expect(storyWindow.dialogue.phase).toBe('idle');
+
+        // On for 500 ms of game time, then off for as long, then on again.
+        for (let isVisible of [true, false, true]) {
+          await vitest.waitFor(
+            () => {
+              expect(cursor.visible).toBe(isVisible);
+            },
+            {timeout: 10_000},
+          );
+        }
+      },
+    );
+
+    test('the italic word is drawn by the italic leaf', async () => {
+      let {nightScreen} = harness;
+      let storyWindow = await openSpot('A patron');
+
+      // Finish the text, take "Talk to him" and finish its text.
+      await press('Enter');
+      nightScreen.ui.focus(getWindowButton(storyWindow, 0));
+      await press('Enter');
+      await press('Enter');
+
+      let {italicLeaf, regularLeaf, textBlock} = getWindowParts(storyWindow);
+      let shown = storyWindow.text;
+      let regular = readText(regularLeaf);
+      let italic = readText(italicLeaf);
+      let index = shown.indexOf('better');
+
+      expect(storyWindow.dialogue.revealedCount).toBe(storyWindow.dialogue.pageText.length);
+      expect(italic.trim()).toBe('better');
+      expect(regular).not.toContain('better');
+      expect(regular).toHaveLength(shown.length);
+      expect(italic).toHaveLength(shown.length);
+      expect(index).toBeGreaterThanOrEqual(0);
+      expect(regular.slice(index, index + 6)).toBe('      ');
+      expect(italic.slice(index, index + 6)).toBe('better');
+
+      // Both fonts advance every character, the space too, by 6, so the word
+      // starts where its column of the line starts.
+      let lineStart = shown.lastIndexOf('\n', index) + 1;
+      let italicStyle = new pixi.TextStyle({fontFamily: 'monogram-italic', fontSize: 12});
+      let italicMeasure = pixi.BitmapFontManager.measureText(
+        italic.slice(lineStart, index + 1),
+        italicStyle,
+      );
+
+      expect(italicMeasure.width * italicMeasure.scale).toBe(
+        harness.measureText(shown.slice(lineStart, index + 1)),
+      );
+
+      let blockBox = getBox(harness, textBlock);
+
+      expect(getBox(harness, regularLeaf)).toEqual(blockBox);
+      expect(getBox(harness, italicLeaf)).toEqual(blockBox);
+    });
+
+    test('the long text has its italic word on the right page, and later pages are not italic', async () => {
+      let storyWindow = await openLongText();
+      let italics: string[] = [];
+      // The leaves are made again for each page, so each page reads its own.
+      let pages = await readPages(storyWindow, () => {
+        italics.push(readText(getWindowParts(storyWindow).italicLeaf));
+      });
+      let italicIndex = pages.findIndex((shown) =>
+        shown.replaceAll('\n', ' ').includes('Nobody upstairs'),
+      );
+
+      expect(italicIndex).toBeGreaterThan(0);
+      expect(italics).toHaveLength(pages.length);
+
+      expect(italics[italicIndex]?.trim()).toBe('Nobody');
+
+      // Spaces and line ends only: nothing before or after the word is italic.
+      for (let italic of italics.toSpliced(italicIndex, 1)) {
+        expect(italic).toMatch(/^[ \n]*$/u);
+      }
+    });
+
+    test('a tap on the cursor turns the page', async () => {
       let storyWindow = await openLongText();
 
       // Finish the first page.
@@ -511,60 +658,52 @@ describe('night screen', {timeout: 180_000}, () => {
 
       expect(storyWindow.dialogue.phase).toBe('idle');
 
-      let {marker} = getWindowParts(storyWindow);
-      let origin = marker.toGlobal({x: 0, y: 0});
-
-      await tap(harness, {
-        left: origin.x / game.pixelScale,
-        top: origin.y / game.pixelScale,
-        width: marker.width,
-        height: marker.height,
-      });
+      await tap(harness, getCursorBox(getWindowParts(storyWindow).cursor));
 
       expect(storyWindow.dialogue.phase).toBe('revealing');
       expect(storyWindow.dialogue.revealedCount).toBeGreaterThan(pageEnd);
     });
 
     test('a tap on the padding under the text turns the page', async () => {
-      let {game} = harness;
       let storyWindow = await openLongText();
 
       // Finish the first page.
       await press('Enter');
 
       let pageEnd = storyWindow.dialogue.revealedCount;
-      let {marker, panel, textLeaf} = getWindowParts(storyWindow);
+      let {panel, textBlock} = getWindowParts(storyWindow);
       let panelBox = getBox(harness, panel);
-      let textBox = getBox(harness, textLeaf);
-      let origin = marker.toGlobal({x: 0, y: 0});
+      let textBox = getBox(harness, textBlock);
+      let textBottom = textBox.top + textBox.height;
 
-      // Under the marker, between the bottom edges of the text and the panel.
+      // Under the text's first column, between the bottom edges of the text
+      // and the panel.
       await tap(harness, {
-        left: origin.x / game.pixelScale,
-        top: textBox.top + textBox.height,
-        width: marker.width,
-        height: panelBox.top + panelBox.height - (textBox.top + textBox.height),
+        left: textBox.left,
+        top: textBottom,
+        width: 12,
+        height: panelBox.top + panelBox.height - textBottom,
       });
 
       expect(storyWindow.dialogue.phase).toBe('revealing');
       expect(storyWindow.dialogue.revealedCount).toBeGreaterThan(pageEnd);
     });
 
-    test('the long text is shown in pages of at most 17 lines', async () => {
+    test('the long text is shown in pages of at most 16 lines', async () => {
       let storyWindow = await openLongText();
       let whole = storyWindow.dialogue.pageText;
       let pages = await readPages(storyWindow);
 
       expect(pages.length).toBeGreaterThan(1);
       // A node without choices reserves no room under the text.
-      expect(pages[0]?.trimEnd().split('\n')).toHaveLength(17);
+      expect(pages[0]?.trimEnd().split('\n')).toHaveLength(16);
 
       for (let shown of pages) {
-        expect(shown.trimEnd().split('\n').length).toBeLessThanOrEqual(17);
+        expect(shown.trimEnd().split('\n').length).toBeLessThanOrEqual(16);
       }
 
       // Nothing is lost or repeated where one page ends and the next begins.
-      expect(pages.join('').replaceAll('\n', ' ')).toBe(whole);
+      expect(pages.join('').replaceAll('\n', ' ')).toBe(stripMarks(whole));
 
       await press('Enter');
       await waitForNoStoryWindow(harness);
@@ -660,7 +799,7 @@ describe('night screen', {timeout: 180_000}, () => {
       let revealedBefore = storyWindow.dialogue.revealedCount;
 
       try {
-        // 300 × 270 art pixels: the window is 292 wide and its text 276.
+        // 300 × 270 art pixels: the window is 292 wide and its text 268.
         await page.viewport(600, 540);
         await vitest.waitFor(
           () => {
@@ -677,15 +816,15 @@ describe('night screen', {timeout: 180_000}, () => {
         for (let shown of pages) {
           let lines = shown.trimEnd().split('\n');
 
-          expect(lines.length).toBeLessThanOrEqual(17);
+          expect(lines.length).toBeLessThanOrEqual(16);
 
           for (let line of lines) {
-            expect(measureText(line)).toBeLessThanOrEqual(276);
+            expect(measureText(line)).toBeLessThanOrEqual(268);
           }
         }
 
         // The pages after the resize end with the end of the text.
-        expect(whole.endsWith(pages.join('').replaceAll('\n', ' '))).toBe(true);
+        expect(stripMarks(whole).endsWith(pages.join('').replaceAll('\n', ' '))).toBe(true);
         expect(storyWindow.dialogue.revealedCount).toBe(whole.length);
       } finally {
         await restoreViewport();
@@ -770,8 +909,8 @@ describe('night screen', {timeout: 180_000}, () => {
 
         expect(title).toBeNull();
         expect(panel.children).toHaveLength(1);
-        // The title's line of 12 and the gap of 4 under it.
-        expect(box.height).toBe(heightWithTitle - 16);
+        // The title block of 15 and the gap of 4 under it.
+        expect(box.height).toBe(heightWithTitle - 19);
         expect(box.top).toBeGreaterThanOrEqual(24 + 4);
         expect(box.top + box.height).toBeLessThanOrEqual(270 - 4);
 
@@ -812,7 +951,7 @@ describe('night screen', {timeout: 180_000}, () => {
         }
       }
 
-      let words = texts.flatMap((text) => text.split(/\s+/u));
+      let words = texts.flatMap((text) => stripMarks(text).split(/\s+/u));
 
       expect(words.length).toBeGreaterThan(500);
       expect(words.filter((word) => word.length > 16)).toEqual([]);

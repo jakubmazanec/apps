@@ -1,6 +1,7 @@
 import {type Ticker} from 'pixi.js';
 import {afterAll, beforeAll, describe, expect, test, vitest} from 'vitest';
 
+import {stripMarks} from '../source/game/core/markedText.js';
 import {
   bootGame,
   doBoxesOverlap,
@@ -18,12 +19,13 @@ import {
   waitForNoStoryWindow,
 } from './nightScreenHelpers.js';
 
-// 292 × 524 CSS pixels are 146 × 262 art pixels, a phone held upright:
-// headless Chromium has a device pixel ratio of 1, and the engine picks a
-// pixel scale of 2, its smallest, so a frame draws as few pixels as the art
-// allows. The frames of a headless browser are slow, and several times slower
-// on a busy machine, and a real tap takes many frames, so the tests get a long
-// timeout.
+// 292 × 524 CSS pixels are 146 × 262 art pixels: headless Chromium has a
+// device pixel ratio of 1, and the engine picks a pixel scale of 2, its
+// smallest, so a frame draws as few pixels as the art allows. Under that scale
+// rule a phone held upright is about 180 to 240 art pixels wide, so this is a
+// window narrower than any phone, kept as the smallest case. The frames of a
+// headless browser are slow, and several times slower on a busy machine, and a
+// real tap takes many frames, so the tests get a long timeout.
 describe('night screen on a narrow screen', {timeout: 180_000}, () => {
   let harness: Harness;
 
@@ -55,6 +57,14 @@ describe('night screen on a narrow screen', {timeout: 180_000}, () => {
     expect(status.top + status.height).toBeLessThanOrEqual(40);
   });
 
+  test('the place button fits beside the Menu button', () => {
+    let {placeButton, menuButton} = harness.nightScreen.contents;
+    let place = getBox(harness, placeButton);
+    let menu = getBox(harness, menuButton);
+
+    expect(place.left + place.width + 4).toBeLessThanOrEqual(menu.left);
+  });
+
   test('every scene button lies inside the screen and under the top row', () => {
     for (let button of harness.nightScreen.contents.spotButtons) {
       let box = getBox(harness, button);
@@ -77,7 +87,7 @@ describe('night screen on a narrow screen', {timeout: 180_000}, () => {
   });
 
   test(
-    'the text stops by itself at the end of a full page, and the marker shows',
+    'the text stops by itself at the end of a full page, and the cursor shows',
     {timeout: 240_000},
     async () => {
       let {game, nightScreen} = harness;
@@ -98,19 +108,21 @@ describe('night screen on a narrow screen', {timeout: 180_000}, () => {
 
       let revealed = storyWindow.dialogue.revealedCount;
       let shown = storyWindow.text;
-      let {buttons, marker} = getWindowParts(storyWindow);
+      let {buttons, cursor} = getWindowParts(storyWindow);
 
       expect(revealed).toBeLessThan(storyWindow.dialogue.pageText.length);
-      // A full page: 15 lines, the last ending where the page ends.
-      expect(shown.trimEnd().split('\n')).toHaveLength(15);
-      expect(shown.replaceAll('\n', ' ')).toBe(storyWindow.dialogue.pageText.slice(0, revealed));
+      // A full page: 14 lines, the last ending where the page ends.
+      expect(shown.trimEnd().split('\n')).toHaveLength(14);
+      expect(shown.replaceAll('\n', ' ')).toBe(
+        stripMarks(storyWindow.dialogue.pageText.slice(0, revealed)),
+      );
       expect(buttons).toEqual([]);
       expect(nightScreen.ui.focused).toBeNull();
 
       // It blinks: on for 500 ms of game time, then off for as long.
       await vitest.waitFor(
         () => {
-          expect(marker.visible).toBe(true);
+          expect(cursor.visible).toBe(true);
         },
         {timeout: 10_000},
       );
@@ -136,7 +148,7 @@ describe('night screen on a narrow screen', {timeout: 180_000}, () => {
   );
 
   // It starts where the test before ended, at the end of the first page.
-  test('the description takes more than one page of at most 15 lines', async () => {
+  test('the description takes more than one page of at most 14 lines', async () => {
     let storyWindow = getStoryWindow(harness);
     let whole = storyWindow.dialogue.pageText;
     let pages = await readPages(storyWindow);
@@ -146,16 +158,16 @@ describe('night screen on a narrow screen', {timeout: 180_000}, () => {
     for (let shown of pages) {
       let lines = shown.trimEnd().split('\n');
 
-      expect(lines.length).toBeLessThanOrEqual(15);
+      expect(lines.length).toBeLessThanOrEqual(14);
 
-      // The text is 138 wide less 8 of padding on both sides.
+      // The text is 138 wide less 12 of padding on both sides.
       for (let line of lines) {
-        expect(harness.measureText(line)).toBeLessThanOrEqual(122);
+        expect(harness.measureText(line)).toBeLessThanOrEqual(114);
       }
     }
 
     // Nothing is lost or repeated where one page ends and the next begins.
-    expect(pages.join('').replaceAll('\n', ' ')).toBe(whole);
+    expect(pages.join('').replaceAll('\n', ' ')).toBe(stripMarks(whole));
 
     await press('Enter');
     await waitForNoStoryWindow(harness);
@@ -181,10 +193,9 @@ describe('night screen on a narrow screen', {timeout: 180_000}, () => {
 
     expect(buttons.map(getButtonLabel)).toEqual(['Ask about the\nceiling', 'Let him be']);
 
-    // A label is the text width of 122 less 6 of button padding on both sides, 110 (Task 3 makes
-    // it 102).
+    // A label is the text width of 114 less 6 of button padding on both sides.
     for (let line of buttons.flatMap((button) => getButtonLabel(button).split('\n'))) {
-      expect(harness.measureText(line, 'label')).toBeLessThanOrEqual(110);
+      expect(harness.measureText(line, 'label')).toBeLessThanOrEqual(102);
     }
 
     if (first === undefined || second === undefined) {
@@ -192,8 +203,8 @@ describe('night screen on a narrow screen', {timeout: 180_000}, () => {
     }
 
     for (let box of [first, second]) {
-      expect(box.left).toBeGreaterThanOrEqual(panelBox.left + 8);
-      expect(box.left + box.width).toBeLessThanOrEqual(panelBox.left + panelBox.width - 8);
+      expect(box.left).toBeGreaterThanOrEqual(panelBox.left + 12);
+      expect(box.left + box.width).toBeLessThanOrEqual(panelBox.left + panelBox.width - 12);
       expect(box.top + box.height).toBeLessThanOrEqual(panelBox.top + panelBox.height - 8);
     }
 
@@ -222,7 +233,7 @@ describe('night screen on a narrow screen', {timeout: 180_000}, () => {
 
     // A real tap takes seconds, and the text may have typed to its end by
     // itself in that time. Otherwise the tap on the text finishes it.
-    await tap(harness, getBox(harness, getWindowParts(storyWindow).textLeaf));
+    await tap(harness, getBox(harness, getWindowParts(storyWindow).textBlock));
 
     expect(storyWindow.dialogue.revealedCount).toBe(storyWindow.dialogue.pageText.length);
     expect(getWindowParts(storyWindow).buttons.map(getButtonLabel)).toEqual([
@@ -232,7 +243,7 @@ describe('night screen on a narrow screen', {timeout: 180_000}, () => {
 
     // A tap on the text does nothing while the choices are offered, and
     // focuses nothing.
-    await tap(harness, getBox(harness, getWindowParts(storyWindow).textLeaf));
+    await tap(harness, getBox(harness, getWindowParts(storyWindow).textBlock));
 
     expect(storyWindow.dialogue.phase).toBe('choosing');
     expect(nightScreen.ui.focused).toBeNull();

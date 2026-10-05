@@ -22,9 +22,10 @@ export type Place = {
 };
 
 // Temporary text for an invented place. Its limits: no word is longer than 16
-// characters (every word must fit a line on the narrowest phone), nobody and
+// characters (every word must fit a line on the narrowest screen), nobody and
 // nothing has a real name, every node sets `speaker`, and every `text` is one
-// string without line ends, which the story window cuts into pages.
+// string without line ends, which the story window cuts into pages. A `*` in a
+// `text` switches italic on or off, so the marks of a text come in pairs.
 const PLACE_NAME = 'The bar';
 const BARTENDER = 'The bartender';
 const WOMEN = 'Two women talking';
@@ -87,7 +88,7 @@ const patron = defineDialogueScript<Night>()({
     talk: {
       speaker: PATRON,
       text:
-        'He says he has been coming here since the place opened, and that the beer was better ' +
+        'He says he has been coming here since the place opened, and that the beer was *better* ' +
         'then. He points a finger at the ceiling and waits to see if you will ask.',
       choices: [{text: 'Ask about the ceiling', next: 'ceiling'}, {text: 'Let him be'}],
     },
@@ -109,7 +110,7 @@ const patron = defineDialogueScript<Night>()({
         'was a man with an accordion. I was sitting where you are standing now. Around ten ' +
         'the lamp began to swing, though nobody had touched it, and a little dust came down ' +
         'into the glasses. The landlord looked up and said it was only the people upstairs ' +
-        'moving their beds. Nobody upstairs had moved a bed in thirty years. Then it went, ' +
+        'moving their beds. *Nobody* upstairs had moved a bed in thirty years. Then it went, ' +
         'all at once and without much noise, like snow sliding off a roof. Plaster, laths, a ' +
         'hundred years of dust, and in the middle of it a tin box that somebody had hidden up ' +
         'there long ago. It landed on the counter and broke two glasses. Nobody was hurt. The ' +
