@@ -12,6 +12,7 @@ import {
 } from 'vitest';
 import {page} from 'vitest/browser';
 
+import {type barPicture as barPictureValue} from '../source/game/content/barPicture.js';
 import {samplePlace} from '../source/game/content/samplePlace.js';
 import {getSceneArea} from '../source/game/core/getSceneArea.js';
 import {getSpotPosition} from '../source/game/core/getSpotPosition.js';
@@ -37,6 +38,17 @@ import {
   tap,
   waitForNoStoryWindow,
 } from './nightScreenHelpers.js';
+
+// Headless Chromium draws the bar in software, at about 90 ms a frame, which
+// slows every frame of these tests. They check placement, speed and windows,
+// not the picture's pixels (tests/placePicture.browser.test.ts does), so the
+// place gets the pipeline's proof, a shader of a few lines. The bar's GLSL has
+// its text as its type, so the stub's text is cast to it.
+vitest.mock(import('../source/game/content/barPicture.js'), async () => {
+  let {PROOF_PICTURE} = await import('./proofPicture.js');
+
+  return {barPicture: PROOF_PICTURE as typeof barPictureValue};
+});
 
 const STARTING_STATUS = '19:40   350 Kč   Sober';
 // The thing of the bar's picture that each scene button lies on, in the design

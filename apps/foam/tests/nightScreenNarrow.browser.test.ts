@@ -1,6 +1,7 @@
 import {type Ticker} from 'pixi.js';
 import {afterAll, beforeAll, describe, expect, test, vitest} from 'vitest';
 
+import {type barPicture as barPictureValue} from '../source/game/content/barPicture.js';
 import {stripMarks} from '../source/game/core/markedText.js';
 import {
   bootGame,
@@ -18,6 +19,17 @@ import {
   tap,
   waitForNoStoryWindow,
 } from './nightScreenHelpers.js';
+
+// Headless Chromium draws the bar in software, at about 90 ms a frame, which
+// slows every frame of these tests. They check placement, speed and windows,
+// not the picture's pixels (tests/placePicture.browser.test.ts does), so the
+// place gets the pipeline's proof, a shader of a few lines. The bar's GLSL has
+// its text as its type, so the stub's text is cast to it.
+vitest.mock(import('../source/game/content/barPicture.js'), async () => {
+  let {PROOF_PICTURE} = await import('./proofPicture.js');
+
+  return {barPicture: PROOF_PICTURE as typeof barPictureValue};
+});
 
 // 292 × 524 CSS pixels are 146 × 262 art pixels: headless Chromium has a
 // device pixel ratio of 1, and the engine picks a pixel scale of 2, its
