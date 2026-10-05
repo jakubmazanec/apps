@@ -1,9 +1,12 @@
-import {Button, GameScreen, type Modal, Text} from 'tellurion';
+import * as pixi from 'pixi.js';
+import {Button, Container, GameScreen, type Modal, Text} from 'tellurion';
 
+import {barPicture} from '../content/barPicture.js';
 import {assets} from '../core/assets.js';
 import {audio} from '../core/audio.js';
 import {game} from '../core/game.js';
 import {measureText} from '../core/measureText.js';
+import {palette} from '../core/palette.js';
 import {playFocusSound} from '../core/playFocusSound.js';
 // The mainMenuScreen <-> nightScreen static import cycle is deliberate and
 // safe: each module reads the other's binding only inside a click handler (New
@@ -11,12 +14,15 @@ import {playFocusSound} from '../core/playFocusSound.js';
 // eslint-disable-next-line import/no-cycle -- see comment above: the cycle only resolves inside event handlers, long after both modules evaluate
 import {nightScreen} from './nightScreen.js';
 import {openOptionsModal} from './optionsModal.js';
+import {PlacePicture} from './placePicture.js';
 
 type MainMenuScreenContents = {
   title: Text;
   newGameButton: Button;
   openModal: Modal | null;
   optionsButton: Button;
+  picture: PlacePicture;
+  plate: pixi.Graphics;
 };
 
 // The size is explicit so that the button centres a leaf of known width.
@@ -28,13 +34,20 @@ function labelText(label: string): Text {
   });
 }
 
+function resizePicture(screen: GameScreen<MainMenuScreenContents>): void {
+  screen.contents.picture.resize(
+    game.app.screen.width / game.pixelScale,
+    game.app.screen.height / game.pixelScale,
+  );
+}
+
 export const mainMenuScreen = new GameScreen<MainMenuScreenContents>({
   assetBundles: ['default'],
   onFocusEvent: playFocusSound,
   onAttach: (screen): MainMenuScreenContents => {
-    // The background is the app's black (Game.init). Centering via flex on the
-    // root layout path: the percentages resolve against game.view, so a window
-    // resize is handled for free.
+    // The bar's picture is the background, added in onShow. Centering via flex
+    // on the root layout path: the percentages resolve against game.view, so a
+    // window resize is handled for free.
 
     screen.view.layout = {width: '100%', height: '100%'};
 
@@ -55,7 +68,7 @@ export const mainMenuScreen = new GameScreen<MainMenuScreenContents>({
     let newGameButton = new Button({
       theme: game.theme,
       children: [labelText('New Game')],
-      layout: {width: 96, marginTop: 24},
+      layout: {width: 96, marginTop: 16},
       onClick: () => {
         // showScreen never rejects; a failure lands on the error screen.
         void game.showScreen(nightScreen);
@@ -75,22 +88,52 @@ export const mainMenuScreen = new GameScreen<MainMenuScreenContents>({
         });
       },
     });
+    // The title stands on a black plate, 8 larger than it on every side, so the
+    // picture does not run through the letters. The buttons have their own fill.
+    let plate = new pixi.Graphics();
 
-    // The main menu has no window: the title and the buttons stand on the screen's background.
-    screen.ui.addChild(title, newGameButton, optionsButton);
+    plate.rect(0, 0, 1, 1).fill(palette.black);
+    plate.layout = {position: 'absolute', left: 0, top: 0, width: 112, height: 64};
 
-    return {title, newGameButton, openModal: null, optionsButton};
+    let titleBlock = new Container({
+      children: [plate, title],
+      layout: {width: 112, height: 64, justifyContent: 'center'},
+    });
+
+    // The main menu has no window: the title and the buttons stand on the picture.
+    screen.ui.addChild(titleBlock, newGameButton, optionsButton);
+
+    return {
+      title,
+      newGameButton,
+      openModal: null,
+      optionsButton,
+      picture: new PlacePicture({picture: barPicture}),
+      plate,
+    };
   },
-  onShow: () => {
+  onShow: (screen) => {
+    screen.addToView(screen.contents.picture);
+    resizePicture(screen);
+
     // Music is driven by direct mixer calls from the screen. playMusic
     // replaces the current track.
     audio.playMusic(assets.sound('menu-music'));
   },
   onHide: (screen) => {
+    screen.removeFromView(screen.contents.picture);
+
     // Owning-screen teardown rule: synchronous destroy(), never the animated
     // close(), because the scheduler was already cleared before onHide.
     screen.contents.openModal?.destroy();
 
     screen.contents.openModal = null;
+  },
+  onUpdate: (_ticker, screen) => {
+    // The Options window is an overlay.
+    screen.contents.picture.speed = screen.ui.topOverlay === null ? 1 : 0.5;
+  },
+  onResize: (screen) => {
+    resizePicture(screen);
   },
 });
