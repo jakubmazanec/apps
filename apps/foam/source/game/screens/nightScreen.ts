@@ -1,6 +1,6 @@
 import {Button, GameScreen, type Modal, type RunnableDialogueScript, Text} from 'tellurion';
 
-import {samplePlace} from '../content/samplePlace.js';
+import {nightStart} from '../content/nightStart.js';
 import {game} from '../core/game.js';
 import {
   BUTTON_HEIGHT,
@@ -15,7 +15,9 @@ import {getSpotPosition} from '../core/getSpotPosition.js';
 import {input} from '../core/input.js';
 import {measureText} from '../core/measureText.js';
 import {createNight, formatStatus, type Night} from '../core/night.js';
+import {type Place} from '../core/place.js';
 import {playFocusSound} from '../core/playFocusSound.js';
+import {errorScreen} from './errorScreen.js';
 // The nightScreen <-> mainMenuScreen static import cycle is deliberate and
 // safe: each module reads the other's binding only inside a click handler
 // (Quit to menu here, New Game there), long after both modules have evaluated.
@@ -26,17 +28,21 @@ import {openOptionsModal} from './optionsModal.js';
 import {PlacePicture} from './placePicture.js';
 import {StoryWindow} from './storyWindow.js';
 
-// The sample bar's start. Task 5 of the places plan replaces it with `nightStart`.
-const SAMPLE_START = {place: 'train', minutes: 1180, money: 350} as const;
-
 type NightScreenContents = {
+  /** Whether a story window has closed and the screen has not looked at the night since. */
+  hasStoryClosed: boolean;
+
   menuButton: Button;
   menuModal: Modal | null;
   night: Night;
   optionsModal: Modal | null;
-  picture: PlacePicture;
-  placeButton: Button;
+
+  /** The place being shown and its picture and buttons; `null` and empty while none is. */
+  picture: PlacePicture | null;
+  place: Place | null;
+  placeButton: Button | null;
   spotButtons: Button[];
+
   statusText: Text;
   storyWindow: StoryWindow | null;
 };
@@ -44,6 +50,10 @@ type NightScreen = GameScreen<NightScreenContents>;
 
 function getButtonWidth(label: string): number {
   return measureText(label, 'label') + 2 * BUTTON_PADDING_X;
+}
+
+function getPlaceLabel(place: Place): string {
+  return place.shortName ?? place.name;
 }
 
 // A label with an explicit size: a leaf sized by its own bounds is measured
@@ -71,20 +81,20 @@ function writeStatus(screen: NightScreen): void {
 }
 
 function layOut(screen: NightScreen): void {
-  let {picture, spotButtons, statusText, storyWindow} = screen.contents;
+  let {picture, place, spotButtons, statusText, storyWindow} = screen.contents;
   let area = getArea();
 
   // Beside the place button, level with its label, or under it on a narrow
-  // screen.
+  // screen. With no place shown, it takes the place button's spot.
   statusText.view.layout =
     area.width < NARROW_WIDTH ?
       {left: MARGIN, top: MARGIN + BUTTON_HEIGHT + MARGIN}
     : {
-        left: MARGIN + getButtonWidth(samplePlace.name) + MARGIN,
+        left: place === null ? MARGIN : MARGIN + getButtonWidth(getPlaceLabel(place)) + MARGIN,
         top: MARGIN + (BUTTON_HEIGHT - LINE_HEIGHT) / 2,
       };
 
-  for (let [index, spot] of samplePlace.spots.entries()) {
+  for (let [index, spot] of (place?.spots ?? []).entries()) {
     let button = spotButtons[index];
 
     if (button !== undefined) {
@@ -98,7 +108,7 @@ function layOut(screen: NightScreen): void {
     }
   }
 
-  picture.resize(area.width, area.top + area.height);
+  picture?.resize(area.width, area.top + area.height);
   storyWindow?.resize(area);
 }
 
@@ -115,11 +125,115 @@ function openStory(screen: NightScreen, script: RunnableDialogueScript<Night>): 
     onClosed: () => {
       screen.contents.storyWindow = null;
       writeStatus(screen);
+      // The screen looks at the night in its next update (see onUpdate).
+      screen.contents.hasStoryClosed = true;
     },
   });
 
   screen.contents.storyWindow = storyWindow;
   screen.ui.addOverlay(storyWindow);
+}
+
+// Takes the place being shown off the screen. The screen behind is black,
+// which is the game's background colour.
+function leavePlace(screen: NightScreen): void {
+  let {picture, placeButton, spotButtons} = screen.contents;
+  let buttons = placeButton === null ? spotButtons : [placeButton, ...spotButtons];
+
+  screen.ui.removeChild(...buttons);
+
+  for (let button of buttons) {
+    button.destroy();
+  }
+
+  if (picture !== null) {
+    screen.removeFromView(picture);
+    picture.destroy();
+  }
+
+  screen.contents.picture = null;
+  screen.contents.place = null;
+  screen.contents.placeButton = null;
+  screen.contents.spotButtons = [];
+}
+
+// Builds the place's picture and buttons and opens its description. It runs
+// only while no overlay is open, so the buttons go under the windows that
+// open later, and the description is the topmost window.
+function showPlace(screen: NightScreen, place: Place): void {
+  leavePlace(screen);
+
+  // The picture comes first: its constructor throws on a shader that does not
+  // compile, and then nothing else of the place has been built.
+  let picture = new PlacePicture({picture: place.picture});
+
+  screen.addToView(picture);
+  screen.contents.picture = picture;
+
+  let label = getPlaceLabel(place);
+  let placeButton = new Button({
+    theme: game.theme,
+    children: [createLabel(label)],
+    layout: {
+      position: 'absolute',
+      left: MARGIN,
+      top: MARGIN,
+      width: getButtonWidth(label),
+      height: BUTTON_HEIGHT,
+    },
+    onClick: () => {
+      openStory(screen, place.description);
+    },
+  });
+  // layOut() positions the scene buttons.
+  let spotButtons = place.spots.map(
+    (spot) =>
+      new Button({
+        theme: game.theme,
+        children: [createLabel(spot.label)],
+        layout: {
+          position: 'absolute',
+          left: 0,
+          top: 0,
+          width: getButtonWidth(spot.label),
+          height: BUTTON_HEIGHT,
+        },
+        onClick: () => {
+          openStory(screen, spot.script);
+        },
+      }),
+  );
+
+  screen.ui.addChild(placeButton, ...spotButtons);
+  screen.contents.place = place;
+  screen.contents.placeButton = placeButton;
+  screen.contents.spotButtons = spotButtons;
+  layOut(screen);
+  // Showing a place clears a way out that a script chose together with it.
+  screen.contents.night.leaving = null;
+  writeStatus(screen);
+  openStory(screen, place.description);
+}
+
+// Looks at the night once a story window has closed. A script that moved the
+// player shows the new place; a place the night does not have leaves the
+// player where they are.
+function actOnNight(screen: NightScreen): void {
+  let {night, place} = screen.contents;
+
+  if (night.place === place?.id) {
+    return;
+  }
+
+  let nextPlace = nightStart.places[night.place];
+
+  if (nextPlace !== undefined) {
+    showPlace(screen, nextPlace);
+  } else if (place !== null) {
+    // eslint-disable-next-line no-console -- the running game reports a script's unknown place
+    console.warn(`No place "${night.place}"; the night stays in "${place.id}".`);
+    night.place = place.id;
+  }
 }
 
 // The menu also opens above a story window, whose text waits meanwhile. A
@@ -164,20 +278,6 @@ export const nightScreen = new GameScreen<NightScreenContents>({
     screen.view.layout = {width: '100%', height: '100%'};
     screen.ui.view.layout = {width: '100%', height: '100%'};
 
-    let placeButton = new Button({
-      theme: game.theme,
-      children: [createLabel(samplePlace.name)],
-      layout: {
-        position: 'absolute',
-        left: MARGIN,
-        top: MARGIN,
-        width: getButtonWidth(samplePlace.name),
-        height: BUTTON_HEIGHT,
-      },
-      onClick: () => {
-        openStory(screen, samplePlace.description);
-      },
-    });
     // layOut() positions it and writeStatus() sets its text and width.
     let statusText = new Text({
       text: '',
@@ -199,45 +299,39 @@ export const nightScreen = new GameScreen<NightScreenContents>({
         openMenu(screen);
       },
     });
-    // layOut() positions the scene buttons.
-    let spotButtons = samplePlace.spots.map(
-      (spot) =>
-        new Button({
-          theme: game.theme,
-          children: [createLabel(spot.label)],
-          layout: {
-            position: 'absolute',
-            left: 0,
-            top: 0,
-            width: getButtonWidth(spot.label),
-            height: BUTTON_HEIGHT,
-          },
-          onClick: () => {
-            openStory(screen, spot.script);
-          },
-        }),
-    );
 
-    screen.ui.addChild(placeButton, statusText, menuButton, ...spotButtons);
+    // The place's members are built when a place is shown (showPlace).
+    screen.ui.addChild(statusText, menuButton);
 
     return {
+      hasStoryClosed: false,
       menuButton,
       menuModal: null,
-      night: createNight(SAMPLE_START),
+      night: createNight(nightStart),
       optionsModal: null,
-      picture: new PlacePicture({picture: samplePlace.picture}),
-      placeButton,
-      spotButtons,
+      picture: null,
+      place: null,
+      placeButton: null,
+      spotButtons: [],
       statusText,
       storyWindow: null,
     };
   },
+  // A place nightStart lacks is an error, which the error screen shows.
   onShow: (screen) => {
-    screen.contents.night = createNight(SAMPLE_START);
+    let night = createNight(nightStart);
+
+    screen.contents.night = night;
+    screen.contents.hasStoryClosed = false;
     writeStatus(screen);
-    screen.addToView(screen.contents.picture);
-    layOut(screen);
-    openStory(screen, samplePlace.description);
+
+    let place = nightStart.places[night.place];
+
+    if (place === undefined) {
+      throw new Error(`The night starts in "${night.place}", which is not a place!`);
+    }
+
+    showPlace(screen, place);
   },
   onHide: (screen) => {
     // Owning-screen teardown rule: synchronous destroy(), never the animated
@@ -250,12 +344,36 @@ export const nightScreen = new GameScreen<NightScreenContents>({
     screen.contents.optionsModal = null;
     screen.contents.menuModal = null;
     screen.contents.storyWindow = null;
-    screen.removeFromView(screen.contents.picture);
+    leavePlace(screen);
   },
   onUpdate: (ticker, screen) => {
     // The story window, the menu and the Options window are all overlays.
-    screen.contents.picture.speed = screen.ui.topOverlay === null ? 1 : 0.5;
+    if (screen.contents.picture !== null) {
+      screen.contents.picture.speed = screen.ui.topOverlay === null ? 1 : 0.5;
+    }
+
     screen.contents.storyWindow?.update(ticker.deltaMS);
+
+    // The night waits for every overlay to close: Escape in the fade of a
+    // story window opens the menu above the closing window, and a place shown
+    // then would open its description above the menu. A hidden screen does
+    // nothing.
+    if (
+      screen.contents.hasStoryClosed &&
+      screen.state === 'shown' &&
+      screen.ui.topOverlay === null
+    ) {
+      screen.contents.hasStoryClosed = false;
+
+      try {
+        actOnNight(screen);
+      } catch (error) {
+        // A place's picture that does not compile, as the engine does with an
+        // error in a screen's transition. showScreen never rejects.
+        errorScreen.contents.showError(error);
+        void game.showScreen(errorScreen);
+      }
+    }
 
     // The engine has already sent this frame's cancel command to the topmost
     // overlay, which it closed if the overlay declares close: the menu or the

@@ -5,13 +5,18 @@ import {Button, Container, type Focusable, type Game, Panel, Slider, Text} from 
 import {vitest} from 'vitest';
 import {page, userEvent} from 'vitest/browser';
 
-import {samplePlace} from '../source/game/content/samplePlace.js';
+import {nightStart} from '../source/game/content/nightStart.js';
 import {type assets as assetsValue} from '../source/game/core/assets.js';
 import {type measureText as measureTextValue} from '../source/game/core/measureText.js';
+import {type PlaceId} from '../source/game/core/night.js';
+import {type Place} from '../source/game/core/place.js';
+import {type NightStart} from '../source/game/core/travel.js';
 import {type mainMenuScreen as mainMenuScreenValue} from '../source/game/screens/mainMenuScreen.js';
 import {type nightScreen as nightScreenValue} from '../source/game/screens/nightScreen.js';
+import {type PlacePicture} from '../source/game/screens/placePicture.js';
 import {type StoryWindow} from '../source/game/screens/storyWindow.js';
 import Index from '../source/routes/_index.js';
+import {fixedStart} from './fixedWorld.js';
 
 // The page's stylesheet gives the canvas the size of the viewport, as in the
 // running app. Without it the canvas has no height the tests can rely on.
@@ -123,6 +128,44 @@ export async function startNewGame({mainMenuScreen, nightScreen}: Harness): Prom
   await nextFrame();
 }
 
+// Puts the fixed world into nightStart, with the given values over its own,
+// and returns the function that puts the game's own values back. The next
+// New Game starts the night from them.
+export function useFixedWorld(
+  start: Partial<Pick<NightStart, 'minutes' | 'money' | 'place'>> = {},
+): () => void {
+  let own = {...nightStart};
+
+  Object.assign(nightStart, fixedStart, start);
+
+  return () => {
+    Object.assign(nightStart, own);
+  };
+}
+
+// Starts a new night in the given place: quits to the main menu and activates
+// New Game.
+export async function restartAt(harness: Harness, place: PlaceId): Promise<void> {
+  nightStart.place = place;
+  await harness.game.showScreen(harness.mainMenuScreen);
+  await startNewGame(harness);
+}
+
+// The screen changes the place in its next frame after a story window has
+// closed, so the change is awaited.
+export async function waitForPlace({nightScreen}: Harness, place: PlaceId): Promise<void> {
+  await vitest.waitFor(
+    () => {
+      let shown = nightScreen.contents.place?.id ?? 'no place';
+
+      if (shown !== place) {
+        throw new Error(`The night screen shows "${shown}", not "${place}".`);
+      }
+    },
+    {timeout: 10_000},
+  );
+}
+
 // Text has no getter for its string, so the tests read the BitmapText inside.
 export function readText(text: Text): string {
   let [content] = text.view.children;
@@ -187,9 +230,9 @@ export async function tap({game}: Harness, box: Box): Promise<void> {
   await nextFrame();
 }
 
-export function getSpotButton({nightScreen}: Harness, label: string): Button {
-  let index = samplePlace.spots.findIndex((spot) => spot.label === label);
-  let button = nightScreen.contents.spotButtons[index];
+export function getSpotButton(harness: Harness, label: string): Button {
+  let index = getPlace(harness).spots.findIndex((spot) => spot.label === label);
+  let button = harness.nightScreen.contents.spotButtons[index];
 
   if (button === undefined) {
     throw new Error(`The scene has no "${label}" button!`);
@@ -239,6 +282,37 @@ export function getStoryWindow({nightScreen}: Harness): StoryWindow {
   }
 
   return storyWindow;
+}
+
+// The place members are null while no place is shown.
+export function getPlace({nightScreen}: Harness): Place {
+  let {place} = nightScreen.contents;
+
+  if (place === null) {
+    throw new Error('No place is shown!');
+  }
+
+  return place;
+}
+
+export function getPlaceButton({nightScreen}: Harness): Button {
+  let {placeButton} = nightScreen.contents;
+
+  if (placeButton === null) {
+    throw new Error('The screen has no place button!');
+  }
+
+  return placeButton;
+}
+
+export function getPicture({nightScreen}: Harness): PlacePicture {
+  let {picture} = nightScreen.contents;
+
+  if (picture === null) {
+    throw new Error('The screen has no picture!');
+  }
+
+  return picture;
 }
 
 // A window closes after a 200 ms fade, so closing is awaited.
@@ -347,6 +421,26 @@ export async function readPages(storyWindow: StoryWindow, onPage?: () => void): 
     }
 
     // Turns the page: typing goes on from the page end.
+    await press('Enter');
+  }
+}
+
+// Whether a press shows more of the text: the runner is typing, or waits at a
+// break inside its page.
+function hasTextLeft({dialogue}: StoryWindow): boolean {
+  return (
+    dialogue.phase === 'revealing' ||
+    (dialogue.phase === 'idle' && dialogue.revealedCount < dialogue.pageText.length)
+  );
+}
+
+// Presses Enter through the text up to its last press: it stops with the
+// node's choices offered, or with the whole page shown and the window waiting
+// for the press that closes it. That press is left to the test: once the
+// window has closed, the focus is back on the button that opened it, and one
+// more press would open the window again.
+export async function pressThrough(storyWindow: StoryWindow): Promise<void> {
+  for (let count = 0; count < 40 && hasTextLeft(storyWindow); count += 1) {
     await press('Enter');
   }
 }

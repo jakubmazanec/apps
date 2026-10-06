@@ -504,7 +504,7 @@ describe('main menu', () => {
     expect(hasPicture(view)).toBe(false);
   });
 
-  // Last in the file: it leaves the night screen shown.
+  // It leaves the night screen shown, for the test after it.
   test('a new game takes the picture off the main menu, and a frame draws nothing into it', async () => {
     let {newGameButton, picture} = mainMenuScreen.contents;
     let [sprite] = picture.view.children;
@@ -546,5 +546,20 @@ describe('main menu', () => {
     } finally {
       render.mockRestore();
     }
+  });
+
+  // The game's own content: the night starts in the train. The id, not a
+  // sentence, so the test holds when the text is written.
+  test('New Game shows the night screen in the train', async () => {
+    let {nightScreen} = await import('../source/game/screens/nightScreen.js');
+
+    await vitest.waitFor(
+      () => {
+        expect(nightScreen.state).toBe('shown');
+      },
+      {timeout: 10_000},
+    );
+
+    expect(nightScreen.contents.place?.id).toBe('train');
   });
 });
