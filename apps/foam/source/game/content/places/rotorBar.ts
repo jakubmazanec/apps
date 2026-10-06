@@ -76,8 +76,8 @@ export const rotorBar: Place = {
   picture: barPicture,
   spots: [
     {label: BAR, x: 0.22, y: 0.51, script: bar},
-    {label: SMOKERS, x: 0.14, y: 0.93, script: smokers},
     {label: TABLE, x: 0.7, y: 0.84, script: table},
+    {label: SMOKERS, x: 0.14, y: 0.93, script: smokers},
     {label: DOOR, x: 0.91, y: 0.4, script: door},
   ],
 };
