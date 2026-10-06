@@ -53,6 +53,15 @@ describe(splitMarked, () => {
     }
   });
 
+  test('gives both results one character for each UTF-16 unit of an emoji', () => {
+    let text = 'a😀*b*';
+    let {regular, italic} = splitMarked(text, 0, text.length);
+    let expected = stripMarks(text).length;
+
+    expect(regular).toHaveLength(expected);
+    expect(italic).toHaveLength(expected);
+  });
+
   test('makes everything after the last of an odd number of marks italic', () => {
     expect(splitMarked('a *bc d', 0, 7)).toEqual({regular: 'a     ', italic: '  bc d'});
   });
