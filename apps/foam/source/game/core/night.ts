@@ -1,3 +1,14 @@
+export type PlaceId =
+  | 'hlavniNadrazi'
+  | 'malinovskehoNamesti'
+  | 'namestiRepubliky'
+  | 'rotorBar'
+  | 'train'
+  | 'whiskyShop'
+  | 'zidenice';
+
+export type Way = 'taxi' | 'tram' | 'walk';
+
 export type Night = {
   /** Minutes since midnight; 19:40 is 1180. */
   minutes: number;
@@ -7,14 +18,25 @@ export type Night = {
 
   /** State of mind, shown as written. */
   stateOfMind: string;
+
+  /** The place the player is in. */
+  place: PlaceId;
+
+  /** Set by a way out: the way the player picked, and the ways that way out offers. */
+  leaving: {way: Way; ways: readonly Way[]} | null;
 };
 
 const MINUTES_PER_HOUR = 60;
 const MINUTES_PER_DAY = 1440;
 
-// Sample values: the hours of the night are decided in phases 4 and 5.
-export function createNight(): Night {
-  return {minutes: 1180, money: 350, stateOfMind: 'Sober'};
+export function createNight(start: {place: PlaceId; minutes: number; money: number}): Night {
+  return {
+    minutes: start.minutes,
+    money: start.money,
+    stateOfMind: 'Sober',
+    place: start.place,
+    leaving: null,
+  };
 }
 
 export function formatStatus(night: Night): string {
