@@ -2,6 +2,7 @@ export type DialogueChoice<TContext, TNodeId extends string> = {
   text: string;
   next?: DialogueNode<TContext, TNodeId> | TNodeId; // absent = choosing ends the dialogue
   isVisible?: (context: TContext) => boolean; // evaluated once on node entry
+  onChoose?: (context: TContext) => void; // effects; runs when taken, before next is followed
 };
 
 export type DialogueNode<TContext, TNodeId extends string> = {

@@ -2,6 +2,7 @@ import {LayoutSystem} from '@pixi/layout';
 import * as pixi from 'pixi.js';
 import {beforeAll, beforeEach, describe, expect, test, vitest} from 'vitest';
 
+import {Dialogue} from '../source/dialogue/Dialogue.js';
 import {wrapText} from '../source/dialogue/wrapText.js';
 import {type Focusable} from '../source/ui/Focusable.js';
 import {type UiParent} from '../source/ui/UiChild.js';
@@ -508,5 +509,32 @@ describe('DialogueBox focus integration', () => {
     ui.focusNext();
 
     expect(ui.focused).toBe(outside);
+  });
+
+  test('a choice confirmed in the box runs its onChoose through the runner', async () => {
+    let {ui} = await createUiWithOutsideButton();
+    let onChoose = vitest.fn<() => void>();
+    let dialogue = new Dialogue({
+      script: {start: {text: 'Q', choices: [{text: 'Yes', onChoose}, {text: 'No'}]}},
+      context: {},
+    });
+    let {box} = createBox({
+      onChooseTap: (index) => {
+        dialogue.choose(index);
+      },
+    });
+
+    box.resize(10, 100);
+    ui.addOverlay(box);
+    box.showNode({page: dialogue.pageText});
+    dialogue.advance();
+    box.setChoices(
+      dialogue.visibleChoices.map((choice) => choice.text),
+      dialogue.selectedIndex,
+    );
+    ui.activate();
+
+    expect(onChoose).toHaveBeenCalledTimes(1);
+    expect(dialogue.phase).toBe('ended');
   });
 });

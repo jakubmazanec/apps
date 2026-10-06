@@ -167,6 +167,8 @@ export class Dialogue<TContext = unknown> {
       return;
     }
 
+    choice.onChoose?.(this.#context);
+
     if (choice.next === undefined) {
       this.#end();
     } else {

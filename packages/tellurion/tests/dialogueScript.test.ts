@@ -19,6 +19,12 @@ describe(defineDialogueScript, () => {
               text: 'Maybe later.',
               next: {speaker: 'Mira', portrait: 'mira', text: 'Suit yourself.'},
             },
+            {
+              text: 'I know the way.',
+              onChoose: (context) => {
+                context.metMira = true;
+              },
+            },
           ],
         },
         tour: {
