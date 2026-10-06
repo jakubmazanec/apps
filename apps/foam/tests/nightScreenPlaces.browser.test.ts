@@ -1,11 +1,14 @@
-import {type Button} from 'tellurion';
+import {Button, type Modal, Panel} from 'tellurion';
 import {afterAll, beforeAll, describe, expect, type MockInstance, test, vitest} from 'vitest';
+import {page} from 'vitest/browser';
 
 import {type barPicture as barPictureValue} from '../source/game/content/pictures/barPicture.js';
 import {getSceneArea} from '../source/game/core/getSceneArea.js';
 import {getSpotPosition} from '../source/game/core/getSpotPosition.js';
+import {type PlaceId} from '../source/game/core/night.js';
 import {type PlacePicture} from '../source/game/screens/placePicture.js';
 import {type StoryWindow} from '../source/game/screens/storyWindow.js';
+import {type TravelWindow} from '../source/game/screens/travelWindow.js';
 import {FIXED_BAR, FIXED_SQUARE, FIXED_STOP, getFixedPlace} from './fixedWorld.js';
 import {
   bootGame,
@@ -17,16 +20,47 @@ import {
   getPlaceButton,
   getSpotButton,
   getStoryWindow,
+  getTravelParts,
+  getWindowParts,
   type Harness,
   nextFrame,
   press,
   pressThrough,
+  readText,
   restartAt,
   startNewGame,
   useFixedWorld,
   waitForNoStoryWindow,
   waitForPlace,
 } from './nightScreenHelpers.js';
+
+// The menu is a Modal holding one Panel: the title, then the buttons Resume,
+// Options and Quit to menu.
+function getMenuButton(menu: Modal, label: string): Button {
+  let [panel] = menu.children;
+
+  if (!(panel instanceof Panel)) {
+    throw new TypeError('The menu has no panel!');
+  }
+
+  let button = panel.children.find(
+    (child) => child instanceof Button && getButtonLabel(child) === label,
+  );
+
+  if (!(button instanceof Button)) {
+    throw new TypeError(`The menu has no "${label}" button!`);
+  }
+
+  return button;
+}
+
+// Presses Enter until the text has ended; the last press closes the window.
+// The game's own journey is one node, but its text can run to a second page.
+async function endStory(storyWindow: StoryWindow): Promise<void> {
+  for (let count = 0; count < 40 && storyWindow.dialogue.phase !== 'ended'; count += 1) {
+    await press('Enter');
+  }
+}
 
 // Headless Chromium draws the bar in software, at about 90 ms a frame, which
 // slows every frame of these tests. They check places, buttons and windows,
@@ -65,6 +99,114 @@ describe('night screen places', {timeout: 180_000}, () => {
     await pressThrough(getStoryWindow(harness));
     await press('Enter');
     await waitForNoStoryWindow(harness);
+  }
+
+  // Opens the square's way out and picks one of its choices.
+  async function chooseWayOut(label: string): Promise<void> {
+    let storyWindow = await openSpot('The street');
+
+    await pressThrough(storyWindow);
+
+    let choice = getWindowParts(storyWindow).buttons.find(
+      (button) => getButtonLabel(button) === label,
+    );
+
+    if (choice === undefined) {
+      throw new Error(`The way out has no "${label}" choice!`);
+    }
+
+    harness.nightScreen.ui.focus(choice);
+    await press('Enter');
+  }
+
+  // The screen opens the travel window in its next frame after the way out's
+  // window has closed.
+  async function waitForTravelWindow(): Promise<TravelWindow> {
+    return vitest.waitFor(
+      () => {
+        let {travelWindow} = harness.nightScreen.contents;
+
+        if (travelWindow === null) {
+          throw new Error('The travel window is not open.');
+        }
+
+        return travelWindow;
+      },
+      {timeout: 10_000},
+    );
+  }
+
+  // The travel window closes after a 200 ms fade, so closing is awaited.
+  async function waitForNoTravelWindow(): Promise<void> {
+    await vitest.waitFor(
+      () => {
+        if (harness.nightScreen.contents.travelWindow !== null) {
+          throw new Error('The travel window is still open.');
+        }
+      },
+      {timeout: 10_000},
+    );
+  }
+
+  // Picks a destination of the travel window by its name, the first label of
+  // its button.
+  async function pickDestination(travelWindow: TravelWindow, name: string): Promise<void> {
+    let button = getTravelParts(travelWindow).destinations.find(
+      (destination) => getButtonLabel(destination) === name,
+    );
+
+    if (button === undefined) {
+      throw new Error(`The travel window has no "${name}" destination!`);
+    }
+
+    harness.nightScreen.ui.focus(button);
+    await press('Enter');
+  }
+
+  // The journey's window opens once the travel window has faded out.
+  async function waitForStoryWindow(): Promise<StoryWindow> {
+    return vitest.waitFor(() => getStoryWindow(harness), {timeout: 10_000});
+  }
+
+  // Leaves the square by a way out's choice and a destination, and returns the
+  // journey's window.
+  async function startJourney(choice: string, destination: string): Promise<StoryWindow> {
+    await chooseWayOut(choice);
+    await pickDestination(await waitForTravelWindow(), destination);
+
+    return waitForStoryWindow();
+  }
+
+  // Sets the viewport and waits for the screen to take its size.
+  async function setViewport(width: number, height: number): Promise<void> {
+    await page.viewport(width, height);
+    await vitest.waitFor(
+      () => {
+        let {screen} = harness.game.app;
+
+        if (screen.width !== width || screen.height !== height) {
+          throw new Error('The screen does not have its new size yet.');
+        }
+      },
+      {timeout: 10_000},
+    );
+  }
+
+  // What hiding the screen leaves: no window, no place, and in the UI only the
+  // status line and Menu. The travel window's modal is destroyed, whether it
+  // closed before or the screen destroyed it.
+  function expectNothingLeft(travelModal: Modal): void {
+    let {contents, ui} = harness.nightScreen;
+
+    expect(contents.travelWindow).toBeNull();
+    expect(contents.storyWindow).toBeNull();
+    expect(contents.place).toBeNull();
+    expect(contents.placeButton).toBeNull();
+    expect(contents.picture).toBeNull();
+    expect(ui.children).toHaveLength(2);
+    expect(ui.children).toContain(contents.statusText);
+    expect(ui.children).toContain(contents.menuButton);
+    expect(travelModal.view.destroyed).toBe(true);
   }
 
   beforeAll(async () => {
@@ -209,6 +351,247 @@ describe('night screen places', {timeout: 180_000}, () => {
     ui.focusNext();
 
     expect(describeFocus(ui.focused)).toBe('The bartender');
+  });
+
+  // The tests from here on start a new night in the square, whose street is a
+  // way out with all three ways.
+  test("a way out's choice opens the travel window on that way", async () => {
+    await restartAt(harness, FIXED_SQUARE);
+    await closeStory();
+    await chooseWayOut('Take the tram');
+
+    let travelWindow = await waitForTravelWindow();
+
+    expect(travelWindow.way).toBe('tram');
+    expect(harness.nightScreen.contents.night.leaving).toBeNull();
+  });
+
+  test('Stay closes the way out and opens nothing', async () => {
+    let {contents} = harness.nightScreen;
+
+    await restartAt(harness, FIXED_SQUARE);
+    await closeStory();
+
+    let nightBefore = {...contents.night};
+
+    await chooseWayOut('Stay');
+    await waitForNoStoryWindow(harness);
+    await nextFrame();
+    await nextFrame();
+
+    expect(contents.travelWindow).toBeNull();
+    expect(contents.night).toEqual(nightBefore);
+  });
+
+  test('Escape closes the travel window and nothing has changed', async () => {
+    let {contents} = harness.nightScreen;
+
+    await restartAt(harness, FIXED_SQUARE);
+    await closeStory();
+
+    let nightBefore = {...contents.night};
+    let buttonsBefore = [...contents.spotButtons];
+
+    await chooseWayOut('Walk');
+    await waitForTravelWindow();
+    await press('Escape');
+    await waitForNoTravelWindow();
+
+    expect(contents.night).toEqual(nightBefore);
+    expect(contents.spotButtons).toHaveLength(buttonsBefore.length);
+    expect(contents.spotButtons.every((button, index) => button === buttonsBefore[index])).toBe(
+      true,
+    );
+    // The travel window declares close, so Escape closed it and opened no menu.
+    expect(contents.menuModal).toBeNull();
+  });
+
+  test('a journey, from the door to the arrival', async () => {
+    let {contents, ui} = harness.nightScreen;
+
+    await restartAt(harness, FIXED_SQUARE);
+    await closeStory();
+
+    let oldButtons = [getPlaceButton(harness), ...contents.spotButtons];
+    // A taxi to the bar: 6 minutes and 120 Kč.
+    let storyWindow = await startJourney('Take a taxi', 'The bar');
+
+    expect(readText(contents.statusText)).toBe('19:46   230 Kč   Sober');
+    expect(contents.night.place).toBe(FIXED_BAR);
+    expect(storyWindow.dialogue.node?.speaker).toBe('The taxi');
+    expect(contents.place).toBeNull();
+    expect(contents.placeButton).toBeNull();
+    expect(contents.picture).toBeNull();
+    expect(contents.spotButtons).toHaveLength(0);
+
+    for (let button of oldButtons) {
+      expect(button.view.destroyed).toBe(true);
+      expect(ui.children).not.toContain(button);
+    }
+
+    // The status line takes the place button's spot.
+    await vitest.waitFor(
+      () => {
+        expect(getBox(harness, contents.statusText)).toMatchObject({left: 4, top: 6});
+      },
+      {timeout: 10_000},
+    );
+
+    await endStory(storyWindow);
+    await waitForPlace(harness, FIXED_BAR);
+
+    expect(getStoryWindow(harness).dialogue.node?.speaker).toBe('The bar');
+  });
+
+  // 292 × 524 CSS pixels are 146 × 262 art pixels, the narrowest screen.
+  test('a resize during a journey', async () => {
+    let {contents} = harness.nightScreen;
+
+    await restartAt(harness, FIXED_SQUARE);
+    await closeStory();
+
+    let storyWindow = await startJourney('Walk', 'The bar');
+
+    try {
+      await setViewport(292, 524);
+      // With no place shown, the status line stands under the top row.
+      await vitest.waitFor(
+        () => {
+          expect(getBox(harness, getWindowParts(storyWindow).panel).width).toBe(138);
+          expect(getBox(harness, contents.statusText)).toMatchObject({left: 4, top: 24});
+        },
+        {timeout: 10_000},
+      );
+
+      expect(contents.storyWindow).toBe(storyWindow);
+    } finally {
+      await setViewport(960, 540);
+    }
+
+    // Back in the top row, where the place button would stand.
+    await vitest.waitFor(
+      () => {
+        expect(getBox(harness, contents.statusText)).toMatchObject({left: 4, top: 6});
+      },
+      {timeout: 10_000},
+    );
+  });
+
+  test('a resize with the travel window open lays it out again', async () => {
+    await restartAt(harness, FIXED_SQUARE);
+    await closeStory();
+    await chooseWayOut('Walk');
+
+    let travelWindow = await waitForTravelWindow();
+    let getPanelWidth = () => getBox(harness, getTravelParts(travelWindow).panel).width;
+
+    await vitest.waitFor(
+      () => {
+        expect(getPanelWidth()).toBe(300);
+      },
+      {timeout: 10_000},
+    );
+
+    try {
+      await setViewport(292, 524);
+      await vitest.waitFor(
+        () => {
+          expect(getPanelWidth()).toBe(138);
+        },
+        {timeout: 10_000},
+      );
+    } finally {
+      await setViewport(960, 540);
+    }
+  });
+
+  test('Quit to menu with the travel window open leaves nothing behind', async () => {
+    let {game, mainMenuScreen} = harness;
+
+    await restartAt(harness, FIXED_SQUARE);
+    await closeStory();
+    await chooseWayOut('Walk');
+
+    let travelWindow = await waitForTravelWindow();
+
+    await game.showScreen(mainMenuScreen);
+
+    expect(mainMenuScreen.state).toBe('shown');
+
+    expectNothingLeft(travelWindow.modal);
+  });
+
+  test('Quit to menu during a journey leaves nothing behind', async () => {
+    let {mainMenuScreen, nightScreen} = harness;
+
+    await restartAt(harness, FIXED_SQUARE);
+    await closeStory();
+    await chooseWayOut('Walk');
+
+    let travelWindow = await waitForTravelWindow();
+
+    await pickDestination(travelWindow, 'The bar');
+    await waitForStoryWindow();
+    // The journey's window declares no close, so Escape opens the menu.
+    await press('Escape');
+
+    let menu = nightScreen.contents.menuModal;
+
+    if (menu === null) {
+      throw new Error('The menu did not open!');
+    }
+
+    nightScreen.ui.focus(getMenuButton(menu, 'Quit to menu'));
+    await press('Enter');
+    await vitest.waitFor(
+      () => {
+        expect(mainMenuScreen.state).toBe('shown');
+      },
+      {timeout: 10_000},
+    );
+
+    expectNothingLeft(travelWindow.modal);
+
+    await startNewGame(harness);
+
+    expect(getPlace(harness).id).toBe(FIXED_SQUARE);
+    expect(readText(nightScreen.contents.statusText)).toBe('19:40   350 Kč   Sober');
+  });
+
+  // A journey always ends in a place of nightStart; the night is changed by
+  // hand to reach what cannot happen. The test after it starts from the error
+  // screen.
+  test('a journey that ends in no place shows the error screen', async () => {
+    let {nightScreen} = harness;
+    let {errorScreen} = await import('../source/game/screens/errorScreen.js');
+    // The screen logs the error; the test reads it, and the output stays clean.
+    let consoleError = vitest.spyOn(console, 'error').mockImplementation(() => {});
+
+    try {
+      await restartAt(harness, FIXED_SQUARE);
+      await closeStory();
+
+      let storyWindow = await startJourney('Walk', 'The bar');
+
+      nightScreen.contents.night.place = 'nowhere' as PlaceId;
+      await endStory(storyWindow);
+      await vitest.waitFor(
+        () => {
+          expect(errorScreen.state).toBe('shown');
+        },
+        {timeout: 10_000},
+      );
+
+      let error: unknown = consoleError.mock.calls[0]?.[0];
+
+      expect(consoleError).toHaveBeenCalledTimes(1);
+      expect(error).toBeInstanceOf(Error);
+      expect((error as Error).message).toBe(
+        'The journey ended in "nowhere", which is not a place!',
+      );
+    } finally {
+      consoleError.mockRestore();
+    }
   });
 
   // Last in the file: it leaves the error screen shown.

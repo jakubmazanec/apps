@@ -1,5 +1,6 @@
 import {Button, GameScreen, type Modal, type RunnableDialogueScript, Text} from 'tellurion';
 
+import {journeys} from '../content/journeys.js';
 import {nightStart} from '../content/nightStart.js';
 import {game} from '../core/game.js';
 import {
@@ -14,9 +15,10 @@ import {
 import {getSpotPosition} from '../core/getSpotPosition.js';
 import {input} from '../core/input.js';
 import {measureText} from '../core/measureText.js';
-import {createNight, formatStatus, type Night} from '../core/night.js';
+import {createNight, formatStatus, type Night, type PlaceId} from '../core/night.js';
 import {type Place} from '../core/place.js';
 import {playFocusSound} from '../core/playFocusSound.js';
+import {takeJourney} from '../core/travel.js';
 import {errorScreen} from './errorScreen.js';
 // The nightScreen <-> mainMenuScreen static import cycle is deliberate and
 // safe: each module reads the other's binding only inside a click handler
@@ -27,6 +29,7 @@ import {openMenuModal} from './menuModal.js';
 import {openOptionsModal} from './optionsModal.js';
 import {PlacePicture} from './placePicture.js';
 import {StoryWindow} from './storyWindow.js';
+import {TravelWindow} from './travelWindow.js';
 
 type NightScreenContents = {
   /** Whether a story window has closed and the screen has not looked at the night since. */
@@ -45,6 +48,9 @@ type NightScreenContents = {
 
   statusText: Text;
   storyWindow: StoryWindow | null;
+
+  /** From a way out's choice until its modal has closed. */
+  travelWindow: TravelWindow | null;
 };
 type NightScreen = GameScreen<NightScreenContents>;
 
@@ -81,11 +87,12 @@ function writeStatus(screen: NightScreen): void {
 }
 
 function layOut(screen: NightScreen): void {
-  let {picture, place, spotButtons, statusText, storyWindow} = screen.contents;
+  let {picture, place, spotButtons, statusText, storyWindow, travelWindow} = screen.contents;
   let area = getArea();
 
   // Beside the place button, level with its label, or under it on a narrow
-  // screen. With no place shown, it takes the place button's spot.
+  // screen. With no place shown, a wide screen puts it where the place button
+  // stands.
   statusText.view.layout =
     area.width < NARROW_WIDTH ?
       {left: MARGIN, top: MARGIN + BUTTON_HEIGHT + MARGIN}
@@ -110,6 +117,7 @@ function layOut(screen: NightScreen): void {
 
   picture?.resize(area.width, area.top + area.height);
   storyWindow?.resize(area);
+  travelWindow?.resize(area.width);
 }
 
 function openStory(screen: NightScreen, script: RunnableDialogueScript<Night>): void {
@@ -225,13 +233,54 @@ function showPlace(screen: NightScreen, place: Place): void {
   openStory(screen, place.description);
 }
 
+// Opens the travel window from the place being shown on the way a way out
+// chose. It runs only while no overlay is open, so the window is the topmost.
+function openTravel(
+  screen: NightScreen,
+  from: PlaceId,
+  {way, ways}: NonNullable<Night['leaving']>,
+): void {
+  screen.contents.travelWindow = new TravelWindow({
+    ui: screen.ui,
+    scheduler: screen.scheduler,
+    start: nightStart,
+    from,
+    way,
+    ways,
+    screenWidth: getArea().width,
+    onClosed: (destination) => {
+      screen.contents.travelWindow = null;
+
+      // Back and the cancel command leave the night as it was.
+      if (destination === null) {
+        return;
+      }
+
+      // The modal has left the UI, and nothing could open above it while it
+      // faded, so the journey's window is the topmost. When that window has
+      // closed, actOnNight shows the destination.
+      takeJourney(screen.contents.night, destination);
+      leavePlace(screen);
+      writeStatus(screen);
+      layOut(screen);
+      openStory(screen, journeys[destination.way]);
+    },
+  });
+}
+
 // Looks at the night once a story window has closed. A script that moved the
-// player shows the new place; a place the night does not have leaves the
-// player where they are.
+// player shows the new place, and so does the end of a journey; a place the
+// night does not have leaves the player where they are. A way out that a
+// script chose opens the travel window.
 function actOnNight(screen: NightScreen): void {
   let {night, place} = screen.contents;
 
-  if (night.place === place?.id) {
+  if (place !== null && night.place === place.id) {
+    if (night.leaving !== null) {
+      openTravel(screen, place.id, night.leaving);
+      night.leaving = null;
+    }
+
     return;
   }
 
@@ -239,7 +288,12 @@ function actOnNight(screen: NightScreen): void {
 
   if (nextPlace !== undefined) {
     showPlace(screen, nextPlace);
-  } else if (place !== null) {
+  } else if (place === null) {
+    // Only a journey leaves no place shown, and it ends in a place of
+    // nightStart. The error screen shows the impossible rather than a black
+    // screen with no way on.
+    throw new Error(`The journey ended in "${night.place}", which is not a place!`);
+  } else {
     // eslint-disable-next-line no-console -- the running game reports a script's unknown place
     console.warn(`No place "${night.place}"; the night stays in "${place.id}".`);
     night.place = place.id;
@@ -325,6 +379,7 @@ export const nightScreen = new GameScreen<NightScreenContents>({
       spotButtons: [],
       statusText,
       storyWindow: null,
+      travelWindow: null,
     };
   },
   // A place nightStart lacks is an error, which the error screen shows.
@@ -346,18 +401,22 @@ export const nightScreen = new GameScreen<NightScreenContents>({
   onHide: (screen) => {
     // Owning-screen teardown rule: synchronous destroy(), never the animated
     // close(), because the scheduler was already cleared before onHide. The
-    // topmost window goes first.
+    // topmost window goes first. A destroyed travel window reports no
+    // destination: its onClosed does not fire.
     screen.contents.optionsModal?.destroy();
     screen.contents.menuModal?.destroy();
+    screen.contents.travelWindow?.modal.destroy();
     screen.contents.storyWindow?.destroy();
 
     screen.contents.optionsModal = null;
     screen.contents.menuModal = null;
+    screen.contents.travelWindow = null;
     screen.contents.storyWindow = null;
     leavePlace(screen);
   },
   onUpdate: (ticker, screen) => {
-    // The story window, the menu and the Options window are all overlays.
+    // The story window, the travel window, the menu and the Options window are
+    // all overlays.
     if (screen.contents.picture !== null) {
       screen.contents.picture.speed = screen.ui.topOverlay === null ? 1 : 0.5;
     }
@@ -365,9 +424,9 @@ export const nightScreen = new GameScreen<NightScreenContents>({
     screen.contents.storyWindow?.update(ticker.deltaMS);
 
     // The night waits for every overlay to close: Escape in the fade of a
-    // story window opens the menu above the closing window, and a place shown
-    // then would open its description above the menu. A hidden screen does
-    // nothing.
+    // story window opens the menu above the closing window, and a place's
+    // description or the travel window opened then would lie above the menu.
+    // A hidden screen does nothing.
     if (
       screen.contents.hasStoryClosed &&
       screen.state === 'shown' &&
@@ -378,10 +437,10 @@ export const nightScreen = new GameScreen<NightScreenContents>({
       try {
         actOnNight(screen);
       } catch (error) {
-        // A place's picture that does not compile, handled as the engine
-        // handles an error in a screen's transition: the console keeps the
-        // details, which a production build's error screen does not show.
-        // showScreen never rejects.
+        // A place's picture that does not compile, or a journey that ended in
+        // no place, handled as the engine handles an error in a screen's
+        // transition: the console keeps the details, which a production
+        // build's error screen does not show. showScreen never rejects.
         // eslint-disable-next-line no-console -- the only record of the error in a production build
         console.error(error);
         errorScreen.contents.showError(error);
@@ -390,10 +449,11 @@ export const nightScreen = new GameScreen<NightScreenContents>({
     }
 
     // The engine has already sent this frame's cancel command to the topmost
-    // overlay, which it closed if the overlay declares close: the menu or the
-    // Options window. With no overlay, or with a story window on top, which
-    // declares none, the command opens the menu. focusPressed only reads the
-    // latched state, so reading it again here is safe.
+    // overlay, which it closed if the overlay declares close: the menu, the
+    // Options window or the travel window. With no overlay, or with a story
+    // window on top, a journey's too, which declares none, the command opens
+    // the menu. focusPressed only reads the latched state, so reading it again
+    // here is safe.
     if (input.focusPressed('cancel') && screen.ui.topOverlay?.close === undefined) {
       openMenu(screen);
     }

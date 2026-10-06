@@ -12,8 +12,9 @@ export const input = new GameInput({
     next: {keys: ['Tab']},
     previous: {keys: ['Shift+Tab']},
     activate: {keys: ['Enter', 'Space']},
-    // Closes the menu or the Options window when one is on top. Otherwise, on
-    // the night screen, it opens the menu, also above a story window.
+    // Closes the menu, the Options window or the travel window when one is on
+    // top. Otherwise, on the night screen, it opens the menu, also above a
+    // story window.
     cancel: {keys: ['Escape']},
     increase: {keys: ['Equal', 'PageUp']},
     decrease: {keys: ['Minus', 'PageDown']},
