@@ -15,6 +15,7 @@ import {type mainMenuScreen as mainMenuScreenValue} from '../source/game/screens
 import {type nightScreen as nightScreenValue} from '../source/game/screens/nightScreen.js';
 import {type PlacePicture} from '../source/game/screens/placePicture.js';
 import {type StoryWindow} from '../source/game/screens/storyWindow.js';
+import {type TravelWindow} from '../source/game/screens/travelWindow.js';
 import Index from '../source/routes/_index.js';
 import {fixedStart} from './fixedWorld.js';
 
@@ -384,6 +385,45 @@ export function getWindowParts(storyWindow: StoryWindow): {
     regularLeaf,
     textBlock,
     title: title instanceof Text ? title : null,
+  };
+}
+
+// The travel window's modal holds one Panel. Its children are, in this order:
+// the title block, a Container whose first child is the title Text; the row, a
+// Container of one Button per way; the list, a Container of one Button per
+// destination, each holding the name's Text and then the numbers' Text; and
+// the Back Button.
+export function getTravelParts(travelWindow: TravelWindow): {
+  back: Button;
+  destinations: Button[];
+  panel: Panel;
+  title: Text;
+  ways: Button[];
+} {
+  let [panel] = travelWindow.modal.children;
+
+  if (!(panel instanceof Panel)) {
+    throw new TypeError('The travel window has no panel!');
+  }
+
+  let [titleBlock, row, list, back] = panel.children;
+  let title = titleBlock instanceof Container ? titleBlock.children[0] : undefined;
+
+  if (
+    !(title instanceof Text) ||
+    !(row instanceof Container) ||
+    !(list instanceof Container) ||
+    !(back instanceof Button)
+  ) {
+    throw new TypeError('The travel window has no title, row, list or Back button!');
+  }
+
+  return {
+    back,
+    destinations: list.children.filter((child) => child instanceof Button),
+    panel,
+    title,
+    ways: row.children.filter((child) => child instanceof Button),
   };
 }
 
