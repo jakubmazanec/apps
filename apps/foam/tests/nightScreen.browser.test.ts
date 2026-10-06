@@ -825,6 +825,8 @@ describe('night screen', {timeout: 180_000}, () => {
         minutes: 1190,
         money: 305,
         stateOfMind: 'Sober',
+        place: 'train',
+        leaving: null,
       });
       // The status behind the window follows when the window closes.
       expect(readText(nightScreen.contents.statusText)).toBe(STARTING_STATUS);
