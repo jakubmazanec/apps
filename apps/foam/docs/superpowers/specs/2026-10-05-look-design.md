@@ -137,7 +137,7 @@ Error screen:
 | `source/game/core/assets.ts`                   | Loads `monogram-italic`                                            |
 | `source/game/core/getSceneArea.ts`             | Exports the button's padding                                       |
 | `source/game/core/markedText.ts`               | New. Reads the italic marks                                        |
-| `source/game/screens/windowTitle.ts`           | New. Builds a window's title and its rule                          |
+| `source/game/screens/windowTitle.ts`           | New. Builds a window's title and its rule; the window sizes        |
 | `source/game/screens/storyWindow.ts`           | New sizes, the title block, two text leaves, the cursor            |
 | `source/game/screens/nightScreen.ts`           | Button widths from the new padding; the status in the outline font |
 | `source/game/screens/menuModal.ts`             | Title block, buttons of one width                                  |
@@ -185,17 +185,17 @@ export const palette = {
 ### UI art (`scripts/generate-ui-atlas.mjs`)
 
 The script follows Somewhere's: it builds each frame pixel by pixel from the palette, stacks the
-frames in one sheet with one transparent pixel between them, encodes the sheet with `fast-png`, and
-writes `public/ui.png` and `public/ui.json`. Running it again writes the same bytes. It reads no
-image file: every frame is drawn by the script.
+frames in one sheet with one transparent pixel between them, makes the sheet as wide as its widest
+frame, encodes the sheet with `fast-png`, and writes `public/ui.png` and `public/ui.json`. Running
+it again writes the same bytes. It reads no image file: every frame is drawn by the script.
 
 It imports the colours from `source/game/core/palette.ts`. Node runs a TypeScript file of that kind
 as it is; the repository requires Node 24.
 
 The script has two parts: a function that returns the image bytes and the JSON text, and a few lines
-that write them when the file is run with `node scripts/generate-ui-atlas.mjs`. A test calls the
-function and compares its result with the two files in `public/`, so the committed art cannot differ
-from what the script draws.
+that write them, asynchronously, when the file is run with `node scripts/generate-ui-atlas.mjs`. A
+test calls the function and compares its result with the two files in `public/`, so the committed
+art cannot differ from what the script draws.
 
 | Frame                     | Size   | Nine-slice border | Drawing                                             |
 | ------------------------- | ------ | ----------------- | --------------------------------------------------- |
@@ -254,6 +254,8 @@ choice.
 **`core/markedText.ts`** has two pure functions:
 
 ```ts
+export const MARK = '*';
+
 /** Returns the text without its marks. */
 export function stripMarks(text: string): string;
 
@@ -270,7 +272,9 @@ export function splitMarked(
 ```
 
 `splitMarked` counts the marks before `start` to know whether the piece begins in italic, so a page
-that starts inside an italic passage is right.
+that starts inside an italic passage is right. It steps through the piece by UTF-16 unit, the unit
+`start` and `end` count in, so an emoji, which is two units, gives two characters in both results
+and the two leaves stay aligned.
 
 **In the story window:**
 
@@ -298,6 +302,11 @@ export function createWindowTitle(text: string, width: number): Container;
 It returns a Tellurion `Container` with two children in a column, 2 pixels apart: a `Text` with the
 `rose` fill, `width` wide and 12 high, and a Pixi sprite of the `rule` frame, `width` wide and 1
 high. The block is 15 pixels high. Every window with a title uses it.
+
+The module also holds the sizes every window shares: `WINDOW_PADDING_X` (12), `WINDOW_PADDING_Y`
+(8), `WINDOW_PADDING`, which is the four paddings as a panel's layout takes them, and `TITLE_HEIGHT`
+(15). Every window takes its padding from there, and the story window counts the title block's
+height with `TITLE_HEIGHT`.
 
 ### Layout constants
 
@@ -364,13 +373,13 @@ from, and that the size stays the same for a whole node. What changes:
   top left corner. `#showRevealed` sets both from `splitMarked`.
 - **Choices.** The buttons are as wide as the text and get the new padding, so a label is wrapped to
   the text's width less 12.
-- **Cursor.** The marker sprite uses the `cursor` frame. It no longer sits in the bottom right
-  corner: it sits after the last letter shown. Take the shown text without marks, and drop a line
-  end at its very end: a page that is followed by another ends with one. `line` is then the number
-  of line ends and `column` the number of letters after the last one. The cursor's left top corner
-  is at `column × 6 + 2` and `line × 12 + 2` from the text's left top corner. It blinks as today, on
-  for 500 ms and off for 500 ms, while the runner is idle. A line that is full puts the cursor up to
-  7 pixels past the text, inside the window's padding of 12.
+- **Cursor.** The marker sprite uses the `cursor` frame and sits after the last letter shown. Take
+  the shown text without marks, and drop a line end at its very end: a page that is followed by
+  another ends with one. `line` is then the number of line ends and `column` the number of letters
+  after the last one. The cursor's left top corner is at `column × 6 + 2` and `line × 12 + 2` from
+  the text's left top corner. It blinks as today, on for 500 ms and off for 500 ms, while the runner
+  is idle. A line that is full puts the cursor up to 7 pixels past the text, inside the window's
+  padding of 12.
 - **Press surface.** Unchanged. It covers the text and, for a node without choices, the rest of the
   window, so a tap on the cursor continues the text.
 
@@ -378,7 +387,7 @@ from, and that the size stays the same for a whole node. What changes:
 
 - Button widths use the padding exported by `getSceneArea.ts`.
 - The status text is created with `fontFamily: 'monogram-outline'`. The labels of buttons are in the
-  plain font, which the theme now gives them.
+  plain font, which the theme gives them.
 - Nothing else changes: the positions of the top row, the scene buttons at their fractions, the
   narrow layout below 240.
 
@@ -461,11 +470,12 @@ The mockups of the brainstorming were drawn by a throwaway script. Five points d
 Unit tests, in Node:
 
 - `markedText`: no marks; one italic word; two; a piece that starts inside italic; a piece that ends
-  inside italic; line ends kept in both results; both results as long as the piece without marks; an
-  odd number of marks.
+  inside italic; line ends kept in both results; both results as long as the piece without marks;
+  one character in both results for each UTF-16 unit of an emoji; an odd number of marks.
 - The UI atlas: the function's image bytes and JSON text equal `public/ui.png` and `public/ui.json`;
   two calls give the same bytes; every frame the theme names exists in the JSON; every frame lies
-  inside the image and no two overlap.
+  inside the image and no two overlap; every frame's borders fit inside it; every opaque pixel is a
+  colour of the palette.
 - The sample place: every text has an even number of marks.
 - `getSceneArea`, `getSpotPosition`, `getPageBreaks`, `night`: unchanged.
 
@@ -473,7 +483,7 @@ Browser tests, changed:
 
 - **The helper `getWindowParts`** in `tests/nightScreenHelpers.tsx` finds the title and the text
   among the panel's direct `Text` children and takes the first `Container` as the button area. The
-  title now lies in the title block and the text in a container of two leaves, so the helper is
+  title lies in the title block and the text in a container of two leaves, so the helper is
   rewritten. It returns both leaves and the cursor. Every story window test goes through it.
 - **Numbers that come from the paddings** are computed again. The known ones:
   - a scene button's width is its label plus 12, where the tests add 4;

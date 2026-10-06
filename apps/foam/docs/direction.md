@@ -103,11 +103,11 @@ Where things are written down:
 
 ### Basic UI
 
-| #   | Phase       | When it is done                                                                                                                                                                                                                                                                                                                    | Leans on                                                                                               |
-| --- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| 1   | Menus       | Foam boots on Tellurion to a main menu with options, menu music and UI sounds. New Game is shown but disabled. UI art, music and sounds are copies of Somewhere's files for now; the font is Somewhere's monogram.                                                                                                                 | Somewhere's boot route, `core/` modules, main menu and error screen                                    |
-| 2   | Game screen | New game opens the screen a night is played on: a full-screen background with freely placed buttons, a window that types out the description of the place and each button's text and options, the status (time, money, state of mind), and a menu with Resume, Options and Quit to menu. It shows sample content only.             | Tellurion's `Dialogue` runner, `Modal`, `Panel`, `Text` and `Button`; Somewhere's pause flow           |
-| 3   | UI art      | The menu and the game screen have Foam's own look: colours, windows, buttons and controls, and one moving picture of a place, drawn by code. The font stays monogram, and its italic version comes into use. A phone held upright shows about 32 letters across.                                                                   | Tellurion's UI theme, which reads its art from one spriteset; Somewhere's script that draws its UI art |
+| #   | Phase       | When it is done                                                                                                                                                                                                                                                                                                        | Leans on                                                                                               |
+| --- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| 1   | Menus       | Foam boots on Tellurion to a main menu with options, menu music and UI sounds. New Game is shown but disabled. UI art, music and sounds are copies of Somewhere's files for now; the font is Somewhere's monogram.                                                                                                     | Somewhere's boot route, `core/` modules, main menu and error screen                                    |
+| 2   | Game screen | New game opens the screen a night is played on: a full-screen background with freely placed buttons, a window that types out the description of the place and each button's text and options, the status (time, money, state of mind), and a menu with Resume, Options and Quit to menu. It shows sample content only. | Tellurion's `Dialogue` runner, `Modal`, `Panel`, `Text` and `Button`; Somewhere's pause flow           |
+| 3   | UI art      | The menu and the game screen have Foam's own look: colours, windows, buttons and controls, and one moving picture of a place, drawn by code. The font stays monogram, and its italic version comes into use. A phone held upright shows about 32 letters across.                                                       | Tellurion's UI theme, which reads its art from one spriteset; Somewhere's script that draws its UI art |
 
 Phase 1 is built: [spec](superpowers/specs/2026-10-03-menus-design.md),
 [plan](superpowers/plans/2026-10-04-menus.md).
@@ -145,7 +145,7 @@ art pixels, and loaded sideways and then turned upright, it keeps scale 4 and sh
 are usable. The scale does not follow a screen that changes, and a reload gives the scale of the new
 position.
 
-The review of phase 2 changed how the game screen is used. The changes are built:
+The story window and the menu work as follows. This is built:
 [spec](superpowers/specs/2026-10-04-story-window-controls-design.md).
 
 - The story window has no Continue button. A tap on the window above the choices, or Enter or Space,
@@ -160,7 +160,7 @@ The review of phase 2 changed how the game screen is used. The changes are built
   it, as Somewhere's pause menu opens above its dialogue box.
 - A menu's default button shows the focus ring when the menu opens, whatever opened it. After that
   the ring follows the rule it follows everywhere: a pointer press hides it, and a focus key shows
-  it again. The menu's Resume button is marked this way. It needed a Tellurion addition:
+  it again. The menu's Resume button is marked this way. It uses a Tellurion addition:
   [spec](../../../docs/superpowers/specs/2026-10-04-ui-overlay-initial-focus-design.md).
 
 ### The game

@@ -47,7 +47,7 @@ an upright phone: about 33 letters across.
   exported.
 - **Nothing else in the engine changes.** `Game` still chooses the scale once, when it is
   constructed, from the size of the browser window. The one line of `Game` that calls the helper
-  passes the width as well, because the helper now needs it.
+  passes the width as well, because the helper needs it.
 
 Rejected:
 
@@ -60,28 +60,29 @@ Rejected:
   instead.
 - A function option, such as `getPixelScale: (width, height) => number`. Every game would write the
   rounding and the limits itself.
-- A helper that reads the width from `window` itself, so that its call would not change. It would no
-  longer be a function of its arguments, and its unit tests run without a window.
+- A helper that reads the width from `window` itself, so that its call would not change. It would
+  depend on more than its arguments, and its unit tests run without a window.
 
 ## Engine
 
 ### `source/app/getPixelScale.ts`
 
 ```ts
-// The screen shows about this many art pixels across and about this many down,
-// or more in one of the two directions.
+// The screen shows about this many art pixels across and about this many down, or more in one of
+// the two directions.
 const TARGET_WIDTH = 200;
 const TARGET_HEIGHT = 270;
 
 /**
- * Returns how many device pixels one art pixel covers on a screen of the given
- * size in device pixels: the smaller of what the width and the height allow.
- * 1920 × 1080 gives 4, and a phone held upright at 1170 × 2100 gives 6.
+ * Integer scale that turns art pixels into device pixels, from the screen size in device pixels.
+ * Whichever of the two directions fits fewer times decides, so a 1920 × 1080 screen gives 4 and an
+ * upright phone at 1170 × 2100 gives 6. The result is kept between 2 and 8.
  */
 export function getPixelScale(width: number, height: number) {
-  let scale = Math.round(Math.min(width / TARGET_WIDTH, height / TARGET_HEIGHT));
-
-  return Math.min(8, Math.max(2, scale));
+  return Math.min(
+    8,
+    Math.max(2, Math.round(Math.min(width / TARGET_WIDTH, height / TARGET_HEIGHT))),
+  );
 }
 ```
 
@@ -132,10 +133,12 @@ Both are usable, and a reload gives the scale of the new position.
 
 ## Games
 
-- **Somewhere.** No file under `apps/somewhere` changes. On an upright phone its scale is 5 or 6
-  where it was 8: the camera shows more of the map, and sprites and text are smaller. Its dialogue
-  box collapses below 200 art pixels of width (`collapseWidth` in `dialogueBoxSystem.ts`), so it is
-  collapsed at 195 and not at 216. On every screen that is wider than tall nothing changes.
+- **Somewhere.** The comment above the wrap width in `source/game/screens/errorScreen.ts` says that
+  the error window, 144 art pixels wide, fits an upright phone, which is about 180 to 216 art pixels
+  wide under this rule. No other file under `apps/somewhere` changes. On an upright phone its scale
+  is 5 or 6 where it was 8: the camera shows more of the map, and sprites and text are smaller. Its
+  dialogue box collapses below 200 art pixels of width (`collapseWidth` in `dialogueBoxSystem.ts`),
+  so it is collapsed at 195 and not at 216. On every screen that is wider than tall nothing changes.
 - **Foam.** No file under `apps/foam` changes. On an upright phone it shows 30 to 36 letters across
   where it showed about 24. Three comments in Foam describe the old rule; Foam's
   [look spec](../../../apps/foam/docs/superpowers/specs/2026-10-05-look-design.md) rewords them,
@@ -161,17 +164,16 @@ Both are usable, and a reload gives the scale of the new position.
 
 `packages/tellurion/tests/Game.browser.test.ts`:
 
-- "init derives pixelScale from the device-px viewport height" compares with `getPixelScale` called
-  with both sizes of the window, and its name says "size" instead of "height".
+- "init derives pixelScale from the device-px viewport size" compares with `getPixelScale` called
+  with both sizes of the window.
 - The "Game scaled root" block pins `window.innerHeight` to 1080 to get scale 4. It also pins
-  `window.innerWidth` to 1920, because the width now counts: the test browser's own window is 414
-  wide, which would give 2. The comment above the block is reworded to say so. The tests inside the
-  block keep their expectations, including the layout of 200 × 150 art pixels for an element of 800
-  × 600.
+  `window.innerWidth` to 1920, because the width counts too: the test browser's own window is 414
+  wide, which would give 2. The comment above the block says so. The tests inside the block keep
+  their expectations, including the layout of 200 × 150 art pixels for an element of 800 × 600.
 
-Two comments in the engine's tests describe the old rule and are reworded:
-`DialogueBoxLayout.browser.test.ts` and `DialogueBoxReveal.browser.test.ts` call 135 art pixels "a
-Pixel-class phone at pixelScale 8". It becomes "a screen 135 art pixels wide".
+Two comments in the engine's tests, in `DialogueBoxLayout.browser.test.ts` and
+`DialogueBoxReveal.browser.test.ts`, call 135 art pixels "a screen 135 art px wide", which holds
+under any scale rule.
 
 The engine's other browser tests, and those of Foam that set no size, run at the test browser's
 default of 414 × 896, where the scale changes from 3 to 2. No assertion was found in them that
@@ -199,4 +201,4 @@ Checks in the running games, by the author:
   `GameInput`.
 - An option that lets a game choose its own numbers or its own rule.
 - A limit other than 2 and 8, or a scale that is not a whole number.
-- Any change under `apps/somewhere` or `apps/foam`.
+- Any change under `apps/somewhere` or `apps/foam` beyond the comments that describe the scale rule.

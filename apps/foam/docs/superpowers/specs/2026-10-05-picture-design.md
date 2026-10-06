@@ -90,6 +90,7 @@ These rules hold for every picture of the game:
   shape that runs into the distance.
 - The checkerboard stays fixed to the screen. A dithered shape that moves makes its dots "swim",
   which is tiring to look at, so movement changes only the brightness under the pattern.
+- A light only adds colour: it never puts black on a pixel.
 - Movement is small and slow.
 
 ### Files
@@ -148,9 +149,11 @@ export class PlacePicture implements Renderable {
 How it works:
 
 1. **A check of the shader.** The constructor compiles and links the picture's vertex and fragment
-   source itself, through the renderer's WebGL context, and throws an error with the compiler's
-   message when that fails. Pixi would only log the failure and draw nothing. The check runs before
-   Pixi sees the shader.
+   source itself, through the renderer's WebGL context, and throws an error that names the stage and
+   carries the compiler's message when that fails: `Picture shader failed to compile (vertex): …`,
+   `Picture shader failed to compile (fragment): …` or `Picture shader failed to link: …`. On a
+   renderer without WebGL 2 it throws `Picture needs WebGL 2!`. Pixi would only log the failure and
+   draw nothing. The check runs before Pixi sees the shader.
 2. **A texture of art size.** The class owns a `RenderTexture` as large as the screen in art pixels,
    rounded up, for example 480 × 270. Its `view` holds one sprite that shows this texture at 0, 0.
    The game scales the sprite up like everything else, and the CRT filter runs over it as over the
@@ -165,7 +168,9 @@ How it works:
    and the sprite shows the texture as it is.
 6. **Resize.** `resize(width, height)` resizes the texture and the mesh and marks the picture for a
    draw.
-7. **Destroy.** `destroy()` destroys the view, the mesh, the shader and the texture.
+7. **Destroy.** `destroy()` destroys the view with its sprite, the mesh, its geometry, the shader
+   and the texture. The shader's program stays, because Pixi shares it between pictures of the same
+   source.
 
 `update` runs from the app's ticker at normal priority, and Pixi renders the stage at low priority,
 so the texture is drawn before the frame that shows it. `update` must not throw: an error there
@@ -189,10 +194,11 @@ number stays exact for any length of play.
 
 ### The shared shader code (`core/pictureShader.ts`)
 
-The module exports GLSL source as strings, and a function that joins it with a place's own GLSL into
-the vertex and fragment source of one shader. Both sources start with `#version 300 es`, and both
-declare high precision for decimal and for whole numbers, so that the hash gives the same result on
-every device.
+The module holds the GLSL every picture shares and exports `createPictureShaderSource`, which joins
+it with a place's own GLSL into the vertex and fragment source of one shader. A place's GLSL defines
+`vec3 picture(ivec2 pixel, vec2 point, float t)`. Both sources start with `#version 300 es`, and
+both declare high precision for decimal and for whole numbers, so that the hash gives the same
+result on every device.
 
 Inputs of every picture:
 
@@ -206,8 +212,12 @@ What it provides to a place's code:
 
 - **The pixel.** The art pixel being drawn, as whole numbers, and its position in the design's own
   coordinates (see Composition).
+- **Inks.** `ink(index)` gives a colour of `uPalette`, and one constant per colour names its index:
+  `INK_BLACK`, `INK_ROSE`, `INK_MINT` and so on, declared from the names in `palette.ts`.
 - **`hash`.** A whole-number hash of a pixel or a cell and a fixed seed. It replaces every random
   number: the picture has no other source of chance, so the same step always gives the same picture.
+  Each shape of a place has a seed of its own, far from the others; the bar's run from 100 to 800 in
+  steps of 100.
 - **`noise`.** Smooth value noise built on `hash`, with a cell size in pixels for each direction.
 - **`tone`.** The one way a colour reaches the screen:
 
@@ -225,6 +235,7 @@ What it provides to a place's code:
 
 - **`glow`.** The brightness of a round light at a distance from its centre:
   `1 / (1 + distance² / radius²)`.
+- **`toScreen`.** The screen pixel of a point of the design (see Composition).
 
 Three ladders are used:
 
@@ -240,7 +251,6 @@ Rules the shared code enforces:
   transparency.
 - The checkerboard never moves. Movement changes the intensity that goes into `tone`.
 - A shape never carries its own dither pattern with it.
-- A light never puts black on a pixel: it only adds colour to what lies under it.
 
 ### Composition (`content/barPicture.ts`)
 
@@ -269,7 +279,7 @@ The shapes, in design coordinates, drawn in this order:
 | Haze               | Left of x 412, between y 26 and 205, above the counter                                                                                     | `DEEP` at a low intensity, only on pixels that are still black. See Movement                                                                                                                  |
 | Lamp cones         | Under each lamp, down to the counter, over the shelf too. The half width is `(y − lamp y) × 0.36 + 2`                                      | `LIGHT`, darker downwards. Jitter 0.5. On the shelf a cone colours only the pixels where x + y is odd, so the bottles show through                                                            |
 | Lamp halos         | Lamps at 104, 50 with radius 8 and a reach of 140; at 240, 54 with radius 6 and a reach of 108; at 334, 58 with radius 4 and a reach of 84 | `LIGHT` by `glow`, where it is above 0.12. A `white` cross through the centre, twice the radius long each way. The halo follows the shelf rule of the cones                                   |
-| Dust               | Inside each cone                                                                                                                           | Single pixels, a quarter of them `white` and the rest `mint`                                                                                                                                  |
+| Dust               | Inside each cone, under the lamp's cross                                                                                                   | Single pixels, a quarter of them `white` and the rest `mint`                                                                                                                                  |
 | Light on the floor | Under the door, from y 176 to 250, widening to the left by 1.3 per row and to the right by 0.25                                            | `LIGHT`, darker downwards. Jitter 0.45                                                                                                                                                        |
 | Door               | From x 418 to 458 and y 70 to 176                                                                                                          | `LIGHT` from noise in cells 40 wide and 6 high. The left and top edges are `white`, the right edge `cyan`. A black bar 2 thick a third of the way down, and a black post 2 wide in the middle |
 | Tables             | Black from their top edge to the bottom of the picture: x 300 to 372 from y 222; x 20 to 118 from y 244; x 196 to 262 from y 252           | Black. Each has a rim line on its top edge, in `rose`, `cyan` and `magenta`                                                                                                                   |
@@ -288,15 +298,15 @@ sketch's random number generator. The shapes and the rules are the same.
 
 A spot's position is a fraction of the scene area, which starts under the top row, and the picture's
 design covers the whole screen. The two differ by the height of the top row, 24 of 270 on a wide
-screen. The positions below are fractions of the scene area, as today, chosen so that each button
-lies on its thing:
+screen. The positions below are fractions of the scene area, chosen so that each button lies on its
+thing:
 
-| Spot              | Thing                                               | x    | y    | Today's x and y |
-| ----------------- | --------------------------------------------------- | ---- | ---- | --------------- |
-| The bartender     | The light of the first lamp, just above the counter | 0.22 | 0.51 | 0.25, 0.2       |
-| Two women talking | The table on the right                              | 0.70 | 0.84 | 0.75, 0.3       |
-| A patron          | The table on the left                               | 0.14 | 0.93 | 0.15, 0.6       |
-| The door          | The door                                            | 0.91 | 0.40 | 0.8, 0.85       |
+| Spot              | Thing                                               | x    | y    | Phase 2's x and y |
+| ----------------- | --------------------------------------------------- | ---- | ---- | ----------------- |
+| The bartender     | The light of the first lamp, just above the counter | 0.22 | 0.51 | 0.25, 0.2         |
+| Two women talking | The table on the right                              | 0.70 | 0.84 | 0.75, 0.3         |
+| A patron          | The table on the left                               | 0.14 | 0.93 | 0.15, 0.6         |
+| The door          | The door                                            | 0.91 | 0.40 | 0.8, 0.85         |
 
 The picture has no people, so a person's button stands where that person would be: the bartender
 behind the counter under the first lamp, and the guests at the tables.
@@ -331,7 +341,7 @@ In the sketch, with all six movements, about 0.5% of the pixels changed from one
 
 - `PlacePicture` replaces `PlaceholderBackground` in the screen's contents: it is created in
   `onAttach` with `samplePlace.picture`, added in `onShow`, removed in `onHide`, and resized in
-  `layOut`, all as the placeholder is today.
+  `layOut` to the size of the screen in art pixels.
 - `onUpdate` sets the speed: `0.5` while `screen.ui.topOverlay` is not `null`, and `1` otherwise.
   The story window, the menu and the options window are all overlays.
 
@@ -339,8 +349,9 @@ In the sketch, with all six movements, about 0.5% of the pixels changed from one
 
 ### Main menu (`screens/mainMenuScreen.ts`)
 
-- The screen creates a `PlacePicture` with the bar's picture, adds it in `onShow`, removes it in
-  `onHide` and resizes it in a new `onResize` hook to the size of the screen in art pixels.
+- The screen creates a `PlacePicture` with the bar's picture in `onAttach`, adds it in `onShow`,
+  removes it in `onHide`, and resizes it to the size of the screen in art pixels in `onShow` and in
+  a new `onResize` hook.
 - A black rectangle lies behind the title, 8 larger than the title on every side, that is 112 × 64.
   The buttons have their own black fill.
 - A new `onUpdate` hook sets the speed by the same rule as on the night screen: `0.5` while the
@@ -368,12 +379,14 @@ That would be a new decision for the author.
 
 ## Error handling
 
-- **The shader does not compile or link.** `PlacePicture` throws in its constructor. The screens
-  create it in `onAttach`, which runs when the game adds its screens at boot, so the page shows its
-  line for a game that could not start. A browser test constructs the bar's picture, so a mistake in
-  the GLSL fails the tests.
-- **The device has no WebGL 2.** GLSL ES 3.00 needs it. The check above fails, with the same result:
-  Foam does not start on such a device. This is a limit of the game.
+- **The shader does not compile or link.** `PlacePicture` throws in its constructor, with a message
+  that names the stage that failed, or the link. The screens create it in `onAttach`, which runs
+  when the game adds its screens at boot, so the boot fails: the page shows its line for a game that
+  could not start, and the console keeps the error. A browser test constructs the bar's picture, so
+  a mistake in the GLSL fails the tests.
+- **The device has no WebGL 2.** GLSL ES 3.00 needs it. The check above throws
+  `Picture needs WebGL 2!`, with the same result: Foam does not start on such a device. This is a
+  limit of the game.
 - **An error in `update`.** There is none to handle: after the constructor, `update` only advances
   the clock and draws.
 - **The WebGL context is lost and restored.** Pixi restores its resources. The texture's content is
@@ -389,37 +402,63 @@ Unit tests, in Node:
 - `getPictureStep`: 0 gives 0; 0.999 / 30 gives 0; 1 / 30 gives 1; 10 seconds give 300.
 - The palette has the six new colours.
 
-Browser tests of `PlacePicture`, which read the texture's pixels back:
+Browser tests of `PlacePicture`, in `tests/placePicture.browser.test.ts`, which read the texture's
+pixels back. The tests of the pipeline draw the proof's shader (`tests/proofPicture.ts`): tone 3 of
+`WARM` everywhere, which is `magenta` on pixels where x + y is even and `rose` where it is odd, and
+a `white` row that moves down one pixel per step.
 
-- The bar's shader compiles and draws, and a picture whose GLSL has a mistake throws in its
-  constructor.
-- At 480 × 270 every pixel is one colour of the palette.
-- More than half of the pixels are black.
-- The centres of the two front lamps are `white` on every step of a minute. The back lamp's centre
-  is `white` on most of them and never on a step on which it flickers.
-- The same step gives the same pixels on a second draw and on a second instance.
-- Two steps a second apart differ.
-- From one step to the next, fewer than 3% of the pixels change, measured over a full passage of the
-  tram.
-- The checkerboard is fixed to the screen: with the proof's shader, which fills the picture with one
-  tone of two inks, a pixel's ink follows from whether its x plus y is even, on every step.
+- The texture is the screen in art pixels, rounded up: 480.5 × 270.2 gives 481 × 271, and a resize
+  to a width of 0 keeps the last size.
+- Every pixel is `magenta`, `rose` or `white`.
+- The checkerboard follows x + y, on step 0 and on the next step.
+- The band moves with the step.
 - `update` draws once per step: frames that stay within one step do not draw, and at speed 0.5 a
   step takes twice as long.
+- A picture whose GLSL has a mistake throws in its constructor, with
+  `Picture shader failed to compile`.
+- `destroy` destroys the texture, the sprite, the mesh, its geometry and its shader, and empties the
+  view.
+
+This file is the only one that draws the bar. A headless browser draws it in software, so the tests
+that draw it many times draw it smaller than 480 × 270. Its tests of the bar:
+
+- The bar's shader compiles and draws.
+- At 480 × 270 every pixel is one colour of the palette.
+- More than half of the pixels are black.
+- At 120 × 68, drawn once in the middle of each seventh of a second of a minute (420 draws), the
+  centres of the two front lamps are `white` in every draw, and the back lamp's centre is `white` in
+  at least 85% of them and not in all. A lamp's centre depends only on the seventh of a second, in
+  which the back lamp's flicker is decided.
+- The same step gives the same pixels on a second draw and on a second instance.
+- Two steps a second apart differ.
+- At 240 × 135, from one step to the next, fewer than 3% of the pixels change, over every step of a
+  passage of the tram.
+- A lamp's light never puts black on the shelf: under the middle lamp's halo, at the shelf's top
+  rows, no pixel where x + y is odd is black.
+- The middle lamp's beam crosses the shelf: between the shelf's black lines, the pixels where x + y
+  is odd are `blue` or `cyan`, and the others keep the shelf, black or dust.
 - `resize` to 195 × 350 gives a texture of that size, and each lamp's centre lies at its fraction of
   the new size.
-- `destroy` frees the texture.
 
-Browser tests of the screens:
+Browser tests of the screens. The test files of the night screen, of the night screen on a narrow
+screen and of the main menu replace the bar's GLSL with the proof's shader, because they check
+placement, speed and windows, not the picture's pixels, and the bar drawn in software would slow
+every frame:
 
 - The night screen's picture fills the screen, under the top row and the buttons.
 - At 480 × 270 the centre of every scene button lies on its thing. At 195 × 350 and at 146 × 262
   every button's box overlaps its thing. No two buttons overlap at any of the three sizes.
 - Its speed is 1 on the scene and 0.5 while a story window, the menu or the options window is open.
-- The main menu shows the picture, and the title's plate lies behind the title and in front of the
-  picture.
+- The main menu shows the picture, full screen and under its UI, and the title's plate, 112 × 64,
+  lies behind the title and in front of the picture.
+- The main menu's picture runs at half speed while the options window is open.
 - The error screen has no picture.
-- The tests of the second spec that were written against the placeholder's bands are rewritten
-  against the picture.
+- A new game takes the picture off the main menu, and a frame afterwards draws nothing into its
+  texture.
+
+A browser test of the boot, `tests/pictureBootFailure.browser.test.tsx`, replaces the bar's GLSL
+with text that is not GLSL: the page shows its line for a game that could not start, there is no
+canvas, and the error in the console says `Picture shader failed to compile`.
 
 Run from the repository root:
 
