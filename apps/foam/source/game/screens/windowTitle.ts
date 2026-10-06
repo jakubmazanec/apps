@@ -43,7 +43,6 @@ export function createWindowTitle(text: string, width: number): Container {
     ],
     layout: {
       flexDirection: 'column',
-      alignItems: 'flex-start',
       gap: TITLE_GAP,
       width,
       height: TITLE_HEIGHT,

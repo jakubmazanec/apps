@@ -33,6 +33,7 @@ import {type Night} from '../core/night.js';
 import {
   createWindowTitle,
   TITLE_HEIGHT,
+  WINDOW_PADDING,
   WINDOW_PADDING_X,
   WINDOW_PADDING_Y,
 } from './windowTitle.js';
@@ -177,14 +178,7 @@ export class StoryWindow implements Overlay {
     this.dialogue = new Dialogue({script, context});
     this.#panel = new Panel({
       theme: game.theme,
-      layout: {
-        flexDirection: 'column',
-        paddingTop: WINDOW_PADDING_Y,
-        paddingBottom: WINDOW_PADDING_Y,
-        paddingLeft: WINDOW_PADDING_X,
-        paddingRight: WINDOW_PADDING_X,
-        gap: WINDOW_GAP,
-      },
+      layout: {flexDirection: 'column', ...WINDOW_PADDING, gap: WINDOW_GAP},
     });
     this.children = [this.#panel];
 

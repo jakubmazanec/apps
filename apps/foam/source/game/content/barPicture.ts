@@ -183,8 +183,8 @@ bool isInCone(Lamp lamp, ivec2 pixel, vec2 point) {
 // The light of one lamp: the brighter of its cone, darker downwards, and its
 // halo, where the halo is above 0.12.
 float getLampLight(Lamp lamp, float power, ivec2 pixel, vec2 point) {
-  float distance = length(vec2(pixel - toScreen(lamp.centre)));
-  float halo = glow(distance, lamp.radius * (0.75 + 0.25 * power));
+  float fromCentre = length(vec2(pixel - toScreen(lamp.centre)));
+  float halo = glow(fromCentre, lamp.radius * (0.75 + 0.25 * power));
   float cone = isInCone(lamp, pixel, point)
     ? (0.8 - 0.55 * (point.y - lamp.centre.y) / lamp.reach) * (0.6 + 0.4 * power)
     : 0.0;

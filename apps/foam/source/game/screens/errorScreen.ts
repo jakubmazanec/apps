@@ -27,11 +27,11 @@ export const errorScreen = new GameScreen<ErrorScreenContents>({
       text: '',
       theme: game.theme,
       role: 'body',
-      // The DEV branch below renders an arbitrary Error.message; unwrapped it
-      // runs off the panel and off the viewport. 120 is the title's width, so
-      // the window is 144 wide (12 px padding either side) and fits a 146-pixel
-      // screen, the narrowest the tests keep. breakWords covers the long unbroken tokens
-      // error messages are full of: urls, module paths, minified identifiers.
+      // The DEV branch below renders an arbitrary Error.message; unwrapped it runs
+      // off the panel and off the viewport. 120 is the title's width, so the window
+      // is 144 wide (12 px padding either side) and fits a 146-pixel screen, the
+      // narrowest the tests keep. breakWords covers the long unbroken tokens error
+      // messages are full of: urls, module paths, minified identifiers.
       wordWrap: true,
       wordWrapWidth: 120,
       breakWords: true,

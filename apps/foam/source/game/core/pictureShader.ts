@@ -125,14 +125,14 @@ vec3 tone(vec3 below, float intensity, Ladder ladder, float jitter) {
     return below;
   }
 
-  // The steps of the ladder are black, lo, hi and top. A tone's lower ink is
-  // step index / 2 and its upper ink step (index + 1) / 2. The palette is
+  // The rungs of the ladder are black, lo, hi and top. A tone's lower ink is
+  // rung index / 2 and its upper ink rung (index + 1) / 2. The palette is
   // looked up once, not in a branch per tone, because a software renderer, as
   // in the tests, runs every branch on every pixel.
   bool isUpper = ((currentPixel.x + currentPixel.y) & 1) == 1;
-  int step = isUpper ? (index + 1) / 2 : index / 2;
+  int rung = isUpper ? (index + 1) / 2 : index / 2;
 
-  return ink(step == 0 ? INK_BLACK : step == 1 ? ladder.lo : step == 2 ? ladder.hi : ladder.top);
+  return ink(rung == 0 ? INK_BLACK : rung == 1 ? ladder.lo : rung == 2 ? ladder.hi : ladder.top);
 }
 
 // The brightness of a round light at a distance from its centre.
