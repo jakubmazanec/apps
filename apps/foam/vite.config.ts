@@ -51,7 +51,11 @@ export default defineConfig(
       },
     },
     {
-      server: {watch: {ignored: ['**/coverage/**']}},
+      server: {
+        watch: {
+          ignored: ['**/coverage/**'],
+        },
+      },
       optimizeDeps: {
         include: [
           '@pixi/layout',
