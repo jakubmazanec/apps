@@ -40,12 +40,12 @@ an upright phone: about 33 letters across.
 
 - **The helper counts the width too.** The scale is the smaller of what the height allows and what
   the width allows: `Math.min(width / 200, height / 270)`, rounded to the nearest whole number and
-  kept between 2 and 8, as today.
+  kept between 2 and 8.
 - **The two numbers live in the helper.** There is no option on `Game` for them. Both games get the
   same rule.
 - **`getPixelScale` takes the width and the height,** in device pixels, in that order. It stays
   exported.
-- **Nothing else in the engine changes.** `Game` still chooses the scale once, when it is
+- **Nothing else in the engine is part of this.** `Game` chooses the scale once, when it is
   constructed, from the size of the browser window. The one line of `Game` that calls the helper
   passes the width as well, because the helper needs it.
 
@@ -53,10 +53,9 @@ Rejected:
 
 - **The scale following the screen** when a window is resized or a phone is turned: a getter in
   place of the field, a setter for `adoptResize`, and the CRT filter's line width following along.
-  The author does not need it. A phone that is turned keeps the scale of its first position, as
-  today.
-- A data option on `Game`, such as `targetSize: {width: 200, height: 270}` with today's rule as the
-  default. It would keep Somewhere's scale as it is on every screen. One fixed rule was chosen
+  The author does not need it. A phone that is turned keeps the scale of its first position.
+- A data option on `Game`, such as `targetSize: {width: 200, height: 270}` with the height-only rule
+  as the default. It would keep Somewhere on the height-only rule. One fixed rule was chosen
   instead.
 - A function option, such as `getPixelScale: (width, height) => number`. Every game would write the
   rounding and the limits itself.
@@ -87,26 +86,28 @@ export function getPixelScale(width: number, height: number) {
 ```
 
 The width decides the scale when `width / 200` is smaller than `height / 270`, that is on a screen
-that is taller than about 4 : 3 held upright. On every wider screen the height decides, as today.
+that is taller than about 4 : 3 held upright. On every wider screen the height decides.
 
-| Screen, in device pixels               | Today | New | Art pixels, new | Letters across, new |
-| -------------------------------------- | ----- | --- | --------------- | ------------------- |
-| Desktop, 1920 × 1080                   | 4     | 4   | 480 × 270       | 80                  |
-| Laptop, 2880 × 1800                    | 7     | 7   | 411 × 257       | 68                  |
-| Laptop, 1366 × 768                     | 3     | 3   | 455 × 256       | 75                  |
-| Phone upright, 1170 × 2100             | 8     | 6   | 195 × 350       | 32                  |
-| Phone upright, 1081 × 2402             | 8     | 5   | 216 × 480       | 36                  |
-| Small phone upright, 720 × 1280        | 5     | 4   | 180 × 320       | 30                  |
-| Phone sideways, 2100 × 1170            | 4     | 4   | 525 × 292       | 87                  |
-| Tablet upright, 1640 × 2360            | 8     | 8   | 205 × 295       | 34                  |
-| A small window, 292 × 524 (Foam tests) | 2     | 2   | 146 × 262       | 24                  |
+The column "Height only" gives the scale under the rule of the Background, for comparison.
 
-The lower limit of 2 still gives fewer than 200 art pixels across in a window narrower than 300
-device pixels. Games keep their layouts for such widths.
+| Screen, in device pixels               | Height only | Scale | Art pixels | Letters across |
+| -------------------------------------- | ----------- | ----- | ---------- | -------------- |
+| Desktop, 1920 × 1080                   | 4           | 4     | 480 × 270  | 80             |
+| Laptop, 2880 × 1800                    | 7           | 7     | 411 × 257  | 68             |
+| Laptop, 1366 × 768                     | 3           | 3     | 455 × 256  | 75             |
+| Phone upright, 1170 × 2100             | 8           | 6     | 195 × 350  | 32             |
+| Phone upright, 1081 × 2402             | 8           | 5     | 216 × 480  | 36             |
+| Small phone upright, 720 × 1280        | 5           | 4     | 180 × 320  | 30             |
+| Phone sideways, 2100 × 1170            | 4           | 4     | 525 × 292  | 87             |
+| Tablet upright, 1640 × 2360            | 8           | 8     | 205 × 295  | 34             |
+| A small window, 292 × 524 (Foam tests) | 2           | 2     | 146 × 262  | 24             |
+
+The lower limit of 2 gives fewer than 200 art pixels across in a window narrower than 300 device
+pixels. Games keep their layouts for such widths.
 
 ### `source/app/Game.ts`
 
-One line changes, the call of the helper:
+The one line that calls the helper:
 
 ```ts
 /** Integer representing how much is the rendering scaled up. */
@@ -116,12 +117,12 @@ readonly pixelScale: number = getPixelScale(
 );
 ```
 
-The field stays `readonly`, and the scale is still chosen once, from the browser window, when `Game`
-is constructed. `init()`, `mount()` and `adoptResize()` do not change.
+The field is `readonly`, and the scale is chosen once, from the browser window, when `Game` is
+constructed. `init()`, `mount()` and `adoptResize()` take no part in it.
 
-### What stays as it is
+### A phone that is turned
 
-A phone that is turned after the page has loaded keeps the scale of its first position. With the new
+A phone that is turned after the page has loaded keeps the scale of its first position. Under this
 rule, on a phone of 1170 × 2100 device pixels:
 
 - loaded upright and then turned sideways, it has scale 6 and shows 350 × 195 art pixels, where the
@@ -136,13 +137,14 @@ Both are usable, and a reload gives the scale of the new position.
 - **Somewhere.** The comment above the wrap width in `source/game/screens/errorScreen.ts` says that
   the error window, 144 art pixels wide, fits an upright phone, which is about 180 to 216 art pixels
   wide under this rule. No other file under `apps/somewhere` changes. On an upright phone its scale
-  is 5 or 6 where it was 8: the camera shows more of the map, and sprites and text are smaller. Its
-  dialogue box collapses below 200 art pixels of width (`collapseWidth` in `dialogueBoxSystem.ts`),
-  so it is collapsed at 195 and not at 216. On every screen that is wider than tall nothing changes.
-- **Foam.** No file under `apps/foam` changes. On an upright phone it shows 30 to 36 letters across
-  where it showed about 24. Three comments in Foam describe the old rule; Foam's
-  [look spec](../../../apps/foam/docs/superpowers/specs/2026-10-05-look-design.md) rewords them,
-  because it changes those files anyway.
+  is 5 or 6, where the height-only rule gives 8: the camera shows more of the map, and sprites and
+  text are smaller. Its dialogue box collapses below 200 art pixels of width (`collapseWidth` in
+  `dialogueBoxSystem.ts`), so it is collapsed at 195 and not at 216. On every screen that is wider
+  than tall both rules give the same scale.
+- **Foam.** No file under `apps/foam` changes. On an upright phone it shows 30 to 36 letters across,
+  where the height-only rule gives about 24. Three comments in Foam state the scale rule; Foam's
+  [look spec](../../../apps/foam/docs/superpowers/specs/2026-10-05-look-design.md) words them for
+  this rule, because it edits those files anyway.
 
 ## Sequencing
 
@@ -176,7 +178,7 @@ Two comments in the engine's tests, in `DialogueBoxLayout.browser.test.ts` and
 under any scale rule.
 
 The engine's other browser tests, and those of Foam that set no size, run at the test browser's
-default of 414 × 896, where the scale changes from 3 to 2. No assertion was found in them that
+default of 414 × 896, where the scale is 2 (3 under the height-only rule). No assertion in them
 depends on the scale. Foam's tests that set a size use 960 × 540 and 292 × 524, which give scale 2
 under both rules.
 

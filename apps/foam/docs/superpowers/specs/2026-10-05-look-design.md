@@ -84,7 +84,7 @@ Night screen:
 
 6. The place button, the Menu button and the scene buttons are black with a border, on the
    placeholder picture, which has three bands in the new colours.
-7. The status line is white with a black outline, as today.
+7. The status line is white with a black outline.
 
 Story window:
 
@@ -109,8 +109,7 @@ Story window:
 8. The title is rose and has a rule under it. A node without a speaker has neither.
 9. The word "better" is in italic.
 10. While a press would continue the text, a rose block blinks after the last letter shown.
-11. The choices are buttons with a border, 4 pixels apart. None is focused when they appear, as
-    today.
+11. The choices are buttons with a border, 4 pixels apart. None is focused when they appear.
 
 Menu and options:
 
@@ -310,31 +309,31 @@ height with `TITLE_HEIGHT`.
 
 ### Layout constants
 
-In art pixels. "Today" is the state after phase 2.
+In art pixels.
 
-| Constant                              | Today          | New                                  |
-| ------------------------------------- | -------------- | ------------------------------------ |
-| Button padding                        | 2 on all sides | 2 above and below, 6 left and right  |
-| Button height, one line               | 16             | 16                                   |
-| Window padding                        | 8 on all sides | 8 above and below, 12 left and right |
-| Title                                 | 12, then 4     | 12, 2, the rule of 1, then 4         |
-| Between the text and the first choice | 4              | 8                                    |
-| Between two buttons in a window       | 2              | 4                                    |
-| Story window width                    | 300 at most    | 300 at most                          |
-| Scrim                                 | Black at 50%   | Black at 60%                         |
-| Slider                                | 32 × 6         | 64 × 8                               |
+| Constant                              | Value                                |
+| ------------------------------------- | ------------------------------------ |
+| Button padding                        | 2 above and below, 6 left and right  |
+| Button height, one line               | 16                                   |
+| Window padding                        | 8 above and below, 12 left and right |
+| Title                                 | 12, 2, the rule of 1, then 4         |
+| Between the text and the first choice | 8                                    |
+| Between two buttons in a window       | 4                                    |
+| Story window width                    | 300 at most                          |
+| Scrim                                 | Black at 60%                         |
+| Slider                                | 64 × 8                               |
 
 What follows from them:
 
 | Screen in art pixels | Letters per line in the story window | Lines per page, with a title and no choices |
 | -------------------- | ------------------------------------ | ------------------------------------------- |
-| 480 × 270            | 46 (47 today)                        | 16 (17 today)                               |
+| 480 × 270            | 46                                   | 16                                          |
 | 195 × 350            | 27                                   | 22                                          |
-| 146 × 262            | 19 (20 today)                        | 14 (15 today)                               |
+| 146 × 262            | 19                                   | 14                                          |
 
-A button is as wide as its label plus 12, where it was plus 4. On a 146-pixel screen the place
-button therefore holds 14 letters where it held 17, and on a 195-pixel screen it holds 22. The
-longest label of the sample place, "Two women talking", makes a button 114 wide, which fits both.
+A button is as wide as its label plus 12. On a 146-pixel screen the place button therefore holds 14
+letters, and on a 195-pixel screen it holds 22. The longest label of the sample place, "Two women
+talking", makes a button 114 wide, which fits both.
 
 Buttons in a window are 4 apart so that the ring of one, which reaches 2 pixels out, does not touch
 the next button.
@@ -358,7 +357,7 @@ The options window is the one thing that does not fit 146: its two side borders 
 Every name, slider and value is on the screen, from 5 to 141. A screen that narrow is a browser
 window under 300 device pixels wide, not a phone, so the window gets no second layout.
 
-A label that is longer than its button allows is neither wrapped nor cut on the scene, as today.
+A label that is longer than its button allows is neither wrapped nor cut on the scene.
 
 ### Story window (`screens/storyWindow.ts`)
 
@@ -377,9 +376,9 @@ from, and that the size stays the same for a whole node. What changes:
   the shown text without marks, and drop a line end at its very end: a page that is followed by
   another ends with one. `line` is then the number of line ends and `column` the number of letters
   after the last one. The cursor's left top corner is at `column × 6 + 2` and `line × 12 + 2` from
-  the text's left top corner. It blinks as today, on for 500 ms and off for 500 ms, while the runner
-  is idle. A line that is full puts the cursor up to 7 pixels past the text, inside the window's
-  padding of 12.
+  the text's left top corner. It blinks on for 500 ms and off for 500 ms, while the runner is idle.
+  A line that is full puts the cursor up to 7 pixels past the text, inside the window's padding
+  of 12.
 - **Press surface.** Unchanged. It covers the text and, for a node without choices, the rest of the
   window, so a tap on the cursor continues the text.
 
@@ -418,15 +417,14 @@ The panel goes. The UI root's view centres a column with three children:
 2. New Game, 24 under the title.
 3. Options, 6 under New Game.
 
-Both buttons are 96 wide, and their labels are centred. The background stays the app's black. The
-third spec puts the picture behind the menu and a black plate behind the title.
+Both buttons are 96 wide, and their labels are centred. The third spec puts the picture behind the
+menu and a black plate behind the title.
 
 ### Error screen (`screens/errorScreen.ts`)
 
 The panel gets the window padding, and `createWindowTitle('Something went wrong', 120)` replaces the
-title text. The message's wrap width becomes 120, the width of the title, where it was 128. The
-window is then 144 wide, as it is today, and fits a screen of 146. The comment that explains the
-wrap width is rewritten for these numbers.
+title text. The message's wrap width is 120, the width of the title. The window is then 144 wide and
+fits a screen of 146. The comment above the wrap width explains these numbers.
 
 ### Placeholder background (`screens/placeholderBackground.ts`)
 
@@ -447,7 +445,7 @@ The mockups of the brainstorming were drawn by a throwaway script. Five points d
   its label, and white text on white cannot be read. A pressed button is therefore a lighter indigo
   fill with a white border, and its label stays white.
 - **A disabled button** was drawn with dim text. The frame dims by itself; the label does not. Foam
-  has no disabled button today. A screen that disables one gives its label the `dim` colour.
+  has no disabled button. A screen that disables one gives its label the `dim` colour.
 - **Spacing** is rounded to steps of 2 and 4: a window's padding is 8 above and below, where the
   mockup had 6 above and 10 below.
 - **The choices** are as wide as the text. In the mockup they reached 4 pixels further out on each
@@ -461,7 +459,7 @@ The mockups of the brainstorming were drawn by a throwaway script. Five points d
   `Game.init()`, and the page shows the line for a game that cannot start. The test that compares
   the script's output with `public/` and the test that checks every name of the theme against
   `ui.json` catch it earlier.
-- **A font file cannot be loaded.** As today: the boot fails with the same line.
+- **A font file cannot be loaded.** The boot fails with the same line.
 - **A text has an odd number of marks.** The rest of the text is italic. Nothing throws.
 - **A text has no marks.** The italic leaf is empty.
 
@@ -477,41 +475,35 @@ Unit tests, in Node:
   inside the image and no two overlap; every frame's borders fit inside it; every opaque pixel is a
   colour of the palette.
 - The sample place: every text has an even number of marks.
-- `getSceneArea`, `getSpotPosition`, `getPageBreaks`, `night`: unchanged.
+- The tests of `getSceneArea`, `getSpotPosition`, `getPageBreaks` and `night`.
 
-Browser tests, changed:
+Browser tests of the parts and sizes:
 
-- **The helper `getWindowParts`** in `tests/nightScreenHelpers.tsx` finds the title and the text
-  among the panel's direct `Text` children and takes the first `Container` as the button area. The
-  title lies in the title block and the text in a container of two leaves, so the helper is
-  rewritten. It returns both leaves and the cursor. Every story window test goes through it.
-- **Numbers that come from the paddings** are computed again. The known ones:
-  - a scene button's width is its label plus 12, where the tests add 4;
-  - a window without a title is shorter by 19, where a test expects 16;
-  - the text is 268 wide at 300 art pixels of screen width, where a test expects 276;
-  - on the narrow screen the text is 114 wide and a choice's label 102, where the tests expect 122
-    and 118;
-  - "pages of at most 17 lines" becomes 16, and on the narrow screen "at most 15 lines" becomes 14.
-- **"the marker shows on the complete page, inside the window":** the cursor lies just after the
-  last letter of the page, inside the window. The test runs on a page that is followed by another,
-  where the shown text ends with a line end, and on a last page.
-- **"a tap on the marker turns the page":** the tap goes to the cursor's new place.
+- **The helper `getWindowParts`** in `tests/nightScreenHelpers.tsx` finds the title in the title
+  block, the text in its container of two leaves, and the buttons. It returns both leaves and the
+  cursor. Every story window test goes through it.
+- **Numbers that come from the paddings:** a scene button's width is its label plus 12; a window
+  without a title is shorter by 19; the text is 268 wide at 300 art pixels of screen width; on the
+  narrow screen the text is 114 wide and a choice's label 102; a page has at most 16 lines, and on
+  the narrow screen at most 14.
+- **The cursor** lies just after the last letter of the complete page, inside the window, on a page
+  that is followed by another, where the shown text ends with a line end, and on a last page.
+- **A tap on the cursor** turns the page.
 - **"no word in the sample place is longer than 16 characters"** counts without marks.
 - Tests that compare the window's text with the sample text compare without marks.
-- The main menu's tests find its buttons without a panel around them.
+- The main menu's tests find its buttons, which have no panel around them.
 - The options window's tests find the sliders in their rows.
 
-Comments, reworded because the first spec changes the engine's scale rule:
+Comments that state the scale rule of the first spec:
 
-- `tests/nightScreenNarrow.browser.test.ts` calls 146 × 262 art pixels "a phone held upright". Under
-  the new rule a phone is about 180 to 240 wide. The comment says that this is a window narrower
-  than any phone, kept as the smallest case.
-- `tests/nightScreenHelpers.tsx` says above `bootGame` that `Game` picks its scale "from the height
-  of the window". It picks it from the width and the height.
-- `source/game/screens/errorScreen.ts` explains its wrap width with "a tall phone bottoms out near
-  147 art px". The section on the error screen above rewrites that comment.
+- `tests/nightScreenNarrow.browser.test.ts` says that a phone held upright is about 180 to 240 art
+  pixels wide, so 146 × 262 is a window narrower than any phone, kept as the smallest case.
+- `tests/nightScreenHelpers.tsx` says above `bootGame` that `Game` picks its scale from the width
+  and the height of the window.
+- `source/game/screens/errorScreen.ts` explains its wrap width as the section on the error screen
+  above says.
 
-Browser tests, new:
+Browser tests of the italic words, the cursor, the ring, the menus and the narrow screen:
 
 - The italic word of the patron's `talk` node is drawn by the italic leaf, and the regular leaf has
   spaces in its place. Its left edge lies where that column of the line starts.
@@ -569,7 +561,7 @@ button holds 17 letters on a phone, which becomes 14 on a screen of 146 and 20 o
   fills with borders, titles inside, and focus as a ring.
 - **Slider.** A thin bar with a handle taller than the bar; a rose fill, which runs together with
   the rose ring; a grey fill.
-- **Main menu.** A window on black, as today; the same window on the picture.
+- **Main menu.** A window on black; the same window on the picture.
 - **Italic.** A whole text in italic, which is tiring over a full page and can be added later for
   the author's voice; italic window titles.
 - **Who makes the art.** The author drawing it by hand; art from an image model, which is ruled out.

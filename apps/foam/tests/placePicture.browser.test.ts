@@ -487,7 +487,7 @@ describe('place picture', {timeout: 60_000}, () => {
     // radius 6), so the faint ring of the lamp's halo reaches the shelf's first rows there.
     // The box covers x 232 to 248 (the halo's reach of 6 pixels around the centre column and
     // some more) and y 70 to 73, far above the shelf's black lines, which start at about y 93.
-    // The old code put black on odd pixels of this box.
+    // It guards against the halo's faintest tone putting black on the shelf's lit pixels.
     test("a lamp's light never puts black on the shelf", () => {
       let pixels = readPixels(createDrawnBar());
       let black: string[] = [];
