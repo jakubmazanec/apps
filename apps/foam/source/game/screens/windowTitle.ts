@@ -3,7 +3,7 @@ import {Container, Text} from 'tellurion';
 
 import {assets} from '../core/assets.js';
 import {game} from '../core/game.js';
-import {LINE_HEIGHT} from '../core/getSceneArea.js';
+import {LINE_HEIGHT, WINDOW_PADDING_X, WINDOW_PADDING_Y} from '../core/getSceneArea.js';
 import {palette} from '../core/palette.js';
 
 // Sizes in art pixels: the line of the title, the gap under it and the rule.
@@ -11,8 +11,6 @@ const TITLE_GAP = 2;
 const RULE_HEIGHT = 1;
 
 // A window's padding in art pixels, shared by every window.
-export const WINDOW_PADDING_X = 12;
-export const WINDOW_PADDING_Y = 8;
 export const WINDOW_PADDING = {
   paddingTop: WINDOW_PADDING_Y,
   paddingBottom: WINDOW_PADDING_Y,

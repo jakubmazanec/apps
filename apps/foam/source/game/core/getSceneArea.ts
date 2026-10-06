@@ -18,6 +18,18 @@ export const BUTTON_HEIGHT = 16;
 /** Below this screen width the top row has two lines. */
 export const NARROW_WIDTH = 240;
 
+/** A window's padding left and right, shared by every window. */
+export const WINDOW_PADDING_X = 12;
+
+/** A window's padding above and below, shared by every window. */
+export const WINDOW_PADDING_Y = 8;
+
+/** The story window's width on a screen wide enough for it. */
+export const WINDOW_WIDTH = 300;
+
+/** Every letter of monogram, regular and italic, advances by this much. */
+export const GLYPH_WIDTH = 6;
+
 export type SceneArea = {
   /** Distance from the top of the screen to the area. */
   top: number;
