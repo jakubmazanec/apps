@@ -5,6 +5,7 @@ import {
   AudioMixer,
   Button,
   Container,
+  type Focusable,
   type Game,
   type GameScreen,
   type Modal,
@@ -77,6 +78,36 @@ function readText(text: Text): string {
   }
 
   return content.text;
+}
+
+// Names the focused target, so a failed focus check prints a label and not a
+// whole Button. A copy of the one in nightScreenHelpers.tsx, which this file
+// does not import: their stylesheet import would change its canvas.
+function describeFocus(target: Focusable | null): string {
+  if (target === null) {
+    return 'nothing';
+  }
+
+  // A destroyed button has lost its label, as when the focus stays on a button built again.
+  if (target instanceof Button && target.view.destroyed) {
+    return 'a destroyed button';
+  }
+
+  if (target instanceof Button) {
+    let [label] = target.children;
+
+    if (!(label instanceof Text)) {
+      throw new TypeError('The button has no label!');
+    }
+
+    return readText(label);
+  }
+
+  if (target instanceof Slider) {
+    return 'slider';
+  }
+
+  return target.constructor.name;
 }
 
 // The window is a Modal holding one Panel: the title block, four rows (a Container
@@ -251,13 +282,13 @@ describe('main menu', () => {
 
     await press('Tab');
 
-    expect(mainMenuScreen.ui.focused).toBe(mainMenuScreen.contents.newGameButton);
+    expect(describeFocus(mainMenuScreen.ui.focused)).toBe('New Game');
     expect(play).toHaveBeenCalledWith(assets.sound('ui-click'), {bus: 'ui'});
     expect(clicks()).toBe(1);
 
     await press('Tab');
 
-    expect(mainMenuScreen.ui.focused).toBe(mainMenuScreen.contents.optionsButton);
+    expect(describeFocus(mainMenuScreen.ui.focused)).toBe('Options');
     expect(clicks()).toBe(2);
   });
 
@@ -283,13 +314,13 @@ describe('main menu', () => {
   });
 
   test('the decrease key lowers the focused volume, and closing stores it', async () => {
-    let modal = await openOptions();
-    let [masterSlider] = getSliders(modal);
+    await openOptions();
+
     let before = settings.volumes.master;
 
     await press('Tab');
 
-    expect(mainMenuScreen.ui.focused).toBe(masterSlider);
+    expect(describeFocus(mainMenuScreen.ui.focused)).toBe('slider');
 
     await press('Minus');
 
@@ -306,7 +337,7 @@ describe('main menu', () => {
 
     expect(stored.volumes.master).toBeCloseTo(before - 0.1);
     expect(stored.volumes.music).toBeCloseTo(0.4);
-    expect(mainMenuScreen.ui.focused).toBe(mainMenuScreen.contents.optionsButton);
+    expect(describeFocus(mainMenuScreen.ui.focused)).toBe('Options');
   });
 
   test('a reopened window shows the changed volume', async () => {
@@ -356,12 +387,7 @@ describe('main menu', () => {
   });
 
   test('the main menu has no panel', () => {
-    let panelViews = new Set<unknown>(
-      mainMenuScreen.ui.children.filter((child) => child instanceof Panel).map((p) => p.view),
-    );
-
     expect(mainMenuScreen.ui.children.some((child) => child instanceof Panel)).toBe(false);
-    expect(mainMenuScreen.ui.view.children.some((child) => panelViews.has(child))).toBe(false);
   });
 
   test('the focus ring lies 2 pixels outside the focused button', async () => {
@@ -436,11 +462,14 @@ describe('main menu', () => {
     let titleBounds = title.view.getBounds();
     let plateBounds = plate.getBounds();
     let newGameBounds = newGameButton.view.getBounds();
+    let {parent} = plate;
 
-    expect(plate.parent).toBe(title.view.parent);
-    expect(plate.parent?.children.indexOf(plate)).toBeLessThan(
-      plate.parent?.children.indexOf(title.view) ?? -1,
-    );
+    if (parent === null) {
+      throw new Error('The plate has no parent!');
+    }
+
+    expect(parent).toBe(title.view.parent);
+    expect(parent.children.indexOf(plate)).toBeLessThan(parent.children.indexOf(title.view));
     expect(plateBounds.x / scale).toBeCloseTo(titleBounds.x / scale - 8);
     expect(plateBounds.y / scale).toBeCloseTo(titleBounds.y / scale - 8);
     expect(plateBounds.width / scale).toBeCloseTo(112);
@@ -473,5 +502,49 @@ describe('main menu', () => {
       node.children.some((child) => hasPicture(child));
 
     expect(hasPicture(view)).toBe(false);
+  });
+
+  // Last in the file: it leaves the night screen shown.
+  test('a new game takes the picture off the main menu, and a frame draws nothing into it', async () => {
+    let {newGameButton, picture} = mainMenuScreen.contents;
+    let [sprite] = picture.view.children;
+
+    if (!(sprite instanceof pixi.Sprite)) {
+      throw new TypeError('The picture has no sprite!');
+    }
+
+    let {texture} = sprite;
+
+    mainMenuScreen.ui.focus(newGameButton);
+    await press('Enter');
+    await vitest.waitFor(
+      () => {
+        expect(mainMenuScreen.state).not.toBe('shown');
+      },
+      {timeout: 10_000},
+    );
+
+    // A boolean: printing a Pixi container in a failure message reaches a shader that throws.
+    let hasParent = picture.view.parent !== null;
+
+    expect(hasParent).toBe(false);
+
+    let render = vitest.spyOn(game.app.renderer, 'render');
+
+    try {
+      // Two frames, so that the ticker runs at least once whichever callback the browser runs
+      // first.
+      await nextFrame();
+      await nextFrame();
+
+      // A count, not the calls: a call holds the mesh, which the failure message cannot print.
+      let draws = render.mock.calls.filter(
+        ([options]) => (options as {target?: unknown}).target === texture,
+      ).length;
+
+      expect(draws).toBe(0);
+    } finally {
+      render.mockRestore();
+    }
   });
 });

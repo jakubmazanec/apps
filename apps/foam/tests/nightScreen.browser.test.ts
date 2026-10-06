@@ -22,6 +22,7 @@ import {type StoryWindow} from '../source/game/screens/storyWindow.js';
 import {
   bootGame,
   type Box,
+  describeFocus,
   doBoxesOverlap,
   getBox,
   getButtonLabel,
@@ -424,7 +425,7 @@ describe('night screen', {timeout: 180_000}, () => {
 
       // The door is a little farther to the right than the women's table,
       // but much nearer in height.
-      expect(nightScreen.ui.focused).toBe(getSpotButton(harness, 'The door'));
+      expect(describeFocus(nightScreen.ui.focused)).toBe('The door');
       expect(play).toHaveBeenCalledWith(assets.sound('ui-click'), {bus: 'ui'});
     });
 
@@ -448,7 +449,7 @@ describe('night screen', {timeout: 180_000}, () => {
 
       expect(storyWindow.dialogue.phase).toBe('choosing');
       expect(buttons.map(getButtonLabel)).toEqual(['Order a beer', 'Leave her alone']);
-      expect(nightScreen.ui.focused).toBeNull();
+      expect(describeFocus(nightScreen.ui.focused)).toBe('nothing');
       expect(cursor.visible).toBe(false);
 
       await nextFrame();
@@ -498,7 +499,7 @@ describe('night screen', {timeout: 180_000}, () => {
           stripMarks(storyWindow.dialogue.pageText),
         );
         expect(buttons.map(getButtonLabel)).toEqual(['Order a beer', 'Leave her alone']);
-        expect(nightScreen.ui.focused).toBeNull();
+        expect(describeFocus(nightScreen.ui.focused)).toBe('nothing');
       },
     );
 
@@ -566,7 +567,7 @@ describe('night screen', {timeout: 180_000}, () => {
       // An arrow key focuses "Ask about the ceiling", and Enter takes it.
       await press('ArrowDown');
 
-      expect(nightScreen.ui.focused).toBe(getWindowButton(storyWindow, 0));
+      expect(describeFocus(nightScreen.ui.focused)).toBe('Ask about the ceiling');
 
       await press('Enter');
 
@@ -645,6 +646,7 @@ describe('night screen', {timeout: 180_000}, () => {
         let storyWindow = await openSpot('Two women talking');
         let {cursor} = getWindowParts(storyWindow);
 
+        // Two frames are at most 200 ms (Tellurion caps a frame at 100 ms): 8 of 177 letters typed.
         expect(storyWindow.dialogue.phase).toBe('revealing');
         expect(cursor.visible).toBe(false);
 
@@ -814,7 +816,7 @@ describe('night screen', {timeout: 180_000}, () => {
       await press('Enter');
       await press('ArrowDown');
 
-      expect(nightScreen.ui.focused).toBe(getWindowButton(storyWindow, 0));
+      expect(describeFocus(nightScreen.ui.focused)).toBe('Order a beer');
       expect(nightScreen.ui.isRingVisible).toBe(true);
 
       await press('Enter');
@@ -835,7 +837,7 @@ describe('night screen', {timeout: 180_000}, () => {
       // The status changes when the window closes, and the focus returns.
       expect(storyWindow.dialogue.phase).toBe('ended');
       expect(readText(nightScreen.contents.statusText)).toBe('19:50   305 Kč   Sober');
-      expect(nightScreen.ui.focused).toBe(getSpotButton(harness, 'The bartender'));
+      expect(describeFocus(nightScreen.ui.focused)).toBe('The bartender');
     });
 
     test('the place button opens the description again', async () => {
@@ -922,7 +924,7 @@ describe('night screen', {timeout: 180_000}, () => {
       await press('ArrowDown');
       await press('ArrowDown');
 
-      expect(nightScreen.ui.focused).toBe(getWindowButton(storyWindow, 1));
+      expect(describeFocus(nightScreen.ui.focused)).toBe('Leave her alone');
 
       try {
         // 300 × 270 art pixels: the window is 292 wide.
@@ -937,7 +939,7 @@ describe('night screen', {timeout: 180_000}, () => {
         let secondChoice = getWindowButton(storyWindow, 1);
 
         expect(getButtonLabel(secondChoice)).toBe('Leave her alone');
-        expect(nightScreen.ui.focused).toBe(secondChoice);
+        expect(describeFocus(nightScreen.ui.focused)).toBe('Leave her alone');
       } finally {
         await restoreViewport();
       }
@@ -1057,8 +1059,11 @@ describe('night screen', {timeout: 180_000}, () => {
           panelBox.top + panelBox.height,
         );
       } finally {
+        // Read after the awaits, so the current contents are cleared.
+        let {contents: currentContents} = harness.nightScreen;
+
         storyWindow.destroy();
-        contents.storyWindow = null;
+        currentContents.storyWindow = null;
       }
     });
 
@@ -1104,7 +1109,7 @@ describe('night screen', {timeout: 180_000}, () => {
 
       expect(nightScreen.ui.topOverlay).toBe(menu);
       expect(menu.initialFocus).toBe(resumeButton);
-      expect(nightScreen.ui.focused).toBe(resumeButton);
+      expect(describeFocus(nightScreen.ui.focused)).toBe('Resume');
       expect(nightScreen.ui.isRingVisible).toBe(true);
 
       await press('Enter');
@@ -1152,7 +1157,7 @@ describe('night screen', {timeout: 180_000}, () => {
       expect(nightScreen.contents.storyWindow).toBe(storyWindow);
       expect(storyWindow.state).not.toBe('closed');
       expect(nightScreen.ui.topOverlay).toBe(menu);
-      expect(nightScreen.ui.focused).toBe(getMenuButton(menu, 'Resume'));
+      expect(describeFocus(nightScreen.ui.focused)).toBe('Resume');
       expect(nightScreen.ui.isRingVisible).toBe(true);
 
       let revealed = storyWindow.dialogue.revealedCount;
@@ -1194,7 +1199,7 @@ describe('night screen', {timeout: 180_000}, () => {
       let menu = getMenu();
 
       expect(nightScreen.ui.topOverlay).toBe(menu);
-      expect(nightScreen.ui.focused).toBe(getMenuButton(menu, 'Resume'));
+      expect(describeFocus(nightScreen.ui.focused)).toBe('Resume');
       expect(nightScreen.ui.isRingVisible).toBe(true);
 
       await tap(harness, getBox(harness, getMenuButton(menu, 'Resume')));
@@ -1229,7 +1234,7 @@ describe('night screen', {timeout: 180_000}, () => {
 
       expect(nightScreen.contents.menuModal).toBe(menu);
       expect(nightScreen.ui.topOverlay).toBe(menu);
-      expect(nightScreen.ui.focused).toBe(optionsButton);
+      expect(describeFocus(nightScreen.ui.focused)).toBe('Options');
     });
 
     test('the picture runs at half speed while a window is open', async () => {

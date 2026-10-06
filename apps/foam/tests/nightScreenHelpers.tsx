@@ -1,7 +1,7 @@
 import * as pixi from 'pixi.js';
 import {StrictMode} from 'react';
 import {createRoot} from 'react-dom/client';
-import {type Button, Container, type Game, Panel, Text} from 'tellurion';
+import {Button, Container, type Focusable, type Game, Panel, Slider, Text} from 'tellurion';
 import {vitest} from 'vitest';
 import {page, userEvent} from 'vitest/browser';
 
@@ -206,6 +206,29 @@ export function getButtonLabel(button: Button): string {
   }
 
   return readText(label);
+}
+
+// Names the focused target, so a failed focus check prints a label and not a
+// whole Button.
+export function describeFocus(target: Focusable | null): string {
+  if (target === null) {
+    return 'nothing';
+  }
+
+  // A destroyed button has lost its label, as when the focus stays on a button built again.
+  if (target instanceof Button && target.view.destroyed) {
+    return 'a destroyed button';
+  }
+
+  if (target instanceof Button) {
+    return getButtonLabel(target);
+  }
+
+  if (target instanceof Slider) {
+    return 'slider';
+  }
+
+  return target.constructor.name;
 }
 
 export function getStoryWindow({nightScreen}: Harness): StoryWindow {
