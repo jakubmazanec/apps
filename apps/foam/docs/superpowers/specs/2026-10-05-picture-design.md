@@ -301,12 +301,12 @@ design covers the whole screen. The two differ by the height of the top row, 24 
 screen. The positions below are fractions of the scene area, chosen so that each button lies on its
 thing:
 
-| Spot              | Thing                                               | x    | y    | Phase 2's x and y |
-| ----------------- | --------------------------------------------------- | ---- | ---- | ----------------- |
-| The bartender     | The light of the first lamp, just above the counter | 0.22 | 0.51 | 0.25, 0.2         |
-| Two women talking | The table on the right                              | 0.70 | 0.84 | 0.75, 0.3         |
-| A patron          | The table on the left                               | 0.14 | 0.93 | 0.15, 0.6         |
-| The door          | The door                                            | 0.91 | 0.40 | 0.8, 0.85         |
+| Spot              | Thing                                               | x    | y    |
+| ----------------- | --------------------------------------------------- | ---- | ---- |
+| The bartender     | The light of the first lamp, just above the counter | 0.22 | 0.51 |
+| Two women talking | The table on the right                              | 0.70 | 0.84 |
+| A patron          | The table on the left                               | 0.14 | 0.93 |
+| The door          | The door                                            | 0.91 | 0.40 |
 
 The picture has no people, so a person's button stands where that person would be: the bartender
 behind the counter under the first lamp, and the guests at the tables.
@@ -339,9 +339,9 @@ In the sketch, with all six movements, about 0.5% of the pixels changed from one
 
 ### Night screen (`screens/nightScreen.ts`)
 
-- `PlacePicture` replaces `PlaceholderBackground` in the screen's contents: it is created in
-  `onAttach` with `samplePlace.picture`, added in `onShow`, removed in `onHide`, and resized in
-  `layOut` to the size of the screen in art pixels.
+- `PlacePicture` is the background in the screen's contents: it is created in `onAttach` with
+  `samplePlace.picture`, added in `onShow`, removed in `onHide`, and resized in `layOut` to the size
+  of the screen in art pixels.
 - `onUpdate` sets the speed: `0.5` while `screen.ui.topOverlay` is not `null`, and `1` otherwise.
   The story window, the menu and the options window are all overlays.
 
