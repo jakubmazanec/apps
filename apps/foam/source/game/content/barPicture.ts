@@ -229,8 +229,9 @@ vec3 drawLamps(vec3 color, ivec2 pixel, vec2 point, vec3 powers, bool isBackFlic
 }
 
 // Each cone is cut into lanes 6 pixels wide, and each lane into cells 6 high
-// that move down with the lane's dust. A cell has a dot with a chance of 75%,
-// which is on average about 0.9 dots per pixel of a cone's reach. A dot sways
+// that move down with the lane's dust. A cell has a dot with a chance of 75%
+// in every cone, so the dust is equally dense in all of them, and a wider cone
+// has more dots per pixel of its reach (about 1.0, 0.8 and 0.7). A dot sways
 // at most 2 pixels from its lane's middle, so it stays in its lane, and a
 // pixel checks one cell. The cones do not overlap, so a pixel checks only the
 // cone of the lamp nearest to it from side to side.
