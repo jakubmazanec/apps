@@ -1,6 +1,7 @@
 # Dialogue choice effect: design
 
-Date: 2026-10-06. Package: `packages/tellurion`. Status: designed.
+Date: 2026-10-06. Package: `packages/tellurion`. Status: implemented by
+[2026-10-06-dialogue-choice-effect.md](../plans/2026-10-06-dialogue-choice-effect.md).
 
 ## Background
 

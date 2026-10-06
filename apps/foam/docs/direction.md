@@ -1,8 +1,8 @@
 # Foam: direction
 
-Started: 2026-10-03. App: `apps/foam`. Status: the direction is agreed; phases 1 to 3 are built.
-This is a living document: it describes the current state and plan, and is kept correct as they
-change.
+Started: 2026-10-03. App: `apps/foam`. Status: the direction is agreed; phases 1 to 3 are built; of
+phase 4 the dialogue choice effect is built. This is a living document: it describes the current
+state and plan, and is kept correct as they change.
 
 ## What Foam is
 
@@ -195,12 +195,14 @@ plan, build and review, in this order:
 
 1. An effect on a dialogue choice, in Tellurion: a choice can carry an `onChoose` function that the
    runner calls when the choice is taken, before it follows the choice's next node. A way out uses
-   it to open the travel window without a node of text in between. It is designed:
-   [spec](../../../docs/superpowers/specs/2026-10-06-dialogue-choice-effect-design.md).
+   it to open the travel window without a node of text in between. It is built:
+   [spec](../../../docs/superpowers/specs/2026-10-06-dialogue-choice-effect-design.md),
+   [plan](../../../docs/superpowers/plans/2026-10-06-dialogue-choice-effect.md).
 2. Places and travel: the seven places with stand-in content and stand-in pictures, each place's
    content in its own file, the travel data with the script that first fills it, and a window that
    lists where each way of travelling leads, with the minutes and the price of each destination. It
-   is designed: [spec](superpowers/specs/2026-10-06-places-and-travel-design.md).
+   has its [spec](superpowers/specs/2026-10-06-places-and-travel-design.md) and
+   [plan](superpowers/plans/2026-10-06-places-and-travel.md) and is not built yet.
 3. The map: that window shows the drawn map of Brno with the places at their real positions, and
    keeps the list.
 
