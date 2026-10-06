@@ -1,7 +1,8 @@
 import * as pixi from 'pixi.js';
 import {afterAll, afterEach, beforeAll, describe, expect, test, vitest} from 'vitest';
 
-import {barPicture} from '../source/game/content/barPicture.js';
+import {barPicture} from '../source/game/content/pictures/barPicture.js';
+import {standInPicture} from '../source/game/content/pictures/standInPicture.js';
 import {palette} from '../source/game/core/palette.js';
 import {type PlacePicture as PlacePictureValue} from '../source/game/screens/placePicture.js';
 import {bootGame, type Harness} from './nightScreenHelpers.js';
@@ -114,6 +115,14 @@ describe('place picture', {timeout: 60_000}, () => {
 
   function createBar(): PlacePictureValue {
     let picture = new PlacePicture({picture: barPicture});
+
+    pictures.push(picture);
+
+    return picture;
+  }
+
+  function createStandIn(): PlacePictureValue {
+    let picture = new PlacePicture({picture: standInPicture});
 
     pictures.push(picture);
 
@@ -553,6 +562,26 @@ describe('place picture', {timeout: 60_000}, () => {
       for (let lamp of LAMPS) {
         expect(isLampWhite(pixels, lamp)).toBe(true);
       }
+    });
+  });
+
+  describe('the stand-in picture', () => {
+    test('the constructor does not throw', () => {
+      expect(createStandIn).not.toThrow();
+    });
+
+    test('the lamp is lit and the corners are black', () => {
+      let picture = createStandIn();
+
+      picture.resize(480, 270);
+      picture.update(frame(0));
+
+      let pixels = readPixels(picture);
+      let lamp = toScreen({x: 240, y: 70}, pixels);
+
+      expect(getColor(pixels, lamp.x, lamp.y)).not.toBe(BLACK);
+      expect(getColor(pixels, 0, 0)).toBe(BLACK);
+      expect(getColor(pixels, 479, 269)).toBe(BLACK);
     });
   });
 });

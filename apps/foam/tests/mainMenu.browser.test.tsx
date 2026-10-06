@@ -24,7 +24,7 @@ import {
   vitest,
 } from 'vitest';
 
-import {type barPicture as barPictureValue} from '../source/game/content/barPicture.js';
+import {type barPicture as barPictureValue} from '../source/game/content/pictures/barPicture.js';
 import {type assets as assetsValue} from '../source/game/core/assets.js';
 import {type PlacePicture} from '../source/game/screens/placePicture.js';
 import Index from '../source/routes/_index.js';
@@ -34,7 +34,7 @@ import Index from '../source/routes/_index.js';
 // picture's pixels (tests/placePicture.browser.test.ts does), so the place gets
 // the pipeline's proof, a shader of a few lines. The bar's GLSL has its text as
 // its type, so the stub's text is cast to it.
-vitest.mock(import('../source/game/content/barPicture.js'), async () => {
+vitest.mock(import('../source/game/content/pictures/barPicture.js'), async () => {
   let {PROOF_PICTURE} = await import('./proofPicture.js');
 
   return {barPicture: PROOF_PICTURE as typeof barPictureValue};
