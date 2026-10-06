@@ -22,7 +22,10 @@ export function splitMarked(
   let regular = '';
   let italic = '';
 
-  for (let character of text.slice(start, end)) {
+  // Steps by UTF-16 unit, not by code point, so an emoji gives as many characters as its length
+  for (let index = start; index < end; index += 1) {
+    let character = text[index];
+
     if (character === MARK) {
       italicOn = !italicOn;
     } else if (character === '\n') {
