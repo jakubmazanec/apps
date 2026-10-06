@@ -204,7 +204,17 @@ function showPlace(screen: NightScreen, place: Place): void {
       }),
   );
 
-  screen.ui.addChild(placeButton, ...spotButtons);
+  // Tab follows the UI root's children, and UiRoot only appends, so the status
+  // line and Menu go out and back in after the place button: Tab then keeps
+  // reading order, the place button, Menu and the scene buttons. A new place
+  // starts with nothing focused.
+  screen.ui.removeChild(screen.contents.statusText, screen.contents.menuButton);
+  screen.ui.addChild(
+    placeButton,
+    screen.contents.statusText,
+    screen.contents.menuButton,
+    ...spotButtons,
+  );
   screen.contents.place = place;
   screen.contents.placeButton = placeButton;
   screen.contents.spotButtons = spotButtons;
@@ -368,8 +378,12 @@ export const nightScreen = new GameScreen<NightScreenContents>({
       try {
         actOnNight(screen);
       } catch (error) {
-        // A place's picture that does not compile, as the engine does with an
-        // error in a screen's transition. showScreen never rejects.
+        // A place's picture that does not compile, handled as the engine
+        // handles an error in a screen's transition: the console keeps the
+        // details, which a production build's error screen does not show.
+        // showScreen never rejects.
+        // eslint-disable-next-line no-console -- the only record of the error in a production build
+        console.error(error);
         errorScreen.contents.showError(error);
         void game.showScreen(errorScreen);
       }

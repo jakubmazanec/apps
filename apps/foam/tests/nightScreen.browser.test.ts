@@ -1197,13 +1197,7 @@ describe('night screen', {timeout: 180_000}, () => {
 
     test('a tap on the Menu button opens the menu, and a tap on Resume closes it', async () => {
       let {nightScreen} = harness;
-      // The UI root holds the status text and the Menu button, and then the
-      // place button and the scene buttons, in that order.
-      let menuButton = nightScreen.ui.children[1];
-
-      if (!(menuButton instanceof Button) || getButtonLabel(menuButton) !== 'Menu') {
-        throw new TypeError('The second child of the UI root is not the Menu button!');
-      }
+      let {menuButton} = nightScreen.contents;
 
       await tap(harness, getBox(harness, menuButton));
 
