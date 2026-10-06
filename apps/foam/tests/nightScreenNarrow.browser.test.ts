@@ -8,6 +8,7 @@ import {
   doBoxesOverlap,
   getBox,
   getButtonLabel,
+  getPlaceButton,
   getSpotButton,
   getStoryWindow,
   getWindowButton,
@@ -17,14 +18,16 @@ import {
   readPages,
   startNewGame,
   tap,
+  useFixedWorld,
   waitForNoStoryWindow,
 } from './nightScreenHelpers.js';
 
 // Headless Chromium draws the bar in software, at about 90 ms a frame, which
 // slows every frame of these tests. They check placement and windows,
 // not the picture's pixels (tests/placePicture.browser.test.ts does), so the
-// place gets the pipeline's proof, a shader of a few lines. The bar's GLSL has
-// its text as its type, so the stub's text is cast to it.
+// main menu, which shows the bar, gets the pipeline's proof, a shader of a few
+// lines, as the fixed world's places do. The bar's GLSL has its text as its
+// type, so the stub's text is cast to it.
 vitest.mock(import('../source/game/content/pictures/barPicture.js'), async () => {
   let {PROOF_PICTURE} = await import('./proofPicture.js');
 
@@ -40,13 +43,16 @@ vitest.mock(import('../source/game/content/pictures/barPicture.js'), async () =>
 // real tap takes many frames, so the tests get a long timeout.
 describe('night screen on a narrow screen', {timeout: 180_000}, () => {
   let harness: Harness;
+  let restore: () => void;
 
   beforeAll(async () => {
     harness = await bootGame(292, 524);
+    restore = useFixedWorld();
     await startNewGame(harness);
   }, 60_000);
 
   afterAll(() => {
+    restore();
     harness.unmount();
     localStorage.clear();
   });
@@ -59,7 +65,7 @@ describe('night screen on a narrow screen', {timeout: 180_000}, () => {
   });
 
   test('the status text lies under the place button', () => {
-    let place = getBox(harness, harness.nightScreen.contents.placeButton);
+    let place = getBox(harness, getPlaceButton(harness));
     let status = getBox(harness, harness.nightScreen.contents.statusText);
 
     expect(status.top).toBeGreaterThanOrEqual(place.top + place.height);
@@ -70,8 +76,8 @@ describe('night screen on a narrow screen', {timeout: 180_000}, () => {
   });
 
   test('the place button fits beside the Menu button', () => {
-    let {placeButton, menuButton} = harness.nightScreen.contents;
-    let place = getBox(harness, placeButton);
+    let {menuButton} = harness.nightScreen.contents;
+    let place = getBox(harness, getPlaceButton(harness));
     let menu = getBox(harness, menuButton);
 
     expect(place.left + place.width + 4).toBeLessThanOrEqual(menu.left);

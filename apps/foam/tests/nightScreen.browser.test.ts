@@ -13,12 +13,12 @@ import {
 import {page} from 'vitest/browser';
 
 import {type barPicture as barPictureValue} from '../source/game/content/pictures/barPicture.js';
-import {samplePlace} from '../source/game/content/samplePlace.js';
 import {getSceneArea} from '../source/game/core/getSceneArea.js';
 import {getSpotPosition} from '../source/game/core/getSpotPosition.js';
 import {stripMarks} from '../source/game/core/markedText.js';
 import {type Night} from '../source/game/core/night.js';
 import {type StoryWindow} from '../source/game/screens/storyWindow.js';
+import {FIXED_BAR, getFixedPlace} from './fixedWorld.js';
 import {
   bootGame,
   type Box,
@@ -26,6 +26,8 @@ import {
   doBoxesOverlap,
   getBox,
   getButtonLabel,
+  getPicture,
+  getPlaceButton,
   getSpotButton,
   getStoryWindow,
   getWindowButton,
@@ -37,20 +39,24 @@ import {
   readText,
   startNewGame,
   tap,
+  useFixedWorld,
   waitForNoStoryWindow,
 } from './nightScreenHelpers.js';
 
 // Headless Chromium draws the bar in software, at about 90 ms a frame, which
 // slows every frame of these tests. They check placement, speed and windows,
 // not the picture's pixels (tests/placePicture.browser.test.ts does), so the
-// place gets the pipeline's proof, a shader of a few lines. The bar's GLSL has
-// its text as its type, so the stub's text is cast to it.
+// main menu, which shows the bar, gets the pipeline's proof, a shader of a few
+// lines, as the fixed world's places do. The bar's GLSL has its text as its
+// type, so the stub's text is cast to it.
 vitest.mock(import('../source/game/content/pictures/barPicture.js'), async () => {
   let {PROOF_PICTURE} = await import('./proofPicture.js');
 
   return {barPicture: PROOF_PICTURE as typeof barPictureValue};
 });
 
+// The tests run in the fixed world's bar, which has the sample bar's text.
+const sampleBar = getFixedPlace(FIXED_BAR);
 const STARTING_STATUS = '19:40   350 Kč   Sober';
 // The thing of the bar's picture that each scene button lies on, in the design
 // of 480 × 270, which stretches to the screen.
@@ -116,6 +122,7 @@ function getMenuButton(menu: Modal, label: string): Button {
 // the tests get a long timeout.
 describe('night screen', {timeout: 180_000}, () => {
   let harness: Harness;
+  let restore: () => void;
   // The spies call through to the real mixer; they only record the calls.
   let play: MockInstance<AudioMixer['play']>;
   let playMusic: MockInstance<AudioMixer['playMusic']>;
@@ -195,7 +202,7 @@ describe('night screen', {timeout: 180_000}, () => {
   function getSpotBoxes(width: number, height: number): Array<{label: string; box: Box}> {
     let area = getSceneArea(width, height);
 
-    return samplePlace.spots.map((spot) => {
+    return sampleBar.spots.map((spot) => {
       let size = {width: harness.measureText(spot.label, 'label') + 12, height: 16};
 
       return {
@@ -237,11 +244,13 @@ describe('night screen', {timeout: 180_000}, () => {
     playMusic = vitest.spyOn(AudioMixer.prototype, 'playMusic');
 
     harness = await bootGame(960, 540);
+    restore = useFixedWorld();
   }, 60_000);
 
   afterAll(() => {
     play.mockRestore();
     playMusic.mockRestore();
+    restore();
     harness.unmount();
     localStorage.clear();
   });
@@ -270,8 +279,8 @@ describe('night screen', {timeout: 180_000}, () => {
 
       expect(ui.topOverlay).toBe(storyWindow);
       expect(ui.topOverlay?.close).toBeUndefined();
-      expect(storyWindow.dialogue.node?.speaker).toBe(samplePlace.name);
-      expect(title === null ? null : readText(title)).toBe(samplePlace.name);
+      expect(storyWindow.dialogue.node?.speaker).toBe(sampleBar.name);
+      expect(title === null ? null : readText(title)).toBe(sampleBar.name);
     });
 
     test('the text types out with the blip, and Enter finishes the page', async () => {
@@ -345,7 +354,7 @@ describe('night screen', {timeout: 180_000}, () => {
 
     test('the picture fills the screen under the top row and the buttons', () => {
       let {nightScreen} = harness;
-      let {view} = nightScreen.contents.picture;
+      let {view} = getPicture(harness);
 
       expect(view.width).toBe(480);
       expect(view.height).toBe(270);
@@ -360,7 +369,7 @@ describe('night screen', {timeout: 180_000}, () => {
 
       await nextFrame();
 
-      expect(nightScreen.contents.spotButtons).toHaveLength(samplePlace.spots.length);
+      expect(nightScreen.contents.spotButtons).toHaveLength(sampleBar.spots.length);
 
       for (let button of nightScreen.contents.spotButtons) {
         let box = getBox(harness, button);
@@ -825,7 +834,7 @@ describe('night screen', {timeout: 180_000}, () => {
         minutes: 1190,
         money: 305,
         stateOfMind: 'Sober',
-        place: 'train',
+        place: FIXED_BAR,
         leaving: null,
       });
       // The status behind the window follows when the window closes.
@@ -845,10 +854,10 @@ describe('night screen', {timeout: 180_000}, () => {
     test('the place button opens the description again', async () => {
       let {nightScreen} = harness;
 
-      nightScreen.ui.focus(nightScreen.contents.placeButton);
+      nightScreen.ui.focus(getPlaceButton(harness));
       await press('Enter');
 
-      expect(getStoryWindow(harness).dialogue.node?.speaker).toBe(samplePlace.name);
+      expect(getStoryWindow(harness).dialogue.node?.speaker).toBe(sampleBar.name);
     });
 
     test('a scene button does nothing while a window is open', async () => {
@@ -858,7 +867,7 @@ describe('night screen', {timeout: 180_000}, () => {
       // The dimmed scene takes no taps and no key presses, so the test calls
       // the buttons themselves.
       getSpotButton(harness, 'The door').activate();
-      nightScreen.contents.placeButton.activate();
+      getPlaceButton(harness).activate();
 
       expect(nightScreen.contents.storyWindow).toBe(storyWindow);
       expect(storyWindow.state).not.toBe('closed');
@@ -1069,9 +1078,9 @@ describe('night screen', {timeout: 180_000}, () => {
       }
     });
 
-    test('no word in the sample place is longer than 16 characters', () => {
-      let scripts = [samplePlace.description, ...samplePlace.spots.map((spot) => spot.script)];
-      let texts = [samplePlace.name, ...samplePlace.spots.map((spot) => spot.label)];
+    test('no word in the sample bar is longer than 16 characters', () => {
+      let scripts = [sampleBar.description, ...sampleBar.spots.map((spot) => spot.script)];
+      let texts = [sampleBar.name, ...sampleBar.spots.map((spot) => spot.label)];
 
       for (let script of scripts) {
         let nodes = Object.values(script.nodes ?? {});
@@ -1188,12 +1197,12 @@ describe('night screen', {timeout: 180_000}, () => {
 
     test('a tap on the Menu button opens the menu, and a tap on Resume closes it', async () => {
       let {nightScreen} = harness;
-      // The UI root holds the place button, the status text, the Menu button
-      // and the scene buttons, in that order.
-      let menuButton = nightScreen.ui.children[2];
+      // The UI root holds the status text and the Menu button, and then the
+      // place button and the scene buttons, in that order.
+      let menuButton = nightScreen.ui.children[1];
 
       if (!(menuButton instanceof Button) || getButtonLabel(menuButton) !== 'Menu') {
-        throw new TypeError('The third child of the UI root is not the Menu button!');
+        throw new TypeError('The second child of the UI root is not the Menu button!');
       }
 
       await tap(harness, getBox(harness, menuButton));
@@ -1244,7 +1253,7 @@ describe('night screen', {timeout: 180_000}, () => {
 
       await nextFrame();
 
-      expect(nightScreen.contents.picture.speed).toBe(1);
+      expect(getPicture(harness).speed).toBe(1);
 
       await press('Escape');
 
@@ -1252,7 +1261,7 @@ describe('night screen', {timeout: 180_000}, () => {
 
       await nextFrame();
 
-      expect(nightScreen.contents.picture.speed).toBe(0.5);
+      expect(getPicture(harness).speed).toBe(0.5);
 
       nightScreen.ui.focus(getMenuButton(menu, 'Options'));
       await press('Enter');
@@ -1261,7 +1270,7 @@ describe('night screen', {timeout: 180_000}, () => {
 
       await nextFrame();
 
-      expect(nightScreen.contents.picture.speed).toBe(0.5);
+      expect(getPicture(harness).speed).toBe(0.5);
 
       await press('Escape');
       await vitest.waitFor(
@@ -1275,12 +1284,12 @@ describe('night screen', {timeout: 180_000}, () => {
       await nextFrame();
 
       expect(nightScreen.ui.topOverlay).toBeNull();
-      expect(nightScreen.contents.picture.speed).toBe(1);
+      expect(getPicture(harness).speed).toBe(1);
 
       await openSpot('Two women talking');
       await nextFrame();
 
-      expect(nightScreen.contents.picture.speed).toBe(0.5);
+      expect(getPicture(harness).speed).toBe(0.5);
     });
 
     test('Options does nothing once the menu is closing', async () => {
@@ -1366,7 +1375,7 @@ describe('night screen', {timeout: 180_000}, () => {
       await startNewGame(harness);
 
       expect(readText(nightScreen.contents.statusText)).toBe(STARTING_STATUS);
-      expect(getStoryWindow(harness).dialogue.node?.speaker).toBe(samplePlace.name);
+      expect(getStoryWindow(harness).dialogue.node?.speaker).toBe(sampleBar.name);
     });
 
     test('hiding the screen with a window open destroys the window at once', async () => {

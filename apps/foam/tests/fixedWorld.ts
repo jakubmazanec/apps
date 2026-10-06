@@ -1,34 +1,32 @@
-import {defineDialogueScript, type RunnableDialogueScript} from 'tellurion';
+import {defineDialogueScript} from 'tellurion';
 
-import {type Night} from '../core/night.js';
-import {type Spot} from '../core/place.js';
-import {barPicture} from './pictures/barPicture.js';
+import {createWayOut} from '../source/game/core/createWayOut.js';
+import {type Night, type PlaceId} from '../source/game/core/night.js';
+import {type Place} from '../source/game/core/place.js';
+import {type NightStart, type Travel} from '../source/game/core/travel.js';
+import {PROOF_PICTURE} from './proofPicture.js';
 
-export type Place = {
-  /** Label of the place button. */
-  name: string;
-
-  description: RunnableDialogueScript<Night>;
-
-  /** GLSL of the place: the function that draws its picture (see core/pictureShader.ts). */
-  picture: string;
-
-  spots: Spot[];
-};
+// The tests' own places and journeys, with fixed text and numbers, so that the
+// night screen's tests do not change when the game's content does. The ids are
+// not the game's, so they are cast to its id type.
+export const FIXED_BAR = 'testBar' as PlaceId;
+export const FIXED_SQUARE = 'testSquare' as PlaceId;
+export const FIXED_STOP = 'testStop' as PlaceId;
+export const FIXED_BROKEN = 'testBroken' as PlaceId;
 
 // Temporary text for an invented place. Its limits: no word is longer than 16
 // characters (every word must fit a line on the narrowest screen), nobody and
 // nothing has a real name, every node sets `speaker`, and every `text` is one
 // string without line ends, which the story window cuts into pages. A `*` in a
 // `text` switches italic on or off, so the marks of a text come in pairs.
-const PLACE_NAME = 'The bar';
+const BAR_NAME = 'The bar';
 const BARTENDER = 'The bartender';
 const WOMEN = 'Two women talking';
 const PATRON = 'A patron';
 const DOOR = 'The door';
-const description = defineDialogueScript<Night>()({
+const barDescription = defineDialogueScript<Night>()({
   start: {
-    speaker: PLACE_NAME,
+    speaker: BAR_NAME,
     text:
       'The bar is one long room under a low ceiling, with a counter along the left wall and ' +
       'six tables that do not match. A radio plays quietly behind the taps. The air smells of ' +
@@ -136,11 +134,11 @@ const door = defineDialogueScript<Night>()({
     },
   },
 });
-
-export const samplePlace: Place = {
-  name: PLACE_NAME,
-  description,
-  picture: barPicture,
+const testBar: Place = {
+  id: FIXED_BAR,
+  name: BAR_NAME,
+  description: barDescription,
+  picture: PROOF_PICTURE,
   spots: [
     {label: BARTENDER, x: 0.22, y: 0.51, script: bartender},
     {label: WOMEN, x: 0.7, y: 0.84, script: women},
@@ -148,3 +146,150 @@ export const samplePlace: Place = {
     {label: DOOR, x: 0.91, y: 0.4, script: door},
   ],
 };
+// A place with a short name, a way out and two scripts that move the player.
+const testSquare: Place = {
+  id: FIXED_SQUARE,
+  name: 'The square by the old market',
+  shortName: 'The square',
+  description: defineDialogueScript<Night>()({
+    start: {
+      speaker: 'The square',
+      text: 'The square is wide and empty, and the market stalls stand closed under the lamps.',
+    },
+  }),
+  picture: PROOF_PICTURE,
+  spots: [
+    {
+      label: 'The passage',
+      x: 0.3,
+      y: 0.3,
+      script: defineDialogueScript<Night>()({
+        start: {
+          speaker: 'The passage',
+          text: 'A narrow passage leads off the square and comes out by the door of the bar.',
+          onEnter: (night) => {
+            night.place = FIXED_BAR;
+          },
+        },
+      }),
+    },
+    {
+      label: 'The street',
+      x: 0.7,
+      y: 0.55,
+      script: createWayOut({
+        speaker: 'The street',
+        text: 'The street runs downhill from the square towards the tram stop.',
+        ways: ['walk', 'tram', 'taxi'],
+      }),
+    },
+    {
+      label: 'A wrong turn',
+      x: 0.5,
+      y: 0.8,
+      script: defineDialogueScript<Night>()({
+        start: {
+          speaker: 'A wrong turn',
+          text: 'You take a turn that leads nowhere and come back to the square.',
+          onEnter: (night) => {
+            night.place = 'nowhere' as PlaceId;
+          },
+        },
+      }),
+    },
+  ],
+};
+// A tram stop with no tram journey of its own, and a lane to a place that cannot be drawn.
+const testStop: Place = {
+  id: FIXED_STOP,
+  name: 'The stop',
+  description: defineDialogueScript<Night>()({
+    start: {
+      speaker: 'The stop',
+      text: 'The tram stop is a bench under a glass roof, with a timetable nobody can read.',
+    },
+  }),
+  picture: PROOF_PICTURE,
+  spots: [
+    {
+      label: 'The street',
+      x: 0.5,
+      y: 0.4,
+      script: createWayOut({
+        speaker: 'The street',
+        text: 'The street goes on past the stop in both directions.',
+        ways: ['walk', 'tram', 'taxi'],
+      }),
+    },
+    {
+      label: 'A dark lane',
+      x: 0.5,
+      y: 0.8,
+      script: defineDialogueScript<Night>()({
+        start: {
+          speaker: 'A dark lane',
+          text: 'A lane behind the stop goes off into the dark.',
+          onEnter: (night) => {
+            night.place = FIXED_BROKEN;
+          },
+        },
+      }),
+    },
+  ],
+};
+// Its picture does not compile.
+const testBroken: Place = {
+  id: FIXED_BROKEN,
+  name: 'The broken place',
+  description: defineDialogueScript<Night>()({
+    start: {
+      speaker: 'The broken place',
+      text: 'Nothing here can be drawn.',
+    },
+  }),
+  picture: 'vec3 picture(ivec2 p, vec2 q, float t) { return nope; }',
+  spots: [],
+};
+
+export const fixedPlaces: Record<string, Place> = {
+  [FIXED_BAR]: testBar,
+  [FIXED_SQUARE]: testSquare,
+  [FIXED_STOP]: testStop,
+  [FIXED_BROKEN]: testBroken,
+};
+
+export const fixedTravel: Travel = {
+  [FIXED_BAR]: {
+    walk: {[FIXED_SQUARE]: {minutes: 12}},
+    tram: {[FIXED_STOP]: {minutes: 9, price: 25}},
+    taxi: {[FIXED_SQUARE]: {minutes: 6, price: 120}},
+  },
+  [FIXED_SQUARE]: {
+    walk: {[FIXED_BAR]: {minutes: 12}},
+    tram: {[FIXED_STOP]: {minutes: 8, price: 25}},
+    taxi: {[FIXED_BAR]: {minutes: 6, price: 120}},
+  },
+  [FIXED_STOP]: {
+    walk: {[FIXED_BAR]: {minutes: 4}, [FIXED_SQUARE]: {minutes: 7}},
+    taxi: {[FIXED_BAR]: {minutes: 5, price: 90}, [FIXED_SQUARE]: {minutes: 5, price: 90}},
+  },
+};
+
+export const fixedStart: NightStart = {
+  places: fixedPlaces,
+  travel: fixedTravel,
+  place: FIXED_BAR,
+  minutes: 1180,
+  money: 350,
+};
+
+/** A place of the fixed world by its id. */
+export function getFixedPlace(id: PlaceId): Place {
+  let place = fixedPlaces[id];
+
+  if (place === undefined) {
+    throw new Error(`The fixed world has no place "${id}"!`);
+  }
+
+  return place;
+}
