@@ -9,6 +9,7 @@ import {type StoryWindow} from '../source/game/screens/storyWindow.js';
 import {FIXED_BAR, FIXED_SQUARE, FIXED_STOP, getFixedPlace} from './fixedWorld.js';
 import {
   bootGame,
+  describeFocus,
   getBox,
   getButtonLabel,
   getPicture,
@@ -190,20 +191,52 @@ describe('night screen places', {timeout: 180_000}, () => {
     expect(getStoryWindow(harness).dialogue.node?.speaker).toBe('The bar');
   });
 
+  // It starts in the bar the test before arrived in. Direct calls, as Tab
+  // makes them.
+  test('Tab goes from the place button to Menu and then to the scene buttons', async () => {
+    let {ui} = harness.nightScreen;
+
+    await closeStory();
+    ui.clearFocus();
+    ui.focusNext();
+
+    expect(describeFocus(ui.focused)).toBe('The bar');
+
+    ui.focusNext();
+
+    expect(describeFocus(ui.focused)).toBe('Menu');
+
+    ui.focusNext();
+
+    expect(describeFocus(ui.focused)).toBe('The bartender');
+  });
+
   // Last in the file: it leaves the error screen shown.
   test('a place whose picture does not compile shows the error screen', async () => {
     let {game} = harness;
     let {errorScreen} = await import('../source/game/screens/errorScreen.js');
+    // The screen logs the error; the test reads it, and the output stays clean.
+    let consoleError = vitest.spyOn(console, 'error').mockImplementation(() => {});
 
-    await restartAt(harness, FIXED_STOP);
-    await closeStory();
-    await pressThrough(await openSpot('A dark lane'));
-    await press('Enter');
-    await vitest.waitFor(
-      () => {
-        expect(game.currentScreen).toBe(errorScreen);
-      },
-      {timeout: 10_000},
-    );
+    try {
+      await restartAt(harness, FIXED_STOP);
+      await closeStory();
+      await pressThrough(await openSpot('A dark lane'));
+      await press('Enter');
+      await vitest.waitFor(
+        () => {
+          expect(game.currentScreen).toBe(errorScreen);
+        },
+        {timeout: 10_000},
+      );
+
+      let error: unknown = consoleError.mock.calls[0]?.[0];
+
+      expect(consoleError).toHaveBeenCalledTimes(1);
+      expect(error).toBeInstanceOf(Error);
+      expect((error as Error).message).toMatch(/Picture shader failed to compile/u);
+    } finally {
+      consoleError.mockRestore();
+    }
   });
 });
