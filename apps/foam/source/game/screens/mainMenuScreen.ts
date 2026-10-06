@@ -129,7 +129,7 @@ export const mainMenuScreen = new GameScreen<MainMenuScreenContents>({
 
     screen.contents.openModal = null;
   },
-  onUpdate: (_ticker, screen) => {
+  onUpdate: (ticker, screen) => {
     // The Options window is an overlay.
     screen.contents.picture.speed = screen.ui.topOverlay === null ? 1 : 0.5;
   },
