@@ -22,21 +22,19 @@ import {getPageBreaks} from '../core/getPageBreaks.js';
 import {
   BUTTON_PADDING_X,
   BUTTON_PADDING_Y,
+  GLYPH_WIDTH,
   LINE_HEIGHT,
   MARGIN,
   type SceneArea,
+  WINDOW_PADDING_X,
+  WINDOW_PADDING_Y,
+  WINDOW_WIDTH,
 } from '../core/getSceneArea.js';
 import {input} from '../core/input.js';
 import {MARK, splitMarked, stripMarks} from '../core/markedText.js';
 import {measureText} from '../core/measureText.js';
 import {type Night} from '../core/night.js';
-import {
-  createWindowTitle,
-  TITLE_HEIGHT,
-  WINDOW_PADDING,
-  WINDOW_PADDING_X,
-  WINDOW_PADDING_Y,
-} from './windowTitle.js';
+import {createWindowTitle, TITLE_HEIGHT, WINDOW_PADDING} from './windowTitle.js';
 
 export type StoryWindowOptions = {
   /** Scheduler of the screen that opens the window; it drives the fade. */
@@ -53,15 +51,12 @@ export type StoryWindowOptions = {
 export type StoryWindowState = 'closed' | 'closing' | 'open' | 'opening';
 
 // Sizes in art pixels.
-const WINDOW_WIDTH = 300;
 // Between the title block and the text.
 const WINDOW_GAP = 4;
 // Between the text and the first choice.
 const CHOICES_GAP = 8;
 // Between two choices: a focus ring reaches 2 out and does not touch the next button.
 const BUTTON_GAP = 4;
-// Every letter of monogram, regular and italic, advances by this much.
-const GLYPH_WIDTH = 6;
 // From a letter cell's top left corner to the cursor's.
 const CURSOR_OFFSET = 2;
 const BLIP_EVERY_GLYPHS = 3;
