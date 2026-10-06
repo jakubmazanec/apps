@@ -7,14 +7,13 @@
 // Usage: node scripts/generate-ui-atlas.mjs
 
 import {decode, encode} from 'fast-png';
-import {writeFileSync} from 'node:fs';
+import {writeFile} from 'node:fs/promises';
 import {fileURLToPath} from 'node:url';
 
 import {palette as colors} from '../source/game/core/palette.ts';
 
 const CHANNELS = 4; // RGBA
 const GAP = 1; // transparent pixels between frames, against sampling bleed
-const SHEET_WIDTH = 64; // as wide as the widest frame (the slider track)
 const BORDERS = {left: 1, top: 1, right: 1, bottom: 1};
 const publicDir = fileURLToPath(new URL('../public/', import.meta.url));
 
@@ -124,13 +123,14 @@ export function drawUiAtlas() {
 
   sheetHeight -= GAP;
 
-  let data = new Uint8Array(SHEET_WIDTH * sheetHeight * CHANNELS); // transparent black
+  let sheetWidth = Math.max(...placed.map((frame) => frame.width)); // the widest frame
+  let data = new Uint8Array(sheetWidth * sheetHeight * CHANNELS); // transparent black
   let json = {image: 'ui.png', frames: {}};
 
   for (let {name, frame, y, width, height} of placed) {
     for (let row = 0; row < height; row++) {
       for (let col = 0; col < width; col++) {
-        data.set(frame.cells[row][col], ((y + row) * SHEET_WIDTH + col) * CHANNELS);
+        data.set(frame.cells[row][col], ((y + row) * sheetWidth + col) * CHANNELS);
       }
     }
 
@@ -144,19 +144,20 @@ export function drawUiAtlas() {
   }
 
   return {
-    png: encode({width: SHEET_WIDTH, height: sheetHeight, data, depth: 8, channels: CHANNELS}),
+    png: encode({width: sheetWidth, height: sheetHeight, data, depth: 8, channels: CHANNELS}),
     json: `${JSON.stringify(json, null, 2)}\n`,
   };
 }
 
 if (process.argv[1] === import.meta.filename) {
   let {png, json} = drawUiAtlas();
+  let image = decode(png);
 
-  writeFileSync(`${publicDir}ui.png`, png);
-  writeFileSync(`${publicDir}ui.json`, json);
+  await writeFile(`${publicDir}ui.png`, png);
+  await writeFile(`${publicDir}ui.json`, json);
 
   // eslint-disable-next-line no-console -- one-shot generator script feedback
   console.log(
-    `wrote public/ui.png (${SHEET_WIDTH}x${decode(png).height}) and public/ui.json (${frames.length} frames)`,
+    `wrote public/ui.png (${image.width}x${image.height}) and public/ui.json (${frames.length} frames)`,
   );
 }

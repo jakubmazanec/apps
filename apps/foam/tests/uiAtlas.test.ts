@@ -1,5 +1,5 @@
 import {decode} from 'fast-png';
-import {readFileSync} from 'node:fs';
+import {readFile} from 'node:fs/promises';
 import {fileURLToPath} from 'node:url';
 import {describe, expect, test} from 'vitest';
 
@@ -39,11 +39,11 @@ function collectFrameNames(value: unknown, names: string[]): void {
 }
 
 describe(drawUiAtlas, () => {
-  test('the image and the JSON equal the files in public/', () => {
+  test('the image and the JSON equal the files in public/', async () => {
     let {png, json} = drawUiAtlas();
 
-    expect(Buffer.from(png).equals(readFileSync(`${PUBLIC}ui.png`))).toBe(true);
-    expect(json).toBe(readFileSync(`${PUBLIC}ui.json`, 'utf8'));
+    expect(Buffer.from(png).equals(await readFile(`${PUBLIC}ui.png`))).toBe(true);
+    expect(json).toBe(await readFile(`${PUBLIC}ui.json`, 'utf8'));
   });
 
   test('two calls give the same bytes', () => {
@@ -92,10 +92,10 @@ describe(drawUiAtlas, () => {
 
   test("every frame's borders fit inside it", () => {
     let frames = Object.values(getFrames(drawUiAtlas().json)).filter(
-      (frame) => frame.borders !== undefined,
+      (frame): frame is Required<Frame> => frame.borders !== undefined,
     );
 
-    for (let {borders = {left: 0, top: 0, right: 0, bottom: 0}, width, height} of frames) {
+    for (let {borders, width, height} of frames) {
       expect(borders.left + borders.right).toBeLessThan(width);
       expect(borders.top + borders.bottom).toBeLessThan(height);
     }
