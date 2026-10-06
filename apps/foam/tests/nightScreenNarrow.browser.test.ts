@@ -1,7 +1,7 @@
 import {type Ticker} from 'pixi.js';
 import {afterAll, beforeAll, describe, expect, test, vitest} from 'vitest';
 
-import {type barPicture as barPictureValue} from '../source/game/content/barPicture.js';
+import {type barPicture as barPictureValue} from '../source/game/content/pictures/barPicture.js';
 import {stripMarks} from '../source/game/core/markedText.js';
 import {
   bootGame,
@@ -25,7 +25,7 @@ import {
 // not the picture's pixels (tests/placePicture.browser.test.ts does), so the
 // place gets the pipeline's proof, a shader of a few lines. The bar's GLSL has
 // its text as its type, so the stub's text is cast to it.
-vitest.mock(import('../source/game/content/barPicture.js'), async () => {
+vitest.mock(import('../source/game/content/pictures/barPicture.js'), async () => {
   let {PROOF_PICTURE} = await import('./proofPicture.js');
 
   return {barPicture: PROOF_PICTURE as typeof barPictureValue};

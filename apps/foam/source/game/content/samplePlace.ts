@@ -2,7 +2,7 @@ import {defineDialogueScript, type RunnableDialogueScript} from 'tellurion';
 
 import {type Night} from '../core/night.js';
 import {type Spot} from '../core/place.js';
-import {barPicture} from './barPicture.js';
+import {barPicture} from './pictures/barPicture.js';
 
 export type Place = {
   /** Label of the place button. */

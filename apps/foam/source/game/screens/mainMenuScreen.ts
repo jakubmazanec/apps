@@ -1,7 +1,7 @@
 import * as pixi from 'pixi.js';
 import {Button, Container, GameScreen, type Modal, Text} from 'tellurion';
 
-import {barPicture} from '../content/barPicture.js';
+import {barPicture} from '../content/pictures/barPicture.js';
 import {assets} from '../core/assets.js';
 import {audio} from '../core/audio.js';
 import {game} from '../core/game.js';

@@ -1,7 +1,7 @@
 import {createRoot, type Root} from 'react-dom/client';
 import {afterEach, beforeEach, describe, expect, test, vitest} from 'vitest';
 
-import {type barPicture as barPictureValue} from '../source/game/content/barPicture.js';
+import {type barPicture as barPictureValue} from '../source/game/content/pictures/barPicture.js';
 import Index from '../source/routes/_index.js';
 
 const FAILURE_TEXT = 'Foam could not start. Reload the page, or try another browser.';
@@ -9,7 +9,7 @@ const FAILURE_TEXT = 'Foam could not start. Reload the page, or try another brow
 // A picture shader that does not compile fails in the constructor of the
 // night screen's picture, which addScreen runs through onAttach. The GLSL
 // has its text as its type, so the broken text is cast to it.
-vitest.mock(import('../source/game/content/barPicture.js'), () => ({
+vitest.mock(import('../source/game/content/pictures/barPicture.js'), () => ({
   barPicture: 'this is not GLSL' as typeof barPictureValue,
 }));
 
