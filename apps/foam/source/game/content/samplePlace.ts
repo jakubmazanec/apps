@@ -1,22 +1,8 @@
 import {defineDialogueScript, type RunnableDialogueScript} from 'tellurion';
 
 import {type Night} from '../core/night.js';
+import {type Spot} from '../core/place.js';
 import {barPicture} from './barPicture.js';
-
-/**
- * A spot lies on its thing in the place's picture: its button's centre is on
- * the thing on a wide screen, and its box overlaps the thing on a narrow one.
- */
-export type Spot = {
-  /** Label of the scene button. */
-  label: string;
-
-  /** Centre of the button, as fractions of the scene area's width and height. */
-  x: number;
-  y: number;
-
-  script: RunnableDialogueScript<Night>;
-};
 
 export type Place = {
   /** Label of the place button. */

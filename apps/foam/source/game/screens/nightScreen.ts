@@ -26,6 +26,9 @@ import {openOptionsModal} from './optionsModal.js';
 import {PlacePicture} from './placePicture.js';
 import {StoryWindow} from './storyWindow.js';
 
+// The sample bar's start. Task 5 of the places plan replaces it with `nightStart`.
+const SAMPLE_START = {place: 'train', minutes: 1180, money: 350} as const;
+
 type NightScreenContents = {
   menuButton: Button;
   menuModal: Modal | null;
@@ -220,7 +223,7 @@ export const nightScreen = new GameScreen<NightScreenContents>({
     return {
       menuButton,
       menuModal: null,
-      night: createNight(),
+      night: createNight(SAMPLE_START),
       optionsModal: null,
       picture: new PlacePicture({picture: samplePlace.picture}),
       placeButton,
@@ -230,7 +233,7 @@ export const nightScreen = new GameScreen<NightScreenContents>({
     };
   },
   onShow: (screen) => {
-    screen.contents.night = createNight();
+    screen.contents.night = createNight(SAMPLE_START);
     writeStatus(screen);
     screen.addToView(screen.contents.picture);
     layOut(screen);
