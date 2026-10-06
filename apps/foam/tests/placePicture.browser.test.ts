@@ -190,7 +190,8 @@ describe('place picture', {timeout: 60_000}, () => {
   });
 
   test('the checkerboard follows x + y', () => {
-    let pixels = readPixels(createDrawnPicture());
+    let picture = createDrawnPicture();
+    let pixels = readPixels(picture);
     let wrong = 0;
 
     // Row 0 is the band at step 0.
@@ -208,12 +209,6 @@ describe('place picture', {timeout: 60_000}, () => {
     expect(getColor(pixels, 479, 269)).toBe(MAGENTA);
 
     // (0, 0) lies on the band at step 0, so it is read off the band at step 1.
-    let picture = pictures[0];
-
-    if (picture === undefined) {
-      throw new Error('The picture is gone!');
-    }
-
     picture.update(frame(1000 / 30 + 1));
 
     let next = readPixels(picture);
@@ -296,13 +291,49 @@ describe('place picture', {timeout: 60_000}, () => {
     ).toThrow(/Picture shader failed to compile/);
   });
 
-  test('destroy frees the texture', () => {
+  test('destroy frees the texture, the mesh, its geometry and its shader, and empties the view', () => {
+    let render = vitest.spyOn(harness.game.app.renderer, 'render');
     let picture = new PlacePicture({picture: PROOF_PICTURE});
+    let [sprite] = picture.view.children;
     let texture = getTexture(picture);
+    let mesh: unknown;
 
+    // The mesh is never on a screen, so the test takes it from the draw into the texture.
+    try {
+      picture.update(frame(0));
+      mesh = render.mock.calls
+        .map(([options]) => options as {container?: unknown; target?: unknown})
+        .find((options) => options.target === texture)?.container;
+    } finally {
+      render.mockRestore();
+    }
+
+    if (!(mesh instanceof pixi.Mesh)) {
+      throw new TypeError('The picture drew no mesh!');
+    }
+
+    let drawn = mesh as pixi.Mesh<pixi.Geometry, pixi.Shader>;
+    let destroyed: string[] = [];
+
+    drawn.on('destroyed', () => {
+      destroyed.push('mesh');
+    });
+
+    // Read before destroy(), which lets go of both.
+    let {geometry, shader} = drawn;
+
+    geometry.on('destroy', () => {
+      destroyed.push('geometry');
+    });
+    shader?.on('destroy', () => {
+      destroyed.push('shader');
+    });
     picture.destroy();
 
     expect(texture.destroyed).toBe(true);
+    expect(destroyed.toSorted()).toEqual(['geometry', 'mesh', 'shader']);
+    expect(sprite?.destroyed).toBe(true);
+    expect(picture.view.children).toEqual([]);
   });
 
   // A headless browser draws the bar in software, so these tests get a longer timeout.
