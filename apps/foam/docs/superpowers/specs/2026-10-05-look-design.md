@@ -144,7 +144,7 @@ Error screen:
 | `source/game/screens/mainMenuScreen.ts`        | The large title and two buttons, without a panel                   |
 | `source/game/screens/errorScreen.ts`           | Title block                                                        |
 | `source/game/screens/placeholderBackground.ts` | Band colours from the palette                                      |
-| `source/game/content/samplePlace.ts`           | Two words in italic                                                |
+| `tests/fixedWorld.ts`                          | Two words in italic                                                |
 | `tests/`                                       | See Testing                                                        |
 
 No file under `apps/somewhere/` or `packages/tellurion/` changes.
@@ -289,7 +289,7 @@ and the two leaves stay aligned.
 5. `StoryWindow.text`, which the tests read, is the shown text without marks.
 
 A text with an odd number of marks is an author's mistake: everything after the last mark is italic.
-A test of the sample place fails on such a text.
+`tests/checkContent.test.ts` reports such a text.
 
 ### Window title (`screens/windowTitle.ts`)
 
@@ -332,7 +332,7 @@ What follows from them:
 | 146 × 262            | 19                                   | 14                                          |
 
 A button is as wide as its label plus 12. On a 146-pixel screen the place button therefore holds 14
-letters, and on a 195-pixel screen it holds 22. The longest label of the sample place, "Two women
+letters, and on a 195-pixel screen it holds 22. The longest label of the fixed bar, "Two women
 talking", makes a button 114 wide, which fits both.
 
 Buttons in a window are 4 apart so that the ring of one, which reaches 2 pixels out, does not touch
@@ -431,7 +431,7 @@ fits a screen of 146. The comment above the wrap width explains these numbers.
 The three bands take `ground`, `shade` and `line` from the palette, from top to bottom. The third
 spec replaces the class.
 
-### Sample content (`content/samplePlace.ts`)
+### Sample content (`tests/fixedWorld.ts`)
 
 Two words get marks, so that italic is seen and tested: `*better*` in the patron's `talk` node, and
 `*Nobody*` in "Nobody upstairs had moved a bed in thirty years" in his `ceiling` node. The second
@@ -474,7 +474,7 @@ Unit tests, in Node:
   two calls give the same bytes; every frame the theme names exists in the JSON; every frame lies
   inside the image and no two overlap; every frame's borders fit inside it; every opaque pixel is a
   colour of the palette.
-- The sample place: every text has an even number of marks.
+- The game's places: the content checker finds no text with an odd number of marks.
 - The tests of `getSceneArea`, `getSpotPosition`, `getPageBreaks` and `night`.
 
 Browser tests of the parts and sizes:
@@ -489,8 +489,8 @@ Browser tests of the parts and sizes:
 - **The cursor** lies just after the last letter of the complete page, inside the window, on a page
   that is followed by another, where the shown text ends with a line end, and on a last page.
 - **A tap on the cursor** turns the page.
-- **"no word in the sample place is longer than 16 characters"** counts without marks.
-- Tests that compare the window's text with the sample text compare without marks.
+- **"no word in the sample bar is longer than 16 characters"** counts without marks.
+- Tests that compare the window's text with the text of the fixed bar compare without marks.
 - The main menu's tests find its buttons, which have no panel around them.
 - The options window's tests find the sliders in their rows.
 

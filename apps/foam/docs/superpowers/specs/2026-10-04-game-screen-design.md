@@ -151,7 +151,7 @@ New files, under `apps/foam/source/game/`:
 | `core/getPageBreaks.ts`            | Where each page ends in a wrapped text                                   |
 | `core/getSceneArea.ts`             | The area under the top row for a given screen size                       |
 | `core/getSpotPosition.ts`          | Where a scene button sits in that area                                   |
-| `content/samplePlace.ts`           | The sample place: its name, description, scene buttons and their scripts |
+| `content/places.ts`                | The game's places by id: each one's name, description, picture and spots |
 
 Changed files, relative to `apps/foam/`:
 
@@ -242,7 +242,7 @@ export function formatStatus(night: Night): string;
 
 The `Night` object is the context of every dialogue script. A node's `onEnter` changes it directly.
 
-### Content (`content/samplePlace.ts`)
+### Places (`core/place.ts`)
 
 ```ts
 export type Spot = {
@@ -257,21 +257,32 @@ export type Spot = {
 };
 
 export type Place = {
-  /** Label of the place button. */
+  id: PlaceId;
+
+  /** The real name. The travel window lists the place by it. */
   name: string;
 
+  /** Label of the place button, for a name that does not fit it. */
+  shortName?: string;
+
   description: RunnableDialogueScript<Night>;
+
+  /** GLSL of the place: the function that draws its picture. */
+  picture: string;
+
   spots: Spot[];
 };
-
-export const samplePlace: Place;
 ```
+
+The game's places are `source/game/content/places/*.ts`, recorded by id in `content/places.ts`. The
+night screen shows `nightStart.places[night.place]`. The night screen tests run on the fixed world's
+bar, `FIXED_BAR`, which `tests/fixedWorld.ts` holds with `fixedPlaces` and `getFixedPlace`.
 
 Every script is written with `defineDialogueScript<Night>()`, so a reference to a node that does not
 exist is a type error.
 
-The sample place is named "The bar". It is an invented place, not a bar in Brno. Its text is
-temporary and is written with the implementation, within these limits:
+The fixed world's bar is named "The bar". It is an invented place, not a bar in Brno. Its text lies
+within these limits:
 
 - No word is longer than 16 characters, so every word fits a line on the narrowest phone.
 - No person or place in it has a real name.
@@ -281,13 +292,13 @@ temporary and is written with the implementation, within these limits:
 
 | Spot              | x    | y    | Script                                                                                                                                                                                                       |
 | ----------------- | ---- | ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| The bartender     | 0.25 | 0.2  | A short text and two choices. "Order a beer" leads to a node whose `onEnter` takes 45 from `money` and adds 10 to `minutes`. "Leave her alone" has no next node.                                             |
-| Two women talking | 0.75 | 0.3  | One node with a short text and no choices.                                                                                                                                                                   |
-| A patron          | 0.15 | 0.6  | A short text and two choices. "Talk to him" leads to a node with two further choices: "Ask about the ceiling" leads to the long text, and "Let him be" has no next node. "Ignore him" leads to a short text. |
-| The door          | 0.8  | 0.85 | A short text and two choices. "Step outside" leads to a short text. "Stay" has no next node.                                                                                                                 |
+| The bartender     | 0.22 | 0.51 | A short text and two choices. "Order a beer" leads to a node whose `onEnter` takes 45 from `money` and adds 10 to `minutes`. "Leave her alone" has no next node.                                             |
+| Two women talking | 0.7  | 0.84 | One node with a short text and no choices.                                                                                                                                                                   |
+| A patron          | 0.14 | 0.93 | A short text and two choices. "Talk to him" leads to a node with two further choices: "Ask about the ceiling" leads to the long text, and "Let him be" has no next node. "Ignore him" leads to a short text. |
+| The door          | 0.91 | 0.4  | A short text and two choices. "Step outside" leads to a short text. "Stay" has no next node.                                                                                                                 |
 
-The description is one node of about 60 words. The long text is about 300 words: it wraps to 36
-lines at 46 characters, which is three pages on a 480 × 270 screen.
+The description is one node of about 60 words. The long text is about 300 words: it takes more than
+one page on a 480 × 270 screen.
 
 ### Text helpers (`core/measureText.ts`, `core/getPageBreaks.ts`)
 
@@ -497,10 +508,10 @@ type NightScreenContents = {
 
 - `assetBundles` is `['default']` and `onFocusEvent` is `playFocusSound`.
 - `onAttach` builds the top row (the place button, the status text and the Menu button) and one
-  button per spot of `samplePlace`. A scene button has an absolute position and a fixed size: the
-  width of its label by `measureText` plus 12, and the button height. The status text has a fixed
-  size from `measureText` as well, set each time its text changes. The status text and the button
-  labels are in the label font, which has an outline.
+  button per spot of the shown place, `nightStart.places[night.place]`. A scene button has an
+  absolute position and a fixed size: the width of its label by `measureText` plus 12, and the
+  button height. The status text has a fixed size from `measureText` as well, set each time its text
+  changes. The status text and the button labels are in the label font, which has an outline.
 - `onShow` stores a fresh `createNight()`, writes the status text, adds the background to the view,
   lays the screen out for its current size and opens a story window with the place's description.
 - A scene button's `onClick` opens a story window with that spot's script, and the place button's
@@ -561,9 +572,9 @@ export function openMenuModal(options: MenuModalOptions): Modal;
 ```
 
 It builds a `Modal` with a centred `Panel`: the title "Menu" and the buttons Resume, Options and
-Quit to menu. It fades for 200 ms and focuses Resume. Resume closes the modal. Options and Quit to
-menu call `onOptions` and `onQuit`, and do nothing once the modal is closing. The function adds the
-modal to `ui` as an overlay and returns it, as `openOptionsModal` does.
+Quit to menu. It fades for 200 ms and declares Resume as its initial focus. Resume closes the modal.
+Options and Quit to menu call `onOptions` and `onQuit`, and do nothing once the modal is closing.
+The function adds the modal to `ui` as an overlay and returns it, as `openOptionsModal` does.
 
 ### Main menu and boot
 
@@ -668,7 +679,8 @@ watches the calls the real mixer receives and plays through the screen:
 15. A tap on the text finishes the page, and the next tap turns it. On a complete page of a node
     without choices, a tap on the marker turns the page, and so does a tap on the padding under the
     text.
-16. The long text is shown in three pages, and no page has more than 16 lines.
+16. The long text is shown in more than one page. The first page fills 16 lines, because a node
+    without choices reserves no room under the text, and no page has more than 16.
 17. After "Order a beer" and the closing of the window, the status text is `19:50   305 Kč   Sober`.
 18. After a window closes, the focus is back on the button that opened it.
 19. The place button opens the description again.
@@ -680,7 +692,8 @@ watches the calls the real mixer receives and plays through the screen:
 23. Quit to menu makes the main menu the current screen, and `storyWindow`, `menuModal` and
     `optionsModal` are `null`.
 24. A second New Game shows the starting status and opens the description again.
-25. No word in any text or choice of `samplePlace` is longer than 16 characters.
+25. No word in any text or choice of the fixed bar is longer than 16 characters. In
+    `tests/content.test.ts` the content checker finds no problem in the game's places.
 26. An arrow key moves the focus to the nearest scene button, and the click sound reaches the mixer
     on the `ui` bus.
 27. A scene button and the place button do nothing while a story window is open.
@@ -718,7 +731,8 @@ pixels:
    than the text width.
 5. The choice "Ask about the ceiling" wraps to two lines inside its button, and the window stays in
    the scene area.
-6. Taps open a scene button's window, finish its text and take a choice.
+6. Taps open a scene button's window, finish its text and take a choice. A tap on the text does
+   nothing while the choices are offered.
 7. With no press, the description stops at the end of its first page: the window shows a full page
    of 14 lines, no button is built, nothing is focused, the marker blinks, and no more text appears.
 8. The screen is 146 × 262 art pixels.

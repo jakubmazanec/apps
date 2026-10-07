@@ -77,8 +77,8 @@ Rejected:
 2. A tap or click on the window above the choices, or Enter or Space, finishes the page that is
    typing. When the page is complete, the same press turns the page, or closes the window after the
    last page of a node without choices.
-3. While such a press would turn the page or close the window, a small marker blinks at the bottom
-   right of the window. It is hidden while text types and while choices are offered.
+3. While such a press would turn the page or close the window, a small marker blinks after the last
+   letter of the page. It is hidden while text types and while choices are offered.
 4. When the last page of a node with choices is typed, the choices appear in room that was reserved
    from the start. None is focused.
 5. A tap or click on a choice takes it. The first arrow or Tab press focuses the first choice; Enter
@@ -93,8 +93,8 @@ Rejected:
 9. The menu opens with Resume focused. With the Tellurion addition the focus ring is on Resume when
    the menu opens, whatever opened it.
 
-A page of a node without choices holds 47 characters × 17 lines on a 480 × 270 screen and 20 × 15 on
-a 146 × 262 screen. A node with two one-line choices keeps 14 and 12 lines.
+A page of a node with a title and no choices holds 46 characters × 16 lines on a 480 × 270 screen
+and 19 × 14 on a 146 × 262 screen. A node with two one-line choices keeps 13 and 11 lines.
 
 ### Story window (`screens/storyWindow.ts`)
 
@@ -163,11 +163,11 @@ from any state, without the fade and without calling `onClosed`; a second call d
 - A node with choices reserves the window gap and the room its choices need, as before.
 - No Continue button is built, and nothing is focused.
 
-**The marker.** A `pixi.Sprite` with the texture `advance-marker` of the `ui` spriteset, 5 × 3 art
-pixels, placed out of the layout flow in the bottom right corner of the panel, inside its padding,
-as Tellurion's `DialogueBox` places its marker. It is visible while the runner's phase is `idle` and
-the blink is on; the blink turns every 500 ms of `update` time and starts in the on state whenever
-the phase becomes `idle`.
+**The marker.** A `pixi.Sprite` with the texture `cursor` of the `ui` spriteset, a solid rose
+rectangle of 5 × 9 art pixels, placed out of the layout flow in the panel's coordinates, after the
+last letter shown. On a page that another page follows, it stays on the page's last line. It is
+visible while the runner's phase is `idle` and the blink is on; the blink turns every 500 ms of
+`update` time and starts in the on state whenever the phase becomes `idle`.
 
 **Every frame.** `update` does nothing unless the window's state is `open` or `opening` and the
 window is the topmost overlay of its root. Otherwise:
@@ -220,10 +220,10 @@ variable that is assigned when the modal is built.
 The comment on `cancel` says what it does: it closes the menu or the Options window when one is on
 top, and otherwise opens the menu, also above a story window.
 
-### Sample content (`content/samplePlace.ts`)
+### Sample content (`tests/fixedWorld.ts`)
 
-No change. Every node with choices already offers a way out that costs nothing: "Leave her alone",
-"Ignore him", "Let him be" and "Stay".
+Every node with choices of the fixed world's bar offers a way out that costs nothing: "Leave her
+alone", "Ignore him", "Let him be" and "Stay".
 
 ## Error handling
 
@@ -270,7 +270,7 @@ these:
     `storyWindow`, `menuModal` and `optionsModal` are `null`.
 12. The menu opens with Resume focused and the focus ring shown, after Escape and after a tap on the
     Menu button.
-13. A page of a node without choices has at most 17 lines, and the long text takes more than one
+13. A page of a node without choices has at most 16 lines, and the long text takes more than one
     page.
 14. A resize keeps the focus on the choice that had it, after an arrow key focused it.
 15. With no press, the choices appear when the text is typed to its end, with nothing focused.
@@ -287,7 +287,7 @@ after Escape does not reach the choices, are gone with the behaviour.
 
 `tests/nightScreenNarrow.browser.test.ts`:
 
-1. A page of the description has at most 15 lines.
+1. A page of the description has at most 14 lines.
 2. Taps open a scene button's window, finish its text on a tap on the text, and take a choice. A tap
    on the text does nothing while the choices are offered.
 3. With no press, the description stops at the end of its first page and the marker becomes visible.
