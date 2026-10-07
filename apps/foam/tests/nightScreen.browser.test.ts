@@ -1,5 +1,5 @@
 import * as pixi from 'pixi.js';
-import {AudioMixer, Button, defineDialogueScript, type Modal, Panel} from 'tellurion';
+import {AudioMixer, defineDialogueScript, type Modal, Panel} from 'tellurion';
 import {
   afterAll,
   beforeAll,
@@ -26,6 +26,7 @@ import {
   doBoxesOverlap,
   getBox,
   getButtonLabel,
+  getMenuButton,
   getPicture,
   getPlaceButton,
   getSpotButton,
@@ -93,26 +94,6 @@ function findOverlap(boxes: Box[]): [Box, Box] | null {
   }
 
   return null;
-}
-
-// The menu is a Modal holding one Panel: the title, then the buttons Resume,
-// Options and Quit to menu.
-function getMenuButton(menu: Modal, label: string): Button {
-  let [panel] = menu.children;
-
-  if (!(panel instanceof Panel)) {
-    throw new TypeError('The menu has no panel!');
-  }
-
-  let button = panel.children.find(
-    (child) => child instanceof Button && getButtonLabel(child) === label,
-  );
-
-  if (!(button instanceof Button)) {
-    throw new TypeError(`The menu has no "${label}" button!`);
-  }
-
-  return button;
 }
 
 // 960 × 540 CSS pixels are 480 × 270 art pixels: headless Chromium has a
