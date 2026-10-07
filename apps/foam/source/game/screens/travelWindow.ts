@@ -23,6 +23,7 @@ import {
 } from '../core/getSceneArea.js';
 import {measureText} from '../core/measureText.js';
 import {type PlaceId, type Way} from '../core/night.js';
+import {UI_FADE_DURATION} from '../core/theme.js';
 import {type Destination, formatJourney, getDestinations, type NightStart} from '../core/travel.js';
 import {createWindowTitle, WINDOW_PADDING} from './windowTitle.js';
 
@@ -97,7 +98,6 @@ const DESTINATION_GAP = 4;
 const WAY_GAP = 3;
 // At least two letters between a name and its numbers on one line.
 const NAME_GAP = 2 * GLYPH_WIDTH;
-const FADE_DURATION = 200;
 
 function measureLabel(text: string): number {
   return measureText(text, 'label');
@@ -213,7 +213,7 @@ export class TravelWindow {
       children: [this.#panel],
       layout: {justifyContent: 'center', alignItems: 'center'},
       scheduler,
-      fadeDuration: FADE_DURATION,
+      fadeDuration: UI_FADE_DURATION,
       initialFocus: this.#destinationButtons[0] ?? this.#parts.back,
       onClosed: () => {
         onClosed(this.#picked);

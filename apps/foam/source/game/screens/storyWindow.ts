@@ -34,6 +34,7 @@ import {input} from '../core/input.js';
 import {MARK, splitMarked, stripMarks} from '../core/markedText.js';
 import {measureText} from '../core/measureText.js';
 import {type Night} from '../core/night.js';
+import {UI_FADE_DURATION} from '../core/theme.js';
 import {createWindowTitle, TITLE_HEIGHT, WINDOW_PADDING} from './windowTitle.js';
 
 export type StoryWindowOptions = {
@@ -62,12 +63,6 @@ const CURSOR_OFFSET = 2;
 const BLIP_EVERY_GLYPHS = 3;
 // A frame that reveals this many characters is a skip: one blip at most.
 const SKIP_THRESHOLD = 4;
-const FADE_DURATION = 200;
-// New choices fade in over this long and take no tap until fully shown. The
-// first tap of a double tap under the text can finish it, and the choices then
-// appear under the finger; the fade covers the second tap (a common double-tap
-// timeout is 300 ms) and is far shorter than reading the choices.
-const CHOICES_FADE_DURATION = 300;
 const CURSOR_BLINK_MS = 500;
 
 function measureLabel(text: string): number {
@@ -437,7 +432,7 @@ export class StoryWindow implements Overlay {
     this.#cancelFade = this.#scheduler.tween({
       target: this.view,
       to: {alpha},
-      duration: FADE_DURATION,
+      duration: UI_FADE_DURATION,
       easing: easeOutQuad,
       onComplete: () => {
         this.#cancelFade = null;
@@ -446,9 +441,13 @@ export class StoryWindow implements Overlay {
     });
   }
 
-  // Fades the choices in on the scheduler. Until they are fully shown they are
-  // no pointer target, so a tap on them reaches the press surface under them
-  // and does nothing, as a tap on the text does while the runner is choosing.
+  // Fades the choices in on the scheduler, over the duration of every UI fade.
+  // The first tap of a double tap under the text can finish it, and the
+  // choices then appear under the finger. Until they are fully shown they are
+  // no pointer target: a second tap within the fade (about 100 ms after they
+  // appear) reaches the press surface under them and does nothing, as a tap on
+  // the text does while the runner is choosing. A later second tap takes the
+  // choice under it.
   // Keys are not held back: the choices appear with nothing focused, so Enter
   // only takes one after an arrow or Tab press has focused it.
   #fadeInChoices(buttonArea: Container): void {
@@ -460,7 +459,7 @@ export class StoryWindow implements Overlay {
     this.#cancelChoicesFade = this.#scheduler.tween({
       target: view,
       to: {alpha: 1},
-      duration: CHOICES_FADE_DURATION,
+      duration: UI_FADE_DURATION,
       easing: easeOutQuad,
       onComplete: () => {
         this.#cancelChoicesFade = null;

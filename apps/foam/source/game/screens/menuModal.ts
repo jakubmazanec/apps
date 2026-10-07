@@ -3,6 +3,7 @@ import {Button, Modal, Panel, type Scheduler, Text, type UiRoot} from 'tellurion
 import {game} from '../core/game.js';
 import {BUTTON_PADDING_X} from '../core/getSceneArea.js';
 import {measureText} from '../core/measureText.js';
+import {UI_FADE_DURATION} from '../core/theme.js';
 import {createWindowTitle, WINDOW_PADDING} from './windowTitle.js';
 
 export type MenuModalOptions = {
@@ -59,7 +60,7 @@ export function openMenuModal({
     children: [panel],
     layout: {justifyContent: 'center', alignItems: 'center'},
     scheduler,
-    fadeDuration: 200,
+    fadeDuration: UI_FADE_DURATION,
     initialFocus: resumeButton,
     onClosed,
   });

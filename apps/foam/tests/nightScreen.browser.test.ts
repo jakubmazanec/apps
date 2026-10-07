@@ -206,7 +206,7 @@ describe('night screen', {timeout: 180_000}, () => {
     return menuModal;
   }
 
-  // The menu closes after a 200 ms fade, so closing is awaited.
+  // The menu closes after a 100 ms fade, so closing is awaited.
   async function waitForNoMenu(): Promise<void> {
     await vitest.waitFor(
       () => {
