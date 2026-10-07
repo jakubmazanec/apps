@@ -101,6 +101,34 @@ describe(drawUiAtlas, () => {
     }
   });
 
+  // The GPU rounds a texture coordinate to a fraction of a pixel, so the far end of a middle
+  // stretched across a window can take the pixel next to it.
+  test("every frame's middle and the pixels around it have one colour", () => {
+    let {png, json} = drawUiAtlas();
+    let image = decode(png);
+    let frames = Object.values(getFrames(json)).filter(
+      (frame): frame is Required<Frame> => frame.borders !== undefined,
+    );
+
+    function getPixel(x: number, y: number): string {
+      let offset = (y * image.width + x) * 4;
+
+      return image.data.slice(offset, offset + 4).join(',');
+    }
+
+    for (let {x, y, width, height, borders} of frames) {
+      let left = x + borders.left - 1;
+      let top = y + borders.top - 1;
+      let middle = getPixel(left + 1, top + 1);
+
+      for (let row = top; row <= y + height - borders.bottom; row++) {
+        for (let col = left; col <= x + width - borders.right; col++) {
+          expect(getPixel(col, row)).toBe(middle);
+        }
+      }
+    }
+  });
+
   test('every opaque pixel is a palette colour', () => {
     let {data} = decode(drawUiAtlas().png);
     let colors = new Set(
