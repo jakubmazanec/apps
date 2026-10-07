@@ -248,6 +248,11 @@ export class StoryWindow implements Overlay {
     this.#fade(1, () => {
       this.#state = 'open';
     });
+
+    // A detach cancelled the fade of these choices; they fade in again.
+    if (this.#choicesState === 'fading' && this.#buttonArea !== null) {
+      this.#fadeInChoices(this.#buttonArea);
+    }
   }
 
   /** Destroys the window at once, without the fade and without calling `onClosed`. */
@@ -258,7 +263,7 @@ export class StoryWindow implements Overlay {
 
     // Leaves the root first, while the buttons are alive: removeOverlay gives
     // the focus back to what had it before the window and calls detach(),
-    // which cancels a running fade.
+    // which cancels the running fades.
     this.#ui?.removeOverlay(this);
     this.#panel.destroy();
     this.view.destroy({children: true});
