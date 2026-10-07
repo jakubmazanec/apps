@@ -153,11 +153,13 @@ position.
 The story window and the menu work as follows. This is built:
 [spec](superpowers/specs/2026-10-04-story-window-controls-design.md).
 
-- The story window has no Continue button. A tap on the window above the choices, or Enter or Space,
-  continues the text, and a rose cursor blinks after the last letter shown, once the page is
-  complete, to show that a press will continue. The choices are the window's only buttons and appear
-  with nothing focused. Somewhere's dialogue box has no Continue button either. It keeps a press
-  that was meant to continue the text from taking the first choice.
+- The story window has no Continue button. A tap on the text or on the room under it, where the
+  choices appear, or Enter or Space, continues the text, and a rose cursor blinks after the last
+  letter shown, once the page is complete, to show that a press will continue. The choices are the
+  window's only buttons and appear with nothing focused. They fade in over 300 ms and take a tap
+  once fully shown, so the second tap of a double tap under the text cannot take one. Somewhere's
+  dialogue box has no Continue button either. It keeps a press that was meant to continue the text
+  from taking the first choice.
 - Nobody closes a story window before its end, and Escape does not close it. A window ends through
   its text or through a choice, so every node with choices offers a way out that costs nothing.
   Tellurion's `Modal` always closes on the cancel command, so the window is an overlay of its own
