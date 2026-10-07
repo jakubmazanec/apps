@@ -27,11 +27,16 @@ topmost overlay declares no `close`, so the pause menu opens above the dialogue 
 
 ## Decisions
 
-1. **The story window has no Continue button.** A press on the window above the choices, or Enter or
-   Space, continues the text. A marker shows when a press will continue.
+1. **The story window has no Continue button.** A press on the text or on the room under it, where
+   the choices appear, or Enter or Space, continues the text. A press on the text and a press in the
+   room under it, at the same moment, do the same. A marker shows when a press will continue.
 2. **The choices are the window's only buttons, and they appear with nothing focused.** A tap takes
    one. The first arrow or Tab press focuses the first choice, and Enter or Space takes the focused
-   one.
+   one. New choices fade in over 300 ms and take a tap only once fully shown: the first tap of a
+   double tap under the text can finish the text, and the choices then appear under the finger. The
+   fade covers the second tap, as a common double-tap timeout is 300 ms, and it is far shorter than
+   reading the choices. Keys need no such time: the choices appear with nothing focused, so a second
+   Enter does not take one.
 3. **Nobody closes a story window before its end.** It ends through its text or through a choice.
    Every node with choices offers a way out that costs nothing; this is a rule for the content.
 4. **The story window is an overlay of its own, without `close`,** as Somewhere's dialogue box is.
@@ -47,9 +52,6 @@ Game; the main menu opens with nothing focused.
 
 Rejected:
 
-- **A short time in which fresh choices do not react.** Dialogic does this with its `block_delay` of
-  0.2 s ("Can prevent accidental selection"), and Yarn Spinner keeps its options from reacting
-  during a 0.25 s fade. It treats the symptom: the first choice still takes Continue's place.
 - **Only taking the focus off the first choice.** It does nothing for a tap on the spot where
   Continue was.
 - **A row of its own for Continue under the choices.** It does nothing for keys, and it costs two
@@ -74,17 +76,17 @@ Rejected:
 
 1. A scene button, or the place button, opens the window with a 200 ms fade, and the scene is
    dimmed. The window has a title and a text that types out with the blip sound.
-2. A tap or click on the window above the choices, or Enter or Space, finishes the page that is
-   typing. When the page is complete, the same press turns the page, or closes the window after the
-   last page of a node without choices.
+2. A tap or click on the text or on the room under it, where the choices appear, or Enter or Space,
+   finishes the page that is typing. When the page is complete, the same press turns the page, or
+   closes the window after the last page of a node without choices.
 3. While such a press would turn the page or close the window, a small marker blinks after the last
    letter of the page. It is hidden while text types and while choices are offered.
 4. When the last page of a node with choices is typed, the choices appear in room that was reserved
-   from the start. None is focused.
+   from the start. None is focused. They fade in over 300 ms and take a tap once fully shown.
 5. A tap or click on a choice takes it. The first arrow or Tab press focuses the first choice; Enter
    or Space takes the focused one.
-6. While choices are offered, a press on the window above them does nothing, and Enter or Space does
-   nothing as long as no choice is focused.
+6. While choices are offered, a tap on the text, between two choices or on choices that are still
+   fading in does nothing, and Enter or Space does nothing as long as no choice is focused.
 7. A choice leads to its next node, or closes the window if it has none. When the window closes, the
    focus returns to the button that opened it, and the status shows the current values.
 8. Escape does not close the window. It opens the menu above it. While the menu is open the text
@@ -151,10 +153,11 @@ every pointer event. Its second child is the `Panel`, the only entry of `childre
 `opening`, sets the view's alpha to 0 and fades it to 1 in 200 ms on the scheduler with
 `easeOutQuad`; the state is then `open`. When the runner has ended, the window sets the state to
 `closing` and fades to 0; when the fade is over it calls `ui.removeOverlay(this)`, destroys itself
-and calls `onClosed`. `detach` cancels a running fade, forgets the root and sets the state to
-`closed`. `destroy()` leaves the root if the window is still attached and destroys the view at once,
-from any state, without the fade and without calling `onClosed`; a second call does nothing.
-`attach` throws when the window is already attached, and `detach` when it is not, as `Modal` does.
+and calls `onClosed`. `detach` cancels the running fades, the window's and the choices', forgets the
+root and sets the state to `closed`. `destroy()` leaves the root if the window is still attached and
+destroys the view at once, from any state, without the fade and without calling `onClosed`; a second
+call does nothing. `attach` throws when the window is already attached, and `detach` when it is not,
+as `Modal` does.
 
 **Showing a node.** As in phase 2, with these differences:
 
@@ -180,23 +183,30 @@ window is the topmost overlay of its root. Otherwise:
 2. It ticks the runner, shows the node again when the runner is on another node or page, shows the
    revealed text and plays the blips, as in phase 2.
 3. When the runner is choosing and the choices are not built yet, it builds one button per visible
-   choice and focuses none.
+   choice and focuses none. It fades them in over 300 ms on the scheduler with `easeOutQuad`. While
+   they fade, the button area takes no pointer events (`eventMode` is `'none'`); after the fade it
+   takes them again (`'passive'`, Pixi's default).
 4. It shows or hides the marker.
 5. When the runner has ended, it starts the closing fade.
 
-**Continuing the text.** A press on the window above the choices and the key rule of step 1 call the
-same function. It calls `dialogue.advance()` unless the runner is choosing, where `advance()` would
-take the first choice, and unless the state is `closing` or `closed`.
+**Continuing the text.** A tap on the press surface and the key rule of step 1 call the same
+function. It calls `dialogue.advance()` unless the runner is choosing, where `advance()` would take
+the first choice, and unless the state is `closing` or `closed`.
 
 The press surface spans the panel's width from its top edge. For a node without choices it reaches
 the panel's bottom edge, so a tap on the marker or on the padding around it continues the text. For
-a node with choices it ends at the bottom edge of the text, and a press in the room of the choices
-does nothing. The surface is a container of its own beside the choices, so a tap on a choice does
-not reach it.
+a node with choices it reaches the bottom of the room the choices fill, without the panel's bottom
+padding, so a tap in that room does what a tap on the text does at the same moment. The surface
+draws nothing and lies above the title and the text and under the choices: Pixi's hit test stops at
+the first part under a tap, interactive or not, so a letter drawn above the surface would keep a tap
+from it. The marker lies on top and takes no pointer events. The surface is a container of its own
+beside the choices, not their parent, so a tap on a choice does not reach it; a tap between two
+choices does, and does nothing while the runner is choosing.
 
 **Resizing.** As in phase 2: it stores the area, sets the top padding and shows the current node
-again. When one of the choices had the focus, the choice at the same position has it afterwards. A
-window that is not attached only stores the area.
+again. When one of the choices had the focus, the choice at the same position has it afterwards.
+Choices that were fully shown come back fully shown and take a tap at once; choices that were fading
+in start their fade again. A window that is not attached only stores the area.
 
 ### Night screen (`screens/nightScreen.ts`)
 
@@ -229,6 +239,9 @@ alone", "Ignore him", "Let him be" and "Stay".
 
 - **A press arrives during a fade.** While the window fades in, a press continues the text as it
   does afterwards. While it fades out, the runner has ended and the window takes no press.
+- **A double tap under the text.** The first tap finishes the text, and the runner offers the
+  choices at once. The second tap lands while they fade in, reaches the press surface and does
+  nothing, as a second tap on the text does.
 - **The screen is hidden with a window open.** `onHide` destroys every open window at once.
 - **The menu is open above a story window and the player quits.** `onHide` destroys the menu and
   then the window.
@@ -245,7 +258,10 @@ which choice had the focus.
 ## Testing
 
 `tests/nightScreenHelpers.tsx` follows the new window: its parts are read from
-`storyWindow.children`, there is no Continue button, and `readPages` presses Enter as before.
+`storyWindow.children`, there is no Continue button, and `readPages` presses Enter as before. Its
+parts include the button area and the press surface. `tapNow` sends a tap straight to the canvas,
+which Pixi handles at once, with no frame in between, and `waitForChoices` waits until the choices
+are fully shown.
 
 `tests/nightScreen.browser.test.ts` keeps the checks of phase 2 that still apply and changes or adds
 these:
@@ -274,13 +290,25 @@ these:
     page.
 14. A resize keeps the focus on the choice that had it, after an arrow key focused it.
 15. With no press, the choices appear when the text is typed to its end, with nothing focused.
-16. A tap on a choice does not also finish the next text.
+16. A tap on a choice does not also finish the next text. The test taps each choice once the choices
+    are fully shown.
 17. A tap on the text finishes the page, and the next tap turns it.
 18. On a complete page of a node without choices, a tap on the marker turns the page, and so does a
     tap on the padding under the text.
+19. A tap under the text, in the room of the choices, finishes a page that is typing, and turns a
+    complete page that another page follows.
+20. A second tap under the text, right after the first one finished it, reaches the press surface
+    and not the choice that appeared under it, and takes nothing. Once the choices are fully shown,
+    a tap there takes the choice. The window keeps its size while the choices fade in and
+    afterwards.
+21. A resize starts the fade of fading choices again and brings fully shown ones back at once.
 
 Checks 8, 16, 17 and 18 use the long text, whose pages take more than ten seconds to type, so that a
-tap of a few seconds cannot be mistaken for the text finishing by itself.
+tap of a few seconds cannot be mistaken for the text finishing by itself. Check 19 uses a window the
+test builds, whose node has two pages and two choices and whose first page takes more than ten
+seconds to type, for the same reason. Check 20 taps with `tapNow` and calls `update` itself, and
+check 21 calls `advance`, `update` and `resize` itself, so no frame runs before they look and the
+fade cannot end first.
 
 The checks of phase 2 that Escape closes a story window, and that a press during the closing fade
 after Escape does not reach the choices, are gone with the behaviour.
@@ -288,8 +316,8 @@ after Escape does not reach the choices, are gone with the behaviour.
 `tests/nightScreenNarrow.browser.test.ts`:
 
 1. A page of the description has at most 14 lines.
-2. Taps open a scene button's window, finish its text on a tap on the text, and take a choice. A tap
-   on the text does nothing while the choices are offered.
+2. Taps open a scene button's window, finish its text on a tap on the text, and take a choice once
+   the choices are fully shown. A tap on the text does nothing while the choices are offered.
 3. With no press, the description stops at the end of its first page and the marker becomes visible.
 
 Commands, run from the repository root:

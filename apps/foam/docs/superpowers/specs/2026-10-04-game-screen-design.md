@@ -101,15 +101,16 @@ The window:
    turn.
 10. The title is the node's `speaker`. The text types at 40 characters per second with the blip
     sound.
-11. A press on the window above the choices, or Enter or Space, finishes the page while it is still
-    typing; otherwise it turns the page, or closes the window after the last page of a node without
-    choices. While such a press would turn the page or close the window, a marker blinks after the
-    last letter. It is hidden while text types and while choices are offered. No button is built and
-    nothing is focused until the choices appear.
+11. A press on the text or on the room under it, where the choices appear, or Enter or Space,
+    finishes the page while it is still typing; otherwise it turns the page, or closes the window
+    after the last page of a node without choices. While such a press would turn the page or close
+    the window, a marker blinks after the last letter. It is hidden while text types and while
+    choices are offered. No button is built and nothing is focused until the choices appear.
 12. When the last page of a node with choices is typed, the choices appear in room that was reserved
     from the start. None is focused: the first arrow or Tab press focuses the first choice, and
-    Enter or Space takes the focused one. While the choices are offered, a press on the window above
-    them does nothing.
+    Enter or Space takes the focused one. The choices fade in over 300 ms and take a tap once fully
+    shown. While the choices are offered, a press on the text, between two choices or on choices
+    that are still fading in does nothing.
 13. A choice leads to its next node, or closes the window if it has none.
 14. After the last page of a node without choices, a press closes the window.
 15. Escape opens the menu above the window. While the menu is open the text does not type and the
@@ -420,9 +421,9 @@ its `onEnter`, builds the panel and the scrim, and shows the start node.
 `opening`, sets the view's alpha to 0 and fades it to 1 in 200 ms on the scheduler with
 `easeOutQuad`; the state is then `open`. When the runner has ended, the window sets the state to
 `closing` and fades to 0; when the fade is over it destroys itself and calls `onClosed`. `detach`
-cancels a running fade, forgets the root and sets the state to `closed`. `destroy()` leaves the root
-if the window is still attached and destroys the view at once, from any state, without the fade and
-without calling `onClosed`.
+cancels the running fades, the window's and the choices', forgets the root and sets the state to
+`closed`. `destroy()` leaves the root if the window is still attached and destroys the view at once,
+from any state, without the fade and without calling `onClosed`.
 
 **Showing a node.** The window shows a node when it is constructed, when the runner moves to another
 node or page, and when it is resized:
@@ -467,27 +468,34 @@ window that fades out takes no press. Otherwise:
    line ends: once per three such characters. A frame that reveals four or more characters at once
    plays it once at most.
 6. When the runner is choosing and the choices are not built yet, it builds one button per visible
-   choice, in the room the node reserved, and focuses none.
+   choice, in the room the node reserved, and focuses none. It fades them in over 300 ms on the
+   scheduler with `easeOutQuad`, and while they fade the button area takes no pointer events. The
+   fade covers the second tap of a double tap under the text, after the first tap finished the text,
+   as a common double-tap timeout is 300 ms, and it is far shorter than reading the choices.
 7. It shows or hides the marker.
 8. When the runner has ended, it starts the closing fade.
 
-**Input.** A press on the window above the choices, and the key rule of step 1 of the frame, call
+**Input.** A tap on the press surface, and the key rule of step 1 of the frame, call
 `dialogue.advance()`, unless the runner is choosing: there `advance()` would take the first choice.
 Nothing reaches the runner while the state is `closing` or `closed`. The press surface is a
-container of its own beside the choices, so a tap on a choice does not reach it. It spans the
-panel's width from its top edge. For a node without choices it reaches the panel's bottom edge, so a
-tap on the marker or on the padding around it continues the text. For a node with choices it ends at
-the bottom edge of the text, and a press in the room of the choices does nothing. A choice button
-calls `dialogue.choose()` with its index. Escape does not close the window: the night screen opens
+container of its own beside the choices, not their parent, so a tap on a choice does not reach it.
+It spans the panel's width from its top edge. For a node without choices it reaches the panel's
+bottom edge, so a tap on the marker or on the padding around it continues the text. For a node with
+choices it reaches the bottom of the room the choices fill, without the panel's bottom padding, so a
+tap in that room does what a tap on the text does at the same moment. It lies above the title and
+the text and under the choices, and the marker, on top, takes no pointer events. A choice button
+calls `dialogue.choose()` with its index; a tap reaches it once the choices are fully shown, and
+Enter or Space whenever it has the focus. Escape does not close the window: the night screen opens
 the menu above it.
 
 **Closing.** When the closing fade is over, `destroy()` takes the window off the root and `onClosed`
 is called.
 
 **Resizing.** `resize` stores the new area, sets the view's top padding and shows the current node
-again, with its choices if they were shown, and with the focus on the choice at the same position
-when one of the window's choices had it. The runner keeps its count of revealed characters and
-ignores breaks that lie before it. A window that is not attached only stores the area.
+again, with its choices if they were built, and with the focus on the choice at the same position
+when one of the window's choices had it. Choices that were fully shown come back fully shown, and
+choices still fading in start their fade again. The runner keeps its count of revealed characters
+and ignores breaks that lie before it. A window that is not attached only stores the area.
 
 ### Night screen (`screens/nightScreen.ts`)
 
@@ -595,7 +603,8 @@ The function adds the modal to `ui` as an overlay and returns it, as `openOption
 - **The screen is resized while a text types.** The window wraps the page again and hands the runner
   new page ends. The count of revealed characters is kept.
 - **A press arrives during a fade.** While the window fades in, a press continues the text as it
-  does afterwards. While it fades out, the runner has ended and the window takes no press; the
+  does afterwards. While new choices fade in, a tap on them reaches the press surface and does
+  nothing. While the window fades out, the runner has ended and the window takes no press; the
   runner itself ignores `advance()` and `choose()` once it has ended. The menu's Options and Quit to
   menu do nothing once the menu is closing, so Escape and then Enter neither quits the night nor
   opens Options over a closing menu.
@@ -705,7 +714,7 @@ watches the calls the real mixer receives and plays through the screen:
 31. The menu music is started once before Quit to menu, and once more when the main menu is shown
     again.
 32. With no press, the choices appear when the text is typed to its end, and none is focused.
-33. The window keeps its size when the choices appear.
+33. The window keeps its size when the choices appear, while they fade in and afterwards.
 34. The window keeps its size on every page of the long text.
 35. A resize while the choices are shown keeps the focus on the choice that had it.
 36. A node without `speaker` has no title, and its window is shorter by the title's line and gap.
@@ -720,6 +729,11 @@ watches the calls the real mixer receives and plays through the screen:
 41. The background fills the screen.
 42. A choice without a next node closes the window, and the status text keeps its values.
 43. Escape closes the menu.
+44. A tap under the text, in the room of the choices, finishes a page that is typing, and turns a
+    complete page that another page follows.
+45. A second tap under the text, right after the first one finished it, takes no choice while the
+    choices fade in; once they are fully shown, a tap there takes the choice.
+46. A resize starts the fade of fading choices again and brings fully shown ones back at once.
 
 **`tests/nightScreenNarrow.browser.test.ts`** uses a 292 × 524 viewport, which is 146 × 262 art
 pixels:
@@ -731,8 +745,8 @@ pixels:
    than the text width.
 5. The choice "Ask about the ceiling" wraps to two lines inside its button, and the window stays in
    the scene area.
-6. Taps open a scene button's window, finish its text and take a choice. A tap on the text does
-   nothing while the choices are offered.
+6. Taps open a scene button's window, finish its text and take a choice once the choices are fully
+   shown. A tap on the text does nothing while the choices are offered.
 7. With no press, the description stops at the end of its first page: the window shows a full page
    of 14 lines, no button is built, nothing is focused, the marker blinks, and no more text appears.
 8. The screen is 146 × 262 art pixels.
