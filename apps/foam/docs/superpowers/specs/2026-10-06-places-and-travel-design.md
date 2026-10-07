@@ -656,7 +656,7 @@ export class TravelWindow {
 }
 ```
 
-The window is a `Panel` in a `Modal` with a fade of 200 ms, built the way `openMenuModal` builds the
+The window is a `Panel` in a `Modal` with a fade of 100 ms, built the way `openMenuModal` builds the
 menu. The constructor adds the modal to `ui`. The night screen calls `resize` from its own layout,
 as it calls the story window's `resize`, so a phone that is turned while the window is open gets the
 layout of its new width. A resize keeps the current way and the focus.
