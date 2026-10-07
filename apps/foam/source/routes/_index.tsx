@@ -14,16 +14,24 @@ export default function Index() {
     let controller = new AbortController();
 
     (async () => {
-      let [{game: importedGame}, {errorScreen}, {mainMenuScreen}, {nightScreen}] =
-        await Promise.all([
-          import('../game/core/game.js'),
-          import('../game/screens/errorScreen.js'),
-          import('../game/screens/mainMenuScreen.js'),
-          import('../game/screens/nightScreen.js'),
-          // Evaluates the audio bootstrap (decode context and first-gesture
-          // unlock) before init() below loads the default bundle's sounds.
-          import('../game/core/audio.js'),
-        ]);
+      let [
+        {game: importedGame},
+        {errorScreen},
+        {mainMenuScreen},
+        {nightScreen},
+        {nightStart},
+        {getJumpIn},
+      ] = await Promise.all([
+        import('../game/core/game.js'),
+        import('../game/screens/errorScreen.js'),
+        import('../game/screens/mainMenuScreen.js'),
+        import('../game/screens/nightScreen.js'),
+        import('../game/content/nightStart.js'),
+        import('../game/core/getJumpIn.js'),
+        // Evaluates the audio bootstrap (decode context and first-gesture
+        // unlock) before init() below loads the default bundle's sounds.
+        import('../game/core/audio.js'),
+      ]);
 
       if (controller.signal.aborted) {
         return;
@@ -42,10 +50,20 @@ export default function Index() {
       importedGame.addErrorScreen(errorScreen);
       importedGame.addScreen(mainMenuScreen);
       importedGame.addScreen(nightScreen);
+
+      // A jump-in in the address starts the night at once, in every build, so
+      // a scene can be tried on a phone. Its values stay in nightStart for the
+      // page load, so Quit to menu and New Game start the same scene again.
+      let jumpIn = getJumpIn(globalThis.location.search, nightStart.places);
+
+      if (jumpIn !== null) {
+        Object.assign(nightStart, jumpIn);
+      }
+
       // Not awaited: setGame below must run in the same tick so React mounts
       // the canvas during the first transition rather than after it.
       // showScreen never rejects; a failure lands on the error screen.
-      void importedGame.showScreen(mainMenuScreen);
+      void importedGame.showScreen(jumpIn === null ? mainMenuScreen : nightScreen);
       setGame(importedGame);
     })().catch((error: unknown) => {
       // A failed boot (WebGL context creation, a script or asset that did not
