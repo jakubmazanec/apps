@@ -158,7 +158,7 @@ export function openOptionsModal({ui, scheduler, onClosed}: OptionsModalOptions)
   calls `saveSettingsSoon()`.
 - The Close button calls `close()` on the modal. Escape closes it through the engine's cancel
   command.
-- The modal fades for 200 ms on the given `scheduler`.
+- The modal fades for 100 ms on the given `scheduler`.
 - When the close completes, it calls `saveSettingsSoon.flush()` and then the caller's `onClosed`.
 - It adds the modal to `ui` as an overlay and returns it. Nothing is focused on open.
 

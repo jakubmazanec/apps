@@ -32,11 +32,11 @@ topmost overlay declares no `close`, so the pause menu opens above the dialogue 
    room under it, at the same moment, do the same. A marker shows when a press will continue.
 2. **The choices are the window's only buttons, and they appear with nothing focused.** A tap takes
    one. The first arrow or Tab press focuses the first choice, and Enter or Space takes the focused
-   one. New choices fade in over 300 ms and take a tap only once fully shown: the first tap of a
-   double tap under the text can finish the text, and the choices then appear under the finger. The
-   fade covers the second tap, as a common double-tap timeout is 300 ms, and it is far shorter than
-   reading the choices. Keys need no such time: the choices appear with nothing focused, so a second
-   Enter does not take one.
+   one. New choices fade in over 100 ms and take a tap only once fully shown: the first tap of a
+   double tap under the text can finish the text, and the choices then appear under the finger. A
+   second tap that lands within the fade, about 100 ms after the choices appear, reaches the press
+   surface and does nothing; a later second tap takes the choice under it. Keys need no such time:
+   the choices appear with nothing focused, so a second Enter does not take one.
 3. **Nobody closes a story window before its end.** It ends through its text or through a choice.
    Every node with choices offers a way out that costs nothing; this is a rule for the content.
 4. **The story window is an overlay of its own, without `close`,** as Somewhere's dialogue box is.
@@ -74,7 +74,7 @@ Rejected:
 
 ### What the player sees
 
-1. A scene button, or the place button, opens the window with a 200 ms fade, and the scene is
+1. A scene button, or the place button, opens the window with a 100 ms fade, and the scene is
    dimmed. The window has a title and a text that types out with the blip sound.
 2. A tap or click on the text or on the room under it, where the choices appear, or Enter or Space,
    finishes the page that is typing. When the page is complete, the same press turns the page, or
@@ -82,7 +82,7 @@ Rejected:
 3. While such a press would turn the page or close the window, a small marker blinks after the last
    letter of the page. It is hidden while text types and while choices are offered.
 4. When the last page of a node with choices is typed, the choices appear in room that was reserved
-   from the start. None is focused. They fade in over 300 ms and take a tap once fully shown.
+   from the start. None is focused. They fade in over 100 ms and take a tap once fully shown.
 5. A tap or click on a choice takes it. The first arrow or Tab press focuses the first choice; Enter
    or Space takes the focused one.
 6. While choices are offered, a tap on the text, between two choices or on choices that are still
@@ -150,7 +150,7 @@ child is a scrim, a rectangle in the theme's `modal.scrimColor` and `modal.scrim
 every pointer event. Its second child is the `Panel`, the only entry of `children`.
 
 **Fade and state.** The state starts as `closed`. `attach` records the root, sets the state to
-`opening`, sets the view's alpha to 0 and fades it to 1 in 200 ms on the scheduler with
+`opening`, sets the view's alpha to 0 and fades it to 1 in 100 ms on the scheduler with
 `easeOutQuad`; the state is then `open`. Choices whose fade a detach cancelled fade in again from
 the start. When the runner has ended, the window sets the state to `closing` and fades to 0; when
 the fade is over it calls `ui.removeOverlay(this)`, destroys itself and calls `onClosed`. `detach`
@@ -183,7 +183,7 @@ window is the topmost overlay of its root. Otherwise:
 2. It ticks the runner, shows the node again when the runner is on another node or page, shows the
    revealed text and plays the blips, as in phase 2.
 3. When the runner is choosing and the choices are not built yet, it builds one button per visible
-   choice and focuses none. It fades them in over 300 ms on the scheduler with `easeOutQuad`. While
+   choice and focuses none. It fades them in over 100 ms on the scheduler with `easeOutQuad`. While
    they fade, the button area takes no pointer events (`eventMode` is `'none'`); after the fade it
    takes them again (`'passive'`, Pixi's default).
 4. It shows or hides the marker.
@@ -240,8 +240,9 @@ alone", "Ignore him", "Let him be" and "Stay".
 - **A press arrives during a fade.** While the window fades in, a press continues the text as it
   does afterwards. While it fades out, the runner has ended and the window takes no press.
 - **A double tap under the text.** The first tap finishes the text, and the runner offers the
-  choices at once. The second tap lands while they fade in, reaches the press surface and does
-  nothing, as a second tap on the text does.
+  choices at once. A second tap that lands within the fade, about 100 ms after they appear, reaches
+  the press surface and does nothing, as a second tap on the text does; a later second tap takes the
+  choice under it.
 - **The screen is hidden with a window open.** `onHide` destroys every open window at once.
 - **The menu is open above a story window and the player quits.** `onHide` destroys the menu and
   then the window.

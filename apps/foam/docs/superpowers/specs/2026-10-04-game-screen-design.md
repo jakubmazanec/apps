@@ -95,7 +95,7 @@ The window:
 └──────────────────────────────────────────────────┘
 ```
 
-8. A scene button opens the window with a 200 ms fade, and the scene is dimmed.
+8. A scene button opens the window with a 100 ms fade, and the scene is dimmed.
 9. The window is as tall as its text and choices need, up to the height of the area under the top
    row. It keeps one size for the whole node, so nothing moves while the text types or the pages
    turn.
@@ -108,7 +108,7 @@ The window:
     choices are offered. No button is built and nothing is focused until the choices appear.
 12. When the last page of a node with choices is typed, the choices appear in room that was reserved
     from the start. None is focused: the first arrow or Tab press focuses the first choice, and
-    Enter or Space takes the focused one. The choices fade in over 300 ms and take a tap once fully
+    Enter or Space takes the focused one. The choices fade in over 100 ms and take a tap once fully
     shown. While the choices are offered, a press on the text, between two choices or on choices
     that are still fading in does nothing.
 13. A choice leads to its next node, or closes the window if it has none.
@@ -418,7 +418,7 @@ child is the `Panel`, the only entry of `children`.
 its `onEnter`, builds the panel and the scrim, and shows the start node.
 
 **Fade and state.** The state starts as `closed`. `attach` records the root, sets the state to
-`opening`, sets the view's alpha to 0 and fades it to 1 in 200 ms on the scheduler with
+`opening`, sets the view's alpha to 0 and fades it to 1 in 100 ms on the scheduler with
 `easeOutQuad`; the state is then `open`. Choices whose fade a detach cancelled fade in again from
 the start. When the runner has ended, the window sets the state to `closing` and fades to 0; when
 the fade is over it destroys itself and calls `onClosed`. `detach` cancels the running fades, the
@@ -469,10 +469,11 @@ window that fades out takes no press. Otherwise:
    line ends: once per three such characters. A frame that reveals four or more characters at once
    plays it once at most.
 6. When the runner is choosing and the choices are not built yet, it builds one button per visible
-   choice, in the room the node reserved, and focuses none. It fades them in over 300 ms on the
-   scheduler with `easeOutQuad`, and while they fade the button area takes no pointer events. The
-   fade covers the second tap of a double tap under the text, after the first tap finished the text,
-   as a common double-tap timeout is 300 ms, and it is far shorter than reading the choices.
+   choice, in the room the node reserved, and focuses none. It fades them in over 100 ms on the
+   scheduler with `easeOutQuad`, and while they fade the button area takes no pointer events. A
+   second tap of a double tap under the text that lands within the fade, about 100 ms after the
+   first tap finished the text, reaches the press surface and does nothing; a later second tap takes
+   the choice under it.
 7. It shows or hides the marker.
 8. When the runner has ended, it starts the closing fade.
 
@@ -581,7 +582,7 @@ export function openMenuModal(options: MenuModalOptions): Modal;
 ```
 
 It builds a `Modal` with a centred `Panel`: the title "Menu" and the buttons Resume, Options and
-Quit to menu. It fades for 200 ms and declares Resume as its initial focus. Resume closes the modal.
+Quit to menu. It fades for 100 ms and declares Resume as its initial focus. Resume closes the modal.
 Options and Quit to menu call `onOptions` and `onQuit`, and do nothing once the modal is closing.
 The function adds the modal to `ui` as an overlay and returns it, as `openOptionsModal` does.
 
