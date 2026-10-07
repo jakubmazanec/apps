@@ -110,7 +110,7 @@ describe('travel window', {timeout: 180_000}, () => {
     return travelWindow;
   }
 
-  // The window closes after a 200 ms fade, so closing is awaited.
+  // The window closes after a 100 ms fade, so closing is awaited.
   async function waitForClosed(): Promise<void> {
     await vitest.waitFor(
       () => {
@@ -289,6 +289,9 @@ describe('travel window', {timeout: 180_000}, () => {
 
   test('Escape closes it with nothing picked', async () => {
     openTravel('walk');
+    // A frame runs first, as in play: the night screen takes the cancel command for the one of
+    // the overlay that was on top at the end of its last update.
+    await nextFrame();
     await press('Escape');
     await waitForClosed();
 

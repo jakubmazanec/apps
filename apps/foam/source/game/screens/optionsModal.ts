@@ -13,6 +13,7 @@ import {
 import {audio} from '../core/audio.js';
 import {game} from '../core/game.js';
 import {saveSettingsSoon, settings} from '../core/settings.js';
+import {UI_FADE_DURATION} from '../core/theme.js';
 import {createWindowTitle, WINDOW_PADDING} from './windowTitle.js';
 
 export type OptionsModalOptions = {
@@ -98,7 +99,7 @@ export function openOptionsModal({ui, scheduler, onClosed}: OptionsModalOptions)
     children: [panel],
     layout: {justifyContent: 'center', alignItems: 'center'},
     scheduler,
-    fadeDuration: 200,
+    fadeDuration: UI_FADE_DURATION,
     onClosed: () => {
       saveSettingsSoon.flush();
       onClosed();

@@ -373,7 +373,7 @@ export function getPicture({nightScreen}: Harness): PlacePicture {
   return picture;
 }
 
-// A window closes after a 200 ms fade, so closing is awaited.
+// A window closes after a 100 ms fade, so closing is awaited.
 export async function waitForNoStoryWindow({nightScreen}: Harness): Promise<void> {
   await vitest.waitFor(
     () => {

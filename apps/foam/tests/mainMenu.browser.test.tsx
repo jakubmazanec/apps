@@ -164,7 +164,7 @@ describe('main menu', () => {
     return modal;
   }
 
-  // The window closes after a 200 ms fade, so closing is awaited.
+  // The window closes after a 100 ms fade, so closing is awaited.
   async function waitForClosed(): Promise<void> {
     await vitest.waitFor(
       () => {

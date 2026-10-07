@@ -119,7 +119,7 @@ describe('night screen places', {timeout: 180_000}, () => {
     );
   }
 
-  // The travel window closes after a 200 ms fade, so closing is awaited.
+  // The travel window closes after a 100 ms fade, so closing is awaited.
   async function waitForNoTravelWindow(): Promise<void> {
     await vitest.waitFor(
       () => {
