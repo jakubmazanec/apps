@@ -1,4 +1,11 @@
-import {Button, GameScreen, type Modal, type RunnableDialogueScript, Text} from 'tellurion';
+import {
+  Button,
+  GameScreen,
+  type Modal,
+  type Overlay,
+  type RunnableDialogueScript,
+  Text,
+} from 'tellurion';
 
 import {journeys} from '../content/journeys.js';
 import {nightStart} from '../content/nightStart.js';
@@ -34,6 +41,11 @@ import {TravelWindow} from './travelWindow.js';
 type NightScreenContents = {
   /** Whether a story window has closed and the screen has not looked at the night since. */
   hasStoryClosed: boolean;
+
+  /**
+   * The topmost overlay at the end of the last update, which this frame's cancel command reached.
+   */
+  lastTopOverlay: Overlay | null;
 
   menuButton: Button;
   menuModal: Modal | null;
@@ -372,6 +384,7 @@ export const nightScreen = new GameScreen<NightScreenContents>({
 
     return {
       hasStoryClosed: false,
+      lastTopOverlay: null,
       menuButton,
       menuModal: null,
       night: createNight(nightStart),
@@ -391,6 +404,7 @@ export const nightScreen = new GameScreen<NightScreenContents>({
 
     screen.contents.night = night;
     screen.contents.hasStoryClosed = false;
+    screen.contents.lastTopOverlay = null;
     writeStatus(screen);
 
     let place = nightStart.places[night.place];
@@ -456,8 +470,14 @@ export const nightScreen = new GameScreen<NightScreenContents>({
     // Options window or the travel window. With no overlay, or with a story
     // window on top, a journey's too, which declares none, the command opens
     // the menu. focusPressed only reads the latched state, so reading it again
-    // here is safe.
-    if (input.focusPressed('cancel') && screen.ui.topOverlay?.close === undefined) {
+    // here is safe. The overlay that took the command is the one on top at the
+    // end of the last update, not the one on top now: a frame as long as a UI
+    // fade can finish the closing of that overlay before this point.
+    let {lastTopOverlay} = screen.contents;
+
+    screen.contents.lastTopOverlay = screen.ui.topOverlay;
+
+    if (input.focusPressed('cancel') && lastTopOverlay?.close === undefined) {
       openMenu(screen);
     }
   },
