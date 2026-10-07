@@ -768,12 +768,12 @@ Run with `node scripts/list-stand-ins.mjs`. It reads the files of `content/place
 ```
 Texts                    stand-in  written
 train.ts                        6        0
-rotorBar.ts                     7        0
+rotorBar.ts                     6        0
 ...
 journeys.ts                     3        0
 
 Places not checked:   6 of 6
-Journeys not checked: 49 of 49
+Journeys not checked: 48 of 48
 ```
 
 It exports the function that counts the tags of one source text, for its test.
