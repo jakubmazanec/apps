@@ -142,7 +142,7 @@ describe('night screen', {timeout: 180_000}, () => {
 
   // Opens a window of the test's own, as one the screen opened: the screen
   // ticks the window it holds. Its node has two pages and two choices, and
-  // its first page takes more than ten seconds to type.
+  // each page takes more than ten seconds to type.
   function openPagesWithChoices(): StoryWindow {
     let {contents, scheduler, ui} = harness.nightScreen;
     let storyWindow = new harness.StoryWindow({
@@ -150,7 +150,7 @@ describe('night screen', {timeout: 180_000}, () => {
       script: defineDialogueScript<Night>()({
         start: {
           speaker: 'A lamp',
-          text: [LAMP_PAGE, 'The second page is short, and the choices come after it.'],
+          text: [LAMP_PAGE, LAMP_PAGE],
           choices: [{text: 'Look closer'}, {text: 'Look away'}],
         },
       }),
@@ -875,6 +875,8 @@ describe('night screen', {timeout: 180_000}, () => {
 
         await tap(harness, getRoomUnderText(storyWindow));
 
+        // The second page takes more than ten seconds to type, so it is still
+        // typing after the tap.
         expect(storyWindow.dialogue.pageIndex).toBe(1);
         expect(storyWindow.dialogue.phase).toBe('revealing');
       } finally {
@@ -1148,6 +1150,25 @@ describe('night screen', {timeout: 180_000}, () => {
 
       expect(getChoicesView().alpha).toBe(1);
       expect(getChoicesView().eventMode).not.toBe('none');
+    });
+
+    test('a window attached again fades in the choices whose fade its detach cut short', async () => {
+      let {ui} = harness.nightScreen;
+      let storyWindow = await openSpot('The bartender');
+
+      // No frame runs between these calls: the choices start their fade, and
+      // the window leaves the root and comes back before the fade advances.
+      storyWindow.dialogue.advance();
+      storyWindow.update(0);
+      ui.removeOverlay(storyWindow);
+      ui.addOverlay(storyWindow);
+
+      await waitForChoices(storyWindow);
+
+      expect(getWindowParts(storyWindow).buttons.map(getButtonLabel)).toEqual([
+        'Order a beer',
+        'Leave her alone',
+      ]);
     });
 
     test('a node without a speaker has no title, and the window is shorter by it', async () => {
