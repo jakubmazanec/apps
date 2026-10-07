@@ -43,7 +43,8 @@ type NightScreenContents = {
   hasStoryClosed: boolean;
 
   /**
-   * The topmost overlay at the end of the last update, which this frame's cancel command reached.
+   * The topmost overlay at the end of the last update. As a rule it took this frame's cancel
+   * command, unless a tap opened another overlay since.
    */
   lastTopOverlay: Overlay | null;
 
@@ -470,16 +471,18 @@ export const nightScreen = new GameScreen<NightScreenContents>({
     // Options window or the travel window. With no overlay, or with a story
     // window on top, a journey's too, which declares none, the command opens
     // the menu. focusPressed only reads the latched state, so reading it again
-    // here is safe. The overlay that took the command is the one on top at the
-    // end of the last update, not the one on top now: a frame as long as a UI
-    // fade can finish the closing of that overlay before this point.
+    // here is safe. The overlay that took the command is, as a rule, the one on
+    // top at the end of the last update, not the one on top now: a frame as long
+    // as a UI fade can finish the closing of that overlay before this point. (A
+    // tap that opened another overlay since then makes it a miss.) The overlay
+    // is recorded after the rule, so the menu this rule opens is on record too.
     let {lastTopOverlay} = screen.contents;
-
-    screen.contents.lastTopOverlay = screen.ui.topOverlay;
 
     if (input.focusPressed('cancel') && lastTopOverlay?.close === undefined) {
       openMenu(screen);
     }
+
+    screen.contents.lastTopOverlay = screen.ui.topOverlay;
   },
   onResize: (screen) => {
     layOut(screen);

@@ -529,9 +529,13 @@ type NightScreenContents = {
 - A story window's `onClosed` clears `storyWindow` and writes the status text from `night`.
 - `openStory` builds the window and calls `screen.ui.addOverlay(storyWindow)`.
 - `onUpdate` calls `storyWindow.update(ticker.deltaMS)` when one is open. It opens the menu when the
-  cancel command was pressed this frame and the topmost overlay declares no `close`:
-  `input.focusPressed('cancel') && screen.ui.topOverlay?.close === undefined`. That holds with no
-  overlay and with a story window on top, and not with the menu or the Options window on top.
+  cancel command was pressed this frame and the overlay that was on top at the end of the screen's
+  last update declares no `close`:
+  `input.focusPressed('cancel') && lastTopOverlay?.close === undefined`. That holds with no overlay
+  and with a story window on top, and not with the menu or the Options window on top. The screen
+  judges by the last update's overlay because a frame of 100 ms, the length of a UI fade, can finish
+  that overlay's close before `onUpdate`, and the overlay on top then is gone. `onUpdate` records
+  the overlay on top after it applies the rule.
 - The menu opens only while the screen is shown and no menu is open. Quit to menu hides the screen
   inside its click, and an Escape in the same frame still reaches `onUpdate`.
 - `onResize` computes the scene area with `getSceneArea`, puts the status text beside or under the
