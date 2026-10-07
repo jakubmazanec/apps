@@ -151,13 +151,13 @@ every pointer event. Its second child is the `Panel`, the only entry of `childre
 
 **Fade and state.** The state starts as `closed`. `attach` records the root, sets the state to
 `opening`, sets the view's alpha to 0 and fades it to 1 in 200 ms on the scheduler with
-`easeOutQuad`; the state is then `open`. When the runner has ended, the window sets the state to
-`closing` and fades to 0; when the fade is over it calls `ui.removeOverlay(this)`, destroys itself
-and calls `onClosed`. `detach` cancels the running fades, the window's and the choices', forgets the
-root and sets the state to `closed`. `destroy()` leaves the root if the window is still attached and
-destroys the view at once, from any state, without the fade and without calling `onClosed`; a second
-call does nothing. `attach` throws when the window is already attached, and `detach` when it is not,
-as `Modal` does.
+`easeOutQuad`; the state is then `open`. Choices whose fade a detach cancelled fade in again from
+the start. When the runner has ended, the window sets the state to `closing` and fades to 0; when
+the fade is over it calls `ui.removeOverlay(this)`, destroys itself and calls `onClosed`. `detach`
+cancels the running fades, the window's and the choices', forgets the root and sets the state to
+`closed`. `destroy()` leaves the root if the window is still attached and destroys the view at once,
+from any state, without the fade and without calling `onClosed`; a second call does nothing.
+`attach` throws when the window is already attached, and `detach` when it is not, as `Modal` does.
 
 **Showing a node.** As in phase 2, with these differences:
 
@@ -215,7 +215,7 @@ in start their fade again. A window that is not attached only stores the area.
   declares no `close`: `input.focusPressed('cancel') && screen.ui.topOverlay?.close === undefined`.
   That holds with no overlay and with a story window on top, and not with the menu or the Options
   window on top.
-- `openMenu` no longer refuses while a story window is open. It still refuses while the screen is
+- `openMenu` opens the menu also while a story window is open. It refuses only while the screen is
   not shown and while a menu is open.
 - `onHide` destroys the Options window, the menu and the story window, in that order, as before.
 
@@ -302,13 +302,14 @@ these:
     a tap there takes the choice. The window keeps its size while the choices fade in and
     afterwards.
 21. A resize starts the fade of fading choices again and brings fully shown ones back at once.
+22. A window attached again fades in the choices whose fade its detach cut short.
 
 Checks 8, 16, 17 and 18 use the long text, whose pages take more than ten seconds to type, so that a
 tap of a few seconds cannot be mistaken for the text finishing by itself. Check 19 uses a window the
-test builds, whose node has two pages and two choices and whose first page takes more than ten
+test builds, whose node has two pages and two choices and whose pages each take more than ten
 seconds to type, for the same reason. Check 20 taps with `tapNow` and calls `update` itself, and
-check 21 calls `advance`, `update` and `resize` itself, so no frame runs before they look and the
-fade cannot end first.
+check 21 calls `advance`, `update` and `resize` itself, and check 22 `advance`, `update`,
+`removeOverlay` and `addOverlay`, so no frame runs before they look and the fade cannot end first.
 
 The checks of phase 2 that Escape closes a story window, and that a press during the closing fade
 after Escape does not reach the choices, are gone with the behaviour.

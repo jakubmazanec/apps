@@ -379,8 +379,9 @@ from, and that the size stays the same for a whole node. What changes:
   the text's left top corner. It blinks on for 500 ms and off for 500 ms, while the runner is idle.
   A line that is full puts the cursor up to 7 pixels past the text, inside the window's padding
   of 12.
-- **Press surface.** Unchanged. It covers the text and, for a node without choices, the rest of the
-  window, so a tap on the cursor continues the text.
+- **Press surface.** It spans the window's width from its top edge. For a node with choices it
+  covers the text and the room under it where the choices appear, without the bottom padding. For a
+  node without choices it covers the rest of the window, so a tap on the cursor continues the text.
 
 ### Night screen (`screens/nightScreen.ts`)
 
