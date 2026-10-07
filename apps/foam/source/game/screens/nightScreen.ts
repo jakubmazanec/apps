@@ -9,8 +9,8 @@ import {
   getSceneArea,
   LINE_HEIGHT,
   MARGIN,
-  NARROW_WIDTH,
   type SceneArea,
+  TOP_ROW_WIDTH,
 } from '../core/getSceneArea.js';
 import {getSpotPosition} from '../core/getSpotPosition.js';
 import {input} from '../core/input.js';
@@ -90,11 +90,11 @@ function layOut(screen: NightScreen): void {
   let {picture, place, spotButtons, statusText, storyWindow, travelWindow} = screen.contents;
   let area = getArea();
 
-  // Beside the place button, level with its label, or under it on a narrow
-  // screen. With no place shown, a wide screen puts it where the place button
-  // stands.
+  // Beside the place button, level with its label, or under it on a screen
+  // narrower than the one-line top row. With no place shown, a wide screen
+  // puts it where the place button stands.
   statusText.view.layout =
-    area.width < NARROW_WIDTH ?
+    area.width < TOP_ROW_WIDTH ?
       {left: MARGIN, top: MARGIN + BUTTON_HEIGHT + MARGIN}
     : {
         left: place === null ? MARGIN : MARGIN + getButtonWidth(getPlaceLabel(place)) + MARGIN,

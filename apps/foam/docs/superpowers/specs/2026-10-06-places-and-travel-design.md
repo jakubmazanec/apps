@@ -596,7 +596,8 @@ The screen's contents:
 3. It builds the place button, labelled `shortName ?? name`, and the scene buttons, and adds them to
    the UI.
 4. It lays them out. The status line stands beside the place button, so it moves with that button's
-   width.
+   width. On a screen narrower than the top row width, 292 art pixels, it stands under the place
+   button: from 292 the widest place button, a status line of 24 characters and Menu fit one line.
 5. It sets `night.leaving` to `null` and writes the status.
 6. It opens the place's description in a story window.
 

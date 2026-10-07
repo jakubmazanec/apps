@@ -388,7 +388,7 @@ from, and that the size stays the same for a whole node. What changes:
 - The status text is created with `fontFamily: 'monogram-outline'`. The labels of buttons are in the
   plain font, which the theme gives them.
 - Nothing else changes: the positions of the top row, the scene buttons at their fractions, the
-  narrow layout below 240.
+  two-line top row below 292.
 
 ### Menu (`screens/menuModal.ts`)
 

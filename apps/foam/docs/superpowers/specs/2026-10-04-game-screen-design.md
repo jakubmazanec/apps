@@ -73,7 +73,7 @@ The scene:
 
 3. A placeholder background fills the screen.
 4. The top row holds the place button, then the time, the money and the state of mind, with the Menu
-   button at the right end. On a screen narrower than 240 art pixels the status sits on a second
+   button at the right end. On a screen narrower than 292 art pixels the status sits on a second
    line under the place button.
 5. Each scene button sits at a fraction of the width and height of the area under the top row, and
    is kept fully on screen.
@@ -176,15 +176,16 @@ All sizes are in art pixels.
 | Margin         | 4     | Space kept free at the edges of the screen                       |
 | Line height    | 12    | One line of monogram                                             |
 | Button height  | 16    | A button with a one-line label: the line plus 2 of padding twice |
-| Narrow width   | 240   | Below this screen width the top row has two lines                |
+| Narrow width   | 240   | Below this screen width a window takes its narrow layout         |
+| Top row width  | 292   | From this screen width the top row has one line                  |
 | Window width   | 300   | Width of the story window, when the screen allows it             |
 | Window padding | 8     | Inside the story window's panel                                  |
 | Window gap     | 4     | Between title, text and buttons                                  |
 | Button gap     | 2     | Between buttons in the story window                              |
 
-`core/getSceneArea.ts` exports the margin, the line height, the button height and the narrow width,
-because the scene and the story window both use them. The other four sizes are constants in
-`screens/storyWindow.ts`.
+`core/getSceneArea.ts` exports the margin, the line height, the button height, the narrow width and
+the top row width, because the scene and the story window both use them. The other four sizes are
+constants in `screens/storyWindow.ts`.
 
 ### Limits on a 146 × 262 screen
 
@@ -313,7 +314,7 @@ export type SceneArea = {
 export function getSceneArea(screenWidth: number, screenHeight: number): SceneArea;
 ```
 
-The scene area is the screen under the top row. `top` is 24 on a screen at least 240 wide (margin,
+The scene area is the screen under the top row. `top` is 24 on a screen at least 292 wide (margin,
 button height, margin) and 40 on a narrower one (the status line and a gap of 4 more). `width` is
 the screen width and `height` is the screen height minus `top`.
 
@@ -553,7 +554,11 @@ Unit tests, in the node project:
 
 - A 480 × 270 screen gives `{top: 24, width: 480, height: 246}`.
 - A 146 × 262 screen gives `{top: 40, width: 146, height: 222}`.
-- A screen exactly 240 wide has the one-line top row.
+- A screen exactly 292 wide has the one-line top row, and one 291 wide has two lines.
+- The top row width is 292: a margin, a place button holding the 14 characters that `getLabelRoom()`
+  gives the place button on the narrowest screen, a margin, the status line's 24 characters, a
+  margin, the Menu button and a margin.
+- The status line's 24 characters hold `17:00   -1350 Kč   Sober`.
 
 **`tests/getSpotPosition.test.ts`**
 
