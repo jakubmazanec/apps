@@ -19,6 +19,7 @@ import {
   startNewGame,
   tap,
   useFixedWorld,
+  waitForChoices,
   waitForNoStoryWindow,
 } from './nightScreenHelpers.js';
 
@@ -273,6 +274,8 @@ describe('night screen on a narrow screen', {timeout: 180_000}, () => {
     expect(storyWindow.dialogue.phase).toBe('choosing');
     expect(nightScreen.ui.focused).toBeNull();
 
+    // A choice takes a tap once it has faded in.
+    await waitForChoices(storyWindow);
     await tap(harness, getBox(harness, getWindowButton(storyWindow, 0)));
 
     expect(storyWindow.dialogue.node).not.toBe(doorNode);
