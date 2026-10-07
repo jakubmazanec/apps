@@ -148,7 +148,7 @@ describe('travel window', {timeout: 180_000}, () => {
     ({TravelWindow: TravelWindowClass} = await import('../source/game/screens/travelWindow.js'));
     restore = useFixedWorld({place: FIXED_STOP});
     await startNewGame(harness);
-    await pressThrough(getStoryWindow(harness));
+    await pressThrough(harness, getStoryWindow(harness));
     await press('Enter');
     await waitForNoStoryWindow(harness);
   }, 60_000);

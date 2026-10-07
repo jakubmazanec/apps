@@ -6,7 +6,12 @@ import {journeys} from '../source/game/content/journeys.js';
 import {nightStart} from '../source/game/content/nightStart.js';
 import {places} from '../source/game/content/places.js';
 import {checkContent} from '../source/game/core/checkContent.js';
-import {getSceneArea} from '../source/game/core/getSceneArea.js';
+import {
+  BUTTON_HEIGHT,
+  BUTTON_PADDING_X,
+  getSceneArea,
+  GLYPH_WIDTH,
+} from '../source/game/core/getSceneArea.js';
 import {getSpotPosition} from '../source/game/core/getSpotPosition.js';
 
 const SCREENS = [
@@ -14,9 +19,6 @@ const SCREENS = [
   {width: 195, height: 350},
   {width: 146, height: 262},
 ] as const;
-const GLYPH_WIDTH = 6;
-const PADDING = 12;
-const BUTTON_HEIGHT = 16;
 
 type Box = {left: number; top: number; width: number; height: number};
 
@@ -62,7 +64,7 @@ describe('the game content', () => {
       for (let {width, height} of SCREENS) {
         let area = getSceneArea(width, height);
         let boxes = place.spots.map((spot) => {
-          let buttonWidth = spot.label.length * GLYPH_WIDTH + PADDING;
+          let buttonWidth = spot.label.length * GLYPH_WIDTH + 2 * BUTTON_PADDING_X;
 
           return {
             label: spot.label,

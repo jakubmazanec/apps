@@ -187,8 +187,10 @@ buttons have, so they lie on the counter, the tables and the door.
 | `source/game/core/travel.ts`                     | New. The types of the travel data and of a night's start, reading the data, taking a journey |
 | `source/game/core/getExpectedJourneys.ts`        | New. Which journeys the travel data has to hold                                              |
 | `source/game/core/getLabelRoom.ts`               | New. How many characters each kind of label holds on the narrowest screen                    |
+| `source/game/core/getSceneArea.ts`               | Gains the window sizes from `storyWindow.ts` and `windowTitle.ts`, and the top row width     |
 | `source/game/core/checkContent.ts`               | New. The checker's rules                                                                     |
 | `source/game/core/getJumpIn.ts`                  | New. Reads the start of a night from an address                                              |
+| `source/game/core/input.ts`                      | The cancel command's comment names the travel window                                         |
 | `source/game/content/places.ts`                  | New. The record of all places                                                                |
 | `source/game/content/places/*.ts`                | New. Seven files, one per place                                                              |
 | `source/game/content/journeys.ts`                | New. One script per way of travelling                                                        |
@@ -201,6 +203,8 @@ buttons have, so they lie on the counter, the tables and the door.
 | `source/game/content/samplePlace.ts`             | Removed. Its content becomes the tests' fixed place                                          |
 | `source/game/screens/nightScreen.ts`             | Shows the night's place, changes place, opens the travel window                              |
 | `source/game/screens/travelWindow.ts`            | New. The travel window                                                                       |
+| `source/game/screens/storyWindow.ts`             | Its window sizes move to `getSceneArea.ts`                                                   |
+| `source/game/screens/windowTitle.ts`             | Its window padding moves to `getSceneArea.ts`                                                |
 | `source/game/screens/mainMenuScreen.ts`          | The import path of the bar's picture                                                         |
 | `source/routes/_index.tsx`                       | The jump-in                                                                                  |
 | `scripts/fill-travel-data.mjs`                   | New. Fills what the two data files lack                                                      |
