@@ -1,6 +1,8 @@
 import {afterAll, beforeAll, describe, expect, test, vitest} from 'vitest';
 
+import {nightStart} from '../source/game/content/nightStart.js';
 import {type barPicture as barPictureValue} from '../source/game/content/pictures/barPicture.js';
+import {type NightStart} from '../source/game/core/travel.js';
 import {bootGame, getStoryWindow, type Harness, readText} from './nightScreenHelpers.js';
 
 // The bar's shader costs about 88 ms a frame in headless Chromium, and Rotor
@@ -14,9 +16,14 @@ vitest.mock(import('../source/game/content/pictures/barPicture.js'), async () =>
 describe('the jump-in', () => {
   let harness: Harness;
   let oldAddress = '';
+  let oldStart: Pick<NightStart, 'minutes' | 'money' | 'place'>;
 
   beforeAll(async () => {
     oldAddress = `${globalThis.location.pathname}${globalThis.location.search}${globalThis.location.hash}`;
+
+    let {minutes, money, place} = nightStart;
+
+    oldStart = {minutes, money, place};
 
     let url = new URL(globalThis.location.href);
 
@@ -27,15 +34,15 @@ describe('the jump-in', () => {
     harness = await bootGame(960, 540, {screen: 'night'});
   }, 60_000);
 
-  afterAll(async () => {
+  afterAll(() => {
     globalThis.history.replaceState(null, '', oldAddress);
     harness.unmount();
 
-    // The jump-in wrote into nightStart; the other tests of this file's worker
-    // run in their own module graph, so only the start is put back.
-    let {nightStart} = await import('../source/game/content/nightStart.js');
-
-    Object.assign(nightStart, {place: 'train', minutes: 1020, money: 350});
+    // The boot's jump-in wrote its place, hour and money into nightStart. They
+    // are put back as they were before the boot, so nightStart leaves this
+    // block as it came in: a block added after it in this file starts its New
+    // Game from the game's own start, not from the jump-in's.
+    Object.assign(nightStart, oldStart);
   });
 
   test('the game started with a jump-in shows that place, hour and money', () => {

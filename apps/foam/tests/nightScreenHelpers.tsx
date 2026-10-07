@@ -69,11 +69,10 @@ export async function press(code: string): Promise<void> {
 
 // Boots the real game once, through the index route inside StrictMode, as the
 // app does, and waits for the main menu, or the night screen when the address
-// holds a jump-in. The viewport is set first: Game picks
-// its pixel scale from the width and the height of the window when game.ts is
-// evaluated.
-// That is why the game modules are imported here, after the viewport is set,
-// and why a test file never imports them at its top.
+// holds a jump-in. The viewport is set first: Game picks its pixel scale from
+// the width and the height of the window when game.ts is evaluated. That is why
+// the game modules are imported here, after the viewport is set, and why a test
+// file never imports them at its top.
 export async function bootGame(
   width: number,
   height: number,
@@ -516,22 +515,44 @@ export async function readPages(storyWindow: StoryWindow, onPage?: () => void): 
   }
 }
 
-// Whether a press shows more of the text: the runner is typing, or waits at a
-// break inside its page.
-function hasTextLeft({dialogue}: StoryWindow): boolean {
+// How many pages the runner made of the node's text: one for a string, one for
+// each entry of a list. A text that is a function is called again with the
+// night screen's night, which every story window of the tests runs on.
+function countPages({nightScreen}: Harness, {dialogue}: StoryWindow): number {
+  let text = dialogue.node?.text ?? '';
+  let pages = typeof text === 'function' ? text(nightScreen.contents.night) : text;
+
+  return typeof pages === 'string' ? 1 : pages.length;
+}
+
+// Whether a press goes on through the text without closing the window: the
+// runner is typing, waits at a break inside its page, or waits at the end of a
+// page that another page or the node's next node follows.
+function hasTextLeft(harness: Harness, storyWindow: StoryWindow): boolean {
+  let {dialogue} = storyWindow;
+
+  if (dialogue.phase === 'revealing') {
+    return true;
+  }
+
+  if (dialogue.phase !== 'idle') {
+    return false;
+  }
+
   return (
-    dialogue.phase === 'revealing' ||
-    (dialogue.phase === 'idle' && dialogue.revealedCount < dialogue.pageText.length)
+    dialogue.revealedCount < dialogue.pageText.length ||
+    dialogue.pageIndex < countPages(harness, storyWindow) - 1 ||
+    dialogue.node?.next !== undefined
   );
 }
 
-// Presses Enter through the text up to its last press: it stops with the
-// node's choices offered, or with the whole page shown and the window waiting
-// for the press that closes it. That press is left to the test: once the
-// window has closed, the focus is back on the button that opened it, and one
-// more press would open the window again.
-export async function pressThrough(storyWindow: StoryWindow): Promise<void> {
-  for (let count = 0; count < 40 && hasTextLeft(storyWindow); count += 1) {
+// Presses Enter through the text up to its last press, over every page and
+// every next node: it stops with the choices offered, or with the last page
+// shown and the window waiting for the press that closes it. That press is
+// left to the test: once the window has closed, the focus is back on the
+// button that opened it, and one more press would open the window again.
+export async function pressThrough(harness: Harness, storyWindow: StoryWindow): Promise<void> {
+  for (let count = 0; count < 40 && hasTextLeft(harness, storyWindow); count += 1) {
     await press('Enter');
   }
 }

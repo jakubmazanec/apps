@@ -1,5 +1,5 @@
 import {type Button, type Modal} from 'tellurion';
-import {afterAll, beforeAll, describe, expect, type MockInstance, test, vitest} from 'vitest';
+import {afterAll, beforeAll, describe, expect, test, vitest} from 'vitest';
 
 import {type barPicture as barPictureValue} from '../source/game/content/pictures/barPicture.js';
 import {getSceneArea} from '../source/game/core/getSceneArea.js';
@@ -35,6 +35,9 @@ import {
   waitForPlace,
 } from './nightScreenHelpers.js';
 
+// What the screen warns when a script names "nowhere" in the fixed square.
+const UNKNOWN_PLACE_WARNING = `No place "nowhere"; the night stays in "${FIXED_SQUARE}".`;
+
 // Presses Enter until the text has ended; the last press closes the window.
 // The game's own journey is one node, but its text can run to a second page.
 async function endStory(storyWindow: StoryWindow): Promise<void> {
@@ -62,7 +65,6 @@ vitest.mock(import('../source/game/content/pictures/barPicture.js'), async () =>
 describe('night screen places', {timeout: 180_000}, () => {
   let harness: Harness;
   let restore: () => void;
-  let warn: MockInstance<typeof console.warn>;
   // The square's picture and scene buttons, kept by the test that leaves the
   // square for the test after it.
   let squarePicture: PlacePicture;
@@ -77,7 +79,7 @@ describe('night screen places', {timeout: 180_000}, () => {
 
   // Ends a text without choices, as the description that opens on arrival.
   async function closeStory(): Promise<void> {
-    await pressThrough(getStoryWindow(harness));
+    await pressThrough(harness, getStoryWindow(harness));
     await press('Enter');
     await waitForNoStoryWindow(harness);
   }
@@ -86,7 +88,7 @@ describe('night screen places', {timeout: 180_000}, () => {
   async function chooseWayOut(label: string): Promise<void> {
     let storyWindow = await openSpot('The street');
 
-    await pressThrough(storyWindow);
+    await pressThrough(harness, storyWindow);
 
     let choice = getWindowParts(storyWindow).buttons.find(
       (button) => getButtonLabel(button) === label,
@@ -178,13 +180,9 @@ describe('night screen places', {timeout: 180_000}, () => {
   beforeAll(async () => {
     harness = await bootGame(960, 540);
     restore = useFixedWorld({place: FIXED_SQUARE});
-    // A script that names an unknown place warns; the test reads the warning,
-    // and the output stays clean.
-    warn = vitest.spyOn(console, 'warn').mockImplementation(() => {});
   }, 60_000);
 
   afterAll(() => {
-    warn.mockRestore();
     restore();
     harness.unmount();
     localStorage.clear();
@@ -202,23 +200,30 @@ describe('night screen places', {timeout: 180_000}, () => {
 
   test('a script that names an unknown place leaves the player where they are', async () => {
     let {nightScreen} = harness;
+    // The screen warns about the unknown place; the test reads every warning
+    // of its own, and the output stays clean.
+    let warn = vitest.spyOn(console, 'warn').mockImplementation(() => {});
 
-    await closeStory();
+    try {
+      await closeStory();
 
-    let buttonsBefore = [...nightScreen.contents.spotButtons];
+      let buttonsBefore = [...nightScreen.contents.spotButtons];
 
-    await pressThrough(await openSpot('A wrong turn'));
-    await press('Enter');
-    await waitForNoStoryWindow(harness);
-    await nextFrame();
-    await nextFrame();
+      await pressThrough(harness, await openSpot('A wrong turn'));
+      await press('Enter');
+      await waitForNoStoryWindow(harness);
+      await nextFrame();
+      await nextFrame();
 
-    let {night, spotButtons} = nightScreen.contents;
+      let {night, spotButtons} = nightScreen.contents;
 
-    expect(warn).toHaveBeenCalledWith(expect.stringContaining('"nowhere"'));
-    expect(night.place).toBe(FIXED_SQUARE);
-    expect(spotButtons).toHaveLength(buttonsBefore.length);
-    expect(spotButtons.every((button, index) => button === buttonsBefore[index])).toBe(true);
+      expect(warn.mock.calls).toEqual([[UNKNOWN_PLACE_WARNING]]);
+      expect(night.place).toBe(FIXED_SQUARE);
+      expect(spotButtons).toHaveLength(buttonsBefore.length);
+      expect(spotButtons.every((button, index) => button === buttonsBefore[index])).toBe(true);
+    } finally {
+      warn.mockRestore();
+    }
   });
 
   test('the place waits while the menu lies over the closing window', async () => {
@@ -528,28 +533,37 @@ describe('night screen places', {timeout: 180_000}, () => {
   // the description is open, as a script's onEnter would change it.
   test('an unknown place drops the way out chosen with it', async () => {
     let {contents, ui} = harness.nightScreen;
+    // The screen warns about the unknown place; the test reads every warning
+    // of its own, and the output stays clean.
+    let warn = vitest.spyOn(console, 'warn').mockImplementation(() => {});
 
-    await restartAt(harness, FIXED_SQUARE);
+    try {
+      await restartAt(harness, FIXED_SQUARE);
 
-    contents.night.place = 'nowhere' as PlaceId;
-    contents.night.leaving = {way: 'walk', ways: ['walk', 'tram', 'taxi']};
-    await closeStory();
-    await nextFrame();
-    await nextFrame();
+      contents.night.place = 'nowhere' as PlaceId;
+      contents.night.leaving = {way: 'walk', ways: ['walk', 'tram', 'taxi']};
+      await closeStory();
+      await nextFrame();
+      await nextFrame();
 
-    expect(warn).toHaveBeenLastCalledWith(expect.stringContaining('"nowhere"'));
-    expect(contents.night.place).toBe(FIXED_SQUARE);
-    expect(contents.night.leaving).toBeNull();
-    expect(contents.travelWindow).toBeNull();
+      expect(warn.mock.calls).toEqual([[UNKNOWN_PLACE_WARNING]]);
+      expect(contents.night.place).toBe(FIXED_SQUARE);
+      expect(contents.night.leaving).toBeNull();
+      expect(contents.travelWindow).toBeNull();
 
-    // A later window that has nothing to do with it opens no travel window.
-    ui.focus(getPlaceButton(harness));
-    await press('Enter');
-    await closeStory();
-    await nextFrame();
-    await nextFrame();
+      // A later window that has nothing to do with it opens no travel window,
+      // and the screen warns no more.
+      ui.focus(getPlaceButton(harness));
+      await press('Enter');
+      await closeStory();
+      await nextFrame();
+      await nextFrame();
 
-    expect(contents.travelWindow).toBeNull();
+      expect(contents.travelWindow).toBeNull();
+      expect(warn).toHaveBeenCalledTimes(1);
+    } finally {
+      warn.mockRestore();
+    }
   });
 
   // A journey always ends in a place of nightStart; the night is changed by
@@ -598,7 +612,7 @@ describe('night screen places', {timeout: 180_000}, () => {
     try {
       await restartAt(harness, FIXED_STOP);
       await closeStory();
-      await pressThrough(await openSpot('A dark lane'));
+      await pressThrough(harness, await openSpot('A dark lane'));
       await press('Enter');
       await vitest.waitFor(
         () => {
