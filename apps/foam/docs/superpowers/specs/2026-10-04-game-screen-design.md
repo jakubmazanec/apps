@@ -112,8 +112,8 @@ The window:
 16. When the window closes, the focus returns to the button that opened it, and the status shows the
     current values.
 
-A page without choices holds 47 characters × 15 lines on a 480 × 270 screen, about 115 words, and 20
-× 13 on a 146 × 262 screen, about 43 words.
+A page without choices holds 46 characters × 16 lines on a 480 × 270 screen, about 120 words, and 19
+× 14 on a 146 × 262 screen, about 43 words.
 
 The menu:
 
@@ -179,25 +179,28 @@ All sizes are in art pixels.
 | Narrow width   | 240   | Below this screen width a window takes its narrow layout         |
 | Top row width  | 292   | From this screen width the top row has one line                  |
 | Window width   | 300   | Width of the story window, when the screen allows it             |
-| Window padding | 8     | Inside the story window's panel                                  |
-| Window gap     | 4     | Between title, text and buttons                                  |
-| Button gap     | 2     | Between buttons in the story window                              |
+| Button padding | 6, 2  | A button's label to its edge, left and right, above and below    |
+| Window padding | 12, 8 | Inside a window's panel, left and right, above and below         |
+| Window gap     | 4     | Between title and text                                           |
+| Choices gap    | 8     | Between the text and the first choice                            |
+| Button gap     | 4     | Between buttons in the story window                              |
 
-`core/getSceneArea.ts` exports the margin, the line height, the button height, the narrow width and
-the top row width, because the scene and the story window both use them. The other four sizes are
-constants in `screens/storyWindow.ts`.
+`core/getSceneArea.ts` exports the margin, the line height, the button padding, the button height,
+the narrow width, the window padding, the window width and the top row width, because the scene and
+the windows use them. The window gap, the choices gap and the button gap are constants in
+`screens/storyWindow.ts`.
 
 ### Limits on a 146 × 262 screen
 
 The layout takes every label at its measured width, 6 art pixels per character, and neither wraps
 nor cuts it. Only the window's text and its choices wrap. A label longer than its room runs off:
 
-| Element            | Room                        | Fits          | Beyond that                                                 |
-| ------------------ | --------------------------- | ------------- | ----------------------------------------------------------- |
-| Status line        | 138                         | 23 characters | Runs off the right edge                                     |
-| Window title       | 122                         | 20 characters | Runs past the window's edge                                 |
-| Scene button label | 134                         | 22 characters | The button starts at the left margin and runs off the right |
-| Place button label | 106, beside the Menu button | 17 characters | The button covers the Menu button                           |
+| Element            | Room                       | Fits          | Beyond that                                                 |
+| ------------------ | -------------------------- | ------------- | ----------------------------------------------------------- |
+| Status line        | 138                        | 23 characters | Runs off the right edge                                     |
+| Window title       | 114                        | 19 characters | Runs past the window's edge                                 |
+| Scene button label | 126                        | 21 characters | The button starts at the left margin and runs off the right |
+| Place button label | 86, beside the Menu button | 14 characters | The button covers the Menu button                           |
 
 On a wider screen the status sits beside the place button, so a long place name pushes the status
 into the Menu button.
@@ -446,7 +449,7 @@ type NightScreenContents = {
 - `assetBundles` is `['default']` and `onFocusEvent` is `playFocusSound`.
 - `onAttach` builds the top row (the place button, the status text and the Menu button) and one
   button per spot of `samplePlace`. A scene button has an absolute position and a fixed size: the
-  width of its label by `measureText` plus 4, and the button height. The status text has a fixed
+  width of its label by `measureText` plus 12, and the button height. The status text has a fixed
   size from `measureText` as well, set each time its text changes. The status text and the button
   labels are in the label font, which has an outline.
 - `onShow` stores a fresh `createNight()`, writes the status text, adds the background to the view,
@@ -524,7 +527,7 @@ modal to `ui` as an overlay and returns it, as `openOptionsModal` does.
   If it still happens, `Dialogue` throws in a development build. In a production build it logs a
   warning and ends the script, so the window closes.
 - **A word is wider than the window's text.** `wrapText` throws in a development build and logs a
-  warning in a production build. The narrowest phone fits 18 characters per line, so a test checks
+  warning in a production build. The narrowest phone fits 19 characters per line, so a test checks
   that no word in the sample content is longer than 16.
 - **The screen is resized while a text types.** The window wraps the page again and hands the runner
   new page ends. The count of revealed characters is kept.
@@ -604,7 +607,7 @@ watches the calls the real mixer receives and plays through the screen:
 9. Activating a scene button opens its window. When the text is typed, the choice buttons carry the
    node's choice texts and the first is focused.
 10. A choice leads to its node.
-11. The long text is shown in three pages, and no page has more than 15 lines.
+11. The long text is shown in three pages, and no page has more than 16 lines.
 12. After "Order a beer" and the closing of the window, the status text is `19:50   305 Kč   Sober`.
 13. After a window closes, the focus is back on the button that opened it.
 14. The place button opens the description again.
