@@ -289,8 +289,8 @@ describe('travel window', {timeout: 180_000}, () => {
 
   test('Escape closes it with nothing picked', async () => {
     openTravel('walk');
-    // A frame runs first, as in play: the night screen takes the cancel command for the one of
-    // the overlay that was on top at the end of its last update.
+    // A frame runs first, as in play, where the travel window opens inside the night screen's
+    // update: the screen judges the cancel command by the overlay on top at the end of that update.
     await nextFrame();
     await press('Escape');
     await waitForClosed();
