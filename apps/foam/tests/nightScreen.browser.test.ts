@@ -1344,6 +1344,55 @@ describe('night screen', {timeout: 180_000}, () => {
       expect(nightScreen.ui.topOverlay).toBeNull();
     });
 
+    // A frame of 100 ms, the length of a UI fade, finishes the close of the menu inside the frame
+    // of the Escape that closes it. Both frames are direct calls, with the cancel command latched,
+    // so no real frame decides the outcome.
+    test('Escape in a 100 ms frame closes the menu and opens no new one', async () => {
+      let {nightScreen} = harness;
+      let {input} = await import('../source/game/core/input.js');
+      let focusPressed = vitest
+        .spyOn(input, 'focusPressed')
+        .mockImplementation((command) => command === 'cancel');
+
+      try {
+        nightScreen.ui.cancel();
+        nightScreen.update({deltaMS: 100} as pixi.Ticker);
+
+        // Escape on the scene opens the menu.
+        expect(nightScreen.contents.menuModal).not.toBeNull();
+
+        nightScreen.ui.cancel();
+        nightScreen.update({deltaMS: 100} as pixi.Ticker);
+
+        // The menu took the command, closed within the frame and is gone, and no menu reopens.
+        expect(nightScreen.contents.menuModal).toBeNull();
+        expect(nightScreen.ui.topOverlay).toBeNull();
+      } finally {
+        focusPressed.mockRestore();
+      }
+    });
+
+    // Quit to menu hides the screen inside its click; the Escape test below covers it with real
+    // keys, which the screen's lastTopOverlay already turns away. This pins openMenu's own state
+    // guard, which the error path of actOnNight also relies on.
+    test('the cancel command opens no menu while the screen is not shown', async () => {
+      let {nightScreen} = harness;
+      let {input} = await import('../source/game/core/input.js');
+      let state = vitest.spyOn(nightScreen, 'state', 'get').mockReturnValue('attached');
+      let focusPressed = vitest
+        .spyOn(input, 'focusPressed')
+        .mockImplementation((command) => command === 'cancel');
+
+      try {
+        nightScreen.update({deltaMS: 16} as pixi.Ticker);
+
+        expect(nightScreen.contents.menuModal).toBeNull();
+      } finally {
+        focusPressed.mockRestore();
+        state.mockRestore();
+      }
+    });
+
     test('two buttons in the menu are 4 apart', async () => {
       await press('Escape');
 

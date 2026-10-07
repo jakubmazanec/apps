@@ -211,10 +211,12 @@ in start their fade again. A window that is not attached only stores the area.
 ### Night screen (`screens/nightScreen.ts`)
 
 - `openStory` builds the window and calls `screen.ui.addOverlay(storyWindow)`.
-- `onUpdate` opens the menu when the cancel command went down this frame and the topmost overlay
-  declares no `close`: `input.focusPressed('cancel') && screen.ui.topOverlay?.close === undefined`.
-  That holds with no overlay and with a story window on top, and not with the menu or the Options
-  window on top.
+- `onUpdate` opens the menu when the cancel command went down this frame and the overlay that was on
+  top at the end of the screen's last update declares no `close`:
+  `input.focusPressed('cancel') && lastTopOverlay?.close === undefined`. That holds with no overlay
+  and with a story window on top, and not with the menu or the Options window on top. A frame of 100
+  ms, the length of a UI fade, can finish that overlay's close before `onUpdate`, so the overlay on
+  top at that point cannot be the judge.
 - `openMenu` opens the menu also while a story window is open. It refuses only while the screen is
   not shown and while a menu is open.
 - `onHide` destroys the Options window, the menu and the story window, in that order, as before.
