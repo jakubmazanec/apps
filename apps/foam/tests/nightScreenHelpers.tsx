@@ -68,12 +68,17 @@ export async function press(code: string): Promise<void> {
 }
 
 // Boots the real game once, through the index route inside StrictMode, as the
-// app does, and waits for the main menu. The viewport is set first: Game picks
+// app does, and waits for the main menu, or the night screen when the address
+// holds a jump-in. The viewport is set first: Game picks
 // its pixel scale from the width and the height of the window when game.ts is
 // evaluated.
 // That is why the game modules are imported here, after the viewport is set,
 // and why a test file never imports them at its top.
-export async function bootGame(width: number, height: number): Promise<Harness> {
+export async function bootGame(
+  width: number,
+  height: number,
+  {screen = 'mainMenu'}: {screen?: 'mainMenu' | 'night'} = {},
+): Promise<Harness> {
   await page.viewport(width, height);
 
   let container = document.createElement('div');
@@ -101,8 +106,10 @@ export async function bootGame(width: number, height: number): Promise<Harness> 
         throw new Error('The canvas is not mounted yet.');
       }
 
-      if (mainMenuScreen.state !== 'shown') {
-        throw new Error(`The main menu is ${mainMenuScreen.state}, not shown.`);
+      let expected = screen === 'night' ? nightScreen : mainMenuScreen;
+
+      if (expected.state !== 'shown') {
+        throw new Error(`The ${screen} screen is ${expected.state}, not shown.`);
       }
     },
     {timeout: 20_000},
