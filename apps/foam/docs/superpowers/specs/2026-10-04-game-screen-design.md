@@ -419,11 +419,12 @@ its `onEnter`, builds the panel and the scrim, and shows the start node.
 
 **Fade and state.** The state starts as `closed`. `attach` records the root, sets the state to
 `opening`, sets the view's alpha to 0 and fades it to 1 in 200 ms on the scheduler with
-`easeOutQuad`; the state is then `open`. When the runner has ended, the window sets the state to
-`closing` and fades to 0; when the fade is over it destroys itself and calls `onClosed`. `detach`
-cancels the running fades, the window's and the choices', forgets the root and sets the state to
-`closed`. `destroy()` leaves the root if the window is still attached and destroys the view at once,
-from any state, without the fade and without calling `onClosed`.
+`easeOutQuad`; the state is then `open`. Choices whose fade a detach cancelled fade in again from
+the start. When the runner has ended, the window sets the state to `closing` and fades to 0; when
+the fade is over it destroys itself and calls `onClosed`. `detach` cancels the running fades, the
+window's and the choices', forgets the root and sets the state to `closed`. `destroy()` leaves the
+root if the window is still attached and destroys the view at once, from any state, without the fade
+and without calling `onClosed`.
 
 **Showing a node.** The window shows a node when it is constructed, when the runner moves to another
 node or page, and when it is resized:
@@ -714,7 +715,7 @@ watches the calls the real mixer receives and plays through the screen:
 31. The menu music is started once before Quit to menu, and once more when the main menu is shown
     again.
 32. With no press, the choices appear when the text is typed to its end, and none is focused.
-33. The window keeps its size when the choices appear, while they fade in and afterwards.
+33. The window keeps its size when the choices appear and once they have faded in.
 34. The window keeps its size on every page of the long text.
 35. A resize while the choices are shown keeps the focus on the choice that had it.
 36. A node without `speaker` has no title, and its window is shorter by the title's line and gap.
@@ -732,8 +733,10 @@ watches the calls the real mixer receives and plays through the screen:
 44. A tap under the text, in the room of the choices, finishes a page that is typing, and turns a
     complete page that another page follows.
 45. A second tap under the text, right after the first one finished it, takes no choice while the
-    choices fade in; once they are fully shown, a tap there takes the choice.
+    choices fade in; once they are fully shown, a tap there takes the choice. The window keeps its
+    size while the choices fade in.
 46. A resize starts the fade of fading choices again and brings fully shown ones back at once.
+47. A window attached again fades in the choices whose fade its detach cut short.
 
 **`tests/nightScreenNarrow.browser.test.ts`** uses a 292 × 524 viewport, which is 146 × 262 art
 pixels:
