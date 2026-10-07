@@ -1,7 +1,9 @@
 # Places and travel (Foam phase 4, spec 2 of 3): design
 
-Date: 2026-10-06. App: `apps/foam`. Status: designed. It is the second of phase 4's three specs in
-the [direction document](../../direction.md). It needs the Tellurion addition
+Date: 2026-10-06. App: `apps/foam`. Status: implemented by
+[2026-10-06-places-and-travel.md](../plans/2026-10-06-places-and-travel.md). It is the second of
+phase 4's three specs in the [direction document](../../direction.md). It needs the Tellurion
+addition
 [dialogue choice effect](../../../../../docs/superpowers/specs/2026-10-06-dialogue-choice-effect-design.md),
 which is built first. The third spec, the drawn map, follows this one.
 
@@ -608,9 +610,10 @@ screen behind is black, which is the game's background colour.
 **When a story window has closed,** the screen writes the status and then looks at the night:
 
 1. If `night.place` is not the id of the place being shown, it shows
-   `nightStart.places[night.place]`. If no such place exists, it warns in the console and sets
-   `night.place` back to the place being shown. A journey's destination is always a known place, so
-   this cannot happen during a journey.
+   `nightStart.places[night.place]`. If no such place exists, it warns in the console, sets
+   `night.place` back to the place being shown and sets `night.leaving` to `null`, so the script's
+   move is dropped as a whole. A journey's destination is always a known place, so this cannot
+   happen during a journey.
 2. Otherwise, if `night.leaving` is set, it opens the travel window with that way and those ways,
    and sets `night.leaving` to `null`.
 
@@ -638,7 +641,7 @@ export type TravelWindowOptions = {
 };
 
 export class TravelWindow {
-  /** The overlay. The night screen adds it to its UI and destroys it when the screen is hidden. */
+  /** The overlay. The constructor adds it to `ui`; the night screen destroys it when hidden. */
   readonly modal: Modal;
 
   constructor(options: TravelWindowOptions);
@@ -777,19 +780,20 @@ It exports the function that counts the tags of one source text, for its test.
 
 ## Error handling
 
-| What goes wrong                                          | In CI                       | In the running game                                            |
-| -------------------------------------------------------- | --------------------------- | -------------------------------------------------------------- |
-| A journey ends in a place that does not exist            | The checker fails           | The journey is left out of the list, with a `console.warn`     |
-| A journey the data should hold is missing                | The checker fails           | The destination is not listed                                  |
-| A way out offers a way with no journey from that place   | The checker fails, as above | The list is empty; the window shows the row of ways and "Back" |
-| A script sets `night.place` to a misspelt id             | It does not compile         | Cannot happen                                                  |
-| `night.place` names a place `nightStart.places` lacks    | Not checked                 | A `console.warn`; the player stays in the place                |
-| A script sets `night.place` and `night.leaving` together | Not checked                 | The place wins: showing a place clears `leaving`               |
-| A place's picture does not compile                       | The picture's test fails    | The error screen, as today                                     |
-| The jump-in names an unknown place                       | Its test covers it          | The main menu shows, with a `console.warn`                     |
-| The jump-in has a time or money in another form          | Its test covers it          | That value is ignored, with a `console.warn`                   |
-| A press arrives while the travel window fades            | Its test covers it          | Nothing happens                                                |
-| The money goes below zero                                | Allowed                     | Allowed                                                        |
+| What goes wrong                                              | In CI                       | In the running game                                            |
+| ------------------------------------------------------------ | --------------------------- | -------------------------------------------------------------- |
+| A journey ends in a place that does not exist                | The checker fails           | The journey is left out of the list, with a `console.warn`     |
+| A journey the data should hold is missing                    | The checker fails           | The destination is not listed                                  |
+| A way out offers a way with no journey from that place       | The checker fails, as above | The list is empty; the window shows the row of ways and "Back" |
+| A script sets `night.place` to a misspelt id                 | It does not compile         | Cannot happen                                                  |
+| `night.place` names a place `nightStart.places` lacks        | Not checked                 | A `console.warn`; the player stays, `leaving` is cleared       |
+| A journey's destination is a place `nightStart.places` lacks | Not checked                 | The error screen                                               |
+| A script sets `night.place` and `night.leaving` together     | Not checked                 | The place wins: showing a place clears `leaving`               |
+| A place's picture does not compile                           | The picture's test fails    | The error screen, as today                                     |
+| The jump-in names an unknown place                           | Its test covers it          | The main menu shows, with a `console.warn`                     |
+| The jump-in has a time or money in another form              | Its test covers it          | That value is ignored, with a `console.warn`                   |
+| A press arrives while the travel window fades                | Its test covers it          | Nothing happens                                                |
+| The money goes below zero                                    | Allowed                     | Allowed                                                        |
 
 The fill script's own failures are in its section: it writes what it has, lists what is missing and
 ends with an error code.
