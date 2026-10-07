@@ -1,8 +1,8 @@
 # Foam: direction
 
 Started: 2026-10-03. App: `apps/foam`. Status: the direction is agreed; phases 1 to 3 are built; of
-phase 4 the dialogue choice effect is built. This is a living document: it describes the current
-state and plan, and is kept correct as they change.
+phase 4 the dialogue choice effect and places and travel are built. This is a living document: it
+describes the current state and plan, and is kept correct as they change.
 
 ## What Foam is
 
@@ -180,12 +180,8 @@ Each phase adds a real piece of Brno and brings in only the rules that piece nee
 | 7   | Runs                   | A second night differs from the first, and the story collection is kept.                                                                                                                                                                                                                                                                                           | Seed, saving, Continue                                                                                         |
 | 8   | The author             | The phone works, the author writes to the player, and Jakub can be met in a place.                                                                                                                                                                                                                                                                                 | Phone, the meta voice                                                                                          |
 
-Two things from the game screen wait for these phases:
+One thing from the game screen waits for these phases:
 
-- Long names, for phase 4. The game screen neither wraps nor cuts a label, and
-  [the phase 2 spec](superpowers/specs/2026-10-04-game-screen-design.md) lists how many characters
-  each one holds. The place button holds 14 on a screen of 146 art pixels across and 20 or more on a
-  phone, and "The Whisky Shop Brno" has 20.
 - What the player sees of an action they cannot afford, for phase 5. The game lets the money go
   below zero. Tellurion's dialogue script can hide a choice (`isVisible`); it cannot show one as
   unavailable, and a choice's label is a fixed string.
@@ -201,8 +197,8 @@ plan, build and review, in this order:
 2. Places and travel: the seven places with stand-in content and stand-in pictures, each place's
    content in its own file, the travel data with the script that first fills it, and a window that
    lists where each way of travelling leads, with the minutes and the price of each destination. It
-   has its [spec](superpowers/specs/2026-10-06-places-and-travel-design.md) and
-   [plan](superpowers/plans/2026-10-06-places-and-travel.md) and is not built yet.
+   is built: [spec](superpowers/specs/2026-10-06-places-and-travel-design.md),
+   [plan](superpowers/plans/2026-10-06-places-and-travel.md).
 3. The map: that window shows the drawn map of Brno with the places at their real positions, and
    keeps the list.
 
