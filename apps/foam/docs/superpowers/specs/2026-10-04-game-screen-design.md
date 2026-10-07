@@ -55,7 +55,8 @@ These facts about Tellurion shape the design:
    opens it again.
 8. **The button in the top right corner is Menu.** It opens Resume, Options and Quit to menu.
    Quitting does not ask for confirmation, because nothing is saved.
-9. **A visible Continue button turns the pages.**
+9. **A press on the window turns the pages.** A small marker shows when a press would turn a page or
+   close the window.
 10. **One sample choice changes the night's state,** so the status is seen to update.
 11. **The font stays monogram.** Phase 2 uses the regular version, with an outline for labels and
     without one for body text, as phase 1 does. Nothing in phase 2 is set in italic.
@@ -89,36 +90,41 @@ The window:
 │                                                  │
 │ He says he has been coming here since the place  │
 │ opened, and that the beer was better then. He    │
-│ starts to tell you about the night the ceil      │
-│                                                  │
-│ [ Continue                                     ] │
+│ starts to tell you about the night the ceiling   │
+│ fell in.▮                                        │
 └──────────────────────────────────────────────────┘
 ```
 
 8. A scene button opens the window with a 200 ms fade, and the scene is dimmed.
-9. The window is as tall as its text and buttons need, up to the height of the area under the top
+9. The window is as tall as its text and choices need, up to the height of the area under the top
    row. It keeps one size for the whole node, so nothing moves while the text types or the pages
    turn.
 10. The title is the node's `speaker`. The text types at 40 characters per second with the blip
     sound.
-11. While text is typing or more pages remain, the window has one focused button, Continue. A press
-    finishes the page if it is still typing; otherwise it turns the page. A tap on the text does the
-    same.
-12. When the last page of a node with choices is typed, the choices replace Continue, in room that
-    was reserved from the start. The first choice is focused.
+11. A press on the window above the choices, or Enter or Space, finishes the page while it is still
+    typing; otherwise it turns the page, or closes the window after the last page of a node without
+    choices. While such a press would turn the page or close the window, a marker blinks after the
+    last letter. It is hidden while text types and while choices are offered. No button is built and
+    nothing is focused until the choices appear.
+12. When the last page of a node with choices is typed, the choices appear in room that was reserved
+    from the start. None is focused: the first arrow or Tab press focuses the first choice, and
+    Enter or Space takes the focused one. While the choices are offered, a press on the window above
+    them does nothing.
 13. A choice leads to its next node, or closes the window if it has none.
-14. After the last page of a node without choices, Continue closes the window.
-15. Escape closes the window at any moment.
+14. After the last page of a node without choices, a press closes the window.
+15. Escape opens the menu above the window. While the menu is open the text does not type and the
+    window takes no press. Resume or Escape closes the menu, and the text goes on.
 16. When the window closes, the focus returns to the button that opened it, and the status shows the
     current values.
 
-A page without choices holds 46 characters × 16 lines on a 480 × 270 screen, about 120 words, and 19
-× 14 on a 146 × 262 screen, about 43 words.
+A node without choices reserves no room under the text. With a title, a page holds 46 characters ×
+16 lines on a 480 × 270 screen, about 120 words, and 19 × 14 on a 146 × 262 screen, about 43 words.
+A node with choices reserves the window gap and the room its choices need.
 
 The menu:
 
-17. The Menu button, or Escape on the scene with no window open, opens a window with the title
-    "Menu" and the buttons Resume, Options and Quit to menu. Resume is focused.
+17. The Menu button, or Escape on the scene with a story window open or not, opens a window with the
+    title "Menu" and the buttons Resume, Options and Quit to menu. Resume is focused.
 18. Resume or Escape closes it.
 19. Options opens the Options window on top of it. Closing that returns to the menu.
 20. Quit to menu shows the main menu.
@@ -280,8 +286,8 @@ temporary and is written with the implementation, within these limits:
 | A patron          | 0.15 | 0.6  | A short text and two choices. "Talk to him" leads to a node with two further choices: "Ask about the ceiling" leads to the long text, and "Let him be" has no next node. "Ignore him" leads to a short text. |
 | The door          | 0.8  | 0.85 | A short text and two choices. "Step outside" leads to a short text. "Stay" has no next node.                                                                                                                 |
 
-The description is one node of about 60 words. The long text is about 300 words: it wraps to between
-31 and 45 lines at 47 characters, which is three pages on a 480 × 270 screen.
+The description is one node of about 60 words. The long text is about 300 words: it wraps to 36
+lines at 46 characters, which is three pages on a 480 × 270 screen.
 
 ### Text helpers (`core/measureText.ts`, `core/getPageBreaks.ts`)
 
@@ -347,10 +353,7 @@ pixels:
 
 ```ts
 export type StoryWindowOptions = {
-  /** UI root of the screen that opens the window. */
-  ui: UiRoot;
-
-  /** Scheduler of that screen; it drives the fade. */
+  /** Scheduler of the screen that opens the window; it drives the fade. */
   scheduler: Scheduler;
 
   script: RunnableDialogueScript<Night>;
@@ -361,28 +364,54 @@ export type StoryWindowOptions = {
   onClosed: () => void;
 };
 
-export class StoryWindow {
+export type StoryWindowState = 'closed' | 'closing' | 'open' | 'opening';
+
+export class StoryWindow implements Overlay {
+  readonly children: UiChild[];
   readonly dialogue: Dialogue<Night>;
-  readonly modal: Modal;
+  readonly view: pixi.Container;
 
   constructor(options: StoryWindowOptions);
+
+  get state(): StoryWindowState;
 
   /** Text the window shows at the moment. */
   get text(): string;
 
-  update(deltaMS: number): void;
-  resize(area: SceneArea): void;
+  /** @internal Called by `UiRoot`. */
+  attach(ui: UiRoot): void;
+
+  /** @internal Called by `UiRoot`. */
+  detach(): void;
+
   destroy(): void;
+  resize(area: SceneArea): void;
+  update(deltaMS: number): void;
 }
 ```
 
-`dialogue`, `modal` and `text` are public so that the screen and the tests can read the window's
-state.
+`dialogue`, `children`, `view` and `text` are public so that the screen and the tests can read the
+window's state.
+
+**An overlay without `close`.** `StoryWindow` implements `Overlay` and declares no `close`, so the
+cancel command passes over it: the window ends only through its text or through a choice. The night
+screen calls `screen.ui.addOverlay(storyWindow)`, and `UiRoot` calls `attach` and `detach`.
+
+**View.** `view` covers the screen: it is positioned absolutely at 0, 0 with 100 % width and height,
+centres its content and has `area.top` as top padding. Its first child is a scrim, a rectangle in
+the theme's `modal.scrimColor` and `modal.scrimAlpha` that takes every pointer event. Its second
+child is the `Panel`, the only entry of `children`.
 
 **Construction.** The constructor creates the runner, which enters the script's start node and runs
-its `onEnter`. It creates a `Modal` that holds one `Panel`, with a 200 ms fade on the given
-scheduler, adds it to `ui` as an overlay, and shows the start node. The modal centres the panel in
-the scene area: its layout centres its content and has `area.top` as top padding.
+its `onEnter`, builds the panel and the scrim, and shows the start node.
+
+**Fade and state.** The state starts as `closed`. `attach` records the root, sets the state to
+`opening`, sets the view's alpha to 0 and fades it to 1 in 200 ms on the scheduler with
+`easeOutQuad`; the state is then `open`. When the runner has ended, the window sets the state to
+`closing` and fades to 0; when the fade is over it destroys itself and calls `onClosed`. `detach`
+cancels a running fade, forgets the root and sets the state to `closed`. `destroy()` leaves the root
+if the window is still attached and destroys the view at once, from any state, without the fade and
+without calling `onClosed`.
 
 **Showing a node.** The window shows a node when it is constructed, when the runner moves to another
 node or page, and when it is resized:
@@ -391,43 +420,63 @@ node or page, and when it is resized:
    twice the window padding.
 2. The page is wrapped with `wrapText` and `measureText`.
 3. The button area is as tall as the node's choices need, each label wrapped in the label font to
-   the inside of its button, with the button gap between them. A node without choices needs one
-   button height, for Continue.
+   the inside of its button, with the button gap between them. A node without choices reserves no
+   room under the text. A node with choices reserves the window gap and the button area.
 4. The lines per page are what remains of `area.height − 2 × margin` after the padding, the title,
-   the gaps and the button area, divided by the line height and rounded down, and at least 1.
+   the gaps and the room reserved for choices, divided by the line height and rounded down, and at
+   least 1.
 5. `getPageBreaks` gives the page ends, and the window hands them to the runner with `setBreaks`.
 6. The panel's content is replaced with a title (`speaker`, in the label font), a text leaf (in the
-   body font) and the button area holding Continue. A node without `speaker` has no title. The text
-   leaf has a fixed size: the text width, and as many lines as the longest page of the node has. The
-   button area has its full height from the start.
-7. Continue is focused.
+   body font) and, for a node with choices, the empty button area. A node without `speaker` has no
+   title. The text leaf has a fixed size: the text width, and as many lines as the longest page of
+   the node has. The button area has its full height from the start.
+7. No button is built and nothing is focused.
 
-**Every frame.** `update` does nothing once the modal is closing or closed. Otherwise:
+**The marker.** A sprite, the `cursor` texture of the `ui` spriteset, sits out of the layout flow
+after the last letter shown. On a page that another page follows, it stays on the page's last line.
+It is visible while the runner's phase is `idle`, that is while a press would turn the page or close
+the window, and the blink is on. The blink turns every 500 ms of `update` time and starts in the on
+state whenever the phase becomes `idle`.
 
-1. It ticks the runner with `deltaMS`.
-2. If the runner is on another node or page than the one shown, or its count of revealed characters
+**Every frame.** `update` does nothing unless the window's state is `open` or `opening` and the
+window is the topmost overlay of its root, so the text waits while the menu lies above it and a
+window that fades out takes no press. Otherwise:
+
+1. If Enter or Space went down this frame (`input.focusPressed('activate')`), no component has the
+   focus and this is not the window's first `update`, the window continues the text. The first
+   `update` is left out because the press that opened the window is still the frame's press. A press
+   that a focused choice took leaves the focus on that choice, so it does not continue the next
+   text.
+2. It ticks the runner with `deltaMS`.
+3. If the runner is on another node or page than the one shown, or its count of revealed characters
    went down, it shows the node as above.
-3. It shows the wrapped page from the start of the current page up to the revealed count. The
+4. It shows the wrapped page from the start of the current page up to the revealed count. The
    current page starts at the last break that lies before the revealed count. This string is `text`.
-4. It plays the `blip` sound on the `sfx` bus for newly revealed characters other than spaces and
+5. It plays the `blip` sound on the `sfx` bus for newly revealed characters other than spaces and
    line ends: once per three such characters. A frame that reveals four or more characters at once
    plays it once at most.
-5. When the runner is choosing and the choices are not built yet, it replaces Continue with one
-   button per visible choice and focuses the first.
-6. When the runner has ended, it calls `modal.close()`.
+6. When the runner is choosing and the choices are not built yet, it builds one button per visible
+   choice, in the room the node reserved, and focuses none.
+7. It shows or hides the marker.
+8. When the runner has ended, it starts the closing fade.
 
-**Input.** Continue and a tap on the text leaf call `dialogue.advance()`, unless the runner is
-choosing: there `advance()` would take the first choice. A choice button calls `dialogue.choose()`
-with its index. None of these reaches the runner once the modal is closing. Escape closes the modal
-through the engine's cancel command.
+**Input.** A press on the window above the choices, and the key rule of step 1 of the frame, call
+`dialogue.advance()`, unless the runner is choosing: there `advance()` would take the first choice.
+Nothing reaches the runner while the state is `closing` or `closed`. The press surface is a
+container of its own beside the choices, so a tap on a choice does not reach it. It spans the
+panel's width from its top edge. For a node without choices it reaches the panel's bottom edge, so a
+tap on the marker or on the padding around it continues the text. For a node with choices it ends at
+the bottom edge of the text, and a press in the room of the choices does nothing. A choice button
+calls `dialogue.choose()` with its index. Escape does not close the window: the night screen opens
+the menu above it.
 
-**Closing.** The modal's `onClosed` calls the window's `onClosed`. `destroy()` destroys the modal at
-once, without the fade and without calling `onClosed`.
+**Closing.** When the closing fade is over, `destroy()` takes the window off the root and `onClosed`
+is called.
 
-**Resizing.** `resize` stores the new area, sets the modal's top padding and shows the current node
-again, with its choices if they were shown, and with the focus on the button at the same position
-when one of the window's buttons had it. The runner keeps its count of revealed characters and
-ignores breaks that lie before it. `resize` does nothing once the modal is closed.
+**Resizing.** `resize` stores the new area, sets the view's top padding and shows the current node
+again, with its choices if they were shown, and with the focus on the choice at the same position
+when one of the window's choices had it. The runner keeps its count of revealed characters and
+ignores breaks that lie before it. A window that is not attached only stores the area.
 
 ### Night screen (`screens/nightScreen.ts`)
 
@@ -457,10 +506,13 @@ type NightScreenContents = {
 - A scene button's `onClick` opens a story window with that spot's script, and the place button's
   opens one with the description. Both do nothing while a story window is open.
 - A story window's `onClosed` clears `storyWindow` and writes the status text from `night`.
+- `openStory` builds the window and calls `screen.ui.addOverlay(storyWindow)`.
 - `onUpdate` calls `storyWindow.update(ticker.deltaMS)` when one is open. It opens the menu when the
-  cancel command was pressed this frame and the UI root has no overlay.
-- The menu opens only while the screen is shown and no story window or menu is open. Quit to menu
-  hides the screen inside its click, and an Escape in the same frame still reaches `onUpdate`.
+  cancel command was pressed this frame and the topmost overlay declares no `close`:
+  `input.focusPressed('cancel') && screen.ui.topOverlay?.close === undefined`. That holds with no
+  overlay and with a story window on top, and not with the menu or the Options window on top.
+- The menu opens only while the screen is shown and no menu is open. Quit to menu hides the screen
+  inside its click, and an Escape in the same frame still reaches `onUpdate`.
 - `onResize` computes the scene area with `getSceneArea`, puts the status text beside or under the
   place button, positions the scene buttons with `getSpotPosition`, resizes the background and calls
   `storyWindow.resize(area)` when one is open.
@@ -531,11 +583,11 @@ modal to `ui` as an overlay and returns it, as `openOptionsModal` does.
   that no word in the sample content is longer than 16.
 - **The screen is resized while a text types.** The window wraps the page again and hands the runner
   new page ends. The count of revealed characters is kept.
-- **A press arrives as the window closes.** Once the modal is closing, `update` does nothing and the
-  window passes no press on to the runner. This matters after Escape, when the runner has not ended
-  and a choice could still change the night's state. The runner itself ignores `advance()` and
-  `choose()` once it has ended. The menu's Options and Quit to menu do nothing once the menu is
-  closing, so Escape and then Enter neither quits the night nor opens Options over a closing menu.
+- **A press arrives during a fade.** While the window fades in, a press continues the text as it
+  does afterwards. While it fades out, the runner has ended and the window takes no press; the
+  runner itself ignores `advance()` and `choose()` once it has ended. The menu's Options and Quit to
+  menu do nothing once the menu is closing, so Escape and then Enter neither quits the night nor
+  opens Options over a closing menu.
 - **The screen is hidden with a window open,** which happens when the error screen takes over.
   `onHide` destroys every open window at once.
 - **The boot fails, or settings cannot be read or saved.** These behave as in phase 1.
@@ -599,54 +651,62 @@ watches the calls the real mixer receives and plays through the screen:
 2. The description window is open, and its runner is on a node whose `speaker` is the place's name.
 3. Right after opening, `text` is shorter than the page. One press of Enter makes it the whole page.
 4. The `blip` buffer reaches the mixer on the `sfx` bus while the text types.
-5. Continue on the last page closes the window, and after the fade `storyWindow` is `null`.
-6. The status text is `19:40   350 Kč   Sober`.
-7. Every scene button lies fully inside the screen and under the top row.
-8. No two scene buttons overlap, at 480 × 270 and, computed with `getSceneArea` and
-   `getSpotPosition`, at 146 × 262.
-9. Activating a scene button opens its window. When the text is typed, the choice buttons carry the
-   node's choice texts and the first is focused.
-10. A choice leads to its node.
-11. The long text is shown in three pages, and no page has more than 16 lines.
-12. After "Order a beer" and the closing of the window, the status text is `19:50   305 Kč   Sober`.
-13. After a window closes, the focus is back on the button that opened it.
-14. The place button opens the description again.
-15. Escape closes a window in the middle of a text.
-16. Escape on the scene opens the menu with Resume focused. Resume closes it.
-17. Options opens the Options window over the menu. Escape closes it, and the menu is still open.
-18. Quit to menu makes the main menu the current screen, and `storyWindow`, `menuModal` and
+5. Enter on the last page of a node without choices closes the window, and after the fade
+   `storyWindow` is `null`.
+6. The press that opens a window does not finish its first page.
+7. The marker is hidden while the text types and blinks when the page is complete. It sits after the
+   last letter, also on a page that another page follows and after a line that fills the text width.
+8. The status text is `19:40   350 Kč   Sober`.
+9. Every scene button lies fully inside the screen and under the top row.
+10. No two scene buttons overlap, at 480 × 270 and, computed with `getSceneArea` and
+    `getSpotPosition`, at 146 × 262.
+11. Activating a scene button opens its window. When the text is typed, the choice buttons carry the
+    node's choice texts and no component has the focus.
+12. Enter with no choice focused does nothing: the runner is still choosing.
+13. An arrow key focuses the first choice, and Enter takes it. A choice leads to its node.
+14. A choice taken with Enter, and a tap on a choice, do not also finish the next node's text.
+15. A tap on the text finishes the page, and the next tap turns it. On a complete page of a node
+    without choices, a tap on the marker turns the page, and so does a tap on the padding under the
+    text.
+16. The long text is shown in three pages, and no page has more than 16 lines.
+17. After "Order a beer" and the closing of the window, the status text is `19:50   305 Kč   Sober`.
+18. After a window closes, the focus is back on the button that opened it.
+19. The place button opens the description again.
+20. Escape in a story window leaves it open and opens the menu above it with Resume focused. The
+    revealed count does not grow while the menu is open. Resume closes the menu, and the text goes
+    on.
+21. Escape on the scene opens the menu with Resume focused. Resume closes it.
+22. Options opens the Options window over the menu. Escape closes it, and the menu is still open.
+23. Quit to menu makes the main menu the current screen, and `storyWindow`, `menuModal` and
     `optionsModal` are `null`.
-19. A second New Game shows the starting status and opens the description again.
-20. No word in any text or choice of `samplePlace` is longer than 16 characters.
-21. An arrow key moves the focus to the nearest scene button, and the click sound reaches the mixer
+24. A second New Game shows the starting status and opens the description again.
+25. No word in any text or choice of `samplePlace` is longer than 16 characters.
+26. An arrow key moves the focus to the nearest scene button, and the click sound reaches the mixer
     on the `ui` bus.
-22. A scene button and the place button do nothing while a story window is open.
-23. A choice activated during the closing fade after Escape does not change the night's state.
-24. A resize in the middle of the long text keeps the count of revealed characters, and the pages
+27. A scene button and the place button do nothing while a story window is open.
+28. A resize in the middle of the long text keeps the count of revealed characters, and the pages
     that follow fit the new window.
-25. Hiding the screen with a story window open destroys the window at once, and the screen works
+29. Hiding the screen with a story window open destroys the window at once, and the screen works
     when it is shown again.
-26. A tap on the Menu button opens the menu, and a tap on Resume closes it.
-27. The menu music is started once before Quit to menu, and once more when the main menu is shown
+30. A tap on the Menu button opens the menu, and a tap on Resume closes it.
+31. The menu music is started once before Quit to menu, and once more when the main menu is shown
     again.
-28. With no press, the choices replace Continue when the text is typed to its end, and the first is
-    focused.
-29. The window keeps its size when the choices replace Continue.
-30. The window keeps its size on every page of the long text.
-31. A resize while the choices are shown keeps the focus on the choice that had it.
-32. A node without `speaker` has no title, and its window is shorter by the title's line and gap.
-    Continue closes it.
-33. Options, activated during the menu's closing fade after Escape, opens no Options window.
-34. Quit to menu, activated during the menu's closing fade after Escape, leaves the night screen the
+32. With no press, the choices appear when the text is typed to its end, and none is focused.
+33. The window keeps its size when the choices appear.
+34. The window keeps its size on every page of the long text.
+35. A resize while the choices are shown keeps the focus on the choice that had it.
+36. A node without `speaker` has no title, and its window is shorter by the title's line and gap.
+    Enter closes it.
+37. Options, activated during the menu's closing fade after Escape, opens no Options window.
+38. Quit to menu, activated during the menu's closing fade after Escape, leaves the night screen the
     current screen.
-35. With Quit to menu focused, Enter and Escape in one frame show the main menu and leave no menu on
+39. With Quit to menu focused, Enter and Escape in one frame show the main menu and leave no menu on
     the hidden night screen.
-36. A tap on Quit to menu makes the main menu the current screen, and `storyWindow`, `menuModal` and
+40. A tap on Quit to menu makes the main menu the current screen, and `storyWindow`, `menuModal` and
     `optionsModal` are `null`.
-37. The background fills the screen.
-38. A choice without a next node closes the window, and the status text keeps its values.
-39. Escape closes the menu.
-40. Escape in a story window closes the window and opens no menu.
+41. The background fills the screen.
+42. A choice without a next node closes the window, and the status text keeps its values.
+43. Escape closes the menu.
 
 **`tests/nightScreenNarrow.browser.test.ts`** uses a 292 × 524 viewport, which is 146 × 262 art
 pixels:
@@ -654,14 +714,13 @@ pixels:
 1. The status text lies under the place button.
 2. Every scene button lies fully inside the screen and under the top row.
 3. The story window is 138 wide and lies in the scene area.
-4. The description takes more than one page, no page has more than 13 lines, and no line is wider
+4. The description takes more than one page, no page has more than 14 lines, and no line is wider
    than the text width.
 5. The choice "Ask about the ceiling" wraps to two lines inside its button, and the window stays in
    the scene area.
-6. Taps open a scene button's window, finish its text and take a choice. A tap on the text does
-   nothing while the choices are offered.
+6. Taps open a scene button's window, finish its text and take a choice.
 7. With no press, the description stops at the end of its first page: the window shows a full page
-   of 13 lines, Continue is focused, and no more text appears.
+   of 14 lines, no button is built, nothing is focused, the marker blinks, and no more text appears.
 8. The screen is 146 × 262 art pixels.
 
 **`tests/mainMenu.browser.test.tsx`** follows the enabled button: New Game is enabled, the first
