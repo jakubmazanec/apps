@@ -38,3 +38,13 @@ the journey and run the script. The script never changes a value that is there.
 ```sh
 node scripts/fill-travel-data.mjs
 ```
+
+## The map
+
+`map.json` holds the streets, railway, rivers, parks and tram lines around the places, in whole
+metres from `origin` (`x` east, `y` south), from OpenStreetMap through Overpass. Nobody edits it;
+the script writes it anew, and is run again when a place is added (the checker says when):
+
+```sh
+node scripts/fetch-map-data.mjs
+```

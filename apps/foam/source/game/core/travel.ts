@@ -19,6 +19,18 @@ export type PlaceEntry = {
 /** The content of `places.json`: its entries by place id. */
 export type PlaceData = Readonly<Record<string, PlaceEntry>>;
 
+/** The content of `map.json`. */
+export type MapData = {
+  origin: Position;
+  box: {left: number; top: number; right: number; bottom: number};
+  minorStreets: number[][];
+  mainStreets: number[][];
+  railway: number[][];
+  rivers: number[][];
+  parks: number[][];
+  tramLines: number[][];
+};
+
 export type Journey = {minutes: number; price?: number; computed?: boolean};
 export type Travel = Readonly<
   Record<string, Partial<Record<Way, Readonly<Record<string, Journey>>>>>
