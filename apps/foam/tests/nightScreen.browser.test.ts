@@ -40,7 +40,9 @@ import {
   readText,
   startNewGame,
   tap,
+  tapNow,
   useFixedWorld,
+  waitForChoices,
   waitForNoStoryWindow,
 } from './nightScreenHelpers.js';
 
@@ -59,6 +61,14 @@ vitest.mock(import('../source/game/content/pictures/barPicture.js'), async () =>
 // The tests run in the fixed world's bar, which has the sample bar's text.
 const sampleBar = getFixedPlace(FIXED_BAR);
 const STARTING_STATUS = '19:40   350 Kč   Sober';
+// Ten lines of 46 letters at most: one page under a title and two choices.
+const LAMP_PAGE =
+  'The lamp over the counter hums to itself. Its light is the colour of weak tea, and it ' +
+  'falls on the glasses, the taps and the hands of the bartender, and on nothing else. ' +
+  'Moths come and go. One of them has been circling the bulb since you sat down, and it ' +
+  'does not seem to get any closer or any further away. Somewhere behind the lamp a wire ' +
+  'ticks as it warms. Nobody else looks up at it. Perhaps they all know something about ' +
+  'it that you do not.';
 // The thing of the bar's picture that each scene button lies on, in the design
 // of 480 × 270, which stretches to the screen.
 const THINGS = new Map<string, Box>([
@@ -128,6 +138,62 @@ describe('night screen', {timeout: 180_000}, () => {
     }
 
     return storyWindow;
+  }
+
+  // Opens a window of the test's own, as one the screen opened: the screen
+  // ticks the window it holds. Its node has two pages and two choices, and
+  // its first page takes more than ten seconds to type.
+  function openPagesWithChoices(): StoryWindow {
+    let {contents, scheduler, ui} = harness.nightScreen;
+    let storyWindow = new harness.StoryWindow({
+      scheduler,
+      script: defineDialogueScript<Night>()({
+        start: {
+          speaker: 'A lamp',
+          text: [LAMP_PAGE, 'The second page is short, and the choices come after it.'],
+          choices: [{text: 'Look closer'}, {text: 'Look away'}],
+        },
+      }),
+      context: contents.night,
+      area: getSceneArea(480, 270),
+      onClosed: () => {
+        contents.storyWindow = null;
+      },
+    });
+
+    contents.storyWindow = storyWindow;
+    ui.addOverlay(storyWindow);
+
+    return storyWindow;
+  }
+
+  // The room a node with choices reserves for them under its text, where they
+  // appear: as wide as the text, from its bottom edge to the panel's bottom
+  // padding of 8.
+  function getRoomUnderText(storyWindow: StoryWindow): Box {
+    let {panel, textBlock} = getWindowParts(storyWindow);
+    let panelBox = getBox(harness, panel);
+    let textBox = getBox(harness, textBlock);
+    let top = textBox.top + textBox.height;
+
+    return {
+      left: textBox.left,
+      top,
+      width: textBox.width,
+      height: panelBox.top + panelBox.height - 8 - top,
+    };
+  }
+
+  // Names what Pixi's hit test finds at the middle of a box, out of the named
+  // parts, so a failed check prints a name and not a whole Pixi container.
+  function getTapTarget(box: Box, parts: Record<string, pixi.Container>): string {
+    let {game} = harness;
+    let target = game.app.renderer.events.rootBoundary.hitTest(
+      (box.left + box.width / 2) * game.pixelScale,
+      (box.top + box.height / 2) * game.pixelScale,
+    );
+
+    return Object.entries(parts).find(([, part]) => part === target)?.[0] ?? 'another part';
   }
 
   function getMenu(): Modal {
@@ -493,7 +559,8 @@ describe('night screen', {timeout: 180_000}, () => {
       },
     );
 
-    test('the window keeps its size when the choices appear', async () => {
+    // The test of a second tap under the text checks the size in the fade.
+    test('the window keeps its size when the choices appear and once they have faded in', async () => {
       let storyWindow = await openSpot('The bartender');
       let {panel} = getWindowParts(storyWindow);
 
@@ -509,6 +576,10 @@ describe('night screen', {timeout: 180_000}, () => {
         'Order a beer',
         'Leave her alone',
       ]);
+      expect(getBox(harness, panel)).toEqual(before);
+
+      await waitForChoices(storyWindow);
+
       expect(getBox(harness, panel)).toEqual(before);
     });
 
@@ -571,8 +642,10 @@ describe('night screen', {timeout: 180_000}, () => {
       let storyWindow = await openSpot('A patron');
 
       // Finish the text and tap "Talk to him", then finish its text, if a tap
-      // left it typing, and tap "Ask about the ceiling".
+      // left it typing, and tap "Ask about the ceiling". A choice takes a tap
+      // once it has faded in.
       await press('Enter');
+      await waitForChoices(storyWindow);
       await tap(harness, getBox(harness, getWindowButton(storyWindow, 0)));
 
       if (storyWindow.dialogue.phase === 'revealing') {
@@ -581,6 +654,7 @@ describe('night screen', {timeout: 180_000}, () => {
 
       expect(getButtonLabel(getWindowButton(storyWindow, 0))).toBe('Ask about the ceiling');
 
+      await waitForChoices(storyWindow);
       await tap(harness, getBox(harness, getWindowButton(storyWindow, 0)));
 
       // The first page of the long text takes more than ten seconds to type.
@@ -763,6 +837,114 @@ describe('night screen', {timeout: 180_000}, () => {
       expect(storyWindow.dialogue.revealedCount).toBeGreaterThan(pageEnd);
     });
 
+    test('a tap under the text finishes the page, as a tap on the text does', async () => {
+      let storyWindow = openPagesWithChoices();
+
+      try {
+        await nextFrame();
+        await nextFrame();
+
+        // The first page takes more than ten seconds to type, so the tap in
+        // the room of the choices finished it, and the runner waits at the
+        // page end.
+        await tap(harness, getRoomUnderText(storyWindow));
+
+        expect(storyWindow.dialogue.pageIndex).toBe(0);
+        expect(storyWindow.dialogue.phase).toBe('idle');
+        expect(storyWindow.dialogue.revealedCount).toBe(storyWindow.dialogue.pageText.length);
+      } finally {
+        // Read after the awaits, so the current contents are cleared.
+        let {contents} = harness.nightScreen;
+
+        storyWindow.destroy();
+        contents.storyWindow = null;
+      }
+    });
+
+    test('a tap under the text turns a complete page that another page follows', async () => {
+      let storyWindow = openPagesWithChoices();
+
+      try {
+        await nextFrame();
+        await nextFrame();
+        // Finish the first page.
+        await press('Enter');
+
+        expect(storyWindow.dialogue.pageIndex).toBe(0);
+        expect(storyWindow.dialogue.phase).toBe('idle');
+
+        await tap(harness, getRoomUnderText(storyWindow));
+
+        expect(storyWindow.dialogue.pageIndex).toBe(1);
+        expect(storyWindow.dialogue.phase).toBe('revealing');
+      } finally {
+        // Read after the awaits, so the current contents are cleared.
+        let {contents} = harness.nightScreen;
+
+        storyWindow.destroy();
+        contents.storyWindow = null;
+      }
+    });
+
+    test('a second tap under the text takes no choice while the choices fade in', async () => {
+      let {game} = harness;
+      let storyWindow = await openSpot('A patron');
+      let firstNode = storyWindow.dialogue.node;
+
+      await nextFrame();
+
+      let {panel, pressSurface, textBlock} = getWindowParts(storyWindow);
+      let panelBox = getBox(harness, panel);
+      let textBox = getBox(harness, textBlock);
+      // Where the first choice appears: 8 under the text, one line of 12 and 2
+      // of padding on both sides.
+      let firstChoice = {
+        left: textBox.left,
+        top: textBox.top + textBox.height + 8,
+        width: textBox.width,
+        height: 16,
+      };
+
+      // No await until the second tap: no frame runs in between, so the fade
+      // does not advance. The first tap finishes the text, and the runner
+      // offers the choices at once; update() builds them, as the window's next
+      // frame would, and render() lays them out.
+      tapNow(harness, firstChoice);
+
+      expect(storyWindow.dialogue.phase).toBe('choosing');
+
+      storyWindow.update(0);
+      game.app.render();
+
+      let button = getWindowButton(storyWindow, 0);
+      let parts = {pressSurface, firstChoice: button.view};
+
+      expect(getButtonLabel(button)).toBe('Talk to him');
+      expect(getBox(harness, button)).toEqual(firstChoice);
+      expect(getBox(harness, panel)).toEqual(panelBox);
+      // The second tap reaches the press surface, not the choice under the
+      // finger, and does nothing, as a tap on the text does then.
+      expect(getTapTarget(firstChoice, parts)).toBe('pressSurface');
+
+      tapNow(harness, firstChoice);
+
+      expect(storyWindow.dialogue.phase).toBe('choosing');
+      expect(storyWindow.dialogue.node).toBe(firstNode);
+
+      // Fully shown, the choice takes the tap.
+      await waitForChoices(storyWindow);
+
+      expect(getTapTarget(firstChoice, parts)).toBe('firstChoice');
+
+      tapNow(harness, firstChoice);
+
+      expect(storyWindow.dialogue.node).not.toBe(firstNode);
+      expect(storyWindow.dialogue.visibleChoices.map((choice) => choice.text)).toEqual([
+        'Ask about the ceiling',
+        'Let him be',
+      ]);
+    });
+
     test('the long text is shown in pages of at most 16 lines', async () => {
       let storyWindow = await openLongText();
       let whole = storyWindow.dialogue.pageText;
@@ -935,6 +1117,37 @@ describe('night screen', {timeout: 180_000}, () => {
       } finally {
         await restoreViewport();
       }
+    });
+
+    test('a resize starts the fade of fading choices again and brings shown ones back at once', async () => {
+      let storyWindow = await openSpot('The bartender');
+      let area = getSceneArea(480, 270);
+
+      function getChoicesView(): pixi.Container {
+        let {buttonArea, buttons} = getWindowParts(storyWindow);
+
+        if (buttonArea === null || buttons.length === 0) {
+          throw new Error('The story window offers no choices!');
+        }
+
+        return buttonArea.view;
+      }
+
+      // No frame runs between these calls: the text is finished, update()
+      // builds the choices and starts their fade, and the resize builds them
+      // again in it.
+      storyWindow.dialogue.advance();
+      storyWindow.update(0);
+      storyWindow.resize(area);
+
+      expect(getChoicesView().alpha).toBe(0);
+      expect(getChoicesView().eventMode).toBe('none');
+
+      await waitForChoices(storyWindow);
+      storyWindow.resize(area);
+
+      expect(getChoicesView().alpha).toBe(1);
+      expect(getChoicesView().eventMode).not.toBe('none');
     });
 
     test('a node without a speaker has no title, and the window is shorter by it', async () => {

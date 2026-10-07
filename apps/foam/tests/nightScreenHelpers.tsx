@@ -261,6 +261,33 @@ export async function tap({game}: Harness, box: Box): Promise<void> {
   await nextFrame();
 }
 
+// A tap the game handles at once: a press and a release sent straight to the
+// canvas, which Pixi hit tests and dispatches as it receives them, so no frame
+// runs between them or after them. A test checks with it what a tap does at a
+// given moment, such as in a fade, which a real tap's many frames would end.
+export function tapNow({game}: Harness, box: Box): void {
+  let canvas = document.querySelector('canvas');
+
+  if (canvas === null) {
+    throw new Error('The canvas is not mounted!');
+  }
+
+  let rect = canvas.getBoundingClientRect();
+  let init = {
+    bubbles: true,
+    cancelable: true,
+    clientX: rect.left + (box.left + box.width / 2) * game.pixelScale,
+    clientY: rect.top + (box.top + box.height / 2) * game.pixelScale,
+    pointerId: 1,
+    pointerType: 'mouse',
+    isPrimary: true,
+    button: 0,
+  };
+
+  canvas.dispatchEvent(new PointerEvent('pointerdown', {...init, buttons: 1}));
+  canvas.dispatchEvent(new PointerEvent('pointerup', {...init, buttons: 0}));
+}
+
 export function getSpotButton(harness: Harness, label: string): Button {
   let index = getPlace(harness).spots.findIndex((spot) => spot.label === label);
   let button = harness.nightScreen.contents.spotButtons[index];
@@ -362,13 +389,16 @@ export async function waitForNoStoryWindow({nightScreen}: Harness): Promise<void
 // block (only for a node with a speaker), a Container whose view holds the
 // title Text and the rule Sprite; the text block, a Container of two Texts of
 // the same size, the regular one and then the italic one; and the button area
-// (only for a node with choices), a Container of Buttons. The cursor is a
-// Sprite the panel's view holds out of the layout flow.
+// (only for a node with choices), a Container of Buttons. The panel's view
+// holds two more parts out of the layout flow: the press surface, a Container
+// that draws nothing and has a hit area, and the cursor, a Sprite.
 export function getWindowParts(storyWindow: StoryWindow): {
+  buttonArea: Container | null;
   buttons: Button[];
   cursor: pixi.Sprite;
   italicLeaf: Text;
   panel: Panel;
+  pressSurface: pixi.Container;
   regularLeaf: Text;
   textBlock: Container;
   title: Text | null;
@@ -392,15 +422,18 @@ export function getWindowParts(storyWindow: StoryWindow): {
   );
   let title = titleBlock?.children[0];
   let [regularLeaf, italicLeaf] = textBlock?.children ?? [];
-  let cursor = panel.view.overflowContainer.children.find((child) => child instanceof pixi.Sprite);
+  let outOfFlow = panel.view.overflowContainer.children;
+  let cursor = outOfFlow.find((child) => child instanceof pixi.Sprite);
+  let pressSurface = outOfFlow.find((child) => child.hitArea instanceof pixi.Rectangle);
 
   if (
     textBlock === undefined ||
     !(regularLeaf instanceof Text) ||
     !(italicLeaf instanceof Text) ||
-    cursor === undefined
+    cursor === undefined ||
+    pressSurface === undefined
   ) {
-    throw new TypeError('The story window has no text block or no cursor!');
+    throw new TypeError('The story window has no text block, no cursor or no press surface!');
   }
 
   if (titleBlock !== undefined && !(title instanceof Text)) {
@@ -408,14 +441,37 @@ export function getWindowParts(storyWindow: StoryWindow): {
   }
 
   return {
+    buttonArea: buttonArea ?? null,
     buttons: (buttonArea?.children ?? []) as Button[],
     cursor,
     italicLeaf,
     panel,
+    pressSurface,
     regularLeaf,
     textBlock,
     title: title instanceof Text ? title : null,
   };
+}
+
+// New choices fade in and take no tap until they are fully shown, so a test
+// that taps a choice right after it appeared waits for that.
+export async function waitForChoices(storyWindow: StoryWindow): Promise<void> {
+  await vitest.waitFor(
+    () => {
+      let {buttonArea} = getWindowParts(storyWindow);
+
+      if (buttonArea === null || buttonArea.children.length === 0) {
+        throw new Error('The story window offers no choices.');
+      }
+
+      let {view} = buttonArea;
+
+      if (view.alpha < 1 || view.eventMode === 'none') {
+        throw new Error('The choices are still fading in.');
+      }
+    },
+    {timeout: 10_000},
+  );
 }
 
 // The travel window's modal holds one Panel. Its children are, in this order:

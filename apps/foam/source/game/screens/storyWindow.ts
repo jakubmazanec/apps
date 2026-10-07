@@ -63,6 +63,11 @@ const BLIP_EVERY_GLYPHS = 3;
 // A frame that reveals this many characters is a skip: one blip at most.
 const SKIP_THRESHOLD = 4;
 const FADE_DURATION = 200;
+// New choices fade in over this long and take no tap until fully shown. The
+// first tap of a double tap under the text can finish it, and the choices then
+// appear under the finger; the fade covers the second tap (a common double-tap
+// timeout is 300 ms) and is far shorter than reading the choices.
+const CHOICES_FADE_DURATION = 300;
 const CURSOR_BLINK_MS = 500;
 
 function measureLabel(text: string): number {
@@ -81,8 +86,10 @@ function measureLabel(text: string): number {
  *
  * The layout is settled when a node is shown, from the whole text and the
  * node's choices, so nothing moves while the text types or the pages turn.
- * A press on the text and the choice buttons only tell the runner what was
- * pressed; `update` then brings the window in line with the runner.
+ * A tap on the text or on the room under it that the choices fill, a key
+ * press and the choice buttons only tell the runner what was pressed;
+ * `update` then brings the window in line with the runner. New choices fade
+ * in and take a tap once fully shown.
  */
 export class StoryWindow implements Overlay {
   readonly children: UiChild[];
@@ -90,9 +97,6 @@ export class StoryWindow implements Overlay {
   readonly view: pixi.Container = new pixi.Container();
 
   #area: SceneArea;
-
-  /** Whether the choice buttons are built for the shown node. */
-  #areChoicesShown = false;
 
   /** Time in ms the cursor has blinked since the runner became idle. */
   #blinkTime = 0;
@@ -108,11 +112,17 @@ export class StoryWindow implements Overlay {
 
   #buttons: Button[] = [];
 
+  /** Cancels the running fade of the choices. */
+  #cancelChoicesFade: (() => void) | null = null;
+
   /** Cancels the running fade. */
   #cancelFade: (() => void) | null = null;
 
   /** The visible choices' texts, each wrapped to the inside of its button. */
   #choiceLabels: string[] = [];
+
+  /** The choice buttons of the shown node: not built, fading in, or fully shown. */
+  #choicesState: 'fading' | 'none' | 'shown' = 'none';
 
   /** Shows that a press turns the page or closes the window. It sits after the last letter. */
   readonly #cursor: pixi.Sprite;
@@ -131,7 +141,7 @@ export class StoryWindow implements Overlay {
   readonly #onClosed: () => void;
   readonly #panel: Panel;
 
-  /** Takes the presses on the window above the choices. */
+  /** Takes the taps on the text and on the room under it, under the choice buttons. */
   readonly #pressSurface: pixi.Container = new pixi.Container();
 
   /** The text's leaf in the regular font. */
@@ -179,6 +189,9 @@ export class StoryWindow implements Overlay {
 
     this.#cursor = new pixi.Sprite({texture: assets.spriteset('ui').texture('cursor')});
     this.#cursor.visible = false;
+    // A tap on the cursor reaches the press surface under it, as a tap on the
+    // letter before it does.
+    this.#cursor.eventMode = 'none';
 
     // A sibling of the choice buttons, not their parent, so a tap on a choice
     // does not reach it as well.
@@ -259,6 +272,8 @@ export class StoryWindow implements Overlay {
 
     this.#cancelFade?.();
     this.#cancelFade = null;
+    this.#cancelChoicesFade?.();
+    this.#cancelChoicesFade = null;
     this.#ui = null;
     this.#state = 'closed';
   }
@@ -321,7 +336,7 @@ export class StoryWindow implements Overlay {
       this.dialogue.pageIndex !== this.#shownPageIndex ||
       this.dialogue.revealedCount < this.#lastRevealedCount
     ) {
-      this.#areChoicesShown = false;
+      this.#choicesState = 'none';
       this.#lastRevealedCount = 0;
       this.#blipGlyphs = 0;
       this.#showNode();
@@ -330,8 +345,8 @@ export class StoryWindow implements Overlay {
     this.#showRevealed();
     this.#playBlips();
 
-    if (this.dialogue.phase === 'choosing' && !this.#areChoicesShown) {
-      this.#areChoicesShown = true;
+    if (this.dialogue.phase === 'choosing' && this.#choicesState === 'none') {
+      this.#choicesState = 'fading';
       this.#buildChoices();
     }
 
@@ -343,7 +358,9 @@ export class StoryWindow implements Overlay {
   }
 
   // One button per visible choice, in the room the node reserved for them.
-  // None is focused: the first arrow or Tab press focuses the first.
+  // None is focused: the first arrow or Tab press focuses the first. New
+  // choices fade in, and so do choices a resize builds again in their fade;
+  // choices a resize builds again once fully shown come back fully shown.
   #buildChoices(): void {
     let buttonArea = this.#buttonArea;
 
@@ -376,6 +393,10 @@ export class StoryWindow implements Overlay {
     });
 
     buttonArea.addChild(...this.#buttons);
+
+    if (this.#choicesState === 'fading') {
+      this.#fadeInChoices(buttonArea);
+    }
   }
 
   // The runner has ended: the window fades out, then destroy() takes it off
@@ -388,9 +409,11 @@ export class StoryWindow implements Overlay {
     });
   }
 
-  // A press on the text, and Enter or Space with nothing focused. While the
-  // runner is choosing, advance() would take the first choice, which only a
-  // press on a choice may do. While the window fades out, the runner has ended.
+  // A tap on the text or on the room under it, and Enter or Space with nothing
+  // focused. While the runner is choosing, advance() would take the first
+  // choice, which only a press on a choice may do, so a tap between two
+  // choices, or on choices that are still fading in, does nothing, as a tap on
+  // the text does then. While the window fades out, the runner has ended.
   #continueText(): void {
     if (
       this.#state === 'closing' ||
@@ -414,6 +437,31 @@ export class StoryWindow implements Overlay {
       onComplete: () => {
         this.#cancelFade = null;
         onComplete();
+      },
+    });
+  }
+
+  // Fades the choices in on the scheduler. Until they are fully shown they are
+  // no pointer target, so a tap on them reaches the press surface under them
+  // and does nothing, as a tap on the text does while the runner is choosing.
+  // Keys are not held back: the choices appear with nothing focused, so Enter
+  // only takes one after an arrow or Tab press has focused it.
+  #fadeInChoices(buttonArea: Container): void {
+    let {view} = buttonArea;
+
+    view.alpha = 0;
+    view.eventMode = 'none';
+    this.#cancelChoicesFade?.();
+    this.#cancelChoicesFade = this.#scheduler.tween({
+      target: view,
+      to: {alpha: 1},
+      duration: CHOICES_FADE_DURATION,
+      easing: easeOutQuad,
+      onComplete: () => {
+        this.#cancelChoicesFade = null;
+        this.#choicesState = 'shown';
+        // Pixi's default: the area itself takes no tap, the buttons in it do.
+        view.eventMode = 'passive';
       },
     });
   }
@@ -479,6 +527,9 @@ export class StoryWindow implements Overlay {
 
     this.#shownNode = node;
     this.#shownPageIndex = pageIndex;
+    // A running fade of the choices tweens the button area, destroyed below.
+    this.#cancelChoicesFade?.();
+    this.#cancelChoicesFade = null;
 
     for (let child of [this.#titleBlock, this.#textBlock, this.#buttonArea]) {
       if (child !== null) {
@@ -571,6 +622,29 @@ export class StoryWindow implements Overlay {
     });
     this.#panel.addChild(this.#textBlock);
 
+    // The press surface and the cursor sit out of the layout flow, in the
+    // panel's own coordinates, and are added again after each rebuild. Pixi
+    // tests the parts from the top down and stops at the first one under a
+    // tap, interactive or not; a tap that stops at a letter goes to the
+    // panel, which ignores it. So the surface lies above the title and the
+    // text, and under the button area, whose buttons take a tap on them
+    // first. The surface spans the panel's width. For a node without choices
+    // it reaches the panel's bottom edge, so a tap on the padding around the
+    // text continues the text. For a node with choices it reaches the bottom
+    // of the room the choices fill, so a tap in that room does what a tap on
+    // the text does at the same moment, except on a choice that has fully
+    // faded in. The cursor lies on top, takes no pointer events and follows
+    // the text: #showRevealed places it after the last letter, and after a
+    // full line it lies in the padding on the right, which the surface
+    // covers too.
+    let panelWidth = textWidth + 2 * WINDOW_PADDING_X;
+    let textBottom = WINDOW_PADDING_Y + titleHeight + textHeight;
+    let panelHeight = textBottom + choicesHeight + WINDOW_PADDING_Y;
+    let surfaceHeight = choicesHeight === 0 ? panelHeight : textBottom + choicesHeight;
+
+    this.#pressSurface.hitArea = new pixi.Rectangle(0, 0, panelWidth, surfaceHeight);
+    this.#panel.view.addChild(this.#pressSurface);
+
     if (buttonAreaHeight > 0) {
       this.#buttonArea = new Container({
         layout: {
@@ -587,27 +661,12 @@ export class StoryWindow implements Overlay {
       this.#panel.addChild(this.#buttonArea);
 
       // After a resize the choices are built again at once.
-      if (this.#areChoicesShown) {
+      if (this.#choicesState !== 'none') {
         this.#buildChoices();
       }
     }
 
-    // The press surface and the cursor sit out of the layout flow, in the
-    // panel's own coordinates, and are added again on top after each rebuild.
-    // The surface spans the panel's width. For a node without choices it
-    // reaches the panel's bottom edge, so a tap on the cursor or on the
-    // padding around the text continues the text; for a node with choices it
-    // ends at the bottom edge of the text, and a press in the room of the
-    // choices does nothing. The cursor follows the text: #showRevealed places
-    // it after the last letter, and after a full line it lies in the padding
-    // on the right, which the surface covers too.
-    let panelWidth = textWidth + 2 * WINDOW_PADDING_X;
-    let textBottom = WINDOW_PADDING_Y + titleHeight + textHeight;
-    let panelHeight = textBottom + choicesHeight + WINDOW_PADDING_Y;
-    let surfaceHeight = choicesHeight === 0 ? panelHeight : textBottom;
-
-    this.#pressSurface.hitArea = new pixi.Rectangle(0, 0, panelWidth, surfaceHeight);
-    this.#panel.view.addChild(this.#pressSurface, this.#cursor);
+    this.#panel.view.addChild(this.#cursor);
     this.#showRevealed();
   }
 
