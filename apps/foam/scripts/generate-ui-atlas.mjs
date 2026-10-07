@@ -14,7 +14,7 @@ import {palette as colors} from '../source/game/core/palette.ts';
 
 const CHANNELS = 4; // RGBA
 const GAP = 1; // transparent pixels between frames, against sampling bleed
-const BORDERS = {left: 1, top: 1, right: 1, bottom: 1};
+const BORDERS = {left: 2, top: 2, right: 2, bottom: 2};
 const publicDir = fileURLToPath(new URL('../public/', import.meta.url));
 
 function toRgba(value) {
@@ -62,9 +62,11 @@ function solid(width, height, color) {
   return {cells: buildBox({width, height, border: color, inside: color})};
 }
 
-// A 3 x 3 nine-slice frame.
+// A 5 x 5 nine-slice frame. Each edge slice is the one pixel border and one pixel of the inside,
+// so the stretched middle pixel meets its own colour: the GPU rounds a texture coordinate to a
+// fraction of a pixel, and the far end of a long stretch can take the pixel next to it.
 function nineSlice(border, inside) {
-  return {borders: BORDERS, cells: buildBox({width: 3, height: 3, border, inside})};
+  return {borders: BORDERS, cells: buildBox({width: 5, height: 5, border, inside})};
 }
 
 function toggle(border, mark) {

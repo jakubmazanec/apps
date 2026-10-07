@@ -198,14 +198,14 @@ art cannot differ from what the script draws.
 
 | Frame                     | Size   | Nine-slice border | Drawing                                             |
 | ------------------------- | ------ | ----------------- | --------------------------------------------------- |
-| `window`                  | 3 × 3  | 1                 | `line` border, `black` centre                       |
-| `button-normal`           | 3 × 3  | 1                 | `line` border, `black` centre                       |
-| `button-hovered`          | 3 × 3  | 1                 | `dim` border, `ground` centre                       |
-| `button-active`           | 3 × 3  | 1                 | `white` border, `line` centre                       |
-| `button-disabled`         | 3 × 3  | 1                 | `shade` border, `black` centre                      |
-| `text-input-normal`       | 3 × 3  | 1                 | `line` border, `black` centre                       |
-| `text-input-hovered`      | 3 × 3  | 1                 | `dim` border, `black` centre                        |
-| `text-input-disabled`     | 3 × 3  | 1                 | `shade` border, `black` centre                      |
+| `window`                  | 5 × 5  | 2                 | `line` border, `black` centre                       |
+| `button-normal`           | 5 × 5  | 2                 | `line` border, `black` centre                       |
+| `button-hovered`          | 5 × 5  | 2                 | `dim` border, `ground` centre                       |
+| `button-active`           | 5 × 5  | 2                 | `white` border, `line` centre                       |
+| `button-disabled`         | 5 × 5  | 2                 | `shade` border, `black` centre                      |
+| `text-input-normal`       | 5 × 5  | 2                 | `line` border, `black` centre                       |
+| `text-input-hovered`      | 5 × 5  | 2                 | `dim` border, `black` centre                        |
+| `text-input-disabled`     | 5 × 5  | 2                 | `shade` border, `black` centre                      |
 | `toggle-unchecked`        | 8 × 8  | none              | `dim` border, `black` inside                        |
 | `toggle-checked`          | 8 × 8  | none              | The same, with a 4 × 4 `white` square in the middle |
 | `toggle-hovered`          | 8 × 8  | none              | `white` border, `black` inside                      |
@@ -216,11 +216,17 @@ art cannot differ from what the script draws.
 | `slider-track-hovered`    | 64 × 8 | none              | `dim` border, `black` inside                        |
 | `slider-track-disabled`   | 64 × 8 | none              | `shade` border, `black` inside                      |
 | `slider-fill`             | 4 × 4  | none              | `white`                                             |
-| `focus-ring`              | 3 × 3  | 1                 | `rose` border, transparent centre                   |
+| `focus-ring`              | 5 × 5  | 2                 | `rose` border, transparent centre                   |
 | `rule`                    | 1 × 1  | none              | `line`                                              |
 | `cursor`                  | 5 × 9  | none              | `rose`                                              |
 
 All corners are square. The frame `banner` becomes `window`, and `advance-marker` becomes `cursor`.
+
+A nine-slice frame is a one-pixel border around a 3 × 3 inside, and each of its edge slices is the
+border and one pixel of the inside, so a border is still one pixel wide on screen. Pixi stretches
+the middle pixel, and the GPU rounds a texture coordinate to a fraction of a pixel, so the far end
+of a long stretch can take the pixel next to it. That pixel has the inside's colour, so the right
+and bottom borders do not grow on a wide window.
 
 Foam has no toggle and no text input on any screen. Their frames are drawn because the theme type
 requires them.
