@@ -227,8 +227,14 @@ server when the file is run.
    layer's ways by their OpenStreetMap id, so the same data gives the same file.
 4. When every request has answered, it writes `map.json` anew. Nobody edits the street geometry by
    hand, so the script keeps nothing of the old file.
-5. A request that fails, or an answer that is not JSON, ends the run: the script prints what the
-   server said, leaves the file as it was and ends with exit code 1. It does not try again.
+5. A query declares `[timeout:25]`: the server refuses a query whose declared time is more than half
+   of its free resources, and these queries run in about a second. The script sends them one at a
+   time and, on an HTTP 429 (no free slot) or 504 (the server too busy), waits 30 s, as the Overpass
+   wiki asks, and sends the same query again, up to five attempts. Any other error status, an answer
+   that is not JSON, and an answer with a `remark` (how Overpass reports a runtime error such as a
+   timeout, with the elements found so far) end the run: the script prints what the server said,
+   leaves the file as it was and ends with exit code 1. The retry is the exported
+   `sendOverpassQuery(query, {fetch, wait})`, so a test can run it without a network or a wait.
 6. It prints the number of lines of each layer and the size of the file.
 
 The script is run again when a place is added. The checker says when that is needed (see below).
