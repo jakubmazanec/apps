@@ -1,7 +1,16 @@
 import * as pixi from 'pixi.js';
 import {StrictMode} from 'react';
 import {createRoot} from 'react-dom/client';
-import {Button, Container, type Focusable, type Game, Panel, Slider, Text} from 'tellurion';
+import {
+  Button,
+  Container,
+  type Focusable,
+  type Game,
+  type Modal,
+  Panel,
+  Slider,
+  Text,
+} from 'tellurion';
 import {vitest} from 'vitest';
 import {page, userEvent} from 'vitest/browser';
 
@@ -111,6 +120,21 @@ export async function bootGame(width: number, height: number): Promise<Harness> 
       container.remove();
     },
   };
+}
+
+// Sets the viewport and waits for the screen to take its size.
+export async function setViewport({game}: Harness, width: number, height: number): Promise<void> {
+  await page.viewport(width, height);
+  await vitest.waitFor(
+    () => {
+      let {screen} = game.app;
+
+      if (screen.width !== width || screen.height !== height) {
+        throw new Error('The screen does not have its new size yet.');
+      }
+    },
+    {timeout: 10_000},
+  );
 }
 
 // Activates New Game on the main menu and waits for the night screen and its
@@ -425,6 +449,26 @@ export function getTravelParts(travelWindow: TravelWindow): {
     title,
     ways: row.children.filter((child) => child instanceof Button),
   };
+}
+
+// The menu is a Modal holding one Panel: the title, then the buttons Resume,
+// Options and Quit to menu.
+export function getMenuButton(menu: Modal, label: string): Button {
+  let [panel] = menu.children;
+
+  if (!(panel instanceof Panel)) {
+    throw new TypeError('The menu has no panel!');
+  }
+
+  let button = panel.children.find(
+    (child) => child instanceof Button && getButtonLabel(child) === label,
+  );
+
+  if (!(button instanceof Button)) {
+    throw new TypeError(`The menu has no "${label}" button!`);
+  }
+
+  return button;
 }
 
 // The window's choice at the given position.

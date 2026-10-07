@@ -1,6 +1,5 @@
 import {type Button, Text} from 'tellurion';
 import {afterAll, afterEach, beforeAll, describe, expect, test, vitest} from 'vitest';
-import {page} from 'vitest/browser';
 
 import travel from '../source/game/content/data/travel.json';
 import {nightStart} from '../source/game/content/nightStart.js';
@@ -24,6 +23,7 @@ import {
   press,
   pressThrough,
   readText,
+  setViewport,
   startNewGame,
   tap,
   useFixedWorld,
@@ -127,20 +127,6 @@ describe('travel window', {timeout: 180_000}, () => {
     await vitest.waitFor(
       () => {
         expect(getBox(harness, getTravelParts(openWindow).panel).width).toBe(width);
-      },
-      {timeout: 10_000},
-    );
-  }
-
-  async function setViewport(width: number, height: number): Promise<void> {
-    await page.viewport(width, height);
-    await vitest.waitFor(
-      () => {
-        let {screen} = harness.game.app;
-
-        if (screen.width !== width || screen.height !== height) {
-          throw new Error('The screen does not have its new size yet.');
-        }
       },
       {timeout: 10_000},
     );
@@ -398,7 +384,7 @@ describe('travel window', {timeout: 180_000}, () => {
 
   test('on a 146 × 262 screen the row fits, the numbers stand under the name, and the window fits', async () => {
     try {
-      await setViewport(292, 524);
+      await setViewport(harness, 292, 524);
 
       let opened = openTravel('walk');
 
@@ -435,7 +421,7 @@ describe('travel window', {timeout: 180_000}, () => {
 
       expectInsideNarrowScreen(panel);
     } finally {
-      await setViewport(960, 540);
+      await setViewport(harness, 960, 540);
     }
   });
 
@@ -460,7 +446,7 @@ describe('travel window', {timeout: 180_000}, () => {
     expect(longest.count).toBeGreaterThan(0);
 
     try {
-      await setViewport(292, 524);
+      await setViewport(harness, 292, 524);
 
       let opened = openTravel(longest.way, {start: gameStart, from: longest.from});
 
@@ -470,7 +456,7 @@ describe('travel window', {timeout: 180_000}, () => {
 
       expectInsideNarrowScreen(getBox(harness, getTravelParts(opened).panel));
     } finally {
-      await setViewport(960, 540);
+      await setViewport(harness, 960, 540);
     }
   });
 
@@ -488,7 +474,7 @@ describe('travel window', {timeout: 180_000}, () => {
     expect(ui.focused).toBe(oldSecond);
 
     try {
-      await setViewport(292, 524);
+      await setViewport(harness, 292, 524);
       opened.resize(146);
       await waitForPanelWidth(opened, 138);
 
@@ -502,7 +488,7 @@ describe('travel window', {timeout: 180_000}, () => {
       expect(ui.focused).toBe(parts.destinations[1]);
       expect(parts.destinations[1]).not.toBe(oldSecond);
     } finally {
-      await setViewport(960, 540);
+      await setViewport(harness, 960, 540);
     }
   });
 });

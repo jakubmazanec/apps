@@ -270,8 +270,8 @@ function openTravel(
 
 // Looks at the night once a story window has closed. A script that moved the
 // player shows the new place, and so does the end of a journey; a place the
-// night does not have leaves the player where they are. A way out that a
-// script chose opens the travel window.
+// night does not have leaves the player where they are, with no way out. A way
+// out that a script chose opens the travel window.
 function actOnNight(screen: NightScreen): void {
   let {night, place} = screen.contents;
 
@@ -296,7 +296,10 @@ function actOnNight(screen: NightScreen): void {
   } else {
     // eslint-disable-next-line no-console -- the running game reports a script's unknown place
     console.warn(`No place "${night.place}"; the night stays in "${place.id}".`);
+    // The script's move is dropped as a whole: a way out chosen with it would
+    // open the travel window at a later close that has nothing to do with it.
     night.place = place.id;
+    night.leaving = null;
   }
 }
 

@@ -1,6 +1,5 @@
-import {Button, type Modal, Panel} from 'tellurion';
+import {type Button, type Modal} from 'tellurion';
 import {afterAll, beforeAll, describe, expect, type MockInstance, test, vitest} from 'vitest';
-import {page} from 'vitest/browser';
 
 import {type barPicture as barPictureValue} from '../source/game/content/pictures/barPicture.js';
 import {getSceneArea} from '../source/game/core/getSceneArea.js';
@@ -15,6 +14,7 @@ import {
   describeFocus,
   getBox,
   getButtonLabel,
+  getMenuButton,
   getPicture,
   getPlace,
   getPlaceButton,
@@ -28,31 +28,12 @@ import {
   pressThrough,
   readText,
   restartAt,
+  setViewport,
   startNewGame,
   useFixedWorld,
   waitForNoStoryWindow,
   waitForPlace,
 } from './nightScreenHelpers.js';
-
-// The menu is a Modal holding one Panel: the title, then the buttons Resume,
-// Options and Quit to menu.
-function getMenuButton(menu: Modal, label: string): Button {
-  let [panel] = menu.children;
-
-  if (!(panel instanceof Panel)) {
-    throw new TypeError('The menu has no panel!');
-  }
-
-  let button = panel.children.find(
-    (child) => child instanceof Button && getButtonLabel(child) === label,
-  );
-
-  if (!(button instanceof Button)) {
-    throw new TypeError(`The menu has no "${label}" button!`);
-  }
-
-  return button;
-}
 
 // Presses Enter until the text has ended; the last press closes the window.
 // The game's own journey is one node, but its text can run to a second page.
@@ -175,21 +156,6 @@ describe('night screen places', {timeout: 180_000}, () => {
     await pickDestination(await waitForTravelWindow(), destination);
 
     return waitForStoryWindow();
-  }
-
-  // Sets the viewport and waits for the screen to take its size.
-  async function setViewport(width: number, height: number): Promise<void> {
-    await page.viewport(width, height);
-    await vitest.waitFor(
-      () => {
-        let {screen} = harness.game.app;
-
-        if (screen.width !== width || screen.height !== height) {
-          throw new Error('The screen does not have its new size yet.');
-        }
-      },
-      {timeout: 10_000},
-    );
   }
 
   // What hiding the screen leaves: no window, no place, and in the UI only the
@@ -453,7 +419,7 @@ describe('night screen places', {timeout: 180_000}, () => {
     let storyWindow = await startJourney('Walk', 'The bar');
 
     try {
-      await setViewport(292, 524);
+      await setViewport(harness, 292, 524);
       // With no place shown, the status line stands under the top row.
       await vitest.waitFor(
         () => {
@@ -465,7 +431,7 @@ describe('night screen places', {timeout: 180_000}, () => {
 
       expect(contents.storyWindow).toBe(storyWindow);
     } finally {
-      await setViewport(960, 540);
+      await setViewport(harness, 960, 540);
     }
 
     // Back in the top row, where the place button would stand.
@@ -493,7 +459,7 @@ describe('night screen places', {timeout: 180_000}, () => {
     );
 
     try {
-      await setViewport(292, 524);
+      await setViewport(harness, 292, 524);
       await vitest.waitFor(
         () => {
           expect(getPanelWidth()).toBe(138);
@@ -501,7 +467,7 @@ describe('night screen places', {timeout: 180_000}, () => {
         {timeout: 10_000},
       );
     } finally {
-      await setViewport(960, 540);
+      await setViewport(harness, 960, 540);
     }
   });
 
@@ -556,6 +522,34 @@ describe('night screen places', {timeout: 180_000}, () => {
 
     expect(getPlace(harness).id).toBe(FIXED_SQUARE);
     expect(readText(nightScreen.contents.statusText)).toBe('19:40   350 Kč   Sober');
+  });
+
+  // No spot of the fixed world sets both, so the night is changed by hand while
+  // the description is open, as a script's onEnter would change it.
+  test('an unknown place drops the way out chosen with it', async () => {
+    let {contents, ui} = harness.nightScreen;
+
+    await restartAt(harness, FIXED_SQUARE);
+
+    contents.night.place = 'nowhere' as PlaceId;
+    contents.night.leaving = {way: 'walk', ways: ['walk', 'tram', 'taxi']};
+    await closeStory();
+    await nextFrame();
+    await nextFrame();
+
+    expect(warn).toHaveBeenLastCalledWith(expect.stringContaining('"nowhere"'));
+    expect(contents.night.place).toBe(FIXED_SQUARE);
+    expect(contents.night.leaving).toBeNull();
+    expect(contents.travelWindow).toBeNull();
+
+    // A later window that has nothing to do with it opens no travel window.
+    ui.focus(getPlaceButton(harness));
+    await press('Enter');
+    await closeStory();
+    await nextFrame();
+    await nextFrame();
+
+    expect(contents.travelWindow).toBeNull();
   });
 
   // A journey always ends in a place of nightStart; the night is changed by
