@@ -101,7 +101,7 @@ These rules hold for every picture of the game:
 | `source/game/core/pictureShader.ts`            | New. The GLSL every picture shares                             |
 | `source/game/core/getPictureStep.ts`           | New. The picture's clock, as a pure function                   |
 | `source/game/content/barPicture.ts`            | New. The GLSL that draws the bar                               |
-| `source/game/content/samplePlace.ts`           | The place names its picture; new positions of its four spots   |
+| `tests/fixedWorld.ts`                          | The fixed bar names its picture; positions of its four spots   |
 | `source/game/screens/placePicture.ts`          | New. The `Renderable` that runs a picture                      |
 | `source/game/screens/placeholderBackground.ts` | Removed                                                        |
 | `source/game/screens/nightScreen.ts`           | Uses `PlacePicture`; sets its speed                            |
@@ -294,7 +294,7 @@ it colours.
 The exact pattern of the noise will differ from the sketch, because the shader's hash is not the
 sketch's random number generator. The shapes and the rules are the same.
 
-### Scene buttons (`content/samplePlace.ts`)
+### Scene buttons (`tests/fixedWorld.ts`)
 
 A spot's position is a fraction of the scene area, which starts under the top row, and the picture's
 design covers the whole screen. The two differ by the height of the top row, 24 of 270 on a wide
@@ -307,6 +307,8 @@ thing:
 | Two women talking | The table on the right                              | 0.70 | 0.84 |
 | A patron          | The table on the left                               | 0.14 | 0.93 |
 | The door          | The door                                            | 0.91 | 0.40 |
+
+The two real bars, `whiskyShop` and `rotorBar`, use the bar's picture and these positions.
 
 The picture has no people, so a person's button stands where that person would be: the bartender
 behind the counter under the first lamp, and the guests at the tables.
@@ -339,13 +341,13 @@ In the sketch, with all six movements, about 0.5% of the pixels changed from one
 
 ### Night screen (`screens/nightScreen.ts`)
 
-- `PlacePicture` is the background in the screen's contents: it is created in `onAttach` with
-  `samplePlace.picture`, added in `onShow`, removed in `onHide`, and resized in `layOut` to the size
-  of the screen in art pixels.
+- `PlacePicture` is the background in the screen's contents: it is created in `onAttach` with the
+  shown place's `picture`, added in `onShow`, removed in `onHide`, and resized in `layOut` to the
+  size of the screen in art pixels.
 - `onUpdate` sets the speed: `0.5` while `screen.ui.topOverlay` is not `null`, and `1` otherwise.
   The story window, the menu and the options window are all overlays.
 
-`Place` in `content/samplePlace.ts` gains `picture: string`, the GLSL of the place.
+`Place` in `core/place.ts` has `picture: string`, the GLSL of the place.
 
 ### Main menu (`screens/mainMenuScreen.ts`)
 
