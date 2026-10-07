@@ -134,7 +134,7 @@ and the jump-in do not change.
 | `source/game/core/getMapPoint.ts`     | New. Latitude and longitude to metres                            |
 | `source/game/core/fitMapFrame.ts`     | New. How the metres lie on a map of a given size                 |
 | `source/game/core/placeMapButtons.ts` | New. The place buttons' positions, pushed apart                  |
-| `source/game/core/getTravelLayout.ts` | New. The window's layout and sizes for a screen                  |
+| `source/game/core/getTravelLayout.ts` | New. The window's layout for a screen, and the map's size        |
 | `source/game/core/mapLayers.ts`       | New. The layers as Pixi drawings, built once from the map's data |
 | `source/game/core/checkContent.ts`    | The rule that `map.json` covers every place                      |
 | `source/game/screens/mapPicture.ts`   | New. Draws a layer, the light and the dotted line into a texture |
@@ -246,6 +246,12 @@ export function getMapPoint(
   origin: {latitude: number; longitude: number},
 ): MapPoint;
 
+/** Metres from `origin` as a latitude and longitude: the inverse of `getMapPoint`. */
+export function getMapPosition(
+  point: MapPoint,
+  origin: {latitude: number; longitude: number},
+): {latitude: number; longitude: number};
+
 /** Metres from the map's origin: x to the east, y to the south. */
 export type MapPoint = {x: number; y: number};
 ```
@@ -254,7 +260,8 @@ export type MapPoint = {x: number; y: number};
 `y = (origin.latitude − latitude) × 111,132`. Over a few kilometres the error of this flat
 projection is far below a pixel. Like `getExpectedJourneys`, the file imports nothing, not even a
 type, so the script imports it and the places and the streets go through the same code. `travel.ts`
-takes `MapPoint` from it.
+takes `MapPoint` from it. The script turns its box into latitude and longitude with
+`getMapPosition`, and the tests' fixed world places its places with it.
 
 ### The map's frame (`core/fitMapFrame.ts`)
 
@@ -309,21 +316,31 @@ or after 20 rounds. On a map too small for the buttons they may still touch; tha
 export type TravelLayout = {
   kind: 'stacked' | 'sideBySide';
   window: {width: number; height: number};
-  map: {width: number; height: number};
 
   /** The width of the row of ways, the destination button and "Back". */
   controlWidth: number;
+
+  /** Whether a destination's numbers stand under its name. */
+  isNarrow: boolean;
 };
 
-export function getTravelLayout(
-  screenWidth: number,
-  screenHeight: number,
+/** The window's layout for a screen. */
+export function getTravelLayout(screenWidth: number, screenHeight: number): TravelLayout;
+
+/** The map's size in a window of this layout, with a destination button of this height. */
+export function getMapSize(
+  layout: TravelLayout,
   destinationHeight: number,
-): TravelLayout;
+): {width: number; height: number};
 ```
 
-The layout is `sideBySide` when the screen is wider than tall, and `stacked` otherwise. Inside the
-window's padding (8 above and below, 12 left and right) come the title block (15) and a gap of 4.
+The two are apart because the destination button's height depends on the control width, which the
+layout gives, and the map's size depends on that height.
+
+The layout is `sideBySide` when the screen is wider than tall, and `stacked` otherwise. `isNarrow`
+is true in the side-by-side layout, and in the stacked one on a screen narrower than `NARROW_WIDTH`.
+Inside the window's padding (8 above and below, 12 left and right) come the title block (15) and a
+gap of 4.
 
 | Layout       | Window                                         | Map                                                                                                                          | Controls                                                                                   |
 | ------------ | ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
@@ -339,7 +356,7 @@ With a destination 28 high, the sizes of the mockups:
 | 480 × 270 | `sideBySide` | 472 × 262 | 320 × 227 |
 | 350 × 195 | `sideBySide` | 342 × 187 | 190 × 152 |
 
-The function gives explicit sizes, so the map's size is known before anything is drawn, and the
+The functions give explicit sizes, so the map's size is known before anything is drawn, and the
 window's flex layout gets fixed sizes rather than sizes measured later. A map left with less than 1
 pixel in a direction gets 1.
 
@@ -461,8 +478,8 @@ The window is a `Panel` in a `Modal` with a fade of `UI_FADE_DURATION`, as befor
 - **The destination button:** the selected destination's name and numbers, laid out as a destination
   of the list was (`getDestinationLabel`), with the narrow form below `NARROW_WIDTH` and always in
   the column. Its height is the largest label height among the destinations of all the ways in
-  `ways`; that height goes into `getTravelLayout`. A selection changes its two texts and their
-  sizes, not the button.
+  `ways`, and at least 16; that height goes into `getMapSize`. A selection changes its two texts and
+  their sizes, not the button.
 - **"Back"** as before.
 
 Selecting, switching and laying out:
@@ -518,8 +535,8 @@ Unit tests, in `tests/`:
 - **`placeMapButtons.test.ts`.** Two close points end 4 apart. A point on the light moves off it and
   the light does not move. A button near the edge stays inside. Points far apart keep their places.
   The same input gives the same output.
-- **`getTravelLayout.test.ts`.** The four screens of the table give their layouts and sizes; a
-  square screen is stacked.
+- **`getTravelLayout.test.ts`.** The four screens of the table give their layouts and sizes, through
+  `getTravelLayout` and `getMapSize`; a square screen is stacked.
 - **`checkContent.test.ts`.** A sample that breaks the coverage rule gives its line.
 - **`content.test.ts`.** The checker over the game's own data, coverage included, gives the empty
   list.
