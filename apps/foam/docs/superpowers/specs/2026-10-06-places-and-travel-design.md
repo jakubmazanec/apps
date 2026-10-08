@@ -591,15 +591,18 @@ The screen's contents:
 | `night`                                    | Made in `onShow` from `nightStart`                     |
 | `place`                                    | The place being shown, or `null` during a journey      |
 | `picture`, `placeButton`, `spotButtons`    | Built when a place is shown, destroyed when it is left |
+| `nextPlace`                                | The place ahead (see below), or `null`                 |
 | `storyWindow`, `menuModal`, `optionsModal` | As today                                               |
 | `travelWindow`                             | From a way out's choice until its modal has closed     |
 
 **Showing a place** (`showPlace`):
 
-1. It leaves the place being shown, if there is one.
-2. It builds the place's `PlacePicture` and adds it to the view.
-3. It builds the place button, labelled `shortName ?? name`, and the scene buttons, and adds them to
-   the UI. The backdrop goes back in after them, so it lies above the scene and under the windows.
+1. It takes the place ahead, when that is the place, or builds the place now: its `PlacePicture`,
+   which it adds to the view hidden, the place button, labelled `shortName ?? name`, and the scene
+   buttons. A place ahead that is another place is destroyed.
+2. It leaves the place being shown, if there is one, and shows the picture.
+3. It adds the place button and the scene buttons to the UI. The backdrop goes back in after them,
+   so it lies above the scene and under the windows.
 4. It lays them out. The status line stands beside the place button, so it moves with that button's
    width. On a screen narrower than the top row width, 292 art pixels, it stands under the place
    button: from 292 the widest place button, a status line of 24 characters and Menu fit one line.
@@ -613,7 +616,19 @@ black backdrop (see "The dimmed scene").
 
 **`onShow`** makes the night from `nightStart`, dims the scene at once and shows
 `nightStart.places[night.place]`, so the first place is dimmed from its first frame. **`onHide`**
-destroys the open windows, the topmost first, and leaves the place.
+destroys the open windows, the topmost first, leaves the place and destroys the place ahead.
+
+**The place ahead** (`nextPlace`). While a story window is fully shown and the night is in another
+place that it has (a script moved the player, or the window is a journey's), the screen builds that
+place in its update, as step 1 of showing a place does, and keeps it as the place ahead: the picture
+is in the view, hidden, and draws there, and the buttons are not in the UI yet. When the window has
+closed, showing the place takes it, so the frame that shows the place, which lies on black (see "The
+dimmed scene"), costs little: a slow frame there would hold the black, and the ticker counts up to
+100 ms of it into the next frame, which would end the fade-in in one step. The window must be fully
+shown first, so that the slow frame of the build does not cut the window's own fade-in short. A move
+that a later node of the script changes destroys the place ahead and builds the new one, or none. A
+picture that does not compile fails there, while the window is open, and the screen shows the error
+screen.
 
 **When a story window has closed,** the screen writes the status and then looks at the night:
 
