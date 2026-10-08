@@ -458,6 +458,11 @@ export type TravelWindowOptions = {
   /** The screen's height in art pixels. */
   screenHeight: number;
 
+  /**
+   * Called when the window starts to fade out, with the destination the player picked, if any.
+   */
+  onClosing?: (destination: Destination | null) => void;
+
   /** Called once the window has closed, with the destination the player picked, if any. */
   onClosed: (destination: Destination | null) => void;
 };
@@ -503,8 +508,9 @@ Selecting, switching and laying out:
   for the new way (none is rebuilt, so the focus never lands on a button that goes), the selection
   becomes the way's first destination, and the map is drawn again with the way's layer. The focus
   stays on the pressed button; pressing the current way changes nothing.
-- The destination button picks the selection and closes the window; `onClosed` receives it. "Back"
-  and the cancel command close it with nothing picked.
+- The destination button picks the selection and closes the window; `onClosing` receives it as the
+  fade starts, and `onClosed` once the window has closed. "Back" and the cancel command close it
+  with nothing picked.
 - `resize` builds the parts again for the new size and keeps the way, the selection and the focused
   control, as before.
 - Every button does nothing while the window is closing or closed.

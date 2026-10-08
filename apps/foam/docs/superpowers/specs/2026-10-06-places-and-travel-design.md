@@ -587,7 +587,7 @@ The screen's contents:
 | Member                                     | Lives                                                  |
 | ------------------------------------------ | ------------------------------------------------------ |
 | `statusText`, `menuButton`                 | From `onAttach`, as today                              |
-| `backdrop`                                 | From `onAttach`: dims the scene behind the windows     |
+| `backdrop`                                 | From `onAttach`: dims the scene, black between places  |
 | `night`                                    | Made in `onShow` from `nightStart`                     |
 | `place`                                    | The place being shown, or `null` during a journey      |
 | `picture`, `placeButton`, `spotButtons`    | Built when a place is shown, destroyed when it is left |
@@ -608,7 +608,8 @@ The screen's contents:
 
 **Leaving a place** (`leavePlace`): it takes the picture out of the view and destroys it, takes the
 place button and the scene buttons out of the UI and destroys them, and sets `place` to `null`. The
-screen behind is black, which is the game's background colour.
+screen behind is black, which is the game's background colour. A journey leaves the place under the
+black backdrop (see "The dimmed scene").
 
 **`onShow`** makes the night from `nightStart`, dims the scene at once and shows
 `nightStart.places[night.place]`, so the first place is dimmed from its first frame. **`onHide`**
@@ -637,6 +638,17 @@ neither the place being left nor the place arrived at shows undimmed between two
 backdrop fades in over 100 ms with the first window's panel and fades out over 100 ms once the last
 window has faded out. The menu and Options keep their own scrims above it.
 
+A change of place goes through black. When a window starts to close on one, the backdrop fades to
+black over 100 ms with the window's fade, so the place being left goes out with the window. Those
+windows are the travel window with a destination picked (its `onClosing` receives the destination),
+and a story window after which the night is in another place that it has: a script that moved the
+player, or the end of a journey (the story window's `onClosing`; the screen asks the night as rule 1
+above does). The journey's window, or the next place's description, then opens over black, and the
+backdrop fades back to `modal.scrimAlpha` with it over 100 ms: the next place comes in from black,
+and during a journey the status line and Menu come back dimmed over the black screen. From the pick
+to the journey's text fully shown takes 200 ms, as from the end of a window to the next place's
+description. A night's first place appears dimmed at once, under its description.
+
 The cancel command keeps its rule: the engine sends it to the topmost overlay, and the screen opens
 the menu when that overlay declares no `close`. The travel window is a `Modal`, so Escape closes it.
 
@@ -651,6 +663,11 @@ export type TravelWindowOptions = {
   way: Way;
   ways: readonly Way[];
   screenWidth: number;
+
+  /**
+   * Called when the window starts to fade out, with the destination the player picked, if any.
+   */
+  onClosing?: (destination: Destination | null) => void;
 
   /** Called once the window has closed, with the destination the player picked, if any. */
   onClosed: (destination: Destination | null) => void;
@@ -691,8 +708,9 @@ resize keeps the current way and the focus.
   destination opens with "Back" focused.
 - **Closing guards.** Every button does nothing while the window is closing or closed.
 
-Picking a destination remembers it and closes the window. `onClosed` then receives it. "Back" and
-the cancel command close the window with nothing picked, and `onClosed` receives `null`.
+Picking a destination remembers it and closes the window. `onClosing` receives it as the fade
+starts, and `onClosed` once the window has closed. "Back" and the cancel command close the window
+with nothing picked, and both receive `null`.
 
 With this spec's places the longest list has four destinations, and the window fits a screen of 146
 × 262 art pixels. The list does not scroll.
@@ -910,7 +928,7 @@ npx turbo run typecheck lint test --filter=tellurion --filter=somewhere --filter
   places.
 - Closing times, drunkenness, dice, an action shown as unavailable, the end of the night and the log
   (phase 5).
-- The real pictures of the places, and a fade between places.
+- The real pictures of the places.
 - The real text.
 - A list that scrolls.
 - Remembering that the player has been in a place, and a description that differs on a return.

@@ -167,7 +167,10 @@ The story window and the menu work as follows. This is built:
   with the panel as one view, so their backdrop takes 100 ms too. The night's windows (the story
   window and the travel window) share one backdrop, which the night screen fades in with the first
   window and keeps from one window to the next, so the scene never shows undimmed between two
-  windows; it fades out in 100 ms after the last window. A place always appears dimmed, under its
+  windows; it fades out in 100 ms after the last window. A change of place goes through black: the
+  place being left fades to black with the window that takes the player away, and the next place
+  fades in from black with its description, 100 ms each way; a journey's window opens over black. A
+  place never appears undimmed: the night's first place appears dimmed at once, under its
   description. Screen changes do not fade.
 - Nobody closes a story window before its end, and Escape does not close it. A window ends through
   its text or through a choice, so every node with choices offers a way out that costs nothing.

@@ -12,7 +12,9 @@ import {palette} from './palette.js';
  * night screen's windows, the story windows and the travel window, draw no backdrop: the night
  * screen dims the scene behind them in 100 ms with the first window (at once when a night starts,
  * whose first place appears under its description), keeps it dimmed from one window to the next,
- * and lifts it in 100 ms once the last one has faded out.
+ * and lifts it in 100 ms once the last one has faded out. A change of place goes through black: the
+ * scene goes to black in 100 ms with the window that takes the player away, and comes back dimmed
+ * in 100 ms with the next window.
  */
 export const UI_FADE_DURATION = 100;
 
