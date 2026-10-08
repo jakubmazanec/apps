@@ -2,18 +2,22 @@ import {type DialogueNode, type RunnableDialogueScript} from 'tellurion';
 
 import {getExpectedJourneys} from './getExpectedJourneys.js';
 import {getLabelRoom, WORD_ROOM} from './getLabelRoom.js';
+import {getMapPoint} from './getMapPoint.js';
 import {MARK, stripMarks} from './markedText.js';
 import {createNight, type Night, type PlaceId, type Way} from './night.js';
 import {type Place} from './place.js';
-import {type PlaceData, type Travel} from './travel.js';
+import {type MapData, type PlaceData, type Travel} from './travel.js';
 
 export type Content = {
   places: Readonly<Record<string, Place>>;
   journeys: Record<Way, RunnableDialogueScript<Night>>;
   placeData: PlaceData;
   travel: Travel;
+  map: MapData;
 };
 
+// A place's button and its neighbourhood must lie inside the map, with this much to spare.
+const MAP_MARGIN = 2000;
 // The train moves, so it has no position and no entry in places.json.
 const OFF_THE_MAP = new Set(['train']);
 // A night's start for a text that is a function: any time and sum will do.
@@ -164,6 +168,20 @@ export function checkContent(content: Content): string[] {
 
     if (entry.position === undefined) {
       lines.add(`${where}: no position; run the fill script`);
+    } else {
+      let {x, y} = getMapPoint(entry.position, content.map.origin);
+      let {left, top, right, bottom} = content.map.box;
+      let px = Math.round(x);
+      let py = Math.round(y);
+
+      if (
+        px - MAP_MARGIN < left ||
+        px + MAP_MARGIN > right ||
+        py - MAP_MARGIN < top ||
+        py + MAP_MARGIN > bottom
+      ) {
+        lines.add(`map.json: does not cover "${id}"; run node scripts/fetch-map-data.mjs`);
+      }
     }
   }
 

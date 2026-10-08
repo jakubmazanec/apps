@@ -1,9 +1,16 @@
 import {defineDialogueScript} from 'tellurion';
 
 import {createWayOut} from '../source/game/core/createWayOut.js';
+import {getMapPosition} from '../source/game/core/getMapPoint.js';
 import {type Night, type PlaceId} from '../source/game/core/night.js';
 import {type Place} from '../source/game/core/place.js';
-import {type NightStart, type Travel} from '../source/game/core/travel.js';
+import {
+  type MapData,
+  type NightStart,
+  type PlaceData,
+  type Position,
+  type Travel,
+} from '../source/game/core/travel.js';
 import {PROOF_PICTURE} from './proofPicture.js';
 
 // The tests' own places and journeys, with fixed text and numbers, so that the
@@ -275,9 +282,36 @@ export const fixedTravel: Travel = {
   },
 };
 
+export const FIXED_ORIGIN: Position = {latitude: 49.2, longitude: 16.6};
+
+/** The position `x` metres east and `y` metres south of the fixed world's origin. */
+export function at(x: number, y: number): Position {
+  return getMapPosition({x, y}, FIXED_ORIGIN);
+}
+
+// testBroken has no entry. No two lines of the map cross where a test reads.
+export const fixedPlaceData: PlaceData = {
+  [FIXED_BAR]: {kind: 'place', position: at(-300, -200)},
+  [FIXED_SQUARE]: {kind: 'place', position: at(300, -200)},
+  [FIXED_STOP]: {kind: 'stop', position: at(0, 300)},
+};
+
+export const fixedMap: MapData = {
+  origin: FIXED_ORIGIN,
+  box: {left: -2300, top: -2200, right: 2300, bottom: 2300},
+  minorStreets: [[-1000, 0, 1000, 0]],
+  mainStreets: [[150, -1000, 150, 1000]],
+  railway: [[-1000, 200, 1000, 200]],
+  rivers: [[-150, -1000, -150, 1000]],
+  parks: [[-260, 60, -200, 60, -200, 140, -260, 140, -260, 60]],
+  tramLines: [[-1000, -100, 1000, -100]],
+};
+
 export const fixedStart: NightStart = {
   places: fixedPlaces,
+  placeData: fixedPlaceData,
   travel: fixedTravel,
+  map: fixedMap,
   place: FIXED_BAR,
   minutes: 1180,
   money: 350,
