@@ -204,6 +204,22 @@ describe('night screen places', {timeout: 180_000}, () => {
     return vitest.waitFor(() => getStoryWindow(harness), {timeout: 10_000});
   }
 
+  // Waits until the screen has built the place a window leads to, and returns its picture.
+  async function waitForNextPlace(place: PlaceId): Promise<PlacePicture> {
+    return vitest.waitFor(
+      () => {
+        let {nextPlace} = harness.nightScreen.contents;
+
+        if (nextPlace?.place.id !== place) {
+          throw new Error(`The screen has not built "${place}" yet.`);
+        }
+
+        return nextPlace.picture;
+      },
+      {timeout: 10_000},
+    );
+  }
+
   // Leaves the square by a way out's choice and a destination, and returns the
   // journey's window.
   async function startJourney(choice: string, destination: PlaceId): Promise<StoryWindow> {
@@ -224,6 +240,7 @@ describe('night screen places', {timeout: 180_000}, () => {
     expect(contents.place).toBeNull();
     expect(contents.placeButton).toBeNull();
     expect(contents.picture).toBeNull();
+    expect(contents.nextPlace).toBeNull();
     expect(ui.children).toHaveLength(3);
     expect(ui.children).toContain(contents.statusText);
     expect(ui.children).toContain(contents.menuButton);
@@ -543,7 +560,8 @@ describe('night screen places', {timeout: 180_000}, () => {
     }
 
     // Takes a taxi from the square to the bar by hand, one frame at a time, and reads the
-    // screen after each frame, until the bar's description is open.
+    // screen after each frame, until the bar's description is open. The journey's text goes on
+    // once its window is fully shown, as a reader's press does.
     function travelToTheBarByHand(onFrame: (pixels: Pixels, frame: number) => void): void {
       let {contents, ui} = harness.nightScreen;
       let hasSelected = false;
@@ -569,8 +587,8 @@ describe('night screen places', {timeout: 180_000}, () => {
           ui.focus(target);
           ui.activate();
           hasSelected = true;
-        } else if (speaker === 'The taxi') {
-          storyWindow?.dialogue.advance();
+        } else if (speaker === 'The taxi' && storyWindow?.state === 'open') {
+          storyWindow.dialogue.advance();
         } else if (speaker === 'The bar' && storyWindow?.state === 'open') {
           return;
         }
@@ -722,12 +740,36 @@ describe('night screen places', {timeout: 180_000}, () => {
       expect(lights.at(-1)).toBeGreaterThan(0.2);
     });
 
+    // The frame that shows the next place lies on black, and a slow one would hold the black, so
+    // the place is built while the window that leads there is open, its picture hidden.
+    test('the place a journey leads to is built while its window is open', () => {
+      let {contents} = harness.nightScreen;
+      let builtAhead = new Set<PlacePicture | null>();
+
+      travelToTheBarByHand(() => {
+        let {nextPlace, storyWindow} = contents;
+
+        if (storyWindow?.dialogue.node?.speaker === 'The taxi' && storyWindow.state === 'open') {
+          builtAhead.add(nextPlace?.picture ?? null);
+        }
+      });
+
+      let [picture] = builtAhead;
+
+      expect(builtAhead.size).toBe(1);
+      expect(contents.picture).not.toBeNull();
+      expect(picture).toBe(contents.picture);
+      expect(picture?.view.visible).toBe(true);
+      expect(contents.nextPlace).toBeNull();
+    });
+
     // The window that moves the player takes the square out with it, and the bar comes in from
     // black with its description. The fixed world's places share a picture, so a cut from one to
     // the other would not show; the black between them does.
     test('a script that moves the player goes through black', () => {
       let {contents, ui} = harness.nightScreen;
       let lights: number[] = [];
+      let builtAhead: PlacePicture | null = null;
 
       ui.focus(getSpotButton(harness, 'The passage'));
       ui.activate();
@@ -736,11 +778,12 @@ describe('night screen places', {timeout: 180_000}, () => {
         runFrames(1);
         lights.push(getPictureLight(readScreen(harness), corner));
 
-        let {storyWindow} = contents;
+        let {nextPlace, storyWindow} = contents;
         let speaker = storyWindow?.dialogue.node?.speaker;
 
-        if (speaker === 'The passage') {
-          storyWindow?.dialogue.advance();
+        if (speaker === 'The passage' && storyWindow?.state === 'open') {
+          builtAhead ??= nextPlace?.picture ?? null;
+          storyWindow.dialogue.advance();
         } else if (speaker === 'The bar' && storyWindow?.state === 'open') {
           break;
         }
@@ -749,6 +792,8 @@ describe('night screen places', {timeout: 180_000}, () => {
       let steps = lights.slice(1).map((light, index) => Math.abs(light - (lights[index] ?? 0)));
 
       expect(contents.place?.id).toBe(FIXED_BAR);
+      expect(builtAhead).not.toBeNull();
+      expect(contents.picture).toBe(builtAhead);
       expect(getStoryWindow(harness).state).toBe('open');
       expect(Math.min(...lights)).toBeLessThan(0.05);
       expect(Math.max(...steps)).toBeLessThan(0.2);
@@ -910,6 +955,9 @@ describe('night screen places', {timeout: 180_000}, () => {
 
     await pickDestination(travelWindow, FIXED_BAR);
     await waitForStoryWindow();
+
+    let builtAhead = await waitForNextPlace(FIXED_BAR);
+
     // The journey's window declares no close, so Escape opens the menu.
     await press('Escape');
 
@@ -929,6 +977,8 @@ describe('night screen places', {timeout: 180_000}, () => {
     );
 
     expectNothingLeft(travelWindow.modal);
+
+    expect(builtAhead.view.destroyed).toBe(true);
 
     await startNewGame(harness);
     // Quit was a key press, which the screen hid inside its frame. A fade of the
@@ -997,8 +1047,15 @@ describe('night screen places', {timeout: 180_000}, () => {
       await closeStory();
 
       let storyWindow = await startJourney('Walk', FIXED_BAR);
+      let builtAhead = await waitForNextPlace(FIXED_BAR);
 
       nightScreen.contents.night.place = 'nowhere' as PlaceId;
+      await nextFrame();
+
+      // The night does not lead to the bar any more.
+      expect(nightScreen.contents.nextPlace).toBeNull();
+      expect(builtAhead.view.destroyed).toBe(true);
+
       await endStory(storyWindow);
       await vitest.waitFor(
         () => {
@@ -1021,7 +1078,7 @@ describe('night screen places', {timeout: 180_000}, () => {
 
   // Last in the file: it leaves the error screen shown.
   test('a place whose picture does not compile shows the error screen', async () => {
-    let {game} = harness;
+    let {game, nightScreen} = harness;
     let {errorScreen} = await import('../source/game/screens/errorScreen.js');
     // The screen logs the error; the test reads it, and the output stays clean.
     let consoleError = vitest.spyOn(console, 'error').mockImplementation(() => {});
@@ -1029,7 +1086,9 @@ describe('night screen places', {timeout: 180_000}, () => {
     try {
       await restartAt(harness, FIXED_STOP);
       await closeStory();
-      await pressThrough(harness, await openSpot('A dark lane'));
+      // The lane's text moves the player as it starts, and the screen builds the place as soon as
+      // the window is fully shown.
+      nightScreen.ui.focus(getSpotButton(harness, 'A dark lane'));
       await press('Enter');
       await vitest.waitFor(
         () => {

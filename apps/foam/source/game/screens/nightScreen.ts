@@ -72,6 +72,13 @@ type NightScreenContents = {
 
   menuButton: Button;
   menuModal: Modal | null;
+
+  /**
+   * The place the night has moved the player to, built while the window that moved them is open
+   * (see prepareNextPlace); `null` while there is none.
+   */
+  nextPlace: PlaceParts | null;
+
   night: Night;
   optionsModal: Modal | null;
 
@@ -88,6 +95,14 @@ type NightScreenContents = {
   travelWindow: TravelWindow | null;
 };
 type NightScreen = GameScreen<NightScreenContents>;
+
+/** A place's picture and buttons. */
+type PlaceParts = {
+  place: Place;
+  picture: PlacePicture;
+  placeButton: Button;
+  spotButtons: Button[];
+};
 
 function getButtonWidth(label: string): number {
   return measureText(label, 'label') + 2 * BUTTON_PADDING_X;
@@ -122,7 +137,8 @@ function writeStatus(screen: NightScreen): void {
 }
 
 function layOut(screen: NightScreen): void {
-  let {picture, place, spotButtons, statusText, storyWindow, travelWindow} = screen.contents;
+  let {nextPlace, picture, place, spotButtons, statusText, storyWindow, travelWindow} =
+    screen.contents;
   let area = getArea();
 
   // Beside the place button, level with its label, or under it on a screen
@@ -151,6 +167,7 @@ function layOut(screen: NightScreen): void {
   }
 
   picture?.resize(area.width, area.top + area.height);
+  nextPlace?.picture.resize(area.width, area.top + area.height);
   storyWindow?.resize(area);
   travelWindow?.resize(area.width, area.top + area.height);
 }
@@ -263,18 +280,17 @@ function leavePlace(screen: NightScreen): void {
   screen.contents.spotButtons = [];
 }
 
-// Builds the place's picture and buttons and opens its description. It runs
-// only while no overlay is open, so the buttons go under the windows that
-// open later, and the description is the topmost window.
-function showPlace(screen: NightScreen, place: Place): void {
-  leavePlace(screen);
-
-  // The picture comes first: its constructor throws on a shader that does not
-  // compile, and then nothing else of the place has been built.
+// Builds a place's picture and buttons. The picture goes into the view hidden,
+// and draws there until the place is shown; the buttons go into the UI then.
+// The picture comes first: its constructor throws on a shader that does not
+// compile, and then nothing else of the place has been built.
+function buildPlace(screen: NightScreen, place: Place): PlaceParts {
   let picture = new PlacePicture({picture: place.picture});
+  let area = getArea();
 
+  picture.view.visible = false;
+  picture.resize(area.width, area.top + area.height);
   screen.addToView(picture);
-  screen.contents.picture = picture;
 
   let label = getPlaceLabel(place);
   let placeButton = new Button({
@@ -309,6 +325,68 @@ function showPlace(screen: NightScreen, place: Place): void {
         },
       }),
   );
+
+  return {place, picture, placeButton, spotButtons};
+}
+
+// Destroys the place built ahead: the night has moved elsewhere, or the screen
+// is hidden.
+function dropNextPlace(screen: NightScreen): void {
+  let {nextPlace} = screen.contents;
+
+  if (nextPlace === null) {
+    return;
+  }
+
+  for (let button of [nextPlace.placeButton, ...nextPlace.spotButtons]) {
+    button.destroy();
+  }
+
+  screen.removeFromView(nextPlace.picture);
+  nextPlace.picture.destroy();
+  screen.contents.nextPlace = null;
+}
+
+// Builds the place the night has moved the player to while the window that
+// moved them is open, a script's or a journey's, so that the frame that shows
+// it after the window costs little. That frame lies on black (see
+// getBackdropAlpha): a slow one would hold the black, and the ticker counts up
+// to 100 ms of it into the next frame, which would end the fade-in in one
+// step. The window is fully shown first, so that a slow frame does not cut its
+// own fade-in short. A place that the night does not lead to any more is
+// dropped. A hidden screen does nothing.
+function prepareNextPlace(screen: NightScreen): void {
+  let {nextPlace, storyWindow} = screen.contents;
+  let place = getNextPlace(screen);
+
+  if (screen.state !== 'shown' || storyWindow?.state !== 'open' || place === nextPlace?.place) {
+    return;
+  }
+
+  dropNextPlace(screen);
+
+  if (place !== undefined) {
+    screen.contents.nextPlace = buildPlace(screen, place);
+  }
+}
+
+// Shows a place, built ahead or now, and opens its description. It runs only
+// while no overlay is open, so the buttons go under the windows that open
+// later, and the description is the topmost window.
+function showPlace(screen: NightScreen, place: Place): void {
+  let parts = screen.contents.nextPlace;
+
+  if (parts?.place !== place) {
+    dropNextPlace(screen);
+    parts = buildPlace(screen, place);
+  }
+
+  let {picture, placeButton, spotButtons} = parts;
+
+  screen.contents.nextPlace = null;
+  leavePlace(screen);
+  picture.view.visible = true;
+  screen.contents.picture = picture;
 
   // Tab follows the UI root's children, and UiRoot only appends, so the status
   // line and Menu go out and back in after the place button: Tab then keeps
@@ -499,6 +577,7 @@ export const nightScreen = new GameScreen<NightScreenContents>({
       lastTopOverlay: null,
       menuButton,
       menuModal: null,
+      nextPlace: null,
       night: createNight(nightStart),
       optionsModal: null,
       picture: null,
@@ -548,6 +627,7 @@ export const nightScreen = new GameScreen<NightScreenContents>({
     screen.contents.travelWindow = null;
     screen.contents.storyWindow = null;
     leavePlace(screen);
+    dropNextPlace(screen);
   },
   onUpdate: (ticker, screen) => {
     // The story window, the travel window, the menu and the Options window are
@@ -558,29 +638,31 @@ export const nightScreen = new GameScreen<NightScreenContents>({
 
     screen.contents.storyWindow?.update(ticker.deltaMS);
 
-    // The night waits for every overlay to close: Escape in the fade of a
-    // story window opens the menu above the closing window, and a place's
-    // description or the travel window opened then would lie above the menu.
-    // A hidden screen does nothing.
-    if (
-      screen.contents.hasStoryClosed &&
-      screen.state === 'shown' &&
-      screen.ui.topOverlay === null
-    ) {
-      screen.contents.hasStoryClosed = false;
+    try {
+      prepareNextPlace(screen);
 
-      try {
+      // The night waits for every overlay to close: Escape in the fade of a
+      // story window opens the menu above the closing window, and a place's
+      // description or the travel window opened then would lie above the menu.
+      // A hidden screen does nothing.
+      if (
+        screen.contents.hasStoryClosed &&
+        screen.state === 'shown' &&
+        screen.ui.topOverlay === null
+      ) {
+        screen.contents.hasStoryClosed = false;
         actOnNight(screen);
-      } catch (error) {
-        // A place's picture that does not compile, or a journey that ended in
-        // no place, handled as the engine handles an error in a screen's
-        // transition: the console keeps the details, which a production
-        // build's error screen does not show. showScreen never rejects.
-        // eslint-disable-next-line no-console -- the only record of the error in a production build
-        console.error(error);
-        errorScreen.contents.showError(error);
-        void game.showScreen(errorScreen);
       }
+    } catch (error) {
+      // A place's picture that does not compile, or a journey that ended in no
+      // place, handled as the engine handles an error in a screen's
+      // transition: the console keeps the details, which a production build's
+      // error screen does not show. showScreen never rejects, and it hides
+      // this screen at once, so the error does not come again.
+      // eslint-disable-next-line no-console -- the only record of the error in a production build
+      console.error(error);
+      errorScreen.contents.showError(error);
+      void game.showScreen(errorScreen);
     }
 
     // The last window has left, or Back or the cancel command closed the travel
