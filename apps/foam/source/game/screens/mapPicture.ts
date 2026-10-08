@@ -4,6 +4,7 @@ import {type MapFrame} from '../core/fitMapFrame.js';
 import {game} from '../core/game.js';
 import {getMapLayers, type MapLayer} from '../core/mapLayers.js';
 import {palette} from '../core/palette.js';
+import {LIGHT_REACH} from '../core/placeMapButtons.js';
 import {type MapData} from '../core/travel.js';
 
 export type MapDrawing = {
@@ -19,9 +20,6 @@ export type MapDrawing = {
   /** The top-left corners of the place buttons, from `placeMapButtons`. */
   buttons: Array<{x: number; y: number}>;
 };
-
-/** The light's reach in pixels, from its centre. */
-const LIGHT_REACH = 4;
 
 /** The pixels of a straight line from one pixel to another, both included (Bresenham). */
 function getLinePixels(
