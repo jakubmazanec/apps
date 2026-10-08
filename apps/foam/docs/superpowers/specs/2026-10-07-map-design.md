@@ -77,8 +77,8 @@ The map:
 
 5. The map shows the part of Brno around every place that has a position, fitted so that each of
    them lies at least 8 pixels inside the map's edge, at whatever metres per pixel the screen
-   allows: about 12 on an upright phone, 11 on a wide window, 17 to 20 on the smallest screens. The
-   map has no frame.
+   allows: about 12 on an upright phone, 11 on a wide window, 17 on a phone turned sideways and 22
+   on the narrowest screen. The map has no frame.
 6. Walk and Taxi show the street layer: minor streets in `shade`, main streets in `line`, the
    railway in `dim`, the rivers in `blue`, and parks as flat `ground`. Tram shows the tram layer:
    the same parks, railway and rivers, and the tram lines in `magenta` instead of the streets. Every
@@ -194,8 +194,8 @@ map: MapData;
 `content/nightStart.ts` imports both files, as it imports `travel.json`. The tests put the fixed
 world's own into `nightStart`, as they do with its places and travel data.
 
-The file is estimated at 120 to 180 KB, 45 to 65 KB compressed: the smaller area of the mockups, 4.7
-× 3.9 km, came to 78 KB.
+The file is 201,196 bytes (196.5 KB), 61,985 bytes (60.5 KB) compressed with gzip, for a box of 5.8
+× 6.4 km.
 
 ### The script that fetches the map (`scripts/fetch-map-data.mjs`)
 
@@ -435,8 +435,9 @@ the drawings is ever added to a screen.
   straight line, and lights every other one in `dim`, starting with the first. Without `you` or
   without a selection there is none.
 - **The light** sits on `you`. A pixel at a distance of up to 1.2 from it is `white`; up to 2.6,
-  `cyan` where `x + y` is even and `blue` where it is odd; up to 4.1, `blue` where `x + y` is even.
-  The light only adds colour: the pixels it leaves keep what lies under them.
+  `cyan` where the pixel's offset from the light, `dx + dy`, is even and `blue` where it is odd; up
+  to 4.1, `blue` where `dx + dy` is even, so the light looks the same at every place. The light only
+  adds colour: the pixels it leaves keep what lies under them.
 
 `draw` runs when the window opens, the way changes, the selection changes and the window is laid out
 again, never on the ticker. A frame costs one sprite. The drawing does not throw on good data; a
