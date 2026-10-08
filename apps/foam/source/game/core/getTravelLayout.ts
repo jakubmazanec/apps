@@ -10,8 +10,12 @@ import {
 /** The width of the side column of the side-by-side layout. */
 export const SIDE_COLUMN_WIDTH = 120;
 
-// The value of screens/windowTitle.ts, which imports the game and so cannot be imported here.
-const TITLE_HEIGHT = 15;
+/**
+ * The title block's height of screens/windowTitle.ts, which imports the game and so cannot be
+ * imported here; a browser test checks that the two are equal.
+ */
+export const TITLE_HEIGHT = 15;
+
 const TITLE_GAP = 4;
 const BLOCK_GAP = 8;
 

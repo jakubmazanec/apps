@@ -10,9 +10,15 @@ import {type barPicture as barPictureValue} from '../source/game/content/picture
 import {places} from '../source/game/content/places.js';
 import {fitMapFrame, MAP_INSET, toMapPixel} from '../source/game/core/fitMapFrame.js';
 import {getMapPoint} from '../source/game/core/getMapPoint.js';
-import {getMapSize, getTravelLayout} from '../source/game/core/getTravelLayout.js';
+import {BUTTON_PADDING_X, LINE_HEIGHT, WINDOW_PADDING_Y} from '../source/game/core/getSceneArea.js';
+import {
+  getMapSize,
+  getTravelLayout,
+  TITLE_HEIGHT as LAYOUT_TITLE_HEIGHT,
+} from '../source/game/core/getTravelLayout.js';
 import {type PlaceId, type Way} from '../source/game/core/night.js';
 import {palette} from '../source/game/core/palette.js';
+import {BUTTON_GAP} from '../source/game/core/placeMapButtons.js';
 import {type Destination, type NightStart, type PlaceData} from '../source/game/core/travel.js';
 import {type TravelWindow} from '../source/game/screens/travelWindow.js';
 import {FIXED_BAR, FIXED_SQUARE, FIXED_STOP, fixedPlaceData, getFixedPlace} from './fixedWorld.js';
@@ -55,8 +61,8 @@ const ALL_WAYS: readonly Way[] = ['walk', 'tram', 'taxi'];
 // The window on 960 × 540 CSS pixels, 480 × 270 art pixels: the screen less a margin of 4 all
 // round, side by side.
 const WIDE_WINDOW = {width: 472, height: 262};
-// From the stop, the square's name wraps to two lines on every screen of these tests, with the
-// numbers on a third: 3 lines of 12 and the button's padding of 2 above and below.
+// On each screen of "each screen gets its layout", the square's name from the stop wraps to two
+// lines and the numbers take a third: 3 lines of 12, and the padding of 2 above and below.
 const DESTINATION_HEIGHT = 40;
 
 // A destination's button holds the name's Text and then the numbers' Text.
@@ -148,6 +154,11 @@ function countColorNear(
 
 function getCorner({left, top}: Box): {left: number; top: number} {
   return {left, top};
+}
+
+// A box grown by `by` on every side: a box that overlaps it lies closer than `by` on both axes.
+function growBox({left, top, width, height}: Box, by: number): Box {
+  return {left: left - by, top: top - by, width: width + 2 * by, height: height + 2 * by};
 }
 
 function expectInside(inner: Box, outer: Box): void {
@@ -709,12 +720,58 @@ describe('travel window', {timeout: 180_000}, () => {
     }
   });
 
+  test("the layout's title block is the window title's height", async () => {
+    let {TITLE_HEIGHT} = await import('../source/game/screens/windowTitle.js');
+
+    expect(LAYOUT_TITLE_HEIGHT).toBe(TITLE_HEIGHT);
+  });
+
+  test('on a stacked window 240 or more wide the numbers stand level with the name, at the right end', async () => {
+    let opened = openTravel('walk');
+    // 600 × 700 CSS pixels are 300 × 350 art pixels: stacked, and not narrow.
+    let layout = getTravelLayout(300, 350);
+    // A new selection's texts are laid out in the next frames.
+    let expectNumbersLevelWithName = async (place: PlaceId): Promise<void> => {
+      await vitest.waitFor(
+        () => {
+          let button = getDestinationButton(opened);
+          let {name, numbers} = getDestinationTexts(button);
+          let buttonBox = getBox(harness, button);
+          let numbersBox = getBox(harness, numbers);
+
+          expect(readText(name)).toBe(getFixedPlace(place).name);
+          expect(numbersBox.top).toBe(getBox(harness, name).top);
+          expect(numbersBox.left + numbersBox.width).toBe(
+            buttonBox.left + buttonBox.width - BUTTON_PADDING_X,
+          );
+        },
+        {timeout: 10_000},
+      );
+    };
+
+    expect(layout).toMatchObject({kind: 'stacked', isNarrow: false});
+
+    try {
+      await setViewport(harness, 600, 700);
+      opened.resize(300, 350);
+      await waitForPanel(opened, layout.window);
+      // The bar, which the window opens on, and then the square.
+      await expectNumbersLevelWithName(FIXED_BAR);
+      harness.nightScreen.ui.focus(getPlaceButton(opened, FIXED_SQUARE));
+      harness.nightScreen.ui.activate();
+      await expectNumbersLevelWithName(FIXED_SQUARE);
+    } finally {
+      await setViewport(harness, 960, 540);
+    }
+  });
+
   test("the game's own places fit the narrowest screen", async () => {
     let gameData: PlaceData = placeData;
     let gameStart: NightStart = {...nightStart, places, travel, placeData: gameData, map};
     let froms = Object.entries(gameData).flatMap(([id, entry]) =>
       entry.position === undefined || !Object.hasOwn(places, id) ? [] : [id as PlaceId],
     );
+    let layout = getTravelLayout(146, 262);
 
     expect(froms.length).toBeGreaterThan(0);
 
@@ -722,35 +779,66 @@ describe('travel window', {timeout: 180_000}, () => {
       await setViewport(harness, 292, 524);
 
       for (let from of froms) {
-        let opened = openTravel('walk', {start: gameStart, from});
+        for (let way of ALL_WAYS) {
+          let opened = openTravel(way, {start: gameStart, from});
+          let windowName = `${from}, ${way}`;
 
-        await waitForPanel(opened, {width: 138, height: 254});
+          await waitForPanel(opened, layout.window);
 
-        let parts = getTravelParts(opened);
-        let mapArea = getBox(harness, parts.mapArea);
-        let boxes = [...parts.places].map(([id, button]) => ({id, box: getBox(harness, button)}));
-        let outside = boxes.filter(
-          ({box}) =>
-            box.left < mapArea.left ||
-            box.top < mapArea.top ||
-            box.left + box.width > mapArea.left + mapArea.width ||
-            box.top + box.height > mapArea.top + mapArea.height,
-        );
-        let overlapping = boxes.flatMap((first, index) =>
-          boxes
-            .slice(index + 1)
-            .filter((second) => doBoxesOverlap(first.box, second.box))
-            .map((second) => `${first.id} and ${second.id}`),
-        );
+          let parts = getTravelParts(opened);
+          let panel = getBox(harness, parts.panel);
+          let mapArea = getBox(harness, parts.mapArea);
+          let slot = getBox(harness, parts.slot);
+          let back = getBox(harness, parts.back);
+          let boxes = [...parts.places].map(([id, button]) => ({id, box: getBox(harness, button)}));
+          let outside = boxes.filter(
+            ({box}) =>
+              box.left < mapArea.left ||
+              box.top < mapArea.top ||
+              box.left + box.width > mapArea.left + mapArea.width ||
+              box.top + box.height > mapArea.top + mapArea.height,
+          );
+          // Two buttons closer than BUTTON_GAP on both axes.
+          let crowded = boxes.flatMap((first, index) =>
+            boxes
+              .slice(index + 1)
+              .filter((second) => doBoxesOverlap(growBox(first.box, BUTTON_GAP), second.box))
+              .map((second) => `${first.id} and ${second.id}`),
+          );
 
-        expectInside(getBox(harness, parts.panel), {left: 0, top: 0, width: 146, height: 262});
+          expect(boxes.length).toBeGreaterThan(0);
+          // The column fills the panel down to its padding, and the map has the size the layout
+          // gives it: a title block or a destination taller than the layout counts on would push
+          // Back out of the panel or squeeze the map.
+          expect({windowName, backBottom: back.top + back.height}).toEqual({
+            windowName,
+            backBottom: panel.top + panel.height - WINDOW_PADDING_Y,
+          });
+          expect({windowName, width: mapArea.width, height: mapArea.height}).toEqual({
+            windowName,
+            ...getMapSize(layout, slot.height),
+          });
 
-        expect(boxes.length).toBeGreaterThan(0);
-        expect({from, outside: outside.map(({id}) => id), overlapping}).toEqual({
-          from,
-          outside: [],
-          overlapping: [],
-        });
+          // The way's destination button, if it has one, fills the slot, and its label lies
+          // inside it, the name as high as its lines.
+          for (let button of parts.destination === null ? [] : [parts.destination]) {
+            let destination = getBox(harness, button);
+            let {name, numbers} = getDestinationTexts(button);
+            let nameBox = getBox(harness, name);
+
+            expect({windowName, destination}).toEqual({windowName, destination: slot});
+            expect(nameBox.height).toBe(readText(name).split('\n').length * LINE_HEIGHT);
+
+            expectInside(nameBox, destination);
+            expectInside(getBox(harness, numbers), destination);
+          }
+
+          expect({windowName, outside: outside.map(({id}) => id), crowded}).toEqual({
+            windowName,
+            outside: [],
+            crowded: [],
+          });
+        }
       }
     } finally {
       await setViewport(harness, 960, 540);
@@ -761,16 +849,25 @@ describe('travel window', {timeout: 180_000}, () => {
     let warning = `No position for "${FIXED_BAR}": it has no button on the map.`;
     let warn = vitest.spyOn(console, 'warn').mockImplementation(() => {});
     let countWarnings = () => warn.mock.calls.filter(([message]) => message === warning).length;
+    let start: NightStart = {
+      ...nightStart,
+      placeData: Object.fromEntries(
+        Object.entries(fixedPlaceData).filter(([id]) => id !== FIXED_BAR),
+      ),
+    };
+    // The `dim` pixels within 8 of the light's centre, which only the dotted line has: the frame
+    // fits the stop and the square, so the railway, the other line in `dim`, lies about 40 away.
+    let countDotsNearLight = (openWindow: TravelWindow): number => {
+      let light = getLight(openWindow, start, FIXED_STOP);
+      let pixels = readMap(openWindow);
+
+      expect(getColor(pixels, light.x, light.y)).toBe(palette.white);
+
+      return countColorNear(pixels, light, {reach: 8, color: palette.dim});
+    };
 
     try {
-      let opened = openTravel('walk', {
-        start: {
-          ...nightStart,
-          placeData: Object.fromEntries(
-            Object.entries(fixedPlaceData).filter(([id]) => id !== FIXED_BAR),
-          ),
-        },
-      });
+      let opened = openTravel('walk', {start});
 
       expect(readDestination(opened)).toEqual(['The bar', '4 min']);
       expect([...getTravelParts(opened).places.keys()]).toEqual([FIXED_SQUARE]);
@@ -781,6 +878,11 @@ describe('travel window', {timeout: 180_000}, () => {
 
       expect(countWarnings()).toBe(1);
 
+      await waitForPanel(opened, WIDE_WINDOW);
+
+      // No dotted line for the bar, which has no button.
+      expect(countDotsNearLight(opened)).toBe(0);
+
       await press('Enter');
       await waitForClosed();
 
@@ -790,6 +892,16 @@ describe('travel window', {timeout: 180_000}, () => {
         minutes: 4,
         price: 0,
       });
+
+      // The square has a button, and a dotted line once it is selected.
+      let second = openTravel('walk', {start});
+
+      await waitForPanel(second, WIDE_WINDOW);
+      harness.nightScreen.ui.focus(getPlaceButton(second, FIXED_SQUARE));
+      harness.nightScreen.ui.activate();
+
+      expect(readDestination(second)?.[0]).toBe('The square by the\nold market');
+      expect(countDotsNearLight(second)).toBeGreaterThan(0);
     } finally {
       warn.mockRestore();
     }
