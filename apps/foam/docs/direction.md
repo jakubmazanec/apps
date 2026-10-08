@@ -1,8 +1,8 @@
 # Foam: direction
 
 Started: 2026-10-03. App: `apps/foam`. Status: the direction is agreed; phases 1 to 3 are built; of
-phase 4 the dialogue choice effect and places and travel are built, and the map is designed. This is
-a living document: it describes the current state and plan, and is kept correct as they change.
+phase 4 the dialogue choice effect, places and travel and the map are built. This is a living
+document: it describes the current state and plan, and is kept correct as they change.
 
 ## What Foam is
 
@@ -205,14 +205,15 @@ plan, build and review, in this order:
    [spec](../../../docs/superpowers/specs/2026-10-06-dialogue-choice-effect-design.md),
    [plan](../../../docs/superpowers/plans/2026-10-06-dialogue-choice-effect.md).
 2. Places and travel: the seven places with stand-in content and stand-in pictures, each place's
-   content in its own file, the travel data with the script that first fills it, and a window that
-   lists where each way of travelling leads, with the minutes and the price of each destination. It
-   is built: [spec](superpowers/specs/2026-10-06-places-and-travel-design.md),
+   content in its own file, the travel data with the script that first fills it, and a window where
+   the player picks a way of travelling and a destination, with the minutes and the price of the
+   destination. It is built: [spec](superpowers/specs/2026-10-06-places-and-travel-design.md),
    [plan](superpowers/plans/2026-10-06-places-and-travel.md).
 3. The map: the travel window shows a map of Brno drawn from OpenStreetMap data, with the streets on
    foot and by taxi and the tram lines by tram. Each place is a small button at its real position
    that selects it, and the button under the map makes the journey to the selected place. It is
-   designed: [spec](superpowers/specs/2026-10-07-map-design.md).
+   built: [spec](superpowers/specs/2026-10-07-map-design.md),
+   [plan](superpowers/plans/2026-10-07-map.md).
 
 Phase 4 draws no picture of a real place. Both bars show the picture of the sample bar, and the
 other five places show a plain stand-in: black with one lamp. The real pictures of the places are a
