@@ -410,12 +410,12 @@ cancel command passes over it: the window ends only through its text or through 
 screen calls `screen.ui.addOverlay(storyWindow)`, and `UiRoot` calls `attach` and `detach`.
 
 **View.** `view` covers the screen: it is positioned absolutely at 0, 0 with 100 % width and height,
-centres its content and has `area.top` as top padding. Its first child is a scrim, a rectangle in
-the theme's `modal.scrimColor` and `modal.scrimAlpha` that takes every pointer event. Its second
-child is the `Panel`, the only entry of `children`.
+centres its content and has `area.top` as top padding. Its first child is a layer that draws nothing
+and takes every pointer event; the night screen dims the scene behind it. Its second child is the
+`Panel`, the only entry of `children`.
 
 **Construction.** The constructor creates the runner, which enters the script's start node and runs
-its `onEnter`, builds the panel and the scrim, and shows the start node.
+its `onEnter`, builds the panel and the layer that takes the taps, and shows the start node.
 
 **Fade and state.** The state starts as `closed`. `attach` records the root, sets the state to
 `opening`, sets the view's alpha to 0 and fades it to 1 in 100 ms on the scheduler with

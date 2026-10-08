@@ -587,6 +587,7 @@ The screen's contents:
 | Member                                     | Lives                                                  |
 | ------------------------------------------ | ------------------------------------------------------ |
 | `statusText`, `menuButton`                 | From `onAttach`, as today                              |
+| `backdrop`                                 | From `onAttach`: dims the scene behind the windows     |
 | `night`                                    | Made in `onShow` from `nightStart`                     |
 | `place`                                    | The place being shown, or `null` during a journey      |
 | `picture`, `placeButton`, `spotButtons`    | Built when a place is shown, destroyed when it is left |
@@ -598,7 +599,7 @@ The screen's contents:
 1. It leaves the place being shown, if there is one.
 2. It builds the place's `PlacePicture` and adds it to the view.
 3. It builds the place button, labelled `shortName ?? name`, and the scene buttons, and adds them to
-   the UI.
+   the UI. The backdrop goes back in after them, so it lies above the scene and under the windows.
 4. It lays them out. The status line stands beside the place button, so it moves with that button's
    width. On a screen narrower than the top row width, 292 art pixels, it stands under the place
    button: from 292 the widest place button, a status line of 24 characters and Menu fit one line.
@@ -609,8 +610,9 @@ The screen's contents:
 place button and the scene buttons out of the UI and destroys them, and sets `place` to `null`. The
 screen behind is black, which is the game's background colour.
 
-**`onShow`** makes the night from `nightStart` and shows `nightStart.places[night.place]`.
-**`onHide`** destroys the open windows, the topmost first, and leaves the place.
+**`onShow`** makes the night from `nightStart`, dims the scene at once and shows
+`nightStart.places[night.place]`, so the first place is dimmed from its first frame. **`onHide`**
+destroys the open windows, the topmost first, and leaves the place.
 
 **When a story window has closed,** the screen writes the status and then looks at the night:
 
@@ -625,6 +627,15 @@ screen behind is black, which is the game's background colour.
 **When the travel window has closed** with a destination picked, the screen takes the journey
 (`takeJourney`), leaves the place, writes the status, and opens the journey's script of that way in
 a story window. When that window has closed, rule 1 above shows the destination.
+
+**The dimmed scene.** The story windows and the travel window draw no scrim; they only take every
+tap. The screen's `backdrop`, a rectangle in the theme's `modal.scrimColor`, dims the scene while
+the night is busy: a story window or the travel window is open or closing, or a story window has
+closed and the screen has not looked at the night yet. The next window opens in the same frame as
+the last one leaves, so the backdrop stays at `modal.scrimAlpha` from one window to the next, and
+neither the place being left nor the place arrived at shows undimmed between two windows. The
+backdrop fades in over 100 ms with the first window's panel and fades out over 100 ms once the last
+window has faded out. The menu and Options keep their own scrims above it.
 
 The cancel command keeps its rule: the engine sends it to the topmost overlay, and the screen opens
 the menu when that overlay declares no `close`. The travel window is a `Modal`, so Escape closes it.
@@ -657,9 +668,10 @@ export class TravelWindow {
 ```
 
 The window is a `Panel` in a `Modal` with a fade of 100 ms, built the way `openMenuModal` builds the
-menu. The constructor adds the modal to `ui`. The night screen calls `resize` from its own layout,
-as it calls the story window's `resize`, so a phone that is turned while the window is open gets the
-layout of its new width. A resize keeps the current way and the focus.
+menu, except that its scrim draws nothing (see "The dimmed scene"). The constructor adds the modal
+to `ui`. The night screen calls `resize` from its own layout, as it calls the story window's
+`resize`, so a phone that is turned while the window is open gets the layout of its new width. A
+resize keeps the current way and the focus.
 
 - **Width.** The story window's: 300 art pixels, or the screen less a margin on each side.
 - **Title.** "On foot", "By tram" or "By taxi", through `createWindowTitle`.

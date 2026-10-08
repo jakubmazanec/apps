@@ -1,5 +1,7 @@
+import * as pixi from 'pixi.js';
 import {
   Button,
+  easeOutQuad,
   GameScreen,
   type Modal,
   type Overlay,
@@ -25,6 +27,7 @@ import {measureText} from '../core/measureText.js';
 import {createNight, formatStatus, type Night, type PlaceId} from '../core/night.js';
 import {type Place} from '../core/place.js';
 import {playFocusSound} from '../core/playFocusSound.js';
+import {UI_FADE_DURATION} from '../core/theme.js';
 import {takeJourney} from '../core/travel.js';
 import {errorScreen} from './errorScreen.js';
 // The nightScreen <-> mainMenuScreen static import cycle is deliberate and
@@ -39,8 +42,20 @@ import {StoryWindow} from './storyWindow.js';
 import {TravelWindow} from './travelWindow.js';
 
 type NightScreenContents = {
+  /**
+   * Dims the scene behind the story windows and the travel window, which draw no scrim. It lies in
+   * the UI root above the scene's members and under the windows.
+   */
+  backdrop: pixi.Graphics;
+
+  /** Cancels the running fade of the backdrop. */
+  cancelBackdropFade: (() => void) | null;
+
   /** Whether a story window has closed and the screen has not looked at the night since. */
   hasStoryClosed: boolean;
+
+  /** Whether the backdrop is shown or fading in. */
+  isSceneDimmed: boolean;
 
   /**
    * The topmost overlay at the end of the last update. As a rule it took this frame's cancel
@@ -133,6 +148,40 @@ function layOut(screen: NightScreen): void {
   travelWindow?.resize(area.width, area.top + area.height);
 }
 
+// The scene is dimmed while the night is busy: a story window or the travel
+// window is open or closing, or a story window has closed and the screen has not
+// looked at the night yet. The next window opens in the same frame as the last
+// one leaves, so the backdrop stays up from one window to the next and fades
+// out only after the last one. It fades in with the first window's panel. A
+// hidden screen does nothing: Quit to menu by a key hides the screen inside its
+// frame, after the scheduler was cleared, and a fade started then would outlive
+// the night and light the next night's first description.
+function fadeBackdrop(screen: NightScreen): void {
+  if (screen.state !== 'shown') {
+    return;
+  }
+
+  let {contents} = screen;
+  let isDimmed =
+    contents.storyWindow !== null || contents.travelWindow !== null || contents.hasStoryClosed;
+
+  if (isDimmed === contents.isSceneDimmed) {
+    return;
+  }
+
+  contents.isSceneDimmed = isDimmed;
+  contents.cancelBackdropFade?.();
+  contents.cancelBackdropFade = screen.scheduler.tween({
+    target: contents.backdrop,
+    to: {alpha: isDimmed ? game.theme.modal.scrimAlpha : 0},
+    duration: UI_FADE_DURATION,
+    easing: easeOutQuad,
+    onComplete: () => {
+      contents.cancelBackdropFade = null;
+    },
+  });
+}
+
 function openStory(screen: NightScreen, script: RunnableDialogueScript<Night>): void {
   if (screen.contents.storyWindow !== null) {
     return;
@@ -153,6 +202,7 @@ function openStory(screen: NightScreen, script: RunnableDialogueScript<Night>): 
 
   screen.contents.storyWindow = storyWindow;
   screen.ui.addOverlay(storyWindow);
+  fadeBackdrop(screen);
 }
 
 // Takes the place being shown off the screen. The screen behind is black,
@@ -228,13 +278,19 @@ function showPlace(screen: NightScreen, place: Place): void {
   // Tab follows the UI root's children, and UiRoot only appends, so the status
   // line and Menu go out and back in after the place button: Tab then keeps
   // reading order, the place button, Menu and the scene buttons. A new place
-  // starts with nothing focused.
-  screen.ui.removeChild(screen.contents.statusText, screen.contents.menuButton);
+  // starts with nothing focused. The backdrop goes back in last, above the
+  // scene; no window is open, so the windows come after it.
+  screen.ui.removeChild(
+    screen.contents.statusText,
+    screen.contents.menuButton,
+    screen.contents.backdrop,
+  );
   screen.ui.addChild(
     placeButton,
     screen.contents.statusText,
     screen.contents.menuButton,
     ...spotButtons,
+    screen.contents.backdrop,
   );
   screen.contents.place = place;
   screen.contents.placeButton = placeButton;
@@ -282,6 +338,7 @@ function openTravel(
       openStory(screen, journeys[destination.way]);
     },
   });
+  fadeBackdrop(screen);
 }
 
 // Looks at the night once a story window has closed. A script that moved the
@@ -382,12 +439,22 @@ export const nightScreen = new GameScreen<NightScreenContents>({
         openMenu(screen);
       },
     });
+    // The same scrim as a Modal's. It takes no taps: the windows' own layers do.
+    let backdrop = new pixi.Graphics();
+
+    backdrop.rect(0, 0, 1, 1).fill(game.theme.modal.scrimColor);
+    backdrop.alpha = 0;
+    backdrop.eventMode = 'none';
+    backdrop.layout = {position: 'absolute', left: 0, top: 0, width: '100%', height: '100%'};
 
     // The place's members are built when a place is shown (showPlace).
-    screen.ui.addChild(statusText, menuButton);
+    screen.ui.addChild(statusText, menuButton, backdrop);
 
     return {
+      backdrop,
+      cancelBackdropFade: null,
       hasStoryClosed: false,
+      isSceneDimmed: false,
       lastTopOverlay: null,
       menuButton,
       menuModal: null,
@@ -410,6 +477,11 @@ export const nightScreen = new GameScreen<NightScreenContents>({
     screen.contents.hasStoryClosed = false;
     screen.contents.lastTopOverlay = null;
     writeStatus(screen);
+    // The place appears under its description, so it is dimmed from its first
+    // frame. Hiding the screen cleared the scheduler and the fade with it.
+    screen.contents.backdrop.alpha = game.theme.modal.scrimAlpha;
+    screen.contents.cancelBackdropFade = null;
+    screen.contents.isSceneDimmed = true;
 
     let place = nightStart.places[night.place];
 
@@ -468,6 +540,10 @@ export const nightScreen = new GameScreen<NightScreenContents>({
         void game.showScreen(errorScreen);
       }
     }
+
+    // The last window has left, or Back or the cancel command closed the travel
+    // window.
+    fadeBackdrop(screen);
 
     // The engine has already sent this frame's cancel command to the topmost
     // overlay, which it closed if the overlay declares close: the menu, the

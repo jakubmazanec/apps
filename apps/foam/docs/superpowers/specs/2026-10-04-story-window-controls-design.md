@@ -40,7 +40,8 @@ topmost overlay declares no `close`, so the pause menu opens above the dialogue 
 3. **Nobody closes a story window before its end.** It ends through its text or through a choice.
    Every node with choices offers a way out that costs nothing; this is a rule for the content.
 4. **The story window is an overlay of its own, without `close`,** as Somewhere's dialogue box is.
-   It draws its own scrim and runs its own fade.
+   It runs its own fade and takes every tap on the scene, but draws no scrim: the night screen dims
+   the scene behind all its windows, so the scene stays dimmed from one window to the next.
 5. **Escape opens the menu, also above a story window.** The text waits while the menu is open.
 6. **The menu declares Resume as its initial focus.** With the Tellurion addition
    [overlay initial focus](../../../../docs/superpowers/specs/2026-10-04-ui-overlay-initial-focus-design.md)
@@ -68,7 +69,7 @@ Rejected:
   dismissible, but it is a bottom bar with a fixed height, without a scrim or a fade, with one font,
   and it always focuses its first choice.
 - **A scrim component or a second general overlay class in Tellurion.** One user does not justify
-  either; the window draws its own scrim and runs its own fade.
+  either; the window runs its own fade, and the night screen dims the scene behind its windows.
 
 ## Design
 
@@ -146,8 +147,8 @@ the member `modal` of phase 2 are gone.
 
 **View.** `view` covers the screen: it is positioned absolutely at 0, 0 with 100 % width and height,
 centres its content and has `area.top` as top padding, as the `Modal` of phase 2 had. Its first
-child is a scrim, a rectangle in the theme's `modal.scrimColor` and `modal.scrimAlpha` that takes
-every pointer event. Its second child is the `Panel`, the only entry of `children`.
+child is a layer that draws nothing and takes every pointer event; the night screen dims the scene
+behind it. Its second child is the `Panel`, the only entry of `children`.
 
 **Fade and state.** The state starts as `closed`. `attach` records the root, sets the state to
 `opening`, sets the view's alpha to 0 and fades it to 1 in 100 ms on the scheduler with
