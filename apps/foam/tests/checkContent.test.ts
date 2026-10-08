@@ -5,7 +5,7 @@ import {checkContent} from '../source/game/core/checkContent.js';
 import {getExpectedJourneys} from '../source/game/core/getExpectedJourneys.js';
 import {type Night, type Way} from '../source/game/core/night.js';
 import {type Place} from '../source/game/core/place.js';
-import {type PlaceData, type Travel} from '../source/game/core/travel.js';
+import {type MapData, type PlaceData, type Travel} from '../source/game/core/travel.js';
 
 function oneNode(text: string, speaker = 'Someone'): RunnableDialogueScript<Night> {
   return defineDialogueScript<Night>()({start: {speaker, text}});
@@ -61,6 +61,16 @@ function createTravel(data: PlaceData): Travel {
 }
 
 const travel = createTravel(placeData);
+const map: MapData = {
+  origin: position,
+  box: {left: -5000, top: -5000, right: 5000, bottom: 5000},
+  minorStreets: [],
+  mainStreets: [],
+  railway: [],
+  rivers: [],
+  parks: [],
+  tramLines: [],
+};
 const journeys: Record<Way, RunnableDialogueScript<Night>> = {
   walk: oneNode('You walk.', 'On foot'),
   tram: oneNode('You ride.', 'The tram'),
@@ -72,10 +82,11 @@ function check(
     places?: Record<string, Place>;
     placeData?: PlaceData;
     travel?: Travel;
+    map?: MapData;
     journeys?: Record<Way, RunnableDialogueScript<Night>>;
   } = {},
 ): string[] {
-  return checkContent({places, journeys, placeData, travel, ...changes});
+  return checkContent({places, journeys, placeData, travel, map, ...changes});
 }
 
 function withZidenice(change: Partial<Place>): Record<string, Place> {
@@ -85,6 +96,12 @@ function withZidenice(change: Partial<Place>): Record<string, Place> {
 describe(checkContent, () => {
   test('gives no line for good content', () => {
     expect(check()).toEqual([]);
+  });
+
+  test('reports a place the map does not cover', () => {
+    expect(check({map: {...map, box: {...map.box, right: 1999}}})).toContain(
+      'map.json: does not cover "zidenice"; run node scripts/fetch-map-data.mjs',
+    );
   });
 
   test('reports a long word of a text', () => {

@@ -19,6 +19,7 @@ const START: NightStart = {
     zidenice: createPlace('zidenice', 'Beta'),
     hlavniNadrazi: createPlace('hlavniNadrazi', 'Gamma'),
   },
+  placeData: {},
   travel: {
     whiskyShop: {
       walk: {
@@ -29,6 +30,16 @@ const START: NightStart = {
       },
       taxi: {rotorBar: {minutes: 11, price: 170}},
     },
+  },
+  map: {
+    origin: {latitude: 49.2, longitude: 16.6},
+    box: {left: -100, top: -100, right: 100, bottom: 100},
+    minorStreets: [],
+    mainStreets: [],
+    railway: [],
+    rivers: [],
+    parks: [],
+    tramLines: [],
   },
   place: 'train',
   minutes: 1020,

@@ -42,7 +42,13 @@ export type NightStart = {
   /** The places of the night, by id. */
   places: Readonly<Record<string, Place>>;
 
+  /** The content of `places.json`: the positions of the places. */
+  placeData: PlaceData;
+
   travel: Travel;
+
+  /** The content of `map.json`. */
+  map: MapData;
 
   /** The place a night starts in. */
   place: PlaceId;
