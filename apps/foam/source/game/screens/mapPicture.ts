@@ -96,7 +96,9 @@ export class MapPicture {
 
   destroy(): void {
     this.view.destroy({children: true});
-    // Without `context: true`: the layers' contexts outlive this picture.
+    // No options, so that the marks' own context goes with them: they created it. The layers'
+    // Graphics are destroyed without `context: true` below, because their contexts are shared.
+    this.#marks.destroy();
     this.#scene.destroy({children: true});
     this.#texture.destroy(true);
   }
