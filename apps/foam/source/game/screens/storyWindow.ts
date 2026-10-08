@@ -76,8 +76,10 @@ function measureLabel(text: string): number {
  *
  * It is an overlay without `close`, so the cancel command passes over it: the
  * window ends only through its text or through a choice. The night screen adds
- * it with `ui.addOverlay`, and the window draws its own scrim and runs its own
- * fade, as a `Modal` would.
+ * it with `ui.addOverlay`, and the window runs its own fade, as a `Modal`
+ * would. It blocks taps on the scene but draws no scrim: the night screen dims
+ * the scene behind all its windows, so the scene stays dimmed from one window
+ * to the next.
  *
  * The layout is settled when a node is shown, from the whole text and the
  * node's choices, so nothing moves while the text types or the pages turn.
@@ -195,15 +197,13 @@ export class StoryWindow implements Overlay {
       this.#continueText();
     });
 
-    // The scrim takes every pointer event, so nothing behind the window can be
-    // pressed while it is open.
-    let scrim = new pixi.Graphics();
+    // The layer under the panel draws nothing and takes every pointer event, so
+    // nothing behind the window can be pressed while it is open. The night
+    // screen dims the scene behind its windows.
+    let tapBlocker = new pixi.Container();
 
-    scrim.rect(0, 0, 1, 1).fill(game.theme.modal.scrimColor);
-    scrim.alpha = game.theme.modal.scrimAlpha;
-    scrim.eventMode = 'static';
-    scrim.hitArea = {contains: () => true};
-    scrim.layout = {position: 'absolute', left: 0, top: 0, width: '100%', height: '100%'};
+    tapBlocker.eventMode = 'static';
+    tapBlocker.hitArea = {contains: () => true};
 
     // The view covers the screen; position: 'absolute' keeps it out of the flex
     // flow of the UI root's view. The top padding leaves the top row out, so
@@ -218,7 +218,7 @@ export class StoryWindow implements Overlay {
       alignItems: 'center',
       paddingTop: area.top,
     };
-    this.view.addChild(scrim, this.#panel.view);
+    this.view.addChild(tapBlocker, this.#panel.view);
     this.#showNode();
   }
 

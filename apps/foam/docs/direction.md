@@ -163,9 +163,12 @@ The story window and the menu work as follows. This is built:
   choice.
 - Every fade of something the player can click or tap lasts at most 100 ms, in and out: a window, a
   panel, its buttons, a list of choices. Only a modal's dimmed backdrop may take up to 300 ms,
-  because a click on it is not a primary action. Foam's overlays (the story window, the menu,
-  Options and the travel window) fade the backdrop together with the panel as one view, so their
-  backdrop takes 100 ms too. Screen changes do not fade.
+  because a click on it is not a primary action. The menu and Options fade the backdrop together
+  with the panel as one view, so their backdrop takes 100 ms too. The night's windows (the story
+  window and the travel window) share one backdrop, which the night screen fades in with the first
+  window and keeps from one window to the next, so the scene never shows undimmed between two
+  windows; it fades out in 100 ms after the last window. A place always appears dimmed, under its
+  description. Screen changes do not fade.
 - Nobody closes a story window before its end, and Escape does not close it. A window ends through
   its text or through a choice, so every node with choices offers a way out that costs nothing.
   Tellurion's `Modal` always closes on the cancel command, so the window is an overlay of its own

@@ -1,5 +1,6 @@
-import {type Button, type Modal} from 'tellurion';
-import {afterAll, beforeAll, describe, expect, test, vitest} from 'vitest';
+import * as pixi from 'pixi.js';
+import {type Button, type Modal, Text} from 'tellurion';
+import {afterAll, afterEach, beforeAll, beforeEach, describe, expect, test, vitest} from 'vitest';
 
 import {type barPicture as barPictureValue} from '../source/game/content/pictures/barPicture.js';
 import {getSceneArea} from '../source/game/core/getSceneArea.js';
@@ -24,6 +25,7 @@ import {
   getWindowParts,
   type Harness,
   nextFrame,
+  type Pixels,
   press,
   pressThrough,
   readText,
@@ -46,12 +48,54 @@ async function endStory(storyWindow: StoryWindow): Promise<void> {
   }
 }
 
+type Rgb = [number, number, number];
+
+// The colour of a pixel of a screen read. The extract leaves a pixel with no
+// picture under it not opaque, and the screen shows the black background there.
+function readRgb({pixels, width}: Pixels, x: number, y: number): Rgb {
+  let index = (y * width + x) * 4;
+
+  if (pixels[index + 3] !== 255) {
+    return [0, 0, 0];
+  }
+
+  return [pixels[index] ?? 0, pixels[index + 1] ?? 0, pixels[index + 2] ?? 0];
+}
+
+function getSum([red, green, blue]: Rgb): number {
+  return red + green + blue;
+}
+
+// What the screen shows, rendered again from the stage.
+function readScreen({game}: Harness): Pixels {
+  let {renderer, screen, stage} = game.app;
+
+  return renderer.extract.pixels({
+    target: stage,
+    frame: new pixi.Rectangle(0, 0, screen.width, screen.height),
+  });
+}
+
+// How bright a pixel is against its undimmed colour: 1 undimmed, 0.4 dimmed, 0 black.
+function getLight(color: Rgb, undimmed: Rgb): number {
+  let light = 0;
+
+  for (let [index, channel] of undimmed.entries()) {
+    if (channel > 0) {
+      light = Math.max(light, (color[index] ?? 0) / channel);
+    }
+  }
+
+  return light;
+}
+
 // Headless Chromium draws the bar in software, at about 90 ms a frame, which
-// slows every frame of these tests. They check places, buttons and windows,
-// not the picture's pixels (tests/placePicture.browser.test.ts does), so the
-// main menu, which shows the bar, gets the pipeline's proof, a shader of a few
-// lines, as the fixed world's places do. The bar's GLSL has its text as its
-// type, so the stub's text is cast to it.
+// slows every frame of these tests. They check places, buttons, windows and
+// the dimming of the scene, not what the picture draws (the tests in
+// tests/placePicture.browser.test.ts do), so the main menu, which shows the
+// bar, gets the pipeline's proof, a shader of a few lines, as the fixed
+// world's places do. The bar's GLSL has its text as its type, so the stub's
+// text is cast to it.
 vitest.mock(import('../source/game/content/pictures/barPicture.js'), async () => {
   let {PROOF_PICTURE} = await import('./proofPicture.js');
 
@@ -169,8 +213,8 @@ describe('night screen places', {timeout: 180_000}, () => {
   }
 
   // What hiding the screen leaves: no window, no place, and in the UI only the
-  // status line and Menu. The travel window's modal is destroyed, whether it
-  // closed before or the screen destroyed it.
+  // status line, Menu and the backdrop. The travel window's modal is destroyed,
+  // whether it closed before or the screen destroyed it.
   function expectNothingLeft(travelModal: Modal): void {
     let {contents, ui} = harness.nightScreen;
 
@@ -179,9 +223,10 @@ describe('night screen places', {timeout: 180_000}, () => {
     expect(contents.place).toBeNull();
     expect(contents.placeButton).toBeNull();
     expect(contents.picture).toBeNull();
-    expect(ui.children).toHaveLength(2);
+    expect(ui.children).toHaveLength(3);
     expect(ui.children).toContain(contents.statusText);
     expect(ui.children).toContain(contents.menuButton);
+    expect(ui.children).toContain(contents.backdrop);
     expect(travelModal.view.destroyed).toBe(true);
   }
 
@@ -422,6 +467,251 @@ describe('night screen places', {timeout: 180_000}, () => {
     expect(getStoryWindow(harness).dialogue.node?.speaker).toBe('The bar');
   });
 
+  // The ticker is stopped, and these tests run the frames themselves at 60 fps, so a 100 ms fade
+  // takes six frames, and they read the frames from the screen. The scene's light is read on the
+  // square's picture in the bottom left corner, where no window reaches, and on the brightest
+  // pixel of Menu's label: 1 undimmed, 0.4 dimmed, 0 black. The picture's colours drift a little
+  // as it runs, so the scene counts as dimmed below 0.5 and as lit above 0.8.
+  describe('the dimmed scene', () => {
+    let time: number;
+    let wasAutoStart: boolean;
+    // The square's undimmed colours, read with no window open. The picture is a checkerboard of
+    // two colours with a white row that moves down, so of two pixels in the corner two rows
+    // apart, which have the same colour, the darker one has it.
+    let corner: Array<{x: number; y: number}>;
+    let pictureColor: Rgb;
+    let menuPixel: {x: number; y: number; color: Rgb};
+
+    function runFrames(count: number): void {
+      for (let index = 0; index < count; index += 1) {
+        time += 1000 / 60;
+        harness.game.app.ticker.update(time);
+      }
+    }
+
+    function readLight(): {menu: number; picture: number} {
+      let pixels = readScreen(harness);
+
+      return {
+        menu: getLight(readRgb(pixels, menuPixel.x, menuPixel.y), menuPixel.color),
+        picture: Math.min(...corner.map(({x, y}) => getLight(readRgb(pixels, x, y), pictureColor))),
+      };
+    }
+
+    // Opens the square's way out, reads it to its choices and takes one, all by hand.
+    function chooseWayOutByHand(label: string): void {
+      let {ui} = harness.nightScreen;
+
+      ui.focus(getSpotButton(harness, 'The street'));
+      ui.activate();
+
+      let wayOut = getStoryWindow(harness);
+
+      for (let count = 0; count < 200 && wayOut.dialogue.phase !== 'choosing'; count += 1) {
+        wayOut.dialogue.advance();
+        runFrames(1);
+      }
+
+      runFrames(10);
+
+      let choice = getWindowParts(wayOut).buttons.find(
+        (button) => getButtonLabel(button) === label,
+      );
+
+      if (choice === undefined) {
+        throw new Error(`The way out has no "${label}" choice!`);
+      }
+
+      ui.focus(choice);
+      ui.activate();
+    }
+
+    // Runs frames until the screen has no window, and then the 300 ms a backdrop may take to
+    // fade out.
+    function runUntilNoWindow(): void {
+      let {contents} = harness.nightScreen;
+
+      for (
+        let count = 0;
+        count < 200 && (contents.storyWindow !== null || contents.travelWindow !== null);
+        count += 1
+      ) {
+        contents.storyWindow?.dialogue.advance();
+        runFrames(1);
+      }
+
+      expect(contents.storyWindow).toBeNull();
+      expect(contents.travelWindow).toBeNull();
+
+      runFrames(18);
+    }
+
+    beforeEach(async () => {
+      let {game, nightScreen} = harness;
+      let {screen, ticker} = game.app;
+
+      await restartAt(harness, FIXED_SQUARE);
+      await closeStory();
+      wasAutoStart = ticker.autoStart;
+      ticker.autoStart = false;
+      ticker.stop();
+      time = ticker.lastTime;
+      // Half a second with no window, for any fade to end.
+      runFrames(30);
+
+      let undimmed = readScreen(harness);
+      let [menuLabel] = nightScreen.contents.menuButton.children;
+
+      if (!(menuLabel instanceof Text)) {
+        throw new TypeError('Menu has no label!');
+      }
+
+      // The label lies on the button's fill, so every pixel of its box is Menu's own.
+      let menuBox = getBox(harness, menuLabel);
+
+      corner = [
+        {x: game.pixelScale, y: screen.height - 2 * game.pixelScale},
+        {x: game.pixelScale, y: screen.height - 4 * game.pixelScale},
+      ];
+      [pictureColor = [0, 0, 0]] = corner
+        .map(({x, y}) => readRgb(undimmed, x, y))
+        .toSorted((first, second) => getSum(first) - getSum(second));
+      menuPixel = {x: 0, y: 0, color: [0, 0, 0]};
+
+      for (let y = menuBox.top; y < menuBox.top + menuBox.height; y += 1) {
+        for (let x = menuBox.left; x < menuBox.left + menuBox.width; x += 1) {
+          let point = {x: x * game.pixelScale, y: y * game.pixelScale};
+          let color = readRgb(undimmed, point.x, point.y);
+
+          if (getSum(color) > getSum(menuPixel.color)) {
+            menuPixel = {...point, color};
+          }
+        }
+      }
+    });
+
+    afterEach(() => {
+      let {ticker} = harness.game.app;
+
+      ticker.autoStart = wasAutoStart;
+      ticker.start();
+    });
+
+    test('the corner shows the picture and Menu has a lit pixel', () => {
+      expect(getSum(pictureColor)).toBeGreaterThan(0);
+      expect(getSum(menuPixel.color)).toBeGreaterThan(0);
+    });
+
+    // One window follows another from a way out's choice to the arrival's description: neither
+    // the place being left nor the one arrived at shows undimmed between two windows, nor does
+    // Menu. The travel window's panel covers Menu, so Menu is read while the travel window is
+    // not open.
+    test('the scene stays dimmed from a way out to the arrival', () => {
+      let {contents, ui} = harness.nightScreen;
+      let brightFrames: string[] = [];
+      let hasSelected = false;
+
+      chooseWayOutByHand('Take a taxi');
+
+      for (let frame = 1; frame <= 400; frame += 1) {
+        runFrames(1);
+
+        let light = readLight();
+        let isMenuCovered = contents.travelWindow !== null;
+
+        if (light.picture >= 0.5 || (!isMenuCovered && light.menu >= 0.5)) {
+          brightFrames.push(
+            `frame ${frame} in "${contents.place?.id ?? 'no place'}": the picture at ${light.picture.toFixed(2)}, Menu at ${light.menu.toFixed(2)}`,
+          );
+        }
+
+        let {storyWindow, travelWindow} = contents;
+        let speaker = storyWindow?.dialogue.node?.speaker;
+
+        if (travelWindow?.modal.state === 'open') {
+          // Two frames: the place's button selects it, then the destination button travels.
+          let {destination, places} = getTravelParts(travelWindow);
+          let target = hasSelected ? destination : (places.get(FIXED_BAR) ?? null);
+
+          if (target === null) {
+            throw new Error('The travel window has no button to press!');
+          }
+
+          ui.focus(target);
+          ui.activate();
+          hasSelected = true;
+        } else if (speaker === 'The taxi') {
+          storyWindow?.dialogue.advance();
+        } else if (speaker === 'The bar' && storyWindow?.state === 'open') {
+          break;
+        }
+      }
+
+      expect(contents.place?.id).toBe(FIXED_BAR);
+      expect(getStoryWindow(harness).state).toBe('open');
+      expect(brightFrames).toEqual([]);
+    });
+
+    test('the scene is lit again once the last window has closed', () => {
+      let {ui} = harness.nightScreen;
+
+      ui.focus(getPlaceButton(harness));
+      ui.activate();
+      runFrames(10);
+
+      let dimmed = readLight();
+
+      expect(dimmed.picture).toBeLessThan(0.5);
+      expect(dimmed.menu).toBeLessThan(0.5);
+
+      runUntilNoWindow();
+
+      let lit = readLight();
+
+      expect(lit.picture).toBeGreaterThan(0.8);
+      expect(lit.menu).toBeGreaterThan(0.8);
+    });
+
+    test('Back on the travel window lights the scene again', () => {
+      let {contents, ui} = harness.nightScreen;
+
+      chooseWayOutByHand('Take a taxi');
+      runFrames(20);
+
+      if (contents.travelWindow === null) {
+        throw new Error('The travel window is not open!');
+      }
+
+      // The travel window's panel covers Menu.
+      expect(readLight().picture).toBeLessThan(0.5);
+
+      ui.focus(getTravelParts(contents.travelWindow).back);
+      ui.activate();
+      runUntilNoWindow();
+
+      let lit = readLight();
+
+      expect(contents.place?.id).toBe(FIXED_SQUARE);
+      expect(lit.picture).toBeGreaterThan(0.8);
+      expect(lit.menu).toBeGreaterThan(0.8);
+    });
+
+    // The first place's description opens with the night, and the place is dimmed from the
+    // night's first frame.
+    test('a night starts with the scene dimmed', async () => {
+      let {game, mainMenuScreen, nightScreen} = harness;
+
+      await game.showScreen(mainMenuScreen);
+      await game.showScreen(nightScreen);
+      runFrames(1);
+
+      let light = readLight();
+
+      expect(light.picture).toBeLessThan(0.5);
+      expect(light.menu).toBeLessThan(0.5);
+    });
+  });
+
   // 292 × 524 CSS pixels are 146 × 262 art pixels, the narrowest screen.
   test('a resize during a journey', async () => {
     let {contents} = harness.nightScreen;
@@ -507,7 +797,7 @@ describe('night screen places', {timeout: 180_000}, () => {
   });
 
   test('Quit to menu during a journey leaves nothing behind', async () => {
-    let {mainMenuScreen, nightScreen} = harness;
+    let {game, mainMenuScreen, nightScreen} = harness;
 
     await restartAt(harness, FIXED_SQUARE);
     await closeStory();
@@ -538,9 +828,19 @@ describe('night screen places', {timeout: 180_000}, () => {
     expectNothingLeft(travelWindow.modal);
 
     await startNewGame(harness);
+    // Quit was a key press, which the screen hid inside its frame. A fade of the
+    // backdrop left from that frame would have lit the scene by the time the new
+    // night's description has faded in.
+    await vitest.waitFor(
+      () => {
+        expect(getStoryWindow(harness).state).toBe('open');
+      },
+      {timeout: 10_000},
+    );
 
     expect(getPlace(harness).id).toBe(FIXED_SQUARE);
     expect(readText(nightScreen.contents.statusText)).toBe('19:40   350 Kč   Sober');
+    expect(nightScreen.contents.backdrop.alpha).toBe(game.theme.modal.scrimAlpha);
   });
 
   // No spot of the fixed world sets both, so the night is changed by hand while

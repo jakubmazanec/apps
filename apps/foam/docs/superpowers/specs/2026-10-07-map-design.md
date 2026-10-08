@@ -475,7 +475,9 @@ export class TravelWindow {
 }
 ```
 
-The window is a `Panel` in a `Modal` with a fade of `UI_FADE_DURATION`, as before. Its parts:
+The window is a `Panel` in a `Modal` with a fade of `UI_FADE_DURATION`, as before. The modal's scrim
+takes every tap but draws nothing (`scrimAlpha: 0`): the night screen dims the scene behind its
+windows. Its parts:
 
 - **Title and row of ways** as before. In the side-by-side layout the row is 120 wide: three buttons
   of 38 and two gaps of 3.

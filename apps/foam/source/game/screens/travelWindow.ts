@@ -283,6 +283,10 @@ export class TravelWindow {
       theme: game.theme,
       children: [this.#panel],
       layout: {justifyContent: 'center', alignItems: 'center'},
+      // The scrim still takes every tap but draws nothing: the night screen
+      // dims the scene behind all its windows, so the scene stays dimmed from
+      // one window to the next.
+      scrimAlpha: 0,
       scheduler,
       fadeDuration: UI_FADE_DURATION,
       initialFocus: this.#parts.destination?.button ?? this.#parts.back,

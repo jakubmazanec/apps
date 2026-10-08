@@ -1039,6 +1039,18 @@ describe('night screen', {timeout: 180_000}, () => {
       expect(storyWindow.dialogue.node?.speaker).toBe('Two women talking');
     });
 
+    // A real tap on Menu, which the window does not cover: the window's layer under its panel
+    // takes it, though the layer draws nothing, so no menu opens.
+    test('a tap on Menu behind a window does nothing', async () => {
+      let {nightScreen} = harness;
+      let storyWindow = await openSpot('Two women talking');
+
+      await tap(harness, getBox(harness, nightScreen.contents.menuButton));
+
+      expect(nightScreen.contents.menuModal).toBeNull();
+      expect(nightScreen.contents.storyWindow).toBe(storyWindow);
+    });
+
     test('a resize in the middle of a text keeps the place and wraps the text again', async () => {
       let {measureText} = harness;
       let storyWindow = await openLongText();
