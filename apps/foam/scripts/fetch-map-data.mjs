@@ -16,13 +16,14 @@ import {formatData, USER_AGENT} from './fill-travel-data.mjs';
  * @typedef {import('../source/game/core/getMapPoint.ts').MapPoint} MapPoint
  * @typedef {{id: number; geometry?: Array<{lat: number; lon: number}>}} OverpassWay
  * @typedef {(query: string) => Promise<OverpassWay[]>} Request
+ * @typedef {Exclude<keyof MapData, 'origin' | 'box'>} MapDataLayer
  */
 
 // Metres around the places' box; covers the widest map a supported screen shows.
 export const MAP_MARGIN = 2000;
 export const SIMPLIFY_METRES = 5; // under half an art pixel at the sharpest scale
 
-/** @type {Array<{layer: 'minorStreets' | 'mainStreets' | 'railway' | 'rivers' | 'parks' | 'tramLines'; selector: string}>} */
+/** @type {Array<{layer: MapDataLayer; selector: string}>} */
 export const LAYER_QUERIES = [
   {
     layer: 'minorStreets',
