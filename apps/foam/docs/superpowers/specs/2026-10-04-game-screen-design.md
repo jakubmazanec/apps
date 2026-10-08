@@ -372,6 +372,9 @@ export type StoryWindowOptions = {
   context: Night;
   area: SceneArea;
 
+  /** Called when the window starts to fade out, once its text has ended. */
+  onClosing?: () => void;
+
   /** Called once the window has closed. */
   onClosed: () => void;
 };
@@ -420,11 +423,11 @@ its `onEnter`, builds the panel and the layer that takes the taps, and shows the
 **Fade and state.** The state starts as `closed`. `attach` records the root, sets the state to
 `opening`, sets the view's alpha to 0 and fades it to 1 in 100 ms on the scheduler with
 `easeOutQuad`; the state is then `open`. Choices whose fade a detach cancelled fade in again from
-the start. When the runner has ended, the window sets the state to `closing` and fades to 0; when
-the fade is over it destroys itself and calls `onClosed`. `detach` cancels the running fades, the
-window's and the choices', forgets the root and sets the state to `closed`. `destroy()` leaves the
-root if the window is still attached and destroys the view at once, from any state, without the fade
-and without calling `onClosed`.
+the start. When the runner has ended, the window sets the state to `closing`, calls `onClosing` and
+fades to 0; when the fade is over it destroys itself and calls `onClosed`. `detach` cancels the
+running fades, the window's and the choices', forgets the root and sets the state to `closed`.
+`destroy()` leaves the root if the window is still attached and destroys the view at once, from any
+state, without the fade and without calling `onClosed`.
 
 **Showing a node.** The window shows a node when it is constructed, when the runner moves to another
 node or page, and when it is resized:

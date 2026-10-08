@@ -59,6 +59,11 @@ export type TravelWindowOptions = {
   /** The screen's height in art pixels. */
   screenHeight: number;
 
+  /**
+   * Called when the window starts to fade out, with the destination the player picked, if any.
+   */
+  onClosing?: (destination: Destination | null) => void;
+
   /** Called once the window has closed, with the destination the player picked, if any. */
   onClosed: (destination: Destination | null) => void;
 };
@@ -240,6 +245,7 @@ export class TravelWindow {
     ways,
     screenWidth,
     screenHeight,
+    onClosing,
     onClosed,
   }: TravelWindowOptions) {
     this.#ui = ui;
@@ -290,6 +296,9 @@ export class TravelWindow {
       scheduler,
       fadeDuration: UI_FADE_DURATION,
       initialFocus: this.#parts.destination?.button ?? this.#parts.back,
+      onClosing: () => {
+        onClosing?.(this.#picked);
+      },
       onClosed: () => {
         onClosed(this.#picked);
       },

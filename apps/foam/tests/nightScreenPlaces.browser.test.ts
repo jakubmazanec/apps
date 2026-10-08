@@ -49,6 +49,7 @@ async function endStory(storyWindow: StoryWindow): Promise<void> {
 }
 
 type Rgb = [number, number, number];
+type Point = {x: number; y: number};
 
 // The colour of a pixel of a screen read. The extract leaves a pixel with no
 // picture under it not opaque, and the screen shows the black background there.
@@ -471,15 +472,18 @@ describe('night screen places', {timeout: 180_000}, () => {
   // takes six frames, and they read the frames from the screen. The scene's light is read on the
   // square's picture in the bottom left corner, where no window reaches, and on the brightest
   // pixel of Menu's label: 1 undimmed, 0.4 dimmed, 0 black. The picture's colours drift a little
-  // as it runs, so the scene counts as dimmed below 0.5 and as lit above 0.8.
+  // as it runs, so the scene counts as dimmed below 0.5 and as lit above 0.8. It is black below
+  // 0.05, and a step of 0.2 or more from one frame to the next is a cut; a 100 ms fade from the
+  // dimmed level to black takes steps of about 0.1.
   describe('the dimmed scene', () => {
     let time: number;
     let wasAutoStart: boolean;
-    // The square's undimmed colours, read with no window open. The picture is a checkerboard of
-    // two colours with a white row that moves down, so of two pixels in the corner two rows
-    // apart, which have the same colour, the darker one has it.
-    let corner: Array<{x: number; y: number}>;
-    let pictureColor: Rgb;
+    // The square with no window open. The picture is a checkerboard of two colours with a white
+    // row that moves down, so the picture is read at two pixels two rows apart, which have the
+    // same colour: the darker of them has it, and the white row lights one of them at most.
+    let undimmed: Pixels;
+    // Two pixels of the picture in the corner, outside every window.
+    let corner: Point[];
     let menuPixel: {x: number; y: number; color: Rgb};
 
     function runFrames(count: number): void {
@@ -489,12 +493,24 @@ describe('night screen places', {timeout: 180_000}, () => {
       }
     }
 
-    function readLight(): {menu: number; picture: number} {
-      let pixels = readScreen(harness);
+    function getPictureColor(points: Point[]): Rgb {
+      let [color = [0, 0, 0]] = points
+        .map(({x, y}) => readRgb(undimmed, x, y))
+        .toSorted((first, second) => getSum(first) - getSum(second));
 
+      return color;
+    }
+
+    function getPictureLight(pixels: Pixels, points: Point[]): number {
+      let color = getPictureColor(points);
+
+      return Math.min(...points.map(({x, y}) => getLight(readRgb(pixels, x, y), color)));
+    }
+
+    function readLight(pixels = readScreen(harness)): {menu: number; picture: number} {
       return {
         menu: getLight(readRgb(pixels, menuPixel.x, menuPixel.y), menuPixel.color),
-        picture: Math.min(...corner.map(({x, y}) => getLight(readRgb(pixels, x, y), pictureColor))),
+        picture: getPictureLight(pixels, corner),
       };
     }
 
@@ -524,6 +540,43 @@ describe('night screen places', {timeout: 180_000}, () => {
 
       ui.focus(choice);
       ui.activate();
+    }
+
+    // Takes a taxi from the square to the bar by hand, one frame at a time, and reads the
+    // screen after each frame, until the bar's description is open.
+    function travelToTheBarByHand(onFrame: (pixels: Pixels, frame: number) => void): void {
+      let {contents, ui} = harness.nightScreen;
+      let hasSelected = false;
+
+      chooseWayOutByHand('Take a taxi');
+
+      for (let frame = 1; frame <= 400; frame += 1) {
+        runFrames(1);
+        onFrame(readScreen(harness), frame);
+
+        let {storyWindow, travelWindow} = contents;
+        let speaker = storyWindow?.dialogue.node?.speaker;
+
+        if (travelWindow?.modal.state === 'open') {
+          // Two frames: the place's button selects it, then the destination button travels.
+          let {destination, places} = getTravelParts(travelWindow);
+          let target = hasSelected ? destination : (places.get(FIXED_BAR) ?? null);
+
+          if (target === null) {
+            throw new Error('The travel window has no button to press!');
+          }
+
+          ui.focus(target);
+          ui.activate();
+          hasSelected = true;
+        } else if (speaker === 'The taxi') {
+          storyWindow?.dialogue.advance();
+        } else if (speaker === 'The bar' && storyWindow?.state === 'open') {
+          return;
+        }
+      }
+
+      throw new Error("The journey has not reached the bar's description!");
     }
 
     // Runs frames until the screen has no window, and then the 300 ms a backdrop may take to
@@ -559,7 +612,8 @@ describe('night screen places', {timeout: 180_000}, () => {
       // Half a second with no window, for any fade to end.
       runFrames(30);
 
-      let undimmed = readScreen(harness);
+      undimmed = readScreen(harness);
+
       let [menuLabel] = nightScreen.contents.menuButton.children;
 
       if (!(menuLabel instanceof Text)) {
@@ -573,9 +627,6 @@ describe('night screen places', {timeout: 180_000}, () => {
         {x: game.pixelScale, y: screen.height - 2 * game.pixelScale},
         {x: game.pixelScale, y: screen.height - 4 * game.pixelScale},
       ];
-      [pictureColor = [0, 0, 0]] = corner
-        .map(({x, y}) => readRgb(undimmed, x, y))
-        .toSorted((first, second) => getSum(first) - getSum(second));
       menuPixel = {x: 0, y: 0, color: [0, 0, 0]};
 
       for (let y = menuBox.top; y < menuBox.top + menuBox.height; y += 1) {
@@ -598,7 +649,7 @@ describe('night screen places', {timeout: 180_000}, () => {
     });
 
     test('the corner shows the picture and Menu has a lit pixel', () => {
-      expect(getSum(pictureColor)).toBeGreaterThan(0);
+      expect(getSum(getPictureColor(corner))).toBeGreaterThan(0);
       expect(getSum(menuPixel.color)).toBeGreaterThan(0);
     });
 
@@ -607,16 +658,11 @@ describe('night screen places', {timeout: 180_000}, () => {
     // Menu. The travel window's panel covers Menu, so Menu is read while the travel window is
     // not open.
     test('the scene stays dimmed from a way out to the arrival', () => {
-      let {contents, ui} = harness.nightScreen;
+      let {contents} = harness.nightScreen;
       let brightFrames: string[] = [];
-      let hasSelected = false;
 
-      chooseWayOutByHand('Take a taxi');
-
-      for (let frame = 1; frame <= 400; frame += 1) {
-        runFrames(1);
-
-        let light = readLight();
+      travelToTheBarByHand((pixels, frame) => {
+        let light = readLight(pixels);
         let isMenuCovered = contents.travelWindow !== null;
 
         if (light.picture >= 0.5 || (!isMenuCovered && light.menu >= 0.5)) {
@@ -624,32 +670,89 @@ describe('night screen places', {timeout: 180_000}, () => {
             `frame ${frame} in "${contents.place?.id ?? 'no place'}": the picture at ${light.picture.toFixed(2)}, Menu at ${light.menu.toFixed(2)}`,
           );
         }
+      });
 
-        let {storyWindow, travelWindow} = contents;
+      expect(contents.place?.id).toBe(FIXED_BAR);
+      expect(getStoryWindow(harness).state).toBe('open');
+      expect(brightFrames).toEqual([]);
+    });
+
+    // The travel window's panel covers all of the square but a ring at the edge of the screen.
+    // When the destination button travels, the square fades to black with the window, under its
+    // panel too, and the bar comes in from black with its description: the picture never comes
+    // up under the fading panel, nor does it cut from one light to another.
+    test('the place being left fades out with the travel window, and the next fades in', () => {
+      let {contents} = harness.nightScreen;
+      let lights: number[] = [];
+      let underPanel: Point[] | null = null;
+      let underPanelLights: number[] = [];
+
+      travelToTheBarByHand((pixels) => {
+        let {travelWindow} = contents;
+
+        lights.push(getPictureLight(pixels, corner));
+
+        if (travelWindow === null) {
+          return;
+        }
+
+        if (underPanel === null) {
+          // In the panel's bottom padding, inside its border.
+          let box = getBox(harness, getTravelParts(travelWindow).panel);
+          let x = (box.left + 3) * harness.game.pixelScale;
+          let bottom = (box.top + box.height) * harness.game.pixelScale;
+
+          underPanel = [
+            {x, y: bottom - 3 * harness.game.pixelScale},
+            {x, y: bottom - 5 * harness.game.pixelScale},
+          ];
+        }
+
+        if (travelWindow.modal.state === 'closing') {
+          underPanelLights.push(getPictureLight(pixels, underPanel));
+        }
+      });
+
+      let steps = lights.slice(1).map((light, index) => Math.abs(light - (lights[index] ?? 0)));
+
+      expect(underPanelLights.length).toBeGreaterThan(3);
+      expect(Math.max(...underPanelLights)).toBeLessThan(0.15);
+      expect(Math.min(...lights)).toBeLessThan(0.05);
+      expect(Math.max(...steps)).toBeLessThan(0.2);
+      expect(lights.at(-1)).toBeGreaterThan(0.2);
+    });
+
+    // The window that moves the player takes the square out with it, and the bar comes in from
+    // black with its description. The fixed world's places share a picture, so a cut from one to
+    // the other would not show; the black between them does.
+    test('a script that moves the player goes through black', () => {
+      let {contents, ui} = harness.nightScreen;
+      let lights: number[] = [];
+
+      ui.focus(getSpotButton(harness, 'The passage'));
+      ui.activate();
+
+      for (let frame = 1; frame <= 200; frame += 1) {
+        runFrames(1);
+        lights.push(getPictureLight(readScreen(harness), corner));
+
+        let {storyWindow} = contents;
         let speaker = storyWindow?.dialogue.node?.speaker;
 
-        if (travelWindow?.modal.state === 'open') {
-          // Two frames: the place's button selects it, then the destination button travels.
-          let {destination, places} = getTravelParts(travelWindow);
-          let target = hasSelected ? destination : (places.get(FIXED_BAR) ?? null);
-
-          if (target === null) {
-            throw new Error('The travel window has no button to press!');
-          }
-
-          ui.focus(target);
-          ui.activate();
-          hasSelected = true;
-        } else if (speaker === 'The taxi') {
+        if (speaker === 'The passage') {
           storyWindow?.dialogue.advance();
         } else if (speaker === 'The bar' && storyWindow?.state === 'open') {
           break;
         }
       }
 
+      let steps = lights.slice(1).map((light, index) => Math.abs(light - (lights[index] ?? 0)));
+
       expect(contents.place?.id).toBe(FIXED_BAR);
       expect(getStoryWindow(harness).state).toBe('open');
-      expect(brightFrames).toEqual([]);
+      expect(Math.min(...lights)).toBeLessThan(0.05);
+      expect(Math.max(...steps)).toBeLessThan(0.2);
+      expect(lights.at(-1)).toBeGreaterThan(0.2);
     });
 
     test('the scene is lit again once the last window has closed', () => {

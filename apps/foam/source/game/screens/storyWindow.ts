@@ -45,6 +45,9 @@ export type StoryWindowOptions = {
   context: Night;
   area: SceneArea;
 
+  /** Called when the window starts to fade out, once its text has ended. */
+  onClosing?: () => void;
+
   /** Called once the window has closed. */
   onClosed: () => void;
 };
@@ -136,6 +139,7 @@ export class StoryWindow implements Overlay {
   #lastRevealedCount = 0;
 
   readonly #onClosed: () => void;
+  readonly #onClosing: (() => void) | undefined;
   readonly #panel: Panel;
 
   /** Takes the taps on the text and on the room under it, under the choice buttons. */
@@ -173,9 +177,10 @@ export class StoryWindow implements Overlay {
   /** The runner's page, wrapped to the width of the text, marks kept. */
   #wrapped = '';
 
-  constructor({scheduler, script, context, area, onClosed}: StoryWindowOptions) {
+  constructor({scheduler, script, context, area, onClosing, onClosed}: StoryWindowOptions) {
     this.#scheduler = scheduler;
     this.#area = area;
+    this.#onClosing = onClosing;
     this.#onClosed = onClosed;
     this.dialogue = new Dialogue({script, context});
     this.#panel = new Panel({
@@ -399,10 +404,11 @@ export class StoryWindow implements Overlay {
     }
   }
 
-  // The runner has ended: the window fades out, then destroy() takes it off
-  // the root and the owner hears of it.
+  // The runner has ended: the owner hears of it, the window fades out, then
+  // destroy() takes it off the root and the owner hears of it again.
   #close(): void {
     this.#state = 'closing';
+    this.#onClosing?.();
     this.#fade(0, () => {
       this.destroy();
       this.#onClosed();

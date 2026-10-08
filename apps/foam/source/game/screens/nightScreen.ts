@@ -43,10 +43,14 @@ import {TravelWindow} from './travelWindow.js';
 
 type NightScreenContents = {
   /**
-   * Dims the scene behind the story windows and the travel window, which draw no scrim. It lies in
-   * the UI root above the scene's members and under the windows.
+   * Dims the scene behind the story windows and the travel window, which draw no scrim, and turns
+   * it black for a change of place. It lies in the UI root above the scene's members and under the
+   * windows.
    */
   backdrop: pixi.Graphics;
+
+  /** The alpha the backdrop shows or fades to. */
+  backdropAlpha: number;
 
   /** Cancels the running fade of the backdrop. */
   cancelBackdropFade: (() => void) | null;
@@ -54,8 +58,11 @@ type NightScreenContents = {
   /** Whether a story window has closed and the screen has not looked at the night since. */
   hasStoryClosed: boolean;
 
-  /** Whether the backdrop is shown or fading in. */
-  isSceneDimmed: boolean;
+  /**
+   * Whether the window that is closing ends where the place changes: a pick on the travel window,
+   * a script that moved the player, or the end of a journey.
+   */
+  isPlaceChanging: boolean;
 
   /**
    * The topmost overlay at the end of the last update. As a rule it took this frame's cancel
@@ -153,33 +160,53 @@ function layOut(screen: NightScreen): void {
 // looked at the night yet. The next window opens in the same frame as the last
 // one leaves, so the backdrop stays up from one window to the next and fades
 // out only after the last one. It fades in with the first window's panel. A
-// hidden screen does nothing: Quit to menu by a key hides the screen inside its
-// frame, after the scheduler was cleared, and a fade started then would outlive
-// the night and light the next night's first description.
+// window that closes on a change of place takes the scene to black with it: the
+// place being left fades out with the window, the next place is built under
+// black, and it fades in with its description, as the journey does with its
+// window.
+function getBackdropAlpha({contents}: NightScreen): number {
+  if (contents.isPlaceChanging) {
+    return 1;
+  }
+
+  let isBusy =
+    contents.storyWindow !== null || contents.travelWindow !== null || contents.hasStoryClosed;
+
+  return isBusy ? game.theme.modal.scrimAlpha : 0;
+}
+
+// A hidden screen does nothing: Quit to menu by a key hides the screen inside
+// its frame, after the scheduler was cleared, and a fade started then would
+// outlive the night and light the next night's first description.
 function fadeBackdrop(screen: NightScreen): void {
   if (screen.state !== 'shown') {
     return;
   }
 
   let {contents} = screen;
-  let isDimmed =
-    contents.storyWindow !== null || contents.travelWindow !== null || contents.hasStoryClosed;
+  let alpha = getBackdropAlpha(screen);
 
-  if (isDimmed === contents.isSceneDimmed) {
+  if (alpha === contents.backdropAlpha) {
     return;
   }
 
-  contents.isSceneDimmed = isDimmed;
+  contents.backdropAlpha = alpha;
   contents.cancelBackdropFade?.();
   contents.cancelBackdropFade = screen.scheduler.tween({
     target: contents.backdrop,
-    to: {alpha: isDimmed ? game.theme.modal.scrimAlpha : 0},
+    to: {alpha},
     duration: UI_FADE_DURATION,
     easing: easeOutQuad,
     onComplete: () => {
       contents.cancelBackdropFade = null;
     },
   });
+}
+
+// The place the night has moved the player to, when it is not the place shown
+// and the night has it.
+function getNextPlace({contents: {night, place}}: NightScreen): Place | undefined {
+  return night.place === place?.id ? undefined : nightStart.places[night.place];
 }
 
 function openStory(screen: NightScreen, script: RunnableDialogueScript<Night>): void {
@@ -192,6 +219,12 @@ function openStory(screen: NightScreen, script: RunnableDialogueScript<Night>): 
     script,
     context: screen.contents.night,
     area: getArea(),
+    // A script that moved the player, or the end of a journey: the scene goes
+    // out with the window (see getBackdropAlpha).
+    onClosing: () => {
+      screen.contents.isPlaceChanging = getNextPlace(screen) !== undefined;
+      fadeBackdrop(screen);
+    },
     onClosed: () => {
       screen.contents.storyWindow = null;
       writeStatus(screen);
@@ -202,6 +235,8 @@ function openStory(screen: NightScreen, script: RunnableDialogueScript<Night>): 
 
   screen.contents.storyWindow = storyWindow;
   screen.ui.addOverlay(storyWindow);
+  // The next place, or the journey, comes in from black with its window.
+  screen.contents.isPlaceChanging = false;
   fadeBackdrop(screen);
 }
 
@@ -320,6 +355,11 @@ function openTravel(
     ways,
     screenWidth: area.width,
     screenHeight: area.top + area.height,
+    // A pick takes the player away: the scene goes out with the window.
+    onClosing: (destination) => {
+      screen.contents.isPlaceChanging = destination !== null;
+      fadeBackdrop(screen);
+    },
     onClosed: (destination) => {
       screen.contents.travelWindow = null;
 
@@ -329,8 +369,8 @@ function openTravel(
       }
 
       // The modal has left the UI, and nothing could open above it while it
-      // faded, so the journey's window is the topmost. When that window has
-      // closed, actOnNight shows the destination.
+      // faded, so the journey's window is the topmost. The place leaves under
+      // black. When that window has closed, actOnNight shows the destination.
       takeJourney(screen.contents.night, destination);
       leavePlace(screen);
       writeStatus(screen);
@@ -357,7 +397,7 @@ function actOnNight(screen: NightScreen): void {
     return;
   }
 
-  let nextPlace = nightStart.places[night.place];
+  let nextPlace = getNextPlace(screen);
 
   if (nextPlace !== undefined) {
     showPlace(screen, nextPlace);
@@ -452,9 +492,10 @@ export const nightScreen = new GameScreen<NightScreenContents>({
 
     return {
       backdrop,
+      backdropAlpha: 0,
       cancelBackdropFade: null,
       hasStoryClosed: false,
-      isSceneDimmed: false,
+      isPlaceChanging: false,
       lastTopOverlay: null,
       menuButton,
       menuModal: null,
@@ -480,8 +521,9 @@ export const nightScreen = new GameScreen<NightScreenContents>({
     // The place appears under its description, so it is dimmed from its first
     // frame. Hiding the screen cleared the scheduler and the fade with it.
     screen.contents.backdrop.alpha = game.theme.modal.scrimAlpha;
+    screen.contents.backdropAlpha = game.theme.modal.scrimAlpha;
     screen.contents.cancelBackdropFade = null;
-    screen.contents.isSceneDimmed = true;
+    screen.contents.isPlaceChanging = false;
 
     let place = nightStart.places[night.place];
 

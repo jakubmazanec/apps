@@ -180,10 +180,12 @@ describe('travel window', {timeout: 180_000}, () => {
   let restore: () => void;
   let TravelWindowClass: typeof TravelWindow;
   let travelWindow: TravelWindow | null = null;
+  let onClosing = vitest.fn<(destination: Destination | null) => void>();
   let onClosed = vitest.fn<(destination: Destination | null) => void>();
 
-  // Opens a window as the night screen does, for the screen's size, with a
-  // fresh onClosed spy. A window a test opened before is destroyed first.
+  // Opens a window as the night screen does, for the screen's size, with fresh
+  // onClosing and onClosed spies. A window a test opened before is destroyed
+  // first.
   function openTravel(
     way: Way,
     {
@@ -195,6 +197,7 @@ describe('travel window', {timeout: 180_000}, () => {
     let {game, nightScreen} = harness;
 
     travelWindow?.modal.destroy();
+    onClosing = vitest.fn<(destination: Destination | null) => void>();
     onClosed = vitest.fn<(destination: Destination | null) => void>();
     travelWindow = new TravelWindowClass({
       ui: nightScreen.ui,
@@ -205,6 +208,7 @@ describe('travel window', {timeout: 180_000}, () => {
       ways,
       screenWidth: game.app.screen.width / game.pixelScale,
       screenHeight: game.app.screen.height / game.pixelScale,
+      onClosing,
       onClosed,
     });
 
@@ -443,6 +447,24 @@ describe('travel window', {timeout: 180_000}, () => {
     });
   });
 
+  test('the destination button reports the destination as the fade starts', async () => {
+    let {ui} = harness.nightScreen;
+    let opened = openTravel('walk');
+    let bar = {place: getFixedPlace(FIXED_BAR), way: 'walk', minutes: 4, price: 0};
+
+    ui.focus(getDestinationButton(opened));
+    ui.activate();
+
+    expect(opened.modal.state).toBe('closing');
+    expect(onClosing).toHaveBeenCalledExactlyOnceWith(bar);
+    expect(onClosed).not.toHaveBeenCalled();
+
+    await waitForClosed();
+
+    expect(onClosing).toHaveBeenCalledExactlyOnceWith(bar);
+    expect(onClosed).toHaveBeenCalledExactlyOnceWith(bar);
+  });
+
   test('Back closes it with nothing picked', async () => {
     let parts = getTravelParts(openTravel('walk'));
 
@@ -513,6 +535,7 @@ describe('travel window', {timeout: 180_000}, () => {
     ui.cancel();
 
     expect(opened.modal.state).toBe('closing');
+    expect(onClosing).toHaveBeenCalledExactlyOnceWith(null);
 
     for (let button of [square, taxiButton, destination]) {
       ui.focus(button);
@@ -525,6 +548,7 @@ describe('travel window', {timeout: 180_000}, () => {
 
     await waitForClosed();
 
+    expect(onClosing).toHaveBeenCalledExactlyOnceWith(null);
     expect(onClosed).toHaveBeenCalledExactlyOnceWith(null);
   });
 
