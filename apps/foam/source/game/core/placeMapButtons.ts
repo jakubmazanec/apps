@@ -4,8 +4,11 @@ export const BUTTON_SIZE = 8;
 /** The least room between two place buttons. */
 export const BUTTON_GAP = 4;
 
+/** How far the light reaches from its centre pixel; the map picture draws it that far. */
+export const LIGHT_REACH = 4;
+
 /** The light's box is one pixel larger than a button so that it keeps a visible rim. */
-const LIGHT_SIZE = 9;
+const LIGHT_SIZE = 2 * LIGHT_REACH + 1;
 const MAX_ROUNDS = 20;
 
 type Box = {x: number; y: number; size: number; isLight: boolean};
@@ -28,7 +31,7 @@ export function placeMapButtons(
   }));
 
   if (you) {
-    boxes.push({x: you.x - 4, y: you.y - 4, size: LIGHT_SIZE, isLight: true});
+    boxes.push({x: you.x - LIGHT_REACH, y: you.y - LIGHT_REACH, size: LIGHT_SIZE, isLight: true});
   }
 
   for (let round = 0; round < MAX_ROUNDS; round++) {
