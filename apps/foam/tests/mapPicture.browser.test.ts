@@ -277,6 +277,29 @@ describe('the map picture', {timeout: 120_000}, () => {
       picture.destroy();
     });
 
+    test('a picture leaves no listener on the shared layers', () => {
+      let {streets, trams} = getMapLayers(fixedMap);
+      let contexts = [...new Set([...streets, ...trams])];
+      let countListeners = (): number[][] =>
+        contexts.map((context) => [
+          context.listenerCount('update'),
+          context.listenerCount('unload'),
+        ]);
+      let before = countListeners();
+
+      picture = new MapPicture({map: fixedMap});
+      draw({});
+      picture.destroy();
+      // The streets' Graphics go when the layer changes, the trams' with the picture.
+      picture = new MapPicture({map: fixedMap});
+      draw({});
+      draw({layer: 'trams'});
+      picture.destroy();
+
+      expect(countListeners()).toEqual(before);
+    });
+
+    // After the test above: the contexts still draw once its pictures have let go of them.
     test('the layers are built once and outlive a picture', () => {
       expect(getMapLayers(fixedMap)).toBe(getMapLayers(fixedMap));
 

@@ -94,9 +94,9 @@ export class MapPicture {
 
   destroy(): void {
     this.view.destroy({children: true});
-    // No options, so that the marks' own context goes with them: they created it. The layers'
-    // Graphics are destroyed without `context: true` below, because their contexts are shared.
+    // No options, so that the marks' own context goes with them: they created it.
     this.#marks.destroy();
+    this.#removeLayer();
     this.#scene.destroy({children: true});
     this.#texture.destroy(true);
   }
@@ -174,15 +174,25 @@ export class MapPicture {
     }
   }
 
+  // Destroys the layer's Graphics. Pixi's Graphics.destroy does not stop a Graphics listening to
+  // its context, so the shared context would keep it for the game's life: a fresh empty context,
+  // never drawn, takes its place first and is collected with it. No options: the shared one stays.
+  #removeLayer(): void {
+    for (let child of this.#layerContainer.removeChildren()) {
+      if (child instanceof pixi.Graphics) {
+        child.context = new pixi.GraphicsContext();
+      }
+
+      child.destroy();
+    }
+  }
+
   #setLayer(layer: MapLayer): void {
     if (layer === this.#layer) {
       return;
     }
 
-    for (let child of this.#layerContainer.removeChildren()) {
-      // Destroyed with no options: the shared context stays.
-      child.destroy();
-    }
+    this.#removeLayer();
 
     for (let context of getMapLayers(this.#map)[layer]) {
       this.#layerContainer.addChild(new pixi.Graphics(context));
