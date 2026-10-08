@@ -474,15 +474,22 @@ export async function waitForChoices(storyWindow: StoryWindow): Promise<void> {
   );
 }
 
-// The travel window's modal holds one Panel. Its children are, in this order:
-// the title block, a Container whose first child is the title Text; the row, a
-// Container of one Button per way; the list, a Container of one Button per
-// destination, each holding the name's Text and then the numbers' Text; and
-// the Back Button.
+// The travel window's modal holds one Panel. Its children are the title block,
+// a Container whose first child is the title Text, and the body. A stacked body
+// is a column of the row, the map area, the destination slot and Back; a
+// side-by-side body is a row of the map area and a column of the row, the slot
+// and Back. The row is a Container of one Button per way. The map area's view
+// holds the map picture's view first, then one Button per place, labelled with
+// the place's id. The slot holds the destination Button, with the name's Text
+// and then the numbers' Text, or nothing.
 export function getTravelParts(travelWindow: TravelWindow): {
   back: Button;
-  destinations: Button[];
+  destination: Button | null;
+  map: pixi.Container;
+  mapArea: Container;
   panel: Panel;
+  places: Map<string, Button>;
+  slot: Container;
   title: Text;
   ways: Button[];
 } {
@@ -492,25 +499,67 @@ export function getTravelParts(travelWindow: TravelWindow): {
     throw new TypeError('The travel window has no panel!');
   }
 
-  let [titleBlock, row, list, back] = panel.children;
+  let [titleBlock, body] = panel.children;
   let title = titleBlock instanceof Container ? titleBlock.children[0] : undefined;
 
+  if (!(title instanceof Text) || !(body instanceof Container)) {
+    throw new TypeError('The travel window has no title or no body!');
+  }
+
+  let [first, second, third, fourth] = body.children;
+  let [row, mapArea, slot, back] =
+    second instanceof Container && third === undefined ?
+      [second.children[0], first, second.children[1], second.children[2]]
+    : [first, second, third, fourth];
+  let map = mapArea instanceof Container ? mapArea.view.children[0] : undefined;
+
   if (
-    !(title instanceof Text) ||
     !(row instanceof Container) ||
-    !(list instanceof Container) ||
+    !(mapArea instanceof Container) ||
+    map === undefined ||
+    !(slot instanceof Container) ||
     !(back instanceof Button)
   ) {
-    throw new TypeError('The travel window has no title, row, list or Back button!');
+    throw new TypeError('The travel window has no row, map area, slot or Back button!');
   }
+
+  let [destination] = slot.children;
 
   return {
     back,
-    destinations: list.children.filter((child) => child instanceof Button),
+    destination: destination instanceof Button ? destination : null,
+    map,
+    mapArea,
     panel,
+    places: new Map(
+      mapArea.children
+        .filter((child) => child instanceof Button)
+        .map((button) => [button.view.label, button]),
+    ),
+    slot,
     title,
     ways: row.children.filter((child) => child instanceof Button),
   };
+}
+
+/** A texture's pixels as the renderer reads them: four bytes a pixel, row by row. */
+export type Pixels = {pixels: Uint8ClampedArray; width: number; height: number};
+
+export function readPixels(harness: Harness, texture: pixi.Texture): Pixels {
+  return harness.game.app.renderer.extract.pixels({target: texture});
+}
+
+// The colour of a pixel as 0xRRGGBB, or -1 for a pixel that is not opaque.
+export function getColor({pixels, width}: Pixels, x: number, y: number): number {
+  let index = (y * width + x) * 4;
+
+  if (pixels[index + 3] !== 255) {
+    return -1;
+  }
+
+  return (
+    (pixels[index] ?? 0) * 0x10000 + (pixels[index + 1] ?? 0) * 0x100 + (pixels[index + 2] ?? 0)
+  );
 }
 
 // The menu is a Modal holding one Panel: the title, then the buttons Resume,

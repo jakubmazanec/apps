@@ -130,7 +130,7 @@ function layOut(screen: NightScreen): void {
 
   picture?.resize(area.width, area.top + area.height);
   storyWindow?.resize(area);
-  travelWindow?.resize(area.width);
+  travelWindow?.resize(area.width, area.top + area.height);
 }
 
 function openStory(screen: NightScreen, script: RunnableDialogueScript<Night>): void {
@@ -253,6 +253,8 @@ function openTravel(
   from: PlaceId,
   {way, ways}: NonNullable<Night['leaving']>,
 ): void {
+  let area = getArea();
+
   screen.contents.travelWindow = new TravelWindow({
     ui: screen.ui,
     scheduler: screen.scheduler,
@@ -260,7 +262,8 @@ function openTravel(
     from,
     way,
     ways,
-    screenWidth: getArea().width,
+    screenWidth: area.width,
+    screenHeight: area.top + area.height,
     onClosed: (destination) => {
       screen.contents.travelWindow = null;
 

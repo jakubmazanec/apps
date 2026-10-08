@@ -131,18 +131,26 @@ describe('night screen places', {timeout: 180_000}, () => {
     );
   }
 
-  // Picks a destination of the travel window by its name, the first label of
-  // its button.
-  async function pickDestination(travelWindow: TravelWindow, name: string): Promise<void> {
-    let button = getTravelParts(travelWindow).destinations.find(
-      (destination) => getButtonLabel(destination) === name,
-    );
+  // Picks a destination of the travel window: presses the place's button on
+  // the map, which selects it, and then the destination button.
+  async function pickDestination(travelWindow: TravelWindow, place: PlaceId): Promise<void> {
+    let {ui} = harness.nightScreen;
+    let button = getTravelParts(travelWindow).places.get(place);
 
     if (button === undefined) {
-      throw new Error(`The travel window has no "${name}" destination!`);
+      throw new Error(`The travel window's map has no "${place}" button!`);
     }
 
-    harness.nightScreen.ui.focus(button);
+    ui.focus(button);
+    await press('Enter');
+
+    let {destination} = getTravelParts(travelWindow);
+
+    if (destination === null) {
+      throw new Error('The travel window has no destination button!');
+    }
+
+    ui.focus(destination);
     await press('Enter');
   }
 
@@ -153,7 +161,7 @@ describe('night screen places', {timeout: 180_000}, () => {
 
   // Leaves the square by a way out's choice and a destination, and returns the
   // journey's window.
-  async function startJourney(choice: string, destination: string): Promise<StoryWindow> {
+  async function startJourney(choice: string, destination: PlaceId): Promise<StoryWindow> {
     await chooseWayOut(choice);
     await pickDestination(await waitForTravelWindow(), destination);
 
@@ -385,7 +393,7 @@ describe('night screen places', {timeout: 180_000}, () => {
 
     let oldButtons = [getPlaceButton(harness), ...contents.spotButtons];
     // A taxi to the bar: 6 minutes and 120 Kč.
-    let storyWindow = await startJourney('Take a taxi', 'The bar');
+    let storyWindow = await startJourney('Take a taxi', FIXED_BAR);
 
     expect(readText(contents.statusText)).toBe('19:46   230 Kč   Sober');
     expect(contents.night.place).toBe(FIXED_BAR);
@@ -421,7 +429,7 @@ describe('night screen places', {timeout: 180_000}, () => {
     await restartAt(harness, FIXED_SQUARE);
     await closeStory();
 
-    let storyWindow = await startJourney('Walk', 'The bar');
+    let storyWindow = await startJourney('Walk', FIXED_BAR);
 
     try {
       await setViewport(harness, 292, 524);
@@ -454,11 +462,17 @@ describe('night screen places', {timeout: 180_000}, () => {
     await chooseWayOut('Walk');
 
     let travelWindow = await waitForTravelWindow();
-    let getPanelWidth = () => getBox(harness, getTravelParts(travelWindow).panel).width;
+    // The window takes the screen less a margin of 4 all round: side by side on 480 × 270, stacked
+    // and at most 300 wide on 146 × 262. Its height shows the screen's height reached it.
+    let getPanelSize = () => {
+      let {width, height} = getBox(harness, getTravelParts(travelWindow).panel);
+
+      return {width, height};
+    };
 
     await vitest.waitFor(
       () => {
-        expect(getPanelWidth()).toBe(300);
+        expect(getPanelSize()).toEqual({width: 472, height: 262});
       },
       {timeout: 10_000},
     );
@@ -467,7 +481,7 @@ describe('night screen places', {timeout: 180_000}, () => {
       await setViewport(harness, 292, 524);
       await vitest.waitFor(
         () => {
-          expect(getPanelWidth()).toBe(138);
+          expect(getPanelSize()).toEqual({width: 138, height: 254});
         },
         {timeout: 10_000},
       );
@@ -501,7 +515,7 @@ describe('night screen places', {timeout: 180_000}, () => {
 
     let travelWindow = await waitForTravelWindow();
 
-    await pickDestination(travelWindow, 'The bar');
+    await pickDestination(travelWindow, FIXED_BAR);
     await waitForStoryWindow();
     // The journey's window declares no close, so Escape opens the menu.
     await press('Escape');
@@ -579,7 +593,7 @@ describe('night screen places', {timeout: 180_000}, () => {
       await restartAt(harness, FIXED_SQUARE);
       await closeStory();
 
-      let storyWindow = await startJourney('Walk', 'The bar');
+      let storyWindow = await startJourney('Walk', FIXED_BAR);
 
       nightScreen.contents.night.place = 'nowhere' as PlaceId;
       await endStory(storyWindow);

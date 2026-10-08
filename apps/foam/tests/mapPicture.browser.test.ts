@@ -12,7 +12,7 @@ import {
   type MapPicture as MapPictureClass,
 } from '../source/game/screens/mapPicture.js';
 import {FIXED_ORIGIN, fixedMap, fixedPlaceData} from './fixedWorld.js';
-import {bootGame, type Harness} from './nightScreenHelpers.js';
+import {bootGame, getColor, type Harness, type Pixels, readPixels} from './nightScreenHelpers.js';
 
 // Headless Chromium draws the bar in software, which slows every frame, and these tests
 // check the map's pixels, not the picture, so the main menu gets the pipeline's proof.
@@ -22,28 +22,9 @@ vitest.mock(import('../source/game/content/pictures/barPicture.js'), async () =>
   return {barPicture: PROOF_PICTURE as typeof barPictureValue};
 });
 
-type Pixels = {pixels: Uint8ClampedArray; width: number; height: number};
-
 const BLACK = palette.black;
 const GROUND = palette.ground;
 const WHITE = palette.white;
-
-function readPixels(harness: Harness, texture: pixi.Texture): Pixels {
-  return harness.game.app.renderer.extract.pixels({target: texture});
-}
-
-// The colour of a pixel as 0xRRGGBB, or -1 for a pixel that is not opaque.
-function getColor({pixels, width}: Pixels, x: number, y: number): number {
-  let index = (y * width + x) * 4;
-
-  if (pixels[index + 3] !== 255) {
-    return -1;
-  }
-
-  return (
-    (pixels[index] ?? 0) * 0x10000 + (pixels[index + 1] ?? 0) * 0x100 + (pixels[index + 2] ?? 0)
-  );
-}
 
 // The rows from `from` to `to` of column `x` that hold `color`.
 function countInColumn(

@@ -1,14 +1,21 @@
+import * as pixi from 'pixi.js';
 import {type Button, Text} from 'tellurion';
 import {afterAll, afterEach, beforeAll, describe, expect, test, vitest} from 'vitest';
 
+import map from '../source/game/content/data/map.json';
+import placeData from '../source/game/content/data/places.json';
 import travel from '../source/game/content/data/travel.json';
 import {nightStart} from '../source/game/content/nightStart.js';
 import {type barPicture as barPictureValue} from '../source/game/content/pictures/barPicture.js';
 import {places} from '../source/game/content/places.js';
+import {fitMapFrame, MAP_INSET, toMapPixel} from '../source/game/core/fitMapFrame.js';
+import {getMapPoint} from '../source/game/core/getMapPoint.js';
+import {getMapSize, getTravelLayout} from '../source/game/core/getTravelLayout.js';
 import {type PlaceId, type Way} from '../source/game/core/night.js';
-import {type Destination, getDestinations, type NightStart} from '../source/game/core/travel.js';
+import {palette} from '../source/game/core/palette.js';
+import {type Destination, type NightStart, type PlaceData} from '../source/game/core/travel.js';
 import {type TravelWindow} from '../source/game/screens/travelWindow.js';
-import {FIXED_BAR, FIXED_STOP, getFixedPlace} from './fixedWorld.js';
+import {FIXED_BAR, FIXED_SQUARE, FIXED_STOP, fixedPlaceData, getFixedPlace} from './fixedWorld.js';
 import {
   bootGame,
   type Box,
@@ -16,12 +23,15 @@ import {
   doBoxesOverlap,
   getBox,
   getButtonLabel,
+  getColor,
   getStoryWindow,
   getTravelParts,
   type Harness,
   nextFrame,
+  type Pixels,
   press,
   pressThrough,
+  readPixels,
   readText,
   setViewport,
   startNewGame,
@@ -42,6 +52,12 @@ vitest.mock(import('../source/game/content/pictures/barPicture.js'), async () =>
 });
 
 const ALL_WAYS: readonly Way[] = ['walk', 'tram', 'taxi'];
+// The window on 960 × 540 CSS pixels, 480 × 270 art pixels: the screen less a margin of 4 all
+// round, side by side.
+const WIDE_WINDOW = {width: 472, height: 262};
+// From the stop, the square's name wraps to two lines on every screen of these tests, with the
+// numbers on a third: 3 lines of 12 and the button's padding of 2 above and below.
+const DESTINATION_HEIGHT = 40;
 
 // A destination's button holds the name's Text and then the numbers' Text.
 function getDestinationTexts(button: Button): {name: Text; numbers: Text} {
@@ -54,25 +70,98 @@ function getDestinationTexts(button: Button): {name: Text; numbers: Text} {
   return {name, numbers};
 }
 
-// The list as it reads: the name and the numbers of each destination.
-function readDestinations(travelWindow: TravelWindow): Array<[string, string]> {
-  return getTravelParts(travelWindow).destinations.map((button) => {
-    let {name, numbers} = getDestinationTexts(button);
+// The destination button as it reads: the name and the numbers, or null without one.
+function readDestination(travelWindow: TravelWindow): [string, string] | null {
+  let {destination} = getTravelParts(travelWindow);
 
-    return [readText(name), readText(numbers)];
-  });
+  if (destination === null) {
+    return null;
+  }
+
+  let {name, numbers} = getDestinationTexts(destination);
+
+  return [readText(name), readText(numbers)];
 }
 
-function expectInsideNarrowScreen(box: Box): void {
-  expect(box.left).toBeGreaterThanOrEqual(0);
-  expect(box.top).toBeGreaterThanOrEqual(0);
-  expect(box.left + box.width).toBeLessThanOrEqual(146);
-  expect(box.top + box.height).toBeLessThanOrEqual(262);
+function getPlaceButton(travelWindow: TravelWindow, place: PlaceId): Button {
+  let button = getTravelParts(travelWindow).places.get(place);
+
+  if (button === undefined) {
+    throw new Error(`The map has no button for "${place}"!`);
+  }
+
+  return button;
+}
+
+function getWayButton(travelWindow: TravelWindow, way: Way): Button {
+  let button = getTravelParts(travelWindow).ways[ALL_WAYS.indexOf(way)];
+
+  if (button === undefined) {
+    throw new Error(`The row has no button for "${way}"!`);
+  }
+
+  return button;
+}
+
+function getDestinationButton(travelWindow: TravelWindow): Button {
+  let {destination} = getTravelParts(travelWindow);
+
+  if (destination === null) {
+    throw new Error('The window has no destination button!');
+  }
+
+  return destination;
+}
+
+function countColor(pixels: Pixels, color: number): number {
+  let count = 0;
+
+  for (let y = 0; y < pixels.height; y += 1) {
+    for (let x = 0; x < pixels.width; x += 1) {
+      if (getColor(pixels, x, y) === color) {
+        count += 1;
+      }
+    }
+  }
+
+  return count;
+}
+
+// The pixels within `reach` of a pixel, on both axes, that hold `color`.
+function countColorNear(
+  pixels: Pixels,
+  centre: {x: number; y: number},
+  {reach, color}: {reach: number; color: number},
+): number {
+  let count = 0;
+
+  for (let y = centre.y - reach; y <= centre.y + reach; y += 1) {
+    for (let x = centre.x - reach; x <= centre.x + reach; x += 1) {
+      if (getColor(pixels, x, y) === color) {
+        count += 1;
+      }
+    }
+  }
+
+  return count;
+}
+
+function getCorner({left, top}: Box): {left: number; top: number} {
+  return {left, top};
+}
+
+function expectInside(inner: Box, outer: Box): void {
+  expect(inner.left).toBeGreaterThanOrEqual(outer.left);
+  expect(inner.top).toBeGreaterThanOrEqual(outer.top);
+  expect(inner.left + inner.width).toBeLessThanOrEqual(outer.left + outer.width);
+  expect(inner.top + inner.height).toBeLessThanOrEqual(outer.top + outer.height);
 }
 
 // 960 × 540 CSS pixels are 480 × 270 art pixels; 292 × 524 are 146 × 262, the
 // narrowest screen. The window opens over the fixed world's stop, whose
-// description is closed first, as the night screen opens it over a place. The
+// description is closed first, as the night screen opens it over a place. From
+// the stop, walking reaches the bar (4 min) and the square (7 min), a taxi
+// both (5 min, 90 Kč each, the bar first by name), and the tram nothing. The
 // frames of a headless browser are slow, and a real tap takes many frames, so
 // the tests get a long timeout.
 describe('travel window', {timeout: 180_000}, () => {
@@ -82,7 +171,7 @@ describe('travel window', {timeout: 180_000}, () => {
   let travelWindow: TravelWindow | null = null;
   let onClosed = vitest.fn<(destination: Destination | null) => void>();
 
-  // Opens a window as the night screen will, for the screen's width, with a
+  // Opens a window as the night screen does, for the screen's size, with a
   // fresh onClosed spy. A window a test opened before is destroyed first.
   function openTravel(
     way: Way,
@@ -104,6 +193,7 @@ describe('travel window', {timeout: 180_000}, () => {
       way,
       ways,
       screenWidth: game.app.screen.width / game.pixelScale,
+      screenHeight: game.app.screen.height / game.pixelScale,
       onClosed,
     });
 
@@ -123,24 +213,60 @@ describe('travel window', {timeout: 180_000}, () => {
   }
 
   // The layout settles in the frames after the window is built.
-  async function waitForPanelWidth(openWindow: TravelWindow, width: number): Promise<void> {
+  async function waitForPanel(
+    openWindow: TravelWindow,
+    size: {width: number; height: number},
+  ): Promise<void> {
     await vitest.waitFor(
       () => {
-        expect(getBox(harness, getTravelParts(openWindow).panel).width).toBe(width);
+        let {width, height} = getBox(harness, getTravelParts(openWindow).panel);
+
+        expect({width, height}).toEqual(size);
       },
       {timeout: 10_000},
     );
   }
 
-  function expectNumbersUnderNames(openWindow: TravelWindow): void {
-    for (let button of getTravelParts(openWindow).destinations) {
-      let {name, numbers} = getDestinationTexts(button);
-      let nameBox = getBox(harness, name);
-      let numbersBox = getBox(harness, numbers);
+  // Names the control of the window that has the focus, so that a failed check
+  // prints a name and not a whole Button.
+  function describeTravelFocus(openWindow: TravelWindow): string {
+    let {focused} = harness.nightScreen.ui;
+    let {destination, places: placeButtons} = getTravelParts(openWindow);
+    let place = [...placeButtons].find(([, button]) => button === focused)?.[0];
 
-      expect(numbersBox.top).toBeGreaterThanOrEqual(nameBox.top + nameBox.height);
-      expect(numbersBox.left).toBe(nameBox.left);
+    if (place !== undefined) {
+      return `place ${place}`;
     }
+
+    return focused !== null && focused === destination ? 'destination' : describeFocus(focused);
+  }
+
+  // The texture the map's sprite shows, read back.
+  function readMap(openWindow: TravelWindow): Pixels {
+    let [sprite] = getTravelParts(openWindow).map.children;
+
+    if (!(sprite instanceof pixi.Sprite)) {
+      throw new TypeError('The map has no sprite!');
+    }
+
+    return readPixels(harness, sprite.texture);
+  }
+
+  // The light's pixel on a map of the map area's size: the frame fits every
+  // position of the start, as the window fits it.
+  function getLight(openWindow: TravelWindow, start: NightStart, from: PlaceId) {
+    let {width, height} = getBox(harness, getTravelParts(openWindow).mapArea);
+    let {origin} = start.map;
+    let points = Object.values(start.placeData).flatMap(({position}) =>
+      position === undefined ? [] : [getMapPoint(position, origin)],
+    );
+    let position = start.placeData[from]?.position;
+
+    if (position === undefined) {
+      throw new Error(`"${from}" has no position!`);
+    }
+
+    return toMapPixel(fitMapFrame(points, width, height, MAP_INSET), getMapPoint(position, origin));
   }
 
   beforeAll(async () => {
@@ -165,98 +291,119 @@ describe('travel window', {timeout: 180_000}, () => {
     localStorage.clear();
   });
 
-  test('the title, the row and the list of each way', async () => {
-    let walkWindow = openTravel('walk');
-    let walk = getTravelParts(walkWindow);
-
-    expect(readText(walk.title)).toBe('On foot');
-    expect(walk.ways.map((button) => getButtonLabel(button))).toEqual(['Walk', 'Tram', 'Taxi']);
-    expect(readDestinations(walkWindow)).toEqual([
-      ['The bar', '4 min'],
-      ['The square by the old market', '7 min'],
-    ]);
-
-    // On a wide screen the numbers stand level with the name, at the right
-    // end of the button's label.
-    await waitForPanelWidth(walkWindow, 300);
-
-    for (let button of walk.destinations) {
-      let buttonBox = getBox(harness, button);
-      let {name, numbers} = getDestinationTexts(button);
-      let numbersBox = getBox(harness, numbers);
-
-      expect(numbersBox.top).toBe(getBox(harness, name).top);
-      expect(numbersBox.left + numbersBox.width).toBe(buttonBox.left + buttonBox.width - 6);
-    }
-
-    let taxiWindow = openTravel('taxi');
-
-    expect(readText(getTravelParts(taxiWindow).title)).toBe('By taxi');
-    // Both are five minutes away, so they stand by name.
-    expect(readDestinations(taxiWindow)).toEqual([
-      ['The bar', '5 min  90 Kč'],
-      ['The square by the old market', '5 min  90 Kč'],
-    ]);
-
-    let tram = getTravelParts(openTravel('tram'));
-
-    expect(readText(tram.title)).toBe('By tram');
-    expect(tram.destinations).toHaveLength(0);
-  });
-
-  test('the first destination has the focus and the ring', () => {
-    let {ui} = harness.nightScreen;
-    let walk = getTravelParts(openTravel('walk'));
-
-    expect(describeFocus(ui.focused)).toBe('The bar');
-    expect(ui.focused).toBe(walk.destinations[0]);
-    expect(ui.isRingVisible).toBe(true);
-
-    let tram = getTravelParts(openTravel('tram'));
-
-    expect(describeFocus(ui.focused)).toBe('Back');
-    expect(ui.focused).toBe(tram.back);
-    expect(ui.isRingVisible).toBe(true);
-  });
-
-  test("a way's button switches the title and the list and keeps the focus", async () => {
+  test('it opens with the nearest destination selected and the focus on the destination button', async () => {
     let {ui} = harness.nightScreen;
     let opened = openTravel('walk');
-    let before = getTravelParts(opened);
-    let [walkButton, tramButton] = before.ways;
+    let parts = getTravelParts(opened);
 
-    if (walkButton === undefined || tramButton === undefined) {
-      throw new Error('The row has no Walk or no Tram button!');
+    expect(readText(parts.title)).toBe('On foot');
+    expect(parts.ways.map((button) => getButtonLabel(button))).toEqual(['Walk', 'Tram', 'Taxi']);
+    expect(readDestination(opened)).toEqual(['The bar', '4 min']);
+    expect(describeFocus(ui.focused)).toBe('The bar');
+    expect(ui.focused).toBe(parts.destination);
+    expect(ui.isRingVisible).toBe(true);
+    // Every place with a position but the stop, in the order of the place data.
+    expect([...parts.places.keys()]).toEqual([FIXED_BAR, FIXED_SQUARE]);
+
+    await waitForPanel(opened, WIDE_WINDOW);
+
+    let mapArea = getBox(harness, parts.mapArea);
+
+    for (let button of parts.places.values()) {
+      let box = getBox(harness, button);
+
+      expect([box.width, box.height]).toEqual([8, 8]);
+
+      expectInside(box, mapArea);
+    }
+  });
+
+  test("a place's button selects its place and keeps the focus", () => {
+    let {ui} = harness.nightScreen;
+    let opened = openTravel('walk');
+    let square = getPlaceButton(opened, FIXED_SQUARE);
+    let destination = getDestinationButton(opened);
+    let expectSquare = (): void => {
+      // The side column is 120 wide: the name wraps in the 108 inside the button's padding.
+      expect(readDestination(opened)).toEqual(['The square by the\nold market', '7 min']);
+      expect(ui.focused).toBe(square);
+      // The button stays; only its texts change.
+      expect(getTravelParts(opened).destination).toBe(destination);
+    };
+
+    ui.focus(square);
+    ui.activate();
+    expectSquare();
+    // The selected place again changes nothing.
+    ui.activate();
+    expectSquare();
+  });
+
+  test('a disabled place takes no press and no focus', () => {
+    let {ui} = harness.nightScreen;
+    let opened = openTravel('walk');
+
+    ui.focus(getWayButton(opened, 'tram'));
+    ui.activate();
+
+    let {places: placeButtons} = getTravelParts(opened);
+
+    expect(placeButtons.size).toBe(2);
+
+    for (let button of placeButtons.values()) {
+      expect(button.isDisabled).toBe(true);
+      expect(button.isFocusable).toBe(false);
+
+      button.activate();
     }
 
-    await waitForPanelWidth(opened, 300);
+    expect(opened.way).toBe('tram');
+    expect(getTravelParts(opened).destination).toBeNull();
+  });
+
+  test("a way's button changes the title, the layer, the places and the selection, and moves nothing", async () => {
+    let {ui} = harness.nightScreen;
+    let opened = openTravel('walk');
+
+    await waitForPanel(opened, WIDE_WINDOW);
 
     let getBoxes = (): Box[] => {
-      let {back, panel, ways} = getTravelParts(opened);
+      let {back, mapArea, panel, slot, ways} = getTravelParts(opened);
 
-      return [panel, ...ways, back].map((part) => getBox(harness, part));
+      return [panel, ...ways, mapArea, slot, back].map((part) => getBox(harness, part));
     };
     let boxesBefore = getBoxes();
 
-    // The current way changes nothing: the list is not built again.
-    ui.focus(walkButton);
+    ui.focus(getPlaceButton(opened, FIXED_SQUARE));
     await press('Enter');
 
-    let unchanged = getTravelParts(opened).destinations;
+    expect(readDestination(opened)?.[0]).toBe('The square by the\nold market');
+    expect(countColor(readMap(opened), palette.magenta)).toBe(0);
 
-    expect(unchanged).toHaveLength(2);
+    let taxiButton = getWayButton(opened, 'taxi');
 
-    for (let [index, button] of unchanged.entries()) {
-      expect(button).toBe(before.destinations[index]);
+    ui.focus(taxiButton);
+    await press('Enter');
+
+    expect(opened.way).toBe('taxi');
+    expect(readText(getTravelParts(opened).title)).toBe('By taxi');
+    // The selection is the way's nearest destination, not the square.
+    expect(readDestination(opened)).toEqual(['The bar', '5 min  90 Kč']);
+    expect(describeFocus(ui.focused)).toBe('Taxi');
+    expect(ui.focused).toBe(taxiButton);
+
+    for (let button of getTravelParts(opened).places.values()) {
+      expect(button.isDisabled).toBe(false);
     }
 
-    let expectTram = (): void => {
-      let after = getTravelParts(opened);
+    expect(getBoxes()).toEqual(boxesBefore);
+    expect(countColor(readMap(opened), palette.magenta)).toBe(0);
 
+    let tramButton = getWayButton(opened, 'tram');
+    let expectTram = (): void => {
       expect(opened.way).toBe('tram');
-      expect(readText(after.title)).toBe('By tram');
-      expect(after.destinations).toHaveLength(0);
-      expect(describeFocus(ui.focused)).toBe('Tram');
+      expect(readText(getTravelParts(opened).title)).toBe('By tram');
+      expect(readDestination(opened)).toBeNull();
       expect(ui.focused).toBe(tramButton);
       expect(getBoxes()).toEqual(boxesBefore);
     };
@@ -264,17 +411,25 @@ describe('travel window', {timeout: 180_000}, () => {
     ui.focus(tramButton);
     await press('Enter');
     expectTram();
+
+    expect(countColor(readMap(opened), palette.magenta)).toBeGreaterThan(0);
+
     // Pressing the current way again changes nothing.
     await press('Enter');
     expectTram();
+  });
 
-    // The window is as high as the longest list of all the ways needs, also
-    // when it opens on a way with no destination.
-    let openedOnTram = openTravel('tram');
+  test('the destination button closes the window and reports the destination', async () => {
+    openTravel('walk');
+    await press('Enter');
+    await waitForClosed();
 
-    await waitForPanelWidth(openedOnTram, 300);
-
-    expect(getBox(harness, getTravelParts(openedOnTram).panel)).toEqual(boxesBefore[0]);
+    expect(onClosed).toHaveBeenCalledExactlyOnceWith({
+      place: getFixedPlace(FIXED_BAR),
+      way: 'walk',
+      minutes: 4,
+      price: 0,
+    });
   });
 
   test('Back closes it with nothing picked', async () => {
@@ -300,29 +455,47 @@ describe('travel window', {timeout: 180_000}, () => {
     expect(harness.nightScreen.contents.menuModal).toBeNull();
   });
 
-  test('a pick closes it and reports the destination', async () => {
-    openTravel('walk');
-    await press('Enter');
-    await waitForClosed();
+  test('a way with no destination opens with the focus on Back', async () => {
+    let {ui} = harness.nightScreen;
+    // On foot, the dotted line runs from the light to the bar: some of its pixels lie within 8
+    // of the light's centre, beyond the light's outer ring.
+    let walk = openTravel('walk');
 
-    expect(onClosed).toHaveBeenCalledExactlyOnceWith({
-      place: getFixedPlace(FIXED_BAR),
-      way: 'walk',
-      minutes: 4,
-      price: 0,
-    });
+    await waitForPanel(walk, WIDE_WINDOW);
+
+    let walkLight = getLight(walk, nightStart, FIXED_STOP);
+    let walkPixels = readMap(walk);
+
+    expect(getColor(walkPixels, walkLight.x, walkLight.y)).toBe(palette.white);
+    expect(countColorNear(walkPixels, walkLight, {reach: 8, color: palette.dim})).toBeGreaterThan(
+      0,
+    );
+
+    let tram = openTravel('tram');
+    let parts = getTravelParts(tram);
+
+    expect(describeFocus(ui.focused)).toBe('Back');
+    expect(ui.focused).toBe(parts.back);
+    expect(ui.isRingVisible).toBe(true);
+    expect(parts.destination).toBeNull();
+
+    await waitForPanel(tram, WIDE_WINDOW);
+
+    // No dotted line: the railway, the only other line in `dim`, lies about 40 pixels away.
+    let light = getLight(tram, nightStart, FIXED_STOP);
+    let pixels = readMap(tram);
+
+    expect(getColor(pixels, light.x, light.y)).toBe(palette.white);
+    expect(countColorNear(pixels, light, {reach: 8, color: palette.dim})).toBe(0);
   });
 
   test('a press while it fades does nothing', async () => {
     let {ui} = harness.nightScreen;
     let opened = openTravel('walk');
-    let {destinations, title, ways} = getTravelParts(opened);
-    let [destination] = destinations;
-    let taxiButton = ways[2];
-
-    if (destination === undefined || taxiButton === undefined) {
-      throw new Error('The window has no destination or no Taxi button!');
-    }
+    let {title} = getTravelParts(opened);
+    let square = getPlaceButton(opened, FIXED_SQUARE);
+    let taxiButton = getWayButton(opened, 'taxi');
+    let destination = getDestinationButton(opened);
 
     // Escape and then the presses, without a frame between them: on a slow
     // machine the whole fade can pass between two key presses.
@@ -330,47 +503,42 @@ describe('travel window', {timeout: 180_000}, () => {
 
     expect(opened.modal.state).toBe('closing');
 
-    ui.focus(destination);
-    ui.activate();
-    ui.focus(taxiButton);
-    ui.activate();
+    for (let button of [square, taxiButton, destination]) {
+      ui.focus(button);
+      ui.activate();
+    }
 
     expect(readText(title)).toBe('On foot');
     expect(opened.way).toBe('walk');
+    expect(readDestination(opened)).toEqual(['The bar', '4 min']);
 
     await waitForClosed();
 
     expect(onClosed).toHaveBeenCalledExactlyOnceWith(null);
   });
 
-  test('real taps switch the way, pick and go back', async () => {
+  test('real taps select a place, switch the way and travel', async () => {
     let opened = openTravel('walk');
 
-    await waitForPanelWidth(opened, 300);
+    await waitForPanel(opened, WIDE_WINDOW);
+    await tap(harness, getBox(harness, getPlaceButton(opened, FIXED_SQUARE)));
 
-    let taxiButton = getTravelParts(opened).ways[2];
+    expect(readDestination(opened)?.[0]).toBe('The square by the\nold market');
 
-    if (taxiButton === undefined) {
-      throw new Error('The row has no Taxi button!');
-    }
-
-    await tap(harness, getBox(harness, taxiButton));
+    await tap(harness, getBox(harness, getWayButton(opened, 'taxi')));
 
     expect(opened.way).toBe('taxi');
+    expect(readDestination(opened)?.[0]).toBe('The bar');
 
-    await nextFrame();
+    await tap(harness, getBox(harness, getPlaceButton(opened, FIXED_SQUARE)));
 
-    let [firstDestination] = getTravelParts(opened).destinations;
+    expect(readDestination(opened)?.[0]).toBe('The square by the\nold market');
 
-    if (firstDestination === undefined) {
-      throw new Error('The taxi list is empty!');
-    }
-
-    await tap(harness, getBox(harness, firstDestination));
+    await tap(harness, getBox(harness, getDestinationButton(opened)));
     await waitForClosed();
 
     expect(onClosed).toHaveBeenCalledExactlyOnceWith({
-      place: getFixedPlace(FIXED_BAR),
+      place: getFixedPlace(FIXED_SQUARE),
       way: 'taxi',
       minutes: 5,
       price: 90,
@@ -378,120 +546,252 @@ describe('travel window', {timeout: 180_000}, () => {
 
     let second = openTravel('walk');
 
-    await waitForPanelWidth(second, 300);
+    await waitForPanel(second, WIDE_WINDOW);
     await tap(harness, getBox(harness, getTravelParts(second).back));
     await waitForClosed();
 
     expect(onClosed).toHaveBeenCalledExactlyOnceWith(null);
   });
 
-  test('on a 146 × 262 screen the row fits, the numbers stand under the name, and the window fits', async () => {
+  test('each screen gets its layout', async () => {
+    let opened = openTravel('walk');
+    let screens = [
+      {cssWidth: 390, cssHeight: 700, kind: 'stacked'},
+      {cssWidth: 292, cssHeight: 524, kind: 'stacked'},
+      {cssWidth: 960, cssHeight: 540, kind: 'sideBySide'},
+      {cssWidth: 700, cssHeight: 390, kind: 'sideBySide'},
+    ] as const;
+
     try {
-      await setViewport(harness, 292, 524);
+      for (let {cssWidth, cssHeight, kind} of screens) {
+        let width = cssWidth / 2;
+        let height = cssHeight / 2;
+        let layout = getTravelLayout(width, height);
+
+        await setViewport(harness, cssWidth, cssHeight);
+        opened.resize(width, height);
+        await waitForPanel(opened, layout.window);
+
+        let parts = getTravelParts(opened);
+        let panel = getBox(harness, parts.panel);
+        let mapArea = getBox(harness, parts.mapArea);
+        let row = getBox(harness, getWayButton(opened, 'walk'));
+        let slot = getBox(harness, parts.slot);
+        let back = getBox(harness, parts.back);
+        let mapRight = mapArea.left + mapArea.width;
+        let mapBottom = mapArea.top + mapArea.height;
+        let bodies = {
+          // A column: the row, the map, the destination and Back, 8 apart.
+          stacked: {
+            row: {left: mapArea.left, top: mapArea.top - 8 - 16},
+            slot: {left: mapArea.left, top: mapBottom + 8},
+            back: {left: mapArea.left, top: mapBottom + 8 + DESTINATION_HEIGHT + 8},
+          },
+          // A row: the map, and 8 to its right the column of the row, the
+          // destination 8 under it, and Back at the bottom, level with the map's.
+          sideBySide: {
+            row: {left: mapRight + 8, top: mapArea.top},
+            slot: {left: mapRight + 8, top: mapArea.top + 16 + 8},
+            back: {left: mapRight + 8, top: mapBottom - 16},
+          },
+        };
+
+        expect(layout.kind).toBe(kind);
+        expect(slot.height).toBe(DESTINATION_HEIGHT);
+        expect(back.height).toBe(16);
+        expect({width: mapArea.width, height: mapArea.height}).toEqual(
+          getMapSize(layout, DESTINATION_HEIGHT),
+        );
+
+        expectInside(panel, {left: 0, top: 0, width, height});
+
+        expect({row: getCorner(row), slot: getCorner(slot), back: getCorner(back)}).toEqual(
+          bodies[kind],
+        );
+        expect(doBoxesOverlap(back, slot)).toBe(false);
+      }
+    } finally {
+      await setViewport(harness, 960, 540);
+    }
+  });
+
+  test('a resize keeps the way, the selection and the focus, also across layouts', async () => {
+    let {ui} = harness.nightScreen;
+
+    try {
+      await setViewport(harness, 390, 700);
 
       let opened = openTravel('walk');
 
-      await waitForPanelWidth(opened, 138);
+      await waitForPanel(opened, {width: 187, height: 342});
+      ui.focus(getWayButton(opened, 'taxi'));
+      ui.activate();
+
+      let oldSquare = getPlaceButton(opened, FIXED_SQUARE);
+
+      ui.focus(oldSquare);
+      ui.activate();
+
+      expect(readDestination(opened)?.[0]).toBe('The square by the old\nmarket');
+      expect(ui.focused).toBe(oldSquare);
+
+      await setViewport(harness, 700, 390);
+      opened.resize(350, 195);
+      await waitForPanel(opened, {width: 342, height: 187});
 
       let parts = getTravelParts(opened);
-      let panel = getBox(harness, parts.panel);
-      let wayBoxes = parts.ways.map((button) => getBox(harness, button));
+      let mapArea = getBox(harness, parts.mapArea);
+      let row = getBox(harness, getWayButton(opened, 'walk'));
 
-      // The panel's inner box: the window's padding is 12 left and right, 8 above and below.
-      for (let box of wayBoxes) {
-        expect(box.left).toBeGreaterThanOrEqual(panel.left + 12);
-        expect(box.left + box.width).toBeLessThanOrEqual(panel.left + panel.width - 12);
-        expect(box.top).toBeGreaterThanOrEqual(panel.top + 8);
-        expect(box.top + box.height).toBeLessThanOrEqual(panel.top + panel.height - 8);
-      }
-
-      for (let [index, box] of wayBoxes.entries()) {
-        for (let other of wayBoxes.slice(index + 1)) {
-          expect(doBoxesOverlap(box, other)).toBe(false);
-        }
-      }
-
-      expectNumbersUnderNames(opened);
-
-      // The bar is 4 minutes away, the square 7: the square stands second.
-      let square = parts.destinations[1];
-
-      if (square === undefined) {
-        throw new Error('The walk list has no second destination!');
-      }
-
-      expect(readText(getDestinationTexts(square).name)).toBe('The square by the\nold market');
-
-      expectInsideNarrowScreen(panel);
-    } finally {
-      await setViewport(harness, 960, 540);
-    }
-  });
-
-  test("the game's longest list fits 146 × 262", async () => {
-    let gameStart: NightStart = {...nightStart, places, travel};
-    let longest: {from: PlaceId; way: Way; count: number} = {
-      from: FIXED_STOP,
-      way: 'walk',
-      count: 0,
-    };
-
-    for (let place of Object.values(places)) {
-      for (let way of ALL_WAYS) {
-        let count = getDestinations(gameStart, place.id, way).length;
-
-        if (count > longest.count) {
-          longest = {from: place.id, way, count};
-        }
-      }
-    }
-
-    expect(longest.count).toBeGreaterThan(0);
-
-    try {
-      await setViewport(harness, 292, 524);
-
-      let opened = openTravel(longest.way, {start: gameStart, from: longest.from});
-
-      await waitForPanelWidth(opened, 138);
-
-      expect(getTravelParts(opened).destinations).toHaveLength(longest.count);
-
-      expectInsideNarrowScreen(getBox(harness, getTravelParts(opened).panel));
-    } finally {
-      await setViewport(harness, 960, 540);
-    }
-  });
-
-  test('a resize from wide to narrow lays the list out again and keeps the way and the focus', async () => {
-    let {ui} = harness.nightScreen;
-    let opened = openTravel('taxi');
-
-    // An arrow key moves the focus by the buttons' places, which the first layout sets.
-    await waitForPanelWidth(opened, 300);
-    await press('ArrowDown');
-
-    let oldSecond = getTravelParts(opened).destinations[1];
-
-    expect(describeFocus(ui.focused)).toBe('The square by the old market');
-    expect(ui.focused).toBe(oldSecond);
-
-    try {
-      await setViewport(harness, 292, 524);
-      opened.resize(146);
-      await waitForPanelWidth(opened, 138);
-
-      let parts = getTravelParts(opened);
-
+      // Side by side: the row of ways stands right of the map.
+      expect(row.top).toBe(mapArea.top);
+      expect(row.left).toBeGreaterThan(mapArea.left + mapArea.width);
       expect(opened.way).toBe('taxi');
       expect(readText(parts.title)).toBe('By taxi');
+      expect(readDestination(opened)).toEqual(['The square by the\nold market', '5 min  90 Kč']);
+      expect(ui.focused).toBe(getPlaceButton(opened, FIXED_SQUARE));
+      expect(ui.focused).not.toBe(oldSquare);
 
-      expectNumbersUnderNames(opened);
+      // The destination button, Back and a way keep the focus too: the new
+      // one has it; the old one is destroyed.
+      let targets: Array<[string, () => Button]> = [
+        ['destination', () => getDestinationButton(opened)],
+        ['Back', () => getTravelParts(opened).back],
+        ['Tram', () => getWayButton(opened, 'tram')],
+      ];
 
-      expect(ui.focused).toBe(parts.destinations[1]);
-      expect(parts.destinations[1]).not.toBe(oldSecond);
+      for (let [name, getTarget] of targets) {
+        ui.focus(getTarget());
+        opened.resize(350, 195);
+
+        expect(describeTravelFocus(opened)).toBe(name);
+      }
     } finally {
       await setViewport(harness, 960, 540);
+    }
+  });
+
+  test('the arrow keys reach the places and the destination button', async () => {
+    try {
+      // Stacked: the places lie in the map above the destination button.
+      await setViewport(harness, 390, 700);
+
+      let stacked = openTravel('walk');
+
+      await waitForPanel(stacked, {width: 187, height: 342});
+      await press('ArrowUp');
+
+      expect(describeTravelFocus(stacked)).toMatch(/^place /);
+
+      await press('ArrowDown');
+
+      expect(describeTravelFocus(stacked)).toBe('destination');
+
+      // Side by side: the map lies left of the side column. The fixed world's
+      // places lie at the map's top, level with the row of ways, so they are
+      // left of Walk; left of the destination button, under the row, Walk is
+      // nearer than any of them.
+      await setViewport(harness, 960, 540);
+
+      let sideBySide = openTravel('walk');
+
+      await waitForPanel(sideBySide, WIDE_WINDOW);
+      harness.nightScreen.ui.focus(getWayButton(sideBySide, 'walk'));
+      await press('ArrowLeft');
+
+      expect(describeTravelFocus(sideBySide)).toMatch(/^place /);
+
+      await press('ArrowRight');
+
+      expect(describeTravelFocus(sideBySide)).toBe('Walk');
+    } finally {
+      await setViewport(harness, 960, 540);
+    }
+  });
+
+  test("the game's own places fit the narrowest screen", async () => {
+    let gameData: PlaceData = placeData;
+    let gameStart: NightStart = {...nightStart, places, travel, placeData: gameData, map};
+    let froms = Object.entries(gameData).flatMap(([id, entry]) =>
+      entry.position === undefined || !Object.hasOwn(places, id) ? [] : [id as PlaceId],
+    );
+
+    expect(froms.length).toBeGreaterThan(0);
+
+    try {
+      await setViewport(harness, 292, 524);
+
+      for (let from of froms) {
+        let opened = openTravel('walk', {start: gameStart, from});
+
+        await waitForPanel(opened, {width: 138, height: 254});
+
+        let parts = getTravelParts(opened);
+        let mapArea = getBox(harness, parts.mapArea);
+        let boxes = [...parts.places].map(([id, button]) => ({id, box: getBox(harness, button)}));
+        let outside = boxes.filter(
+          ({box}) =>
+            box.left < mapArea.left ||
+            box.top < mapArea.top ||
+            box.left + box.width > mapArea.left + mapArea.width ||
+            box.top + box.height > mapArea.top + mapArea.height,
+        );
+        let overlapping = boxes.flatMap((first, index) =>
+          boxes
+            .slice(index + 1)
+            .filter((second) => doBoxesOverlap(first.box, second.box))
+            .map((second) => `${first.id} and ${second.id}`),
+        );
+
+        expectInside(getBox(harness, parts.panel), {left: 0, top: 0, width: 146, height: 262});
+
+        expect(boxes.length).toBeGreaterThan(0);
+        expect({from, outside: outside.map(({id}) => id), overlapping}).toEqual({
+          from,
+          outside: [],
+          overlapping: [],
+        });
+      }
+    } finally {
+      await setViewport(harness, 960, 540);
+    }
+  });
+
+  test('a destination without a position is selected without a button', async () => {
+    let warning = `No position for "${FIXED_BAR}": it has no button on the map.`;
+    let warn = vitest.spyOn(console, 'warn').mockImplementation(() => {});
+    let countWarnings = () => warn.mock.calls.filter(([message]) => message === warning).length;
+
+    try {
+      let opened = openTravel('walk', {
+        start: {
+          ...nightStart,
+          placeData: Object.fromEntries(
+            Object.entries(fixedPlaceData).filter(([id]) => id !== FIXED_BAR),
+          ),
+        },
+      });
+
+      expect(readDestination(opened)).toEqual(['The bar', '4 min']);
+      expect([...getTravelParts(opened).places.keys()]).toEqual([FIXED_SQUARE]);
+      // Once, though walking and a taxi both reach the bar, and not again on a resize.
+      expect(countWarnings()).toBe(1);
+
+      opened.resize(480, 270);
+
+      expect(countWarnings()).toBe(1);
+
+      await press('Enter');
+      await waitForClosed();
+
+      expect(onClosed).toHaveBeenCalledExactlyOnceWith({
+        place: getFixedPlace(FIXED_BAR),
+        way: 'walk',
+        minutes: 4,
+        price: 0,
+      });
+    } finally {
+      warn.mockRestore();
     }
   });
 });
