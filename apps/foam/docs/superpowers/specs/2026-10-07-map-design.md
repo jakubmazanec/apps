@@ -1,7 +1,8 @@
 # The map (Foam phase 4, spec 3 of 3): design
 
-Date: 2026-10-07. App: `apps/foam`. Status: designed. It is the third of phase 4's three specs in
-the [direction document](../../direction.md). It starts from the second,
+Date: 2026-10-07. App: `apps/foam`. Status: implemented by
+[2026-10-07-map.md](../plans/2026-10-07-map.md). It is the third of phase 4's three specs in the
+[direction document](../../direction.md). It starts from the second,
 [places and travel](2026-10-06-places-and-travel-design.md), which is built.
 
 ## Background
