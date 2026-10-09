@@ -41,7 +41,8 @@ export const MENU_BUTTON_WIDTH = 'Menu'.length * GLYPH_WIDTH + 2 * BUTTON_PADDIN
 
 /**
  * Characters of the status line in the top row: the time (5), the money to four digits with a sign
- * and " Kč" (8), the state of mind (5), and the two gaps of three spaces between them.
+ * and " Kč" (8), the level of drunkenness with one decimal (5), and the two gaps of three spaces
+ * between them.
  */
 export const STATUS_ROOM = 24;
 

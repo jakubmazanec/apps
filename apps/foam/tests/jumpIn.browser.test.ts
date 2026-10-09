@@ -50,7 +50,7 @@ describe('the jump-in', () => {
 
     expect(nightScreen.state).toBe('shown');
     expect(nightScreen.contents.place?.id).toBe('rotorBar');
-    expect(readText(nightScreen.contents.statusText)).toBe('23:10   120 Kč   Sober');
+    expect(readText(nightScreen.contents.statusText)).toBe('23:10   120 Kč   0.0');
     expect(getStoryWindow(harness).dialogue.node?.speaker).toBe('Rotor Bar');
   });
 });
