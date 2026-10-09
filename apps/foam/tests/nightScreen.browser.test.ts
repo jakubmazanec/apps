@@ -61,6 +61,7 @@ vitest.mock(import('../source/game/content/pictures/barPicture.js'), async () =>
 // The tests run in the fixed world's bar, which has the sample bar's text.
 const sampleBar = getFixedPlace(FIXED_BAR);
 const STARTING_STATUS = '19:40   350 Kč   0.0';
+const BEER_LABEL = 'Order a beer  10 min  45 Kč';
 // Ten lines of 46 letters at most: one page under a title and two choices.
 const LAMP_PAGE =
   'The lamp over the counter hums to itself. Its light is the colour of weak tea, and it ' +
@@ -504,7 +505,7 @@ describe('night screen', {timeout: 180_000}, () => {
       let {buttons, cursor} = getWindowParts(storyWindow);
 
       expect(storyWindow.dialogue.phase).toBe('choosing');
-      expect(buttons.map(getButtonLabel)).toEqual(['Order a beer', 'Leave her alone']);
+      expect(buttons.map(getButtonLabel)).toEqual([BEER_LABEL, 'Leave her alone']);
       expect(describeFocus(nightScreen.ui.focused)).toBe('nothing');
       expect(cursor.visible).toBe(false);
 
@@ -554,7 +555,7 @@ describe('night screen', {timeout: 180_000}, () => {
         expect(storyWindow.text.replaceAll('\n', ' ')).toBe(
           stripMarks(storyWindow.dialogue.pageText),
         );
-        expect(buttons.map(getButtonLabel)).toEqual(['Order a beer', 'Leave her alone']);
+        expect(buttons.map(getButtonLabel)).toEqual([BEER_LABEL, 'Leave her alone']);
         expect(describeFocus(nightScreen.ui.focused)).toBe('nothing');
       },
     );
@@ -573,7 +574,7 @@ describe('night screen', {timeout: 180_000}, () => {
       await press('Enter');
 
       expect(getWindowParts(storyWindow).buttons.map(getButtonLabel)).toEqual([
-        'Order a beer',
+        BEER_LABEL,
         'Leave her alone',
       ]);
       expect(getBox(harness, panel)).toEqual(before);
@@ -990,7 +991,7 @@ describe('night screen', {timeout: 180_000}, () => {
       await press('Enter');
       await press('ArrowDown');
 
-      expect(describeFocus(nightScreen.ui.focused)).toBe('Order a beer');
+      expect(describeFocus(nightScreen.ui.focused)).toBe(BEER_LABEL);
       expect(nightScreen.ui.isRingVisible).toBe(true);
 
       await press('Enter');
@@ -1000,22 +1001,106 @@ describe('night screen', {timeout: 180_000}, () => {
         money: 305,
         place: FIXED_BAR,
         leaving: null,
-        drunkenness: {level: 0, at: 1180},
+        drunkenness: {level: 1, at: 1190},
         roll: null,
         random: Math.random,
       });
-      // The status behind the window follows when the window closes.
-      expect(readText(nightScreen.contents.statusText)).toBe(STARTING_STATUS);
+      // The status changes while the window is still open.
+      expect(readText(nightScreen.contents.statusText)).toBe('19:50   305 Kč   1.0');
 
       // Finish the text and close the window.
       await press('Enter');
       await press('Enter');
       await waitForNoStoryWindow(harness);
 
-      // The status changes when the window closes, and the focus returns.
+      // The status stays when the window closes, and the focus returns.
       expect(storyWindow.dialogue.phase).toBe('ended');
-      expect(readText(nightScreen.contents.statusText)).toBe('19:50   305 Kč   0.0');
+      expect(readText(nightScreen.contents.statusText)).toBe('19:50   305 Kč   1.0');
       expect(describeFocus(nightScreen.ui.focused)).toBe('The bartender');
+    });
+
+    test('a choice the night cannot pay is greyed out, takes no tap and the arrows skip it', async () => {
+      let {nightScreen} = harness;
+      let {night} = nightScreen.contents;
+      let {money} = night;
+
+      try {
+        // A price equal to the money is affordable.
+        night.money = 45;
+
+        let affordable = await openSpot('The bartender');
+
+        await press('Enter');
+
+        expect(getWindowButton(affordable, 0).isDisabled).toBe(false);
+
+        clearScene();
+        night.money = 40;
+
+        let storyWindow = await openSpot('The bartender');
+
+        await press('Enter');
+
+        let beer = getWindowButton(storyWindow, 0);
+
+        expect(getButtonLabel(beer)).toBe(BEER_LABEL);
+        expect(beer.isDisabled).toBe(true);
+        expect(getWindowButton(storyWindow, 1).isDisabled).toBe(false);
+
+        await press('ArrowDown');
+
+        expect(describeFocus(nightScreen.ui.focused)).toBe('Leave her alone');
+
+        // A resize builds the buttons again.
+        storyWindow.resize(getSceneArea(480, 270));
+
+        expect(getWindowButton(storyWindow, 0)).not.toBe(beer);
+        expect(getWindowButton(storyWindow, 0).isDisabled).toBe(true);
+        expect(describeFocus(nightScreen.ui.focused)).toBe('Leave her alone');
+
+        await waitForChoices(storyWindow);
+
+        let before = {...night};
+
+        await tap(harness, getBox(harness, getWindowButton(storyWindow, 0)));
+
+        expect(storyWindow.dialogue.phase).toBe('choosing');
+        expect(night).toEqual(before);
+      } finally {
+        night.money = money;
+      }
+    });
+
+    test('a rolling choice enters the node of its outcome', async () => {
+      let {nightScreen} = harness;
+      let {night} = nightScreen.contents;
+      let script = sampleBar.spots.find((spot) => spot.label === 'The door')?.script;
+
+      try {
+        for (let [value, won, node] of [
+          [0.2, true, script?.nodes?.answered],
+          [0.9, false, script?.nodes?.unanswered],
+        ] as const) {
+          clearScene();
+          night.random = () => value;
+
+          let storyWindow = await openSpot('The door');
+
+          await press('Enter');
+
+          expect(getButtonLabel(getWindowButton(storyWindow, 1))).toBe(
+            'Knock on the glass  5 min  60%',
+          );
+
+          nightScreen.ui.focus(getWindowButton(storyWindow, 1));
+          await press('Enter');
+
+          expect(night.roll).toEqual({value, odds: 0.6, won});
+          expect(storyWindow.dialogue.node).toBe(node);
+        }
+      } finally {
+        night.random = Math.random;
+      }
     });
 
     test('the place button opens the description again', async () => {
@@ -1180,7 +1265,7 @@ describe('night screen', {timeout: 180_000}, () => {
       await waitForChoices(storyWindow);
 
       expect(getWindowParts(storyWindow).buttons.map(getButtonLabel)).toEqual([
-        'Order a beer',
+        BEER_LABEL,
         'Leave her alone',
       ]);
     });

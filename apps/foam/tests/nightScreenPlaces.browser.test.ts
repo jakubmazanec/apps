@@ -458,7 +458,14 @@ describe('night screen places', {timeout: 180_000}, () => {
     // A taxi to the bar: 6 minutes and 120 Kč.
     let storyWindow = await startJourney('Take a taxi', FIXED_BAR);
 
-    expect(readText(contents.statusText)).toBe('19:46   230 Kč   0.0');
+    // The screen writes the status in its update, after the journey has changed the night.
+    await vitest.waitFor(
+      () => {
+        expect(readText(contents.statusText)).toBe('19:46   230 Kč   0.0');
+      },
+      {timeout: 10_000},
+    );
+
     expect(contents.night.place).toBe(FIXED_BAR);
     expect(storyWindow.dialogue.node?.speaker).toBe('The taxi');
     expect(contents.place).toBeNull();

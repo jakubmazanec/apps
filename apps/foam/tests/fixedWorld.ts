@@ -4,6 +4,7 @@ import {createWayOut} from '../source/game/core/createWayOut.js';
 import {getMapPosition} from '../source/game/core/getMapPoint.js';
 import {type Night, type PlaceId} from '../source/game/core/night.js';
 import {type Place} from '../source/game/core/place.js';
+import {defineScript} from '../source/game/core/script.js';
 import {
   type MapData,
   type NightStart,
@@ -41,7 +42,7 @@ const barDescription = defineDialogueScript<Night>()({
       'door lets in a little cold each time it opens.',
   },
 });
-const bartender = defineDialogueScript<Night>()({
+const bartender = defineScript({
   start: 'counter',
   nodes: {
     counter: {
@@ -49,17 +50,16 @@ const bartender = defineDialogueScript<Night>()({
       text:
         'She dries a glass and watches the room over its rim. When you step up to the counter ' +
         'she lifts her chin, which is as much of a question as you are going to get.',
-      choices: [{text: 'Order a beer', next: 'beer'}, {text: 'Leave her alone'}],
+      choices: [
+        {text: 'Order a beer', price: 45, minutes: 10, drinks: 1, next: 'beer'},
+        {text: 'Leave her alone'},
+      ],
     },
     beer: {
       speaker: BARTENDER,
       text:
         'She pulls a beer without a word and sets it in front of you. The foam is thick and ' +
         'the glass is cold, and for ten minutes nothing else needs doing.',
-      onEnter: (night) => {
-        night.money -= 45;
-        night.minutes += 10;
-      },
     },
   },
 });
@@ -123,7 +123,7 @@ const patron = defineDialogueScript<Night>()({
     },
   },
 });
-const door = defineDialogueScript<Night>()({
+const door = defineScript({
   start: 'door',
   nodes: {
     door: {
@@ -131,13 +131,30 @@ const door = defineDialogueScript<Night>()({
       text:
         'The door is heavy, with a brass handle worn pale. Through the glass you can see the ' +
         'street, wet and empty under the lamps.',
-      choices: [{text: 'Step outside', next: 'outside'}, {text: 'Stay'}],
+      choices: [
+        {text: 'Step outside', next: 'outside'},
+        {
+          text: 'Knock on the glass',
+          minutes: 5,
+          odds: 0.6,
+          next: ({roll}) => (roll?.won ? 'answered' : 'unanswered'),
+        },
+        {text: 'Stay'},
+      ],
     },
     outside: {
       speaker: DOOR,
       text:
         'The cold wakes you at once. You stand a minute under the sign and breathe, then the ' +
         'noise behind the door pulls you back in.',
+    },
+    answered: {
+      speaker: DOOR,
+      text: 'Somebody on the pavement turns at the sound, grins and knocks back.',
+    },
+    unanswered: {
+      speaker: DOOR,
+      text: 'Nobody turns. The glass hums a little under your knuckles and then is still.',
     },
   },
 });
