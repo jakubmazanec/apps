@@ -3,12 +3,21 @@ import {describe, expect, test, vitest} from 'vitest';
 
 import {checkContent} from '../source/game/core/checkContent.js';
 import {getExpectedJourneys} from '../source/game/core/getExpectedJourneys.js';
-import {type Night, type Way} from '../source/game/core/night.js';
+import {getDrunkenness, type Night, type Way} from '../source/game/core/night.js';
 import {type Place} from '../source/game/core/place.js';
+import {type Choice, defineScript} from '../source/game/core/script.js';
 import {type MapData, type PlaceData, type Travel} from '../source/game/core/travel.js';
 
 function oneNode(text: string, speaker = 'Someone'): RunnableDialogueScript<Night> {
   return defineDialogueScript<Night>()({start: {speaker, text}});
+}
+
+function nodeWithChoices(choices: Array<Choice<string>>): RunnableDialogueScript<Night> {
+  return defineScript({start: {speaker: 'Bench', text: 'Hello.', choices}});
+}
+
+function throwNoWay(): never {
+  throw new Error('No way.');
 }
 
 function createPlace(id: Place['id'], name: string, shortName?: string): Place {
@@ -274,15 +283,28 @@ describe(checkContent, () => {
     expect(lines).toContain('journeys › tram › start: no speaker');
   });
 
-  test('calls a text function once per place and reports its fault once', () => {
+  test('calls a text function once per place and level and reports its fault once', () => {
     let text = vitest.fn<(night: Night) => string>(() => 'A supercalifragilistic word.');
     let description = defineDialogueScript<Night>()({start: {speaker: 'Bench', text}});
     let lines = check({places: withZidenice({description})});
 
-    expect(text).toHaveBeenCalledTimes(4);
+    expect(text).toHaveBeenCalledTimes(12);
     expect(
       lines.filter((line) => line.startsWith('zidenice › description › start: "super')),
     ).toHaveLength(1);
+  });
+
+  test('a text that reads the level is checked sober, tipsy and drunk', () => {
+    let description = defineScript({
+      start: {
+        speaker: 'Bench',
+        text: (night) => (getDrunkenness(night) >= 5 ? 'A supercalifragilistic word.' : 'Fine.'),
+      },
+    });
+
+    expect(check({places: withZidenice({description})})).toContain(
+      'zidenice › description › start: "supercalifragilistic" has 20 characters, and 16 fit',
+    );
   });
 
   test('names an inline node by how it is reached', () => {
@@ -297,5 +319,130 @@ describe(checkContent, () => {
     expect(check({places: withZidenice({description})})).toContain(
       'zidenice › description › start › "Go": no speaker',
     );
+  });
+
+  test('reports a price, minutes or drinks that is not a whole number above 0', () => {
+    let description = nodeWithChoices([
+      {text: 'Order a beer', price: 0},
+      {text: 'Wait', minutes: 2.5},
+      {text: 'Drink', drinks: -1},
+      {text: 'Go'},
+    ]);
+    let lines = check({places: withZidenice({description})});
+
+    expect(lines).toContain(
+      'zidenice › description › start › "Order a beer": price is 0; leave it out',
+    );
+    expect(lines).toContain('zidenice › description › start › "Wait": minutes is 2.5');
+    expect(lines).toContain('zidenice › description › start › "Drink": drinks is -1');
+  });
+
+  test("reports odds that are not above 0 and below 1, as a number and as a function's result", () => {
+    let description = nodeWithChoices([
+      {text: 'Try', odds: 1},
+      {text: 'Try again', odds: (night) => (getDrunkenness(night) >= 5 ? 0 : 0.5)},
+      {text: 'Go'},
+    ]);
+    let lines = check({places: withZidenice({description})});
+
+    expect(lines).toContain('zidenice › description › start › "Try": odds is 1');
+    expect(lines.filter((line) => line.includes('"Try again"'))).toEqual([
+      'zidenice › description › start › "Try again": odds is 0',
+    ]);
+  });
+
+  test('reports a drunkenness condition with no bound, a bound below 0 or min above max', () => {
+    let description = nodeWithChoices([
+      {text: 'A', drunkenness: {}},
+      {text: 'B', drunkenness: {min: -1}},
+      {text: 'C', drunkenness: {min: 3, max: 2}},
+      {text: 'Go'},
+    ]);
+    let lines = check({places: withZidenice({description})});
+
+    expect(lines).toContain(
+      'zidenice › description › start › "A": drunkenness names neither min nor max',
+    );
+    expect(lines).toContain('zidenice › description › start › "B": drunkenness has min -1');
+    expect(lines).toContain(
+      'zidenice › description › start › "C": drunkenness has min 3 above max 2',
+    );
+  });
+
+  test('follows a function next with every roll and with no roll, and reports an id the script lacks', () => {
+    let description = defineScript<string>({
+      start: 'a',
+      nodes: {
+        a: {
+          speaker: 'Bench',
+          text: 'Hello.',
+          choices: [
+            {
+              text: 'Try',
+              odds: 0.5,
+              next: ({roll}) =>
+                roll?.won ? 'b'
+                : (roll?.value ?? 0) > 0.98 ? 'missing'
+                : 'a',
+            },
+            {text: 'Sure', next: ({roll}) => (roll === null ? 'b' : 'missing')},
+            {text: 'Go'},
+          ],
+        },
+        b: {
+          speaker: 'Bench',
+          text: 'Fine.',
+          next: (night) => (night.roll === null ? 'a' : 'missing'),
+        },
+      },
+    });
+    let lines = check({places: withZidenice({description})});
+
+    expect(lines).toContain(
+      'zidenice › description › a › "Try" › next: returns "missing", which is not a node',
+    );
+    expect(lines.filter((line) => line.includes('"Sure"') || line.includes('› b › next'))).toEqual(
+      [],
+    );
+  });
+
+  test('reports a function next that throws, on a choice and on a node', () => {
+    let description = defineScript({
+      start: 'a',
+      nodes: {
+        a: {
+          speaker: 'Bench',
+          text: 'Hello.',
+          choices: [{text: 'Try', next: throwNoWay}, {text: 'Go'}],
+        },
+        b: {speaker: 'Bench', text: 'Fine.', next: throwNoWay},
+      },
+    });
+    let lines = check({places: withZidenice({description})});
+
+    expect(lines).toContain('zidenice › description › a › "Try" › next: throws "No way."');
+    expect(lines).toContain('zidenice › description › b › next: throws "No way."');
+  });
+
+  test('reports a node whose choices have no way out that costs nothing on every check night', () => {
+    let paid = nodeWithChoices([
+      {text: 'Pay', price: 10},
+      {text: 'Wait', minutes: 5},
+      {text: 'Drink', drinks: 1},
+    ]);
+    let hidden = nodeWithChoices([
+      {text: 'Pay', price: 10},
+      {text: 'Go', drunkenness: {min: 2}},
+      {text: 'Leave', isVisible: (night) => getDrunkenness(night) < 5},
+    ]);
+    let free = nodeWithChoices([
+      {text: 'Pay', price: 10},
+      {text: 'Try', odds: 0.5},
+    ]);
+    let line = 'zidenice › description › start: no way out that costs nothing';
+
+    expect(check({places: withZidenice({description: paid})})).toContain(line);
+    expect(check({places: withZidenice({description: hidden})})).toContain(line);
+    expect(check({places: withZidenice({description: free})})).not.toContain(line);
   });
 });

@@ -4,8 +4,9 @@ import {getExpectedJourneys} from './getExpectedJourneys.js';
 import {getLabelRoom, WORD_ROOM} from './getLabelRoom.js';
 import {getMapPoint} from './getMapPoint.js';
 import {MARK, stripMarks} from './markedText.js';
-import {createNight, type Night, type PlaceId, type Way} from './night.js';
+import {createNight, type Night, type PlaceId, roll, type Way} from './night.js';
 import {type Place} from './place.js';
+import {asChoice} from './script.js';
 import {type MapData, type PlaceData, type Travel} from './travel.js';
 
 export type Content = {
@@ -23,6 +24,10 @@ const OFF_THE_MAP = new Set(['train']);
 // A night's start for a text that is a function: any time and sum will do.
 const CHECK_MINUTES = 1020;
 const CHECK_MONEY = 350;
+// Sober, tipsy and drunk: a condition, a text or odds that read the level meet all three.
+const CHECK_LEVELS = [0, 2, 5];
+// 0.00 to 0.99: every outcome an author can write by a threshold in hundredths comes up.
+const CHECK_ROLLS = Array.from({length: 100}, (_, index) => index / 100);
 const SEPARATOR = ' › ';
 
 type Node = DialogueNode<Night, string>;
@@ -32,18 +37,20 @@ function isWholeNumber(value: unknown): value is number {
 }
 
 /**
- * Checks the content of the game and returns one line for each problem, or an empty list. A text
- * or a start that is a function is called once for every place.
+ * Checks the content of the game and returns one line for each problem, or an empty list. A text,
+ * a start, an odds or a next that is a function is called with each check night: once per place
+ * and level, and a choice's next with odds once for each roll as well.
  */
 export function checkContent(content: Content): string[] {
   let lines = new Set<string>();
   let room = getLabelRoom();
   let placeIds = Object.keys(content.places);
+  // The nodes of the script being checked, where follow looks up an id that a next returns.
+  let nodes: NonNullable<RunnableDialogueScript<Night>['nodes']> = {};
 
-  function checkNode(path: string, node: Node, night: Night): void {
-    let {text, speaker, choices, next} = node;
-    let result = typeof text === 'function' ? text(night) : text;
-    let pages = typeof result === 'string' ? [result] : result;
+  function checkNode(path: string, node: Node, nights: Night[]): void {
+    let {text, speaker, next} = node;
+    let choices = (node.choices ?? []).map(asChoice);
     let words = new Set<string>();
 
     if (speaker === undefined || speaker === '') {
@@ -54,25 +61,82 @@ export function checkContent(content: Content): string[] {
       );
     }
 
-    for (let [index, page] of pages.entries()) {
-      let marks = page.split(MARK).length - 1;
+    for (let night of nights) {
+      let result = typeof text === 'function' ? text(night) : text;
+      let pages = typeof result === 'string' ? [result] : result;
 
-      if (marks % 2 !== 0) {
-        lines.add(`${path}: page ${index + 1} has ${marks} italic marks`);
-      }
+      for (let [index, page] of pages.entries()) {
+        let marks = page.split(MARK).length - 1;
 
-      for (let word of stripMarks(page).split(/\s+/)) {
-        words.add(word);
+        if (marks % 2 !== 0) {
+          lines.add(`${path}: page ${index + 1} has ${marks} italic marks`);
+        }
+
+        for (let word of stripMarks(page).split(/\s+/)) {
+          words.add(word);
+        }
       }
     }
 
-    for (let choice of choices ?? []) {
+    for (let choice of choices) {
+      let {drunkenness, odds} = choice;
+      let where = `${path}${SEPARATOR}"${choice.text}"`;
+
       for (let word of stripMarks(choice.text).split(/\s+/)) {
         words.add(word);
       }
 
+      for (let field of ['price', 'minutes', 'drinks'] as const) {
+        let value = choice[field];
+
+        if (value !== undefined && !(Number.isInteger(value) && value > 0)) {
+          lines.add(`${where}: ${field} is ${value}${value === 0 ? '; leave it out' : ''}`);
+        }
+      }
+
+      if (drunkenness !== undefined) {
+        let {min, max} = drunkenness;
+
+        if (min === undefined && max === undefined) {
+          lines.add(`${where}: drunkenness names neither min nor max`);
+        }
+
+        for (let bound of ['min', 'max'] as const) {
+          let value = drunkenness[bound];
+
+          if (value !== undefined && value < 0) {
+            lines.add(`${where}: drunkenness has ${bound} ${value}`);
+          }
+        }
+
+        if (min !== undefined && max !== undefined && min > max) {
+          lines.add(`${where}: drunkenness has min ${min} above max ${max}`);
+        }
+      }
+
       if (typeof choice.next === 'object') {
-        checkNode(`${path}${SEPARATOR}"${choice.text}"`, choice.next, night);
+        checkNode(where, choice.next, nights);
+      }
+
+      for (let night of nights) {
+        let chance = typeof odds === 'function' ? odds(night) : odds;
+
+        if (chance !== undefined && !(chance > 0 && chance < 1)) {
+          lines.add(`${where}: odds is ${chance}`);
+        }
+
+        if (typeof choice.next === 'function') {
+          if (chance === undefined) {
+            night.roll = null;
+            follow(`${where}${SEPARATOR}next`, choice.next, night);
+          } else {
+            for (let value of CHECK_ROLLS) {
+              night.random = () => value;
+              roll(night, chance);
+              follow(`${where}${SEPARATOR}next`, choice.next, night);
+            }
+          }
+        }
       }
     }
 
@@ -83,29 +147,79 @@ export function checkContent(content: Content): string[] {
     }
 
     if (typeof next === 'object') {
-      checkNode(`${path}${SEPARATOR}next`, next, night);
+      checkNode(`${path}${SEPARATOR}next`, next, nights);
+    } else if (typeof next === 'function') {
+      for (let night of nights) {
+        night.roll = null;
+        follow(`${path}${SEPARATOR}next`, next, night);
+      }
+    }
+
+    if (
+      choices.length > 0 &&
+      !choices.some(
+        (choice) =>
+          choice.price === undefined &&
+          choice.minutes === undefined &&
+          choice.drinks === undefined &&
+          nights.every((night) => choice.isVisible?.(night) ?? true),
+      )
+    ) {
+      lines.add(`${path}: no way out that costs nothing`);
+    }
+  }
+
+  function follow(where: string, reference: (night: Night) => Node | string, night: Night): void {
+    let target: Node | string;
+
+    try {
+      target = reference(night);
+    } catch (error) {
+      lines.add(`${where}: throws "${error instanceof Error ? error.message : String(error)}"`);
+
+      return;
+    }
+
+    // An id the script has is not checked again: the node is checked under its own key.
+    if (typeof target === 'object') {
+      checkNode(where, target, [night]);
+    } else if (nodes[target] === undefined) {
+      lines.add(`${where}: returns "${target}", which is not a node`);
     }
   }
 
   function checkScript(name: string, script: RunnableDialogueScript<Night>): void {
-    for (let id of placeIds) {
-      let night = createNight({
-        // The keys of content.places are the ids of the places.
-        place: id as PlaceId,
-        minutes: CHECK_MINUTES,
-        money: CHECK_MONEY,
-      });
+    let {start} = script;
 
-      for (let [key, node] of Object.entries(script.nodes ?? {})) {
+    nodes = script.nodes ?? {};
+
+    for (let id of placeIds) {
+      let nights = CHECK_LEVELS.map((drunkenness) =>
+        createNight({
+          // The keys of content.places are the ids of the places.
+          place: id as PlaceId,
+          minutes: CHECK_MINUTES,
+          money: CHECK_MONEY,
+          drunkenness,
+        }),
+      );
+
+      for (let [key, node] of Object.entries(nodes)) {
         if (node !== undefined) {
-          checkNode(`${name}${SEPARATOR}${key}`, node, night);
+          checkNode(`${name}${SEPARATOR}${key}`, node, nights);
         }
       }
 
-      let start = typeof script.start === 'function' ? script.start(night) : script.start;
-
       if (typeof start === 'object') {
-        checkNode(`${name}${SEPARATOR}start`, start, night);
+        checkNode(`${name}${SEPARATOR}start`, start, nights);
+      } else if (typeof start === 'function') {
+        for (let night of nights) {
+          let node = start(night);
+
+          if (typeof node === 'object') {
+            checkNode(`${name}${SEPARATOR}start`, node, [night]);
+          }
+        }
       }
     }
   }
