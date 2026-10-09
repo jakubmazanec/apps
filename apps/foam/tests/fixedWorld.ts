@@ -295,7 +295,7 @@ export const fixedTravel: Travel = {
   },
   [FIXED_STOP]: {
     walk: {[FIXED_BAR]: {minutes: 4}, [FIXED_SQUARE]: {minutes: 7}},
-    taxi: {[FIXED_BAR]: {minutes: 5, price: 90}, [FIXED_SQUARE]: {minutes: 5, price: 90}},
+    taxi: {[FIXED_BAR]: {minutes: 5, price: 90}, [FIXED_SQUARE]: {minutes: 5, price: 60}},
   },
 };
 

@@ -24,7 +24,7 @@ import {
 import {getMapSize, getTravelLayout, SIDE_COLUMN_WIDTH} from '../core/getTravelLayout.js';
 import {type MapLayer} from '../core/mapLayers.js';
 import {measureText} from '../core/measureText.js';
-import {type PlaceId, type Way} from '../core/night.js';
+import {type Night, type PlaceId, type Way} from '../core/night.js';
 import {BUTTON_SIZE, placeMapButtons} from '../core/placeMapButtons.js';
 import {UI_FADE_DURATION} from '../core/theme.js';
 import {
@@ -43,6 +43,9 @@ export type TravelWindowOptions = {
 
   /** Scheduler of that screen; it drives the fade. */
   scheduler: Scheduler;
+
+  /** The night, read for its money: a destination that costs more is greyed out. */
+  night: Night;
 
   start: NightStart;
   from: PlaceId;
@@ -214,6 +217,7 @@ export class TravelWindow {
   /** The places with a button on the map: every place with a position but the player's. */
   readonly #mapPlaces: MapPlace[];
 
+  readonly #night: Night;
   readonly #panel: Panel;
   #parts: TravelWindowParts;
 
@@ -239,6 +243,7 @@ export class TravelWindow {
   constructor({
     ui,
     scheduler,
+    night,
     start,
     from,
     way,
@@ -249,6 +254,7 @@ export class TravelWindow {
     onClosed,
   }: TravelWindowOptions) {
     this.#ui = ui;
+    this.#night = night;
     this.#map = start.map;
     this.#way = way;
     this.#ways = ways;
@@ -281,9 +287,9 @@ export class TravelWindow {
       layout: {...WINDOW_PADDING, flexDirection: 'column', alignItems: 'stretch'},
     });
     // The buttons are built before the modal, which declares the destination
-    // button, or Back for a way with none, as its initial focus, so the window
-    // opens with the ring on it. Their clicks read the modal from this.modal,
-    // assigned right after.
+    // button, or Back for a way with none or a destination the night cannot
+    // pay, as its initial focus, so the window opens with the ring on it.
+    // Their clicks read the modal from this.modal, assigned right after.
     this.#parts = this.#build();
     this.modal = new Modal({
       theme: game.theme,
@@ -295,7 +301,10 @@ export class TravelWindow {
       scrimAlpha: 0,
       scheduler,
       fadeDuration: UI_FADE_DURATION,
-      initialFocus: this.#parts.destination?.button ?? this.#parts.back,
+      initialFocus:
+        this.#parts.destination?.button.isDisabled === false ?
+          this.#parts.destination.button
+        : this.#parts.back,
       onClosing: () => {
         onClosing?.(this.#picked);
       },
@@ -502,6 +511,8 @@ export class TravelWindow {
       },
     });
 
+    this.#showAffordable(button, destination);
+
     return {button, name, numbers};
   }
 
@@ -613,6 +624,16 @@ export class TravelWindow {
     this.#ui.focus(button);
   }
 
+  // A destination that costs more than the night's money is greyed out; one
+  // that costs exactly the money can still be paid.
+  #showAffordable(button: Button, destination: Destination): void {
+    if (destination.price > this.#night.money) {
+      button.disable();
+    } else {
+      button.enable();
+    }
+  }
+
   // Shows the selection on the destination button, which is built when a way
   // gains a destination and goes when it has none, and draws the map again.
   #showSelection(): void {
@@ -632,6 +653,7 @@ export class TravelWindow {
       parts.destination = created;
     } else {
       setDestinationLabel(destination, getDestinationLabel(this.#selected, destinationRoom));
+      this.#showAffordable(destination.button, this.#selected);
     }
 
     this.#drawMap(parts);
