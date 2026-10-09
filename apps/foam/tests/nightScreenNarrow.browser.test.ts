@@ -264,6 +264,7 @@ describe('night screen on a narrow screen', {timeout: 180_000}, () => {
     expect(storyWindow.dialogue.revealedCount).toBe(storyWindow.dialogue.pageText.length);
     expect(getWindowParts(storyWindow).buttons.map(getButtonLabel)).toEqual([
       'Step outside',
+      'Knock on the\nglass  5 min  60%',
       'Stay',
     ]);
 

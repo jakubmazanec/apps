@@ -34,6 +34,7 @@ import {input} from '../core/input.js';
 import {MARK, splitMarked, stripMarks} from '../core/markedText.js';
 import {measureText} from '../core/measureText.js';
 import {type Night} from '../core/night.js';
+import {asChoice, type Choice, formatChoice} from '../core/script.js';
 import {UI_FADE_DURATION} from '../core/theme.js';
 import {createWindowTitle, TITLE_HEIGHT, WINDOW_PADDING} from './windowTitle.js';
 
@@ -121,6 +122,9 @@ export class StoryWindow implements Overlay {
   /** The visible choices' texts, each wrapped to the inside of its button. */
   #choiceLabels: string[] = [];
 
+  /** The visible choices, in the order of their labels. */
+  #choices: Array<Choice<string>> = [];
+
   /** The choice buttons of the shown node: not built, fading in, or fully shown. */
   #choicesState: 'fading' | 'none' | 'shown' = 'none';
 
@@ -137,6 +141,9 @@ export class StoryWindow implements Overlay {
   #labelWidth = 1;
 
   #lastRevealedCount = 0;
+
+  /** The night the script runs on; the labels and the greyed-out choices read it. */
+  readonly #night: Night;
 
   readonly #onClosed: () => void;
   readonly #onClosing: (() => void) | undefined;
@@ -182,6 +189,7 @@ export class StoryWindow implements Overlay {
     this.#area = area;
     this.#onClosing = onClosing;
     this.#onClosed = onClosed;
+    this.#night = context;
     this.dialogue = new Dialogue({script, context});
     this.#panel = new Panel({
       theme: game.theme,
@@ -365,7 +373,9 @@ export class StoryWindow implements Overlay {
   // One button per visible choice, in the room the node reserved for them.
   // None is focused: the first arrow or Tab press focuses the first. New
   // choices fade in, and so do choices a resize builds again in their fade;
-  // choices a resize builds again once fully shown come back fully shown.
+  // choices a resize builds again once fully shown come back fully shown. A
+  // choice that costs more than the night has is greyed out: it takes no tap
+  // and the arrows skip it.
   #buildChoices(): void {
     let buttonArea = this.#buttonArea;
 
@@ -375,10 +385,9 @@ export class StoryWindow implements Overlay {
 
     this.#buttons = this.#choiceLabels.map((label, index) => {
       let lineCount = label.split('\n').length;
-
       // The label has an explicit size: a leaf sized by its own bounds is
       // measured again later, and the button would move its label then.
-      return new Button({
+      let button = new Button({
         theme: game.theme,
         children: [
           new Text({
@@ -395,6 +404,12 @@ export class StoryWindow implements Overlay {
           this.dialogue.choose(index);
         },
       });
+
+      if ((this.#choices[index]?.price ?? 0) > this.#night.money) {
+        button.disable();
+      }
+
+      return button;
     });
 
     buttonArea.addChild(...this.#buttons);
@@ -566,8 +581,9 @@ export class StoryWindow implements Overlay {
     let textWidth = Math.max(1, windowWidth - 2 * WINDOW_PADDING_X);
 
     this.#labelWidth = Math.max(1, textWidth - 2 * BUTTON_PADDING_X);
-    this.#choiceLabels = visibleChoices.map((choice) =>
-      wrapText(choice.text, this.#labelWidth, measureLabel),
+    this.#choices = visibleChoices.map(asChoice);
+    this.#choiceLabels = this.#choices.map((choice) =>
+      wrapText(formatChoice(choice, this.#night), this.#labelWidth, measureLabel),
     );
 
     // A node with choices reserves the room they need from the start, so the

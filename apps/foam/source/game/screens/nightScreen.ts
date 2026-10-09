@@ -88,6 +88,9 @@ type NightScreenContents = {
   placeButton: Button | null;
   spotButtons: Button[];
 
+  /** The status line's text, as last written. */
+  status: string;
+
   statusText: Text;
   storyWindow: StoryWindow | null;
 
@@ -129,9 +132,16 @@ function getArea(): SceneArea {
   );
 }
 
+// It runs in every update, so it touches the text and the layout only when the
+// status has changed.
 function writeStatus(screen: NightScreen): void {
   let status = formatStatus(screen.contents.night);
 
+  if (status === screen.contents.status) {
+    return;
+  }
+
+  screen.contents.status = status;
   screen.contents.statusText.setText(status);
   screen.contents.statusText.view.layout = {width: measureText(status, 'label')};
 }
@@ -244,7 +254,6 @@ function openStory(screen: NightScreen, script: RunnableDialogueScript<Night>): 
     },
     onClosed: () => {
       screen.contents.storyWindow = null;
-      writeStatus(screen);
       // The screen looks at the night in its next update (see onUpdate).
       screen.contents.hasStoryClosed = true;
     },
@@ -411,7 +420,6 @@ function showPlace(screen: NightScreen, place: Place): void {
   layOut(screen);
   // Showing a place clears a way out that a script chose together with it.
   screen.contents.night.leaving = null;
-  writeStatus(screen);
   openStory(screen, place.description);
 }
 
@@ -451,7 +459,6 @@ function openTravel(
       // black. When that window has closed, actOnNight shows the destination.
       takeJourney(screen.contents.night, destination);
       leavePlace(screen);
-      writeStatus(screen);
       layOut(screen);
       openStory(screen, journeys[destination.way]);
     },
@@ -584,6 +591,7 @@ export const nightScreen = new GameScreen<NightScreenContents>({
       place: null,
       placeButton: null,
       spotButtons: [],
+      status: '',
       statusText,
       storyWindow: null,
       travelWindow: null,
@@ -637,6 +645,9 @@ export const nightScreen = new GameScreen<NightScreenContents>({
     }
 
     screen.contents.storyWindow?.update(ticker.deltaMS);
+    // The status line follows the night while a window is open: a choice, an
+    // onEnter and a journey show on it at once.
+    writeStatus(screen);
 
     try {
       prepareNextPlace(screen);
