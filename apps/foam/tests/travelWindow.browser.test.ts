@@ -1,4 +1,3 @@
-import * as pixi from 'pixi.js';
 import {type Button, Text} from 'tellurion';
 import {afterAll, afterEach, beforeAll, describe, expect, test, vitest} from 'vitest';
 
@@ -20,6 +19,7 @@ import {type Night, type PlaceId, type Way} from '../source/game/core/night.js';
 import {palette} from '../source/game/core/palette.js';
 import {BUTTON_GAP} from '../source/game/core/placeMapButtons.js';
 import {type Destination, type NightStart, type PlaceData} from '../source/game/core/travel.js';
+import {type MapPicture} from '../source/game/screens/mapPicture.js';
 import {type TravelWindow} from '../source/game/screens/travelWindow.js';
 import {FIXED_BAR, FIXED_SQUARE, FIXED_STOP, fixedPlaceData, getFixedPlace} from './fixedWorld.js';
 import {
@@ -178,14 +178,30 @@ function expectInside(inner: Box, outer: Box): void {
 describe('travel window', {timeout: 180_000}, () => {
   let harness: Harness;
   let restore: () => void;
+  let MapPictureClass: typeof MapPicture;
   let TravelWindowClass: typeof TravelWindow;
   let travelWindow: TravelWindow | null = null;
   let onClosing = vitest.fn<(destination: Destination | null) => void>();
   let onClosed = vitest.fn<(destination: Destination | null) => void>();
 
-  // Opens a window as the night screen does, for the screen's size, with fresh
-  // onClosing and onClosed spies. A window a test opened before is destroyed
-  // first.
+  // Shows a journey on a built window as the night screen does.
+  function showJourney(
+    builtWindow: TravelWindow,
+    way: Way,
+    {
+      ways = ALL_WAYS,
+      from = FIXED_STOP,
+      night = harness.nightScreen.contents.night,
+    }: {ways?: readonly Way[]; from?: PlaceId; night?: Night} = {},
+  ): TravelWindow {
+    builtWindow.open({from, way, ways, night});
+
+    return builtWindow;
+  }
+
+  // Builds a window for the screen's size and the start, with fresh onClosing
+  // and onClosed spies, and shows a journey on it. A window a test built before
+  // is destroyed first.
   function openTravel(
     way: Way,
     {
@@ -203,18 +219,14 @@ describe('travel window', {timeout: 180_000}, () => {
     travelWindow = new TravelWindowClass({
       ui: nightScreen.ui,
       scheduler: nightScreen.scheduler,
-      night,
       start,
-      from,
-      way,
-      ways,
       screenWidth: game.app.screen.width / game.pixelScale,
       screenHeight: game.app.screen.height / game.pixelScale,
       onClosing,
       onClosed,
     });
 
-    return travelWindow;
+    return showJourney(travelWindow, way, {ways, from, night});
   }
 
   // The window closes after a 100 ms fade, so closing is awaited.
@@ -258,15 +270,21 @@ describe('travel window', {timeout: 180_000}, () => {
     return focused !== null && focused === destination ? 'destination' : describeFocus(focused);
   }
 
-  // The texture the map's sprite shows, read back.
+  // The map as the player sees it, read back: the marks where they are drawn,
+  // which are opaque, and the layer under them everywhere else.
   function readMap(openWindow: TravelWindow): Pixels {
-    let [sprite] = getTravelParts(openWindow).map.children;
+    let {layerSprite, marksSprite} = getTravelParts(openWindow);
+    let layer = readPixels(harness, layerSprite.texture);
+    let marks = readPixels(harness, marksSprite.texture);
+    let pixels = new Uint8ClampedArray(layer.pixels);
 
-    if (!(sprite instanceof pixi.Sprite)) {
-      throw new TypeError('The map has no sprite!');
+    for (let index = 0; index < pixels.length; index += 4) {
+      if (marks.pixels[index + 3] === 255) {
+        pixels.set(marks.pixels.subarray(index, index + 4), index);
+      }
     }
 
-    return readPixels(harness, sprite.texture);
+    return {pixels, width: layer.width, height: layer.height};
   }
 
   // The light's pixel on a map of the map area's size: the frame fits every
@@ -289,6 +307,7 @@ describe('travel window', {timeout: 180_000}, () => {
   beforeAll(async () => {
     harness = await bootGame(960, 540);
     ({TravelWindow: TravelWindowClass} = await import('../source/game/screens/travelWindow.js'));
+    ({MapPicture: MapPictureClass} = await import('../source/game/screens/mapPicture.js'));
     restore = useFixedWorld({place: FIXED_STOP});
     await startNewGame(harness);
     await pressThrough(harness, getStoryWindow(harness));
@@ -297,7 +316,7 @@ describe('travel window', {timeout: 180_000}, () => {
   }, 60_000);
 
   afterEach(() => {
-    // destroy() does nothing to a window that has closed.
+    // The window is kept when it closes; destroy() destroys it either way.
     travelWindow?.modal.destroy();
     travelWindow = null;
   });
@@ -490,7 +509,7 @@ describe('travel window', {timeout: 180_000}, () => {
     expect(harness.nightScreen.contents.menuModal).toBeNull();
   });
 
-  test('a way with no destination opens with the focus on Back', async () => {
+  test('a way with no destination leaves the room empty and opens with the focus on Back', async () => {
     let {ui} = harness.nightScreen;
     // On foot, the dotted line runs from the light to the bar: some of its pixels lie within 8
     // of the light's centre, beyond the light's outer ring.
@@ -509,10 +528,13 @@ describe('travel window', {timeout: 180_000}, () => {
     let tram = openTravel('tram');
     let parts = getTravelParts(tram);
 
+    // The destination button stays, as the modal's initial focus, but it is not drawn and takes
+    // no press, so the focus and the ring go to Back.
+    expect(parts.destination).toBeNull();
+    expect(parts.destinationButton.isDisabled).toBe(true);
     expect(describeFocus(ui.focused)).toBe('Back');
     expect(ui.focused).toBe(parts.back);
     expect(ui.isRingVisible).toBe(true);
-    expect(parts.destination).toBeNull();
 
     await waitForPanel(tram, WIDE_WINDOW);
 
@@ -522,6 +544,11 @@ describe('travel window', {timeout: 180_000}, () => {
 
     expect(getColor(pixels, light.x, light.y)).toBe(palette.white);
     expect(countColorNear(pixels, light, {reach: 8, color: palette.dim})).toBe(0);
+
+    await press('Enter');
+    await waitForClosed();
+
+    expect(onClosed).toHaveBeenCalledExactlyOnceWith(null);
   });
 
   test('a destination the night cannot pay is greyed out, and the window opens on Back', async () => {
@@ -724,22 +751,27 @@ describe('travel window', {timeout: 180_000}, () => {
       expect(opened.way).toBe('taxi');
       expect(readText(parts.title)).toBe('By taxi');
       expect(readDestination(opened)).toEqual(['The square by the\nold market', '5 min  60 Kč']);
-      expect(ui.focused).toBe(getPlaceButton(opened, FIXED_SQUARE));
-      expect(ui.focused).not.toBe(oldSquare);
+      // The controls stay through a resize; only their containers are built again.
+      expect(getPlaceButton(opened, FIXED_SQUARE)).toBe(oldSquare);
+      expect(ui.focused).toBe(oldSquare);
 
-      // The destination button, Back and a way keep the focus too: the new
-      // one has it; the old one is destroyed.
+      // The destination button, Back and a way keep the focus too, across a
+      // change of layout each.
       let targets: Array<[string, () => Button]> = [
         ['destination', () => getDestinationButton(opened)],
         ['Back', () => getTravelParts(opened).back],
         ['Tram', () => getWayButton(opened, 'tram')],
       ];
 
-      for (let [name, getTarget] of targets) {
-        ui.focus(getTarget());
-        opened.resize(350, 195);
+      for (let [index, [name, getTarget]] of targets.entries()) {
+        let target = getTarget();
+        let [width, height] = index % 2 === 0 ? [195, 350] : [350, 195];
+
+        ui.focus(target);
+        opened.resize(width, height);
 
         expect(describeTravelFocus(opened)).toBe(name);
+        expect(ui.focused).toBe(target);
       }
     } finally {
       await setViewport(harness, 960, 540);
@@ -842,11 +874,18 @@ describe('travel window', {timeout: 180_000}, () => {
     try {
       await setViewport(harness, 292, 524);
 
+      // One window for the game's start shows every journey, as the night screen keeps one.
+      let opened = openTravel('walk', {start: gameStart, from: froms[0] ?? FIXED_STOP});
+
       for (let from of froms) {
         for (let way of ALL_WAYS) {
-          let opened = openTravel(way, {start: gameStart, from});
           let windowName = `${from}, ${way}`;
 
+          // Off the UI root at once, as hiding the night screen takes it, and shown again.
+          harness.nightScreen.ui.removeOverlay(opened.modal);
+          showJourney(opened, way, {from});
+          // The place buttons move in the next layout pass, which the next frame runs.
+          await nextFrame();
           await waitForPanel(opened, layout.window);
 
           let parts = getTravelParts(opened);
@@ -968,6 +1007,94 @@ describe('travel window', {timeout: 180_000}, () => {
       expect(countDotsNearLight(second)).toBeGreaterThan(0);
     } finally {
       warn.mockRestore();
+    }
+  });
+
+  // The night screen builds one window and shows every journey on it: closing keeps it, and the
+  // next journey moves the light and the place buttons, which stay the same objects.
+  test('one window shows journeys from different places, each without a button of its own', async () => {
+    let {ui} = harness.nightScreen;
+    let opened = openTravel('walk');
+    let {allPlaces} = getTravelParts(opened);
+
+    await waitForPanel(opened, WIDE_WINDOW);
+
+    expect([...getTravelParts(opened).places.keys()]).toEqual([FIXED_BAR, FIXED_SQUARE]);
+
+    ui.focus(getTravelParts(opened).back);
+    await press('Enter');
+    await waitForClosed();
+
+    expect(opened.modal.state).toBe('closed');
+    expect(opened.modal.view.destroyed).toBe(false);
+    expect(ui.children).not.toContain(opened.modal);
+
+    onClosed.mockClear();
+    showJourney(opened, 'walk', {from: FIXED_BAR});
+    // The place buttons move in the next layout pass, which the next frame runs.
+    await nextFrame();
+
+    let parts = getTravelParts(opened);
+
+    for (let [id, button] of allPlaces) {
+      expect(parts.allPlaces.get(id)).toBe(button);
+    }
+
+    // From the bar: the bar has no button, and walking reaches the square only.
+    expect([...parts.places.keys()]).toEqual([FIXED_SQUARE, FIXED_STOP]);
+    expect(getPlaceButton(opened, FIXED_STOP).isDisabled).toBe(true);
+    expect(readDestination(opened)).toEqual(['The square by the\nold market', '12 min']);
+    expect(ui.focused).toBe(parts.destinationButton);
+    expect(ui.isRingVisible).toBe(true);
+
+    let light = getLight(opened, nightStart, FIXED_BAR);
+
+    expect(getColor(readMap(opened), light.x, light.y)).toBe(palette.white);
+
+    await press('Enter');
+    await waitForClosed();
+
+    expect(onClosed).toHaveBeenCalledExactlyOnceWith({
+      place: getFixedPlace(FIXED_SQUARE),
+      way: 'walk',
+      minutes: 12,
+      price: 0,
+    });
+  });
+
+  // The streets are drawn when the window is built and on a new size only, so that showing a
+  // journey costs a frame like any other.
+  test('a journey, a selection and a way draw the marks only; a new size draws the layers', async () => {
+    let drawLayers = vitest.spyOn(MapPictureClass.prototype, 'drawLayers');
+    let drawMarks = vitest.spyOn(MapPictureClass.prototype, 'drawMarks');
+
+    try {
+      let opened = openTravel('walk');
+
+      expect(drawLayers).toHaveBeenCalledTimes(1);
+
+      opened.modal.close();
+      await waitForClosed();
+      drawLayers.mockClear();
+      drawMarks.mockClear();
+      // A journey, a new selection (the square, after the bar) and a new way.
+      showJourney(opened, 'walk');
+      harness.nightScreen.ui.focus(getPlaceButton(opened, FIXED_SQUARE));
+      harness.nightScreen.ui.activate();
+      harness.nightScreen.ui.focus(getWayButton(opened, 'taxi'));
+      harness.nightScreen.ui.activate();
+      // The night screen lays itself out at every arrival: the same size draws nothing.
+      opened.resize(480, 270);
+
+      expect(drawLayers).not.toHaveBeenCalled();
+      expect(drawMarks).toHaveBeenCalledTimes(3);
+
+      opened.resize(479, 270);
+
+      expect(drawLayers).toHaveBeenCalledTimes(1);
+    } finally {
+      drawLayers.mockRestore();
+      drawMarks.mockRestore();
     }
   });
 });

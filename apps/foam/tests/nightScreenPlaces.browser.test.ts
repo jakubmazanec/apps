@@ -147,6 +147,12 @@ describe('night screen places', {timeout: 180_000}, () => {
     await press('Enter');
   }
 
+  // Whether the night screen's travel window, which it keeps, is on the UI
+  // root: opening, open or closing.
+  function isTravelShown(): boolean {
+    return harness.nightScreen.contents.travelWindow.modal.state !== 'closed';
+  }
+
   // The screen opens the travel window in its next frame after the way out's
   // window has closed.
   async function waitForTravelWindow(): Promise<TravelWindow> {
@@ -154,7 +160,7 @@ describe('night screen places', {timeout: 180_000}, () => {
       () => {
         let {travelWindow} = harness.nightScreen.contents;
 
-        if (travelWindow === null) {
+        if (!isTravelShown()) {
           throw new Error('The travel window is not open.');
         }
 
@@ -168,7 +174,7 @@ describe('night screen places', {timeout: 180_000}, () => {
   async function waitForNoTravelWindow(): Promise<void> {
     await vitest.waitFor(
       () => {
-        if (harness.nightScreen.contents.travelWindow !== null) {
+        if (isTravelShown()) {
           throw new Error('The travel window is still open.');
         }
       },
@@ -230,12 +236,14 @@ describe('night screen places', {timeout: 180_000}, () => {
   }
 
   // What hiding the screen leaves: no window, no place, and in the UI only the
-  // status line, Menu and the backdrop. The travel window's modal is destroyed,
-  // whether it closed before or the screen destroyed it.
+  // status line, Menu and the backdrop. The travel window's modal is kept for
+  // the next night, whether it closed before or the screen took it off.
   function expectNothingLeft(travelModal: Modal): void {
     let {contents, ui} = harness.nightScreen;
 
-    expect(contents.travelWindow).toBeNull();
+    expect(travelModal).toBe(contents.travelWindow.modal);
+    expect(travelModal.state).toBe('closed');
+    expect(travelModal.view.destroyed).toBe(false);
     expect(contents.storyWindow).toBeNull();
     expect(contents.place).toBeNull();
     expect(contents.placeButton).toBeNull();
@@ -245,12 +253,13 @@ describe('night screen places', {timeout: 180_000}, () => {
     expect(ui.children).toContain(contents.statusText);
     expect(ui.children).toContain(contents.menuButton);
     expect(ui.children).toContain(contents.backdrop);
-    expect(travelModal.view.destroyed).toBe(true);
   }
 
   beforeAll(async () => {
-    harness = await bootGame(960, 540);
+    // The fixed world goes in before the boot: the night screen builds its travel window when it
+    // is attached, from the world nightStart holds then.
     restore = useFixedWorld({place: FIXED_SQUARE});
+    harness = await bootGame(960, 540);
   }, 60_000);
 
   afterAll(() => {
@@ -421,7 +430,7 @@ describe('night screen places', {timeout: 180_000}, () => {
     await nextFrame();
     await nextFrame();
 
-    expect(contents.travelWindow).toBeNull();
+    expect(isTravelShown()).toBe(false);
     expect(contents.night).toEqual(nightBefore);
   });
 
@@ -446,6 +455,36 @@ describe('night screen places', {timeout: 180_000}, () => {
     );
     // The travel window declares close, so Escape closed it and opened no menu.
     expect(contents.menuModal).toBeNull();
+  });
+
+  // The screen builds its travel window once, when it is attached, so that opening it costs a
+  // frame like any other: every way out shows the same window, kept between journeys and nights.
+  test('every way out shows the one travel window the screen keeps', async () => {
+    let {contents} = harness.nightScreen;
+    let kept = contents.travelWindow;
+    let keptModal = kept.modal;
+
+    await restartAt(harness, FIXED_SQUARE);
+    await closeStory();
+    await chooseWayOut('Walk');
+
+    await expect(waitForTravelWindow()).resolves.toBe(kept);
+
+    await press('Escape');
+    await waitForNoTravelWindow();
+
+    expect(keptModal.view.destroyed).toBe(false);
+
+    await chooseWayOut('Take a taxi');
+
+    let reopened = await waitForTravelWindow();
+
+    expect(reopened).toBe(kept);
+    expect(reopened.modal).toBe(keptModal);
+    expect(reopened.way).toBe('taxi');
+
+    await press('Escape');
+    await waitForNoTravelWindow();
   });
 
   test('a journey, from the door to the arrival', async () => {
@@ -582,7 +621,7 @@ describe('night screen places', {timeout: 180_000}, () => {
         let {storyWindow, travelWindow} = contents;
         let speaker = storyWindow?.dialogue.node?.speaker;
 
-        if (travelWindow?.modal.state === 'open') {
+        if (travelWindow.modal.state === 'open') {
           // Two frames: the place's button selects it, then the destination button travels.
           let {destination, places} = getTravelParts(travelWindow);
           let target = hasSelected ? destination : (places.get(FIXED_BAR) ?? null);
@@ -611,7 +650,7 @@ describe('night screen places', {timeout: 180_000}, () => {
 
       for (
         let count = 0;
-        count < 200 && (contents.storyWindow !== null || contents.travelWindow !== null);
+        count < 200 && (contents.storyWindow !== null || isTravelShown());
         count += 1
       ) {
         contents.storyWindow?.dialogue.advance();
@@ -619,7 +658,7 @@ describe('night screen places', {timeout: 180_000}, () => {
       }
 
       expect(contents.storyWindow).toBeNull();
-      expect(contents.travelWindow).toBeNull();
+      expect(isTravelShown()).toBe(false);
 
       runFrames(18);
     }
@@ -688,7 +727,7 @@ describe('night screen places', {timeout: 180_000}, () => {
 
       travelToTheBarByHand((pixels, frame) => {
         let light = readLight(pixels);
-        let isMenuCovered = contents.travelWindow !== null;
+        let isMenuCovered = isTravelShown();
 
         if (light.picture >= 0.5 || (!isMenuCovered && light.menu >= 0.5)) {
           brightFrames.push(
@@ -717,7 +756,7 @@ describe('night screen places', {timeout: 180_000}, () => {
 
         lights.push(getPictureLight(pixels, corner));
 
-        if (travelWindow === null) {
+        if (!isTravelShown()) {
           return;
         }
 
@@ -833,7 +872,7 @@ describe('night screen places', {timeout: 180_000}, () => {
       chooseWayOutByHand('Take a taxi');
       runFrames(20);
 
-      if (contents.travelWindow === null) {
+      if (!isTravelShown()) {
         throw new Error('The travel window is not open!');
       }
 
@@ -1023,7 +1062,7 @@ describe('night screen places', {timeout: 180_000}, () => {
       expect(warn.mock.calls).toEqual([[UNKNOWN_PLACE_WARNING]]);
       expect(contents.night.place).toBe(FIXED_SQUARE);
       expect(contents.night.leaving).toBeNull();
-      expect(contents.travelWindow).toBeNull();
+      expect(isTravelShown()).toBe(false);
 
       // A later window that has nothing to do with it opens no travel window,
       // and the screen warns no more.
@@ -1033,7 +1072,7 @@ describe('night screen places', {timeout: 180_000}, () => {
       await nextFrame();
       await nextFrame();
 
-      expect(contents.travelWindow).toBeNull();
+      expect(isTravelShown()).toBe(false);
       expect(warn).toHaveBeenCalledTimes(1);
     } finally {
       warn.mockRestore();

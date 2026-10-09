@@ -94,8 +94,11 @@ type NightScreenContents = {
   statusText: Text;
   storyWindow: StoryWindow | null;
 
-  /** From a way out's choice until its modal has closed. */
-  travelWindow: TravelWindow | null;
+  /**
+   * Built once, when the screen is attached, and kept: a way out's choice opens it on the night's
+   * journey, and closing takes its modal off the UI root without destroying it.
+   */
+  travelWindow: TravelWindow;
 };
 type NightScreen = GameScreen<NightScreenContents>;
 
@@ -179,7 +182,13 @@ function layOut(screen: NightScreen): void {
   picture?.resize(area.width, area.top + area.height);
   nextPlace?.picture.resize(area.width, area.top + area.height);
   storyWindow?.resize(area);
-  travelWindow?.resize(area.width, area.top + area.height);
+  // Closed too: the kept window is laid out for the screen it opens on next.
+  travelWindow.resize(area.width, area.top + area.height);
+}
+
+// Whether the travel window is on the UI root: opening, open or closing.
+function isTravelWindowShown({contents}: NightScreen): boolean {
+  return contents.travelWindow.modal.state !== 'closed';
 }
 
 // The scene is dimmed while the night is busy: a story window or the travel
@@ -191,13 +200,15 @@ function layOut(screen: NightScreen): void {
 // place being left fades out with the window, the next place is built under
 // black, and it fades in with its description, as the journey does with its
 // window.
-function getBackdropAlpha({contents}: NightScreen): number {
+function getBackdropAlpha(screen: NightScreen): number {
+  let {contents} = screen;
+
   if (contents.isPlaceChanging) {
     return 1;
   }
 
   let isBusy =
-    contents.storyWindow !== null || contents.travelWindow !== null || contents.hasStoryClosed;
+    contents.storyWindow !== null || isTravelWindowShown(screen) || contents.hasStoryClosed;
 
   return isBusy ? game.theme.modal.scrimAlpha : 0;
 }
@@ -423,33 +434,23 @@ function showPlace(screen: NightScreen, place: Place): void {
   openStory(screen, place.description);
 }
 
-// Opens the travel window from the place being shown on the way a way out
-// chose. It runs only while no overlay is open, so the window is the topmost.
-function openTravel(
-  screen: NightScreen,
-  from: PlaceId,
-  {way, ways}: NonNullable<Night['leaving']>,
-): void {
+// Builds the travel window, once, when the screen is attached: every control and
+// both map layers, so that a journey only fills it (see openTravel). A pick
+// takes the player away: the scene goes out with the window.
+function createTravelWindow(screen: NightScreen): TravelWindow {
   let area = getArea();
 
-  screen.contents.travelWindow = new TravelWindow({
+  return new TravelWindow({
     ui: screen.ui,
     scheduler: screen.scheduler,
-    night: screen.contents.night,
     start: nightStart,
-    from,
-    way,
-    ways,
     screenWidth: area.width,
     screenHeight: area.top + area.height,
-    // A pick takes the player away: the scene goes out with the window.
     onClosing: (destination) => {
       screen.contents.isPlaceChanging = destination !== null;
       fadeBackdrop(screen);
     },
     onClosed: (destination) => {
-      screen.contents.travelWindow = null;
-
       // Back and the cancel command leave the night as it was.
       if (destination === null) {
         return;
@@ -464,6 +465,16 @@ function openTravel(
       openStory(screen, journeys[destination.way]);
     },
   });
+}
+
+// Opens the travel window from the place being shown on the way a way out
+// chose. It runs only while no overlay is open, so the window is the topmost.
+function openTravel(
+  screen: NightScreen,
+  from: PlaceId,
+  {way, ways}: NonNullable<Night['leaving']>,
+): void {
+  screen.contents.travelWindow.open({from, way, ways, night: screen.contents.night});
   fadeBackdrop(screen);
 }
 
@@ -595,7 +606,7 @@ export const nightScreen = new GameScreen<NightScreenContents>({
       status: '',
       statusText,
       storyWindow: null,
-      travelWindow: null,
+      travelWindow: createTravelWindow(screen),
     };
   },
   // A place nightStart lacks is an error, which the error screen shows.
@@ -624,16 +635,20 @@ export const nightScreen = new GameScreen<NightScreenContents>({
   onHide: (screen) => {
     // Owning-screen teardown rule: synchronous destroy(), never the animated
     // close(), because the scheduler was already cleared before onHide. The
-    // topmost window goes first. A destroyed travel window reports no
-    // destination: its onClosed does not fire.
+    // topmost window goes first. The travel window is kept for the next night:
+    // its modal only leaves the UI root, and reports no destination, as its
+    // onClosed does not fire.
     screen.contents.optionsModal?.destroy();
     screen.contents.menuModal?.destroy();
-    screen.contents.travelWindow?.modal.destroy();
+
+    if (isTravelWindowShown(screen)) {
+      screen.ui.removeOverlay(screen.contents.travelWindow.modal);
+    }
+
     screen.contents.storyWindow?.destroy();
 
     screen.contents.optionsModal = null;
     screen.contents.menuModal = null;
-    screen.contents.travelWindow = null;
     screen.contents.storyWindow = null;
     leavePlace(screen);
     dropNextPlace(screen);

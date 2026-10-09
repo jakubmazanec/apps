@@ -479,14 +479,21 @@ export async function waitForChoices(storyWindow: StoryWindow): Promise<void> {
 // is a column of the row, the map area, the destination slot and Back; a
 // side-by-side body is a row of the map area and a column of the row, the slot
 // and Back. The row is a Container of one Button per way. The map area's view
-// holds the map picture's view first, then one Button per place, labelled with
-// the place's id. The slot holds the destination Button, with the name's Text
-// and then the numbers' Text, or nothing.
+// holds the map picture's view first, whose sprites show the layer and then the
+// marks, then one Button per place, labelled with the place's id; the
+// journey's own place has one too, not drawn. The slot holds the destination
+// Button, with the name's Text and then the numbers' Text; it is not drawn
+// while the way has no destination. `places` and `destination` hold what the
+// player sees; `allPlaces` and `destinationButton` hold every button.
 export function getTravelParts(travelWindow: TravelWindow): {
+  allPlaces: Map<string, Button>;
   back: Button;
   destination: Button | null;
+  destinationButton: Button;
+  layerSprite: pixi.Sprite;
   map: pixi.Container;
   mapArea: Container;
+  marksSprite: pixi.Sprite;
   panel: Panel;
   places: Map<string, Button>;
   slot: Container;
@@ -512,30 +519,43 @@ export function getTravelParts(travelWindow: TravelWindow): {
       [second.children[0], first, second.children[1], second.children[2]]
     : [first, second, third, fourth];
   let map = mapArea instanceof Container ? mapArea.view.children[0] : undefined;
+  let [layerSprite, marksSprite] = map?.children ?? [];
 
   if (
     !(row instanceof Container) ||
     !(mapArea instanceof Container) ||
     map === undefined ||
+    !(layerSprite instanceof pixi.Sprite) ||
+    !(marksSprite instanceof pixi.Sprite) ||
     !(slot instanceof Container) ||
     !(back instanceof Button)
   ) {
-    throw new TypeError('The travel window has no row, map area, slot or Back button!');
+    throw new TypeError('The travel window has no row, map area, map, slot or Back button!');
   }
 
-  let [destination] = slot.children;
+  let [destinationButton] = slot.children;
+
+  if (!(destinationButton instanceof Button)) {
+    throw new TypeError('The travel window has no destination button!');
+  }
+
+  let allPlaces = new Map(
+    mapArea.children
+      .filter((child) => child instanceof Button)
+      .map((button) => [button.view.label, button]),
+  );
 
   return {
+    allPlaces,
     back,
-    destination: destination instanceof Button ? destination : null,
+    destination: destinationButton.view.renderable ? destinationButton : null,
+    destinationButton,
+    layerSprite,
     map,
     mapArea,
+    marksSprite,
     panel,
-    places: new Map(
-      mapArea.children
-        .filter((child) => child instanceof Button)
-        .map((button) => [button.view.label, button]),
-    ),
+    places: new Map([...allPlaces].filter(([, button]) => button.view.renderable)),
     slot,
     title,
     ways: row.children.filter((child) => child instanceof Button),
