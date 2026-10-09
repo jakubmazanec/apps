@@ -1,9 +1,7 @@
-import {defineDialogueScript} from 'tellurion';
-
 import {createWayOut} from '../../core/createWayOut.js';
-import {type Night} from '../../core/night.js';
 import {type Place} from '../../core/place.js';
 import {standIn} from '../../core/prose.js';
+import {defineScript} from '../../core/script.js';
 import {barPicture} from '../pictures/barPicture.js';
 
 // The text of this place is stand-in text: the author replaces standIn by prose when writing
@@ -18,7 +16,7 @@ const SHELVES = 'The shelves';
 const SHOPKEEPER = 'The shopkeeper';
 const REGULARS = 'Two regulars';
 const DOOR = 'The door';
-const description = defineDialogueScript<Night>()({
+const description = defineScript({
   start: {
     speaker: TITLE,
     text: standIn`
@@ -27,28 +25,34 @@ const description = defineDialogueScript<Night>()({
     `,
   },
 });
-const shelves = defineDialogueScript<Night>()({
+const shelves = defineScript({
   start: 'shelves',
   nodes: {
     shelves: {
       speaker: SHELVES,
       text: standIn`
-        Sixty bottles stand open for tasting, each with a small card in a careful hand. A dram
-        costs money and a quarter of an hour.
+        Sixty bottles stand open for tasting, each with a small card in a careful hand.
       `,
-      choices: [{text: 'Pour a dram', next: 'dram'}, {text: 'Not now'}],
+      choices: [
+        {text: 'Pour a dram', price: 90, minutes: 15, drinks: 1, next: 'dram'},
+        {text: 'Pour the good one', price: 180, minutes: 15, drinks: 1, next: 'goodOne'},
+        {text: 'Not now'},
+      ],
     },
     dram: {
       speaker: SHELVES,
       text: standIn`The dram is dark and slow, and it tastes of smoke, then of something sweet.`,
-      onEnter: (night) => {
-        night.money -= 90;
-        night.minutes += 15;
-      },
+    },
+    goodOne: {
+      speaker: SHELVES,
+      text: standIn`
+        The good one is older than some of the regulars, and it takes its time on the tongue.
+        The shopkeeper watches your face and says nothing.
+      `,
     },
   },
 });
-const shopkeeper = defineDialogueScript<Night>()({
+const shopkeeper = defineScript({
   start: {
     speaker: SHOPKEEPER,
     text: standIn`
@@ -56,13 +60,27 @@ const shopkeeper = defineDialogueScript<Night>()({
     `,
   },
 });
-const regulars = defineDialogueScript<Night>()({
-  start: {
-    speaker: REGULARS,
-    text: standIn`
-      Two men lean on the counter. One of them is saving a bottle for an occasion that never
-      comes, and the other has stopped asking which.
-    `,
+const regulars = defineScript({
+  start: 'regulars',
+  nodes: {
+    regulars: {
+      speaker: REGULARS,
+      text: standIn`
+        Two men lean on the counter. One of them is saving a bottle for an occasion that never
+        comes, and the other has stopped asking which.
+      `,
+      choices: [
+        {text: 'Ask about the bottle', minutes: 5, drunkenness: {max: 1}, next: 'bottle'},
+        {text: 'Let them be'},
+      ],
+    },
+    bottle: {
+      speaker: REGULARS,
+      text: standIn`
+        The one with the bottle says where it came from, and the other says how long it has
+        been waiting. Neither of them says what the occasion is.
+      `,
+    },
   },
 });
 const door = createWayOut({

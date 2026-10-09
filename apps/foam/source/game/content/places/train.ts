@@ -1,8 +1,6 @@
-import {defineDialogueScript} from 'tellurion';
-
-import {type Night} from '../../core/night.js';
 import {type Place} from '../../core/place.js';
 import {standIn} from '../../core/prose.js';
+import {defineScript} from '../../core/script.js';
 import {standInPicture} from '../pictures/standInPicture.js';
 
 // The text of this place is stand-in text: the author replaces standIn by prose when writing
@@ -14,7 +12,7 @@ const PLACE_NAME = 'The train';
 const WINDOW = 'The window';
 const PASSENGER = 'A passenger';
 const DOOR = 'The door';
-const description = defineDialogueScript<Night>()({
+const description = defineScript({
   start: {
     speaker: PLACE_NAME,
     text: standIn`
@@ -24,7 +22,7 @@ const description = defineDialogueScript<Night>()({
     `,
   },
 });
-const scenery = defineDialogueScript<Night>()({
+const scenery = defineScript({
   start: {
     speaker: WINDOW,
     text: standIn`
@@ -33,7 +31,7 @@ const scenery = defineDialogueScript<Night>()({
     `,
   },
 });
-const passenger = defineDialogueScript<Night>()({
+const passenger = defineScript({
   start: {
     speaker: PASSENGER,
     text: standIn`
@@ -43,15 +41,15 @@ const passenger = defineDialogueScript<Night>()({
   },
 });
 // The way out of the train is written by hand: it has two stops and no journey.
-const door = defineDialogueScript<Night>()({
+const door = defineScript({
   start: 'door',
   nodes: {
     door: {
       speaker: DOOR,
       text: standIn`The train slows. Židenice is next, and the main station after it.`,
       choices: [
-        {text: 'Get off at Brno-Židenice', next: 'zidenice'},
-        {text: 'Ride on to the main station', next: 'hlavniNadrazi'},
+        {text: 'Get off at Brno-Židenice', minutes: 4, next: 'zidenice'},
+        {text: 'Ride on to the main station', minutes: 9, next: 'hlavniNadrazi'},
         {text: 'Not yet'},
       ],
     },
@@ -59,7 +57,6 @@ const door = defineDialogueScript<Night>()({
       speaker: DOOR,
       text: standIn`The platform is short and nearly empty.`,
       onEnter: (night) => {
-        night.minutes += 4;
         night.place = 'zidenice';
       },
     },
@@ -67,7 +64,6 @@ const door = defineDialogueScript<Night>()({
       speaker: DOOR,
       text: standIn`The train crosses the river and rolls into the main station.`,
       onEnter: (night) => {
-        night.minutes += 9;
         night.place = 'hlavniNadrazi';
       },
     },

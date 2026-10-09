@@ -1,9 +1,7 @@
-import {defineDialogueScript} from 'tellurion';
-
 import {createWayOut} from '../../core/createWayOut.js';
-import {type Night} from '../../core/night.js';
 import {type Place} from '../../core/place.js';
 import {standIn} from '../../core/prose.js';
+import {defineScript} from '../../core/script.js';
 import {standInPicture} from '../pictures/standInPicture.js';
 
 // The text of this place is stand-in text: the author replaces standIn by prose when writing
@@ -17,7 +15,7 @@ const TITLE = 'Malinovského nám.';
 const THEATRE = 'The theatre';
 const DISPLAY = 'The display';
 const STREET = 'The street';
-const description = defineDialogueScript<Night>()({
+const description = defineScript({
   start: {
     speaker: TITLE,
     text: standIn`
@@ -26,7 +24,7 @@ const description = defineDialogueScript<Night>()({
     `,
   },
 });
-const theatre = defineDialogueScript<Night>()({
+const theatre = defineScript({
   start: {
     speaker: THEATRE,
     text: standIn`
@@ -35,7 +33,7 @@ const theatre = defineDialogueScript<Night>()({
     `,
   },
 });
-const display = defineDialogueScript<Night>()({
+const display = defineScript({
   start: {
     speaker: DISPLAY,
     text: standIn`The display says the next tram comes in 4 minutes. You have your doubts.`,
