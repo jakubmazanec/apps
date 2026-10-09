@@ -10,6 +10,7 @@ import {
 } from 'tellurion';
 
 import {fitMapFrame, MAP_INSET, type MapFrame, toMapPixel} from '../core/fitMapFrame.js';
+import {formatCosts} from '../core/formatCosts.js';
 import {game} from '../core/game.js';
 import {getMapPoint, type MapPoint} from '../core/getMapPoint.js';
 import {
@@ -28,7 +29,6 @@ import {BUTTON_SIZE, placeMapButtons} from '../core/placeMapButtons.js';
 import {UI_FADE_DURATION} from '../core/theme.js';
 import {
   type Destination,
-  formatJourney,
   getDestinations,
   type MapData,
   type NightStart,
@@ -170,7 +170,7 @@ function getDestinationLabel(
   {width, isNarrow}: Pick<DestinationRoom, 'isNarrow' | 'width'>,
 ): DestinationLabel {
   let labelWidth = Math.max(1, width - 2 * BUTTON_PADDING_X);
-  let numbers = formatJourney(destination);
+  let numbers = formatCosts(destination);
   let numbersWidth = measureLabel(numbers);
   let nameWidth = isNarrow ? labelWidth : Math.max(1, labelWidth - numbersWidth - NAME_GAP);
   let name = wrapText(destination.place.name, nameWidth, measureLabel);

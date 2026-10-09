@@ -86,10 +86,3 @@ export function takeJourney(night: Night, destination: Destination): void {
   night.money -= destination.price;
   night.place = destination.place.id;
 }
-
-/** "35 min", or "11 min  170 Kč" for a journey with a price. */
-export function formatJourney(destination: Destination): string {
-  let {minutes, price} = destination;
-
-  return price > 0 ? `${minutes} min  ${price} Kč` : `${minutes} min`;
-}

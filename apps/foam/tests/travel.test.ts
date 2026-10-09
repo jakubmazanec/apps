@@ -2,12 +2,7 @@ import {describe, expect, test, vitest} from 'vitest';
 
 import {createNight, type PlaceId} from '../source/game/core/night.js';
 import {type Place} from '../source/game/core/place.js';
-import {
-  formatJourney,
-  getDestinations,
-  type NightStart,
-  takeJourney,
-} from '../source/game/core/travel.js';
+import {getDestinations, type NightStart, takeJourney} from '../source/game/core/travel.js';
 
 function createPlace(id: PlaceId, name: string): Place {
   return {id, name, description: {start: {text: 'x'}}, picture: '', spots: []};
@@ -83,14 +78,5 @@ describe(takeJourney, () => {
     expect(night.minutes).toBe(1191);
     expect(night.money).toBe(180);
     expect(night.place).toBe('rotorBar');
-  });
-});
-
-describe(formatJourney, () => {
-  test('gives the minutes, and the price when there is one', () => {
-    let place = createPlace('rotorBar', 'Alpha');
-
-    expect(formatJourney({place, way: 'walk', minutes: 10, price: 0})).toBe('10 min');
-    expect(formatJourney({place, way: 'taxi', minutes: 11, price: 170})).toBe('11 min  170 Kč');
   });
 });
