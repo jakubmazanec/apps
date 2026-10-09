@@ -1,5 +1,5 @@
 import {failUnsupported} from '../utilities/failUnsupported.js';
-import {type DialogueChoice, type DialogueNode} from './DialogueScript.js';
+import {type DialogueChoice, type DialogueNode, type DialogueReference} from './DialogueScript.js';
 
 /**
  * The runtime shape of an authored script. TNodeId is a compile-time guarantee
@@ -8,10 +8,7 @@ import {type DialogueChoice, type DialogueNode} from './DialogueScript.js';
  * Record<'a' | 'b', ...> is assignable via its implicit index signature.
  */
 export type RunnableDialogueScript<TContext> = {
-  start:
-    | DialogueNode<TContext, string>
-    | ((context: TContext) => DialogueNode<TContext, string> | string)
-    | string;
+  start: DialogueReference<TContext, string>;
   nodes?: Readonly<Partial<Record<string, DialogueNode<TContext, string>>>>;
 };
 
@@ -244,11 +241,12 @@ export class Dialogue<TContext = unknown> {
   }
 
   /** TBD */
-  #enterNode(reference: DialogueNode<TContext, string> | string): void {
-    let node = typeof reference === 'string' ? this.#script.nodes?.[reference] : reference;
+  #enterNode(reference: DialogueReference<TContext, string>): void {
+    let target = typeof reference === 'function' ? reference(this.#context) : reference;
+    let node = typeof target === 'string' ? this.#script.nodes?.[target] : target;
 
     if (node === undefined) {
-      failUnsupported(`Dialogue node "${String(reference)}" wasn't found in the script!`);
+      failUnsupported(`Dialogue node "${String(target)}" wasn't found in the script!`);
       this.#end();
 
       return;

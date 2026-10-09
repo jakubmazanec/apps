@@ -537,4 +537,35 @@ describe('DialogueBox focus integration', () => {
     expect(onChoose).toHaveBeenCalledTimes(1);
     expect(dialogue.phase).toBe('ended');
   });
+
+  test('a choice confirmed in the box follows its function next through the runner', async () => {
+    let {ui} = await createUiWithOutsideButton();
+    let dialogue = new Dialogue({
+      script: {
+        start: 'q',
+        nodes: {
+          q: {text: 'Q', choices: [{text: 'Yes', next: () => 'yes'}, {text: 'No'}]},
+          yes: {text: 'Went yes.'},
+        },
+      },
+      context: {},
+    });
+    let {box} = createBox({
+      onChooseTap: (index) => {
+        dialogue.choose(index);
+      },
+    });
+
+    box.resize(10, 100);
+    ui.addOverlay(box);
+    box.showNode({page: dialogue.pageText});
+    dialogue.advance();
+    box.setChoices(
+      dialogue.visibleChoices.map((choice) => choice.text),
+      dialogue.selectedIndex,
+    );
+    ui.activate();
+
+    expect(dialogue.pageText).toBe('Went yes.');
+  });
 });
