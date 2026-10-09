@@ -1,7 +1,9 @@
 # Actions with costs, odds and conditions (Foam phase 5, spec 2 of 4): design
 
-Date: 2026-10-09. App: `apps/foam`. Status: designed. It is the second of phase 5's four specs in
-the [direction document](../../direction.md). It needs the Tellurion addition
+Date: 2026-10-09. App: `apps/foam`. Status: implemented by
+[2026-10-09-actions-with-costs.md](../plans/2026-10-09-actions-with-costs.md). It is the second of
+phase 5's four specs in the [direction document](../../direction.md). It needs the Tellurion
+addition
 [dialogue next as a function](../../../../../docs/superpowers/specs/2026-10-08-dialogue-next-function-design.md),
 which is built first. The third spec, locations and hours, follows this one.
 
