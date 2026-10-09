@@ -14,13 +14,18 @@ describe(getJumpIn, () => {
     warn.mockRestore();
   });
 
-  test('reads the place, the hour and the money', () => {
-    expect(getJumpIn('?place=rotorBar&time=23:10&money=120', places)).toEqual({
+  test('reads the place, the hour, the money and the drunkenness', () => {
+    expect(getJumpIn('?place=rotorBar&time=23:10&money=120&drunkenness=2.5', places)).toEqual({
       place: 'rotorBar',
       minutes: 1390,
       money: 120,
+      drunkenness: 2.5,
     });
     expect(warn).not.toHaveBeenCalled();
+  });
+
+  test('reads the drunkenness without a decimal part', () => {
+    expect(getJumpIn('?place=rotorBar&drunkenness=2', places)?.drunkenness).toBe(2);
   });
 
   test('counts a time before noon as after midnight, and keeps noon', () => {
@@ -58,6 +63,14 @@ describe(getJumpIn, () => {
 
     expect(jumpIn).toEqual({place: 'rotorBar', minutes: 1390});
     expect(jumpIn).not.toHaveProperty('money');
+    expect(warn).toHaveBeenCalledTimes(1);
+  });
+
+  test.each(['-1', '2,5', '.5', 'abc'])('drops the drunkenness %s with a warning', (value) => {
+    let jumpIn = getJumpIn(`?place=rotorBar&drunkenness=${value}`, places);
+
+    expect(jumpIn).toEqual({place: 'rotorBar'});
+    expect(jumpIn).not.toHaveProperty('drunkenness');
     expect(warn).toHaveBeenCalledTimes(1);
   });
 });
