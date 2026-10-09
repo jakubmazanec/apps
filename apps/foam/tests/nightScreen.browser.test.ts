@@ -60,7 +60,7 @@ vitest.mock(import('../source/game/content/pictures/barPicture.js'), async () =>
 
 // The tests run in the fixed world's bar, which has the sample bar's text.
 const sampleBar = getFixedPlace(FIXED_BAR);
-const STARTING_STATUS = '19:40   350 Kč   Sober';
+const STARTING_STATUS = '19:40   350 Kč   0.0';
 // Ten lines of 46 letters at most: one page under a title and two choices.
 const LAMP_PAGE =
   'The lamp over the counter hums to itself. Its light is the colour of weak tea, and it ' +
@@ -998,9 +998,11 @@ describe('night screen', {timeout: 180_000}, () => {
       expect(nightScreen.contents.night).toEqual({
         minutes: 1190,
         money: 305,
-        stateOfMind: 'Sober',
         place: FIXED_BAR,
         leaving: null,
+        drunkenness: {level: 0, at: 1180},
+        roll: null,
+        random: Math.random,
       });
       // The status behind the window follows when the window closes.
       expect(readText(nightScreen.contents.statusText)).toBe(STARTING_STATUS);
@@ -1012,7 +1014,7 @@ describe('night screen', {timeout: 180_000}, () => {
 
       // The status changes when the window closes, and the focus returns.
       expect(storyWindow.dialogue.phase).toBe('ended');
-      expect(readText(nightScreen.contents.statusText)).toBe('19:50   305 Kč   Sober');
+      expect(readText(nightScreen.contents.statusText)).toBe('19:50   305 Kč   0.0');
       expect(describeFocus(nightScreen.ui.focused)).toBe('The bartender');
     });
 

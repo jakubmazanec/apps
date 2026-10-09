@@ -55,6 +55,9 @@ export type NightStart = {
 
   minutes: number;
   money: number;
+
+  /** The level of drunkenness the night starts at, in drinks; 0 when absent. */
+  drunkenness?: number;
 };
 
 /** The destinations from a place by a way, nearest first, then by name. */

@@ -458,7 +458,7 @@ describe('night screen places', {timeout: 180_000}, () => {
     // A taxi to the bar: 6 minutes and 120 Kč.
     let storyWindow = await startJourney('Take a taxi', FIXED_BAR);
 
-    expect(readText(contents.statusText)).toBe('19:46   230 Kč   Sober');
+    expect(readText(contents.statusText)).toBe('19:46   230 Kč   0.0');
     expect(contents.night.place).toBe(FIXED_BAR);
     expect(storyWindow.dialogue.node?.speaker).toBe('The taxi');
     expect(contents.place).toBeNull();
@@ -992,7 +992,7 @@ describe('night screen places', {timeout: 180_000}, () => {
     );
 
     expect(getPlace(harness).id).toBe(FIXED_SQUARE);
-    expect(readText(nightScreen.contents.statusText)).toBe('19:40   350 Kč   Sober');
+    expect(readText(nightScreen.contents.statusText)).toBe('19:40   350 Kč   0.0');
     expect(nightScreen.contents.backdrop.alpha).toBe(game.theme.modal.scrimAlpha);
   });
 
