@@ -7,10 +7,7 @@ import {palette} from '../core/palette.js';
 import {LIGHT_REACH} from '../core/placeMapButtons.js';
 import {type MapData} from '../core/travel.js';
 
-export type MapDrawing = {
-  layer: MapLayer;
-  frame: MapFrame;
-
+export type MapMarks = {
   /** The light's pixel, or null for a place without a position. */
   you: {x: number; y: number} | null;
 
@@ -20,6 +17,8 @@ export type MapDrawing = {
   /** The top-left corners of the place buttons, from `placeMapButtons`. */
   buttons: Array<{x: number; y: number}>;
 };
+
+const LAYERS: readonly MapLayer[] = ['streets', 'trams'];
 
 /** The pixels of a straight line from one pixel to another, both included (Bresenham). */
 function getLinePixels(
@@ -58,72 +57,105 @@ function getLinePixels(
   }
 }
 
-// Draws the map's layer, the dotted line, the buttons' black squares and the player's light into
-// a texture as large as the map in art pixels, which one sprite shows. Nothing it draws is added
-// to a screen. The layers' contexts are shared for the game's life, so only the Graphics that
-// use them are destroyed, never the contexts.
+// Creates a texture as large as the map in art pixels. Dynamic, so that the sprite that shows it
+// follows its size.
+function createMapTexture(): pixi.RenderTexture {
+  return pixi.RenderTexture.create({
+    width: 1,
+    height: 1,
+    resolution: 1,
+    scaleMode: 'nearest',
+    antialias: false,
+    dynamic: true,
+  });
+}
+
+// Draws each of the map's layers into a texture of its own, once for a map size, and the dotted
+// line, the buttons' black squares and the player's light into a transparent texture above it,
+// again whenever they change, so that a journey or a selection never draws the streets again. Two
+// sprites show them. Nothing it draws is added to a screen. The layers' contexts are shared for
+// the game's life, so only the Graphics that use them are destroyed, never the contexts.
 export class MapPicture {
   readonly view: pixi.Container = new pixi.Container();
 
-  #layer: MapLayer | null = null;
+  /** Shows the texture of the current layer. */
+  readonly #layerSprite: pixi.Sprite;
 
-  readonly #layerContainer: pixi.Container = new pixi.Container();
+  /** Each layer drawn at the last frame. */
+  readonly #layerTextures: Readonly<Record<MapLayer, pixi.RenderTexture>> = {
+    streets: createMapTexture(),
+    trams: createMapTexture(),
+  };
 
   readonly #map: MapData;
-
   readonly #marks: pixi.Graphics = new pixi.Graphics();
 
-  readonly #scene: pixi.Container = new pixi.Container();
+  /** The container the marks are drawn from. */
+  readonly #marksScene: pixi.Container = new pixi.Container();
 
-  readonly #texture: pixi.RenderTexture;
+  readonly #marksTexture: pixi.RenderTexture = createMapTexture();
 
   constructor({map}: {map: MapData}) {
     this.#map = map;
-    // Dynamic, so that the sprite follows the texture's size.
-    this.#texture = pixi.RenderTexture.create({
-      width: 1,
-      height: 1,
-      resolution: 1,
-      scaleMode: 'nearest',
-      antialias: false,
-      dynamic: true,
-    });
-    this.#scene.addChild(this.#layerContainer, this.#marks);
-    this.view.addChild(new pixi.Sprite(this.#texture));
+    this.#layerSprite = new pixi.Sprite(this.#layerTextures.streets);
+    this.#marksScene.addChild(this.#marks);
+    this.view.addChild(this.#layerSprite, new pixi.Sprite(this.#marksTexture));
   }
 
   destroy(): void {
     this.view.destroy({children: true});
     // No options, so that the marks' own context goes with them: they created it.
     this.#marks.destroy();
-    this.#removeLayer();
-    this.#scene.destroy({children: true});
-    this.#texture.destroy(true);
+    this.#marksScene.destroy();
+
+    for (let texture of [...Object.values(this.#layerTextures), this.#marksTexture]) {
+      texture.destroy(true);
+    }
   }
 
-  /** Draws the layer at this frame, the dotted line and the light into the texture. */
-  draw({layer, frame, you, selected, buttons}: MapDrawing): void {
+  /** Draws every layer at this frame into its texture; the marks need drawing again after it. */
+  drawLayers(frame: MapFrame): void {
     let width = Math.max(1, frame.width);
     let height = Math.max(1, frame.height);
     let scale = 1 / frame.metresPerPixel;
+    let scene = new pixi.Container();
 
-    this.#texture.resize(width, height);
-    this.#setLayer(layer);
-    this.#layerContainer.scale.set(scale);
-    this.#layerContainer.position.set(
-      width / 2 - frame.centre.x * scale,
-      height / 2 - frame.centre.y * scale,
-    );
-    this.#drawMarks({you, selected, buttons});
-    game.app.renderer.render({
-      container: this.#scene,
-      target: this.#texture,
-      clear: true,
-      clearColor: palette.black,
-    });
+    scene.scale.set(scale);
+    scene.position.set(width / 2 - frame.centre.x * scale, height / 2 - frame.centre.y * scale);
+
+    for (let layer of LAYERS) {
+      let texture = this.#layerTextures[layer];
+
+      texture.resize(width, height);
+
+      for (let context of getMapLayers(this.#map)[layer]) {
+        scene.addChild(new pixi.Graphics(context));
+      }
+
+      game.app.renderer.render({
+        container: scene,
+        target: texture,
+        clear: true,
+        clearColor: palette.black,
+      });
+      // Pixi's Graphics.destroy does not stop a Graphics listening to its context, so the shared
+      // context would keep it for the game's life: a fresh empty context, never drawn, takes its
+      // place first and is collected with it. No options: the shared one stays.
+      for (let child of scene.removeChildren()) {
+        if (child instanceof pixi.Graphics) {
+          child.context = new pixi.GraphicsContext();
+        }
+
+        child.destroy();
+      }
+    }
+
+    scene.destroy();
+    this.#marksTexture.resize(width, height);
   }
 
-  #drawMarks({you, selected, buttons}: Pick<MapDrawing, 'buttons' | 'selected' | 'you'>): void {
+  /** Draws the dotted line, the buttons' black squares and the light into the marks' texture. */
+  drawMarks({you, selected, buttons}: MapMarks): void {
     let marks = this.#marks.clear();
 
     if (you !== null && selected !== null) {
@@ -142,62 +174,48 @@ export class MapPicture {
 
     marks.fill(palette.black);
 
-    if (you === null) {
-      return;
-    }
+    if (you !== null) {
+      // The offsets are from `you`, so the light looks the same at every place.
+      let lights = {white: [] as number[][], cyan: [] as number[][], blue: [] as number[][]};
 
-    // The offsets are from `you`, so the light looks the same at every place.
-    let lights = {white: [] as number[][], cyan: [] as number[][], blue: [] as number[][]};
+      for (let dy = -LIGHT_REACH; dy <= LIGHT_REACH; dy += 1) {
+        for (let dx = -LIGHT_REACH; dx <= LIGHT_REACH; dx += 1) {
+          let distance = Math.hypot(dx, dy);
+          let isEven = (dx + dy) % 2 === 0;
+          let pixel = [Math.round(you.x) + dx, Math.round(you.y) + dy];
 
-    for (let dy = -LIGHT_REACH; dy <= LIGHT_REACH; dy += 1) {
-      for (let dx = -LIGHT_REACH; dx <= LIGHT_REACH; dx += 1) {
-        let distance = Math.hypot(dx, dy);
-        let isEven = (dx + dy) % 2 === 0;
-        let pixel = [Math.round(you.x) + dx, Math.round(you.y) + dy];
-
-        if (distance <= 1.2) {
-          lights.white.push(pixel);
-        } else if (distance <= 2.6) {
-          (isEven ? lights.cyan : lights.blue).push(pixel);
-        } else if (distance <= 4.1 && isEven) {
-          lights.blue.push(pixel);
+          if (distance <= 1.2) {
+            lights.white.push(pixel);
+          } else if (distance <= 2.6) {
+            (isEven ? lights.cyan : lights.blue).push(pixel);
+          } else if (distance <= 4.1 && isEven) {
+            lights.blue.push(pixel);
+          }
         }
       }
-    }
 
-    for (let [name, pixels] of Object.entries(lights) as Array<[keyof typeof lights, number[][]]>) {
-      for (let [x, y] of pixels) {
-        marks.rect(x ?? 0, y ?? 0, 1, 1);
+      for (let [name, pixels] of Object.entries(lights) as Array<
+        [keyof typeof lights, number[][]]
+      >) {
+        for (let [x, y] of pixels) {
+          marks.rect(x ?? 0, y ?? 0, 1, 1);
+        }
+
+        marks.fill(palette[name]);
       }
-
-      marks.fill(palette[name]);
     }
+
+    // Transparent where there is no mark, so that the layer shows through.
+    game.app.renderer.render({
+      container: this.#marksScene,
+      target: this.#marksTexture,
+      clear: true,
+      clearColor: [0, 0, 0, 0],
+    });
   }
 
-  // Destroys the layer's Graphics. Pixi's Graphics.destroy does not stop a Graphics listening to
-  // its context, so the shared context would keep it for the game's life: a fresh empty context,
-  // never drawn, takes its place first and is collected with it. No options: the shared one stays.
-  #removeLayer(): void {
-    for (let child of this.#layerContainer.removeChildren()) {
-      if (child instanceof pixi.Graphics) {
-        child.context = new pixi.GraphicsContext();
-      }
-
-      child.destroy();
-    }
-  }
-
-  #setLayer(layer: MapLayer): void {
-    if (layer === this.#layer) {
-      return;
-    }
-
-    this.#removeLayer();
-
-    for (let context of getMapLayers(this.#map)[layer]) {
-      this.#layerContainer.addChild(new pixi.Graphics(context));
-    }
-
-    this.#layer = layer;
+  /** Shows a layer drawn by `drawLayers`. */
+  showLayer(layer: MapLayer): void {
+    this.#layerSprite.texture = this.#layerTextures[layer];
   }
 }

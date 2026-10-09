@@ -2,13 +2,16 @@ import * as pixi from 'pixi.js';
 import {afterAll, beforeAll, describe, expect, test, vitest} from 'vitest';
 
 import {type barPicture as barPictureValue} from '../source/game/content/pictures/barPicture.js';
-import {fitMapFrame, toMapPixel} from '../source/game/core/fitMapFrame.js';
+import {fitMapFrame, type MapFrame, toMapPixel} from '../source/game/core/fitMapFrame.js';
 import {getMapPoint} from '../source/game/core/getMapPoint.js';
-import {type getMapLayers as getMapLayersValue} from '../source/game/core/mapLayers.js';
+import {
+  type getMapLayers as getMapLayersValue,
+  type MapLayer,
+} from '../source/game/core/mapLayers.js';
 import {palette} from '../source/game/core/palette.js';
 import {type MapData} from '../source/game/core/travel.js';
 import {
-  type MapDrawing,
+  type MapMarks,
   type MapPicture as MapPictureClass,
 } from '../source/game/screens/mapPicture.js';
 import {FIXED_ORIGIN, fixedMap, fixedPlaceData} from './fixedWorld.js';
@@ -163,19 +166,44 @@ describe('the map picture', {timeout: 120_000}, () => {
       return count;
     }
 
-    function draw(drawing: Partial<MapDrawing>): Pixels {
-      picture.draw({
-        layer: 'streets',
-        frame,
-        you: null,
-        selected: null,
-        buttons: [],
-        ...drawing,
-      });
+    // The picture's two sprites: the layer and, above it, the marks.
+    function getSprites(): {layer: pixi.Sprite; marks: pixi.Sprite} {
+      let [layer, marks] = picture.view.children;
 
-      let sprite = picture.view.children[0] as pixi.Sprite;
+      if (!(layer instanceof pixi.Sprite) || !(marks instanceof pixi.Sprite)) {
+        throw new TypeError('The picture has no layer sprite or no marks sprite!');
+      }
 
-      return readPixels(harness, sprite.texture);
+      return {layer, marks};
+    }
+
+    // Draws the layers at the frame, shows one and draws the marks over it, and reads what the
+    // picture shows: the marks where they are drawn, which are opaque, and the layer elsewhere.
+    function draw(drawing: Partial<MapMarks & {frame: MapFrame; layer: MapLayer}>): Pixels {
+      let {
+        layer = 'streets',
+        frame: drawnFrame = frame,
+        you = null,
+        selected = null,
+        buttons = [],
+      } = drawing;
+
+      picture.drawLayers(drawnFrame);
+      picture.showLayer(layer);
+      picture.drawMarks({you, selected, buttons});
+
+      let sprites = getSprites();
+      let layerPixels = readPixels(harness, sprites.layer.texture);
+      let marks = readPixels(harness, sprites.marks.texture);
+      let pixels = new Uint8ClampedArray(layerPixels.pixels);
+
+      for (let index = 0; index < pixels.length; index += 4) {
+        if (marks.pixels[index + 3] === 255) {
+          pixels.set(marks.pixels.subarray(index, index + 4), index);
+        }
+      }
+
+      return {pixels, width: layerPixels.width, height: layerPixels.height};
     }
 
     beforeAll(async () => {
@@ -277,6 +305,28 @@ describe('the map picture', {timeout: 120_000}, () => {
       picture.destroy();
     });
 
+    test('the marks have a texture of their own, transparent where they draw nothing', () => {
+      picture = new MapPicture({map: fixedMap});
+      draw({});
+
+      let {layer, marks} = getSprites();
+      let layerBefore = readPixels(harness, layer.texture);
+
+      picture.drawMarks({you: {x: 30, y: 30}, selected: null, buttons: []});
+
+      let marksPixels = readPixels(harness, marks.texture);
+      let alphaAt = (x: number, y: number): number =>
+        marksPixels.pixels[(y * marksPixels.width + x) * 4 + 3] ?? -1;
+
+      // The layer is not drawn again, and the marks show it through, but where the light is.
+      expect(readPixels(harness, layer.texture).pixels).toEqual(layerBefore.pixels);
+      expect([marksPixels.width, marksPixels.height]).toEqual([163, 223]);
+      expect(getColor(marksPixels, 30, 30)).toBe(WHITE);
+      expect(alphaAt(100, 100)).toBe(0);
+
+      picture.destroy();
+    });
+
     test('a picture leaves no listener on the shared layers', () => {
       let {streets, trams} = getMapLayers(fixedMap);
       let contexts = [...new Set([...streets, ...trams])];
@@ -290,7 +340,8 @@ describe('the map picture', {timeout: 120_000}, () => {
       picture = new MapPicture({map: fixedMap});
       draw({});
       picture.destroy();
-      // The streets' Graphics go when the layer changes, the trams' with the picture.
+      // Each drawing of the layers lets go of its Graphics before it returns, whichever layer
+      // the picture shows.
       picture = new MapPicture({map: fixedMap});
       draw({});
       draw({layer: 'trams'});

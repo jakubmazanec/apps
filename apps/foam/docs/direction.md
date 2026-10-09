@@ -175,7 +175,10 @@ The story window and the menu work as follows. This is built:
   place being left fades to black with the window that takes the player away, and the next place
   fades in from black with its description, 100 ms each way; a journey's window opens over black. A
   place never appears undimmed: the night's first place appears dimmed at once, under its
-  description. Screen changes do not fade.
+  description. A fade's first step is as long as the frame it starts in, so whatever is costly to
+  build is built before that frame: the travel window once, when the night screen is attached, kept
+  and filled for each journey; the next place while the window that leads there is open. Screen
+  changes do not fade.
 - Nobody closes a story window before its end, and Escape does not close it. A window ends through
   its text or through a choice, so every node with choices offers a way out that costs nothing.
   Tellurion's `Modal` always closes on the cancel command, so the window is an overlay of its own

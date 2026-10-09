@@ -50,11 +50,15 @@ These facts shape the design:
 8. **The window opens with the nearest destination selected** and the focus on the button under the
    map.
 9. **Pixi draws the map.** Each layer is a `GraphicsContext` built once, with `pixelLine` strokes,
-   rendered into an art-size texture when something changes.
+   rendered into an art-size texture of its own for each size of the map. The light, the dotted line
+   and the buttons' black squares go into a second texture above it whenever they change.
 10. **Every line is one pixel wide,** rivers too, and parks are flat.
 11. **No credit to OpenStreetMap on the screen in this phase.** The acknowledgment is placed later,
     elsewhere.
 12. **Tellurion does not change.**
+13. **The window is built once and kept.** The night screen builds it, its map's layers drawn, when
+    the screen is attached, and keeps its modal (`isReusable`). A journey only fills it, so the
+    frame that opens it costs what any other frame does and its fade-in plays on a phone too.
 
 ## Design
 
@@ -107,17 +111,21 @@ Picking and travelling:
 14. Pressing a way in the row changes the title, the layer and the places that take a press. The
     selection becomes that way's nearest destination. The focus stays on the pressed way.
 15. A way with no destination shows no destination button, its room stays empty, and there is no
-    dotted line. The window opens with the focus on "Back".
+    dotted line. The window opens with the focus on "Back". The game's data has no such way: every
+    way from every place reaches a destination. The fixed world's stop, which no tram leaves, has
+    one.
 
 Sizes and keys:
 
-16. The destination button is as high as the tallest selection of any way needs, so changing the
-    selection or the way moves nothing. On a screen narrower than `NARROW_WIDTH` (240), and always
-    in the column of the side-by-side layout, the numbers stand under the name. A long name wraps.
+16. The destination button is as high as the tallest selection of any way from any place needs, so
+    neither a journey, nor the selection, nor the way moves anything. On a screen narrower than
+    `NARROW_WIDTH` (240), and always in the column of the side-by-side layout, the numbers stand
+    under the name. A long name wraps.
 17. The arrow keys move the focus by direction across the row of ways, the places that take a press,
     the destination button and "Back". The ring shows only after a key, as everywhere.
-18. A resize while the window is open lays it out again. It keeps the way, the selection and the
-    focused control: the same place, the same way, the destination button or "Back".
+18. A resize lays the window out again, open or not. It keeps the way, the selection, the controls
+    themselves and so the focused one: the same place, the same way, the destination button or
+    "Back".
 19. Every button does nothing while the window is closing.
 
 The train has no travel window and no position, and is not on the map. Journeys, the night's numbers
@@ -138,9 +146,9 @@ and the jump-in do not change.
 | `source/game/core/getTravelLayout.ts` | New. The window's layout for a screen, and the map's size        |
 | `source/game/core/mapLayers.ts`       | New. The layers as Pixi drawings, built once from the map's data |
 | `source/game/core/checkContent.ts`    | The rule that `map.json` covers every place                      |
-| `source/game/screens/mapPicture.ts`   | New. Draws a layer, the light and the dotted line into a texture |
-| `source/game/screens/travelWindow.ts` | Built around the map                                             |
-| `source/game/screens/nightScreen.ts`  | Gives the window the screen's height                             |
+| `source/game/screens/mapPicture.ts`   | New. The layers' textures, and the marks' texture above them     |
+| `source/game/screens/travelWindow.ts` | Built around the map, once, and filled for each journey          |
+| `source/game/screens/nightScreen.ts`  | Builds the window when attached, keeps it, fills it per journey  |
 | `tests/`                              | See Testing                                                      |
 | `docs/direction.md`                   | The travel decision, the travel data and phase 4's third spec    |
 
@@ -396,10 +404,7 @@ railway, rivers and tram lines.
 ### The map picture (`screens/mapPicture.ts`)
 
 ```ts
-export type MapDrawing = {
-  layer: MapLayer;
-  frame: MapFrame;
-
+export type MapMarks = {
   /** The light's pixel, or null for a place without a position. */
   you: {x: number; y: number} | null;
 
@@ -415,21 +420,34 @@ export class MapPicture {
 
   constructor(options: {map: MapData});
 
-  /** Draws the layer at this frame, the dotted line and the light into the texture. */
-  draw(drawing: MapDrawing): void;
+  /** Draws every layer at this frame into its texture; the marks need drawing again after it. */
+  drawLayers(frame: MapFrame): void;
+
+  /** Draws the dotted line, the buttons' black squares and the light into the marks' texture. */
+  drawMarks(marks: MapMarks): void;
+
+  /** Shows a layer drawn by `drawLayers`. */
+  showLayer(layer: MapLayer): void;
 
   destroy(): void;
 }
 ```
 
-The picture is a `Sprite` that shows a `RenderTexture` as large as the frame in art pixels, created
-as `PlacePicture` creates its own: resolution 1, nearest, no antialiasing, dynamic. `draw` resizes
-the texture to the frame. It puts one `pixi.Graphics` per context of the layer into a container that
-is scaled by `1 / metresPerPixel` and moved so that the frame's centre lies in the middle of the
-texture. Above that container it draws, in art pixels, the dotted line, a black square of 10 × 10
-around each button's corner (one pixel of black around the 8 × 8 button), and then the light, and
-renders the whole into the texture with `game.app.renderer.render`, clearing it to black. None of
-the drawings is ever added to a screen.
+The picture is two `Sprite`s. Each shows a `RenderTexture` as large as the frame in art pixels,
+created as `PlacePicture` creates its own: resolution 1, nearest, no antialiasing, dynamic.
+
+- **The layers.** Each layer has a texture of its own. `drawLayers` resizes them to the frame and,
+  for each layer, puts one `pixi.Graphics` per context into a container that is scaled by
+  `1 / metresPerPixel` and moved so that the frame's centre lies in the middle of the texture, and
+  renders it into the layer's texture with `game.app.renderer.render`, clearing it to black. The
+  Graphics are let go of before it returns. `showLayer` points the first sprite at a layer's texture
+  and draws nothing.
+- **The marks.** `drawMarks` draws, in art pixels, the dotted line, a black square of 10 × 10 around
+  each button's corner (one pixel of black around the 8 × 8 button), and then the light, and renders
+  them into the second sprite's texture, cleared to transparent, so the layer shows through wherever
+  no mark is.
+
+None of the drawings is ever added to a screen.
 
 - **The dotted line** joins the light's pixel and the selected button's centre along the pixels of a
   straight line, and lights every other one in `dim`, starting with the first. Without `you` or
@@ -439,9 +457,9 @@ the drawings is ever added to a screen.
   to 4.1, `blue` where `dx + dy` is even, so the light looks the same at every place. The light only
   adds colour: the pixels it leaves keep what lies under them.
 
-`draw` runs when the window opens, the way changes, the selection changes and the window is laid out
-again, never on the ticker. A frame costs one sprite. The drawing does not throw on good data; a
-mistake in the data is the checker's to find.
+`drawLayers` runs when the window is built and when it is laid out for a new size. `drawMarks` runs
+for a journey, a new way and a new selection. Neither runs on the ticker; a frame costs two sprites.
+The drawing does not throw on good data; a mistake in the data is the checker's to find.
 
 ### The travel window (`screens/travelWindow.ts`)
 
@@ -450,9 +468,6 @@ export type TravelWindowOptions = {
   ui: UiRoot;
   scheduler: Scheduler;
   start: NightStart;
-  from: PlaceId;
-  way: Way;
-  ways: readonly Way[];
   screenWidth: number;
 
   /** The screen's height in art pixels. */
@@ -467,7 +482,18 @@ export type TravelWindowOptions = {
   onClosed: (destination: Destination | null) => void;
 };
 
+/** A journey the window is shown for: where it starts, the way it opens on and the ways offered. */
+export type TravelJourney = {
+  from: PlaceId;
+  way: Way;
+  ways: readonly Way[];
+
+  /** The night, read for its money: a destination that costs more is greyed out. */
+  night: Night;
+};
+
 export class TravelWindow {
+  /** The overlay, kept: closing it removes it from the UI root without destroying it. */
   readonly modal: Modal;
 
   constructor(options: TravelWindowOptions);
@@ -475,51 +501,66 @@ export class TravelWindow {
   /** The way whose places take a press. */
   get way(): Way;
 
-  /** Lays the window out again for a screen of this size. */
+  /** Shows a journey and adds the modal to the UI root. */
+  open(journey: TravelJourney): void;
+
+  /** Lays the window out again for a screen of this size; the same size changes nothing. */
   resize(screenWidth: number, screenHeight: number): void;
 }
 ```
 
-The window is a `Panel` in a `Modal` with a fade of `UI_FADE_DURATION`, as before. The modal's scrim
-takes every tap but draws nothing (`scrimAlpha: 0`): the night screen dims the scene behind its
-windows. Its parts:
+The window is a `Panel` in a `Modal` with a fade of `UI_FADE_DURATION` and `isReusable: true`. The
+modal's scrim takes every tap but draws nothing (`scrimAlpha: 0`): the night screen dims the scene
+behind its windows. The constructor builds every control and draws both layers; nothing is built
+later but the containers of a new size. Its parts:
 
-- **Title and row of ways** as before. In the side-by-side layout the row is 120 wide: three buttons
-  of 38 and two gaps of 3.
+- **Title and row of ways.** The row has a button for walk, tram and taxi, in that order. In the
+  side-by-side layout it is 120 wide: three buttons of 38 and two gaps of 3. A way the journey's
+  `ways` lacks is disabled.
 - **The map area:** a container of the map's size that holds the `MapPicture`'s view and, above it,
-  one Tellurion `Button` with no children for every place in `placeData` but `from`, 8 × 8, placed
-  absolutely at the corner `placeMapButtons` gives. A button whose place is not a destination of the
-  current way is disabled.
+  one Tellurion `Button` with no children for every place in `placeData` that is a place of the
+  night, 8 × 8, placed absolutely.
 - **The destination button:** the selected destination's name and numbers, laid out as a destination
   of the list was (`getDestinationLabel`), with the narrow form below `NARROW_WIDTH` and always in
-  the column. Its height is the largest label height among the destinations of all the ways in
-  `ways`, and at least 16; that height goes into `getMapSize`. A selection changes its two texts and
-  their sizes, not the button.
+  the column. Its height is the largest label height among the destinations of every way from every
+  place, and at least 16; that height goes into `getMapSize`, so the map's size depends on the
+  screen's size only. A selection changes its two texts and their sizes, not the button. It is the
+  modal's initial focus, so it always stays. A destination that costs more than the night's money
+  greys it out; for a way with no destination it is not drawn and is disabled.
 - **"Back"** as before.
 
-Selecting, switching and laying out:
+Showing a journey, selecting, switching and laying out:
 
-- The window keeps the current way and the selected destination. It opens with the way's first
-  destination of `getDestinations`, and the modal's initial focus is the destination button, or
-  "Back" for a way with none.
-- A place button selects its destination of the current way and draws the map again. The focus stays
-  on it.
+- `open` shows a journey without building anything: it looks up the destinations of each offered way
+  from `from`, enables the offered ways, puts every place button at the corner `placeMapButtons`
+  gives around the light at `from`, hides the button of `from` itself, enables the places the way
+  reaches, selects the way's first destination of `getDestinations`, shows the way's layer and draws
+  the marks. It then adds the modal to the UI root, which puts the focus and the ring on the
+  destination button. When that button takes no press, for a way with no destination or one the
+  night cannot pay, `open` moves the focus to "Back", and the ring with it.
+- A place button selects its destination of the current way and draws the marks again. The focus
+  stays on it.
 - A way's button makes the way current: the title changes, every place button is enabled or disabled
   for the new way (none is rebuilt, so the focus never lands on a button that goes), the selection
-  becomes the way's first destination, and the map is drawn again with the way's layer. The focus
-  stays on the pressed button; pressing the current way changes nothing.
+  becomes the way's first destination, the way's layer shows and the marks are drawn again. The
+  focus stays on the pressed button; pressing the current way changes nothing.
 - The destination button picks the selection and closes the window; `onClosing` receives it as the
   fade starts, and `onClosed` once the window has closed. "Back" and the cancel command close it
-  with nothing picked.
-- `resize` builds the parts again for the new size and keeps the way, the selection and the focused
-  control, as before.
+  with nothing picked. Closing takes the modal off the UI root and keeps it.
+- `resize` to a new size takes the controls out of their containers, builds the containers again,
+  puts the same controls in them and draws the layers at the new map size, so the way, the selection
+  and the focused control stay. The same size changes nothing.
 - Every button does nothing while the window is closing or closed.
 
 ### The night screen (`screens/nightScreen.ts`)
 
-`openTravel` passes the screen's height, the scene area's `top + height`, beside its width. The
-layout calls `travelWindow?.resize(area.width, area.top + area.height)`. Opening the window stays
-inside the `try` that sends a failure while acting on the night to the error screen.
+The screen builds its travel window in `onAttach`, with the screen's height, the scene area's
+`top + height`, beside its width, and keeps it in `contents.travelWindow`. `openTravel` calls `open`
+with the night; the window is open while the modal's state is not `closed`. The layout calls
+`travelWindow.resize(area.width, area.top + area.height)`, open or not; it runs at every arrival,
+where the same size draws nothing. Hiding the screen takes an open window's modal off the UI root
+without destroying it. Opening the window stays inside the `try` that sends a failure while acting
+on the night to the error screen.
 
 ### The checker (`core/checkContent.ts`)
 
@@ -569,8 +610,9 @@ Browser tests, in `tests/`:
   path stroked with `pixelLine` and rendered into an art-size texture lights exactly one pixel per
   step and is not closed. On the fixed world's map: a street's pixel is `shade` and one pixel thick,
   a park's pixel is `ground`, the tram layer has the tram line's pixel and the street layer does
-  not, the light's middle is `white`, the dotted line alternates, and the texture has the frame's
-  size.
+  not, the light's middle is `white`, the dotted line alternates, and the textures have the frame's
+  size. The marks have a texture of their own, transparent where they draw nothing, and drawing them
+  leaves the layer as it was.
 - **`travelWindow.browser.test.ts`.** Rewritten.
   - It opens with the nearest destination selected, and the focus and the ring on the destination
     button.
@@ -581,14 +623,21 @@ Browser tests, in `tests/`:
     keeps the focus, and moves no button.
   - The destination button closes the window and reports the destination; "Back" and Escape report
     none.
-  - A way with no destination opens with the focus on "Back" and no destination button.
+  - A way with no destination leaves the destination button's room empty, draws no dotted line, and
+    opens with the focus and the ring on "Back".
+  - A destination the night cannot pay is greyed out, and the window opens on "Back".
   - A press while the window fades does nothing.
   - The four screens of the layout table get their layout, and the window fits each.
-  - A resize keeps the way, the selection and the focus.
+  - A resize keeps the way, the selection, the controls and the focus, across layouts.
   - The arrow keys reach the places and the destination button.
   - It is driven by real taps and by keys.
+  - One window shows journeys from different places: closing keeps it, the next journey moves the
+    light and hides that place's button, and the place buttons stay the same objects.
+  - A journey, a selection and a way draw the marks only; only a new size draws the layers.
 - **`nightScreenPlaces.browser.test.ts`.** The journey goes through a place on the map and then the
-  destination button.
+  destination button. Every way out shows the one travel window the screen keeps. The file puts the
+  fixed world into `nightStart` before it boots the game, since the screen builds its travel window
+  when it is attached.
 
 The lessons of the earlier phases' reviews hold for every new button and test: closing guards, the
 focus kept when parts are rebuilt, sizes that do not jump, an exact screen size through the

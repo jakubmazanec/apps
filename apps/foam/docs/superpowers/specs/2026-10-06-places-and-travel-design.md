@@ -5,7 +5,8 @@ Date: 2026-10-06. App: `apps/foam`. Status: implemented by
 phase 4's three specs in the [direction document](../../direction.md). It needs the Tellurion
 addition
 [dialogue choice effect](../../../../../docs/superpowers/specs/2026-10-06-dialogue-choice-effect-design.md),
-which is built first. The third spec, the drawn map, follows this one.
+which is built first. The third spec, [the drawn map](2026-10-07-map-design.md), follows this one;
+it states the travel window as it is now.
 
 ## Background
 
@@ -593,7 +594,7 @@ The screen's contents:
 | `picture`, `placeButton`, `spotButtons`    | Built when a place is shown, destroyed when it is left |
 | `nextPlace`                                | The place ahead (see below), or `null`                 |
 | `storyWindow`, `menuModal`, `optionsModal` | As today                                               |
-| `travelWindow`                             | From a way out's choice until its modal has closed     |
+| `travelWindow`                             | Built in `onAttach` and kept; shown from a way out     |
 
 **Showing a place** (`showPlace`):
 
@@ -637,8 +638,8 @@ screen.
    `night.place` back to the place being shown and sets `night.leaving` to `null`, so the script's
    move is dropped as a whole. A journey's destination is always a known place, so this cannot
    happen during a journey.
-2. Otherwise, if `night.leaving` is set, it opens the travel window with that way and those ways,
-   and sets `night.leaving` to `null`.
+2. Otherwise, if `night.leaving` is set, it shows the travel window it keeps with that way and those
+   ways, and sets `night.leaving` to `null`.
 
 **When the travel window has closed** with a destination picked, the screen takes the journey
 (`takeJourney`), leaves the place, writes the status, and opens the journey's script of that way in
@@ -668,6 +669,9 @@ The cancel command keeps its rule: the engine sends it to the topmost overlay, a
 the menu when that overlay declares no `close`. The travel window is a `Modal`, so Escape closes it.
 
 ### The travel window (`screens/travelWindow.ts`)
+
+This is the window as this spec built it, a list. The map's design rebuilt it around a map, built
+once and filled for each journey; its section states the window as it is.
 
 ```ts
 export type TravelWindowOptions = {
