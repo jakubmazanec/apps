@@ -30,6 +30,7 @@ describe('the jump-in', () => {
     url.searchParams.set('place', 'rotorBar');
     url.searchParams.set('time', '23:10');
     url.searchParams.set('money', '120');
+    url.searchParams.set('drunkenness', '2.5');
     globalThis.history.replaceState(null, '', url);
     harness = await bootGame(960, 540, {screen: 'night'});
   }, 60_000);
@@ -41,8 +42,11 @@ describe('the jump-in', () => {
     // The boot's jump-in wrote its place, hour and money into nightStart. They
     // are put back as they were before the boot, so nightStart leaves this
     // block as it came in: a block added after it in this file starts its New
-    // Game from the game's own start, not from the jump-in's.
+    // Game from the game's own start, not from the jump-in's. The level of
+    // drunkenness is not part of the game's own start, so it is removed rather
+    // than put back.
     Object.assign(nightStart, oldStart);
+    delete nightStart.drunkenness;
   });
 
   test('the game started with a jump-in shows that place, hour and money', () => {
@@ -50,7 +54,7 @@ describe('the jump-in', () => {
 
     expect(nightScreen.state).toBe('shown');
     expect(nightScreen.contents.place?.id).toBe('rotorBar');
-    expect(readText(nightScreen.contents.statusText)).toBe('23:10   120 Kč   0.0');
+    expect(readText(nightScreen.contents.statusText)).toBe('23:10   120 Kč   2.5');
     expect(getStoryWindow(harness).dialogue.node?.speaker).toBe('Rotor Bar');
   });
 });

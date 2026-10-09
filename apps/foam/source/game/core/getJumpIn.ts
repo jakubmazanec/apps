@@ -3,6 +3,7 @@ import {type Place} from './place.js';
 
 const TIME_FORM = /^(\d{2}):(\d{2})$/;
 const MONEY_FORM = /^-?\d+$/;
+const DRUNKENNESS_FORM = /^\d+(\.\d+)?$/;
 const MINUTES_IN_DAY = 1440;
 
 function readTime(value: string): number | null {
@@ -30,7 +31,7 @@ function readTime(value: string): number | null {
 export function getJumpIn(
   search: string,
   places: Readonly<Record<string, Place>>,
-): {place: PlaceId; minutes?: number; money?: number} | null {
+): {place: PlaceId; minutes?: number; money?: number; drunkenness?: number} | null {
   let parameters = new URLSearchParams(search);
   let place = parameters.get('place');
 
@@ -45,9 +46,12 @@ export function getJumpIn(
     return null;
   }
 
-  let jumpIn: {place: PlaceId; minutes?: number; money?: number} = {place: place as PlaceId};
+  let jumpIn: {place: PlaceId; minutes?: number; money?: number; drunkenness?: number} = {
+    place: place as PlaceId,
+  };
   let time = parameters.get('time');
   let money = parameters.get('money');
+  let drunkenness = parameters.get('drunkenness');
 
   if (time !== null) {
     let minutes = readTime(time);
@@ -66,6 +70,17 @@ export function getJumpIn(
     } else {
       // eslint-disable-next-line no-console -- see above
       console.warn(`The jump-in ignores the money "${money}": it is not a whole number.`);
+    }
+  }
+
+  if (drunkenness !== null) {
+    if (DRUNKENNESS_FORM.test(drunkenness)) {
+      jumpIn.drunkenness = Number(drunkenness);
+    } else {
+      // eslint-disable-next-line no-console -- see above
+      console.warn(
+        `The jump-in ignores the drunkenness "${drunkenness}": it is not a number of drinks.`,
+      );
     }
   }
 
