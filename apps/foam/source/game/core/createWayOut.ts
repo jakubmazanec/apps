@@ -1,6 +1,5 @@
-import {type RunnableDialogueScript} from 'tellurion';
-
 import {type Night, type Way} from './night.js';
+import {defineScript, type Script} from './script.js';
 
 export type WayOutOptions = {
   speaker: string;
@@ -24,10 +23,10 @@ export function leaveBy(way: Way, ways: readonly Way[]): (night: Night) => void 
 }
 
 /** A script of one node: a choice for each way, then "Stay", which costs nothing. */
-export function createWayOut(options: WayOutOptions): RunnableDialogueScript<Night> {
+export function createWayOut(options: WayOutOptions): Script<string> {
   let {speaker, text, ways} = options;
 
-  return {
+  return defineScript({
     start: {
       speaker,
       text,
@@ -36,5 +35,5 @@ export function createWayOut(options: WayOutOptions): RunnableDialogueScript<Nig
         {text: 'Stay'},
       ],
     },
-  };
+  });
 }
