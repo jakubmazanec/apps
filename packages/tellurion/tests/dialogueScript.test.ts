@@ -25,6 +25,10 @@ describe(defineDialogueScript, () => {
                 context.metMira = true;
               },
             },
+            {
+              text: 'Have we met?',
+              next: (context) => (context.metMira ? 'again' : 'stranger'),
+            },
           ],
         },
         tour: {
@@ -34,6 +38,12 @@ describe(defineDialogueScript, () => {
           next: 'goodbye',
         },
         again: {speaker: 'Mira', portrait: 'mira', text: 'Back already?', next: 'goodbye'},
+        stranger: {
+          speaker: 'Mira',
+          portrait: 'mira',
+          text: 'Not yet.',
+          next: (context) => (context.metMira ? 'goodbye' : 'tour'),
+        },
         goodbye: {
           speaker: 'Mira',
           portrait: 'mira',
@@ -74,9 +84,20 @@ describe(defineDialogueScript, () => {
       start: 'missing',
       nodes: {greeting: {text: 'hi'}},
     });
+    let danglingFunction = defineDialogueScript<TestContext>()({
+      start: 'greeting',
+      nodes: {
+        greeting: {
+          text: 'hi',
+          // @ts-expect-error -- a dangling id returned by a function `next` errors at the function
+          next: () => 'missing',
+        },
+      },
+    });
 
     expect(dangling.start).toBe('greeting');
     expect(danglingStart.nodes?.greeting.text).toBe('hi');
+    expect(danglingFunction.nodes?.greeting.next).toBeTypeOf('function');
   });
 
   test('inline nodes recurse with the same id union', () => {

@@ -1,6 +1,13 @@
+/** Where a dialogue goes: a node, an id or a function of the context that returns either. */
+export type DialogueReference<TContext, TNodeId extends string> =
+  | DialogueNode<TContext, TNodeId>
+  | TNodeId
+  | ((context: TContext) => DialogueNode<TContext, TNodeId> | TNodeId);
+
 export type DialogueChoice<TContext, TNodeId extends string> = {
   text: string;
-  next?: DialogueNode<TContext, TNodeId> | TNodeId; // absent = choosing ends the dialogue
+  // A function is evaluated with the context each time the choice is taken, after onChoose.
+  next?: DialogueReference<TContext, TNodeId>; // absent = choosing ends the dialogue
   isVisible?: (context: TContext) => boolean; // evaluated once on node entry
   onChoose?: (context: TContext) => void; // effects; runs when taken, before next is followed
 };
@@ -11,15 +18,13 @@ export type DialogueNode<TContext, TNodeId extends string> = {
   // One page or several; a function is evaluated once on node entry, after onEnter.
   text: string[] | ((context: TContext) => string[] | string) | string;
   choices?: Array<DialogueChoice<TContext, TNodeId>>; // a node with both choices and next DEV-throws
-  next?: DialogueNode<TContext, TNodeId> | TNodeId; // absent + no choices = dialogue ends
+  // A function is evaluated with the context each time the last page is advanced past.
+  next?: DialogueReference<TContext, TNodeId>; // absent + no choices = dialogue ends
   onEnter?: (context: TContext) => void; // effects: set flags, give items
 };
 
 export type DialogueScript<TContext, TNodeId extends string> = {
-  start:
-    | DialogueNode<TContext, TNodeId>
-    | TNodeId
-    | ((context: TContext) => DialogueNode<TContext, TNodeId> | TNodeId);
+  start: DialogueReference<TContext, TNodeId>;
   nodes?: Record<TNodeId, DialogueNode<TContext, TNodeId>>; // optional: inline-only scripts skip it
 };
 
