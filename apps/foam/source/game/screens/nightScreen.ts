@@ -435,6 +435,7 @@ function openTravel(
   screen.contents.travelWindow = new TravelWindow({
     ui: screen.ui,
     scheduler: screen.scheduler,
+    night: screen.contents.night,
     start: nightStart,
     from,
     way,

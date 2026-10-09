@@ -16,7 +16,7 @@ import {
   getTravelLayout,
   TITLE_HEIGHT as LAYOUT_TITLE_HEIGHT,
 } from '../source/game/core/getTravelLayout.js';
-import {type PlaceId, type Way} from '../source/game/core/night.js';
+import {type Night, type PlaceId, type Way} from '../source/game/core/night.js';
 import {palette} from '../source/game/core/palette.js';
 import {BUTTON_GAP} from '../source/game/core/placeMapButtons.js';
 import {type Destination, type NightStart, type PlaceData} from '../source/game/core/travel.js';
@@ -172,9 +172,9 @@ function expectInside(inner: Box, outer: Box): void {
 // narrowest screen. The window opens over the fixed world's stop, whose
 // description is closed first, as the night screen opens it over a place. From
 // the stop, walking reaches the bar (4 min) and the square (7 min), a taxi
-// both (5 min, 90 Kč each, the bar first by name), and the tram nothing. The
-// frames of a headless browser are slow, and a real tap takes many frames, so
-// the tests get a long timeout.
+// both (5 min, the bar 90 Kč and the square 60 Kč, the bar first by name), and
+// the tram nothing. The frames of a headless browser are slow, and a real tap
+// takes many frames, so the tests get a long timeout.
 describe('travel window', {timeout: 180_000}, () => {
   let harness: Harness;
   let restore: () => void;
@@ -192,7 +192,8 @@ describe('travel window', {timeout: 180_000}, () => {
       ways = ALL_WAYS,
       start = nightStart,
       from = FIXED_STOP,
-    }: {ways?: readonly Way[]; start?: NightStart; from?: PlaceId} = {},
+      night = harness.nightScreen.contents.night,
+    }: {ways?: readonly Way[]; start?: NightStart; from?: PlaceId; night?: Night} = {},
   ): TravelWindow {
     let {game, nightScreen} = harness;
 
@@ -202,6 +203,7 @@ describe('travel window', {timeout: 180_000}, () => {
     travelWindow = new TravelWindowClass({
       ui: nightScreen.ui,
       scheduler: nightScreen.scheduler,
+      night,
       start,
       from,
       way,
@@ -522,6 +524,44 @@ describe('travel window', {timeout: 180_000}, () => {
     expect(countColorNear(pixels, light, {reach: 8, color: palette.dim})).toBe(0);
   });
 
+  test('a destination the night cannot pay is greyed out, and the window opens on Back', async () => {
+    let {contents, ui} = harness.nightScreen;
+    let night = {...contents.night, money: 70};
+    let opened = openTravel('taxi', {night});
+    let destination = getDestinationButton(opened);
+
+    expect(readDestination(opened)).toEqual(['The bar', '5 min  90 Kč']);
+    expect(destination.isDisabled).toBe(true);
+    expect(describeTravelFocus(opened)).toBe('Back');
+    expect(ui.isRingVisible).toBe(true);
+
+    await waitForPanel(opened, WIDE_WINDOW);
+
+    let box = getBox(harness, destination);
+
+    ui.focus(getPlaceButton(opened, FIXED_SQUARE));
+    ui.activate();
+
+    expect(readDestination(opened)).toEqual(['The square by the\nold market', '5 min  60 Kč']);
+    expect(getDestinationButton(opened)).toBe(destination);
+    expect(destination.isDisabled).toBe(false);
+
+    ui.focus(getPlaceButton(opened, FIXED_BAR));
+    ui.activate();
+
+    expect(destination.isDisabled).toBe(true);
+
+    await nextFrame();
+
+    expect(getBox(harness, destination)).toEqual(box);
+
+    openTravel('taxi', {night});
+    await press('Enter');
+    await waitForClosed();
+
+    expect(onClosed).toHaveBeenCalledExactlyOnceWith(null);
+  });
+
   test('a press while it fades does nothing', async () => {
     let {ui} = harness.nightScreen;
     let opened = openTravel('walk');
@@ -576,7 +616,7 @@ describe('travel window', {timeout: 180_000}, () => {
       place: getFixedPlace(FIXED_SQUARE),
       way: 'taxi',
       minutes: 5,
-      price: 90,
+      price: 60,
     });
 
     let second = openTravel('walk');
@@ -683,7 +723,7 @@ describe('travel window', {timeout: 180_000}, () => {
       expect(row.left).toBeGreaterThan(mapArea.left + mapArea.width);
       expect(opened.way).toBe('taxi');
       expect(readText(parts.title)).toBe('By taxi');
-      expect(readDestination(opened)).toEqual(['The square by the\nold market', '5 min  90 Kč']);
+      expect(readDestination(opened)).toEqual(['The square by the\nold market', '5 min  60 Kč']);
       expect(ui.focused).toBe(getPlaceButton(opened, FIXED_SQUARE));
       expect(ui.focused).not.toBe(oldSquare);
 
