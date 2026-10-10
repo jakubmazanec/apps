@@ -3,7 +3,15 @@ import {afterAll, beforeAll, describe, expect, test, vitest} from 'vitest';
 import {nightStart} from '../source/game/content/nightStart.js';
 import {type barPicture as barPictureValue} from '../source/game/content/pictures/barPicture.js';
 import {type NightStart} from '../source/game/core/travel.js';
-import {bootGame, getStoryWindow, type Harness, readText} from './nightScreenHelpers.js';
+import {
+  bootGame,
+  getStoryWindow,
+  type Harness,
+  press,
+  pressThrough,
+  readText,
+  waitForPlace,
+} from './nightScreenHelpers.js';
 
 // The bar's shader costs about 88 ms a frame in headless Chromium, and Rotor
 // Bar uses it; the test checks the start, not the picture's pixels.
@@ -28,7 +36,8 @@ describe('the jump-in', () => {
     let url = new URL(globalThis.location.href);
 
     url.searchParams.set('place', 'rotorBarRoom');
-    url.searchParams.set('time', '23:10');
+    // Rotor Bar closes at 03:00, so at 04:00 the jump-in starts in a closed bar's room.
+    url.searchParams.set('time', '04:00');
     url.searchParams.set('money', '120');
     url.searchParams.set('drunkenness', '2.5');
     globalThis.history.replaceState(null, '', url);
@@ -54,7 +63,22 @@ describe('the jump-in', () => {
 
     expect(nightScreen.state).toBe('shown');
     expect(nightScreen.contents.place?.id).toBe('rotorBarRoom');
-    expect(readText(nightScreen.contents.statusText)).toBe('23:10   120 Kč   2.5');
+    expect(readText(nightScreen.contents.statusText)).toBe('04:00   120 Kč   2.5');
     expect(getStoryWindow(harness).dialogue.node?.speaker).toBe('Rotor Bar');
+  });
+
+  // The night looks at the hours after every window, the room's description too.
+  test('the closing runs after the description of a closed bar', async () => {
+    await pressThrough(harness, getStoryWindow(harness));
+    await press('Enter');
+    await vitest.waitFor(
+      () => {
+        expect(getStoryWindow(harness).dialogue.node?.speaker).toBe('Closing time');
+      },
+      {timeout: 10_000},
+    );
+    await pressThrough(harness, getStoryWindow(harness));
+    await press('Enter');
+    await waitForPlace(harness, 'rotorBarStreet');
   });
 });

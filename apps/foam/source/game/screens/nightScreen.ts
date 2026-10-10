@@ -22,6 +22,7 @@ import {
   TOP_ROW_WIDTH,
 } from '../core/getSceneArea.js';
 import {getSpotPosition} from '../core/getSpotPosition.js';
+import {isOpenAt} from '../core/hours.js';
 import {input} from '../core/input.js';
 import {type Location, type LocationId} from '../core/location.js';
 import {measureText} from '../core/measureText.js';
@@ -493,10 +494,33 @@ function openTravel(
   fadeBackdrop(screen);
 }
 
+// Runs the closing of the location the player is in and puts them outside. The
+// place changes before the window opens, as a script's onEnter changes it: the
+// outside is built while the closing is open (prepareNextPlace), the window
+// closes into black (onClosing sees the change), and actOnNight then shows the
+// outside with its description. The checker holds a location with hours to a
+// closing and an outside; one without either is an error, which the error
+// screen shows.
+function closeLocation(screen: NightScreen, location: Location): void {
+  let {closing, id, outside} = location;
+
+  if (closing === undefined || outside === undefined) {
+    throw new Error(`"${id}" has closed with no closing script or no outside!`);
+  }
+
+  screen.contents.night.place = outside;
+  openStory(screen, closing);
+}
+
 // Looks at the night once a story window has closed. A script that moved the
 // player shows the new place, and so does the end of a journey; a place the
 // night does not have leaves the player where they are, with no way out. A way
-// out that a script chose opens the travel window.
+// out that a script chose opens the travel window. A location that is closed
+// with the player indoors closes on them, after any window: a beer that ran
+// past the hour, the description of a room that a door led into too late. The
+// order is a place the night moved the player to, then a way out, then the
+// closing; a way out exists only outdoors and a closing only indoors, so the
+// last two never meet.
 function actOnNight(screen: NightScreen): void {
   let {night, place} = screen.contents;
 
@@ -504,6 +528,12 @@ function actOnNight(screen: NightScreen): void {
     if (night.leaving !== null) {
       openTravel(screen, getLocationOf(place).id, night.leaving);
       night.leaving = null;
+    } else if (!place.outdoors) {
+      let location = getLocationOf(place);
+
+      if (!isOpenAt(nightStart.locationData[location.id]?.hours, night.minutes)) {
+        closeLocation(screen, location);
+      }
     }
 
     return;

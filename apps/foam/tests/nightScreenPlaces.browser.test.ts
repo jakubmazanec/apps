@@ -2,6 +2,7 @@ import * as pixi from 'pixi.js';
 import {type Button, type Modal, Text} from 'tellurion';
 import {afterAll, afterEach, beforeAll, beforeEach, describe, expect, test, vitest} from 'vitest';
 
+import {nightStart} from '../source/game/content/nightStart.js';
 import {type barPicture as barPictureValue} from '../source/game/content/pictures/barPicture.js';
 import {getSceneArea} from '../source/game/core/getSceneArea.js';
 import {getSpotPosition} from '../source/game/core/getSpotPosition.js';
@@ -13,8 +14,10 @@ import {type TravelWindow} from '../source/game/screens/travelWindow.js';
 import {
   FIXED_BAR,
   FIXED_BAR_LOCATION,
+  FIXED_PAVEMENT,
   FIXED_SQUARE,
   FIXED_STOP,
+  fixedStart,
   getFixedPlace,
 } from './fixedWorld.js';
 import {
@@ -29,6 +32,7 @@ import {
   getSpotButton,
   getStoryWindow,
   getTravelParts,
+  getWindowButton,
   getWindowParts,
   type Harness,
   nextFrame,
@@ -240,6 +244,55 @@ describe('night screen places', {timeout: 180_000}, () => {
     await pickDestination(await waitForTravelWindow(), destination);
 
     return waitForStoryWindow();
+  }
+
+  // Starts a new night at the place and the minute, and puts the fixed start's minute back.
+  async function restartAtMinute(place: PlaceId, minutes: number): Promise<void> {
+    nightStart.minutes = minutes;
+
+    try {
+      await restartAt(harness, place);
+    } finally {
+      nightStart.minutes = fixedStart.minutes;
+    }
+  }
+
+  // Takes the open window's first choice. The choices appear with nothing focused, and the
+  // first arrow press focuses the first.
+  async function takeFirstChoice(storyWindow: StoryWindow): Promise<void> {
+    harness.nightScreen.ui.focus(getWindowButton(storyWindow, 0));
+    await press('Enter');
+  }
+
+  // The window the night opens after the last one has closed, by its speaker.
+  async function waitForSpeaker(speaker: string): Promise<StoryWindow> {
+    return vitest.waitFor(
+      () => {
+        let storyWindow = getStoryWindow(harness);
+
+        if (storyWindow.dialogue.node?.speaker !== speaker) {
+          throw new Error(`The story window is not the window of "${speaker}".`);
+        }
+
+        return storyWindow;
+      },
+      {timeout: 10_000},
+    );
+  }
+
+  // Leaves the bar's room by the door's Go out and ends the door's text: the pavement shows with
+  // its description open.
+  async function goOut(): Promise<void> {
+    let door = await openSpot('The door');
+
+    await pressThrough(harness, door);
+
+    expect(getButtonLabel(getWindowButton(door, 0))).toBe('Go out');
+
+    await takeFirstChoice(door);
+    await pressThrough(harness, door);
+    await press('Enter');
+    await waitForPlace(harness, FIXED_PAVEMENT);
   }
 
   // What hiding the screen leaves: no window, no place, and in the UI only the
@@ -536,6 +589,138 @@ describe('night screen places', {timeout: 180_000}, () => {
     await waitForPlace(harness, FIXED_BAR);
 
     expect(getStoryWindow(harness).dialogue.node?.speaker).toBe('The bar');
+  });
+
+  // The bar is its room and the pavement outside, closed from 23:00 to 23:30. The tests follow
+  // each other in order: each starts where the one before it ended. A window that the night
+  // follows with another, the next place's description or the closing, leaves in the frame the
+  // next one opens, so the screen is never seen without a window between them: the tests end
+  // such a window with endStory and wait for the place or the next window.
+  describe('the bar and its pavement', () => {
+    test('Go out from the room shows the pavement with its description', async () => {
+      let {contents} = harness.nightScreen;
+
+      await restartAt(harness, FIXED_BAR);
+      await closeStory();
+      await goOut();
+
+      expect(getStoryWindow(harness).dialogue.node?.speaker).toBe('The pavement');
+      expect(contents.night.place).toBe(FIXED_PAVEMENT);
+    });
+
+    test('Go in works while the bar is open', async () => {
+      await closeStory();
+
+      let storyWindow = await openSpot('The bar');
+
+      await pressThrough(harness, storyWindow);
+
+      expect(getWindowParts(storyWindow).buttons.map(getButtonLabel)).toEqual([
+        'Go in',
+        'Stay outside',
+      ]);
+
+      await takeFirstChoice(storyWindow);
+      await waitForPlace(harness, FIXED_BAR);
+
+      expect(getStoryWindow(harness).dialogue.node?.speaker).toBe('The bar');
+    });
+
+    test('the door shows its locked text while the bar is closed', async () => {
+      let {contents} = harness.nightScreen;
+
+      await closeStory();
+      await goOut();
+      await closeStory();
+      // 23:05, in the half hour the bar is closed.
+      contents.night.minutes = 1385;
+
+      let storyWindow = await openSpot('The bar');
+
+      await pressThrough(harness, storyWindow);
+
+      expect(storyWindow.text).toContain('locked');
+      expect(getWindowParts(storyWindow).buttons).toEqual([]);
+
+      await press('Enter');
+      await waitForNoStoryWindow(harness);
+      await nextFrame();
+      await nextFrame();
+
+      expect(contents.place?.id).toBe(FIXED_PAVEMENT);
+    });
+
+    // The door's text is read while the bar is open, and by the press the clock has passed the
+    // closing, as a script's onEnter could move it. The room shows with its description, and
+    // when that closes the closing runs and the player is outside.
+    test("a door into a bar that closes under the player's hand", async () => {
+      let {contents} = harness.nightScreen;
+
+      // A minute before the closing.
+      contents.night.minutes = 1379;
+
+      let storyWindow = await openSpot('The bar');
+
+      await pressThrough(harness, storyWindow);
+
+      expect(getButtonLabel(getWindowButton(storyWindow, 0))).toBe('Go in');
+
+      contents.night.minutes = 1380;
+      await takeFirstChoice(storyWindow);
+      await waitForPlace(harness, FIXED_BAR);
+
+      expect(getStoryWindow(harness).dialogue.node?.speaker).toBe('The bar');
+
+      await endStory(getStoryWindow(harness));
+
+      let closing = await waitForSpeaker('Closing time');
+
+      expect(contents.night.place).toBe(FIXED_PAVEMENT);
+
+      await endStory(closing);
+      await waitForPlace(harness, FIXED_PAVEMENT);
+    });
+
+    test('a choice that crosses the closing runs to its end, then the closing script, then the pavement', async () => {
+      let {contents} = harness.nightScreen;
+
+      // 22:55: the beer's ten minutes end at 23:05.
+      await restartAtMinute(FIXED_BAR, 1375);
+      await closeStory();
+
+      let bartender = await openSpot('The bartender');
+
+      // Enter finishes the text, the arrow focuses the beer, and Enter takes it.
+      await press('Enter');
+      await press('ArrowDown');
+      await press('Enter');
+      await pressThrough(harness, bartender);
+      await press('Enter');
+
+      let closing = await waitForSpeaker('Closing time');
+
+      // The room stays under the closing's window.
+      expect(readText(contents.statusText)).toBe('23:05   305 Kč   1.0');
+      expect(contents.place?.id).toBe(FIXED_BAR);
+
+      await endStory(closing);
+      await waitForPlace(harness, FIXED_PAVEMENT);
+
+      expect(getStoryWindow(harness).dialogue.node?.speaker).toBe('The pavement');
+    });
+
+    test('a journey that arrives after the closing ends on the pavement', async () => {
+      // 22:50: the walk from the square takes 12 minutes and arrives at 23:02.
+      await restartAtMinute(FIXED_SQUARE, 1370);
+      await closeStory();
+
+      let storyWindow = await startJourney('Walk', FIXED_BAR_LOCATION);
+
+      expect(storyWindow.dialogue.pageText).toContain('The bar');
+
+      await endStory(storyWindow);
+      await waitForPlace(harness, FIXED_PAVEMENT);
+    });
   });
 
   // The ticker is stopped, and these tests run the frames themselves at 60 fps, so a 100 ms fade
