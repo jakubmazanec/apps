@@ -14,7 +14,7 @@ import {
   type MapMarks,
   type MapPicture as MapPictureClass,
 } from '../source/game/screens/mapPicture.js';
-import {FIXED_ORIGIN, fixedMap, fixedPlaceData} from './fixedWorld.js';
+import {FIXED_ORIGIN, fixedLocationData, fixedMap} from './fixedWorld.js';
 import {bootGame, getColor, type Harness, type Pixels, readPixels} from './nightScreenHelpers.js';
 
 // Headless Chromium draws the bar in software, which slows every frame, and these tests
@@ -210,7 +210,7 @@ describe('the map picture', {timeout: 120_000}, () => {
       ({MapPicture} = await import('../source/game/screens/mapPicture.js'));
       ({getMapLayers} = await import('../source/game/core/mapLayers.js'));
       frame = fitMapFrame(
-        Object.values(fixedPlaceData).flatMap(({position}) =>
+        Object.values(fixedLocationData).flatMap(({position}) =>
           position === undefined ? [] : [getMapPoint(position, FIXED_ORIGIN)],
         ),
         163,

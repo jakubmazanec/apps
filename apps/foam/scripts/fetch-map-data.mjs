@@ -1,7 +1,7 @@
-// Fetch Foam's map: the streets, railway, rivers, parks and tram lines around the places, from
+// Fetch Foam's map: the streets, railway, rivers, parks and tram lines around the locations, from
 // OpenStreetMap through Overpass, into source/game/content/data/map.json, in whole metres from an
-// origin in the middle of the places. Nobody edits the file; the script writes it anew. The data
-// is OpenStreetMap's; see source/game/content/data/README.md for the credit and the licence.
+// origin in the middle of the locations. Nobody edits the file; the script writes it anew. The
+// data is OpenStreetMap's; see source/game/content/data/README.md for the credit and the licence.
 // Usage: node scripts/fetch-map-data.mjs
 
 import {readFile, writeFile} from 'node:fs/promises';
@@ -12,14 +12,14 @@ import {formatData, USER_AGENT} from './fill-travel-data.mjs';
 
 /**
  * @typedef {import('../source/game/core/travel.ts').MapData} MapData
- * @typedef {import('../source/game/core/travel.ts').PlaceData} PlaceData
+ * @typedef {import('../source/game/core/travel.ts').LocationData} LocationData
  * @typedef {import('../source/game/core/getMapPoint.ts').MapPoint} MapPoint
  * @typedef {{id: number; geometry?: Array<{lat: number; lon: number}>}} OverpassWay
  * @typedef {(query: string) => Promise<OverpassWay[]>} Request
  * @typedef {Exclude<keyof MapData, 'origin' | 'box'>} MapDataLayer
  */
 
-// Metres around the places' box; covers the widest map a supported screen shows.
+// Metres around the locations' box; covers the widest map a supported screen shows.
 export const MAP_MARGIN = 2000;
 export const SIMPLIFY_METRES = 5; // under half an art pixel at the sharpest scale
 
@@ -131,14 +131,14 @@ function getLine(way, origin, isPark) {
 }
 
 /**
- * The map around the places, one request per layer.
- * @param {PlaceData} places
+ * The map around the locations, one request per layer.
+ * @param {LocationData} locations
  * @param {Request} request
  * @returns {Promise<MapData>}
  */
-export async function fetchMapData(places, request) {
-  let positions = Object.values(places).flatMap((place) =>
-    place.position === undefined ? [] : [place.position],
+export async function fetchMapData(locations, request) {
+  let positions = Object.values(locations).flatMap((location) =>
+    location.position === undefined ? [] : [location.position],
   );
   let latitudes = positions.map(({latitude}) => latitude);
   let longitudes = positions.map(({longitude}) => longitude);
@@ -240,8 +240,8 @@ function realRequest(query) {
 
 if (process.argv[1] === import.meta.filename) {
   try {
-    let places = JSON.parse(await readFile(`${dataDir}places.json`, 'utf8'));
-    let map = await fetchMapData(places, realRequest);
+    let locations = JSON.parse(await readFile(`${dataDir}locations.json`, 'utf8'));
+    let map = await fetchMapData(locations, realRequest);
     let file = `${dataDir}map.json`;
     let text = await formatData(map, file);
 

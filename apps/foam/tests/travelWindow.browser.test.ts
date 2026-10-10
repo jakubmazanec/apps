@@ -1,8 +1,8 @@
 import {type Button, Text} from 'tellurion';
 import {afterAll, afterEach, beforeAll, describe, expect, test, vitest} from 'vitest';
 
+import locationData from '../source/game/content/data/locations.json';
 import map from '../source/game/content/data/map.json';
-import placeData from '../source/game/content/data/places.json';
 import travel from '../source/game/content/data/travel.json';
 import {nightStart} from '../source/game/content/nightStart.js';
 import {type barPicture as barPictureValue} from '../source/game/content/pictures/barPicture.js';
@@ -18,10 +18,16 @@ import {
 import {type Night, type PlaceId, type Way} from '../source/game/core/night.js';
 import {palette} from '../source/game/core/palette.js';
 import {BUTTON_GAP} from '../source/game/core/placeMapButtons.js';
-import {type Destination, type NightStart, type PlaceData} from '../source/game/core/travel.js';
+import {type Destination, type LocationData, type NightStart} from '../source/game/core/travel.js';
 import {type MapPicture} from '../source/game/screens/mapPicture.js';
 import {type TravelWindow} from '../source/game/screens/travelWindow.js';
-import {FIXED_BAR, FIXED_SQUARE, FIXED_STOP, fixedPlaceData, getFixedPlace} from './fixedWorld.js';
+import {
+  FIXED_BAR,
+  FIXED_SQUARE,
+  FIXED_STOP,
+  fixedLocationData,
+  getFixedPlace,
+} from './fixedWorld.js';
 import {
   bootGame,
   type Box,
@@ -292,10 +298,10 @@ describe('travel window', {timeout: 180_000}, () => {
   function getLight(openWindow: TravelWindow, start: NightStart, from: PlaceId) {
     let {width, height} = getBox(harness, getTravelParts(openWindow).mapArea);
     let {origin} = start.map;
-    let points = Object.values(start.placeData).flatMap(({position}) =>
+    let points = Object.values(start.locationData).flatMap(({position}) =>
       position === undefined ? [] : [getMapPoint(position, origin)],
     );
-    let position = start.placeData[from]?.position;
+    let position = start.locationData[from]?.position;
 
     if (position === undefined) {
       throw new Error(`"${from}" has no position!`);
@@ -862,8 +868,8 @@ describe('travel window', {timeout: 180_000}, () => {
   });
 
   test("the game's own places fit the narrowest screen", async () => {
-    let gameData: PlaceData = placeData;
-    let gameStart: NightStart = {...nightStart, places, travel, placeData: gameData, map};
+    let gameData: LocationData = locationData;
+    let gameStart: NightStart = {...nightStart, places, travel, locationData: gameData, map};
     let froms = Object.entries(gameData).flatMap(([id, entry]) =>
       entry.position === undefined || !Object.hasOwn(places, id) ? [] : [id as PlaceId],
     );
@@ -954,8 +960,8 @@ describe('travel window', {timeout: 180_000}, () => {
     let countWarnings = () => warn.mock.calls.filter(([message]) => message === warning).length;
     let start: NightStart = {
       ...nightStart,
-      placeData: Object.fromEntries(
-        Object.entries(fixedPlaceData).filter(([id]) => id !== FIXED_BAR),
+      locationData: Object.fromEntries(
+        Object.entries(fixedLocationData).filter(([id]) => id !== FIXED_BAR),
       ),
     };
     // The `dim` pixels within 8 of the light's centre, which only the dotted line has: the frame

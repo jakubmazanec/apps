@@ -6,7 +6,7 @@ import {getExpectedJourneys} from '../source/game/core/getExpectedJourneys.js';
 import {getDrunkenness, type Night, type Way} from '../source/game/core/night.js';
 import {type Place} from '../source/game/core/place.js';
 import {type Choice, defineScript} from '../source/game/core/script.js';
-import {type MapData, type PlaceData, type Travel} from '../source/game/core/travel.js';
+import {type LocationData, type MapData, type Travel} from '../source/game/core/travel.js';
 
 function oneNode(text: string, speaker = 'Someone'): RunnableDialogueScript<Night> {
   return defineDialogueScript<Night>()({start: {speaker, text}});
@@ -38,17 +38,13 @@ const places: Record<string, Place> = {
   namestiRepubliky: createPlace('namestiRepubliky', 'Náměstí Republiky', 'Nám. Republiky'),
 };
 const position = {latitude: 49.2, longitude: 16.6};
-const placeData: PlaceData = {
-  zidenice: {kind: 'place', position},
-  rotorBar: {
-    kind: 'place',
-    position,
-    nearestTramStop: {name: 'Náměstí Republiky', position},
-  },
-  namestiRepubliky: {kind: 'stop', tramStop: 'Náměstí Republiky', position},
+const locationData: LocationData = {
+  zidenice: {position},
+  rotorBar: {position, hours: [[960, 1620]]},
+  namestiRepubliky: {tramStop: 'Náměstí Republiky', position},
 };
 
-function createTravel(data: PlaceData): Travel {
+function createTravel(data: LocationData): Travel {
   let travel: Record<
     string,
     Partial<Record<Way, Record<string, {minutes: number; price?: number}>>>
@@ -69,7 +65,7 @@ function createTravel(data: PlaceData): Travel {
   return travel;
 }
 
-const travel = createTravel(placeData);
+const travel = createTravel(locationData);
 const map: MapData = {
   origin: position,
   box: {left: -5000, top: -5000, right: 5000, bottom: 5000},
@@ -89,13 +85,13 @@ const journeys: Record<Way, RunnableDialogueScript<Night>> = {
 function check(
   changes: {
     places?: Record<string, Place>;
-    placeData?: PlaceData;
+    locationData?: LocationData;
     travel?: Travel;
     map?: MapData;
     journeys?: Record<Way, RunnableDialogueScript<Night>>;
   } = {},
 ): string[] {
-  return checkContent({places, journeys, placeData, travel, map, ...changes});
+  return checkContent({places, journeys, locationData, travel, map, ...changes});
 }
 
 function withZidenice(change: Partial<Place>): Record<string, Place> {
@@ -191,54 +187,70 @@ describe(checkContent, () => {
   });
 
   test('reports a place without an entry, but not the train', () => {
-    let lines = check({placeData: {zidenice: placeData.zidenice!}});
+    let lines = check({locationData: {zidenice: locationData.zidenice!}});
 
-    expect(lines).toContain('places.json: no entry for "rotorBar"');
-    expect(lines).not.toContain('places.json: no entry for "train"');
+    expect(lines).toContain('locations.json: no entry for "rotorBar"');
+    expect(lines).not.toContain('locations.json: no entry for "train"');
   });
 
   test('reports an entry without a place', () => {
-    let data = {...placeData, nowhere: {kind: 'place', position}};
+    let data = {...locationData, nowhere: {position}};
 
-    expect(check({placeData: data})).toContain('places.json: "nowhere" is not a place');
-  });
-
-  test('reports a missing kind and a kind that is neither place nor stop', () => {
-    let data = structuredClone(placeData);
-
-    delete (data.zidenice as {kind?: string}).kind;
-    data.rotorBar!.kind = 'shop';
-
-    let lines = check({placeData: data});
-
-    expect(lines).toContain('places.json › zidenice: no kind');
-    expect(lines).toContain('places.json › rotorBar: kind is "shop", not "place" or "stop"');
+    expect(check({locationData: data})).toContain('locations.json: "nowhere" is not a location');
   });
 
   test('reports an entry without a position', () => {
-    let data = structuredClone(placeData);
+    let data = structuredClone(locationData);
 
     delete data.zidenice!.position;
 
-    expect(check({placeData: data})).toContain(
-      'places.json › zidenice: no position; run the fill script',
+    expect(check({locationData: data})).toContain(
+      'locations.json › zidenice: no position; run the fill script',
+    );
+  });
+
+  test('reports a span that is not of the night, and one that is not after the span before it', () => {
+    let data = structuredClone(locationData);
+
+    data.rotorBar!.hours = [[1620, 960], [900, 1000], [960, 1921], [960]];
+
+    let lines = check({locationData: data});
+
+    expect(lines).toContain(
+      'locations.json › rotorBar › hours: [1620, 960] is not a span of the night',
+    );
+    expect(lines).toContain(
+      'locations.json › rotorBar › hours: [900, 1000] is not a span of the night',
+    );
+    expect(lines).toContain(
+      'locations.json › rotorBar › hours: [960, 1921] is not a span of the night',
+    );
+    expect(lines).toContain('locations.json › rotorBar › hours: [960] is not a span of the night');
+
+    data.rotorBar!.hours = [
+      [960, 1200],
+      [1200, 1300],
+    ];
+
+    expect(check({locationData: data})).toContain(
+      'locations.json › rotorBar › hours: [1200, 1300] is not after [960, 1200]',
     );
   });
 
   test('reports a missing journey', () => {
     let data = structuredClone(travel) as Record<string, Record<string, Record<string, unknown>>>;
 
-    delete data.zidenice!.tram!.namestiRepubliky;
+    delete data.zidenice!.walk!.namestiRepubliky;
 
     expect(check({travel: data})).toContain(
-      'travel.json: no journey zidenice › tram › namestiRepubliky',
+      'travel.json: no journey zidenice › walk › namestiRepubliky',
     );
   });
 
   test('reports a journey the game does not offer', () => {
     let data = structuredClone(travel) as Record<string, Record<string, Record<string, unknown>>>;
 
-    data.zidenice!.tram!.rotorBar = {minutes: 5, price: 25};
+    data.zidenice!.tram = {rotorBar: {minutes: 5, price: 25}};
 
     expect(check({travel: data})).toContain(
       'travel.json: zidenice › tram › rotorBar is not a journey the game offers',

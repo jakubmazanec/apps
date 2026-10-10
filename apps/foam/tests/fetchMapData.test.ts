@@ -13,8 +13,8 @@ type Element = Awaited<ReturnType<Request>>[number];
 
 const ORIGIN = {latitude: 49.205, longitude: 16.61};
 const places = {
-  a: {kind: 'place', position: {latitude: 49.2, longitude: 16.6}},
-  b: {kind: 'stop', position: {latitude: 49.21, longitude: 16.62}},
+  a: {position: {latitude: 49.2, longitude: 16.6}},
+  b: {position: {latitude: 49.21, longitude: 16.62}},
 };
 const PARK_SELECTOR = 'way[leisure=park]';
 const MINOR_SELECTOR =

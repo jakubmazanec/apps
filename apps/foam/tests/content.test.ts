@@ -1,7 +1,7 @@
 import {describe, expect, test} from 'vitest';
 
+import locationData from '../source/game/content/data/locations.json';
 import map from '../source/game/content/data/map.json';
-import placeData from '../source/game/content/data/places.json';
 import travel from '../source/game/content/data/travel.json';
 import {journeys} from '../source/game/content/journeys.js';
 import {nightStart} from '../source/game/content/nightStart.js';
@@ -34,7 +34,7 @@ function doBoxesOverlap(a: Box, b: Box): boolean {
 
 describe('the game content', () => {
   test("the game's content has no problem", () => {
-    expect(checkContent({places, journeys, placeData, travel, map})).toEqual([]);
+    expect(checkContent({places, journeys, locationData, travel, map})).toEqual([]);
   });
 
   test('places holds the seven places by their ids', () => {
@@ -58,7 +58,7 @@ describe('the game content', () => {
     expect(nightStart.minutes).toBe(1020);
     expect(nightStart.money).toBe(350);
     expect(nightStart.places).toBe(places);
-    expect(nightStart.placeData).toBe(placeData);
+    expect(nightStart.locationData).toBe(locationData);
     expect(nightStart.map).toBe(map);
   });
 

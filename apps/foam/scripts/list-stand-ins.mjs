@@ -1,5 +1,5 @@
 // Lists what is left to write: the stand-in texts and the written ones of every place file and of
-// the journeys, and the places and journeys of the data that a script computed and nobody has
+// the journeys, and the locations and journeys of the data that a script computed and nobody has
 // checked. Run it with `node scripts/list-stand-ins.mjs`.
 import {readdir, readFile} from 'node:fs/promises';
 
@@ -51,7 +51,7 @@ export async function listStandIns() {
     );
   }
 
-  let places = countComputed(await readJson('places.json'));
+  let locations = countComputed(await readJson('locations.json'));
   // A journey sits two levels down: from, way, to.
   let journeys = {computed: 0, all: 0};
 
@@ -66,7 +66,7 @@ export async function listStandIns() {
 
   lines.push(
     '',
-    `Places not checked:   ${places.computed} of ${places.all}`,
+    `Locations not checked:   ${locations.computed} of ${locations.all}`,
     `Journeys not checked: ${journeys.computed} of ${journeys.all}`,
   );
 
