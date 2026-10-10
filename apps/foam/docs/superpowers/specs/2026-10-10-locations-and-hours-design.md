@@ -1,7 +1,8 @@
 # Locations and hours (Foam phase 5, spec 3 of 4): design
 
-Date: 2026-10-10. App: `apps/foam`. Status: designed. It is the third of phase 5's four specs in the
-[direction document](../../direction.md). It builds on spec 2,
+Date: 2026-10-10. App: `apps/foam`. Status: implemented by
+[2026-10-10-locations-and-hours.md](../plans/2026-10-10-locations-and-hours.md). It is the third of
+phase 5's four specs in the [direction document](../../direction.md). It builds on spec 2,
 [actions with costs, odds and conditions](2026-10-09-actions-with-costs-design.md). The fourth spec,
 the end of the night and the log, follows this one.
 
@@ -402,7 +403,7 @@ tram from every entry with `tramStop` to every other one with it. `travel.json` 
 
 | Journeys                                                                               | Change                                                       | Count |
 | -------------------------------------------------------------------------------------- | ------------------------------------------------------------ | ----- |
-| By tram from Rotor Bar, the Whisky Shop and Židenice                                   | Removed                                                      | 5     |
+| By tram from Rotor Bar, the Whisky Shop and Židenice                                   | Removed                                                      | 4     |
 | By tram from the main station                                                          | Deleted and computed again from stop to stop, without a walk | 2     |
 | By tram to the main station, from both stops                                           | New                                                          | 2     |
 | By tram between the two stops                                                          | Kept                                                         | 2     |
