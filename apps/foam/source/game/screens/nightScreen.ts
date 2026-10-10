@@ -25,12 +25,13 @@ import {getSpotPosition} from '../core/getSpotPosition.js';
 import {isOpenAt} from '../core/hours.js';
 import {input} from '../core/input.js';
 import {type Location, type LocationId} from '../core/location.js';
+import {logChoice} from '../core/log.js';
 import {measureText} from '../core/measureText.js';
 import {createNight, formatStatus, type Night} from '../core/night.js';
 import {type Place} from '../core/place.js';
 import {playFocusSound} from '../core/playFocusSound.js';
 import {UI_FADE_DURATION} from '../core/theme.js';
-import {getLocation, takeJourney} from '../core/travel.js';
+import {formatTravel, getLocation, takeJourney} from '../core/travel.js';
 import {errorScreen} from './errorScreen.js';
 // The nightScreen <-> mainMenuScreen static import cycle is deliberate and
 // safe: each module reads the other's binding only inside a click handler
@@ -461,6 +462,9 @@ function createTravelWindow(screen: NightScreen): TravelWindow {
       // The modal has left the UI, and nothing could open above it while it
       // faded, so the journey's window is the topmost. The place leaves under
       // black. When that window has closed, actOnNight shows the destination.
+      // The travel is logged at the minute of departure; the journey's window
+      // logs its text at the minute of arrival.
+      logChoice(screen.contents.night, formatTravel(destination));
       takeJourney(nightStart, screen.contents.night, destination);
       leavePlace(screen);
       layOut(screen);

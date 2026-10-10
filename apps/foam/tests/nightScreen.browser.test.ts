@@ -948,6 +948,28 @@ describe('night screen', {timeout: 180_000}, () => {
       ]);
     });
 
+    test('a second tap on a choice before the next frame logs nothing', async () => {
+      let {log} = harness.nightScreen.contents.night;
+      let storyWindow = await openSpot('A patron');
+
+      // Finish the text, and wait until the choices take a tap.
+      await press('Enter');
+      await waitForChoices(storyWindow);
+
+      let firstNode = storyWindow.dialogue.node;
+      let firstChoice = getBox(harness, getWindowButton(storyWindow, 0));
+      // The scene's tests share one night, so only the entries of this test count.
+      let logStart = log.length;
+
+      // No frame runs between the taps, so the second finds the button still there, but the
+      // runner is past its choices and takes nothing.
+      tapNow(harness, firstChoice);
+      tapNow(harness, firstChoice);
+
+      expect(storyWindow.dialogue.node).not.toBe(firstNode);
+      expect(log.slice(logStart)).toMatchObject([{kind: 'choice', text: 'Talk to him'}]);
+    });
+
     test('the long text is shown in pages of at most 16 lines', async () => {
       let storyWindow = await openLongText();
       let whole = storyWindow.dialogue.pageText;
@@ -1004,7 +1026,18 @@ describe('night screen', {timeout: 180_000}, () => {
         drunkenness: {level: 1, at: 1190},
         roll: null,
         random: Math.random,
+        log: expect.any(Array) as unknown,
       });
+      // The choice at the press, before its ten minutes; its text at 19:50.
+      expect(nightScreen.contents.night.log.slice(-2)).toMatchObject([
+        {kind: 'choice', minutes: 1180, text: BEER_LABEL},
+        {
+          kind: 'text',
+          minutes: 1190,
+          speaker: 'The bartender',
+          text: expect.stringContaining('She pulls a beer') as unknown,
+        },
+      ]);
       // The status changes while the window is still open.
       expect(readText(nightScreen.contents.statusText)).toBe('19:50   305 Kč   1.0');
 
@@ -1139,7 +1172,14 @@ describe('night screen', {timeout: 180_000}, () => {
     });
 
     test('a resize in the middle of a text keeps the place and wraps the text again', async () => {
-      let {measureText} = harness;
+      let {measureText, nightScreen} = harness;
+      let {log} = nightScreen.contents.night;
+      // The scene's tests share one night, so only the entries of this test count.
+      let logStart = log.length;
+      // The patron's pages this test has logged.
+      let countPatronPages = () =>
+        log.slice(logStart).filter((entry) => entry.kind === 'text' && entry.speaker === 'A patron')
+          .length;
       let storyWindow = await openLongText();
 
       // Finish the first page and turn it, and wait for the second page to
@@ -1156,6 +1196,9 @@ describe('night screen', {timeout: 180_000}, () => {
 
       let whole = storyWindow.dialogue.pageText;
       let revealedBefore = storyWindow.dialogue.revealedCount;
+
+      // The table, the talk and the ceiling, whose long text is one page of the runner.
+      expect(countPatronPages()).toBe(3);
 
       try {
         // 300 × 270 art pixels: the window is 292 wide and its text 268.
@@ -1185,6 +1228,8 @@ describe('night screen', {timeout: 180_000}, () => {
         // The pages after the resize end with the end of the text.
         expect(stripMarks(whole).endsWith(pages.join('').replaceAll('\n', ' '))).toBe(true);
         expect(storyWindow.dialogue.revealedCount).toBe(whole.length);
+        // The window's own pages and the resize log nothing.
+        expect(countPatronPages()).toBe(3);
       } finally {
         await restoreViewport();
       }
