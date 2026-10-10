@@ -1,55 +1,34 @@
 {
   "zidenice": {
-    "kind": "place",
     "station": "Brno-Židenice",
     "position": {"latitude": 49.20415, "longitude": 16.63611},
-    "computed": true,
-    "nearestTramStop": {
-      "name": "Kuldova",
-      "position": {"latitude": 49.20132, "longitude": 16.63454}
-    }
+    "computed": true
   },
   "hlavniNadrazi": {
-    "kind": "place",
     "station": "Brno hlavní nádraží",
+    "tramStop": "Hlavní nádraží",
     "position": {"latitude": 49.19067, "longitude": 16.61326},
-    "computed": true,
-    "nearestTramStop": {
-      "name": "Hlavní nádraží",
-      "position": {"latitude": 49.1913, "longitude": 16.61267}
-    }
+    "computed": true
   },
   "whiskyShop": {
-    "kind": "place",
     "address": "Vranovská 110",
-    "openingHours": "Mo-Su 16:30-21:00",
+    "hours": [[990, 1260]],
     "position": {"latitude": 49.21186, "longitude": 16.63002},
-    "computed": true,
-    "nearestTramStop": {
-      "name": "Náměstí Republiky",
-      "position": {"latitude": 49.21059, "longitude": 16.63347}
-    }
+    "computed": true
   },
   "rotorBar": {
-    "kind": "place",
     "address": "Dvořákova 12",
     "osmName": "Rotor bar",
     "position": {"latitude": 49.19593, "longitude": 16.61131},
     "computed": true,
-    "openingHours": "Mo-Th 16:00-01:00, Fr 16:00-03:00, Sa 17:00-03:00",
-    "nearestTramStop": {
-      "name": "Malinovského náměstí",
-      "position": {"latitude": 49.19615, "longitude": 16.61289}
-    }
+    "hours": [[960, 1620]]
   },
   "namestiRepubliky": {
-    "kind": "stop",
     "tramStop": "Náměstí Republiky",
     "position": {"latitude": 49.21097, "longitude": 16.63375},
     "computed": true
   },
   "malinovskehoNamesti": {
-    "kind": "stop",
     "tramStop": "Malinovského náměstí",
     "position": {"latitude": 49.19555, "longitude": 16.61374},
     "computed": true

@@ -6,9 +6,9 @@ import {type Night, type PlaceId} from '../source/game/core/night.js';
 import {type Place} from '../source/game/core/place.js';
 import {defineScript} from '../source/game/core/script.js';
 import {
+  type LocationData,
   type MapData,
   type NightStart,
-  type PlaceData,
   type Position,
   type Travel,
 } from '../source/game/core/travel.js';
@@ -307,10 +307,10 @@ export function at(x: number, y: number): Position {
 }
 
 // testBroken has no entry. No two lines of the map cross where a test reads.
-export const fixedPlaceData: PlaceData = {
-  [FIXED_BAR]: {kind: 'place', position: at(-300, -200)},
-  [FIXED_SQUARE]: {kind: 'place', position: at(300, -200)},
-  [FIXED_STOP]: {kind: 'stop', position: at(0, 300)},
+export const fixedLocationData: LocationData = {
+  [FIXED_BAR]: {position: at(-300, -200)},
+  [FIXED_SQUARE]: {position: at(300, -200)},
+  [FIXED_STOP]: {tramStop: 'The stop', position: at(0, 300)},
 };
 
 export const fixedMap: MapData = {
@@ -326,7 +326,7 @@ export const fixedMap: MapData = {
 
 export const fixedStart: NightStart = {
   places: fixedPlaces,
-  placeData: fixedPlaceData,
+  locationData: fixedLocationData,
   travel: fixedTravel,
   map: fixedMap,
   place: FIXED_BAR,

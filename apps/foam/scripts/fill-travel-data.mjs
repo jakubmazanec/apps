@@ -1,12 +1,15 @@
-// Fill Foam's travel data: the positions, nearest tram stops and opening hours of
-// source/game/content/data/places.json, and the journeys of travel.json, from OpenStreetMap. A
-// value that is already there is never changed, so a run on complete files changes nothing. A
-// value it writes is marked "computed": true until the author has checked it. The servers' data is
-// OpenStreetMap's; see source/game/content/data/README.md for the credit and the licence.
+// Fill Foam's travel data: the positions and the hours of
+// source/game/content/data/locations.json, and the journeys of travel.json, from OpenStreetMap.
+// The hours are read from OpenStreetMap's opening_hours tag for a Friday night. A value that is
+// already there is never changed, so a run on complete files changes nothing. A value it writes is
+// marked "computed": true until the author has checked it. The servers' data is OpenStreetMap's;
+// see source/game/content/data/README.md for the credit and the licence.
 // Usage: node scripts/fill-travel-data.mjs
 
 import {readFile, writeFile} from 'node:fs/promises';
 import {fileURLToPath} from 'node:url';
+// eslint-disable-next-line import/no-extraneous-dependencies -- a dev tool script, like the atlas
+import OpeningHours from 'opening_hours';
 // eslint-disable-next-line import/no-extraneous-dependencies -- a dev tool script, like the atlas
 import prettier from 'prettier';
 
@@ -14,13 +17,12 @@ import {getExpectedJourneys} from '../source/game/core/getExpectedJourneys.ts';
 
 /**
  * @typedef {import('../source/game/core/travel.ts').Position} Position
- * @typedef {import('../source/game/core/travel.ts').PlaceEntry} PlaceEntry
+ * @typedef {import('../source/game/core/travel.ts').LocationEntry} LocationEntry
  * @typedef {import('../source/game/core/travel.ts').Journey} Journey
  * @typedef {{metres: number; seconds: number}} Route
  * @typedef {{address: string} | {station: string} | {tramStop: string}} PositionQuery
  * @typedef {{
  *   findPositions: (query: PositionQuery) => Promise<Position[]>;
- *   findTramStops: (position: Position) => Promise<{name: string; position: Position}[]>;
  *   findNamed: (
  *     name: string,
  *     position: Position,
@@ -47,6 +49,19 @@ const BOX = '(49.10,16.45,49.30,16.75)'; // Brno
 const OVERPASS = 'https://overpass-api.de/api/interpreter';
 const ROUTING = 'https://routing.openstreetmap.de';
 const dataDir = fileURLToPath(new URL('../source/game/content/data/', import.meta.url));
+// The night a tag is read for: Friday 2026-10-09 from 16:00 to 08:00, in the process's local
+// time. Neither that Friday nor the Saturday after it is a Czech public holiday, so a `PH` rule
+// reads as on any Friday.
+const NIGHT_MIDNIGHT = new Date(2026, 9, 9);
+const NIGHT_FROM = new Date(2026, 9, 9, 16);
+const NIGHT_TO = new Date(2026, 9, 10, 8);
+// Where the library looks up the public holidays: Brno.
+const NOMINATIM = {
+  lat: 49.19,
+  lon: 16.61,
+  // eslint-disable-next-line camelcase -- the library's name for the field
+  address: {country_code: 'cz', state: 'Jihomoravský kraj'},
+};
 
 /**
  * Metres along the earth's surface between two points (haversine).
@@ -94,6 +109,39 @@ export function getTramJourney(walkMetres, rideMetres) {
   return {minutes: Math.max(1, Math.round(minutes)), price: TICKET_PRICE};
 }
 
+/**
+ * The night's minutes of a date: the minutes from the Friday's midnight.
+ * @param {Date} date
+ */
+function getNightMinutes(date) {
+  return Math.round((date.getTime() - NIGHT_MIDNIGHT.getTime()) / 60_000);
+}
+
+/**
+ * The spans of the night in which an opening_hours tag says the location is open, in night
+ * minutes; a stretch the tag leaves unknown counts as open, for the author to check. Throws what
+ * the library throws, maybe a string, on a tag it cannot read.
+ * @param {string} tag
+ * @returns {number[][]}
+ */
+export function readOpeningHours(tag) {
+  let intervals = new OpeningHours(tag, NOMINATIM).getOpenIntervals(NIGHT_FROM, NIGHT_TO);
+  let spans = /** @type {number[][]} */ ([]);
+
+  for (let [from, to] of intervals) {
+    let last = spans.at(-1);
+
+    // Two intervals that touch are one span, so the spans stay in order and apart.
+    if (last !== undefined && last[1] === getNightMinutes(from)) {
+      last[1] = getNightMinutes(to);
+    } else {
+      spans.push([getNightMinutes(from), getNightMinutes(to)]);
+    }
+  }
+
+  return spans;
+}
+
 /** @param {Position} position */
 function roundPosition({latitude, longitude}) {
   return {
@@ -117,13 +165,13 @@ function getMean(points) {
  * Works out what the data lacks, with `lookups` asking the servers one thing at a time. Returns
  * filled copies; the input stays as it was. `added` and `missing` name the values.
  * @param {{
- *   places: Readonly<Record<string, PlaceEntry>>;
+ *   locations: Readonly<Record<string, LocationEntry>>;
  *   travel: Readonly<Record<string, Record<string, Record<string, Journey>>>>;
  *   lookups: Lookups;
  * }} data
  */
-export async function fillTravelData({places, travel, lookups}) {
-  let filledPlaces = /** @type {Record<string, PlaceEntry>} */ (structuredClone(places));
+export async function fillTravelData({locations, travel, lookups}) {
+  let filledLocations = /** @type {Record<string, LocationEntry>} */ (structuredClone(locations));
   let filledTravel = /** @type {Record<string, Record<string, Record<string, Journey>>>} */ (
     structuredClone(travel)
   );
@@ -152,7 +200,7 @@ export async function fillTravelData({places, travel, lookups}) {
     return undefined;
   };
 
-  for (let [id, entry] of Object.entries(filledPlaces)) {
+  for (let [id, entry] of Object.entries(filledLocations)) {
     if (entry.position === undefined) {
       let query =
         entry.address === undefined ?
@@ -160,51 +208,24 @@ export async function fillTravelData({places, travel, lookups}) {
             {tramStop: entry.tramStop ?? ''}
           : {station: entry.station}
         : {address: entry.address};
-      let points = await ask(`places.json › ${id} › position`, async () =>
+      let points = await ask(`locations.json › ${id} › position`, async () =>
         lookups.findPositions(query),
       );
 
       if (points !== undefined) {
         entry.position = getMean(points);
         entry.computed = true;
-        added.push(`places.json › ${id} › position`);
+        added.push(`locations.json › ${id} › position`);
       }
     }
 
-    if (
-      entry.kind === 'place' &&
-      entry.position !== undefined &&
-      entry.nearestTramStop === undefined
-    ) {
-      let {position} = entry;
-      let stops = await ask(`places.json › ${id} › nearestTramStop`, async () =>
-        lookups.findTramStops(position),
-      );
-
-      if (stops !== undefined) {
-        let [nearest] = stops.toSorted(
-          (a, b) => getDistance(position, a.position) - getDistance(position, b.position),
-        );
-
-        entry.nearestTramStop = {
-          name: nearest?.name ?? '',
-          position: roundPosition(nearest?.position ?? position),
-        };
-        entry.computed = true;
-        added.push(`places.json › ${id} › nearestTramStop`);
-      }
-    }
-
-    if (
-      entry.osmName !== undefined &&
-      entry.position !== undefined &&
-      entry.openingHours === undefined
-    ) {
+    if (entry.osmName !== undefined && entry.position !== undefined && entry.hours === undefined) {
       let {osmName, position} = entry;
-      let found = await ask(`places.json › ${id} › openingHours`, async () => {
+      // A tag the library cannot read throws, and one that leaves the whole night closed gives no
+      // span: either way the author writes the hours by hand.
+      let hours = await ask(`locations.json › ${id} › hours`, async () => {
         let things = await lookups.findNamed(osmName, position);
-
-        return things
+        let [nearest] = things
           .filter(
             (thing) =>
               thing.openingHours !== undefined &&
@@ -213,21 +234,23 @@ export async function fillTravelData({places, travel, lookups}) {
           .toSorted(
             (a, b) => getDistance(position, a.position) - getDistance(position, b.position),
           );
+
+        return nearest?.openingHours === undefined ? [] : readOpeningHours(nearest.openingHours);
       });
 
-      if (found !== undefined) {
-        entry.openingHours = found[0]?.openingHours;
+      if (hours !== undefined) {
+        entry.hours = hours;
         entry.computed = true;
-        added.push(`places.json › ${id} › openingHours`);
+        added.push(`locations.json › ${id} › hours`);
       }
     }
   }
 
-  for (let {from, way, to} of getExpectedJourneys(filledPlaces)) {
+  for (let {from, way, to} of getExpectedJourneys(filledLocations)) {
     if (filledTravel[from]?.[way]?.[to] === undefined) {
       let line = `travel.json › ${from} › ${way} › ${to}`;
-      let start = filledPlaces[from];
-      let end = filledPlaces[to];
+      let start = filledLocations[from];
+      let end = filledLocations[to];
 
       if (start === undefined || end === undefined) {
         throw new Error(`No entry for ${line}.`);
@@ -236,13 +259,9 @@ export async function fillTravelData({places, travel, lookups}) {
       let journey;
 
       if (way === 'tram') {
-        let stop = start.kind === 'stop' ? start : start.nearestTramStop;
-        let canWalk = start.kind === 'stop' || start.position !== undefined;
-
-        if (stop?.position !== undefined && end.position !== undefined && canWalk) {
-          let walk = start.kind === 'stop' ? 0 : getDistance(start.position, stop.position);
-
-          journey = getTramJourney(walk, getDistance(stop.position, end.position));
+        // A tram ride goes from stop to stop, so there is no walk to a stop first.
+        if (start.position !== undefined && end.position !== undefined) {
+          journey = getTramJourney(0, getDistance(start.position, end.position));
         }
       } else if (start.position !== undefined && end.position !== undefined) {
         let profile = way === 'walk' ? 'foot' : 'car';
@@ -269,7 +288,7 @@ export async function fillTravelData({places, travel, lookups}) {
     }
   }
 
-  return {places: filledPlaces, travel: filledTravel, added, missing};
+  return {locations: filledLocations, travel: filledTravel, added, missing};
 }
 
 /**
@@ -344,16 +363,6 @@ export const realLookups = {
     return found.map(({position}) => position);
   },
 
-  async findTramStops({latitude, longitude}) {
-    let found = await queryOverpass(
-      `node(around:1000,${latitude},${longitude})[railway=tram_stop];`,
-    );
-
-    return found
-      .filter(({tags}) => tags.name !== undefined)
-      .map(({position, tags}) => ({name: tags.name, position}));
-  },
-
   async findNamed(name, {latitude, longitude}) {
     let found = await queryOverpass(
       `nwr(around:150,${latitude},${longitude})[name~"^${escapeQuery(name)}$",i];`,
@@ -373,14 +382,14 @@ export const realLookups = {
 };
 
 if (process.argv[1] === import.meta.filename) {
-  let placesFile = `${dataDir}places.json`;
+  let locationsFile = `${dataDir}locations.json`;
   let travelFile = `${dataDir}travel.json`;
-  let places = JSON.parse(await readFile(placesFile, 'utf8'));
+  let locations = JSON.parse(await readFile(locationsFile, 'utf8'));
   let travel = JSON.parse(await readFile(travelFile, 'utf8'));
-  let result = await fillTravelData({places, travel, lookups: realLookups});
+  let result = await fillTravelData({locations, travel, lookups: realLookups});
 
-  if (result.added.some((line) => line.startsWith('places.json'))) {
-    await writeFile(placesFile, await formatData(result.places, placesFile));
+  if (result.added.some((line) => line.startsWith('locations.json'))) {
+    await writeFile(locationsFile, await formatData(result.locations, locationsFile));
   }
 
   if (result.added.some((line) => line.startsWith('travel.json'))) {

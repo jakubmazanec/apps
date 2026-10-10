@@ -14,7 +14,7 @@ const START: NightStart = {
     zidenice: createPlace('zidenice', 'Beta'),
     hlavniNadrazi: createPlace('hlavniNadrazi', 'Gamma'),
   },
-  placeData: {},
+  locationData: {},
   travel: {
     whiskyShop: {
       walk: {

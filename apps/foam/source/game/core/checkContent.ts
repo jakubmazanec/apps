@@ -3,23 +3,24 @@ import {type DialogueNode, type RunnableDialogueScript} from 'tellurion';
 import {getExpectedJourneys} from './getExpectedJourneys.js';
 import {getLabelRoom, WORD_ROOM} from './getLabelRoom.js';
 import {getMapPoint} from './getMapPoint.js';
+import {NIGHT_END, NIGHT_START} from './hours.js';
 import {MARK, stripMarks} from './markedText.js';
 import {createNight, type Night, type PlaceId, roll, type Way} from './night.js';
 import {type Place} from './place.js';
 import {asChoice} from './script.js';
-import {type MapData, type PlaceData, type Travel} from './travel.js';
+import {type LocationData, type MapData, type Travel} from './travel.js';
 
 export type Content = {
   places: Readonly<Record<string, Place>>;
   journeys: Record<Way, RunnableDialogueScript<Night>>;
-  placeData: PlaceData;
+  locationData: LocationData;
   travel: Travel;
   map: MapData;
 };
 
 // A place's button and its neighbourhood must lie inside the map, with this much to spare.
 const MAP_MARGIN = 2000;
-// The train moves, so it has no position and no entry in places.json.
+// The train moves, so it has no position and no entry in locations.json.
 const OFF_THE_MAP = new Set(['train']);
 // A night's start for a text that is a function: any time and sum will do.
 const CHECK_MINUTES = 1020;
@@ -34,6 +35,24 @@ type Node = DialogueNode<Night, string>;
 
 function isWholeNumber(value: unknown): value is number {
   return typeof value === 'number' && Number.isInteger(value);
+}
+
+// The content types a span as `number[]`, so the JSON import fits; here it is held to a pair.
+function isSpanOfTheNight(span: readonly number[]): boolean {
+  let [from, to] = span;
+
+  return (
+    span.length === 2 &&
+    isWholeNumber(from) &&
+    isWholeNumber(to) &&
+    from >= NIGHT_START &&
+    from < to &&
+    to <= NIGHT_END
+  );
+}
+
+function formatSpan(span: readonly number[]): string {
+  return `[${span.join(', ')}]`;
 }
 
 /**
@@ -188,6 +207,23 @@ export function checkContent(content: Content): string[] {
     }
   }
 
+  // The spans of an entry's hours: each of the night, and each after the one before it.
+  function checkHours(where: string, hours: ReadonlyArray<readonly number[]>): void {
+    let previous: readonly number[] | undefined;
+
+    for (let span of hours) {
+      let [from = 0] = span;
+
+      if (!isSpanOfTheNight(span)) {
+        lines.add(`${where}: ${formatSpan(span)} is not a span of the night`);
+      } else if (previous !== undefined && from <= (previous[1] ?? 0)) {
+        lines.add(`${where}: ${formatSpan(span)} is not after ${formatSpan(previous)}`);
+      }
+
+      previous = span;
+    }
+  }
+
   function checkScript(name: string, script: RunnableDialogueScript<Night>): void {
     let {start} = script;
 
@@ -262,23 +298,19 @@ export function checkContent(content: Content): string[] {
   }
 
   for (let id of placeIds) {
-    if (!OFF_THE_MAP.has(id) && content.placeData[id] === undefined) {
-      lines.add(`places.json: no entry for "${id}"`);
+    if (!OFF_THE_MAP.has(id) && content.locationData[id] === undefined) {
+      lines.add(`locations.json: no entry for "${id}"`);
     }
   }
 
-  for (let [id, entry] of Object.entries(content.placeData)) {
-    let where = `places.json${SEPARATOR}${id}`;
+  for (let [id, entry] of Object.entries(content.locationData)) {
+    let where = `locations.json${SEPARATOR}${id}`;
 
     if (content.places[id] === undefined) {
-      lines.add(`places.json: "${id}" is not a place`);
+      lines.add(`locations.json: "${id}" is not a location`);
     }
 
-    if ((entry.kind as string | undefined) === undefined) {
-      lines.add(`${where}: no kind`);
-    } else if (entry.kind !== 'place' && entry.kind !== 'stop') {
-      lines.add(`${where}: kind is "${entry.kind}", not "place" or "stop"`);
-    }
+    checkHours(`${where}${SEPARATOR}hours`, entry.hours ?? []);
 
     if (entry.position === undefined) {
       lines.add(`${where}: no position; run the fill script`);
@@ -299,7 +331,7 @@ export function checkContent(content: Content): string[] {
     }
   }
 
-  let expected = getExpectedJourneys(content.placeData);
+  let expected = getExpectedJourneys(content.locationData);
   let expectedKeys = new Set<string>();
 
   for (let {from, way, to} of expected) {

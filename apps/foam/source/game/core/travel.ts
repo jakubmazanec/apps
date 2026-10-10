@@ -3,21 +3,26 @@ import {type Place} from './place.js';
 
 export type Position = {latitude: number; longitude: number};
 
-/** An entry of `places.json`. `kind` is a string so the JSON import fits; see the checker. */
-export type PlaceEntry = {
-  kind: string;
+/**
+ * An entry of `locations.json`. `hours` is `number[][]` so the JSON import fits; the checker holds
+ * each span to a pair of the night.
+ */
+export type LocationEntry = {
   address?: string;
   station?: string;
+
+  /** The stop's name in OpenStreetMap. A location with it is a tram stop. */
   tramStop?: string;
   osmName?: string;
   position?: Position;
-  nearestTramStop?: {name: string; position: Position};
-  openingHours?: string;
+
+  /** The spans in which it is open, in night minutes. Absent: it never closes. */
+  hours?: number[][];
   computed?: boolean;
 };
 
-/** The content of `places.json`: its entries by place id. */
-export type PlaceData = Readonly<Record<string, PlaceEntry>>;
+/** The content of `locations.json`: its entries by location id. */
+export type LocationData = Readonly<Record<string, LocationEntry>>;
 
 /** The content of `map.json`. */
 export type MapData = {
@@ -42,8 +47,8 @@ export type NightStart = {
   /** The places of the night, by id. */
   places: Readonly<Record<string, Place>>;
 
-  /** The content of `places.json`: the positions of the places. */
-  placeData: PlaceData;
+  /** The content of `locations.json`: the positions and the hours of the locations. */
+  locationData: LocationData;
 
   travel: Travel;
 

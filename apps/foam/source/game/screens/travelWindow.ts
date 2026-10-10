@@ -30,8 +30,8 @@ import {UI_FADE_DURATION} from '../core/theme.js';
 import {
   type Destination,
   getDestinations,
+  type LocationData,
   type NightStart,
-  type PlaceData,
 } from '../core/travel.js';
 import {MapPicture} from './mapPicture.js';
 import {createWindowTitle, WINDOW_PADDING} from './windowTitle.js';
@@ -287,10 +287,10 @@ export class TravelWindow {
 
     let {origin} = start.map;
 
-    this.#points = Object.values(start.placeData).flatMap(({position}) =>
+    this.#points = Object.values(start.locationData).flatMap(({position}) =>
       position === undefined ? [] : [getMapPoint(position, origin)],
     );
-    this.#places = Object.entries(start.placeData).flatMap(([id, {position}]) =>
+    this.#places = Object.entries(start.locationData).flatMap(([id, {position}]) =>
       position === undefined || !Object.hasOwn(start.places, id) ?
         []
       : [{id, point: getMapPoint(position, origin)}],
@@ -298,7 +298,7 @@ export class TravelWindow {
     this.#roomDestinations = Object.values(start.places).flatMap(({id}) =>
       WAYS.flatMap((way) => getDestinations(start, id, way)),
     );
-    this.#warnOfMissingPositions(start.placeData);
+    this.#warnOfMissingPositions(start.locationData);
     this.#wayButtons = new Map(
       WAYS.map((way) => [
         way,
@@ -369,7 +369,7 @@ export class TravelWindow {
    * destination or one the night cannot pay, they go to Back.
    */
   open({from, way, ways, night}: TravelJourney): void {
-    let position = this.#start.placeData[from]?.position;
+    let position = this.#start.locationData[from]?.position;
 
     this.#from = from;
     this.#night = night;
@@ -736,11 +736,11 @@ export class TravelWindow {
   // A destination whose place has no position has no button on the map, yet
   // the destination button can still take the player there. The checker
   // reports such a place; the window says so once, when it is built.
-  #warnOfMissingPositions(placeData: PlaceData): void {
+  #warnOfMissingPositions(locationData: LocationData): void {
     let warned = new Set<string>();
 
     for (let {place} of this.#roomDestinations) {
-      if (placeData[place.id]?.position === undefined && !warned.has(place.id)) {
+      if (locationData[place.id]?.position === undefined && !warned.has(place.id)) {
         warned.add(place.id);
         // eslint-disable-next-line no-console -- the running game reports a place the map lacks
         console.warn(`No position for "${place.id}": it has no button on the map.`);

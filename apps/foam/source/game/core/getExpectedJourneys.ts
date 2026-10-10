@@ -2,29 +2,22 @@
 export type ExpectedJourney = {from: string; way: 'taxi' | 'tram' | 'walk'; to: string};
 
 /**
- * The journeys the travel data has to hold. On foot and by taxi: from every entry to every other
- * place. By tram: from every entry to every other stop, except from a place to its own nearest
- * stop.
+ * The journeys the travel data has to hold. On foot and by taxi: from every entry to every other.
+ * By tram: from every entry with a `tramStop` to every other entry with one. In the order of the
+ * entries, then of the ways (`walk`, `tram`, `taxi`), then of the entries again.
  */
 export function getExpectedJourneys(
-  places: Readonly<
-    Record<string, {kind: string; tramStop?: string; nearestTramStop?: {name: string}}>
-  >,
+  entries: Readonly<Record<string, {tramStop?: string}>>,
 ): ExpectedJourney[] {
   let journeys: ExpectedJourney[] = [];
-  let entries = Object.entries(places);
+  let list = Object.entries(entries);
 
-  for (let [from, start] of entries) {
+  for (let [from, start] of list) {
     for (let way of ['walk', 'tram', 'taxi'] as const) {
-      let kind = way === 'tram' ? 'stop' : 'place';
+      for (let [to, end] of list) {
+        let isRide = start.tramStop !== undefined && end.tramStop !== undefined;
 
-      for (let [to, end] of entries) {
-        let isOwnStop =
-          way === 'tram' &&
-          start.nearestTramStop !== undefined &&
-          end.tramStop === start.nearestTramStop.name;
-
-        if (to !== from && end.kind === kind && !isOwnStop) {
+        if (to !== from && (way !== 'tram' || isRide)) {
           journeys.push({from, way, to});
         }
       }

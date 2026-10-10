@@ -9,6 +9,7 @@ import {
   getTaxiJourney,
   getTramJourney,
   getWalkJourney,
+  readOpeningHours,
 } from '../scripts/fill-travel-data.mjs';
 
 type Position = {latitude: number; longitude: number};
@@ -26,9 +27,6 @@ function createLookups(overrides: Partial<Lookups> = {}) {
     findPositions: vitest.fn<Lookups['findPositions']>(
       overrides.findPositions ?? (async () => reject('findPositions')),
     ),
-    findTramStops: vitest.fn<Lookups['findTramStops']>(
-      overrides.findTramStops ?? (async () => reject('findTramStops')),
-    ),
     findNamed: vitest.fn<Lookups['findNamed']>(
       overrides.findNamed ?? (async () => reject('findNamed')),
     ),
@@ -39,7 +37,6 @@ function createLookups(overrides: Partial<Lookups> = {}) {
 function getCalls(lookups: ReturnType<typeof createLookups>) {
   return (
     lookups.findPositions.mock.calls.length +
-    lookups.findTramStops.mock.calls.length +
     lookups.findNamed.mock.calls.length +
     lookups.route.mock.calls.length
   );
@@ -88,79 +85,66 @@ describe(fillTravelData, () => {
       ],
     });
     let result = await fillTravelData({
-      places: {stop: {kind: 'stop', tramStop: 'A'}},
+      locations: {stop: {tramStop: 'A'}},
       travel: {},
       lookups,
     });
 
-    expect(result.places.stop).toEqual({
-      kind: 'stop',
+    expect(result.locations.stop).toEqual({
       tramStop: 'A',
       position: {latitude: 49.100_02, longitude: 16.500_02},
       computed: true,
     });
-    expect(result.added).toEqual(['places.json › stop › position']);
+    expect(result.added).toEqual(['locations.json › stop › position']);
     expect(result.missing).toEqual([]);
   });
 
-  test('gives a place the nearer of two stops, and a stop none', async () => {
-    let near = {name: 'Near', position: {latitude: 49.2005, longitude: 16.6}};
-    let far = {name: 'Far', position: {latitude: 49.21, longitude: 16.6}};
-    let lookups = createLookups({findTramStops: async () => [far, near]});
-    let result = await fillTravelData({
-      places: {
-        bar: {kind: 'place', position: BRNO},
-        stop: {kind: 'stop', tramStop: 'A', position: BRNO},
-      },
-      travel: {},
-      lookups,
-    });
-
-    expect(result.places.bar?.nearestTramStop).toEqual(near);
-    expect(result.places.stop?.nearestTramStop).toBeUndefined();
-    expect(result.added).toContain('places.json › bar › nearestTramStop');
-    expect(lookups.findTramStops).toHaveBeenCalledTimes(1);
-  });
-
-  test('takes opening hours from a thing 100 m away and not from one 200 m away', async () => {
+  test('turns the opening hours of the nearest thing within 150 m into spans', async () => {
     let at = (metres: number): Position => ({
       latitude: BRNO.latitude + metres / 111_195,
       longitude: BRNO.longitude,
     });
-    let places = {
-      stop: {kind: 'stop', tramStop: 'A', position: BRNO},
-      bar: {
-        kind: 'place',
-        osmName: 'Bar',
-        position: BRNO,
-        nearestTramStop: {name: 'A', position: BRNO},
-      },
-    };
+    let locations = {bar: {osmName: 'Bar', position: BRNO}};
     let near = await fillTravelData({
-      places,
+      locations,
       travel: {},
       lookups: createLookups({
         findNamed: async () => [
-          {position: at(200), openingHours: 'far'},
-          {position: at(100), openingHours: 'near'},
+          {position: at(200), openingHours: '24/7'},
+          {position: at(100), openingHours: 'Mo-Su 16:30-21:00'},
         ],
       }),
     });
     let far = await fillTravelData({
-      places,
+      locations,
       travel: {},
       lookups: createLookups({
-        findNamed: async () => [{position: at(200), openingHours: 'far'}],
+        findNamed: async () => [{position: at(200), openingHours: '24/7'}],
       }),
     });
 
-    expect(near.places.bar?.openingHours).toBe('near');
-    expect(near.places.bar?.computed).toBe(true);
-    expect(far.places.bar?.openingHours).toBeUndefined();
-    expect(far.missing).toContain('places.json › bar › openingHours');
+    expect(near.locations.bar?.hours).toEqual([[990, 1260]]);
+    expect(near.locations.bar?.computed).toBe(true);
+    expect(near.added).toContain('locations.json › bar › hours');
+    expect(far.locations.bar?.hours).toBeUndefined();
+    expect(far.missing).toContain('locations.json › bar › hours');
   });
 
-  test('computes walking and taxi journeys from routes, and tram without a lookup', async () => {
+  test('lists a tag the library cannot read as missing', async () => {
+    let locations = {bar: {osmName: 'Bar', position: BRNO}};
+    let result = await fillTravelData({
+      locations,
+      travel: {},
+      lookups: createLookups({
+        findNamed: async () => [{position: BRNO, openingHours: 'nonsense'}],
+      }),
+    });
+
+    expect(result.locations.bar).toEqual(locations.bar);
+    expect(result.missing).toContain('locations.json › bar › hours');
+  });
+
+  test('computes walking and taxi journeys from routes, and the tram from stop to stop without a lookup', async () => {
     let a = {latitude: 49.2, longitude: 16.6};
     let b = {latitude: 49.2, longitude: 16.6 + 0.0549};
     let lookups = createLookups({
@@ -169,21 +153,21 @@ describe(fillTravelData, () => {
     });
     let {route} = lookups;
     let result = await fillTravelData({
-      places: {
-        one: {kind: 'place', position: a, nearestTramStop: {name: 'X', position: a}},
-        two: {kind: 'place', position: b, nearestTramStop: {name: 'Y', position: b}},
-        x: {kind: 'stop', tramStop: 'X', position: a},
-        y: {kind: 'stop', tramStop: 'Y', position: b},
+      locations: {
+        one: {position: a},
+        x: {tramStop: 'X', position: a},
+        y: {tramStop: 'Y', position: b},
       },
       travel: {},
       lookups,
     });
 
-    expect(result.travel.one?.walk?.two).toEqual({minutes: 25, computed: true});
-    expect(result.travel.one?.taxi?.two).toEqual({minutes: 15, price: 200, computed: true});
-    expect(result.travel.one?.tram?.y?.price).toBe(25);
-    expect(result.travel.one?.tram?.y?.computed).toBe(true);
-    expect(result.travel.one?.tram?.x).toBeUndefined();
+    expect(result.travel.one?.walk?.x).toEqual({minutes: 25, computed: true});
+    expect(result.travel.one?.taxi?.x).toEqual({minutes: 15, price: 200, computed: true});
+    expect(result.travel.x?.tram?.y).toEqual({minutes: 22, price: 25, computed: true});
+    expect(result.travel.one?.tram).toBeUndefined();
+    expect(result.travel.x?.tram?.one).toBeUndefined();
+    expect(route).toHaveBeenCalledTimes(12);
     expect(route).toHaveBeenCalledWith('foot', a, b);
     expect(route).toHaveBeenCalledWith('car', a, b);
     expect(getCalls(lookups)).toBe(route.mock.calls.length);
@@ -191,24 +175,18 @@ describe(fillTravelData, () => {
   });
 
   test('keeps the values that are there', async () => {
-    let places = {
-      one: {
-        kind: 'place',
-        position: BRNO,
-        openingHours: 'typed',
-        nearestTramStop: {name: 'X', position: BRNO},
-        osmName: 'One',
-      },
-      two: {kind: 'place', position: BRNO, nearestTramStop: {name: 'X', position: BRNO}},
+    let locations = {
+      one: {osmName: 'One', position: BRNO, hours: [[960, 1200]]},
+      two: {position: BRNO},
     };
     let travel = {
       one: {walk: {two: {minutes: 30}}, taxi: {two: {minutes: 9, price: 100}}},
       two: {walk: {one: {minutes: 1}}, taxi: {one: {minutes: 2, price: 3}}},
     };
     let lookups = createLookups();
-    let result = await fillTravelData({places, travel, lookups});
+    let result = await fillTravelData({locations, travel, lookups});
 
-    expect(result.places).toEqual(places);
+    expect(result.locations).toEqual(locations);
     expect(result.travel).toEqual(travel);
     expect(result.added).toEqual([]);
     expect(result.missing).toEqual([]);
@@ -221,34 +199,34 @@ describe(fillTravelData, () => {
     lookups.findPositions.mockRejectedValueOnce(new Error('busy')).mockResolvedValueOnce([BRNO]);
 
     let result = await fillTravelData({
-      places: {
-        one: {kind: 'place', address: 'A 1'},
-        two: {kind: 'place', address: 'B 2', nearestTramStop: {name: 'X', position: BRNO}},
+      locations: {
+        one: {address: 'A 1'},
+        two: {address: 'B 2'},
       },
       travel: {},
       lookups,
     });
 
     expect(lookups.findPositions).toHaveBeenCalledTimes(2);
-    expect(result.places.one).toEqual({kind: 'place', address: 'A 1'});
-    expect(result.places.two?.position).toEqual(BRNO);
-    expect(result.missing).toContain('places.json › one › position');
+    expect(result.locations.one).toEqual({address: 'A 1'});
+    expect(result.locations.two?.position).toEqual(BRNO);
+    expect(result.missing).toContain('locations.json › one › position');
     expect(result.missing).toContain('travel.json › one › walk › two');
     expect(result.missing).toContain('travel.json › two › taxi › one');
   });
 
   test('does not change its input', async () => {
-    let places = {one: {kind: 'place', address: 'A 1'}};
+    let locations = {one: {address: 'A 1'}};
     let travel = {};
-    let before = structuredClone({places, travel});
+    let before = structuredClone({locations, travel});
 
     await fillTravelData({
-      places,
+      locations,
       travel,
       lookups: createLookups({findPositions: async () => [BRNO]}),
     });
 
-    expect({places, travel}).toEqual(before);
+    expect({locations, travel}).toEqual(before);
   });
 
   test('asks one thing at a time', async () => {
@@ -265,14 +243,13 @@ describe(fillTravelData, () => {
       return value;
     };
     let result = await fillTravelData({
-      places: {
-        one: {kind: 'place', address: 'A 1'},
-        two: {kind: 'place', address: 'B 2'},
+      locations: {
+        one: {address: 'A 1'},
+        two: {address: 'B 2'},
       },
       travel: {},
       lookups: {
         findPositions: async () => slow([BRNO]),
-        findTramStops: async () => slow([{name: 'X', position: BRNO}]),
         findNamed: async () => slow([]),
         route: async () => slow({metres: 100, seconds: 60}),
       },
@@ -280,6 +257,32 @@ describe(fillTravelData, () => {
 
     expect(result.missing).toEqual([]);
     expect(most).toBe(1);
+  });
+});
+
+describe(readOpeningHours, () => {
+  test('reads a Friday night from the tag, past midnight into Saturday', () => {
+    expect(readOpeningHours('Mo-Th 16:00-01:00, Fr 16:00-03:00, Sa 17:00-03:00')).toEqual([
+      [960, 1620],
+    ]);
+    expect(readOpeningHours('Mo-Su 16:30-21:00')).toEqual([[990, 1260]]);
+    expect(readOpeningHours('24/7')).toEqual([[960, 1920]]);
+  });
+
+  test('gives one span for each stretch of the night, and none for a day shift', () => {
+    expect(readOpeningHours('Fr 16:00-20:00; Sa 00:00-03:00')).toEqual([
+      [960, 1200],
+      [1440, 1620],
+    ]);
+    expect(readOpeningHours('Mo-Th 10:00-12:00')).toEqual([]);
+  });
+
+  test('reads a public holiday rule for a Friday that is none', () => {
+    expect(readOpeningHours('Mo-Su 10:00-02:00; PH off')).toEqual([[960, 1560]]);
+  });
+
+  test('throws on a tag it cannot read', () => {
+    expect(() => readOpeningHours('nonsense')).toThrow('Unexpected token');
   });
 });
 
