@@ -24,8 +24,7 @@ export type Content = {
 const MAP_MARGIN = 2000;
 // The train's location moves, so it has no position and no entry in locations.json.
 const OFF_THE_MAP = new Set(['train']);
-// A night's start for a text that is a function: any time and sum will do.
-const CHECK_MINUTES = 1020;
+const HALF_HOUR = 30;
 const CHECK_MONEY = 350;
 // Sober, tipsy and drunk: a condition, a text or odds that read the level meet all three.
 const CHECK_LEVELS = [0, 2, 5];
@@ -57,19 +56,42 @@ function formatSpan(span: readonly number[]): string {
   return `[${span.join(', ')}]`;
 }
 
+// The times a function is called with: each half hour of the night, and both sides of every
+// opening and closing, so that a door that branches on the hours is met on each side.
+function getCheckTimes(locationData: LocationData): number[] {
+  let times = new Set<number>();
+
+  for (let minutes = NIGHT_START; minutes < NIGHT_END; minutes += HALF_HOUR) {
+    times.add(minutes);
+  }
+
+  for (let entry of Object.values(locationData)) {
+    for (let [from = 0, to = 0] of entry.hours ?? []) {
+      for (let minutes of [from - 1, from, to - 1, to]) {
+        if (minutes >= NIGHT_START && minutes <= NIGHT_END) {
+          times.add(minutes);
+        }
+      }
+    }
+  }
+
+  return [...times].sort((a, b) => a - b);
+}
+
 /**
  * Checks the content of the game and returns one line for each problem, or an empty list. A text,
- * a start, an odds or a next that is a function is called with each check night: once per place
- * and level, and a choice's next with odds once for each roll as well.
+ * a start, an odds or a next that is a function is called with each check night: once per place,
+ * time and level, and a choice's next with odds once for each roll as well.
  */
 export function checkContent(content: Content): string[] {
   let lines = new Set<string>();
   let room = getLabelRoom();
   let placeIds = Object.keys(content.places);
+  let times = getCheckTimes(content.locationData);
   // The nodes of the script being checked, where follow looks up an id that a next returns.
   let nodes: NonNullable<RunnableDialogueScript<Night>['nodes']> = {};
 
-  function checkNode(path: string, node: Node, nights: Night[]): void {
+  function checkNode(path: string, node: Node, nights: Night[], home: Place | null): void {
     let {text, speaker, next} = node;
     let choices = (node.choices ?? []).map(asChoice);
     let words = new Set<string>();
@@ -100,7 +122,7 @@ export function checkContent(content: Content): string[] {
     }
 
     for (let choice of choices) {
-      let {drunkenness, odds} = choice;
+      let {drunkenness, odds, onChoose} = choice;
       let where = `${path}${SEPARATOR}"${choice.text}"`;
 
       for (let word of stripMarks(choice.text).split(/\s+/)) {
@@ -135,8 +157,12 @@ export function checkContent(content: Content): string[] {
         }
       }
 
+      if (home !== null && onChoose !== undefined) {
+        checkWayOut(where, onChoose, home);
+      }
+
       if (typeof choice.next === 'object') {
-        checkNode(where, choice.next, nights);
+        checkNode(where, choice.next, nights, home);
       }
 
       for (let night of nights) {
@@ -149,12 +175,12 @@ export function checkContent(content: Content): string[] {
         if (typeof choice.next === 'function') {
           if (chance === undefined) {
             night.roll = null;
-            follow(`${where}${SEPARATOR}next`, choice.next, night);
+            follow(`${where}${SEPARATOR}next`, choice.next, night, home);
           } else {
             for (let value of CHECK_ROLLS) {
               night.random = () => value;
               roll(night, chance);
-              follow(`${where}${SEPARATOR}next`, choice.next, night);
+              follow(`${where}${SEPARATOR}next`, choice.next, night, home);
             }
           }
         }
@@ -168,11 +194,11 @@ export function checkContent(content: Content): string[] {
     }
 
     if (typeof next === 'object') {
-      checkNode(`${path}${SEPARATOR}next`, next, nights);
+      checkNode(`${path}${SEPARATOR}next`, next, nights, home);
     } else if (typeof next === 'function') {
       for (let night of nights) {
         night.roll = null;
-        follow(`${path}${SEPARATOR}next`, next, night);
+        follow(`${path}${SEPARATOR}next`, next, night, home);
       }
     }
 
@@ -190,7 +216,12 @@ export function checkContent(content: Content): string[] {
     }
   }
 
-  function follow(where: string, reference: (night: Night) => Node | string, night: Night): void {
+  function follow(
+    where: string,
+    reference: (night: Night) => Node | string,
+    night: Night,
+    home: Place | null,
+  ): void {
     let target: Node | string;
 
     try {
@@ -203,7 +234,7 @@ export function checkContent(content: Content): string[] {
 
     // An id the script has is not checked again: the node is checked under its own key.
     if (typeof target === 'object') {
-      checkNode(where, target, [night]);
+      checkNode(where, target, [night], home);
     } else if (nodes[target] === undefined) {
       lines.add(`${where}: returns "${target}", which is not a node`);
     }
@@ -226,36 +257,69 @@ export function checkContent(content: Content): string[] {
     }
   }
 
-  function checkScript(name: string, script: RunnableDialogueScript<Night>): void {
+  // A way out sets night.leaving: walk and taxi need the street, the tram a stop on it.
+  function checkWayOut(where: string, onChoose: (night: Night) => void, home: Place): void {
+    let night = createNight({place: home.id, minutes: NIGHT_START, money: CHECK_MONEY});
+
+    onChoose(night);
+
+    if (night.leaving === null) {
+      return;
+    }
+
+    let {way} = night.leaving;
+    let location = Object.values(content.locations).find((candidate) =>
+      candidate.places.some((place) => place.id === home.id),
+    );
+
+    if (way !== 'tram' && !home.outdoors) {
+      lines.add(`${where}: ${way} is offered indoors`);
+    } else if (
+      way === 'tram' &&
+      (!home.outdoors ||
+        location === undefined ||
+        content.locationData[location.id]?.tramStop === undefined)
+    ) {
+      lines.add(`${where}: the tram does not stop here`);
+    }
+  }
+
+  function checkScript(
+    name: string,
+    script: RunnableDialogueScript<Night>,
+    home: Place | null,
+  ): void {
     let {start} = script;
 
     nodes = script.nodes ?? {};
 
     for (let id of placeIds) {
-      let nights = CHECK_LEVELS.map((drunkenness) =>
-        createNight({
-          // The keys of content.places are the ids of the places.
-          place: id as PlaceId,
-          minutes: CHECK_MINUTES,
-          money: CHECK_MONEY,
-          drunkenness,
-        }),
+      let nights = times.flatMap((minutes) =>
+        CHECK_LEVELS.map((drunkenness) =>
+          createNight({
+            // The keys of content.places are the ids of the places.
+            place: id as PlaceId,
+            minutes,
+            money: CHECK_MONEY,
+            drunkenness,
+          }),
+        ),
       );
 
       for (let [key, node] of Object.entries(nodes)) {
         if (node !== undefined) {
-          checkNode(`${name}${SEPARATOR}${key}`, node, nights);
+          checkNode(`${name}${SEPARATOR}${key}`, node, nights, home);
         }
       }
 
       if (typeof start === 'object') {
-        checkNode(`${name}${SEPARATOR}start`, start, nights);
+        checkNode(`${name}${SEPARATOR}start`, start, nights, home);
       } else if (typeof start === 'function') {
         for (let night of nights) {
           let node = start(night);
 
           if (typeof node === 'object') {
-            checkNode(`${name}${SEPARATOR}start`, node, [night]);
+            checkNode(`${name}${SEPARATOR}start`, node, [night], home);
           }
         }
       }
@@ -275,7 +339,7 @@ export function checkContent(content: Content): string[] {
       );
     }
 
-    checkScript(`${id}${SEPARATOR}description`, place.description);
+    checkScript(`${id}${SEPARATOR}description`, place.description, place);
 
     for (let spot of place.spots) {
       if (spot.label.length > room.sceneButton) {
@@ -291,18 +355,63 @@ export function checkContent(content: Content): string[] {
         }
       }
 
-      checkScript(`${id}${SEPARATOR}${spot.label}`, spot.script);
+      checkScript(`${id}${SEPARATOR}${spot.label}`, spot.script, place);
+    }
+  }
+
+  for (let [id, place] of Object.entries(content.places)) {
+    let owners = Object.values(content.locations)
+      .filter((location) => location.places.some((candidate) => candidate.id === place.id))
+      .map((location) => location.id);
+
+    if (owners.length === 0) {
+      lines.add(`${id}: in no location`);
+    } else if (owners.length > 1) {
+      lines.add(`${id}: in ${owners.join(' and ')}`);
     }
   }
 
   for (let [id, location] of Object.entries(content.locations)) {
+    let hours = content.locationData[id]?.hours;
+    let ids = new Set(location.places.map((place) => place.id));
+
+    if (!ids.has(location.arrival)) {
+      lines.add(`${id}: arrival "${location.arrival}" is not one of its places`);
+    }
+
+    if (hours === undefined) {
+      if (location.closing !== undefined) {
+        lines.add(`${id}: a closing but no hours`);
+      }
+
+      if (location.outside !== undefined) {
+        lines.add(`${id}: an outside but no hours`);
+      }
+    } else {
+      if (location.closing === undefined) {
+        lines.add(`${id}: hours but no closing`);
+      }
+
+      if (location.outside === undefined) {
+        lines.add(`${id}: hours but no outside`);
+      }
+    }
+
+    if (location.outside !== undefined) {
+      if (!ids.has(location.outside)) {
+        lines.add(`${id}: outside "${location.outside}" is not one of its places`);
+      } else if (content.places[location.outside]?.outdoors === false) {
+        lines.add(`${id}: outside "${location.outside}" is not outdoors`);
+      }
+    }
+
     if (location.closing !== undefined) {
-      checkScript(`${id}${SEPARATOR}closing`, location.closing);
+      checkScript(`${id}${SEPARATOR}closing`, location.closing, null);
     }
   }
 
   for (let [way, script] of Object.entries(content.journeys)) {
-    checkScript(`journeys${SEPARATOR}${way}`, script);
+    checkScript(`journeys${SEPARATOR}${way}`, script, null);
   }
 
   for (let id of Object.keys(content.locations)) {

@@ -2,6 +2,7 @@ import {defineDialogueScript, type RunnableDialogueScript} from 'tellurion';
 import {describe, expect, test, vitest} from 'vitest';
 
 import {checkContent} from '../source/game/core/checkContent.js';
+import {createWayOut} from '../source/game/core/createWayOut.js';
 import {getExpectedJourneys} from '../source/game/core/getExpectedJourneys.js';
 import {type Location} from '../source/game/core/location.js';
 import {getDrunkenness, type Night, type Way} from '../source/game/core/night.js';
@@ -128,6 +129,28 @@ function check(
 
 function withZidenice(change: Partial<Place>): Record<string, Place> {
   return {...places, zidenice: {...places.zidenice!, ...change}};
+}
+
+function withRotorBar(change: Partial<Location>): Record<string, Location> {
+  return {...locations, rotorBar: {...locations.rotorBar!, ...change}};
+}
+
+function door(id: string): string {
+  return `${id} › The door › start › `;
+}
+
+function withDoor(id: 'namestiRepubliky' | 'rotorBarRoom' | 'rotorBarStreet'): string[] {
+  let script = createWayOut({
+    speaker: 'The door',
+    text: 'A door.',
+    ways: ['walk', 'tram', 'taxi'],
+  });
+  let place = places[id]!;
+  let spots = [...place.spots, {label: 'The door', x: 0.5, y: 0.5, script}];
+
+  return check({places: {...places, [id]: {...place, spots}}}).filter((line) =>
+    line.includes('The door › start'),
+  );
 }
 
 describe(checkContent, () => {
@@ -338,15 +361,95 @@ describe(checkContent, () => {
     expect(lines).toContain('rotorBar › closing › start: no speaker');
   });
 
-  test('calls a text function once per place and level and reports its fault once', () => {
+  test('checks every script at each half hour and both sides of every opening and closing', () => {
     let text = vitest.fn<(night: Night) => string>(() => 'A supercalifragilistic word.');
     let description = defineDialogueScript<Night>()({start: {speaker: 'Bench', text}});
     let lines = check({places: withZidenice({description})});
 
-    expect(text).toHaveBeenCalledTimes(5 * 3);
+    // 32 half hours from 16:00 to 07:30, and of the edges 959, 960, 1619 and 1620 of Rotor Bar's
+    // hours, 960 and 1620 are half hours and 959 lies before the night.
+    expect(text).toHaveBeenCalledTimes(5 * 33 * 3);
     expect(
       lines.filter((line) => line.startsWith('zidenice › description › start: "super')),
     ).toHaveLength(1);
+  });
+
+  test('follows a door that branches on the hours on both sides of the closing', () => {
+    let description = defineScript({
+      start: (night) => ({
+        speaker: 'Door',
+        text:
+          night.minutes === 1619 ? 'A supercalifragilistic word.'
+          : night.minutes === 1620 ? 'Fine *odd.'
+          : 'Fine.',
+      }),
+    });
+    let lines = check({places: withZidenice({description})});
+
+    expect(lines).toContain(
+      'zidenice › description › start: "supercalifragilistic" has 20 characters, and 16 fit',
+    );
+    expect(lines).toContain('zidenice › description › start: page 1 has 1 italic marks');
+  });
+
+  test('reports a place in no location and a place in two', () => {
+    let alone = {...locations, zidenice: {...locations.zidenice!, places: []}};
+    let twice = {
+      ...locations,
+      namestiRepubliky: {
+        ...locations.namestiRepubliky!,
+        places: [...locations.namestiRepubliky!.places, places.rotorBarStreet!],
+      },
+    };
+
+    expect(check({locations: alone})).toContain('zidenice: in no location');
+    expect(check({locations: twice})).toContain('rotorBarStreet: in rotorBar and namestiRepubliky');
+  });
+
+  test('reports an arrival and an outside that are not the location’s places, and an outside indoors', () => {
+    expect(check({locations: withRotorBar({arrival: 'zidenice'})})).toContain(
+      'rotorBar: arrival "zidenice" is not one of its places',
+    );
+    expect(check({locations: withRotorBar({outside: 'zidenice'})})).toContain(
+      'rotorBar: outside "zidenice" is not one of its places',
+    );
+    expect(check({locations: withRotorBar({outside: 'rotorBarRoom'})})).toContain(
+      'rotorBar: outside "rotorBarRoom" is not outdoors',
+    );
+  });
+
+  test('reports hours without a closing or an outside, and a closing or an outside without hours', () => {
+    let {closing, outside, ...rest} = locations.rotorBar!;
+    let lines = [
+      check({locations: {...locations, rotorBar: {...rest, outside: outside!}}}),
+      check({locations: {...locations, rotorBar: {...rest, closing: closing!}}}),
+    ];
+
+    expect(lines[0]).toContain('rotorBar: hours but no closing');
+    expect(lines[1]).toContain('rotorBar: hours but no outside');
+
+    let withClosing = {
+      ...locations,
+      zidenice: {...locations.zidenice!, closing: oneNode('Closing.', 'Closing time')},
+    };
+    let withOutside = {...locations, zidenice: {...locations.zidenice!, outside: 'zidenice'}};
+
+    expect(check({locations: withClosing})).toContain('zidenice: a closing but no hours');
+    expect(check({locations: withOutside as unknown as Record<string, Location>})).toContain(
+      'zidenice: an outside but no hours',
+    );
+  });
+
+  test('reports walk and taxi indoors, and the tram where no tram stops', () => {
+    expect(withDoor('rotorBarRoom')).toEqual([
+      `${door('rotorBarRoom')}"Walk": walk is offered indoors`,
+      `${door('rotorBarRoom')}"Take the tram": the tram does not stop here`,
+      `${door('rotorBarRoom')}"Take a taxi": taxi is offered indoors`,
+    ]);
+    expect(withDoor('rotorBarStreet')).toEqual([
+      `${door('rotorBarStreet')}"Take the tram": the tram does not stop here`,
+    ]);
+    expect(withDoor('namestiRepubliky')).toEqual([]);
   });
 
   test('a text that reads the level is checked sober, tipsy and drunk', () => {
