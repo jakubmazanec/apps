@@ -22,6 +22,7 @@ import {
   WINDOW_PADDING_X,
 } from '../core/getSceneArea.js';
 import {getMapSize, getTravelLayout, SIDE_COLUMN_WIDTH} from '../core/getTravelLayout.js';
+import {getHoursForms, getHoursWords} from '../core/hours.js';
 import {type LocationId} from '../core/location.js';
 import {type MapLayer} from '../core/mapLayers.js';
 import {measureText} from '../core/measureText.js';
@@ -69,7 +70,11 @@ export type TravelJourney = {
   /** The ways the way out offers; the row's other ways take no press. */
   ways: readonly Way[];
 
-  /** The night, read for its money: a destination that costs more is greyed out. */
+  /**
+   * The night, read for its money: a destination that costs more is greyed out. Its clock and a
+   * destination's minutes give the minute of arrival, at which the destination button reads the
+   * hours.
+   */
   night: Night;
 };
 
@@ -87,8 +92,13 @@ type DestinationLabel = {
   name: string;
   nameWidth: number;
   nameLineCount: number;
+
+  /** The costs and the hours words, on one line, or the words on a second one. */
   numbers: string;
+
+  /** The width of the numbers' widest line. */
   numbersWidth: number;
+  numbersLineCount: number;
 
   /** The height a button needs for it. */
   height: number;
@@ -152,6 +162,7 @@ const NO_LABEL: DestinationLabel = {
   nameLineCount: 1,
   numbers: '',
   numbersWidth: 1,
+  numbersLineCount: 1,
   height: 0,
 };
 
@@ -169,20 +180,42 @@ function createLabel(text: string, width: number, lineCount = 1): Text {
   });
 }
 
+// The costs and the hours words two spaces apart when the line fits the room,
+// else the words on a line of their own under the costs: the words are never
+// split from each other.
+function joinNumbers(costs: string, hoursWords: string, room: number): string {
+  if (hoursWords === '') {
+    return costs;
+  }
+
+  let line = `${costs}  ${hoursWords}`;
+
+  return measureLabel(line) <= room ? line : `${costs}\n${hoursWords}`;
+}
+
 // On a wide screen the name and the numbers share a line, and the name wraps
 // in the room the numbers leave. On a narrow one the numbers stand on a line
 // of their own under the name, which wraps to the whole label width.
+// The numbers' room is the label's width on a narrow screen; on a wide one it
+// is what the gap and the name's widest word leave, so the name keeps room for
+// its words.
 function getDestinationLabel(
   destination: Destination,
   {width, isNarrow}: Pick<DestinationRoom, 'isNarrow' | 'width'>,
+  hoursWords: string,
 ): DestinationLabel {
   let labelWidth = Math.max(1, width - 2 * BUTTON_PADDING_X);
-  let numbers = formatCosts(destination);
-  let numbersWidth = measureLabel(numbers);
+  let widestWord = Math.max(...destination.location.name.split(' ').map(measureLabel));
+  let numbersRoom = isNarrow ? labelWidth : labelWidth - NAME_GAP - widestWord;
+  let numbers = joinNumbers(formatCosts(destination), hoursWords, numbersRoom);
+  let numbersLines = numbers.split('\n');
+  let numbersWidth = Math.max(...numbersLines.map(measureLabel));
+  let numbersLineCount = numbersLines.length;
   let nameWidth = isNarrow ? labelWidth : Math.max(1, labelWidth - numbersWidth - NAME_GAP);
   let name = wrapText(destination.location.name, nameWidth, measureLabel);
   let nameLineCount = name.split('\n').length;
-  let lineCount = isNarrow ? nameLineCount + 1 : nameLineCount;
+  let lineCount =
+    isNarrow ? nameLineCount + numbersLineCount : Math.max(nameLineCount, numbersLineCount);
 
   return {
     name,
@@ -190,6 +223,7 @@ function getDestinationLabel(
     nameLineCount,
     numbers,
     numbersWidth,
+    numbersLineCount,
     height: lineCount * LINE_HEIGHT + 2 * BUTTON_PADDING_Y,
   };
 }
@@ -198,7 +232,7 @@ function setDestinationLabel({name, numbers}: DestinationParts, label: Destinati
   name.setText(label.name);
   name.view.layout = {width: label.nameWidth, height: label.nameLineCount * LINE_HEIGHT};
   numbers.setText(label.numbers);
-  numbers.view.layout = {width: label.numbersWidth};
+  numbers.view.layout = {width: label.numbersWidth, height: label.numbersLineCount * LINE_HEIGHT};
 }
 
 /**
@@ -245,7 +279,7 @@ export class TravelWindow {
 
   readonly #mapPicture: MapPicture;
 
-  /** The journey's night, read for its money; `null` until the first `open`. */
+  /** The journey's night, read for its money and its clock; `null` until the first `open`. */
   #night: Night | null = null;
 
   readonly #panel: Panel;
@@ -258,7 +292,8 @@ export class TravelWindow {
 
   /**
    * Every destination from every location: the destination button is as high as the tallest of
-   * them needs, so that the map's size depends on the screen's size only.
+   * them needs, with any form of its hours words, so that the map's size depends on the screen's
+   * size only.
    */
   readonly #roomDestinations: Destination[];
 
@@ -518,17 +553,23 @@ export class TravelWindow {
   // Builds the containers for the screen's size, puts the controls in them,
   // adds them to the panel and draws the map's layers at the map's size. The
   // destination button is as high as the tallest destination of every location
-  // and way needs, so neither a journey nor a selection moves anything.
+  // and way needs, so neither a journey nor a selection moves anything. Each
+  // destination is measured with every form its hours words can take, so the
+  // clock moves nothing either.
   #layOut(): TravelWindowSize {
     let layout = getTravelLayout(this.#screenWidth, this.#screenHeight);
     let {controlWidth, isNarrow, kind} = layout;
     let destinationHeight = BUTTON_HEIGHT;
 
     for (let destination of this.#roomDestinations) {
-      destinationHeight = Math.max(
-        destinationHeight,
-        getDestinationLabel(destination, {width: controlWidth, isNarrow}).height,
-      );
+      let forms = getHoursForms(this.#start.locationData[destination.location.id]?.hours);
+
+      for (let hoursWords of forms) {
+        destinationHeight = Math.max(
+          destinationHeight,
+          getDestinationLabel(destination, {width: controlWidth, isNarrow}, hoursWords).height,
+        );
+      }
     }
 
     let destinationRoom = {width: controlWidth, height: destinationHeight, isNarrow};
@@ -690,7 +731,8 @@ export class TravelWindow {
   // While the way has no destination the button is not drawn and takes no
   // press, so its room stays empty; it stays, as the modal's initial focus. A
   // destination that costs more than the night's money is greyed out; one that
-  // costs exactly the money can still be paid.
+  // costs exactly the money can still be paid. The numbers say the
+  // destination's hours at the minute the journey would arrive.
   #showSelection(): void {
     let {button} = this.#destination;
     let money = this.#night?.money ?? 0;
@@ -701,9 +743,12 @@ export class TravelWindow {
       setDestinationLabel(this.#destination, NO_LABEL);
       button.disable();
     } else {
+      let hours = this.#start.locationData[this.#selected.location.id]?.hours;
+      let hoursWords = getHoursWords(hours, (this.#night?.minutes ?? 0) + this.#selected.minutes);
+
       setDestinationLabel(
         this.#destination,
-        getDestinationLabel(this.#selected, this.#size.destinationRoom),
+        getDestinationLabel(this.#selected, this.#size.destinationRoom, hoursWords),
       );
 
       if (this.#selected.price > money) {

@@ -15,11 +15,17 @@ import {
   getTravelLayout,
   TITLE_HEIGHT as LAYOUT_TITLE_HEIGHT,
 } from '../source/game/core/getTravelLayout.js';
+import {getHoursWords} from '../source/game/core/hours.js';
 import {type LocationId} from '../source/game/core/location.js';
 import {type Night, type Way} from '../source/game/core/night.js';
 import {palette} from '../source/game/core/palette.js';
 import {BUTTON_GAP} from '../source/game/core/placeMapButtons.js';
-import {type Destination, type LocationData, type NightStart} from '../source/game/core/travel.js';
+import {
+  type Destination,
+  getDestinations,
+  type LocationData,
+  type NightStart,
+} from '../source/game/core/travel.js';
 import {type MapPicture} from '../source/game/screens/mapPicture.js';
 import {type TravelWindow} from '../source/game/screens/travelWindow.js';
 import {
@@ -70,7 +76,10 @@ const ALL_WAYS: readonly Way[] = ['walk', 'tram', 'taxi'];
 // round, side by side.
 const WIDE_WINDOW = {width: 472, height: 262};
 // On each screen of "each screen gets its layout", the square's name from the stop wraps to two
-// lines and the numbers take a third: 3 lines of 12, and the padding of 2 above and below.
+// lines and the numbers take a third: 3 lines of 12, and the padding of 2 above and below. The
+// bar's `5 min  90 Kč  till 23:00` is 144 art pixels: in the label of 102 on the narrowest screen
+// and of 108 in the side column it wraps under the name to two lines, three with the name; in the
+// label of 151 on the stacked screen 195 wide it takes one line.
 const DESTINATION_HEIGHT = 40;
 
 // A destination's button holds the name's Text and then the numbers' Text.
@@ -342,7 +351,8 @@ describe('travel window', {timeout: 180_000}, () => {
 
     expect(readText(parts.title)).toBe('On foot');
     expect(parts.ways.map((button) => getButtonLabel(button))).toEqual(['Walk', 'Tram', 'Taxi']);
-    expect(readDestination(opened)).toEqual(['The bar', '4 min']);
+    // The night starts at 19:40, and the bar closes at 23:00.
+    expect(readDestination(opened)).toEqual(['The bar', '4 min  till 23:00']);
     expect(describeFocus(ui.focused)).toBe('The bar');
     expect(ui.focused).toBe(parts.destination);
     expect(ui.isRingVisible).toBe(true);
@@ -431,8 +441,9 @@ describe('travel window', {timeout: 180_000}, () => {
 
     expect(opened.way).toBe('taxi');
     expect(readText(getTravelParts(opened).title)).toBe('By taxi');
-    // The selection is the way's nearest destination, not the square.
-    expect(readDestination(opened)).toEqual(['The bar', '5 min  90 Kč']);
+    // The selection is the way's nearest destination, not the square. Its numbers are wider than
+    // the 108 of the side column's label, so the hours stand under the costs.
+    expect(readDestination(opened)).toEqual(['The bar', '5 min  90 Kč\ntill 23:00']);
     expect(describeFocus(ui.focused)).toBe('Taxi');
     expect(ui.focused).toBe(taxiButton);
 
@@ -565,7 +576,7 @@ describe('travel window', {timeout: 180_000}, () => {
     let opened = openTravel('taxi', {night});
     let destination = getDestinationButton(opened);
 
-    expect(readDestination(opened)).toEqual(['The bar', '5 min  90 Kč']);
+    expect(readDestination(opened)).toEqual(['The bar', '5 min  90 Kč\ntill 23:00']);
     expect(destination.isDisabled).toBe(true);
     expect(describeTravelFocus(opened)).toBe('Back');
     expect(ui.isRingVisible).toBe(true);
@@ -597,6 +608,49 @@ describe('travel window', {timeout: 180_000}, () => {
     expect(onClosed).toHaveBeenCalledExactlyOnceWith(null);
   });
 
+  test('the destination button says when the bar closes or opens at the minute of arrival, and keeps its size', async () => {
+    let {contents, ui} = harness.nightScreen;
+    // 22:50: the walk of 4 minutes arrives at 22:54, before the bar closes at 23:00.
+    let opened = openTravel('walk', {night: {...contents.night, minutes: 1370}});
+
+    expect(readDestination(opened)).toEqual(['The bar', '4 min  till 23:00']);
+
+    await waitForPanel(opened, WIDE_WINDOW);
+
+    let box = getBox(harness, getDestinationButton(opened));
+
+    ui.focus(getLocationButton(opened, FIXED_SQUARE_LOCATION));
+    ui.activate();
+
+    // The square has no hours.
+    expect(readDestination(opened)).toEqual(['The square by the\nold market', '7 min']);
+
+    await nextFrame();
+
+    expect(getBox(harness, getDestinationButton(opened))).toEqual(box);
+
+    // 23:00, while the bar is closed; 08:00, after its last span; and 22:56, whose walk arrives at
+    // 23:00 exactly, the end of the span, which the span does not hold.
+    let arrivals: Array<[minutes: number, numbers: string]> = [
+      [1380, '4 min  opens 23:30'],
+      [1920, '4 min  closed'],
+      [1376, '4 min  opens 23:30'],
+    ];
+
+    for (let [minutes, numbers] of arrivals) {
+      let later = openTravel('walk', {night: {...contents.night, minutes}});
+
+      expect({minutes, destination: readDestination(later)}).toEqual({
+        minutes,
+        destination: ['The bar', numbers],
+      });
+
+      await waitForPanel(later, WIDE_WINDOW);
+
+      expect({minutes, box: getBox(harness, getDestinationButton(later))}).toEqual({minutes, box});
+    }
+  });
+
   test('a press while it fades does nothing', async () => {
     let {ui} = harness.nightScreen;
     let opened = openTravel('walk');
@@ -619,7 +673,7 @@ describe('travel window', {timeout: 180_000}, () => {
 
     expect(readText(title)).toBe('On foot');
     expect(opened.way).toBe('walk');
-    expect(readDestination(opened)).toEqual(['The bar', '4 min']);
+    expect(readDestination(opened)).toEqual(['The bar', '4 min  till 23:00']);
 
     await waitForClosed();
 
@@ -883,6 +937,14 @@ describe('travel window', {timeout: 180_000}, () => {
       entry.position === undefined || !Object.hasOwn(locations, id) ? [] : [id as LocationId],
     );
     let layout = getTravelLayout(146, 262);
+    // 16:00, as the night starts: the Whisky Shop opens at 16:30, so the locations that reach it
+    // before then read "opens 16:30", and Rotor Bar reads "till 03:00". Words that do not fit the
+    // label of 102 beside the costs stand under them, and the slot keeps its height: the room
+    // counts the longest numbers too, the taxi's from the main station to the Whisky Shop,
+    // "11 min  180 Kč  opens 16:30", 162 art pixels.
+    let night = {...harness.nightScreen.contents.night, minutes: 960};
+    // The destinations whose numbers say their hours.
+    let worded = 0;
 
     expect(froms.length).toBeGreaterThan(0);
 
@@ -890,7 +952,11 @@ describe('travel window', {timeout: 180_000}, () => {
       await setViewport(harness, 292, 524);
 
       // One window for the game's start shows every journey, as the night screen keeps one.
-      let opened = openTravel('walk', {start: gameStart, from: froms[0] ?? FIXED_STOP_LOCATION});
+      let opened = openTravel('walk', {
+        start: gameStart,
+        from: froms[0] ?? FIXED_STOP_LOCATION,
+        night,
+      });
 
       for (let from of froms) {
         for (let way of ALL_WAYS) {
@@ -898,7 +964,7 @@ describe('travel window', {timeout: 180_000}, () => {
 
           // Off the UI root at once, as hiding the night screen takes it, and shown again.
           harness.nightScreen.ui.removeOverlay(opened.modal);
-          showJourney(opened, way, {from});
+          showJourney(opened, way, {from, night});
           // The location buttons move in the next layout pass, which the next frame runs.
           await nextFrame();
           await waitForPanel(opened, layout.window);
@@ -941,17 +1007,34 @@ describe('travel window', {timeout: 180_000}, () => {
           });
 
           // The way's destination button, if it has one, fills the slot, and its label lies
-          // inside it, the name as high as its lines.
+          // inside it, the name as high as its lines. The numbers hold the hours words of the
+          // way's nearest destination, which the window selects, whole.
           for (let button of parts.destination === null ? [] : [parts.destination]) {
             let destination = getBox(harness, button);
             let {name, numbers} = getDestinationTexts(button);
             let nameBox = getBox(harness, name);
+            let [selected] = getDestinations(gameStart, from, way);
+
+            if (selected === undefined) {
+              throw new Error(`${windowName} has a destination button but no destination!`);
+            }
+
+            let words = getHoursWords(
+              gameData[selected.location.id]?.hours,
+              night.minutes + selected.minutes,
+            );
+            let numbersText = readText(numbers);
+            // The words close the numbers, whole, on the costs' line or on one of their own.
+            let end = numbersText.slice(numbersText.length - words.length);
 
             expect({windowName, destination}).toEqual({windowName, destination: slot});
             expect(nameBox.height).toBe(readText(name).split('\n').length * LINE_HEIGHT);
+            expect({windowName, end}).toEqual({windowName, end: words});
 
             expectInside(nameBox, destination);
             expectInside(getBox(harness, numbers), destination);
+
+            worded += words === '' ? 0 : 1;
           }
 
           expect({windowName, outside: outside.map(({id}) => id), crowded}).toEqual({
@@ -961,6 +1044,8 @@ describe('travel window', {timeout: 180_000}, () => {
           });
         }
       }
+
+      expect(worded).toBeGreaterThan(0);
     } finally {
       await setViewport(harness, 960, 540);
     }

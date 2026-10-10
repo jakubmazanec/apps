@@ -55,6 +55,22 @@ export function getHoursWords(
   return next === undefined ? 'closed' : `opens ${formatTime(next[0] ?? 0)}`;
 }
 
+/**
+ * Every form the hours words can take, for the room they need: "till" with the end of each span,
+ * "opens" with the start of each, and "closed"; [""] without hours.
+ */
+export function getHoursForms(hours: ReadonlyArray<readonly number[]> | undefined): string[] {
+  if (hours === undefined) {
+    return [''];
+  }
+
+  return [
+    ...hours.map(([, to = 0]) => `till ${formatTime(to)}`),
+    ...hours.map(([from = 0]) => `opens ${formatTime(from)}`),
+    'closed',
+  ];
+}
+
 /** "03:00" for 1620. `formatStatus` uses it. */
 export function formatTime(minutes: number): string {
   // The second modulo keeps a time before midnight of the first day positive.

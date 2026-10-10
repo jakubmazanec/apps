@@ -1,6 +1,12 @@
 import {describe, expect, test} from 'vitest';
 
-import {formatTime, getHoursWords, isOpenAt, isWithin} from '../source/game/core/hours.js';
+import {
+  formatTime,
+  getHoursForms,
+  getHoursWords,
+  isOpenAt,
+  isWithin,
+} from '../source/game/core/hours.js';
 import {createNight} from '../source/game/core/night.js';
 
 const GUITARIST = [1320, 1500] as const;
@@ -76,6 +82,21 @@ describe(getHoursWords, () => {
 
   test('says nothing without hours', () => {
     expect(getHoursWords(undefined, 1000)).toBe('');
+  });
+});
+
+describe(getHoursForms, () => {
+  test('gives till for each end, opens for each start, and closed', () => {
+    expect(
+      getHoursForms([
+        [960, 1380],
+        [1410, 1920],
+      ]),
+    ).toEqual(['till 23:00', 'till 08:00', 'opens 16:00', 'opens 23:30', 'closed']);
+  });
+
+  test('gives one empty form without hours', () => {
+    expect(getHoursForms(undefined)).toEqual(['']);
   });
 });
 
