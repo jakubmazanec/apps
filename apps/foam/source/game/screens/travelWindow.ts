@@ -34,6 +34,7 @@ import {
   getDestinations,
   type LocationData,
   type NightStart,
+  WAY_WORDS,
 } from '../core/travel.js';
 import {MapPicture} from './mapPicture.js';
 import {createWindowTitle, WINDOW_PADDING} from './windowTitle.js';
@@ -135,7 +136,6 @@ type TravelWindowSize = {
 
 const WAYS: readonly Way[] = ['walk', 'tram', 'taxi'];
 const TITLES: Readonly<Record<Way, string>> = {walk: 'On foot', tram: 'By tram', taxi: 'By taxi'};
-const WAY_LABELS: Readonly<Record<Way, string>> = {walk: 'Walk', tram: 'Tram', taxi: 'Taxi'};
 const MAP_LAYERS: Readonly<Record<Way, MapLayer>> = {
   walk: 'streets',
   tram: 'trams',
@@ -348,7 +348,7 @@ export class TravelWindow {
         way,
         new Button({
           theme: game.theme,
-          children: [createLabel(WAY_LABELS[way], measureLabel(WAY_LABELS[way]))],
+          children: [createLabel(WAY_WORDS[way], measureLabel(WAY_WORDS[way]))],
           // The ways share the row's width equally, so the three fit the
           // narrowest screen.
           layout: {flexGrow: 1, flexBasis: 0, height: BUTTON_HEIGHT, justifyContent: 'flex-start'},

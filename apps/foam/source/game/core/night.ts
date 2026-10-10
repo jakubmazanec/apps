@@ -1,4 +1,5 @@
 import {formatTime} from './hours.js';
+import {type LogEntry} from './log.js';
 
 export type PlaceId =
   | 'hlavniNadraziForecourt'
@@ -38,6 +39,12 @@ export type Night = {
 
   /** The source of the dice: a number from 0 up to but not including 1. */
   random: () => number;
+
+  /**
+   * Every text read and every choice taken, with its time; the story window and the night screen
+   * write it.
+   */
+  log: LogEntry[];
 };
 
 /** The drinks the body clears in an hour. */
@@ -59,6 +66,7 @@ export function createNight(start: {
     drunkenness: {level: start.drunkenness ?? 0, at: start.minutes},
     roll: null,
     random: Math.random,
+    log: [],
   };
 }
 

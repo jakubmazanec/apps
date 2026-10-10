@@ -4,6 +4,7 @@ import {
   formatTime,
   getHoursForms,
   getHoursWords,
+  isNightOver,
   isOpenAt,
   isWithin,
 } from '../source/game/core/hours.js';
@@ -110,5 +111,21 @@ describe(formatTime, () => {
     expect(formatTime(1440)).toBe('00:00');
     expect(formatTime(1620)).toBe('03:00');
     expect(formatTime(1920)).toBe('08:00');
+  });
+});
+
+describe(isNightOver, () => {
+  test('is over from 08:00', () => {
+    let night = createNight({place: 'rotorBarRoom', minutes: 1919, money: 350});
+
+    expect(isNightOver(night)).toBe(false);
+
+    night.minutes = 1920;
+
+    expect(isNightOver(night)).toBe(true);
+
+    night.minutes = 1921;
+
+    expect(isNightOver(night)).toBe(true);
   });
 });

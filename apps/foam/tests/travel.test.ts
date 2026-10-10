@@ -4,6 +4,7 @@ import {type Location, type LocationId} from '../source/game/core/location.js';
 import {createNight, type Night, type PlaceId, type Way} from '../source/game/core/night.js';
 import {type Place} from '../source/game/core/place.js';
 import {
+  formatTravel,
   getDestinations,
   getLocation,
   type NightStart,
@@ -163,5 +164,25 @@ describe(getLocation, () => {
 
   test('gives undefined for a place in no location', () => {
     expect(getLocation(START, 'whiskyShopRoom')).toBeUndefined();
+  });
+});
+
+describe(formatTravel, () => {
+  test('names the way, the location and the numbers', () => {
+    let alpha = START.locations.rotorBar;
+
+    if (alpha === undefined) {
+      throw new Error('The start has no rotorBar.');
+    }
+
+    expect(formatTravel({location: alpha, way: 'walk', minutes: 12, price: 0})).toBe(
+      'Walk to Alpha  12 min',
+    );
+    expect(formatTravel({location: alpha, way: 'tram', minutes: 17, price: 25})).toBe(
+      'Tram to Alpha  17 min  25 Kč',
+    );
+    expect(formatTravel({location: alpha, way: 'taxi', minutes: 11, price: 170})).toBe(
+      'Taxi to Alpha  11 min  170 Kč',
+    );
   });
 });

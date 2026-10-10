@@ -20,6 +20,7 @@ describe('night', () => {
       drunkenness: {level: 0, at: 1020},
       roll: null,
       random: Math.random,
+      log: [],
     });
   });
 
