@@ -201,12 +201,8 @@ Each phase adds a real piece of Brno and brings in only the rules that piece nee
 | 7   | Runs                   | A second night differs from the first, and the story collection is kept.                                                                                                                                                                                                                                                                                           | Seed, saving, Continue                                                                                         |
 | 8   | The author             | The phone works, the author writes to the player, and Jakub can be met in a place.                                                                                                                                                                                                                                                                                 | Phone, the meta voice                                                                                          |
 
-Two things wait for later phases:
-
-- The opening hours, for phase 5. `places.json` holds them in OpenStreetMap's notation; the game
-  does not read them yet.
-- The acknowledgment of OpenStreetMap, whose data the travel data and the map come from. Where the
-  game shows it is not decided.
+One thing waits for a later phase: the acknowledgment of OpenStreetMap, whose data the travel data
+and the map come from. Where the game shows it is not decided.
 
 Phase 4 is larger than one design-and-plan cycle. It is cut into three specs, each with its own
 plan, build and review, in this order:
@@ -257,7 +253,7 @@ build and review, in this order:
    station's forecourt, the arrival rule, opening hours read for a Friday from the data and shown on
    the travel window's destination button, the closing script, ways out by the kind of place, tram
    journeys from stop to stop, people only there at certain hours, and the clock's start at 16:00.
-   It is designed: [spec](superpowers/specs/2026-10-10-locations-and-hours-design.md),
+   It is built: [spec](superpowers/specs/2026-10-10-locations-and-hours-design.md),
    [plan](superpowers/plans/2026-10-10-locations-and-hours.md).
 4. The end of the night and the log: the clock's end at 08:00, after which the window that crossed
    it closes and the night ends; the log of every text read and every choice taken, with its time;
