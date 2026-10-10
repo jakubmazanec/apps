@@ -1,3 +1,5 @@
+import {formatTime} from './hours.js';
+
 export type PlaceId =
   | 'hlavniNadrazi'
   | 'malinovskehoNamesti'
@@ -39,7 +41,6 @@ export type Night = {
 export const DRINKS_PER_HOUR = 1;
 
 const MINUTES_PER_HOUR = 60;
-const MINUTES_PER_DAY = 1440;
 
 export function createNight(start: {
   place: PlaceId;
@@ -78,10 +79,5 @@ export function roll(night: Night, odds: number): void {
 }
 
 export function formatStatus(night: Night): string {
-  // The second modulo keeps a time before midnight of the first day positive.
-  let minutes = ((night.minutes % MINUTES_PER_DAY) + MINUTES_PER_DAY) % MINUTES_PER_DAY;
-  let hours = String(Math.floor(minutes / MINUTES_PER_HOUR)).padStart(2, '0');
-  let rest = String(minutes % MINUTES_PER_HOUR).padStart(2, '0');
-
-  return `${hours}:${rest}   ${night.money} Kč   ${getDrunkenness(night).toFixed(1)}`;
+  return `${formatTime(night.minutes)}   ${night.money} Kč   ${getDrunkenness(night).toFixed(1)}`;
 }
