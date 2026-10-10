@@ -261,7 +261,13 @@ export function checkContent(content: Content): string[] {
   function checkWayOut(where: string, onChoose: (night: Night) => void, home: Place): void {
     let night = createNight({place: home.id, minutes: NIGHT_START, money: CHECK_MONEY});
 
-    onChoose(night);
+    try {
+      onChoose(night);
+    } catch (error) {
+      lines.add(`${where}: throws "${error instanceof Error ? error.message : String(error)}"`);
+
+      return;
+    }
 
     if (night.leaving === null) {
       return;

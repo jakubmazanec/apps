@@ -158,7 +158,7 @@ describe(checkContent, () => {
     expect(check()).toEqual([]);
   });
 
-  test('reports a place the map does not cover', () => {
+  test('reports a location the map does not cover', () => {
     expect(check({map: {...map, box: {...map.box, right: 1999}}})).toContain(
       'map.json: does not cover "zidenice"; run node scripts/fetch-map-data.mjs',
     );
@@ -241,14 +241,14 @@ describe(checkContent, () => {
     expect(lines).toContain('zidenice › The door: y is -0.1');
   });
 
-  test('reports a place without an entry, but not the train', () => {
+  test('reports a location without an entry, but not the train', () => {
     let lines = check({locationData: {zidenice: locationData.zidenice!}});
 
     expect(lines).toContain('locations.json: no entry for "rotorBar"');
     expect(lines).not.toContain('locations.json: no entry for "train"');
   });
 
-  test('reports an entry without a place', () => {
+  test('reports an entry that is no location', () => {
     let data = {...locationData, nowhere: {position}};
 
     expect(check({locationData: data})).toContain('locations.json: "nowhere" is not a location');
@@ -450,6 +450,31 @@ describe(checkContent, () => {
       `${door('rotorBarStreet')}"Take the tram": the tram does not stop here`,
     ]);
     expect(withDoor('namestiRepubliky')).toEqual([]);
+  });
+
+  test('reports an onChoose that throws on a scene button, and returns normally', () => {
+    let script = defineScript({
+      start: 'a',
+      nodes: {
+        a: {
+          speaker: 'The door',
+          text: 'A door.',
+          choices: [
+            {
+              text: 'Try',
+              onChoose() {
+                throw new Error('No way.');
+              },
+            },
+          ],
+        },
+      },
+    });
+    let place = places.rotorBarStreet!;
+    let spots = [...place.spots, {label: 'The door', x: 0.5, y: 0.5, script}];
+    let lines = check({places: {...places, rotorBarStreet: {...place, spots}}});
+
+    expect(lines).toContain('rotorBarStreet › The door › a › "Try": throws "No way."');
   });
 
   test('a text that reads the level is checked sober, tipsy and drunk', () => {

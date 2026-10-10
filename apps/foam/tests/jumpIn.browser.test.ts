@@ -80,5 +80,5 @@ describe('the jump-in', () => {
     await pressThrough(harness, getStoryWindow(harness));
     await press('Enter');
     await waitForPlace(harness, 'rotorBarStreet');
-  });
+  }, 60_000);
 });

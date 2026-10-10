@@ -499,7 +499,7 @@ function openTravel(
 // outside is built while the closing is open (prepareNextPlace), the window
 // closes into black (onClosing sees the change), and actOnNight then shows the
 // outside with its description. The checker holds a location with hours to a
-// closing and an outside; one without either is an error, which the error
+// closing and an outside; one that lacks either is an error, which the error
 // screen shows.
 function closeLocation(screen: NightScreen, location: Location): void {
   let {closing, id, outside} = location;
@@ -726,9 +726,10 @@ export const nightScreen = new GameScreen<NightScreenContents>({
         actOnNight(screen);
       }
     } catch (error) {
-      // A place's picture that does not compile, or a journey that ended in no
-      // place, handled as the engine handles an error in a screen's
-      // transition: the console keeps the details, which a production build's
+      // A place's picture that does not compile, a journey that ended in no
+      // place, a place in no location, or a location that closes with no
+      // closing script or no outside, handled as the engine handles an error
+      // in a screen's transition: the console keeps the details, which a production build's
       // error screen does not show. showScreen never rejects, and it hides
       // this screen at once, so the error does not come again.
       // eslint-disable-next-line no-console -- the only record of the error in a production build
