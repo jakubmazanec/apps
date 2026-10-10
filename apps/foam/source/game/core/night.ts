@@ -1,12 +1,15 @@
 import {formatTime} from './hours.js';
 
 export type PlaceId =
-  | 'hlavniNadrazi'
+  | 'hlavniNadraziForecourt'
+  | 'hlavniNadraziHall'
   | 'malinovskehoNamesti'
   | 'namestiRepubliky'
-  | 'rotorBar'
+  | 'rotorBarRoom'
+  | 'rotorBarStreet'
   | 'train'
-  | 'whiskyShop'
+  | 'whiskyShopRoom'
+  | 'whiskyShopStreet'
   | 'zidenice';
 
 export type Way = 'taxi' | 'tram' | 'walk';

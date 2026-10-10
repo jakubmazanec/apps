@@ -1,8 +1,8 @@
-import {createWayOut} from '../../core/createWayOut.js';
-import {type Place} from '../../core/place.js';
-import {standIn} from '../../core/prose.js';
-import {defineScript} from '../../core/script.js';
-import {standInPicture} from '../pictures/standInPicture.js';
+import {createWayOut} from '../../../core/createWayOut.js';
+import {type Place} from '../../../core/place.js';
+import {standIn} from '../../../core/prose.js';
+import {defineScript} from '../../../core/script.js';
+import {standInPicture} from '../../pictures/standInPicture.js';
 
 // The text of this place is stand-in text: the author replaces standIn by prose when writing
 // the real text. Its limits: no word is longer than 16 characters (every word must fit a line on
@@ -42,13 +42,14 @@ const bench = defineScript({
 });
 const underpass = createWayOut({
   speaker: UNDERPASS,
-  text: standIn`The stairs lead down and out to the street, where the trams run.`,
-  ways: ['walk', 'tram', 'taxi'],
+  text: standIn`The stairs lead down and out to the street.`,
+  ways: ['walk', 'taxi'],
 });
 
 export const zidenice: Place = {
   id: 'zidenice',
   name: PLACE_NAME,
+  outdoors: true,
   description,
   picture: standInPicture,
   spots: [

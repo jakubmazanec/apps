@@ -6,7 +6,7 @@ import {createNight} from '../source/game/core/night.js';
 const GUITARIST = [1320, 1500] as const;
 
 function at(minutes: number): boolean {
-  return isWithin(createNight({place: 'rotorBar', minutes, money: 350}), GUITARIST);
+  return isWithin(createNight({place: 'rotorBarRoom', minutes, money: 350}), GUITARIST);
 }
 
 describe(isWithin, () => {

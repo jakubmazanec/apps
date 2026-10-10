@@ -1,3 +1,5 @@
+import {isOpenAt} from './hours.js';
+import {type Location, type LocationId} from './location.js';
 import {type Night, type PlaceId, type Way} from './night.js';
 import {type Place} from './place.js';
 
@@ -41,10 +43,13 @@ export type Travel = Readonly<
   Record<string, Partial<Record<Way, Readonly<Record<string, Journey>>>>>
 >;
 
-export type Destination = {place: Place; way: Way; minutes: number; price: number};
+export type Destination = {location: Location; way: Way; minutes: number; price: number};
 
 export type NightStart = {
-  /** The places of the night, by id. */
+  /** The locations of the night, by id. */
+  locations: Readonly<Record<string, Location>>;
+
+  /** The places of every location, by id; content/locations.ts derives them once. */
   places: Readonly<Record<string, Place>>;
 
   /** The content of `locations.json`: the positions and the hours of the locations. */
@@ -65,29 +70,47 @@ export type NightStart = {
   drunkenness?: number;
 };
 
-/** The destinations from a place by a way, nearest first, then by name. */
-export function getDestinations(start: NightStart, from: PlaceId, way: Way): Destination[] {
+/**
+ * The location whose places hold the place. It searches start.locations, so a test that writes into
+ * nightStart is seen.
+ */
+export function getLocation(start: NightStart, place: PlaceId): Location | undefined {
+  return Object.values(start.locations).find((location) =>
+    location.places.some(({id}) => id === place),
+  );
+}
+
+/** The destinations from a location by a way, nearest first, then by name. */
+export function getDestinations(start: NightStart, from: LocationId, way: Way): Destination[] {
   let journeys = start.travel[from]?.[way] ?? {};
   let destinations: Destination[] = [];
 
   for (let [to, journey] of Object.entries(journeys)) {
-    let place = start.places[to];
+    let location = start.locations[to];
 
-    if (place === undefined) {
-      console.warn(`No place "${to}" for the journey ${from} › ${way} › ${to}.`);
+    if (location === undefined) {
+      console.warn(`No location "${to}" for the journey ${from} › ${way} › ${to}.`);
     } else {
-      destinations.push({place, way, minutes: journey.minutes, price: journey.price ?? 0});
+      destinations.push({location, way, minutes: journey.minutes, price: journey.price ?? 0});
     }
   }
 
   return destinations.sort(
-    (a, b) => a.minutes - b.minutes || a.place.name.localeCompare(b.place.name),
+    (a, b) => a.minutes - b.minutes || a.location.name.localeCompare(b.location.name),
   );
 }
 
-/** Adds the journey's minutes, takes its price and sets the night's place. */
-export function takeJourney(night: Night, destination: Destination): void {
-  night.minutes += destination.minutes;
-  night.money -= destination.price;
-  night.place = destination.place.id;
+/** Adds the minutes, takes the price, and puts the player at the arrival or, closed, outside. */
+export function takeJourney(start: NightStart, night: Night, destination: Destination): void {
+  let {location, minutes, price} = destination;
+
+  night.minutes += minutes;
+  night.money -= price;
+  night.place =
+    (
+      location.outside === undefined ||
+      isOpenAt(start.locationData[location.id]?.hours, night.minutes)
+    ) ?
+      location.arrival
+    : location.outside;
 }

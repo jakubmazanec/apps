@@ -27,7 +27,7 @@ describe('the jump-in', () => {
 
     let url = new URL(globalThis.location.href);
 
-    url.searchParams.set('place', 'rotorBar');
+    url.searchParams.set('place', 'rotorBarRoom');
     url.searchParams.set('time', '23:10');
     url.searchParams.set('money', '120');
     url.searchParams.set('drunkenness', '2.5');
@@ -53,7 +53,7 @@ describe('the jump-in', () => {
     let {nightScreen} = harness;
 
     expect(nightScreen.state).toBe('shown');
-    expect(nightScreen.contents.place?.id).toBe('rotorBar');
+    expect(nightScreen.contents.place?.id).toBe('rotorBarRoom');
     expect(readText(nightScreen.contents.statusText)).toBe('23:10   120 Kč   2.5');
     expect(getStoryWindow(harness).dialogue.node?.speaker).toBe('Rotor Bar');
   });

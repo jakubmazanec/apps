@@ -1,7 +1,7 @@
-import {type Place} from '../../core/place.js';
-import {standIn} from '../../core/prose.js';
-import {defineScript} from '../../core/script.js';
-import {standInPicture} from '../pictures/standInPicture.js';
+import {type Place} from '../../../core/place.js';
+import {standIn} from '../../../core/prose.js';
+import {defineScript} from '../../../core/script.js';
+import {standInPicture} from '../../pictures/standInPicture.js';
 
 // The text of this place is stand-in text: the author replaces standIn by prose when writing
 // the real text. Its limits: no word is longer than 16 characters (every word must fit a line on
@@ -64,7 +64,7 @@ const door = defineScript({
       speaker: DOOR,
       text: standIn`The train crosses the river and rolls into the main station.`,
       onEnter: (night) => {
-        night.place = 'hlavniNadrazi';
+        night.place = 'hlavniNadraziHall';
       },
     },
   },
@@ -73,6 +73,7 @@ const door = defineScript({
 export const train: Place = {
   id: 'train',
   name: PLACE_NAME,
+  outdoors: false,
   description,
   picture: standInPicture,
   spots: [

@@ -263,7 +263,7 @@ describe('night screen on a narrow screen', {timeout: 180_000}, () => {
 
     expect(storyWindow.dialogue.revealedCount).toBe(storyWindow.dialogue.pageText.length);
     expect(getWindowParts(storyWindow).buttons.map(getButtonLabel)).toEqual([
-      'Step outside',
+      'Go out',
       'Knock on the\nglass  5 min  60%',
       'Stay',
     ]);
@@ -284,12 +284,21 @@ describe('night screen on a narrow screen', {timeout: 180_000}, () => {
 
     // The keyboard finishes the text, if it is still typing, and closes the
     // window. The presses stop once the runner has ended: one more would open
-    // the window again from the scene button that got the focus back.
+    // the window again from the scene button that got the focus back. "Go out"
+    // moves the player, so the next place's description opens after it: the
+    // test waits for this window to close.
     for (let count = 0; count < 3 && storyWindow.dialogue.phase !== 'ended'; count += 1) {
       await press('Enter');
     }
 
-    await waitForNoStoryWindow(harness);
+    await vitest.waitFor(
+      () => {
+        if (storyWindow.state !== 'closed') {
+          throw new Error("The door's window is still open.");
+        }
+      },
+      {timeout: 10_000},
+    );
 
     expect(storyWindow.dialogue.phase).toBe('ended');
   });

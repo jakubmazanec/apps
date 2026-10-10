@@ -1,20 +1,53 @@
-import {describe, expect, test, vitest} from 'vitest';
+import {afterEach, beforeEach, describe, expect, type MockInstance, test, vitest} from 'vitest';
 
-import {createNight, type PlaceId} from '../source/game/core/night.js';
+import {type Location, type LocationId} from '../source/game/core/location.js';
+import {createNight, type Night, type PlaceId, type Way} from '../source/game/core/night.js';
 import {type Place} from '../source/game/core/place.js';
-import {getDestinations, type NightStart, takeJourney} from '../source/game/core/travel.js';
+import {
+  getDestinations,
+  getLocation,
+  type NightStart,
+  takeJourney,
+} from '../source/game/core/travel.js';
 
 function createPlace(id: PlaceId, name: string): Place {
-  return {id, name, description: {start: {text: 'x'}}, picture: '', spots: []};
+  return {id, name, outdoors: true, description: {start: {text: 'x'}}, picture: '', spots: []};
 }
 
+function createLocation(
+  id: LocationId,
+  name: string,
+  places: Place[],
+  arrival: PlaceId,
+  outside?: PlaceId,
+): Location {
+  return {id, name, places, arrival, ...(outside === undefined ? {} : {outside})};
+}
+
+const LOCATIONS: Record<string, Location> = {
+  rotorBar: createLocation(
+    'rotorBar',
+    'Alpha',
+    [createPlace('rotorBarRoom', 'Alpha'), createPlace('rotorBarStreet', 'Dvořákova')],
+    'rotorBarRoom',
+    'rotorBarStreet',
+  ),
+  zidenice: createLocation('zidenice', 'Beta', [createPlace('zidenice', 'Beta')], 'zidenice'),
+  hlavniNadrazi: createLocation(
+    'hlavniNadrazi',
+    'Gamma',
+    [createPlace('hlavniNadraziHall', 'Gamma'), createPlace('hlavniNadraziForecourt', 'Nádražní')],
+    'hlavniNadraziForecourt',
+  ),
+};
 const START: NightStart = {
-  places: {
-    rotorBar: createPlace('rotorBar', 'Alpha'),
-    zidenice: createPlace('zidenice', 'Beta'),
-    hlavniNadrazi: createPlace('hlavniNadrazi', 'Gamma'),
-  },
-  locationData: {},
+  locations: LOCATIONS,
+  places: Object.fromEntries(
+    Object.values(LOCATIONS).flatMap((location) =>
+      location.places.map((place) => [place.id, place]),
+    ),
+  ),
+  locationData: {rotorBar: {hours: [[960, 1620]]}},
   travel: {
     whiskyShop: {
       walk: {
@@ -41,12 +74,28 @@ const START: NightStart = {
   money: 350,
 };
 
+// Takes the journey from the Whisky Shop by the way to the location, starting at the minute.
+function travel(minutes: number, way: Way, to: LocationId): Night {
+  let destination = getDestinations(START, 'whiskyShop', way).find(
+    ({location}) => location.id === to,
+  );
+  let night = {...createNight(START), minutes, money: 350};
+
+  if (destination === undefined) {
+    throw new Error(`No ${way} destination "${to}"!`);
+  }
+
+  takeJourney(START, night, destination);
+
+  return night;
+}
+
 describe(getDestinations, () => {
-  test('by walk it gives the nearest first, then by name, and warns once', () => {
+  test('by walk it gives the nearest location first, then by name, and warns once', () => {
     let warn = vitest.spyOn(console, 'warn').mockImplementation(() => {});
     let destinations = getDestinations(START, 'whiskyShop', 'walk');
 
-    expect(destinations.map((destination) => destination.place.id)).toEqual([
+    expect(destinations.map((destination) => destination.location.id)).toEqual([
       'zidenice',
       'rotorBar',
       'hlavniNadrazi',
@@ -58,25 +107,61 @@ describe(getDestinations, () => {
     warn.mockRestore();
   });
 
-  test('by tram it gives nothing, and from a place without travel too', () => {
+  test('by tram it gives nothing, and from a location without travel too', () => {
     expect(getDestinations(START, 'whiskyShop', 'tram')).toEqual([]);
     expect(getDestinations(START, 'rotorBar', 'walk')).toEqual([]);
   });
 });
 
 describe(takeJourney, () => {
-  test('adds the minutes, takes the price and sets the place', () => {
-    let taxi = getDestinations(START, 'whiskyShop', 'taxi')[0];
-    let night = {...createNight(START), minutes: 1180, money: 350};
+  let warn: MockInstance<typeof console.warn>;
 
-    if (taxi === undefined) {
-      throw new Error('No taxi destination!');
-    }
+  // The walk from the Whisky Shop names "nowhere", which warns; getDestinations' test checks that.
+  beforeEach(() => {
+    warn = vitest.spyOn(console, 'warn').mockImplementation(() => {});
+  });
 
-    takeJourney(night, taxi);
+  afterEach(() => {
+    warn.mockRestore();
+  });
+
+  test('arrives at the arrival while the location is open', () => {
+    let night = travel(1180, 'taxi', 'rotorBar');
 
     expect(night.minutes).toBe(1191);
     expect(night.money).toBe(180);
-    expect(night.place).toBe('rotorBar');
+    expect(night.place).toBe('rotorBarRoom');
+  });
+
+  test('arrives outside while closed, at the exact minute of the closing and before the opening', () => {
+    let atClosing = travel(1609, 'taxi', 'rotorBar');
+    // A jump-in can start a night before 16:00.
+    let beforeOpening = travel(940, 'taxi', 'rotorBar');
+
+    expect(atClosing.minutes).toBe(1620);
+    expect(atClosing.place).toBe('rotorBarStreet');
+    expect(beforeOpening.minutes).toBe(951);
+    expect(beforeOpening.place).toBe('rotorBarStreet');
+  });
+
+  test('arrives at the arrival of a location without hours', () => {
+    expect(travel(1180, 'walk', 'hlavniNadrazi').place).toBe('hlavniNadraziForecourt');
+  });
+
+  test('reads the hours at the minute of arrival, not of departure', () => {
+    let night = travel(1615, 'taxi', 'rotorBar');
+
+    expect(night.minutes).toBe(1626);
+    expect(night.place).toBe('rotorBarStreet');
+  });
+});
+
+describe(getLocation, () => {
+  test('finds the location of a place', () => {
+    expect(getLocation(START, 'rotorBarStreet')).toBe(START.locations.rotorBar);
+  });
+
+  test('gives undefined for a place in no location', () => {
+    expect(getLocation(START, 'whiskyShopRoom')).toBeUndefined();
   });
 });

@@ -3,6 +3,7 @@ import {describe, expect, test, vitest} from 'vitest';
 
 import {checkContent} from '../source/game/core/checkContent.js';
 import {getExpectedJourneys} from '../source/game/core/getExpectedJourneys.js';
+import {type Location} from '../source/game/core/location.js';
 import {getDrunkenness, type Night, type Way} from '../source/game/core/night.js';
 import {type Place} from '../source/game/core/place.js';
 import {type Choice, defineScript} from '../source/game/core/script.js';
@@ -20,23 +21,53 @@ function throwNoWay(): never {
   throw new Error('No way.');
 }
 
-function createPlace(id: Place['id'], name: string, shortName?: string): Place {
+function createPlace(id: Place['id'], name: string, outdoors: boolean, shortName?: string): Place {
   return {
     id,
     name,
     ...(shortName === undefined ? {} : {shortName}),
+    outdoors,
     description: oneNode('A quiet place with a bench.', name),
     picture: '',
     spots: [{label: 'The door', x: 0.5, y: 0.5, script: oneNode('A door.')}],
   };
 }
 
-const places: Record<string, Place> = {
-  train: createPlace('train', 'The train'),
-  zidenice: createPlace('zidenice', 'Brno-Židenice'),
-  rotorBar: createPlace('rotorBar', 'Rotor Bar'),
-  namestiRepubliky: createPlace('namestiRepubliky', 'Náměstí Republiky', 'Nám. Republiky'),
+const locations: Record<string, Location> = {
+  train: {
+    id: 'train',
+    name: 'The train',
+    places: [createPlace('train', 'The train', false)],
+    arrival: 'train',
+  },
+  zidenice: {
+    id: 'zidenice',
+    name: 'Brno-Židenice',
+    places: [createPlace('zidenice', 'Brno-Židenice', true)],
+    arrival: 'zidenice',
+  },
+  rotorBar: {
+    id: 'rotorBar',
+    name: 'Rotor Bar',
+    places: [
+      createPlace('rotorBarRoom', 'Rotor Bar', false),
+      createPlace('rotorBarStreet', 'Dvořákova', true),
+    ],
+    arrival: 'rotorBarRoom',
+    outside: 'rotorBarStreet',
+    closing: oneNode('Closing.', 'Closing time'),
+  },
+  namestiRepubliky: {
+    id: 'namestiRepubliky',
+    name: 'Náměstí Republiky',
+    places: [createPlace('namestiRepubliky', 'Náměstí Republiky', true, 'Nám. Republiky')],
+    arrival: 'namestiRepubliky',
+  },
 };
+// The places of the locations by id, as content/locations.ts derives them.
+const places: Record<string, Place> = Object.fromEntries(
+  Object.values(locations).flatMap((location) => location.places.map((place) => [place.id, place])),
+);
 const position = {latitude: 49.2, longitude: 16.6};
 const locationData: LocationData = {
   zidenice: {position},
@@ -84,6 +115,7 @@ const journeys: Record<Way, RunnableDialogueScript<Night>> = {
 
 function check(
   changes: {
+    locations?: Record<string, Location>;
     places?: Record<string, Place>;
     locationData?: LocationData;
     travel?: Travel;
@@ -91,7 +123,7 @@ function check(
     journeys?: Record<Way, RunnableDialogueScript<Night>>;
   } = {},
 ): string[] {
-  return checkContent({places, journeys, locationData, travel, map, ...changes});
+  return checkContent({locations, places, journeys, locationData, travel, map, ...changes});
 }
 
 function withZidenice(change: Partial<Place>): Record<string, Place> {
@@ -295,12 +327,23 @@ describe(checkContent, () => {
     expect(lines).toContain('journeys › tram › start: no speaker');
   });
 
+  test('reports a fault of a closing script', () => {
+    let lines = check({
+      locations: {
+        ...locations,
+        rotorBar: {...locations.rotorBar!, closing: oneNode('Closing.', '')},
+      },
+    });
+
+    expect(lines).toContain('rotorBar › closing › start: no speaker');
+  });
+
   test('calls a text function once per place and level and reports its fault once', () => {
     let text = vitest.fn<(night: Night) => string>(() => 'A supercalifragilistic word.');
     let description = defineDialogueScript<Night>()({start: {speaker: 'Bench', text}});
     let lines = check({places: withZidenice({description})});
 
-    expect(text).toHaveBeenCalledTimes(12);
+    expect(text).toHaveBeenCalledTimes(5 * 3);
     expect(
       lines.filter((line) => line.startsWith('zidenice › description › start: "super')),
     ).toHaveLength(1);

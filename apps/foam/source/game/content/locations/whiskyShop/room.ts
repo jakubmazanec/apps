@@ -1,8 +1,7 @@
-import {createWayOut} from '../../core/createWayOut.js';
-import {type Place} from '../../core/place.js';
-import {standIn} from '../../core/prose.js';
-import {defineScript} from '../../core/script.js';
-import {barPicture} from '../pictures/barPicture.js';
+import {type Place} from '../../../core/place.js';
+import {standIn} from '../../../core/prose.js';
+import {defineScript} from '../../../core/script.js';
+import {barPicture} from '../../pictures/barPicture.js';
 
 // The text of this place is stand-in text: the author replaces standIn by prose when writing
 // the real text. Its limits: no word is longer than 16 characters (every word must fit a line on
@@ -83,16 +82,26 @@ const regulars = defineScript({
     },
   },
 });
-const door = createWayOut({
-  speaker: DOOR,
-  text: standIn`The door opens onto the street, and a tram bell rings somewhere close.`,
-  ways: ['walk', 'tram', 'taxi'],
+const door = defineScript({
+  start: {
+    speaker: DOOR,
+    text: standIn`The door opens onto Vranovská, and the cold comes in with the sound of a tram.`,
+    choices: [
+      {
+        text: 'Go out',
+        onChoose: (night) => {
+          night.place = 'whiskyShopStreet';
+        },
+      },
+    ],
+  },
 });
 
-export const whiskyShop: Place = {
-  id: 'whiskyShop',
+export const whiskyShopRoom: Place = {
+  id: 'whiskyShopRoom',
   name: PLACE_NAME,
   shortName: SHORT_NAME,
+  outdoors: false,
   description,
   picture: barPicture,
   spots: [

@@ -2,13 +2,15 @@ import {defineDialogueScript, type RunnableDialogueScript} from 'tellurion';
 
 import {type Night, type Way} from '../core/night.js';
 import {standIn} from '../core/prose.js';
+import {getLocation} from '../core/travel.js';
 import {nightStart} from './nightStart.js';
 
 // The text of a journey is stand-in text: the author replaces standIn by prose when writing
 // the real text. Its limits: no word is longer than 16 characters, every node sets `speaker`, and
-// the `*` marks of italic come in pairs. When the script runs, `night.place` is the destination.
+// the `*` marks of italic come in pairs. When the script runs, `night.place` is the place the
+// journey ended at, the arrival or the street outside, and the text names its location.
 function getDestination(night: Night): string {
-  return nightStart.places[night.place]?.name ?? 'the next place';
+  return getLocation(nightStart, night.place)?.name ?? 'the next place';
 }
 
 export const journeys: Record<Way, RunnableDialogueScript<Night>> = {

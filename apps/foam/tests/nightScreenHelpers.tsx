@@ -480,22 +480,23 @@ export async function waitForChoices(storyWindow: StoryWindow): Promise<void> {
 // side-by-side body is a row of the map area and a column of the row, the slot
 // and Back. The row is a Container of one Button per way. The map area's view
 // holds the map picture's view first, whose sprites show the layer and then the
-// marks, then one Button per place, labelled with the place's id; the
-// journey's own place has one too, not drawn. The slot holds the destination
-// Button, with the name's Text and then the numbers' Text; it is not drawn
-// while the way has no destination. `places` and `destination` hold what the
-// player sees; `allPlaces` and `destinationButton` hold every button.
+// marks, then one Button per location, labelled with the location's id; the
+// journey's own location has one too, not drawn. The slot holds the
+// destination Button, with the name's Text and then the numbers' Text; it is
+// not drawn while the way has no destination. `locations` and `destination`
+// hold what the player sees; `allLocations` and `destinationButton` hold every
+// button.
 export function getTravelParts(travelWindow: TravelWindow): {
-  allPlaces: Map<string, Button>;
+  allLocations: Map<string, Button>;
   back: Button;
   destination: Button | null;
   destinationButton: Button;
   layerSprite: pixi.Sprite;
+  locations: Map<string, Button>;
   map: pixi.Container;
   mapArea: Container;
   marksSprite: pixi.Sprite;
   panel: Panel;
-  places: Map<string, Button>;
   slot: Container;
   title: Text;
   ways: Button[];
@@ -539,23 +540,23 @@ export function getTravelParts(travelWindow: TravelWindow): {
     throw new TypeError('The travel window has no destination button!');
   }
 
-  let allPlaces = new Map(
+  let allLocations = new Map(
     mapArea.children
       .filter((child) => child instanceof Button)
       .map((button) => [button.view.label, button]),
   );
 
   return {
-    allPlaces,
+    allLocations,
     back,
     destination: destinationButton.view.renderable ? destinationButton : null,
     destinationButton,
     layerSprite,
+    locations: new Map([...allLocations].filter(([, button]) => button.view.renderable)),
     map,
     mapArea,
     marksSprite,
     panel,
-    places: new Map([...allPlaces].filter(([, button]) => button.view.renderable)),
     slot,
     title,
     ways: row.children.filter((child) => child instanceof Button),

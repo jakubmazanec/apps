@@ -23,12 +23,13 @@ import {
 } from '../core/getSceneArea.js';
 import {getSpotPosition} from '../core/getSpotPosition.js';
 import {input} from '../core/input.js';
+import {type Location, type LocationId} from '../core/location.js';
 import {measureText} from '../core/measureText.js';
-import {createNight, formatStatus, type Night, type PlaceId} from '../core/night.js';
+import {createNight, formatStatus, type Night} from '../core/night.js';
 import {type Place} from '../core/place.js';
 import {playFocusSound} from '../core/playFocusSound.js';
 import {UI_FADE_DURATION} from '../core/theme.js';
-import {takeJourney} from '../core/travel.js';
+import {getLocation, takeJourney} from '../core/travel.js';
 import {errorScreen} from './errorScreen.js';
 // The nightScreen <-> mainMenuScreen static import cycle is deliberate and
 // safe: each module reads the other's binding only inside a click handler
@@ -459,7 +460,7 @@ function createTravelWindow(screen: NightScreen): TravelWindow {
       // The modal has left the UI, and nothing could open above it while it
       // faded, so the journey's window is the topmost. The place leaves under
       // black. When that window has closed, actOnNight shows the destination.
-      takeJourney(screen.contents.night, destination);
+      takeJourney(nightStart, screen.contents.night, destination);
       leavePlace(screen);
       layOut(screen);
       openStory(screen, journeys[destination.way]);
@@ -467,11 +468,25 @@ function createTravelWindow(screen: NightScreen): TravelWindow {
   });
 }
 
-// Opens the travel window from the place being shown on the way a way out
-// chose. It runs only while no overlay is open, so the window is the topmost.
+// The location of a place of nightStart. The checker holds every place to one
+// location; a place in none is an error, which the error screen shows rather
+// than a travel window from nowhere.
+function getLocationOf(place: Place): Location {
+  let location = getLocation(nightStart, place.id);
+
+  if (location === undefined) {
+    throw new Error(`The place "${place.id}" is in no location!`);
+  }
+
+  return location;
+}
+
+// Opens the travel window from the location of the place being shown on the
+// way a way out chose. It runs only while no overlay is open, so the window is
+// the topmost.
 function openTravel(
   screen: NightScreen,
-  from: PlaceId,
+  from: LocationId,
   {way, ways}: NonNullable<Night['leaving']>,
 ): void {
   screen.contents.travelWindow.open({from, way, ways, night: screen.contents.night});
@@ -487,7 +502,7 @@ function actOnNight(screen: NightScreen): void {
 
   if (place !== null && night.place === place.id) {
     if (night.leaving !== null) {
-      openTravel(screen, place.id, night.leaving);
+      openTravel(screen, getLocationOf(place).id, night.leaving);
       night.leaving = null;
     }
 

@@ -1,10 +1,12 @@
-// Lists what is left to write: the stand-in texts and the written ones of every place file and of
-// the journeys, and the locations and journeys of the data that a script computed and nobody has
-// checked. Run it with `node scripts/list-stand-ins.mjs`.
+// Lists what is left to write: the stand-in texts and the written ones of every file in the
+// location folders under content/locations/ (each place and each location.ts) and of the journeys,
+// and the locations and journeys of the data that a script computed and nobody has checked. Run it
+// with `node scripts/list-stand-ins.mjs`.
 import {readdir, readFile} from 'node:fs/promises';
 
 const contentDir = new URL('../source/game/content/', import.meta.url);
-const NAME_WIDTH = 25;
+// The longest name, malinovskehoNamesti/location.ts, has 31 characters.
+const NAME_WIDTH = 34;
 const STAND_IN_WIDTH = 8;
 const WRITTEN_WIDTH = 9;
 
@@ -26,17 +28,36 @@ async function readJson(name) {
   return JSON.parse(await readFile(new URL(`data/${name}`, contentDir), 'utf8'));
 }
 
-export async function listStandIns() {
-  let placeFiles = (await readdir(new URL('places/', contentDir)))
-    .filter((name) => name.endsWith('.ts'))
+// The `.ts` files of each location folder, in the order of the folders and then of the files,
+// named by folder and file.
+async function readLocationFiles() {
+  let locationsDir = new URL('locations/', contentDir);
+  let folders = (await readdir(locationsDir, {withFileTypes: true}))
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => entry.name)
     .sort();
+  let names = [];
+
+  for (let folder of folders) {
+    let files = (await readdir(new URL(`${folder}/`, locationsDir), {withFileTypes: true}))
+      .filter((entry) => entry.isFile() && entry.name.endsWith('.ts'))
+      .map((entry) => entry.name)
+      .sort();
+
+    names.push(...files.map((file) => `${folder}/${file}`));
+  }
+
+  return Promise.all(
+    names.map(async (name) => ({
+      name,
+      source: await readFile(new URL(name, locationsDir), 'utf8'),
+    })),
+  );
+}
+
+export async function listStandIns() {
   let files = [
-    ...(await Promise.all(
-      placeFiles.map(async (name) => ({
-        name,
-        source: await readFile(new URL(`places/${name}`, contentDir), 'utf8'),
-      })),
-    )),
+    ...(await readLocationFiles()),
     {name: 'journeys.ts', source: await readFile(new URL('journeys.ts', contentDir), 'utf8')},
   ];
   let lines = [
@@ -66,8 +87,8 @@ export async function listStandIns() {
 
   lines.push(
     '',
-    `Locations not checked:   ${locations.computed} of ${locations.all}`,
-    `Journeys not checked: ${journeys.computed} of ${journeys.all}`,
+    `Locations not checked: ${locations.computed} of ${locations.all}`,
+    `Journeys not checked:  ${journeys.computed} of ${journeys.all}`,
   );
 
   return lines.join('\n');
