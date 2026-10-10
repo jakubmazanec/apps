@@ -16,6 +16,7 @@ import {page, userEvent} from 'vitest/browser';
 
 import {nightStart} from '../source/game/content/nightStart.js';
 import {type assets as assetsValue} from '../source/game/core/assets.js';
+import {type LocationId} from '../source/game/core/location.js';
 import {type measureText as measureTextValue} from '../source/game/core/measureText.js';
 import {type PlaceId} from '../source/game/core/night.js';
 import {type Place} from '../source/game/core/place.js';
@@ -681,4 +682,70 @@ export async function pressThrough(harness: Harness, storyWindow: StoryWindow): 
   for (let count = 0; count < 40 && hasTextLeft(harness, storyWindow); count += 1) {
     await press('Enter');
   }
+}
+
+// Opens the square's way out and picks one of its choices.
+export async function chooseWayOut(harness: Harness, label: string): Promise<void> {
+  harness.nightScreen.ui.focus(getSpotButton(harness, 'The street'));
+  await press('Enter');
+
+  let storyWindow = getStoryWindow(harness);
+
+  await pressThrough(harness, storyWindow);
+
+  let choice = getWindowParts(storyWindow).buttons.find(
+    (button) => getButtonLabel(button) === label,
+  );
+
+  if (choice === undefined) {
+    throw new Error(`The way out has no "${label}" choice!`);
+  }
+
+  harness.nightScreen.ui.focus(choice);
+  await press('Enter');
+}
+
+// The screen opens the travel window in its next frame after the way out's
+// window has closed. The screen keeps the window, so it is shown while its
+// modal is on the UI root: opening, open or closing.
+export async function waitForTravelWindow({nightScreen}: Harness): Promise<TravelWindow> {
+  return vitest.waitFor(
+    () => {
+      let {travelWindow} = nightScreen.contents;
+
+      if (travelWindow.modal.state === 'closed') {
+        throw new Error('The travel window is not open.');
+      }
+
+      return travelWindow;
+    },
+    {timeout: 10_000},
+  );
+}
+
+// Picks a destination of the travel window: presses the location's button on
+// the map, which selects it, and then the destination button.
+export async function pickDestination(
+  {nightScreen}: Harness,
+  travelWindow: TravelWindow,
+  location: LocationId,
+): Promise<void> {
+  let {ui} = nightScreen;
+  let button = getTravelParts(travelWindow).locations.get(location);
+
+  if (button === undefined) {
+    throw new Error(`The travel window's map has no button for the location "${location}"!`);
+  }
+
+  ui.focus(button);
+  await press('Enter');
+
+  let {destination} = getTravelParts(travelWindow);
+
+  if (destination === null) {
+    throw new Error('The travel window has no destination button!');
+  }
+
+  ui.focus(destination);
+  await press('Enter');
 }

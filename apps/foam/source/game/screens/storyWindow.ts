@@ -31,6 +31,7 @@ import {
   WINDOW_WIDTH,
 } from '../core/getSceneArea.js';
 import {input} from '../core/input.js';
+import {logChoice, logText} from '../core/log.js';
 import {MARK, splitMarked, stripMarks} from '../core/markedText.js';
 import {measureText} from '../core/measureText.js';
 import {type Night} from '../core/night.js';
@@ -233,6 +234,7 @@ export class StoryWindow implements Overlay {
     };
     this.view.addChild(tapBlocker, this.#panel.view);
     this.#showNode();
+    this.#logPage();
   }
 
   get state(): StoryWindowState {
@@ -353,6 +355,7 @@ export class StoryWindow implements Overlay {
       this.#lastRevealedCount = 0;
       this.#blipGlyphs = 0;
       this.#showNode();
+      this.#logPage();
     }
 
     this.#showRevealed();
@@ -401,6 +404,15 @@ export class StoryWindow implements Overlay {
           justifyContent: 'flex-start',
         },
         onClick: () => {
+          let choice = this.#choices[index];
+
+          // The press is logged by the label the button read, before the choice's costs. A
+          // second tap before the window's next frame finds this button still there, but the
+          // runner is past its choices and takes nothing, so nothing is logged.
+          if (choice !== undefined && this.dialogue.phase === 'choosing') {
+            logChoice(this.#night, formatChoice(choice, this.#night));
+          }
+
           this.dialogue.choose(index);
         },
       });
@@ -489,6 +501,19 @@ export class StoryWindow implements Overlay {
         view.eventMode = 'passive';
       },
     });
+  }
+
+  // Logs the runner's page when the window first shows it: in the constructor, and in update when
+  // the runner has moved to another node or page or entered the same node again. A resize shows
+  // the same page again and logs nothing, nor do the window's own pages of it. The page is the
+  // runner's, so a text that is a function is evaluated once, by the runner.
+  #logPage(): void {
+    let {node, pageText} = this.dialogue;
+
+    // The runner ended before it showed a node.
+    if (node !== null) {
+      logText(this.#night, node.speaker, pageText);
+    }
   }
 
   // Puts the cursor after the last letter shown. A page that another page
