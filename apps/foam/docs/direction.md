@@ -257,11 +257,13 @@ build and review, in this order:
    station's forecourt, the arrival rule, opening hours read for a Friday from the data and shown on
    the travel window's destination button, the closing script, ways out by the kind of place, tram
    journeys from stop to stop, people only there at certain hours, and the clock's start at 16:00.
-   It is designed: [spec](superpowers/specs/2026-10-10-locations-and-hours-design.md).
+   It is designed: [spec](superpowers/specs/2026-10-10-locations-and-hours-design.md),
+   [plan](superpowers/plans/2026-10-10-locations-and-hours.md).
 4. The end of the night and the log: the clock's end at 08:00, after which the window that crossed
    it closes and the night ends; the log of every text read and every choice taken, with its time;
    and a screen of its own that shows the log page by page, with a button to the menu on every page.
-   It is designed: [spec](superpowers/specs/2026-10-10-end-of-the-night-and-log-design.md).
+   It is designed: [spec](superpowers/specs/2026-10-10-end-of-the-night-and-log-design.md),
+   [plan](superpowers/plans/2026-10-10-end-of-the-night-and-log.md).
 
 **Phase 6 completes the first prototype: one whole night.** Its review decides what is kept and what
 is rewritten, and reopens the content model.
