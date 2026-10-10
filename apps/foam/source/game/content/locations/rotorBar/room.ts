@@ -1,9 +1,9 @@
-import {createWayOut} from '../../core/createWayOut.js';
-import {getDrunkenness} from '../../core/night.js';
-import {type Place} from '../../core/place.js';
-import {standIn} from '../../core/prose.js';
-import {defineScript} from '../../core/script.js';
-import {barPicture} from '../pictures/barPicture.js';
+import {isWithin, type Span} from '../../../core/hours.js';
+import {getDrunkenness} from '../../../core/night.js';
+import {type Place} from '../../../core/place.js';
+import {standIn} from '../../../core/prose.js';
+import {defineScript} from '../../../core/script.js';
+import {barPicture} from '../../pictures/barPicture.js';
 
 // The text of this place is stand-in text: the author replaces standIn by prose when writing
 // the real text. Its limits: no word is longer than 16 characters (every word must fit a line on
@@ -12,9 +12,10 @@ import {barPicture} from '../pictures/barPicture.js';
 // and the `*` marks of italic come in pairs.
 const PLACE_NAME = 'Rotor Bar';
 const BAR = 'The bar';
-const SMOKERS = 'The smokers';
 const TABLE = 'The corner table';
 const DOOR = 'The door';
+// From 22:00 to 01:00 the guitarist has the corner table.
+const GUITARIST: Span = [1320, 1500];
 const description = defineScript({
   start: {
     speaker: PLACE_NAME,
@@ -41,32 +42,24 @@ const bar = defineScript({
     },
   },
 });
-const smokers = defineScript({
-  start: 'smokers',
-  nodes: {
-    smokers: {
-      speaker: SMOKERS,
-      text: standIn`
-        On the pavement outside, strangers talk more easily than they did inside. Somebody
-        offers you a light you do not need.
-      `,
-      choices: [
-        {text: 'Ask for a cigarette', minutes: 5, drunkenness: {min: 2}, next: 'cigarette'},
-        {text: 'Go back in'},
-      ],
-    },
-    cigarette: {
-      speaker: SMOKERS,
-      text: standIn`
-        The cigarette comes with a story about a tram that stopped running early, and the five
-        minutes go by in smoke.
-      `,
-    },
-  },
-});
 const table = defineScript({
-  start: 'table',
+  start: (night) => (isWithin(night, GUITARIST) ? 'guitarist' : 'table'),
   nodes: {
+    guitarist: {
+      speaker: TABLE,
+      text: standIn`
+        A man with a guitar has the corner table to himself and plays to nobody in particular,
+        songs that everybody half knows. His case lies on the spare chair.
+      `,
+      choices: [{text: 'Ask for a song', minutes: 10, next: 'song'}, {text: 'Leave him to it'}],
+    },
+    song: {
+      speaker: TABLE,
+      text: standIn`
+        He nods, finds the chords and plays it through, a little slower than you remember it. The
+        next table sings the last verse with him.
+      `,
+    },
     table: {
       speaker: TABLE,
       text: standIn`
@@ -112,21 +105,30 @@ const table = defineScript({
     },
   },
 });
-const door = createWayOut({
-  speaker: DOOR,
-  text: standIn`The door lets in the cold and the sound of a tram in Dvořákova street.`,
-  ways: ['walk', 'tram', 'taxi'],
+const door = defineScript({
+  start: {
+    speaker: DOOR,
+    text: standIn`The door lets in the cold and the sound of a tram in Dvořákova street.`,
+    choices: [
+      {
+        text: 'Go out',
+        onChoose: (night) => {
+          night.place = 'rotorBarStreet';
+        },
+      },
+    ],
+  },
 });
 
-export const rotorBar: Place = {
-  id: 'rotorBar',
+export const rotorBarRoom: Place = {
+  id: 'rotorBarRoom',
   name: PLACE_NAME,
+  outdoors: false,
   description,
   picture: barPicture,
   spots: [
     {label: BAR, x: 0.22, y: 0.51, script: bar},
     {label: TABLE, x: 0.7, y: 0.84, script: table},
-    {label: SMOKERS, x: 0.14, y: 0.93, script: smokers},
     {label: DOOR, x: 0.91, y: 0.4, script: door},
   ],
 };

@@ -22,9 +22,10 @@ import {
   WINDOW_PADDING_X,
 } from '../core/getSceneArea.js';
 import {getMapSize, getTravelLayout, SIDE_COLUMN_WIDTH} from '../core/getTravelLayout.js';
+import {type LocationId} from '../core/location.js';
 import {type MapLayer} from '../core/mapLayers.js';
 import {measureText} from '../core/measureText.js';
-import {type Night, type PlaceId, type Way} from '../core/night.js';
+import {type Night, type Way} from '../core/night.js';
 import {BUTTON_SIZE, placeMapButtons} from '../core/placeMapButtons.js';
 import {UI_FADE_DURATION} from '../core/theme.js';
 import {
@@ -62,7 +63,7 @@ export type TravelWindowOptions = {
 
 /** A journey the window is shown for: where it starts, the way it opens on and the ways offered. */
 export type TravelJourney = {
-  from: PlaceId;
+  from: LocationId;
   way: Way;
 
   /** The ways the way out offers; the row's other ways take no press. */
@@ -96,8 +97,8 @@ type DestinationLabel = {
 /** The destination button and its two texts, which a new selection changes. */
 type DestinationParts = {button: Button; name: Text; numbers: Text};
 
-/** A place that has a button on the map, and its position in metres. */
-type MapPlace = {id: string; point: MapPoint};
+/** A location that has a button on the map, and its position in metres. */
+type MapLocation = {id: string; point: MapPoint};
 
 /**
  * The containers built for one screen size, which hold the window's controls, and the sizes the
@@ -141,7 +142,7 @@ const SECTION_GAP = 8;
 const WAY_GAP = 3;
 // At least two letters between a name and its numbers on one line.
 const NAME_GAP = 2 * GLYPH_WIDTH;
-// A place button is a square of BUTTON_SIZE with no padding: the theme's
+// A location button is a square of BUTTON_SIZE with no padding: the theme's
 // padding of 6 left and right would make it 12 wide.
 const NO_PADDING = {paddingTop: 0, paddingBottom: 0, paddingLeft: 0, paddingRight: 0};
 // The destination button's label while the way has no destination.
@@ -179,7 +180,7 @@ function getDestinationLabel(
   let numbers = formatCosts(destination);
   let numbersWidth = measureLabel(numbers);
   let nameWidth = isNarrow ? labelWidth : Math.max(1, labelWidth - numbersWidth - NAME_GAP);
-  let name = wrapText(destination.place.name, nameWidth, measureLabel);
+  let name = wrapText(destination.location.name, nameWidth, measureLabel);
   let nameLineCount = name.split('\n').length;
   let lineCount = isNarrow ? nameLineCount + 1 : nameLineCount;
 
@@ -202,7 +203,7 @@ function setDestinationLabel({name, numbers}: DestinationParts, label: Destinati
 
 /**
  * The window the player picks a destination in, after a way out: a title, a
- * row of the ways, a map with a button for each place, a button for the
+ * row of the ways, a map with a button for each location, a button for the
  * selected destination, and "Back". It is a `Panel` in a kept `Modal`, built
  * once with every control and both map layers, so that showing it costs a
  * frame like any other: each journey's `open` only fills it and adds the
@@ -216,17 +217,31 @@ export class TravelWindow {
 
   readonly #back: Button;
 
-  /** The place buttons' top-left corners on the map for the journey, by place id. */
+  /** The location buttons' top-left corners on the map for the journey, by location id. */
   #corners = new Map<string, {x: number; y: number}>();
 
   /** The destination button, which the modal declares as its initial focus, so it always stays. */
   readonly #destination: DestinationParts;
 
-  /** The destinations of each way from the journey's place; a way the way out lacks has none. */
+  /**
+   * The destinations of each way from the journey's location; a way the way out lacks has none.
+   */
   readonly #destinations = new Map<Way, Destination[]>();
 
-  /** The journey's place; `null` until the first `open`. */
-  #from: PlaceId | null = null;
+  /** The journey's location; `null` until the first `open`. */
+  #from: LocationId | null = null;
+
+  /**
+   * The location buttons by location id, one for every location with a position, the player's
+   * hidden.
+   */
+  readonly #locationButtons: Map<string, Button>;
+
+  /**
+   * Every location that has a position and is a location of the night, in the order of the
+   * location data.
+   */
+  readonly #locations: MapLocation[];
 
   readonly #mapPicture: MapPicture;
 
@@ -238,18 +253,12 @@ export class TravelWindow {
   /** The destination the player picked; `null` until a pick. */
   #picked: Destination | null = null;
 
-  /** The place buttons by place id, one for every place with a position, the player's hidden. */
-  readonly #placeButtons: Map<string, Button>;
-
-  /** Every place that has a position and a place of the night, in the order of the place data. */
-  readonly #places: MapPlace[];
-
-  /** Every position of the place data, in metres: the map fits them all, whatever the way. */
+  /** Every position of the location data, in metres: the map fits them all, whatever the way. */
   readonly #points: MapPoint[];
 
   /**
-   * Every destination from every place: the destination button is as high as the tallest of them
-   * needs, so that the map's size depends on the screen's size only.
+   * Every destination from every location: the destination button is as high as the tallest of
+   * them needs, so that the map's size depends on the screen's size only.
    */
   readonly #roomDestinations: Destination[];
 
@@ -268,7 +277,7 @@ export class TravelWindow {
   #way: Way = 'walk';
   readonly #wayButtons: Map<Way, Button>;
 
-  /** The journey place's position in metres, or null for a place without one. */
+  /** The journey location's position in metres, or null for a location without one. */
   #youPoint: MapPoint | null = null;
 
   constructor({
@@ -290,12 +299,12 @@ export class TravelWindow {
     this.#points = Object.values(start.locationData).flatMap(({position}) =>
       position === undefined ? [] : [getMapPoint(position, origin)],
     );
-    this.#places = Object.entries(start.locationData).flatMap(([id, {position}]) =>
-      position === undefined || !Object.hasOwn(start.places, id) ?
+    this.#locations = Object.entries(start.locationData).flatMap(([id, {position}]) =>
+      position === undefined || !Object.hasOwn(start.locations, id) ?
         []
       : [{id, point: getMapPoint(position, origin)}],
     );
-    this.#roomDestinations = Object.values(start.places).flatMap(({id}) =>
+    this.#roomDestinations = Object.values(start.locations).flatMap(({id}) =>
       WAYS.flatMap((way) => getDestinations(start, id, way)),
     );
     this.#warnOfMissingPositions(start.locationData);
@@ -314,7 +323,7 @@ export class TravelWindow {
         }),
       ]),
     );
-    this.#placeButtons = this.#createPlaceButtons();
+    this.#locationButtons = this.#createLocationButtons();
     this.#destination = this.#createDestination();
     this.#back = new Button({
       theme: game.theme,
@@ -356,14 +365,14 @@ export class TravelWindow {
     });
   }
 
-  /** The way whose places take a press. */
+  /** The way whose locations take a press. */
   get way(): Way {
     return this.#way;
   }
 
   /**
    * Shows a journey from `from` and adds the modal to the UI root: the title and the map of `way`,
-   * the light at `from`, the places the way reaches, and its nearest destination on the
+   * the light at `from`, the locations the way reaches, and its nearest destination on the
    * destination button. Nothing here is built, so that frame costs what any other does. The modal
    * puts the focus and the ring on the destination button; when that takes no press, a way with no
    * destination or one the night cannot pay, they go to Back.
@@ -445,13 +454,13 @@ export class TravelWindow {
     return {button, name, numbers};
   }
 
-  // One button with no label for every place on the map, labelled with the
-  // place's id. The journey decides where each stands and whether it takes a
-  // press (see #showJourney).
-  #createPlaceButtons(): Map<string, Button> {
-    let placeButtons = new Map<string, Button>();
+  // One button with no label for every location on the map, labelled with the
+  // location's id. The journey decides where each stands and whether it takes
+  // a press (see #showJourney).
+  #createLocationButtons(): Map<string, Button> {
+    let locationButtons = new Map<string, Button>();
 
-    for (let {id} of this.#places) {
+    for (let {id} of this.#locations) {
       let button = new Button({
         theme: game.theme,
         layout: {
@@ -463,15 +472,15 @@ export class TravelWindow {
           height: BUTTON_SIZE,
         },
         onClick: (pressed) => {
-          this.#selectPlace(id, pressed);
+          this.#selectLocation(id, pressed);
         },
       });
 
       button.view.label = id;
-      placeButtons.set(id, button);
+      locationButtons.set(id, button);
     }
 
-    return placeButtons;
+    return locationButtons;
   }
 
   // The marks of the journey: the light, the dotted line to the selection's
@@ -479,7 +488,8 @@ export class TravelWindow {
   // no line.
   #drawMarks(): void {
     let you = this.#youPoint === null ? null : toMapPixel(this.#size.frame, this.#youPoint);
-    let corner = this.#selected === null ? undefined : this.#corners.get(this.#selected.place.id);
+    let corner =
+      this.#selected === null ? undefined : this.#corners.get(this.#selected.location.id);
 
     this.#mapPicture.drawMarks({
       you,
@@ -495,19 +505,19 @@ export class TravelWindow {
     return this.#destinations.get(way) ?? [];
   }
 
-  // A press can still arrive during the fade: a pick, a place, Back or a way
+  // A press can still arrive during the fade: a pick, a location, Back or a way
   // must do nothing over a closing window.
   #isClosing(): boolean {
     return this.modal.state === 'closing' || this.modal.state === 'closed';
   }
 
   #isReached(id: string): boolean {
-    return this.#getDestinations(this.#way).some(({place}) => place.id === id);
+    return this.#getDestinations(this.#way).some(({location}) => location.id === id);
   }
 
   // Builds the containers for the screen's size, puts the controls in them,
   // adds them to the panel and draws the map's layers at the map's size. The
-  // destination button is as high as the tallest destination of every place
+  // destination button is as high as the tallest destination of every location
   // and way needs, so neither a journey nor a selection moves anything.
   #layOut(): TravelWindowSize {
     let layout = getTravelLayout(this.#screenWidth, this.#screenHeight);
@@ -545,7 +555,7 @@ export class TravelWindow {
     // The picture is a child of the map area; a resize takes it out before
     // the area is destroyed (see #takeApart).
     let mapArea = new Container({
-      children: [this.#mapPicture, ...this.#placeButtons.values()],
+      children: [this.#mapPicture, ...this.#locationButtons.values()],
       layout: mapSize,
     });
 
@@ -598,22 +608,23 @@ export class TravelWindow {
     return {body, backParent, destinationRoom, frame, mapArea, row, slot, title, titleBlock};
   }
 
-  // The places' buttons centred on their pixels, pushed apart and off the
-  // light, in the order of the place data. The journey's own place has none.
-  #placeButtonCorners(
+  // The locations' buttons centred on their pixels, pushed apart and off the
+  // light, in the order of the location data. The journey's own location has
+  // none.
+  #locationButtonCorners(
     frame: MapFrame,
     you: {x: number; y: number} | null,
   ): Map<string, {x: number; y: number}> {
-    let places = this.#places.filter(({id}) => id !== this.#from);
+    let locations = this.#locations.filter(({id}) => id !== this.#from);
     let topLefts = placeMapButtons(
-      places.map(({point}) => toMapPixel(frame, point)),
+      locations.map(({point}) => toMapPixel(frame, point)),
       you,
       frame.width,
       frame.height,
     );
     let corners = new Map<string, {x: number; y: number}>();
 
-    for (let [index, {id}] of places.entries()) {
+    for (let [index, {id}] of locations.entries()) {
       let corner = topLefts[index];
 
       if (corner !== undefined) {
@@ -624,15 +635,15 @@ export class TravelWindow {
     return corners;
   }
 
-  // Selects the place's destination of the current way: the destination
+  // Selects the location's destination of the current way: the destination
   // button names it and the dotted line moves to it. The focus stays on the
-  // pressed button. Pressing the selected place changes nothing.
-  #selectPlace(id: string, button: Button): void {
+  // pressed button. Pressing the selected location changes nothing.
+  #selectLocation(id: string, button: Button): void {
     if (this.#isClosing()) {
       return;
     }
 
-    let destination = this.#getDestinations(this.#way).find(({place}) => place.id === id);
+    let destination = this.#getDestinations(this.#way).find(({location}) => location.id === id);
 
     if (destination === undefined || destination === this.#selected) {
       return;
@@ -644,18 +655,18 @@ export class TravelWindow {
   }
 
   // Shows the journey and the current way: the title, the map's layer, where
-  // each place button stands and whether it takes a press, and the selection.
-  // The journey's own place has no button: the light is there.
+  // each location button stands and whether it takes a press, and the
+  // selection. The journey's own location has no button: the light is there.
   #showJourney(): void {
     let {frame, title} = this.#size;
     let you = this.#youPoint === null ? null : toMapPixel(frame, this.#youPoint);
 
-    this.#corners = this.#placeButtonCorners(frame, you);
+    this.#corners = this.#locationButtonCorners(frame, you);
     title.setText(TITLES[this.#way]);
 
     // Enabled or disabled, never built again, so the focus never lands on a
     // button that goes.
-    for (let [id, button] of this.#placeButtons) {
+    for (let [id, button] of this.#locationButtons) {
       let corner = this.#corners.get(id);
 
       button.view.renderable = corner !== undefined;
@@ -705,7 +716,7 @@ export class TravelWindow {
     this.#drawMarks();
   }
 
-  // Makes the way current: the title, the places that take a press, the
+  // Makes the way current: the title, the locations that take a press, the
   // selection and the map's layer change, and the focus stays on the pressed
   // button. Nothing moves. Pressing the current way changes nothing.
   #switchWay(way: Way, button: Button): void {
@@ -725,7 +736,7 @@ export class TravelWindow {
     let {backParent, body, mapArea, row, slot, titleBlock} = this.#size;
 
     row.removeChild(...this.#wayButtons.values());
-    mapArea.removeChild(this.#mapPicture, ...this.#placeButtons.values());
+    mapArea.removeChild(this.#mapPicture, ...this.#locationButtons.values());
     slot.removeChild(this.#destination.button);
     backParent.removeChild(this.#back);
     this.#panel.removeChild(titleBlock, body);
@@ -733,17 +744,17 @@ export class TravelWindow {
     body.destroy();
   }
 
-  // A destination whose place has no position has no button on the map, yet
-  // the destination button can still take the player there. The checker
-  // reports such a place; the window says so once, when it is built.
+  // A destination whose location has no position has no button on the map,
+  // yet the destination button can still take the player there. The checker
+  // reports such a location; the window says so once, when it is built.
   #warnOfMissingPositions(locationData: LocationData): void {
     let warned = new Set<string>();
 
-    for (let {place} of this.#roomDestinations) {
-      if (locationData[place.id]?.position === undefined && !warned.has(place.id)) {
-        warned.add(place.id);
-        // eslint-disable-next-line no-console -- the running game reports a place the map lacks
-        console.warn(`No position for "${place.id}": it has no button on the map.`);
+    for (let {location} of this.#roomDestinations) {
+      if (locationData[location.id]?.position === undefined && !warned.has(location.id)) {
+        warned.add(location.id);
+        // eslint-disable-next-line no-console -- the running game reports a location the map lacks
+        console.warn(`No position for "${location.id}": it has no button on the map.`);
       }
     }
   }

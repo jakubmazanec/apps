@@ -1,8 +1,7 @@
-import {createWayOut} from '../../core/createWayOut.js';
-import {type Place} from '../../core/place.js';
-import {standIn} from '../../core/prose.js';
-import {defineScript} from '../../core/script.js';
-import {standInPicture} from '../pictures/standInPicture.js';
+import {type Place} from '../../../core/place.js';
+import {standIn} from '../../../core/prose.js';
+import {defineScript} from '../../../core/script.js';
+import {standInPicture} from '../../pictures/standInPicture.js';
 
 // The text of this place is stand-in text: the author replaces standIn by prose when writing
 // the real text. Its limits: no word is longer than 16 characters (every word must fit a line on
@@ -41,16 +40,26 @@ const hall = defineScript({
     `,
   },
 });
-const doors = createWayOut({
-  speaker: DOORS,
-  text: standIn`The doors slide apart, and the cold of the square comes in.`,
-  ways: ['walk', 'tram', 'taxi'],
+const doors = defineScript({
+  start: {
+    speaker: DOORS,
+    text: standIn`The doors slide apart, and the cold of the forecourt comes in.`,
+    choices: [
+      {
+        text: 'Go out',
+        onChoose: (night) => {
+          night.place = 'hlavniNadraziForecourt';
+        },
+      },
+    ],
+  },
 });
 
-export const hlavniNadrazi: Place = {
-  id: 'hlavniNadrazi',
+export const hlavniNadraziHall: Place = {
+  id: 'hlavniNadraziHall',
   name: PLACE_NAME,
   shortName: SHORT_NAME,
+  outdoors: false,
   description,
   picture: standInPicture,
   spots: [

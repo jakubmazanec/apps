@@ -5,11 +5,18 @@ import {afterAll, afterEach, beforeAll, beforeEach, describe, expect, test, vite
 import {type barPicture as barPictureValue} from '../source/game/content/pictures/barPicture.js';
 import {getSceneArea} from '../source/game/core/getSceneArea.js';
 import {getSpotPosition} from '../source/game/core/getSpotPosition.js';
+import {type LocationId} from '../source/game/core/location.js';
 import {type PlaceId} from '../source/game/core/night.js';
 import {type PlacePicture} from '../source/game/screens/placePicture.js';
 import {type StoryWindow} from '../source/game/screens/storyWindow.js';
 import {type TravelWindow} from '../source/game/screens/travelWindow.js';
-import {FIXED_BAR, FIXED_SQUARE, FIXED_STOP, getFixedPlace} from './fixedWorld.js';
+import {
+  FIXED_BAR,
+  FIXED_BAR_LOCATION,
+  FIXED_SQUARE,
+  FIXED_STOP,
+  getFixedPlace,
+} from './fixedWorld.js';
 import {
   bootGame,
   describeFocus,
@@ -182,14 +189,14 @@ describe('night screen places', {timeout: 180_000}, () => {
     );
   }
 
-  // Picks a destination of the travel window: presses the place's button on
+  // Picks a destination of the travel window: presses the location's button on
   // the map, which selects it, and then the destination button.
-  async function pickDestination(travelWindow: TravelWindow, place: PlaceId): Promise<void> {
+  async function pickDestination(travelWindow: TravelWindow, location: LocationId): Promise<void> {
     let {ui} = harness.nightScreen;
-    let button = getTravelParts(travelWindow).places.get(place);
+    let button = getTravelParts(travelWindow).locations.get(location);
 
     if (button === undefined) {
-      throw new Error(`The travel window's map has no "${place}" button!`);
+      throw new Error(`The travel window's map has no button for the location "${location}"!`);
     }
 
     ui.focus(button);
@@ -228,7 +235,7 @@ describe('night screen places', {timeout: 180_000}, () => {
 
   // Leaves the square by a way out's choice and a destination, and returns the
   // journey's window.
-  async function startJourney(choice: string, destination: PlaceId): Promise<StoryWindow> {
+  async function startJourney(choice: string, destination: LocationId): Promise<StoryWindow> {
     await chooseWayOut(choice);
     await pickDestination(await waitForTravelWindow(), destination);
 
@@ -495,7 +502,7 @@ describe('night screen places', {timeout: 180_000}, () => {
 
     let oldButtons = [getPlaceButton(harness), ...contents.spotButtons];
     // A taxi to the bar: 6 minutes and 120 Kč.
-    let storyWindow = await startJourney('Take a taxi', FIXED_BAR);
+    let storyWindow = await startJourney('Take a taxi', FIXED_BAR_LOCATION);
 
     // The screen writes the status in its update, after the journey has changed the night.
     await vitest.waitFor(
@@ -622,9 +629,9 @@ describe('night screen places', {timeout: 180_000}, () => {
         let speaker = storyWindow?.dialogue.node?.speaker;
 
         if (travelWindow.modal.state === 'open') {
-          // Two frames: the place's button selects it, then the destination button travels.
-          let {destination, places} = getTravelParts(travelWindow);
-          let target = hasSelected ? destination : (places.get(FIXED_BAR) ?? null);
+          // Two frames: the location's button selects it, then the destination button travels.
+          let {destination, locations} = getTravelParts(travelWindow);
+          let target = hasSelected ? destination : (locations.get(FIXED_BAR_LOCATION) ?? null);
 
           if (target === null) {
             throw new Error('The travel window has no button to press!');
@@ -913,7 +920,7 @@ describe('night screen places', {timeout: 180_000}, () => {
     await restartAt(harness, FIXED_SQUARE);
     await closeStory();
 
-    let storyWindow = await startJourney('Walk', FIXED_BAR);
+    let storyWindow = await startJourney('Walk', FIXED_BAR_LOCATION);
 
     try {
       await setViewport(harness, 292, 524);
@@ -999,7 +1006,7 @@ describe('night screen places', {timeout: 180_000}, () => {
 
     let travelWindow = await waitForTravelWindow();
 
-    await pickDestination(travelWindow, FIXED_BAR);
+    await pickDestination(travelWindow, FIXED_BAR_LOCATION);
     await waitForStoryWindow();
 
     let builtAhead = await waitForNextPlace(FIXED_BAR);
@@ -1092,7 +1099,7 @@ describe('night screen places', {timeout: 180_000}, () => {
       await restartAt(harness, FIXED_SQUARE);
       await closeStory();
 
-      let storyWindow = await startJourney('Walk', FIXED_BAR);
+      let storyWindow = await startJourney('Walk', FIXED_BAR_LOCATION);
       let builtAhead = await waitForNextPlace(FIXED_BAR);
 
       nightScreen.contents.night.place = 'nowhere' as PlaceId;

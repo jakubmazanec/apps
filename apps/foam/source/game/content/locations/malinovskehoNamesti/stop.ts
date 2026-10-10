@@ -1,8 +1,8 @@
-import {createWayOut} from '../../core/createWayOut.js';
-import {type Place} from '../../core/place.js';
-import {standIn} from '../../core/prose.js';
-import {defineScript} from '../../core/script.js';
-import {standInPicture} from '../pictures/standInPicture.js';
+import {createWayOut} from '../../../core/createWayOut.js';
+import {type Place} from '../../../core/place.js';
+import {standIn} from '../../../core/prose.js';
+import {defineScript} from '../../../core/script.js';
+import {standInPicture} from '../../pictures/standInPicture.js';
 
 // The text of this place is stand-in text: the author replaces standIn by prose when writing
 // the real text. Its limits: no word is longer than 16 characters (every word must fit a line on
@@ -49,6 +49,7 @@ export const malinovskehoNamesti: Place = {
   id: 'malinovskehoNamesti',
   name: PLACE_NAME,
   shortName: SHORT_NAME,
+  outdoors: true,
   description,
   picture: standInPicture,
   spots: [

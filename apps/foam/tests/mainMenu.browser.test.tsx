@@ -548,8 +548,8 @@ describe('main menu', () => {
     }
   });
 
-  // The game's own content: the night starts in the train. The id, not a
-  // sentence, so the test holds when the text is written.
+  // The game's own content: the night starts in the train at 16:00. The id,
+  // not a sentence, so the test holds when the text is written.
   test('New Game shows the night screen in the train', async () => {
     let {nightScreen} = await import('../source/game/screens/nightScreen.js');
 
@@ -561,5 +561,6 @@ describe('main menu', () => {
     );
 
     expect(nightScreen.contents.place?.id).toBe('train');
+    expect(readText(nightScreen.contents.statusText)).toBe('16:00   350 Kč   0.0');
   });
 });

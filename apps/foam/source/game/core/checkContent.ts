@@ -4,6 +4,7 @@ import {getExpectedJourneys} from './getExpectedJourneys.js';
 import {getLabelRoom, WORD_ROOM} from './getLabelRoom.js';
 import {getMapPoint} from './getMapPoint.js';
 import {NIGHT_END, NIGHT_START} from './hours.js';
+import {type Location} from './location.js';
 import {MARK, stripMarks} from './markedText.js';
 import {createNight, type Night, type PlaceId, roll, type Way} from './night.js';
 import {type Place} from './place.js';
@@ -11,6 +12,7 @@ import {asChoice} from './script.js';
 import {type LocationData, type MapData, type Travel} from './travel.js';
 
 export type Content = {
+  locations: Readonly<Record<string, Location>>;
   places: Readonly<Record<string, Place>>;
   journeys: Record<Way, RunnableDialogueScript<Night>>;
   locationData: LocationData;
@@ -18,9 +20,9 @@ export type Content = {
   map: MapData;
 };
 
-// A place's button and its neighbourhood must lie inside the map, with this much to spare.
+// A location's button and its neighbourhood must lie inside the map, with this much to spare.
 const MAP_MARGIN = 2000;
-// The train moves, so it has no position and no entry in locations.json.
+// The train's location moves, so it has no position and no entry in locations.json.
 const OFF_THE_MAP = new Set(['train']);
 // A night's start for a text that is a function: any time and sum will do.
 const CHECK_MINUTES = 1020;
@@ -293,11 +295,17 @@ export function checkContent(content: Content): string[] {
     }
   }
 
+  for (let [id, location] of Object.entries(content.locations)) {
+    if (location.closing !== undefined) {
+      checkScript(`${id}${SEPARATOR}closing`, location.closing);
+    }
+  }
+
   for (let [way, script] of Object.entries(content.journeys)) {
     checkScript(`journeys${SEPARATOR}${way}`, script);
   }
 
-  for (let id of placeIds) {
+  for (let id of Object.keys(content.locations)) {
     if (!OFF_THE_MAP.has(id) && content.locationData[id] === undefined) {
       lines.add(`locations.json: no entry for "${id}"`);
     }
@@ -306,7 +314,7 @@ export function checkContent(content: Content): string[] {
   for (let [id, entry] of Object.entries(content.locationData)) {
     let where = `locations.json${SEPARATOR}${id}`;
 
-    if (content.places[id] === undefined) {
+    if (content.locations[id] === undefined) {
       lines.add(`locations.json: "${id}" is not a location`);
     }
 

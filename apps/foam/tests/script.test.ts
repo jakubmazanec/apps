@@ -11,7 +11,7 @@ import {
   type Script,
 } from '../source/game/core/script.js';
 
-const START = {place: 'rotorBar', minutes: 1180, money: 350} as const;
+const START = {place: 'rotorBarRoom', minutes: 1180, money: 350} as const;
 
 function enter(script: Script<string>, night: Night): Dialogue<Night> {
   let dialogue = new Dialogue({script, context: night});
@@ -23,7 +23,7 @@ function enter(script: Script<string>, night: Night): Dialogue<Night> {
 
 describe(defineScript, () => {
   test('the press rolls, takes the price, moves the clock and adds the drinks, then calls onChoose', () => {
-    let night = createNight({place: 'rotorBar', minutes: 1180, money: 350});
+    let night = createNight({place: 'rotorBarRoom', minutes: 1180, money: 350});
     let seen: Array<[number, number]> = [];
     let onChoose = vitest.fn<(night: Night) => void>((current) => {
       seen.push([current.money, current.minutes]);

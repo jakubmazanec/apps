@@ -2,6 +2,8 @@ import {defineDialogueScript} from 'tellurion';
 
 import {createWayOut} from '../source/game/core/createWayOut.js';
 import {getMapPosition} from '../source/game/core/getMapPoint.js';
+import {isOpenAt} from '../source/game/core/hours.js';
+import {type Location, type LocationId} from '../source/game/core/location.js';
 import {type Night, type PlaceId} from '../source/game/core/night.js';
 import {type Place} from '../source/game/core/place.js';
 import {defineScript} from '../source/game/core/script.js';
@@ -14,13 +16,42 @@ import {
 } from '../source/game/core/travel.js';
 import {PROOF_PICTURE} from './proofPicture.js';
 
-// The tests' own places and journeys, with fixed text and numbers, so that the
-// night screen's tests do not change when the game's content does. The ids are
-// not the game's, so they are cast to its id type.
+// The tests' own locations, places and journeys, with fixed text and numbers,
+// so that the night screen's tests do not change when the game's content does.
+// The ids are not the game's, so they are cast to its id types. A location of
+// one place has the place's id.
 export const FIXED_BAR = 'testBar' as PlaceId;
+export const FIXED_PAVEMENT = 'testPavement' as PlaceId;
 export const FIXED_SQUARE = 'testSquare' as PlaceId;
 export const FIXED_STOP = 'testStop' as PlaceId;
 export const FIXED_BROKEN = 'testBroken' as PlaceId;
+export const FIXED_BAR_LOCATION = 'testBar' as LocationId;
+export const FIXED_SQUARE_LOCATION = 'testSquare' as LocationId;
+export const FIXED_STOP_LOCATION = 'testStop' as LocationId;
+export const FIXED_BROKEN_LOCATION = 'testBroken' as LocationId;
+
+export const FIXED_ORIGIN: Position = {latitude: 49.2, longitude: 16.6};
+
+/** The position `x` metres east and `y` metres south of the fixed world's origin. */
+export function at(x: number, y: number): Position {
+  return getMapPosition({x, y}, FIXED_ORIGIN);
+}
+
+// The pavement's door reads the bar's hours here, so the data comes before the
+// places. The broken place's location has no entry. No two lines of the map
+// cross where a test reads. The bar is closed from 23:00 to 23:30: the night
+// starts at 19:40, and the tests stay before 23:00 unless they move the clock.
+export const fixedLocationData: LocationData = {
+  [FIXED_BAR_LOCATION]: {
+    position: at(-300, -200),
+    hours: [
+      [960, 1380],
+      [1410, 1920],
+    ],
+  },
+  [FIXED_SQUARE_LOCATION]: {position: at(300, -200)},
+  [FIXED_STOP_LOCATION]: {tramStop: 'The stop', position: at(0, 300)},
+};
 
 // Temporary text for an invented place. Its limits: no word is longer than 16
 // characters (every word must fit a line on the narrowest screen), nobody and
@@ -132,7 +163,13 @@ const door = defineScript({
         'The door is heavy, with a brass handle worn pale. Through the glass you can see the ' +
         'street, wet and empty under the lamps.',
       choices: [
-        {text: 'Step outside', next: 'outside'},
+        {
+          text: 'Go out',
+          onChoose: (night) => {
+            night.place = FIXED_PAVEMENT;
+          },
+          next: 'outside',
+        },
         {
           text: 'Knock on the glass',
           minutes: 5,
@@ -144,9 +181,7 @@ const door = defineScript({
     },
     outside: {
       speaker: DOOR,
-      text:
-        'The cold wakes you at once. You stand a minute under the sign and breathe, then the ' +
-        'noise behind the door pulls you back in.',
+      text: 'The cold wakes you at once. You stand a minute under the sign and breathe.',
     },
     answered: {
       speaker: DOOR,
@@ -161,6 +196,7 @@ const door = defineScript({
 const testBar: Place = {
   id: FIXED_BAR,
   name: BAR_NAME,
+  outdoors: false,
   description: barDescription,
   picture: PROOF_PICTURE,
   spots: [
@@ -170,11 +206,67 @@ const testBar: Place = {
     {label: DOOR, x: 0.91, y: 0.4, script: door},
   ],
 };
+// The street outside the bar, with the bar's door, open or locked by the bar's hours.
+const testPavement: Place = {
+  id: FIXED_PAVEMENT,
+  name: 'The pavement',
+  outdoors: true,
+  description: defineDialogueScript<Night>()({
+    start: {
+      speaker: 'The pavement',
+      text:
+        'The pavement outside the bar is narrow and wet, and the sign over the door hums to ' +
+        'itself. A taxi idles at the corner with its light on.',
+    },
+  }),
+  picture: PROOF_PICTURE,
+  spots: [
+    {
+      label: BAR_NAME,
+      x: 0.3,
+      y: 0.3,
+      script: defineScript({
+        start: (night) =>
+          isOpenAt(fixedLocationData[FIXED_BAR_LOCATION]?.hours, night.minutes) ? 'open' : 'locked',
+        nodes: {
+          open: {
+            speaker: BAR_NAME,
+            text: 'Warm air and the radio come out whenever somebody opens the door.',
+            choices: [
+              {
+                text: 'Go in',
+                onChoose: (night) => {
+                  night.place = FIXED_BAR;
+                },
+              },
+              {text: 'Stay outside'},
+            ],
+          },
+          locked: {
+            speaker: BAR_NAME,
+            text: 'The door is locked, and the chairs stand on the tables behind the glass.',
+          },
+        },
+      }),
+    },
+    {
+      label: 'The street',
+      x: 0.5,
+      y: 0.8,
+      script: createWayOut({
+        speaker: 'The street',
+        text: 'The street runs off towards the square.',
+        ways: ['walk', 'taxi'],
+      }),
+    },
+  ],
+};
 // A place with a short name, a way out and two scripts that move the player.
 const testSquare: Place = {
   id: FIXED_SQUARE,
   name: 'The square by the old market',
   shortName: 'The square',
+  outdoors: true,
   description: defineDialogueScript<Night>()({
     start: {
       speaker: 'The square',
@@ -227,6 +319,7 @@ const testSquare: Place = {
 const testStop: Place = {
   id: FIXED_STOP,
   name: 'The stop',
+  outdoors: true,
   description: defineDialogueScript<Night>()({
     start: {
       speaker: 'The stop',
@@ -265,6 +358,7 @@ const testStop: Place = {
 const testBroken: Place = {
   id: FIXED_BROKEN,
   name: 'The broken place',
+  outdoors: true,
   description: defineDialogueScript<Night>()({
     start: {
       speaker: 'The broken place',
@@ -277,40 +371,67 @@ const testBroken: Place = {
 
 export const fixedPlaces: Record<string, Place> = {
   [FIXED_BAR]: testBar,
+  [FIXED_PAVEMENT]: testPavement,
   [FIXED_SQUARE]: testSquare,
   [FIXED_STOP]: testStop,
   [FIXED_BROKEN]: testBroken,
 };
 
-export const fixedTravel: Travel = {
-  [FIXED_BAR]: {
-    walk: {[FIXED_SQUARE]: {minutes: 12}},
-    tram: {[FIXED_STOP]: {minutes: 9, price: 25}},
-    taxi: {[FIXED_SQUARE]: {minutes: 6, price: 120}},
+// The bar is its room and the pavement outside, with hours and a closing; each
+// other place is a location of its own.
+export const fixedLocations: Record<string, Location> = {
+  [FIXED_BAR_LOCATION]: {
+    id: FIXED_BAR_LOCATION,
+    name: BAR_NAME,
+    places: [testBar, testPavement],
+    arrival: FIXED_BAR,
+    outside: FIXED_PAVEMENT,
+    closing: defineScript({
+      start: {
+        speaker: 'Closing time',
+        text:
+          'The radio goes off and the lights come up, and the bartender holds the door for you ' +
+          'without a word.',
+      },
+    }),
   },
-  [FIXED_SQUARE]: {
-    walk: {[FIXED_BAR]: {minutes: 12}},
-    tram: {[FIXED_STOP]: {minutes: 8, price: 25}},
-    taxi: {[FIXED_BAR]: {minutes: 6, price: 120}},
+  [FIXED_SQUARE_LOCATION]: {
+    id: FIXED_SQUARE_LOCATION,
+    name: testSquare.name,
+    places: [testSquare],
+    arrival: FIXED_SQUARE,
   },
-  [FIXED_STOP]: {
-    walk: {[FIXED_BAR]: {minutes: 4}, [FIXED_SQUARE]: {minutes: 7}},
-    taxi: {[FIXED_BAR]: {minutes: 5, price: 90}, [FIXED_SQUARE]: {minutes: 5, price: 60}},
+  [FIXED_STOP_LOCATION]: {
+    id: FIXED_STOP_LOCATION,
+    name: testStop.name,
+    places: [testStop],
+    arrival: FIXED_STOP,
+  },
+  [FIXED_BROKEN_LOCATION]: {
+    id: FIXED_BROKEN_LOCATION,
+    name: testBroken.name,
+    places: [testBroken],
+    arrival: FIXED_BROKEN,
   },
 };
 
-export const FIXED_ORIGIN: Position = {latitude: 49.2, longitude: 16.6};
-
-/** The position `x` metres east and `y` metres south of the fixed world's origin. */
-export function at(x: number, y: number): Position {
-  return getMapPosition({x, y}, FIXED_ORIGIN);
-}
-
-// testBroken has no entry. No two lines of the map cross where a test reads.
-export const fixedLocationData: LocationData = {
-  [FIXED_BAR]: {position: at(-300, -200)},
-  [FIXED_SQUARE]: {position: at(300, -200)},
-  [FIXED_STOP]: {tramStop: 'The stop', position: at(0, 300)},
+// The tram only from the stop, the one location with a tram stop, which reaches no other stop.
+export const fixedTravel: Travel = {
+  [FIXED_BAR_LOCATION]: {
+    walk: {[FIXED_SQUARE_LOCATION]: {minutes: 12}},
+    taxi: {[FIXED_SQUARE_LOCATION]: {minutes: 6, price: 120}},
+  },
+  [FIXED_SQUARE_LOCATION]: {
+    walk: {[FIXED_BAR_LOCATION]: {minutes: 12}},
+    taxi: {[FIXED_BAR_LOCATION]: {minutes: 6, price: 120}},
+  },
+  [FIXED_STOP_LOCATION]: {
+    walk: {[FIXED_BAR_LOCATION]: {minutes: 4}, [FIXED_SQUARE_LOCATION]: {minutes: 7}},
+    taxi: {
+      [FIXED_BAR_LOCATION]: {minutes: 5, price: 90},
+      [FIXED_SQUARE_LOCATION]: {minutes: 5, price: 60},
+    },
+  },
 };
 
 export const fixedMap: MapData = {
@@ -325,6 +446,7 @@ export const fixedMap: MapData = {
 };
 
 export const fixedStart: NightStart = {
+  locations: fixedLocations,
   places: fixedPlaces,
   locationData: fixedLocationData,
   travel: fixedTravel,

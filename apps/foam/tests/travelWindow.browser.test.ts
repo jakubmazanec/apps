@@ -4,9 +4,9 @@ import {afterAll, afterEach, beforeAll, describe, expect, test, vitest} from 'vi
 import locationData from '../source/game/content/data/locations.json';
 import map from '../source/game/content/data/map.json';
 import travel from '../source/game/content/data/travel.json';
+import {locations, places} from '../source/game/content/locations.js';
 import {nightStart} from '../source/game/content/nightStart.js';
 import {type barPicture as barPictureValue} from '../source/game/content/pictures/barPicture.js';
-import {places} from '../source/game/content/places.js';
 import {fitMapFrame, MAP_INSET, toMapPixel} from '../source/game/core/fitMapFrame.js';
 import {getMapPoint} from '../source/game/core/getMapPoint.js';
 import {BUTTON_PADDING_X, LINE_HEIGHT, WINDOW_PADDING_Y} from '../source/game/core/getSceneArea.js';
@@ -15,18 +15,20 @@ import {
   getTravelLayout,
   TITLE_HEIGHT as LAYOUT_TITLE_HEIGHT,
 } from '../source/game/core/getTravelLayout.js';
-import {type Night, type PlaceId, type Way} from '../source/game/core/night.js';
+import {type LocationId} from '../source/game/core/location.js';
+import {type Night, type Way} from '../source/game/core/night.js';
 import {palette} from '../source/game/core/palette.js';
 import {BUTTON_GAP} from '../source/game/core/placeMapButtons.js';
 import {type Destination, type LocationData, type NightStart} from '../source/game/core/travel.js';
 import {type MapPicture} from '../source/game/screens/mapPicture.js';
 import {type TravelWindow} from '../source/game/screens/travelWindow.js';
 import {
-  FIXED_BAR,
-  FIXED_SQUARE,
+  FIXED_BAR_LOCATION,
+  FIXED_SQUARE_LOCATION,
   FIXED_STOP,
+  FIXED_STOP_LOCATION,
   fixedLocationData,
-  getFixedPlace,
+  fixedLocations,
 } from './fixedWorld.js';
 import {
   bootGame,
@@ -95,11 +97,11 @@ function readDestination(travelWindow: TravelWindow): [string, string] | null {
   return [readText(name), readText(numbers)];
 }
 
-function getPlaceButton(travelWindow: TravelWindow, place: PlaceId): Button {
-  let button = getTravelParts(travelWindow).places.get(place);
+function getLocationButton(travelWindow: TravelWindow, location: LocationId): Button {
+  let button = getTravelParts(travelWindow).locations.get(location);
 
   if (button === undefined) {
-    throw new Error(`The map has no button for "${place}"!`);
+    throw new Error(`The map has no button for the location "${location}"!`);
   }
 
   return button;
@@ -196,9 +198,9 @@ describe('travel window', {timeout: 180_000}, () => {
     way: Way,
     {
       ways = ALL_WAYS,
-      from = FIXED_STOP,
+      from = FIXED_STOP_LOCATION,
       night = harness.nightScreen.contents.night,
-    }: {ways?: readonly Way[]; from?: PlaceId; night?: Night} = {},
+    }: {ways?: readonly Way[]; from?: LocationId; night?: Night} = {},
   ): TravelWindow {
     builtWindow.open({from, way, ways, night});
 
@@ -213,9 +215,9 @@ describe('travel window', {timeout: 180_000}, () => {
     {
       ways = ALL_WAYS,
       start = nightStart,
-      from = FIXED_STOP,
+      from = FIXED_STOP_LOCATION,
       night = harness.nightScreen.contents.night,
-    }: {ways?: readonly Way[]; start?: NightStart; from?: PlaceId; night?: Night} = {},
+    }: {ways?: readonly Way[]; start?: NightStart; from?: LocationId; night?: Night} = {},
   ): TravelWindow {
     let {game, nightScreen} = harness;
 
@@ -266,11 +268,11 @@ describe('travel window', {timeout: 180_000}, () => {
   // prints a name and not a whole Button.
   function describeTravelFocus(openWindow: TravelWindow): string {
     let {focused} = harness.nightScreen.ui;
-    let {destination, places: placeButtons} = getTravelParts(openWindow);
-    let place = [...placeButtons].find(([, button]) => button === focused)?.[0];
+    let {destination, locations: locationButtons} = getTravelParts(openWindow);
+    let location = [...locationButtons].find(([, button]) => button === focused)?.[0];
 
-    if (place !== undefined) {
-      return `place ${place}`;
+    if (location !== undefined) {
+      return `location ${location}`;
     }
 
     return focused !== null && focused === destination ? 'destination' : describeFocus(focused);
@@ -295,7 +297,7 @@ describe('travel window', {timeout: 180_000}, () => {
 
   // The light's pixel on a map of the map area's size: the frame fits every
   // position of the start, as the window fits it.
-  function getLight(openWindow: TravelWindow, start: NightStart, from: PlaceId) {
+  function getLight(openWindow: TravelWindow, start: NightStart, from: LocationId) {
     let {width, height} = getBox(harness, getTravelParts(openWindow).mapArea);
     let {origin} = start.map;
     let points = Object.values(start.locationData).flatMap(({position}) =>
@@ -344,14 +346,14 @@ describe('travel window', {timeout: 180_000}, () => {
     expect(describeFocus(ui.focused)).toBe('The bar');
     expect(ui.focused).toBe(parts.destination);
     expect(ui.isRingVisible).toBe(true);
-    // Every place with a position but the stop, in the order of the place data.
-    expect([...parts.places.keys()]).toEqual([FIXED_BAR, FIXED_SQUARE]);
+    // Every location with a position but the stop, in the order of the location data.
+    expect([...parts.locations.keys()]).toEqual([FIXED_BAR_LOCATION, FIXED_SQUARE_LOCATION]);
 
     await waitForPanel(opened, WIDE_WINDOW);
 
     let mapArea = getBox(harness, parts.mapArea);
 
-    for (let button of parts.places.values()) {
+    for (let button of parts.locations.values()) {
       let box = getBox(harness, button);
 
       expect([box.width, box.height]).toEqual([8, 8]);
@@ -360,10 +362,10 @@ describe('travel window', {timeout: 180_000}, () => {
     }
   });
 
-  test("a place's button selects its place and keeps the focus", () => {
+  test("a location's button selects its location and keeps the focus", () => {
     let {ui} = harness.nightScreen;
     let opened = openTravel('walk');
-    let square = getPlaceButton(opened, FIXED_SQUARE);
+    let square = getLocationButton(opened, FIXED_SQUARE_LOCATION);
     let destination = getDestinationButton(opened);
     let expectSquare = (): void => {
       // The side column is 120 wide: the name wraps in the 108 inside the button's padding.
@@ -376,23 +378,23 @@ describe('travel window', {timeout: 180_000}, () => {
     ui.focus(square);
     ui.activate();
     expectSquare();
-    // The selected place again changes nothing.
+    // The selected location again changes nothing.
     ui.activate();
     expectSquare();
   });
 
-  test('a disabled place takes no press and no focus', () => {
+  test('a disabled location takes no press and no focus', () => {
     let {ui} = harness.nightScreen;
     let opened = openTravel('walk');
 
     ui.focus(getWayButton(opened, 'tram'));
     ui.activate();
 
-    let {places: placeButtons} = getTravelParts(opened);
+    let {locations: locationButtons} = getTravelParts(opened);
 
-    expect(placeButtons.size).toBe(2);
+    expect(locationButtons.size).toBe(2);
 
-    for (let button of placeButtons.values()) {
+    for (let button of locationButtons.values()) {
       expect(button.isDisabled).toBe(true);
       expect(button.isFocusable).toBe(false);
 
@@ -403,7 +405,7 @@ describe('travel window', {timeout: 180_000}, () => {
     expect(getTravelParts(opened).destination).toBeNull();
   });
 
-  test("a way's button changes the title, the layer, the places and the selection, and moves nothing", async () => {
+  test("a way's button changes the title, the layer, the locations and the selection, and moves nothing", async () => {
     let {ui} = harness.nightScreen;
     let opened = openTravel('walk');
 
@@ -416,7 +418,7 @@ describe('travel window', {timeout: 180_000}, () => {
     };
     let boxesBefore = getBoxes();
 
-    ui.focus(getPlaceButton(opened, FIXED_SQUARE));
+    ui.focus(getLocationButton(opened, FIXED_SQUARE_LOCATION));
     await press('Enter');
 
     expect(readDestination(opened)?.[0]).toBe('The square by the\nold market');
@@ -434,7 +436,7 @@ describe('travel window', {timeout: 180_000}, () => {
     expect(describeFocus(ui.focused)).toBe('Taxi');
     expect(ui.focused).toBe(taxiButton);
 
-    for (let button of getTravelParts(opened).places.values()) {
+    for (let button of getTravelParts(opened).locations.values()) {
       expect(button.isDisabled).toBe(false);
     }
 
@@ -467,7 +469,7 @@ describe('travel window', {timeout: 180_000}, () => {
     await waitForClosed();
 
     expect(onClosed).toHaveBeenCalledExactlyOnceWith({
-      place: getFixedPlace(FIXED_BAR),
+      location: fixedLocations[FIXED_BAR_LOCATION],
       way: 'walk',
       minutes: 4,
       price: 0,
@@ -477,7 +479,7 @@ describe('travel window', {timeout: 180_000}, () => {
   test('the destination button reports the destination as the fade starts', async () => {
     let {ui} = harness.nightScreen;
     let opened = openTravel('walk');
-    let bar = {place: getFixedPlace(FIXED_BAR), way: 'walk', minutes: 4, price: 0};
+    let bar = {location: fixedLocations[FIXED_BAR_LOCATION], way: 'walk', minutes: 4, price: 0};
 
     ui.focus(getDestinationButton(opened));
     ui.activate();
@@ -523,7 +525,7 @@ describe('travel window', {timeout: 180_000}, () => {
 
     await waitForPanel(walk, WIDE_WINDOW);
 
-    let walkLight = getLight(walk, nightStart, FIXED_STOP);
+    let walkLight = getLight(walk, nightStart, FIXED_STOP_LOCATION);
     let walkPixels = readMap(walk);
 
     expect(getColor(walkPixels, walkLight.x, walkLight.y)).toBe(palette.white);
@@ -545,7 +547,7 @@ describe('travel window', {timeout: 180_000}, () => {
     await waitForPanel(tram, WIDE_WINDOW);
 
     // No dotted line: the railway, the only other line in `dim`, lies about 40 pixels away.
-    let light = getLight(tram, nightStart, FIXED_STOP);
+    let light = getLight(tram, nightStart, FIXED_STOP_LOCATION);
     let pixels = readMap(tram);
 
     expect(getColor(pixels, light.x, light.y)).toBe(palette.white);
@@ -572,14 +574,14 @@ describe('travel window', {timeout: 180_000}, () => {
 
     let box = getBox(harness, destination);
 
-    ui.focus(getPlaceButton(opened, FIXED_SQUARE));
+    ui.focus(getLocationButton(opened, FIXED_SQUARE_LOCATION));
     ui.activate();
 
     expect(readDestination(opened)).toEqual(['The square by the\nold market', '5 min  60 Kč']);
     expect(getDestinationButton(opened)).toBe(destination);
     expect(destination.isDisabled).toBe(false);
 
-    ui.focus(getPlaceButton(opened, FIXED_BAR));
+    ui.focus(getLocationButton(opened, FIXED_BAR_LOCATION));
     ui.activate();
 
     expect(destination.isDisabled).toBe(true);
@@ -599,7 +601,7 @@ describe('travel window', {timeout: 180_000}, () => {
     let {ui} = harness.nightScreen;
     let opened = openTravel('walk');
     let {title} = getTravelParts(opened);
-    let square = getPlaceButton(opened, FIXED_SQUARE);
+    let square = getLocationButton(opened, FIXED_SQUARE_LOCATION);
     let taxiButton = getWayButton(opened, 'taxi');
     let destination = getDestinationButton(opened);
 
@@ -625,11 +627,11 @@ describe('travel window', {timeout: 180_000}, () => {
     expect(onClosed).toHaveBeenCalledExactlyOnceWith(null);
   });
 
-  test('real taps select a place, switch the way and travel', async () => {
+  test('real taps select a location, switch the way and travel', async () => {
     let opened = openTravel('walk');
 
     await waitForPanel(opened, WIDE_WINDOW);
-    await tap(harness, getBox(harness, getPlaceButton(opened, FIXED_SQUARE)));
+    await tap(harness, getBox(harness, getLocationButton(opened, FIXED_SQUARE_LOCATION)));
 
     expect(readDestination(opened)?.[0]).toBe('The square by the\nold market');
 
@@ -638,7 +640,7 @@ describe('travel window', {timeout: 180_000}, () => {
     expect(opened.way).toBe('taxi');
     expect(readDestination(opened)?.[0]).toBe('The bar');
 
-    await tap(harness, getBox(harness, getPlaceButton(opened, FIXED_SQUARE)));
+    await tap(harness, getBox(harness, getLocationButton(opened, FIXED_SQUARE_LOCATION)));
 
     expect(readDestination(opened)?.[0]).toBe('The square by the\nold market');
 
@@ -646,7 +648,7 @@ describe('travel window', {timeout: 180_000}, () => {
     await waitForClosed();
 
     expect(onClosed).toHaveBeenCalledExactlyOnceWith({
-      place: getFixedPlace(FIXED_SQUARE),
+      location: fixedLocations[FIXED_SQUARE_LOCATION],
       way: 'taxi',
       minutes: 5,
       price: 60,
@@ -735,7 +737,7 @@ describe('travel window', {timeout: 180_000}, () => {
       ui.focus(getWayButton(opened, 'taxi'));
       ui.activate();
 
-      let oldSquare = getPlaceButton(opened, FIXED_SQUARE);
+      let oldSquare = getLocationButton(opened, FIXED_SQUARE_LOCATION);
 
       ui.focus(oldSquare);
       ui.activate();
@@ -758,7 +760,7 @@ describe('travel window', {timeout: 180_000}, () => {
       expect(readText(parts.title)).toBe('By taxi');
       expect(readDestination(opened)).toEqual(['The square by the\nold market', '5 min  60 Kč']);
       // The controls stay through a resize; only their containers are built again.
-      expect(getPlaceButton(opened, FIXED_SQUARE)).toBe(oldSquare);
+      expect(getLocationButton(opened, FIXED_SQUARE_LOCATION)).toBe(oldSquare);
       expect(ui.focused).toBe(oldSquare);
 
       // The destination button, Back and a way keep the focus too, across a
@@ -784,9 +786,9 @@ describe('travel window', {timeout: 180_000}, () => {
     }
   });
 
-  test('the arrow keys reach the places and the destination button', async () => {
+  test('the arrow keys reach the locations and the destination button', async () => {
     try {
-      // Stacked: the places lie in the map above the destination button.
+      // Stacked: the locations lie in the map above the destination button.
       await setViewport(harness, 390, 700);
 
       let stacked = openTravel('walk');
@@ -794,14 +796,14 @@ describe('travel window', {timeout: 180_000}, () => {
       await waitForPanel(stacked, {width: 187, height: 342});
       await press('ArrowUp');
 
-      expect(describeTravelFocus(stacked)).toMatch(/^place /);
+      expect(describeTravelFocus(stacked)).toMatch(/^location /);
 
       await press('ArrowDown');
 
       expect(describeTravelFocus(stacked)).toBe('destination');
 
       // Side by side: the map lies left of the side column. The fixed world's
-      // places lie at the map's top, level with the row of ways, so they are
+      // locations lie at the map's top, level with the row of ways, so they are
       // left of Walk; left of the destination button, under the row, Walk is
       // nearer than any of them.
       await setViewport(harness, 960, 540);
@@ -812,7 +814,7 @@ describe('travel window', {timeout: 180_000}, () => {
       harness.nightScreen.ui.focus(getWayButton(sideBySide, 'walk'));
       await press('ArrowLeft');
 
-      expect(describeTravelFocus(sideBySide)).toMatch(/^place /);
+      expect(describeTravelFocus(sideBySide)).toMatch(/^location /);
 
       await press('ArrowRight');
 
@@ -833,7 +835,7 @@ describe('travel window', {timeout: 180_000}, () => {
     // 600 × 700 CSS pixels are 300 × 350 art pixels: stacked, and not narrow.
     let layout = getTravelLayout(300, 350);
     // A new selection's texts are laid out in the next frames.
-    let expectNumbersLevelWithName = async (place: PlaceId): Promise<void> => {
+    let expectNumbersLevelWithName = async (location: LocationId): Promise<void> => {
       await vitest.waitFor(
         () => {
           let button = getDestinationButton(opened);
@@ -841,7 +843,7 @@ describe('travel window', {timeout: 180_000}, () => {
           let buttonBox = getBox(harness, button);
           let numbersBox = getBox(harness, numbers);
 
-          expect(readText(name)).toBe(getFixedPlace(place).name);
+          expect(readText(name)).toBe(fixedLocations[location]?.name);
           expect(numbersBox.top).toBe(getBox(harness, name).top);
           expect(numbersBox.left + numbersBox.width).toBe(
             buttonBox.left + buttonBox.width - BUTTON_PADDING_X,
@@ -858,20 +860,27 @@ describe('travel window', {timeout: 180_000}, () => {
       opened.resize(300, 350);
       await waitForPanel(opened, layout.window);
       // The bar, which the window opens on, and then the square.
-      await expectNumbersLevelWithName(FIXED_BAR);
-      harness.nightScreen.ui.focus(getPlaceButton(opened, FIXED_SQUARE));
+      await expectNumbersLevelWithName(FIXED_BAR_LOCATION);
+      harness.nightScreen.ui.focus(getLocationButton(opened, FIXED_SQUARE_LOCATION));
       harness.nightScreen.ui.activate();
-      await expectNumbersLevelWithName(FIXED_SQUARE);
+      await expectNumbersLevelWithName(FIXED_SQUARE_LOCATION);
     } finally {
       await setViewport(harness, 960, 540);
     }
   });
 
-  test("the game's own places fit the narrowest screen", async () => {
+  test("the game's own locations fit the narrowest screen", async () => {
     let gameData: LocationData = locationData;
-    let gameStart: NightStart = {...nightStart, places, travel, locationData: gameData, map};
+    let gameStart: NightStart = {
+      ...nightStart,
+      locations,
+      places,
+      travel,
+      locationData: gameData,
+      map,
+    };
     let froms = Object.entries(gameData).flatMap(([id, entry]) =>
-      entry.position === undefined || !Object.hasOwn(places, id) ? [] : [id as PlaceId],
+      entry.position === undefined || !Object.hasOwn(locations, id) ? [] : [id as LocationId],
     );
     let layout = getTravelLayout(146, 262);
 
@@ -881,7 +890,7 @@ describe('travel window', {timeout: 180_000}, () => {
       await setViewport(harness, 292, 524);
 
       // One window for the game's start shows every journey, as the night screen keeps one.
-      let opened = openTravel('walk', {start: gameStart, from: froms[0] ?? FIXED_STOP});
+      let opened = openTravel('walk', {start: gameStart, from: froms[0] ?? FIXED_STOP_LOCATION});
 
       for (let from of froms) {
         for (let way of ALL_WAYS) {
@@ -890,7 +899,7 @@ describe('travel window', {timeout: 180_000}, () => {
           // Off the UI root at once, as hiding the night screen takes it, and shown again.
           harness.nightScreen.ui.removeOverlay(opened.modal);
           showJourney(opened, way, {from});
-          // The place buttons move in the next layout pass, which the next frame runs.
+          // The location buttons move in the next layout pass, which the next frame runs.
           await nextFrame();
           await waitForPanel(opened, layout.window);
 
@@ -899,7 +908,10 @@ describe('travel window', {timeout: 180_000}, () => {
           let mapArea = getBox(harness, parts.mapArea);
           let slot = getBox(harness, parts.slot);
           let back = getBox(harness, parts.back);
-          let boxes = [...parts.places].map(([id, button]) => ({id, box: getBox(harness, button)}));
+          let boxes = [...parts.locations].map(([id, button]) => ({
+            id,
+            box: getBox(harness, button),
+          }));
           let outside = boxes.filter(
             ({box}) =>
               box.left < mapArea.left ||
@@ -955,19 +967,19 @@ describe('travel window', {timeout: 180_000}, () => {
   });
 
   test('a destination without a position is selected without a button', async () => {
-    let warning = `No position for "${FIXED_BAR}": it has no button on the map.`;
+    let warning = `No position for "${FIXED_BAR_LOCATION}": it has no button on the map.`;
     let warn = vitest.spyOn(console, 'warn').mockImplementation(() => {});
     let countWarnings = () => warn.mock.calls.filter(([message]) => message === warning).length;
     let start: NightStart = {
       ...nightStart,
       locationData: Object.fromEntries(
-        Object.entries(fixedLocationData).filter(([id]) => id !== FIXED_BAR),
+        Object.entries(fixedLocationData).filter(([id]) => id !== FIXED_BAR_LOCATION),
       ),
     };
     // The `dim` pixels within 8 of the light's centre, which only the dotted line has: the frame
     // fits the stop and the square, so the railway, the other line in `dim`, lies about 40 away.
     let countDotsNearLight = (openWindow: TravelWindow): number => {
-      let light = getLight(openWindow, start, FIXED_STOP);
+      let light = getLight(openWindow, start, FIXED_STOP_LOCATION);
       let pixels = readMap(openWindow);
 
       expect(getColor(pixels, light.x, light.y)).toBe(palette.white);
@@ -979,7 +991,7 @@ describe('travel window', {timeout: 180_000}, () => {
       let opened = openTravel('walk', {start});
 
       expect(readDestination(opened)).toEqual(['The bar', '4 min']);
-      expect([...getTravelParts(opened).places.keys()]).toEqual([FIXED_SQUARE]);
+      expect([...getTravelParts(opened).locations.keys()]).toEqual([FIXED_SQUARE_LOCATION]);
       // Once, though walking and a taxi both reach the bar, and not again on a resize.
       expect(countWarnings()).toBe(1);
 
@@ -996,7 +1008,7 @@ describe('travel window', {timeout: 180_000}, () => {
       await waitForClosed();
 
       expect(onClosed).toHaveBeenCalledExactlyOnceWith({
-        place: getFixedPlace(FIXED_BAR),
+        location: fixedLocations[FIXED_BAR_LOCATION],
         way: 'walk',
         minutes: 4,
         price: 0,
@@ -1006,7 +1018,7 @@ describe('travel window', {timeout: 180_000}, () => {
       let second = openTravel('walk', {start});
 
       await waitForPanel(second, WIDE_WINDOW);
-      harness.nightScreen.ui.focus(getPlaceButton(second, FIXED_SQUARE));
+      harness.nightScreen.ui.focus(getLocationButton(second, FIXED_SQUARE_LOCATION));
       harness.nightScreen.ui.activate();
 
       expect(readDestination(second)?.[0]).toBe('The square by the\nold market');
@@ -1017,15 +1029,18 @@ describe('travel window', {timeout: 180_000}, () => {
   });
 
   // The night screen builds one window and shows every journey on it: closing keeps it, and the
-  // next journey moves the light and the place buttons, which stay the same objects.
-  test('one window shows journeys from different places, each without a button of its own', async () => {
+  // next journey moves the light and the location buttons, which stay the same objects.
+  test('one window shows journeys from different locations, each without a button of its own', async () => {
     let {ui} = harness.nightScreen;
     let opened = openTravel('walk');
-    let {allPlaces} = getTravelParts(opened);
+    let {allLocations} = getTravelParts(opened);
 
     await waitForPanel(opened, WIDE_WINDOW);
 
-    expect([...getTravelParts(opened).places.keys()]).toEqual([FIXED_BAR, FIXED_SQUARE]);
+    expect([...getTravelParts(opened).locations.keys()]).toEqual([
+      FIXED_BAR_LOCATION,
+      FIXED_SQUARE_LOCATION,
+    ]);
 
     ui.focus(getTravelParts(opened).back);
     await press('Enter');
@@ -1036,24 +1051,24 @@ describe('travel window', {timeout: 180_000}, () => {
     expect(ui.children).not.toContain(opened.modal);
 
     onClosed.mockClear();
-    showJourney(opened, 'walk', {from: FIXED_BAR});
-    // The place buttons move in the next layout pass, which the next frame runs.
+    showJourney(opened, 'walk', {from: FIXED_BAR_LOCATION});
+    // The location buttons move in the next layout pass, which the next frame runs.
     await nextFrame();
 
     let parts = getTravelParts(opened);
 
-    for (let [id, button] of allPlaces) {
-      expect(parts.allPlaces.get(id)).toBe(button);
+    for (let [id, button] of allLocations) {
+      expect(parts.allLocations.get(id)).toBe(button);
     }
 
     // From the bar: the bar has no button, and walking reaches the square only.
-    expect([...parts.places.keys()]).toEqual([FIXED_SQUARE, FIXED_STOP]);
-    expect(getPlaceButton(opened, FIXED_STOP).isDisabled).toBe(true);
+    expect([...parts.locations.keys()]).toEqual([FIXED_SQUARE_LOCATION, FIXED_STOP_LOCATION]);
+    expect(getLocationButton(opened, FIXED_STOP_LOCATION).isDisabled).toBe(true);
     expect(readDestination(opened)).toEqual(['The square by the\nold market', '12 min']);
     expect(ui.focused).toBe(parts.destinationButton);
     expect(ui.isRingVisible).toBe(true);
 
-    let light = getLight(opened, nightStart, FIXED_BAR);
+    let light = getLight(opened, nightStart, FIXED_BAR_LOCATION);
 
     expect(getColor(readMap(opened), light.x, light.y)).toBe(palette.white);
 
@@ -1061,7 +1076,7 @@ describe('travel window', {timeout: 180_000}, () => {
     await waitForClosed();
 
     expect(onClosed).toHaveBeenCalledExactlyOnceWith({
-      place: getFixedPlace(FIXED_SQUARE),
+      location: fixedLocations[FIXED_SQUARE_LOCATION],
       way: 'walk',
       minutes: 12,
       price: 0,
@@ -1085,7 +1100,7 @@ describe('travel window', {timeout: 180_000}, () => {
       drawMarks.mockClear();
       // A journey, a new selection (the square, after the bar) and a new way.
       showJourney(opened, 'walk');
-      harness.nightScreen.ui.focus(getPlaceButton(opened, FIXED_SQUARE));
+      harness.nightScreen.ui.focus(getLocationButton(opened, FIXED_SQUARE_LOCATION));
       harness.nightScreen.ui.activate();
       harness.nightScreen.ui.focus(getWayButton(opened, 'taxi'));
       harness.nightScreen.ui.activate();

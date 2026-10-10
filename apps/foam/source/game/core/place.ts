@@ -26,6 +26,12 @@ export type Place = {
   /** Label of the place button, for a name that does not fit it. */
   shortName?: string;
 
+  /**
+   * Whether the place is outdoors: walk and taxi are offered only outdoors, and a location closes
+   * only on a player indoors.
+   */
+  outdoors: boolean;
+
   description: RunnableDialogueScript<Night>;
 
   /** GLSL of the place: the function that draws its picture (see core/pictureShader.ts). */
