@@ -18,6 +18,11 @@ function holds(span: readonly number[], minutes: number): boolean {
   return minutes >= from && minutes < to;
 }
 
+/** Whether the clock has reached the end of the night. */
+export function isNightOver(night: Night): boolean {
+  return night.minutes >= NIGHT_END;
+}
+
 /** Whether the clock lies in the span: from its start up to, not including, its end. */
 export function isWithin(night: Night, span: Span): boolean {
   return holds(span, night.minutes);

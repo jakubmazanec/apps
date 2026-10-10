@@ -1,3 +1,4 @@
+import {formatCosts} from './formatCosts.js';
 import {isOpenAt} from './hours.js';
 import {type Location, type LocationId} from './location.js';
 import {type Night, type PlaceId, type Way} from './night.js';
@@ -44,6 +45,17 @@ export type Travel = Readonly<
 >;
 
 export type Destination = {location: Location; way: Way; minutes: number; price: number};
+
+/** The way as the travel window's row and a logged travel name it. */
+export const WAY_WORDS: Readonly<Record<Way, string>> = {walk: 'Walk', tram: 'Tram', taxi: 'Taxi'};
+
+/** "Walk to Rotor Bar  12 min  25 Kč": the way, the destination and its numbers. */
+export function formatTravel(destination: Destination): string {
+  let costs = formatCosts(destination);
+  let words = `${WAY_WORDS[destination.way]} to ${destination.location.name}`;
+
+  return costs === '' ? words : `${words}  ${costs}`;
+}
 
 export type NightStart = {
   /** The locations of the night, by id. */
