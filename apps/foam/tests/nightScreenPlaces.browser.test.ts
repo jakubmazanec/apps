@@ -395,6 +395,8 @@ describe('night screen places', {timeout: 180_000}, () => {
     await closeStory(harness);
 
     let nightBefore = {...contents.night};
+    // The copy shares the log, so the log is checked by its new entries.
+    let logStart = contents.night.log.length;
 
     await chooseWayOut(harness, 'Stay');
     await waitForNoStoryWindow(harness);
@@ -403,6 +405,11 @@ describe('night screen places', {timeout: 180_000}, () => {
 
     expect(isTravelShown()).toBe(false);
     expect(contents.night).toEqual(nightBefore);
+    // The way out's page and the choice, and nothing after them.
+    expect(contents.night.log.slice(logStart).map(describeEntry)).toEqual([
+      ['text', 1180, 'The street'],
+      ['choice', 1180, 'Stay'],
+    ]);
   });
 
   test('Escape closes the travel window and nothing has changed', async () => {
@@ -412,6 +419,8 @@ describe('night screen places', {timeout: 180_000}, () => {
     await closeStory(harness);
 
     let nightBefore = {...contents.night};
+    // The copy shares the log, so the log is checked by its new entries.
+    let logStart = contents.night.log.length;
     let buttonsBefore = [...contents.spotButtons];
 
     await chooseWayOut(harness, 'Walk');
@@ -420,6 +429,11 @@ describe('night screen places', {timeout: 180_000}, () => {
     await waitForNoTravelWindow();
 
     expect(contents.night).toEqual(nightBefore);
+    // The way out's page and its choice, and no travel.
+    expect(contents.night.log.slice(logStart).map(describeEntry)).toEqual([
+      ['text', 1180, 'The street'],
+      ['choice', 1180, 'Walk'],
+    ]);
     expect(contents.spotButtons).toHaveLength(buttonsBefore.length);
     expect(contents.spotButtons.every((button, index) => button === buttonsBefore[index])).toBe(
       true,

@@ -512,6 +512,8 @@ describe('night screen', {timeout: 180_000}, () => {
     test('Enter with no choice focused does nothing', async () => {
       let {nightScreen} = harness;
       let before = {...nightScreen.contents.night};
+      // The copy shares the log, so the log is checked by its new entries.
+      let logStart = nightScreen.contents.night.log.length;
       let storyWindow = await openSpot(harness, 'The bartender');
 
       await press('Enter');
@@ -524,6 +526,10 @@ describe('night screen', {timeout: 180_000}, () => {
       expect(storyWindow.dialogue.phase).toBe('choosing');
       expect(nightScreen.contents.storyWindow).toBe(storyWindow);
       expect(nightScreen.contents.night).toEqual(before);
+      // The page the window opened with, and no choice.
+      expect(nightScreen.contents.night.log.slice(logStart)).toMatchObject([
+        {kind: 'text', speaker: 'The bartender'},
+      ]);
     });
 
     test(
@@ -964,6 +970,41 @@ describe('night screen', {timeout: 180_000}, () => {
       expect(log.slice(logStart)).toMatchObject([{kind: 'choice', text: 'Talk to him'}]);
     });
 
+    test('a tap on an old choice after a tap on the text, before the next frame, takes nothing', async () => {
+      let {log} = harness.nightScreen.contents.night;
+      let storyWindow = await openSpot(harness, 'A patron');
+
+      // Finish the text, and wait until the choices take a tap.
+      await press('Enter');
+      await waitForChoices(storyWindow);
+
+      let firstChoice = getBox(harness, getWindowButton(storyWindow, 0));
+      let text = getBox(harness, getWindowParts(storyWindow).textBlock);
+      // The scene's tests share one night, so only the entries of this test count.
+      let logStart = log.length;
+
+      // No frame runs between the taps. The first takes "Talk to him", and the second, on the
+      // text, finishes the next node's text, so the runner offers that node's choices, which the
+      // window has not shown yet.
+      tapNow(harness, firstChoice);
+      tapNow(harness, text);
+
+      let nextNode = storyWindow.dialogue.node;
+
+      expect(storyWindow.dialogue.phase).toBe('choosing');
+      expect(storyWindow.dialogue.visibleChoices.map((choice) => choice.text)).toEqual([
+        'Ask about the ceiling',
+        'Let him be',
+      ]);
+
+      // The third finds "Talk to him" still there, at the place of "Ask about the ceiling".
+      tapNow(harness, firstChoice);
+
+      expect(storyWindow.dialogue.node).toBe(nextNode);
+      expect(storyWindow.dialogue.phase).toBe('choosing');
+      expect(log.slice(logStart)).toMatchObject([{kind: 'choice', text: 'Talk to him'}]);
+    });
+
     test('the long text is shown in pages of at most 16 lines', async () => {
       let storyWindow = await openLongText();
       let whole = storyWindow.dialogue.pageText;
@@ -1049,7 +1090,7 @@ describe('night screen', {timeout: 180_000}, () => {
     test('a choice the night cannot pay is greyed out, takes no tap and the arrows skip it', async () => {
       let {nightScreen} = harness;
       let {night} = nightScreen.contents;
-      let {money} = night;
+      let {log, money} = night;
 
       try {
         // A price equal to the money is affordable.
@@ -1088,11 +1129,14 @@ describe('night screen', {timeout: 180_000}, () => {
         await waitForChoices(storyWindow);
 
         let before = {...night};
+        // The copy shares the log, so the log is checked by its new entries.
+        let logStart = log.length;
 
         await tap(harness, getBox(harness, getWindowButton(storyWindow, 0)));
 
         expect(storyWindow.dialogue.phase).toBe('choosing');
         expect(night).toEqual(before);
+        expect(log.slice(logStart)).toEqual([]);
       } finally {
         night.money = money;
       }

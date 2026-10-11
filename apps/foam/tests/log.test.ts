@@ -71,6 +71,22 @@ describe(formatLog, () => {
     );
   });
 
+  // The narrowest screen's text is 19 letters wide, and a title may have 19.
+  test('wraps a long title with its text', () => {
+    let log: LogEntry[] = [
+      {
+        kind: 'text',
+        minutes: 1180,
+        speaker: 'Brno hlavní nádraží',
+        text: 'Trains leave from here at *dawn*.',
+      },
+    ];
+
+    expect(formatLog(log, 19 * GLYPH_WIDTH, measure)).toBe(
+      '19:40  Brno hlavní\nnádraží\nTrains leave from\nhere at *dawn*.',
+    );
+  });
+
   test("keeps a text's marks", () => {
     let log: LogEntry[] = [
       {kind: 'text', minutes: 1180, speaker: 'A patron', text: 'The beer was *better* then.'},
