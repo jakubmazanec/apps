@@ -20,23 +20,27 @@ import {audio} from '../core/audio.js';
 import {game} from '../core/game.js';
 import {getPageBreaks} from '../core/getPageBreaks.js';
 import {
+  BUTTON_GAP,
   BUTTON_PADDING_X,
   BUTTON_PADDING_Y,
+  CHOICES_GAP,
   GLYPH_WIDTH,
   LINE_HEIGHT,
   MARGIN,
   type SceneArea,
+  WINDOW_GAP,
   WINDOW_PADDING_X,
   WINDOW_PADDING_Y,
   WINDOW_WIDTH,
 } from '../core/getSceneArea.js';
 import {input} from '../core/input.js';
 import {logChoice, logText} from '../core/log.js';
-import {MARK, splitMarked, stripMarks} from '../core/markedText.js';
+import {MARK, stripMarks} from '../core/markedText.js';
 import {measureText} from '../core/measureText.js';
 import {type Night} from '../core/night.js';
 import {asChoice, type Choice, formatChoice} from '../core/script.js';
 import {UI_FADE_DURATION} from '../core/theme.js';
+import {TextBlock} from './textBlock.js';
 import {createWindowTitle, TITLE_HEIGHT, WINDOW_PADDING} from './windowTitle.js';
 
 export type StoryWindowOptions = {
@@ -57,12 +61,6 @@ export type StoryWindowOptions = {
 export type StoryWindowState = 'closed' | 'closing' | 'open' | 'opening';
 
 // Sizes in art pixels.
-// Between the title block and the text.
-const WINDOW_GAP = 4;
-// Between the text and the first choice.
-const CHOICES_GAP = 8;
-// Between two choices: a focus ring reaches 2 out and does not touch the next button.
-const BUTTON_GAP = 4;
 // From a letter cell's top left corner to the cursor's.
 const CURSOR_OFFSET = 2;
 const BLIP_EVERY_GLYPHS = 3;
@@ -135,9 +133,6 @@ export class StoryWindow implements Overlay {
   /** Whether an `update` has got past its guard: the window open or opening, and topmost. */
   #hasUpdated = false;
 
-  /** The text's leaf in the italic font; it has the regular leaf's size and place. */
-  #italicLeaf: Text | null = null;
-
   /** Width of a button's label. */
   #labelWidth = 1;
 
@@ -153,14 +148,11 @@ export class StoryWindow implements Overlay {
   /** Takes the taps on the text and on the room under it, under the choice buttons. */
   readonly #pressSurface: pixi.Container = new pixi.Container();
 
-  /** The text's leaf in the regular font. */
-  #regularLeaf: Text | null = null;
-
   readonly #scheduler: Scheduler;
   #shownNode: DialogueNode<Night, string> | null = null;
   #shownPageIndex = 0;
 
-  /** The slice of the wrapped text the leaves show, marks kept; null for leaves just made. */
+  /** The slice of the wrapped text the text block shows, marks kept; null for a block just made. */
   #shownSlice: string | null = null;
 
   #state: StoryWindowState = 'closed';
@@ -169,7 +161,7 @@ export class StoryWindow implements Overlay {
   #text = '';
 
   /** Holds the two leaves of the text at the same place. */
-  #textBlock: Container | null = null;
+  #textBlock: TextBlock | null = null;
 
   /** The speaker's title and the rule under it; a node without a speaker has none. */
   #titleBlock: Container | null = null;
@@ -590,8 +582,6 @@ export class StoryWindow implements Overlay {
 
     this.#titleBlock = null;
     this.#textBlock = null;
-    this.#regularLeaf = null;
-    this.#italicLeaf = null;
     this.#buttonArea = null;
     this.#buttons = [];
     this.#shownSlice = null;
@@ -648,29 +638,8 @@ export class StoryWindow implements Overlay {
       this.#panel.addChild(this.#titleBlock);
     }
 
-    // Two leaves of the same size at the same place, one per font. Every
-    // letter advances by 6 in both, so a letter lands where it would in one
-    // text, and each leaf has spaces where the other one draws.
-    let leafLayout = {
-      position: 'absolute',
-      left: 0,
-      top: 0,
-      width: textWidth,
-      height: textHeight,
-    } as const;
-
-    this.#regularLeaf = new Text({text: '', theme: game.theme, role: 'body', layout: leafLayout});
-    this.#italicLeaf = new Text({
-      text: '',
-      theme: game.theme,
-      role: 'body',
-      fontFamily: 'monogram-italic',
-      layout: leafLayout,
-    });
-    this.#textBlock = new Container({
-      children: [this.#regularLeaf, this.#italicLeaf],
-      layout: {width: textWidth, height: textHeight},
-    });
+    // Two leaves of the same size at the same place, one per font (see TextBlock).
+    this.#textBlock = new TextBlock({width: textWidth, height: textHeight});
     this.#panel.addChild(this.#textBlock);
 
     // The press surface and the cursor sit out of the layout flow, in the
@@ -741,14 +710,11 @@ export class StoryWindow implements Overlay {
       return;
     }
 
-    // A page that starts inside an italic passage starts in italic, so the
-    // marks are counted from the start of the text, not of the page.
-    let {regular, italic} = splitMarked(this.#wrapped, pageStart, revealedCount);
-
     this.#shownSlice = slice;
     this.#text = stripMarks(slice);
-    this.#regularLeaf?.setText(regular);
-    this.#italicLeaf?.setText(italic);
+    // A page that starts inside an italic passage starts in italic, so the
+    // marks are counted from the start of the text, not of the page.
+    this.#textBlock?.show(this.#wrapped, pageStart, revealedCount);
     this.#placeCursor();
   }
 

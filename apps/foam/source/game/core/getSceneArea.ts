@@ -1,4 +1,4 @@
-// Layout sizes shared by the night screen and its windows, in art pixels.
+// Layout sizes shared by the night screen, the log screen and their windows, in art pixels.
 
 /** Space kept free at the edges of the screen. */
 export const MARGIN = 4;
@@ -29,6 +29,15 @@ export const WINDOW_PADDING_Y = 8;
 
 /** The story window's width on a screen wide enough for it. */
 export const WINDOW_WIDTH = 300;
+
+/** A window's gap between the title block and the text. */
+export const WINDOW_GAP = 4;
+
+/** A window's gap between the text and the buttons under it. */
+export const CHOICES_GAP = 8;
+
+/** Between two buttons: a focus ring reaches 2 out and does not touch the next button. */
+export const BUTTON_GAP = 4;
 
 /** Every letter of monogram, regular and italic, advances by this much. */
 export const GLYPH_WIDTH = 6;

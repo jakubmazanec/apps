@@ -33,13 +33,12 @@ import {playFocusSound} from '../core/playFocusSound.js';
 import {UI_FADE_DURATION} from '../core/theme.js';
 import {formatTravel, getLocation, takeJourney} from '../core/travel.js';
 import {errorScreen} from './errorScreen.js';
-// The nightScreen <-> mainMenuScreen static import cycle is deliberate and
-// safe: each module reads the other's binding only inside a click handler
-// (Quit to menu here, New Game there), long after both modules have evaluated.
+// The nightScreen -> menuModal -> mainMenuScreen -> nightScreen static import
+// cycle is deliberate and safe: each module reads the next one's binding only
+// inside a click handler (Quit to menu in the menu, New Game in the main menu),
+// long after all of them have evaluated.
 // eslint-disable-next-line import/no-cycle -- see comment above: the cycle only resolves inside event handlers, long after both modules evaluate
-import {mainMenuScreen} from './mainMenuScreen.js';
-import {openMenuModal} from './menuModal.js';
-import {openOptionsModal} from './optionsModal.js';
+import {openMenu} from './menuModal.js';
 import {PlacePicture} from './placePicture.js';
 import {StoryWindow} from './storyWindow.js';
 import {TravelWindow} from './travelWindow.js';
@@ -560,38 +559,6 @@ function actOnNight(screen: NightScreen): void {
     night.place = place.id;
     night.leaving = null;
   }
-}
-
-// The menu also opens above a story window, whose text waits meanwhile. A
-// hidden screen opens no menu: Quit to menu hides the screen inside its click,
-// and an Escape in the same frame still reaches onUpdate, where the screen has
-// no overlay left.
-function openMenu(screen: NightScreen): void {
-  if (screen.state !== 'shown' || screen.contents.menuModal !== null) {
-    return;
-  }
-
-  screen.contents.menuModal = openMenuModal({
-    ui: screen.ui,
-    scheduler: screen.scheduler,
-    onOptions: () => {
-      screen.contents.optionsModal = openOptionsModal({
-        ui: screen.ui,
-        scheduler: screen.scheduler,
-        onClosed: () => {
-          screen.contents.optionsModal = null;
-        },
-      });
-    },
-    onQuit: () => {
-      // The swap runs this screen's onHide, which destroys the menu.
-      // showScreen never rejects; a failure lands on the error screen.
-      void game.showScreen(mainMenuScreen);
-    },
-    onClosed: () => {
-      screen.contents.menuModal = null;
-    },
-  });
 }
 
 export const nightScreen = new GameScreen<NightScreenContents>({

@@ -8,9 +8,10 @@ import {game} from '../core/game.js';
 import {measureText} from '../core/measureText.js';
 import {palette} from '../core/palette.js';
 import {playFocusSound} from '../core/playFocusSound.js';
-// The mainMenuScreen <-> nightScreen static import cycle is deliberate and
-// safe: each module reads the other's binding only inside a click handler (New
-// Game here, Quit to menu there), long after both modules have evaluated.
+// The mainMenuScreen -> nightScreen -> menuModal -> mainMenuScreen static
+// import cycle is deliberate and safe: each module reads the next one's binding
+// only inside a click handler (New Game here, Quit to menu in the menu), long
+// after all of them have evaluated.
 // eslint-disable-next-line import/no-cycle -- see comment above: the cycle only resolves inside event handlers, long after both modules evaluate
 import {nightScreen} from './nightScreen.js';
 import {openOptionsModal} from './optionsModal.js';
