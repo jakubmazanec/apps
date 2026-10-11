@@ -1,7 +1,8 @@
 # The end of the night and the log (Foam phase 5, spec 4 of 4): design
 
-Date: 2026-10-10. App: `apps/foam`. Status: designed. It is the last of phase 5's four specs in the
-[direction document](../../direction.md). It builds on spec 3,
+Date: 2026-10-10. App: `apps/foam`. Status: implemented by
+[2026-10-10-end-of-the-night-and-log.md](../plans/2026-10-10-end-of-the-night-and-log.md). It is the
+last of phase 5's four specs in the [direction document](../../direction.md). It builds on spec 3,
 [locations and hours](2026-10-10-locations-and-hours-design.md), which is built before this one.
 Phase 6, the quest, follows.
 
@@ -194,7 +195,7 @@ description and ends when it closes. `getJumpIn` reads a time before noon as the
 ```ts
 export const nightEnd = defineScript({
   start: {
-    speaker: "Morning",
+    speaker: 'Morning',
     text: (night) => standIn`
       The sky has gone grey and the first trams of Saturday are full of people who slept.
       Whatever the night was, it is over, and you have ${night.money} Kč left in your pocket.
@@ -213,7 +214,7 @@ which may branch through a function `start` on the night.
 ```ts
 export type LogEntry =
   | {
-      kind: "text";
+      kind: 'text';
 
       /** The clock when the page appeared. */
       minutes: number;
@@ -225,7 +226,7 @@ export type LogEntry =
       text: string;
     }
   | {
-      kind: "choice";
+      kind: 'choice';
 
       /** The clock at the press, before the choice's costs. */
       minutes: number;
