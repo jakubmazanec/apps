@@ -420,9 +420,10 @@ tram from every entry with `tramStop` to every other one with it. `travel.json` 
 `hours`, it looks the tag up as today and asks the `opening_hours` library for the open intervals
 from 16:00 of a fixed Friday with no public holiday to 08:00 of the Saturday after it, with the
 Czech country code so that `PH` rules read; it writes them as night minutes, with `computed`. A tag
-the library cannot read is listed as missing, as a failed lookup is, and the author writes `hours`
-by hand. It still never changes a value that is there. The library is a dev dependency of
-`apps/foam` (5 MB, LGPL-3.0) and never reaches the game's bundle.
+the library cannot read, one that leaves part of the night unknown (an open end, `unknown`) and one
+that leaves the whole night closed are listed as missing, as a failed lookup is, and the author
+writes `hours` by hand. It still never changes a value that is there. The library is a dev
+dependency of `apps/foam` (5 MB, LGPL-3.0) and never reaches the game's bundle.
 
 The plan runs the script once for the 20 new journeys on foot and by taxi, which needs the routing
 service; the 4 tram journeys come from distances.
@@ -555,16 +556,16 @@ location of one place. Its travel follows the new rule: the tram only from the s
 
 ## Error handling
 
-| What goes wrong                                                          | In CI               | In the running game                                                                               |
-| ------------------------------------------------------------------------ | ------------------- | ------------------------------------------------------------------------------------------------- |
-| A location with hours lacks `closing` or `outside`                       | The checker fails   | The closing throws, and the error screen shows it, as for a journey to an unknown place           |
-| A door moves the player into a closed location (its condition forgotten) | Not checked         | The room shows with its description; when that closes, the closing runs and the player is outside |
-| A script moves the player to a place the content lacks                   | The types fail      | `console.warn`, and the night stays where it was, as today                                        |
-| A span out of the night or out of order                                  | The checker fails   | `isOpenAt` reads the spans as written                                                             |
-| A tag the library cannot read                                            | The script lists it | No `hours` until the author writes them: the location never closes                                |
-| A way out offers the tram where no tram stops                            | The checker fails   | The travel window opens with no destination by tram, as for any way without one                   |
-| A journey arrives after 08:00                                            | Not checked         | The button says `closed`; spec 4 ends the night                                                   |
-| A location's entry lacks a position                                      | The checker fails   | The travel window warns and leaves its button out, as today                                       |
+| What goes wrong                                                             | In CI               | In the running game                                                                               |
+| --------------------------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------- |
+| A location with hours lacks `closing` or `outside`                          | The checker fails   | The closing throws, and the error screen shows it, as for a journey to an unknown place           |
+| A door moves the player into a closed location (its condition forgotten)    | Not checked         | The room shows with its description; when that closes, the closing runs and the player is outside |
+| A script moves the player to a place the content lacks                      | The types fail      | `console.warn`, and the night stays where it was, as today                                        |
+| A span out of the night or out of order                                     | The checker fails   | `isOpenAt` reads the spans as written                                                             |
+| A tag the library cannot read, or one that leaves part of the night unknown | The script lists it | No `hours` until the author writes them: the location never closes                                |
+| A way out offers the tram where no tram stops                               | The checker fails   | The travel window opens with no destination by tram, as for any way without one                   |
+| A journey arrives after 08:00                                               | Not checked         | The button says `closed`; spec 4 ends the night                                                   |
+| A location's entry lacks a position                                         | The checker fails   | The travel window warns and leaves its button out, as today                                       |
 
 ## Testing
 

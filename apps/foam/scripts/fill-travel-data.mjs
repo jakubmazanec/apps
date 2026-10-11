@@ -119,8 +119,9 @@ function getNightMinutes(date) {
 
 /**
  * The spans of the night in which an opening_hours tag says the location is open, in night
- * minutes; a stretch the tag leaves unknown counts as open, for the author to check. Throws what
- * the library throws, maybe a string, on a tag it cannot read.
+ * minutes. Throws what the library throws, maybe a string, on a tag it cannot read, and an Error
+ * on a tag that leaves a stretch of the night unknown (an open end, `unknown`): either guess,
+ * open or closed, could be wrong, so the author writes those hours by hand.
  * @param {string} tag
  * @returns {number[][]}
  */
@@ -128,7 +129,11 @@ export function readOpeningHours(tag) {
   let intervals = new OpeningHours(tag, NOMINATIM).getOpenIntervals(NIGHT_FROM, NIGHT_TO);
   let spans = /** @type {number[][]} */ ([]);
 
-  for (let [from, to] of intervals) {
+  for (let [from, to, unknown] of intervals) {
+    if (unknown) {
+      throw new Error(`"${tag}" leaves part of the night unknown`);
+    }
+
     let last = spans.at(-1);
 
     // Two intervals that touch are one span, so the spans stay in order and apart.
