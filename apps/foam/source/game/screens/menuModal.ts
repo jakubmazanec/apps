@@ -2,6 +2,7 @@ import {
   Button,
   type GameScreenState,
   Modal,
+  type Overlay,
   Panel,
   type Scheduler,
   Text,
@@ -10,13 +11,16 @@ import {
 
 import {game} from '../core/game.js';
 import {BUTTON_PADDING_X} from '../core/getSceneArea.js';
+import {input} from '../core/input.js';
 import {measureText} from '../core/measureText.js';
 import {UI_FADE_DURATION} from '../core/theme.js';
 // The menuModal -> mainMenuScreen -> nightScreen -> menuModal static import
-// cycle is deliberate and safe: each module reads the next one's binding only
-// inside a click handler (Quit to menu here, New Game in the main menu), long
-// after all of them have evaluated.
-// eslint-disable-next-line import/no-cycle -- see comment above: the cycle only resolves inside event handlers, long after both modules evaluate
+// cycle is deliberate and safe: no module reads another's binding while it
+// evaluates, only as the game runs. This module reads the main menu in Quit to
+// menu's click, the main menu reads the night screen in New Game's click, and
+// the night screen calls this module's functions from its Menu button, its
+// update and its hide.
+// eslint-disable-next-line import/no-cycle -- see comment above: the cycle only resolves as the game runs, long after the modules evaluate
 import {mainMenuScreen} from './mainMenuScreen.js';
 import {openOptionsModal} from './optionsModal.js';
 import {createWindowTitle, WINDOW_PADDING} from './windowTitle.js';
@@ -26,7 +30,15 @@ type MenuScreen = {
   state: GameScreenState;
   ui: UiRoot;
   scheduler: Scheduler;
-  contents: {menuModal: Modal | null; optionsModal: Modal | null};
+  contents: {
+    /**
+     * The topmost overlay at the end of the last update. As a rule it took this frame's cancel
+     * command, unless a tap opened another overlay since (see `openMenuOnCancel`).
+     */
+    lastTopOverlay: Overlay | null;
+    menuModal: Modal | null;
+    optionsModal: Modal | null;
+  };
 };
 
 export type MenuModalOptions = {
@@ -152,4 +164,36 @@ export function openMenu(screen: MenuScreen): void {
       screen.contents.menuModal = null;
     },
   });
+}
+
+// Called at the end of the screen's onUpdate, in every frame. The engine has
+// already sent this frame's cancel command to the topmost overlay, which it
+// closed if the overlay declares close: the menu, the Options window or the
+// night screen's travel window. With no overlay, or with a story window on top,
+// a journey's too, which declares none, the command opens the menu.
+// focusPressed only reads the latched state, so reading it again here is safe.
+// The overlay that took the command is, as a rule, the one on top at the end of
+// the last update, not the one on top now: a frame as long as a UI fade can
+// finish the closing of that overlay before this point. (A tap that opened
+// another overlay since then makes it a miss.) The overlay is recorded after
+// the rule, so the menu this rule opens is on record too.
+export function openMenuOnCancel(screen: MenuScreen): void {
+  let {lastTopOverlay} = screen.contents;
+
+  if (input.focusPressed('cancel') && lastTopOverlay?.close === undefined) {
+    openMenu(screen);
+  }
+
+  screen.contents.lastTopOverlay = screen.ui.topOverlay;
+}
+
+// Called by the screen's onHide. Owning-screen teardown rule: synchronous
+// destroy(), never the animated close(), because the scheduler was already
+// cleared before onHide. The topmost window goes first.
+export function destroyMenus(screen: MenuScreen): void {
+  screen.contents.optionsModal?.destroy();
+  screen.contents.menuModal?.destroy();
+
+  screen.contents.optionsModal = null;
+  screen.contents.menuModal = null;
 }

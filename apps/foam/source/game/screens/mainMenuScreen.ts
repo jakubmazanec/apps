@@ -9,10 +9,12 @@ import {measureText} from '../core/measureText.js';
 import {palette} from '../core/palette.js';
 import {playFocusSound} from '../core/playFocusSound.js';
 // The mainMenuScreen -> nightScreen -> menuModal -> mainMenuScreen static
-// import cycle is deliberate and safe: each module reads the next one's binding
-// only inside a click handler (New Game here, Quit to menu in the menu), long
-// after all of them have evaluated.
-// eslint-disable-next-line import/no-cycle -- see comment above: the cycle only resolves inside event handlers, long after both modules evaluate
+// import cycle is deliberate and safe: no module reads another's binding while
+// it evaluates, only as the game runs. This screen reads the night screen in
+// New Game's click, the night screen calls the menu's functions from its Menu
+// button, its update and its hide, and the menu reads this screen in Quit to
+// menu's click.
+// eslint-disable-next-line import/no-cycle -- see comment above: the cycle only resolves as the game runs, long after the modules evaluate
 import {nightScreen} from './nightScreen.js';
 import {openOptionsModal} from './optionsModal.js';
 import {PlacePicture} from './placePicture.js';

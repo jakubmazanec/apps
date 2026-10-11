@@ -5,26 +5,23 @@ import {getPageBreaks} from '../core/getPageBreaks.js';
 import {
   BUTTON_GAP,
   BUTTON_HEIGHT,
-  BUTTON_PADDING_X,
   CHOICES_GAP,
-  getSceneArea,
   LINE_HEIGHT,
   MARGIN,
-  type SceneArea,
   TOP_ROW_WIDTH,
   WINDOW_GAP,
   WINDOW_PADDING_X,
   WINDOW_PADDING_Y,
   WINDOW_WIDTH,
 } from '../core/getSceneArea.js';
-import {input} from '../core/input.js';
 import {formatLog} from '../core/log.js';
 import {stripMarks} from '../core/markedText.js';
 import {measureText} from '../core/measureText.js';
 import {formatStatus, type Night} from '../core/night.js';
 import {playFocusSound} from '../core/playFocusSound.js';
-import {openMenu} from './menuModal.js';
+import {destroyMenus, openMenu, openMenuOnCancel} from './menuModal.js';
 import {TextBlock} from './textBlock.js';
+import {createLabel, createMenuButton, createStatusText, getArea, setStatus} from './topRow.js';
 import {createWindowTitle, TITLE_HEIGHT, WINDOW_PADDING} from './windowTitle.js';
 
 type LogScreenContents = {
@@ -33,7 +30,7 @@ type LogScreenContents = {
   /** The log as one marked text, wrapped to the text's width. */
   formatted: string;
 
-  /** The topmost overlay at the end of the last update; see the night screen. */
+  /** The topmost overlay at the end of the last update; see `openMenuOnCancel`. */
   lastTopOverlay: Overlay | null;
   linesPerPage: number;
   menuButton: Button;
@@ -60,33 +57,9 @@ type LogScreenContents = {
 };
 type LogScreen = GameScreen<LogScreenContents>;
 
-function getButtonWidth(label: string): number {
-  return measureText(label, 'label') + 2 * BUTTON_PADDING_X;
-}
-
-// A label with an explicit size: a leaf sized by its own bounds is measured
-// again later, and its button would move it then.
-function createLabel(text: string): Text {
-  return new Text({
-    text,
-    theme: game.theme,
-    layout: {width: measureText(text, 'label'), height: LINE_HEIGHT},
-  });
-}
-
-function getArea(): SceneArea {
-  return getSceneArea(
-    game.app.screen.width / game.pixelScale,
-    game.app.screen.height / game.pixelScale,
-  );
-}
-
 // The night's status as it stood at the end, written as the night screen writes it.
 function writeStatus({contents: {night, statusText}}: LogScreen): void {
-  let status = night === null ? '' : formatStatus(night);
-
-  statusText.setText(status);
-  statusText.view.layout = {width: measureText(status, 'label')};
+  setStatus(statusText, night === null ? '' : formatStatus(night));
 }
 
 // Shows the page's slice of the log, whole and at once, and its number in the
@@ -242,30 +215,14 @@ export const logScreen = new GameScreen<LogScreenContents>({
     screen.view.layout = {width: '100%', height: '100%'};
 
     // layOut() positions it and writeStatus() sets its text and width.
-    let statusText = new Text({
-      text: '',
-      theme: game.theme,
-      fontFamily: 'monogram-outline',
-      layout: {position: 'absolute', left: 0, top: 0, width: 0, height: LINE_HEIGHT},
-    });
+    let statusText = createStatusText();
     // layOut() fills it.
     let panel = new Panel({
       theme: game.theme,
       layout: {...WINDOW_PADDING, flexDirection: 'column', gap: WINDOW_GAP},
     });
-    let menuButton = new Button({
-      theme: game.theme,
-      children: [createLabel('Menu')],
-      layout: {
-        position: 'absolute',
-        right: MARGIN,
-        top: MARGIN,
-        width: getButtonWidth('Menu'),
-        height: BUTTON_HEIGHT,
-      },
-      onClick: () => {
-        openMenu(screen);
-      },
+    let menuButton = createMenuButton(() => {
+      openMenu(screen);
     });
     let back = new Button({
       theme: game.theme,
@@ -318,30 +275,17 @@ export const logScreen = new GameScreen<LogScreenContents>({
     writeStatus(screen);
     layOut(screen);
   },
+  // Owning-screen teardown rule, as on the night screen: synchronous
+  // destroy(), never the animated close(), because the scheduler was already
+  // cleared before onHide. The topmost window goes first.
   onHide: (screen) => {
-    // Owning-screen teardown rule, as on the night screen: synchronous
-    // destroy(), never the animated close(), because the scheduler was already
-    // cleared before onHide. The topmost window goes first.
-    screen.contents.optionsModal?.destroy();
-    screen.contents.menuModal?.destroy();
-
-    screen.contents.optionsModal = null;
-    screen.contents.menuModal = null;
+    destroyMenus(screen);
   },
+  // The night screen's rule for the cancel command (see openMenuOnCancel): with
+  // no overlay the command opens the night's menu, so a stray Escape cannot
+  // lose the log, which no screen can show again.
   onUpdate: (ticker, screen) => {
-    // The night screen's rule for the cancel command (see its onUpdate): the
-    // engine has already sent it to the topmost overlay, which closed if it
-    // declares close, the menu or the Options window. With no overlay the
-    // command opens the night's menu, so a stray Escape cannot lose the log,
-    // which no screen can show again. The overlay that took the command is, as
-    // a rule, the one on top at the end of the last update.
-    let {lastTopOverlay} = screen.contents;
-
-    if (input.focusPressed('cancel') && lastTopOverlay?.close === undefined) {
-      openMenu(screen);
-    }
-
-    screen.contents.lastTopOverlay = screen.ui.topOverlay;
+    openMenuOnCancel(screen);
   },
   // The pages are cut again for the new size, and the page is kept. An open
   // menu is an overlay, which stays above.
