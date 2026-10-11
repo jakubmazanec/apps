@@ -17,6 +17,7 @@ import {page, userEvent} from 'vitest/browser';
 import {nightStart} from '../source/game/content/nightStart.js';
 import {type assets as assetsValue} from '../source/game/core/assets.js';
 import {type LocationId} from '../source/game/core/location.js';
+import {type LogEntry} from '../source/game/core/log.js';
 import {type measureText as measureTextValue} from '../source/game/core/measureText.js';
 import {type PlaceId} from '../source/game/core/night.js';
 import {type Place} from '../source/game/core/place.js';
@@ -684,12 +685,57 @@ export async function pressThrough(harness: Harness, storyWindow: StoryWindow): 
   }
 }
 
-// Opens the square's way out and picks one of its choices.
-export async function chooseWayOut(harness: Harness, label: string): Promise<void> {
-  harness.nightScreen.ui.focus(getSpotButton(harness, 'The street'));
+// Presses Enter until the text has ended; the last press closes the window.
+// The game's own journey is one node, but its text can run to a second page.
+// A window that another follows, the next place's description, the closing or
+// the end text, leaves in the frame the next one opens, so a test ends it with
+// this and waits for the next window by its speaker.
+export async function endStory(storyWindow: StoryWindow): Promise<void> {
+  for (let count = 0; count < 40 && storyWindow.dialogue.phase !== 'ended'; count += 1) {
+    await press('Enter');
+  }
+}
+
+// Ends a text without choices that no window follows, as the description that
+// opens on arrival, and waits for its window to close.
+export async function closeStory(harness: Harness): Promise<void> {
+  await pressThrough(harness, getStoryWindow(harness));
+  await press('Enter');
+  await waitForNoStoryWindow(harness);
+}
+
+// Opens the window of the scene button with the label, by Enter on it.
+export async function openSpot(harness: Harness, label: string): Promise<StoryWindow> {
+  harness.nightScreen.ui.focus(getSpotButton(harness, label));
   await press('Enter');
 
-  let storyWindow = getStoryWindow(harness);
+  return getStoryWindow(harness);
+}
+
+// The window the night opens after the last one has closed, by its speaker.
+export async function waitForSpeaker(harness: Harness, speaker: string): Promise<StoryWindow> {
+  return vitest.waitFor(
+    () => {
+      let storyWindow = getStoryWindow(harness);
+
+      if (storyWindow.dialogue.node?.speaker !== speaker) {
+        throw new Error(`The story window is not the window of "${speaker}".`);
+      }
+
+      return storyWindow;
+    },
+    {timeout: 10_000},
+  );
+}
+
+// A log entry as its kind, its minute and its title or label.
+export function describeEntry(entry: LogEntry): [LogEntry['kind'], number, string | undefined] {
+  return [entry.kind, entry.minutes, entry.kind === 'text' ? entry.speaker : entry.text];
+}
+
+// Opens the square's way out and picks one of its choices.
+export async function chooseWayOut(harness: Harness, label: string): Promise<void> {
+  let storyWindow = await openSpot(harness, 'The street');
 
   await pressThrough(harness, storyWindow);
 

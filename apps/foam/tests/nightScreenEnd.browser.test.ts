@@ -2,40 +2,29 @@ import {afterAll, beforeAll, describe, expect, test, vitest} from 'vitest';
 
 import {nightStart} from '../source/game/content/nightStart.js';
 import {type barPicture as barPictureValue} from '../source/game/content/pictures/barPicture.js';
-import {type LogEntry} from '../source/game/core/log.js';
 import {type logScreen as logScreenValue} from '../source/game/screens/logScreen.js';
 import {type StoryWindow} from '../source/game/screens/storyWindow.js';
 import {FIXED_BAR, FIXED_BAR_LOCATION, FIXED_SQUARE} from './fixedWorld.js';
 import {
   bootGame,
   chooseWayOut,
+  closeStory,
+  describeEntry,
+  endStory,
   getMenuButton,
-  getSpotButton,
   getStoryWindow,
   type Harness,
   nextFrame,
+  openSpot,
   pickDestination,
   press,
-  pressThrough,
   readText,
   restartAt,
   startNewGame,
   useFixedWorld,
-  waitForNoStoryWindow,
+  waitForSpeaker,
   waitForTravelWindow,
 } from './nightScreenHelpers.js';
-
-// A log entry as its kind, its minute and its title or label.
-function describeEntry(entry: LogEntry): [LogEntry['kind'], number, string | undefined] {
-  return [entry.kind, entry.minutes, entry.kind === 'text' ? entry.speaker : entry.text];
-}
-
-// Presses Enter until the text has ended; the last press closes the window.
-async function endStory(storyWindow: StoryWindow): Promise<void> {
-  for (let count = 0; count < 40 && storyWindow.dialogue.phase !== 'ended'; count += 1) {
-    await press('Enter');
-  }
-}
 
 // Headless Chromium draws the bar in software, at about 90 ms a frame, which
 // slows every frame of these tests. They check the end of the night, not what
@@ -61,39 +50,9 @@ describe('the end of the night', {timeout: 180_000}, () => {
   let logScreen: typeof logScreenValue;
   let restore: () => void;
 
-  async function openSpot(label: string): Promise<StoryWindow> {
-    harness.nightScreen.ui.focus(getSpotButton(harness, label));
-    await press('Enter');
-
-    return getStoryWindow(harness);
-  }
-
-  // Ends a text without choices that no window follows, as the description at 07:55.
-  async function closeStory(): Promise<void> {
-    await pressThrough(harness, getStoryWindow(harness));
-    await press('Enter');
-    await waitForNoStoryWindow(harness);
-  }
-
-  // The window the night opens after the last one has closed, by its speaker.
-  async function waitForSpeaker(speaker: string): Promise<StoryWindow> {
-    return vitest.waitFor(
-      () => {
-        let storyWindow = getStoryWindow(harness);
-
-        if (storyWindow.dialogue.node?.speaker !== speaker) {
-          throw new Error(`The story window is not the window of "${speaker}".`);
-        }
-
-        return storyWindow;
-      },
-      {timeout: 10_000},
-    );
-  }
-
   // Orders the bartender's beer, ten minutes, and reads its text to the end.
   async function drinkBeer(): Promise<void> {
-    let bartender = await openSpot('The bartender');
+    let bartender = await openSpot(harness, 'The bartender');
 
     // Enter finishes the text, the arrow focuses the beer, and Enter takes it.
     await press('Enter');
@@ -141,13 +100,13 @@ describe('the end of the night', {timeout: 180_000}, () => {
     let end: StoryWindow;
 
     await startNewGame(harness);
-    await closeStory();
+    await closeStory(harness);
     game.app.ticker.add(readClosingFrame);
 
     try {
       // The beer takes the clock from 07:55 to 08:05, past the end and past the bar's hours.
       await drinkBeer();
-      end = await waitForSpeaker('Morning');
+      end = await waitForSpeaker(harness, 'Morning');
     } finally {
       game.app.ticker.remove(readClosingFrame);
     }
@@ -187,11 +146,11 @@ describe('the end of the night', {timeout: 180_000}, () => {
 
     // Still at 07:55: the walk to the bar takes 12 minutes and arrives at 08:07.
     await restartAt(harness, FIXED_SQUARE);
-    await closeStory();
+    await closeStory(harness);
     await chooseWayOut(harness, 'Walk');
     await pickDestination(harness, await waitForTravelWindow(harness), FIXED_BAR_LOCATION);
 
-    let journey = await waitForSpeaker('On foot');
+    let journey = await waitForSpeaker(harness, 'On foot');
 
     // The screen builds the place a window leads to once the window is fully shown; it builds
     // none behind this one.
@@ -211,7 +170,7 @@ describe('the end of the night', {timeout: 180_000}, () => {
 
     await endStory(journey);
 
-    let end = await waitForSpeaker('Morning');
+    let end = await waitForSpeaker(harness, 'Morning');
 
     expect(contents.place).toBeNull();
 
@@ -233,7 +192,7 @@ describe('the end of the night', {timeout: 180_000}, () => {
     nightStart.minutes = 1920;
     await restartAt(harness, FIXED_BAR);
     await endStory(getStoryWindow(harness));
-    await endStory(await waitForSpeaker('Morning'));
+    await endStory(await waitForSpeaker(harness, 'Morning'));
     await waitForLogScreen();
 
     expect(contents.night.log.map(describeEntry)).toEqual([
@@ -248,9 +207,9 @@ describe('the end of the night', {timeout: 180_000}, () => {
 
     nightStart.minutes = 1915;
     await restartAt(harness, FIXED_BAR);
-    await closeStory();
+    await closeStory(harness);
     await drinkBeer();
-    await waitForSpeaker('Morning');
+    await waitForSpeaker(harness, 'Morning');
     // The end text's window declares no close, so Escape opens the menu.
     await press('Escape');
 
