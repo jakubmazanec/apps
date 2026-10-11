@@ -60,7 +60,9 @@ export function formatLog(
 
       let title = entry.speaker === undefined ? time : `${time}  ${entry.speaker}`;
 
-      return `${title}\n${wrapText(entry.text, width, measure)}`;
+      // The title wraps with the text: after the time, a long title is wider than the narrowest
+      // screen's text. wrapText keeps the line end between them, so the text wraps as on its own.
+      return wrapText(`${title}\n${entry.text}`, width, measure);
     })
     .join('\n\n');
 }

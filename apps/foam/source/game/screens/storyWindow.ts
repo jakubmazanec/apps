@@ -398,13 +398,20 @@ export class StoryWindow implements Overlay {
         onClick: () => {
           let choice = this.#choices[index];
 
-          // The press is logged by the label the button read, before the choice's costs. A
-          // second tap before the window's next frame finds this button still there, but the
-          // runner is past its choices and takes nothing, so nothing is logged.
-          if (choice !== undefined && this.dialogue.phase === 'choosing') {
-            logChoice(this.#night, formatChoice(choice, this.#night));
+          // A tap before the window's next frame can find this button still there after the
+          // runner has left its node: past its choices, or, after a tap on the text, at the
+          // choices of the next node, which the window has not shown. Such a press logs nothing
+          // and takes nothing.
+          if (
+            choice === undefined ||
+            this.dialogue.phase !== 'choosing' ||
+            this.dialogue.node !== this.#shownNode
+          ) {
+            return;
           }
 
+          // The press is logged by the label the button read, before the choice's costs.
+          logChoice(this.#night, formatChoice(choice, this.#night));
           this.dialogue.choose(index);
         },
       });
