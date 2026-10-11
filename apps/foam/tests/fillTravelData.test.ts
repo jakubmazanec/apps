@@ -317,6 +317,10 @@ describe(readOpeningHours, () => {
     );
   });
 
+  test('throws on an open end, which the library guesses the closing of', () => {
+    expect(() => readOpeningHours('Fr 18:00+')).toThrow('leaves part of the night unknown');
+  });
+
   test('joins two touching intervals that differ only in their comment', () => {
     expect(readOpeningHours('Fr 16:00-18:00 open "a", 18:00-20:00 open "b"')).toEqual([
       [960, 1200],

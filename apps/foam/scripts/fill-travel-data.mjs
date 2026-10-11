@@ -226,8 +226,9 @@ export async function fillTravelData({locations, travel, lookups}) {
 
     if (entry.osmName !== undefined && entry.position !== undefined && entry.hours === undefined) {
       let {osmName, position} = entry;
-      // A tag the library cannot read throws, and one that leaves the whole night closed gives no
-      // span: either way the author writes the hours by hand.
+      // A tag the library cannot read throws, and so does one that leaves a stretch of the night
+      // unknown; one that leaves the whole night closed gives no span. In all three cases the
+      // author writes the hours by hand.
       let hours = await ask(`locations.json › ${id} › hours`, async () => {
         let things = await lookups.findNamed(osmName, position);
         let [nearest] = things
