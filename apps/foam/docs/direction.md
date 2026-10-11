@@ -1,6 +1,6 @@
 # Foam: direction
 
-Started: 2026-10-03. App: `apps/foam`. Status: the direction is agreed; phases 1 to 4 are built.
+Started: 2026-10-03. App: `apps/foam`. Status: the direction is agreed; phases 1 to 5 are built.
 This is a living document: it describes the current state and plan, and is kept correct as they
 change.
 
@@ -229,8 +229,8 @@ spec of their own, drawn one place at a time once the place's actions exist. The
 that spec after phase 6: phases 5 and 6 change what a place's buttons stand for, and a place is
 drawn when the author writes its real text.
 
-Phase 5 is larger than one design-and-plan cycle. It is cut into four specs, each with its own plan,
-build and review, in this order:
+Phase 5 is built. It is larger than one design-and-plan cycle and is cut into four specs, each with
+its own plan, build and review, in this order:
 
 1. A `next` that reads the context, in Tellurion: a choice's `next` and a node's `next` may be a
    function of the context that returns a node or an id, evaluated when it is followed. Effects stay
@@ -258,7 +258,7 @@ build and review, in this order:
 4. The end of the night and the log: the clock's end at 08:00, after which the window that crossed
    it closes and the night ends; the log of every text read and every choice taken, with its time;
    and a screen of its own that shows the log page by page, with a button to the menu on every page.
-   It is designed: [spec](superpowers/specs/2026-10-10-end-of-the-night-and-log-design.md),
+   It is built: [spec](superpowers/specs/2026-10-10-end-of-the-night-and-log-design.md),
    [plan](superpowers/plans/2026-10-10-end-of-the-night-and-log.md).
 
 **Phase 6 completes the first prototype: one whole night.** Its review decides what is kept and what
