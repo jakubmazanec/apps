@@ -101,7 +101,9 @@ Three things shape this spec:
 
 5. Under the text stand Back and Next. Back is greyed out on the first page and Next on the last. A
    page turn replaces the text at once, with no typing and no cursor, and the title counts along.
-   Nothing is focused when the screen opens; Tab or an arrow focuses the first button that takes it.
+   Nothing is focused when the screen opens. Tab focuses Next first on the first page; an arrow key
+   focuses the button nearest the top left, as everywhere in the game: Menu on an upright screen,
+   Next on a wide one.
 6. Menu, or Escape, opens the night's menu above the window: Resume, Options and Quit to menu. Quit
    to menu shows the main menu, and the log is gone. The music plays on through all of it.
 7. A night that starts at or after 08:00 (a jump-in with `time=08:00`) shows its place's description
@@ -120,10 +122,13 @@ story window's look and the fades.
 | `source/game/core/log.ts`             | New. `LogEntry`, `logText`, `logChoice`, `formatLog`                                  |
 | `source/game/core/travel.ts`          | `formatTravel`; the way words move here from the travel window                        |
 | `source/game/core/checkContent.ts`    | `Content` gains `end`, checked like the journeys                                      |
+| `source/game/core/getSceneArea.ts`    | The window gaps, shared by the story window and the log screen                        |
 | `source/game/content/nightEnd.ts`     | New. The end text                                                                     |
 | `source/game/screens/textBlock.ts`    | New. `TextBlock`: the story window's two leaves, regular and italic, as one part      |
 | `source/game/screens/storyWindow.ts`  | Logs each page it shows and each choice pressed; its text block becomes a `TextBlock` |
 | `source/game/screens/logScreen.ts`    | New. The log screen                                                                   |
+| `source/game/screens/topRow.ts`       | New. The top row's status line and Menu button, shared by the night and log screens   |
+| `source/game/screens/menuModal.ts`    | The night's menu, its Escape rule and teardown, shared by the night and log screens   |
 | `source/game/screens/nightScreen.ts`  | The end; the travel logged; black on the close of the crossing window                 |
 | `source/game/screens/travelWindow.ts` | The way words from `core/travel.ts`                                                   |
 | `source/routes/_index.tsx`            | Registers the log screen                                                              |
@@ -241,17 +246,25 @@ export function logChoice(night: Night, text: string): void;
 /**
  * The log as one marked text, wrapped to the width: a text entry is its time and its title on one
  * line and its text under them; a choice is one line in italic, its time and its label; a blank
- * line separates entries. Empty for an empty log.
+ * line separates entries. Empty for an empty log. `measure` gives the width of a piece of text and
+ * does not count the marks, as the story window's measure does not.
  */
-export function formatLog(log: readonly LogEntry[], width: number): string;
+export function formatLog(
+  log: readonly LogEntry[],
+  width: number,
+  measure: (text: string) => number,
+): string;
 ```
 
 `Night` gains `log: LogEntry[]`, and `createNight` starts it empty. A script may read it, as it may
 read the roll; nothing in this spec does. The checker's check nights have one and never write it.
 
-`formatLog` builds the lines entry by entry and joins them with line ends. Each text is wrapped with
-`wrapText` and the measure of the stripped text, as the story window wraps a page, so a line holds
-as many letters as the window shows. A choice's line is the time, two spaces and the label, with the
+`formatLog` builds the lines entry by entry and joins them with line ends. A text entry's title line
+and its text are wrapped together with `wrapText` and the measure it is given, which the log screen
+makes from the stripped text, as the story window wraps a page, so a line holds as many letters as
+the window shows. A title of 19 letters after the time is wider than the narrowest screen's text, so
+it goes on under the time there; `wrapText` keeps the line end between the title and the text, so
+the text wraps as it would alone. A choice's line is the time, two spaces and the label, with the
 label's own marks stripped first and the whole line wrapped in marks, so a stray asterisk cannot
 turn the rest of the log italic. The times come from `formatTime`. The result is one string with
 line ends, which the log screen cuts into pages with `getPageBreaks`; `splitMarked` reads a page's
@@ -320,10 +333,11 @@ is the one that holds the offset at which the shown page began.
 
 **The buttons.** Back and Next, in a row under the text, left to right. Back is disabled on the
 first page and Next on the last, in the theme's disabled look; a disabled button takes no tap, no
-focus and no key. Nothing is focused when the screen is shown; Tab or an arrow focuses the first
-button that takes it, Next on the first page. When a turn disables the button that has the focus,
-the focus moves to the other button, so Enter on Next reads the log through and Enter on Back reads
-it back; the ring follows the rule it follows everywhere.
+focus and no key. Nothing is focused when the screen is shown. Tab focuses the first button that
+takes it, Next on the first page; an arrow key focuses the button nearest the top left, as
+everywhere in the game: Menu on an upright screen, Next on a wide one. When a turn disables the
+button that has the focus, the focus moves to the other button, so Enter on Next reads the log
+through and Enter on Back reads it back; the ring follows the rule it follows everywhere.
 
 **The menu.** The Menu button and Escape open the night's menu (`openMenuModal`) above the window,
 with Resume, Options and Quit to menu, as on the night screen; Escape follows the night screen's
