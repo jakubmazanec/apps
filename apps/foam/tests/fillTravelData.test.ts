@@ -144,6 +144,36 @@ describe(fillTravelData, () => {
     expect(result.missing).toContain('locations.json › bar › hours');
   });
 
+  test('lists a tag that leaves part of the night unknown as missing', async () => {
+    let locations = {bar: {osmName: 'Bar', position: BRNO}};
+    let result = await fillTravelData({
+      locations,
+      travel: {},
+      lookups: createLookups({
+        findNamed: async () => [
+          {position: BRNO, openingHours: 'Fr 16:00-18:00 open, 18:00-20:00 unknown'},
+        ],
+      }),
+    });
+
+    expect(result.locations.bar).toEqual(locations.bar);
+    expect(result.missing).toContain('locations.json › bar › hours');
+  });
+
+  test('lists a tag that leaves the whole night closed as missing', async () => {
+    let locations = {bar: {osmName: 'Bar', position: BRNO}};
+    let result = await fillTravelData({
+      locations,
+      travel: {},
+      lookups: createLookups({
+        findNamed: async () => [{position: BRNO, openingHours: 'Mo-Th 10:00-12:00'}],
+      }),
+    });
+
+    expect(result.locations.bar).toEqual(locations.bar);
+    expect(result.missing).toContain('locations.json › bar › hours');
+  });
+
   test('computes walking and taxi journeys from routes, and the tram from stop to stop without a lookup', async () => {
     let a = {latitude: 49.2, longitude: 16.6};
     let b = {latitude: 49.2, longitude: 16.6 + 0.0549};
@@ -279,6 +309,18 @@ describe(readOpeningHours, () => {
 
   test('reads a public holiday rule for a Friday that is none', () => {
     expect(readOpeningHours('Mo-Su 10:00-02:00; PH off')).toEqual([[960, 1560]]);
+  });
+
+  test('throws on a tag that leaves part of the night unknown', () => {
+    expect(() => readOpeningHours('Fr 16:00-18:00 open, 18:00-20:00 unknown')).toThrow(
+      'leaves part of the night unknown',
+    );
+  });
+
+  test('joins two touching intervals that differ only in their comment', () => {
+    expect(readOpeningHours('Fr 16:00-18:00 open "a", 18:00-20:00 open "b"')).toEqual([
+      [960, 1200],
+    ]);
   });
 
   test('throws on a tag it cannot read', () => {

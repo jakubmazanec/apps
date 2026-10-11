@@ -21,8 +21,9 @@ Two files hold what the game knows about the map of the night:
 `hours` holds the spans in night minutes, from 16:00 = 960 to 08:00 = 1920, the end of a span
 excluded: `[[960, 1620]]` is open from 16:00 and closed from 03:00. No `hours` means it never
 closes. For an entry with `osmName`, the script converts OpenStreetMap's `opening_hours` tag through
-the `opening_hours` library for a Friday with no public holiday; a tag it cannot read, or one that
-leaves the whole night closed, is listed for the author to write by hand.
+the `opening_hours` library for a Friday with no public holiday; a tag it cannot read, one that
+leaves part of the night unknown (an open end, `unknown`), and one that leaves the whole night
+closed are listed for the author to write by hand.
 
 A journey has `minutes`, a `price` in Kč where it costs something, and `computed`. On foot and by
 taxi, the journeys go from every location to every other; by tram, from every stop to every other,
