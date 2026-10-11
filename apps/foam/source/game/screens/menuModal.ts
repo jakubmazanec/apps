@@ -19,7 +19,10 @@ import {UI_FADE_DURATION} from '../core/theme.js';
 // evaluates, only as the game runs. This module reads the main menu in Quit to
 // menu's click, the main menu reads the night screen in New Game's click, and
 // the night screen calls this module's functions from its Menu button, its
-// update and its hide.
+// update and its hide. The directive covers the route through the log screen
+// too, menuModal -> mainMenuScreen -> nightScreen -> logScreen -> menuModal:
+// the night screen reads the log screen when the night ends, and the log screen
+// calls this module's functions from its Menu button, its update and its hide.
 // eslint-disable-next-line import/no-cycle -- see comment above: the cycle only resolves as the game runs, long after the modules evaluate
 import {mainMenuScreen} from './mainMenuScreen.js';
 import {openOptionsModal} from './optionsModal.js';

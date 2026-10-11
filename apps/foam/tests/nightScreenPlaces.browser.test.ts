@@ -7,7 +7,6 @@ import {type barPicture as barPictureValue} from '../source/game/content/picture
 import {getSceneArea} from '../source/game/core/getSceneArea.js';
 import {getSpotPosition} from '../source/game/core/getSpotPosition.js';
 import {type LocationId} from '../source/game/core/location.js';
-import {type LogEntry} from '../source/game/core/log.js';
 import {type PlaceId} from '../source/game/core/night.js';
 import {type PlacePicture} from '../source/game/screens/placePicture.js';
 import {type StoryWindow} from '../source/game/screens/storyWindow.js';
@@ -23,7 +22,10 @@ import {
 import {
   bootGame,
   chooseWayOut,
+  closeStory,
+  describeEntry,
   describeFocus,
+  endStory,
   getBox,
   getButtonLabel,
   getMenuButton,
@@ -37,6 +39,7 @@ import {
   getWindowParts,
   type Harness,
   nextFrame,
+  openSpot,
   pickDestination,
   type Pixels,
   press,
@@ -48,24 +51,12 @@ import {
   useFixedWorld,
   waitForNoStoryWindow,
   waitForPlace,
+  waitForSpeaker,
   waitForTravelWindow,
 } from './nightScreenHelpers.js';
 
 // What the screen warns when a script names "nowhere" in the fixed square.
 const UNKNOWN_PLACE_WARNING = `No place "nowhere"; the night stays in "${FIXED_SQUARE}".`;
-
-// Presses Enter until the text has ended; the last press closes the window.
-// The game's own journey is one node, but its text can run to a second page.
-async function endStory(storyWindow: StoryWindow): Promise<void> {
-  for (let count = 0; count < 40 && storyWindow.dialogue.phase !== 'ended'; count += 1) {
-    await press('Enter');
-  }
-}
-
-// A log entry as its kind, its minute and its title or label.
-function describeEntry(entry: LogEntry): [LogEntry['kind'], number, string | undefined] {
-  return [entry.kind, entry.minutes, entry.kind === 'text' ? entry.speaker : entry.text];
-}
 
 type Rgb = [number, number, number];
 type Point = {x: number; y: number};
@@ -134,20 +125,6 @@ describe('night screen places', {timeout: 180_000}, () => {
   let squarePicture: PlacePicture;
   let squareButtons: Button[];
 
-  async function openSpot(label: string): Promise<StoryWindow> {
-    harness.nightScreen.ui.focus(getSpotButton(harness, label));
-    await press('Enter');
-
-    return getStoryWindow(harness);
-  }
-
-  // Ends a text without choices, as the description that opens on arrival.
-  async function closeStory(): Promise<void> {
-    await pressThrough(harness, getStoryWindow(harness));
-    await press('Enter');
-    await waitForNoStoryWindow(harness);
-  }
-
   // Whether the night screen's travel window, which it keeps, is on the UI
   // root: opening, open or closing.
   function isTravelShown(): boolean {
@@ -214,26 +191,10 @@ describe('night screen places', {timeout: 180_000}, () => {
     await press('Enter');
   }
 
-  // The window the night opens after the last one has closed, by its speaker.
-  async function waitForSpeaker(speaker: string): Promise<StoryWindow> {
-    return vitest.waitFor(
-      () => {
-        let storyWindow = getStoryWindow(harness);
-
-        if (storyWindow.dialogue.node?.speaker !== speaker) {
-          throw new Error(`The story window is not the window of "${speaker}".`);
-        }
-
-        return storyWindow;
-      },
-      {timeout: 10_000},
-    );
-  }
-
   // Leaves the bar's room by the door's Go out and ends the door's text: the pavement shows with
   // its description open.
   async function goOut(): Promise<void> {
-    let door = await openSpot('The door');
+    let door = await openSpot(harness, 'The door');
 
     await pressThrough(harness, door);
 
@@ -295,11 +256,11 @@ describe('night screen places', {timeout: 180_000}, () => {
     let warn = vitest.spyOn(console, 'warn').mockImplementation(() => {});
 
     try {
-      await closeStory();
+      await closeStory(harness);
 
       let buttonsBefore = [...nightScreen.contents.spotButtons];
 
-      await pressThrough(harness, await openSpot('A wrong turn'));
+      await pressThrough(harness, await openSpot(harness, 'A wrong turn'));
       await press('Enter');
       await waitForNoStoryWindow(harness);
       await nextFrame();
@@ -322,7 +283,7 @@ describe('night screen places', {timeout: 180_000}, () => {
     squarePicture = getPicture(harness);
     squareButtons = [...nightScreen.contents.spotButtons];
 
-    let storyWindow = await openSpot('The passage');
+    let storyWindow = await openSpot(harness, 'The passage');
 
     // What the last press of the text does, and Escape in the fade after it,
     // without a frame between them: on a slow machine the whole fade can pass
@@ -399,7 +360,7 @@ describe('night screen places', {timeout: 180_000}, () => {
   test('Tab goes from the place button to Menu and then to the scene buttons', async () => {
     let {ui} = harness.nightScreen;
 
-    await closeStory();
+    await closeStory(harness);
     ui.clearFocus();
     ui.focusNext();
 
@@ -418,7 +379,7 @@ describe('night screen places', {timeout: 180_000}, () => {
   // way out with all three ways.
   test("a way out's choice opens the travel window on that way", async () => {
     await restartAt(harness, FIXED_SQUARE);
-    await closeStory();
+    await closeStory(harness);
     await chooseWayOut(harness, 'Take the tram');
 
     let travelWindow = await waitForTravelWindow(harness);
@@ -431,7 +392,7 @@ describe('night screen places', {timeout: 180_000}, () => {
     let {contents} = harness.nightScreen;
 
     await restartAt(harness, FIXED_SQUARE);
-    await closeStory();
+    await closeStory(harness);
 
     let nightBefore = {...contents.night};
 
@@ -448,7 +409,7 @@ describe('night screen places', {timeout: 180_000}, () => {
     let {contents} = harness.nightScreen;
 
     await restartAt(harness, FIXED_SQUARE);
-    await closeStory();
+    await closeStory(harness);
 
     let nightBefore = {...contents.night};
     let buttonsBefore = [...contents.spotButtons];
@@ -475,7 +436,7 @@ describe('night screen places', {timeout: 180_000}, () => {
     let keptModal = kept.modal;
 
     await restartAt(harness, FIXED_SQUARE);
-    await closeStory();
+    await closeStory(harness);
     await chooseWayOut(harness, 'Walk');
 
     await expect(waitForTravelWindow(harness)).resolves.toBe(kept);
@@ -501,7 +462,7 @@ describe('night screen places', {timeout: 180_000}, () => {
     let {contents, ui} = harness.nightScreen;
 
     await restartAt(harness, FIXED_SQUARE);
-    await closeStory();
+    await closeStory(harness);
 
     let oldButtons = [getPlaceButton(harness), ...contents.spotButtons];
     // A taxi to the bar: 6 minutes and 120 Kč.
@@ -560,7 +521,7 @@ describe('night screen places', {timeout: 180_000}, () => {
       let {contents} = harness.nightScreen;
 
       await restartAt(harness, FIXED_BAR);
-      await closeStory();
+      await closeStory(harness);
       await goOut();
 
       expect(getStoryWindow(harness).dialogue.node?.speaker).toBe('The pavement');
@@ -568,9 +529,9 @@ describe('night screen places', {timeout: 180_000}, () => {
     });
 
     test('Go in works while the bar is open', async () => {
-      await closeStory();
+      await closeStory(harness);
 
-      let storyWindow = await openSpot('The bar');
+      let storyWindow = await openSpot(harness, 'The bar');
 
       await pressThrough(harness, storyWindow);
 
@@ -588,13 +549,13 @@ describe('night screen places', {timeout: 180_000}, () => {
     test('the door shows its locked text while the bar is closed', async () => {
       let {contents} = harness.nightScreen;
 
-      await closeStory();
+      await closeStory(harness);
       await goOut();
-      await closeStory();
+      await closeStory(harness);
       // 23:05, in the half hour the bar is closed.
       contents.night.minutes = 1385;
 
-      let storyWindow = await openSpot('The bar');
+      let storyWindow = await openSpot(harness, 'The bar');
 
       await pressThrough(harness, storyWindow);
 
@@ -618,7 +579,7 @@ describe('night screen places', {timeout: 180_000}, () => {
       // A minute before the closing.
       contents.night.minutes = 1379;
 
-      let storyWindow = await openSpot('The bar');
+      let storyWindow = await openSpot(harness, 'The bar');
 
       await pressThrough(harness, storyWindow);
 
@@ -632,7 +593,7 @@ describe('night screen places', {timeout: 180_000}, () => {
 
       await endStory(getStoryWindow(harness));
 
-      let closing = await waitForSpeaker('Closing time');
+      let closing = await waitForSpeaker(harness, 'Closing time');
 
       expect(contents.night.place).toBe(FIXED_PAVEMENT);
 
@@ -645,9 +606,9 @@ describe('night screen places', {timeout: 180_000}, () => {
 
       // 22:55: the beer's ten minutes end at 23:05.
       await restartAtMinute(FIXED_BAR, 1375);
-      await closeStory();
+      await closeStory(harness);
 
-      let bartender = await openSpot('The bartender');
+      let bartender = await openSpot(harness, 'The bartender');
 
       // Enter finishes the text, the arrow focuses the beer, and Enter takes it.
       await press('Enter');
@@ -656,7 +617,7 @@ describe('night screen places', {timeout: 180_000}, () => {
       await pressThrough(harness, bartender);
       await press('Enter');
 
-      let closing = await waitForSpeaker('Closing time');
+      let closing = await waitForSpeaker(harness, 'Closing time');
 
       // The room stays under the closing's window.
       expect(readText(contents.statusText)).toBe('23:05   305 Kč   1.0');
@@ -671,7 +632,7 @@ describe('night screen places', {timeout: 180_000}, () => {
     test('a journey that arrives after the closing ends on the pavement', async () => {
       // 22:50: the walk from the square takes 12 minutes and arrives at 23:02.
       await restartAtMinute(FIXED_SQUARE, 1370);
-      await closeStory();
+      await closeStory(harness);
 
       let storyWindow = await startJourney('Walk', FIXED_BAR_LOCATION);
 
@@ -819,7 +780,7 @@ describe('night screen places', {timeout: 180_000}, () => {
       let {screen, ticker} = game.app;
 
       await restartAt(harness, FIXED_SQUARE);
-      await closeStory();
+      await closeStory(harness);
       wasAutoStart = ticker.autoStart;
       ticker.autoStart = false;
       ticker.stop();
@@ -1062,7 +1023,7 @@ describe('night screen places', {timeout: 180_000}, () => {
     let {contents} = harness.nightScreen;
 
     await restartAt(harness, FIXED_SQUARE);
-    await closeStory();
+    await closeStory(harness);
 
     let storyWindow = await startJourney('Walk', FIXED_BAR_LOCATION);
 
@@ -1093,7 +1054,7 @@ describe('night screen places', {timeout: 180_000}, () => {
 
   test('a resize with the travel window open lays it out again', async () => {
     await restartAt(harness, FIXED_SQUARE);
-    await closeStory();
+    await closeStory(harness);
     await chooseWayOut(harness, 'Walk');
 
     let travelWindow = await waitForTravelWindow(harness);
@@ -1129,7 +1090,7 @@ describe('night screen places', {timeout: 180_000}, () => {
     let {game, mainMenuScreen} = harness;
 
     await restartAt(harness, FIXED_SQUARE);
-    await closeStory();
+    await closeStory(harness);
     await chooseWayOut(harness, 'Walk');
 
     let travelWindow = await waitForTravelWindow(harness);
@@ -1145,7 +1106,7 @@ describe('night screen places', {timeout: 180_000}, () => {
     let {game, mainMenuScreen, nightScreen} = harness;
 
     await restartAt(harness, FIXED_SQUARE);
-    await closeStory();
+    await closeStory(harness);
     await chooseWayOut(harness, 'Walk');
 
     let travelWindow = await waitForTravelWindow(harness);
@@ -1206,7 +1167,7 @@ describe('night screen places', {timeout: 180_000}, () => {
 
       contents.night.place = 'nowhere' as PlaceId;
       contents.night.leaving = {way: 'walk', ways: ['walk', 'tram', 'taxi']};
-      await closeStory();
+      await closeStory(harness);
       await nextFrame();
       await nextFrame();
 
@@ -1219,7 +1180,7 @@ describe('night screen places', {timeout: 180_000}, () => {
       // and the screen warns no more.
       ui.focus(getPlaceButton(harness));
       await press('Enter');
-      await closeStory();
+      await closeStory(harness);
       await nextFrame();
       await nextFrame();
 
@@ -1241,7 +1202,7 @@ describe('night screen places', {timeout: 180_000}, () => {
 
     try {
       await restartAt(harness, FIXED_SQUARE);
-      await closeStory();
+      await closeStory(harness);
 
       let storyWindow = await startJourney('Walk', FIXED_BAR_LOCATION);
       let builtAhead = await waitForNextPlace(FIXED_BAR);
@@ -1282,7 +1243,7 @@ describe('night screen places', {timeout: 180_000}, () => {
 
     try {
       await restartAt(harness, FIXED_STOP);
-      await closeStory();
+      await closeStory(harness);
       // The lane's text moves the player as it starts, and the screen builds the place as soon as
       // the window is fully shown.
       nightScreen.ui.focus(getSpotButton(harness, 'A dark lane'));

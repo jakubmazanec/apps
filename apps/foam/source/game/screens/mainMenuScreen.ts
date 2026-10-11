@@ -13,7 +13,10 @@ import {playFocusSound} from '../core/playFocusSound.js';
 // it evaluates, only as the game runs. This screen reads the night screen in
 // New Game's click, the night screen calls the menu's functions from its Menu
 // button, its update and its hide, and the menu reads this screen in Quit to
-// menu's click.
+// menu's click. The directive covers the route through the log screen too,
+// mainMenuScreen -> nightScreen -> logScreen -> menuModal -> mainMenuScreen:
+// the night screen reads the log screen when the night ends, and the log screen
+// calls the menu's functions from its Menu button, its update and its hide.
 // eslint-disable-next-line import/no-cycle -- see comment above: the cycle only resolves as the game runs, long after the modules evaluate
 import {nightScreen} from './nightScreen.js';
 import {openOptionsModal} from './optionsModal.js';

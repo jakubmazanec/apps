@@ -35,6 +35,7 @@ import {
   getWindowParts,
   type Harness,
   nextFrame,
+  openSpot,
   press,
   readPages,
   readText,
@@ -119,18 +120,11 @@ describe('night screen', {timeout: 180_000}, () => {
   let play: MockInstance<AudioMixer['play']>;
   let playMusic: MockInstance<AudioMixer['playMusic']>;
 
-  async function openSpot(label: string): Promise<StoryWindow> {
-    harness.nightScreen.ui.focus(getSpotButton(harness, label));
-    await press('Enter');
-
-    return getStoryWindow(harness);
-  }
-
   // Opens "A patron" and takes "Talk to him" and then "Ask about the ceiling",
   // finishing each text, to the long text of a node without choices. Its first
   // page takes more than ten seconds to type.
   async function openLongText(): Promise<StoryWindow> {
-    let storyWindow = await openSpot('A patron');
+    let storyWindow = await openSpot(harness, 'A patron');
 
     for (let count = 0; count < 2; count += 1) {
       await press('Enter');
@@ -487,7 +481,7 @@ describe('night screen', {timeout: 180_000}, () => {
     });
 
     test('the press that opens a window does not finish its first page', async () => {
-      let storyWindow = await openSpot('The bartender');
+      let storyWindow = await openSpot(harness, 'The bartender');
 
       expect(storyWindow.dialogue.node?.speaker).toBe('The bartender');
       expect(storyWindow.dialogue.phase).toBe('revealing');
@@ -496,7 +490,7 @@ describe('night screen', {timeout: 180_000}, () => {
 
     test('Enter finishes the text, and the choices appear with nothing focused', async () => {
       let {nightScreen} = harness;
-      let storyWindow = await openSpot('The bartender');
+      let storyWindow = await openSpot(harness, 'The bartender');
 
       expect(getWindowParts(storyWindow).buttons).toEqual([]);
 
@@ -518,7 +512,7 @@ describe('night screen', {timeout: 180_000}, () => {
     test('Enter with no choice focused does nothing', async () => {
       let {nightScreen} = harness;
       let before = {...nightScreen.contents.night};
-      let storyWindow = await openSpot('The bartender');
+      let storyWindow = await openSpot(harness, 'The bartender');
 
       await press('Enter');
 
@@ -537,7 +531,7 @@ describe('night screen', {timeout: 180_000}, () => {
       {timeout: 240_000},
       async () => {
         let {nightScreen} = harness;
-        let storyWindow = await openSpot('The bartender');
+        let storyWindow = await openSpot(harness, 'The bartender');
 
         expect(storyWindow.dialogue.phase).toBe('revealing');
 
@@ -562,7 +556,7 @@ describe('night screen', {timeout: 180_000}, () => {
 
     // The test of a second tap under the text checks the size in the fade.
     test('the window keeps its size when the choices appear and once they have faded in', async () => {
-      let storyWindow = await openSpot('The bartender');
+      let storyWindow = await openSpot(harness, 'The bartender');
       let {panel} = getWindowParts(storyWindow);
 
       await nextFrame();
@@ -586,7 +580,7 @@ describe('night screen', {timeout: 180_000}, () => {
 
     test('a choice without a next node closes the window', async () => {
       let {nightScreen} = harness;
-      let storyWindow = await openSpot('The bartender');
+      let storyWindow = await openSpot(harness, 'The bartender');
 
       await press('Enter');
       nightScreen.ui.focus(getWindowButton(storyWindow, 1));
@@ -598,7 +592,7 @@ describe('night screen', {timeout: 180_000}, () => {
 
     test('a choice leads to its node', async () => {
       let {nightScreen} = harness;
-      let storyWindow = await openSpot('A patron');
+      let storyWindow = await openSpot(harness, 'A patron');
       let firstNode = storyWindow.dialogue.node;
 
       // Finish the text and take the first choice, "Talk to him".
@@ -616,7 +610,7 @@ describe('night screen', {timeout: 180_000}, () => {
 
     test('a choice taken with Enter does not also finish the next text', async () => {
       let {nightScreen} = harness;
-      let storyWindow = await openSpot('A patron');
+      let storyWindow = await openSpot(harness, 'A patron');
 
       // Finish the text and take "Talk to him", then finish its text.
       await press('Enter');
@@ -640,7 +634,7 @@ describe('night screen', {timeout: 180_000}, () => {
     });
 
     test('a tap on a choice does not also finish the next text', async () => {
-      let storyWindow = await openSpot('A patron');
+      let storyWindow = await openSpot(harness, 'A patron');
 
       // Finish the text and tap "Talk to him", then finish its text, if a tap
       // left it typing, and tap "Ask about the ceiling". A choice takes a tap
@@ -708,7 +702,7 @@ describe('night screen', {timeout: 180_000}, () => {
       {timeout: 120_000},
       async () => {
         // A node without choices: the runner waits at the end of its text.
-        let storyWindow = await openSpot('Two women talking');
+        let storyWindow = await openSpot(harness, 'Two women talking');
         let {cursor} = getWindowParts(storyWindow);
 
         // Two frames are at most 200 ms (Tellurion caps a frame at 100 ms): 8 of 177 letters typed.
@@ -733,7 +727,7 @@ describe('night screen', {timeout: 180_000}, () => {
 
     test('the italic word is drawn by the italic leaf', async () => {
       let {nightScreen} = harness;
-      let storyWindow = await openSpot('A patron');
+      let storyWindow = await openSpot(harness, 'A patron');
 
       // Finish the text, take "Talk to him" and finish its text.
       await press('Enter');
@@ -891,7 +885,7 @@ describe('night screen', {timeout: 180_000}, () => {
 
     test('a second tap under the text takes no choice while the choices fade in', async () => {
       let {game} = harness;
-      let storyWindow = await openSpot('A patron');
+      let storyWindow = await openSpot(harness, 'A patron');
       let firstNode = storyWindow.dialogue.node;
 
       await nextFrame();
@@ -950,7 +944,7 @@ describe('night screen', {timeout: 180_000}, () => {
 
     test('a second tap on a choice before the next frame logs nothing', async () => {
       let {log} = harness.nightScreen.contents.night;
-      let storyWindow = await openSpot('A patron');
+      let storyWindow = await openSpot(harness, 'A patron');
 
       // Finish the text, and wait until the choices take a tap.
       await press('Enter');
@@ -1007,7 +1001,7 @@ describe('night screen', {timeout: 180_000}, () => {
 
     test('an arrow key focuses the first choice, and Enter orders a beer', async () => {
       let {nightScreen} = harness;
-      let storyWindow = await openSpot('The bartender');
+      let storyWindow = await openSpot(harness, 'The bartender');
 
       // Finish the text, focus "Order a beer" and take it.
       await press('Enter');
@@ -1061,7 +1055,7 @@ describe('night screen', {timeout: 180_000}, () => {
         // A price equal to the money is affordable.
         night.money = 45;
 
-        let affordable = await openSpot('The bartender');
+        let affordable = await openSpot(harness, 'The bartender');
 
         await press('Enter');
 
@@ -1070,7 +1064,7 @@ describe('night screen', {timeout: 180_000}, () => {
         clearScene();
         night.money = 40;
 
-        let storyWindow = await openSpot('The bartender');
+        let storyWindow = await openSpot(harness, 'The bartender');
 
         await press('Enter');
 
@@ -1117,7 +1111,7 @@ describe('night screen', {timeout: 180_000}, () => {
           clearScene();
           night.random = () => value;
 
-          let storyWindow = await openSpot('The door');
+          let storyWindow = await openSpot(harness, 'The door');
 
           await press('Enter');
 
@@ -1147,7 +1141,7 @@ describe('night screen', {timeout: 180_000}, () => {
 
     test('a scene button does nothing while a window is open', async () => {
       let {nightScreen} = harness;
-      let storyWindow = await openSpot('Two women talking');
+      let storyWindow = await openSpot(harness, 'Two women talking');
 
       // The dimmed scene takes no taps and no key presses, so the test calls
       // the buttons themselves.
@@ -1163,7 +1157,7 @@ describe('night screen', {timeout: 180_000}, () => {
     // takes it, though the layer draws nothing, so no menu opens.
     test('a tap on Menu behind a window does nothing', async () => {
       let {nightScreen} = harness;
-      let storyWindow = await openSpot('Two women talking');
+      let storyWindow = await openSpot(harness, 'Two women talking');
 
       await tap(harness, getBox(harness, nightScreen.contents.menuButton));
 
@@ -1237,7 +1231,7 @@ describe('night screen', {timeout: 180_000}, () => {
 
     test('a resize keeps the focus on the choice that had it', async () => {
       let {nightScreen} = harness;
-      let storyWindow = await openSpot('The bartender');
+      let storyWindow = await openSpot(harness, 'The bartender');
 
       // Finish the text, focus the first choice and move to the second.
       await press('Enter');
@@ -1266,7 +1260,7 @@ describe('night screen', {timeout: 180_000}, () => {
     });
 
     test('a resize starts the fade of fading choices again and brings shown ones back at once', async () => {
-      let storyWindow = await openSpot('The bartender');
+      let storyWindow = await openSpot(harness, 'The bartender');
       let area = getSceneArea(480, 270);
 
       function getChoicesView(): pixi.Container {
@@ -1298,7 +1292,7 @@ describe('night screen', {timeout: 180_000}, () => {
 
     test('a window attached again fades in the choices whose fade its detach cut short', async () => {
       let {ui} = harness.nightScreen;
-      let storyWindow = await openSpot('The bartender');
+      let storyWindow = await openSpot(harness, 'The bartender');
 
       // No frame runs between these calls: the choices start their fade, and
       // the window leaves the root and comes back before the fade advances.
@@ -1567,7 +1561,7 @@ describe('night screen', {timeout: 180_000}, () => {
 
     test('Escape in a story window opens the menu above it, and the text waits', async () => {
       let {nightScreen} = harness;
-      let storyWindow = await openSpot('Two women talking');
+      let storyWindow = await openSpot(harness, 'Two women talking');
 
       await press('Escape');
 
@@ -1688,7 +1682,7 @@ describe('night screen', {timeout: 180_000}, () => {
       expect(nightScreen.ui.topOverlay).toBeNull();
       expect(getPicture(harness).speed).toBe(1);
 
-      await openSpot('Two women talking');
+      await openSpot(harness, 'Two women talking');
       await nextFrame();
 
       expect(getPicture(harness).speed).toBe(0.5);
@@ -1751,7 +1745,7 @@ describe('night screen', {timeout: 180_000}, () => {
     test('Quit to menu above a story window shows the main menu and its music', async () => {
       let {game, mainMenuScreen, nightScreen} = harness;
 
-      await openSpot('Two women talking');
+      await openSpot(harness, 'Two women talking');
       await press('Escape');
       nightScreen.ui.focus(getMenuButton(getMenu(), 'Quit to menu'));
       await press('Enter');
@@ -1782,7 +1776,7 @@ describe('night screen', {timeout: 180_000}, () => {
 
     test('hiding the screen with a window open destroys the window at once', async () => {
       let {game, mainMenuScreen, nightScreen} = harness;
-      let storyWindow = await openSpot('Two women talking');
+      let storyWindow = await openSpot(harness, 'Two women talking');
 
       // What the engine does when the error screen takes over.
       await game.showScreen(mainMenuScreen);
