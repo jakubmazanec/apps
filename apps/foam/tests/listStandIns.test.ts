@@ -18,7 +18,7 @@ describe(countTags, () => {
 });
 
 describe(listStandIns, () => {
-  test('lists the files of every location folder, the journeys and the data', async () => {
+  test('lists the files of every location folder, the journeys, the end text and the data', async () => {
     let lines = (await listStandIns()).split('\n');
     let starts = [
       'train/train.ts',
@@ -26,6 +26,7 @@ describe(listStandIns, () => {
       'rotorBar/street.ts',
       'rotorBar/location.ts',
       'journeys.ts',
+      'nightEnd.ts',
       'Locations not checked:',
     ];
 

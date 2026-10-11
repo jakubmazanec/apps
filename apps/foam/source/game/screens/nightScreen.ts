@@ -10,11 +10,12 @@ import {
 } from 'tellurion';
 
 import {journeys} from '../content/journeys.js';
+import {nightEnd} from '../content/nightEnd.js';
 import {nightStart} from '../content/nightStart.js';
 import {game} from '../core/game.js';
 import {BUTTON_HEIGHT, LINE_HEIGHT, MARGIN, TOP_ROW_WIDTH} from '../core/getSceneArea.js';
 import {getSpotPosition} from '../core/getSpotPosition.js';
-import {isOpenAt} from '../core/hours.js';
+import {isNightOver, isOpenAt} from '../core/hours.js';
 import {type Location, type LocationId} from '../core/location.js';
 import {logChoice} from '../core/log.js';
 import {createNight, formatStatus, type Night} from '../core/night.js';
@@ -23,12 +24,21 @@ import {playFocusSound} from '../core/playFocusSound.js';
 import {UI_FADE_DURATION} from '../core/theme.js';
 import {formatTravel, getLocation, takeJourney} from '../core/travel.js';
 import {errorScreen} from './errorScreen.js';
+// The nightScreen -> logScreen -> menuModal -> mainMenuScreen -> nightScreen
+// static import cycle is deliberate and safe: no module reads another's binding
+// while it evaluates, only as the game runs. This screen reads the log screen
+// when the night ends, the log screen calls the menu's functions from its Menu
+// button, its update and its hide, the menu reads the main menu in Quit to
+// menu's click, and the main menu reads this screen in New Game's click.
+// eslint-disable-next-line import/no-cycle -- see comment above: the cycle only resolves as the game runs, long after the modules evaluate
+import {logScreen} from './logScreen.js';
 // The nightScreen -> menuModal -> mainMenuScreen -> nightScreen static import
 // cycle is deliberate and safe: no module reads another's binding while it
 // evaluates, only as the game runs. This screen calls the menu's functions from
 // its Menu button, its update and its hide, the menu reads the main menu in
 // Quit to menu's click, and the main menu reads this screen in New Game's click.
-// eslint-disable-next-line import/no-cycle -- see comment above: the cycle only resolves as the game runs, long after the modules evaluate
+// import/no-cycle reports it at the log screen's import above: the rule walks
+// each module once per file, and it reached the menu through the log screen.
 import {destroyMenus, openMenu, openMenuOnCancel} from './menuModal.js';
 import {PlacePicture} from './placePicture.js';
 import {StoryWindow} from './storyWindow.js';
@@ -56,12 +66,16 @@ type NightScreenContents = {
   /** Cancels the running fade of the backdrop. */
   cancelBackdropFade: (() => void) | null;
 
+  /** Whether the end text has opened: the night is over, and the next close shows the log. */
+  hasEnded: boolean;
+
   /** Whether a story window has closed and the screen has not looked at the night since. */
   hasStoryClosed: boolean;
 
   /**
    * Whether the window that is closing ends where the place changes: a pick on the travel window,
-   * a script that moved the player, or the end of a journey.
+   * a script that moved the player, the end of a journey, or a window that closes on a night that
+   * is over.
    */
   isPlaceChanging: boolean;
 
@@ -178,7 +192,8 @@ function isTravelWindowShown({contents}: NightScreen): boolean {
 // window that closes on a change of place takes the scene to black with it: the
 // place being left fades out with the window, the next place is built under
 // black, and it fades in with its description, as the journey does with its
-// window.
+// window. A window that closes on a night that is over goes out to black too,
+// and the end text comes in from black.
 function getBackdropAlpha(screen: NightScreen): number {
   let {contents} = screen;
 
@@ -221,8 +236,13 @@ function fadeBackdrop(screen: NightScreen): void {
 }
 
 // The place the night has moved the player to, when it is not the place shown
-// and the night has it.
+// and the night has it. None once the night is over: the end text comes next,
+// and no place is built behind the window that crossed 08:00.
 function getNextPlace({contents: {night, place}}: NightScreen): Place | undefined {
+  if (isNightOver(night)) {
+    return undefined;
+  }
+
   return night.place === place?.id ? undefined : nightStart.places[night.place];
 }
 
@@ -236,10 +256,12 @@ function openStory(screen: NightScreen, script: RunnableDialogueScript<Night>): 
     script,
     context: screen.contents.night,
     area: getArea(),
-    // A script that moved the player, or the end of a journey: the scene goes
-    // out with the window (see getBackdropAlpha).
+    // A script that moved the player, the end of a journey, or a window that
+    // closes on a night that is over: the scene goes out with the window (see
+    // getBackdropAlpha).
     onClosing: () => {
-      screen.contents.isPlaceChanging = getNextPlace(screen) !== undefined;
+      screen.contents.isPlaceChanging =
+        getNextPlace(screen) !== undefined || isNightOver(screen.contents.night);
       fadeBackdrop(screen);
     },
     onClosed: () => {
@@ -492,17 +514,36 @@ function closeLocation(screen: NightScreen, location: Location): void {
   openStory(screen, closing);
 }
 
-// Looks at the night once a story window has closed. A script that moved the
-// player shows the new place, and so does the end of a journey; a place the
-// night does not have leaves the player where they are, with no way out. A way
-// out that a script chose opens the travel window. A location that is closed
-// with the player indoors closes on them, after any window: a beer that ran
-// past the hour, the description of a room that a door led into too late. The
-// order is a place the night moved the player to, then a way out, then the
-// closing; a way out exists only outdoors and a closing only indoors, so the
-// last two never meet.
+// Looks at the night once a story window has closed. A night that is over
+// takes the place off the screen and opens the end text over black, and when
+// that has closed the log screen takes over; a way out the night still holds
+// is ignored then. A script that moved the player shows the new place, and so
+// does the end of a journey; a place the night does not have leaves the player
+// where they are, with no way out. A way out that a script chose opens the
+// travel window. A location that is closed with the player indoors closes on
+// them, after any window: a beer that ran past the hour, the description of a
+// room that a door led into too late. The order is the end, then a place the
+// night moved the player to, then a way out, then the closing. The end comes
+// first, so a travel that arrives after 08:00 never shows its destination,
+// and a closing never runs on the close that ends the night. A way out exists
+// only outdoors and a closing only indoors, so the last two never meet.
 function actOnNight(screen: NightScreen): void {
-  let {night, place} = screen.contents;
+  let {hasEnded, night, place} = screen.contents;
+
+  if (isNightOver(night)) {
+    if (hasEnded) {
+      logScreen.contents.showLog(night);
+      // showScreen never rejects; a failure lands on the error screen.
+      void game.showScreen(logScreen);
+    } else {
+      screen.contents.hasEnded = true;
+      leavePlace(screen);
+      layOut(screen);
+      openStory(screen, nightEnd);
+    }
+
+    return;
+  }
 
   if (place !== null && night.place === place.id) {
     if (night.leaving !== null) {
@@ -568,6 +609,7 @@ export const nightScreen = new GameScreen<NightScreenContents>({
       backdrop,
       backdropAlpha: 0,
       cancelBackdropFade: null,
+      hasEnded: false,
       hasStoryClosed: false,
       isPlaceChanging: false,
       lastTopOverlay: null,
@@ -591,6 +633,7 @@ export const nightScreen = new GameScreen<NightScreenContents>({
     let night = createNight(nightStart);
 
     screen.contents.night = night;
+    screen.contents.hasEnded = false;
     screen.contents.hasStoryClosed = false;
     screen.contents.lastTopOverlay = null;
     writeStatus(screen);

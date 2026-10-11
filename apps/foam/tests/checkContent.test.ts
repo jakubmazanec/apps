@@ -113,6 +113,7 @@ const journeys: Record<Way, RunnableDialogueScript<Night>> = {
   tram: oneNode('You ride.', 'The tram'),
   taxi: oneNode('You drive.', 'The taxi'),
 };
+const end = oneNode('Morning.', 'Morning');
 
 function check(
   changes: {
@@ -122,9 +123,10 @@ function check(
     travel?: Travel;
     map?: MapData;
     journeys?: Record<Way, RunnableDialogueScript<Night>>;
+    end?: RunnableDialogueScript<Night>;
   } = {},
 ): string[] {
-  return checkContent({locations, places, journeys, locationData, travel, map, ...changes});
+  return checkContent({locations, places, journeys, locationData, travel, map, end, ...changes});
 }
 
 function withZidenice(change: Partial<Place>): Record<string, Place> {
@@ -348,6 +350,10 @@ describe(checkContent, () => {
     let lines = check({journeys: {...journeys, tram: oneNode('You ride.', '')}});
 
     expect(lines).toContain('journeys › tram › start: no speaker');
+  });
+
+  test('reports a fault of the end script', () => {
+    expect(check({end: oneNode('Morning.', '')})).toContain('end › start: no speaker');
   });
 
   test('reports a fault of a closing script', () => {

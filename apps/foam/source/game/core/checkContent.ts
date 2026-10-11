@@ -18,6 +18,7 @@ export type Content = {
   locationData: LocationData;
   travel: Travel;
   map: MapData;
+  end: RunnableDialogueScript<Night>;
 };
 
 // A location's button and its neighbourhood must lie inside the map, with this much to spare.
@@ -419,6 +420,8 @@ export function checkContent(content: Content): string[] {
   for (let [way, script] of Object.entries(content.journeys)) {
     checkScript(`journeys${SEPARATOR}${way}`, script, null);
   }
+
+  checkScript('end', content.end, null);
 
   for (let id of Object.keys(content.locations)) {
     if (!OFF_THE_MAP.has(id) && content.locationData[id] === undefined) {

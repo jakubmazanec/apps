@@ -1,7 +1,7 @@
 // Lists what is left to write: the stand-in texts and the written ones of every file in the
-// location folders under content/locations/ (each place and each location.ts) and of the journeys,
-// and the locations and journeys of the data that a script computed and nobody has checked. Run it
-// with `node scripts/list-stand-ins.mjs`.
+// location folders under content/locations/ (each place and each location.ts), of the journeys and
+// of the end text, and the locations and journeys of the data that a script computed and nobody has
+// checked. Run it with `node scripts/list-stand-ins.mjs`.
 import {readdir, readFile} from 'node:fs/promises';
 
 const contentDir = new URL('../source/game/content/', import.meta.url);
@@ -59,6 +59,7 @@ export async function listStandIns() {
   let files = [
     ...(await readLocationFiles()),
     {name: 'journeys.ts', source: await readFile(new URL('journeys.ts', contentDir), 'utf8')},
+    {name: 'nightEnd.ts', source: await readFile(new URL('nightEnd.ts', contentDir), 'utf8')},
   ];
   let lines = [
     `${'Texts'.padEnd(NAME_WIDTH)}${'stand-in'.padStart(STAND_IN_WIDTH)}${'written'.padStart(WRITTEN_WIDTH)}`,
