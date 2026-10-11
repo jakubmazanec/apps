@@ -6,27 +6,17 @@ import {
   type Modal,
   type Overlay,
   type RunnableDialogueScript,
-  Text,
+  type Text,
 } from 'tellurion';
 
 import {journeys} from '../content/journeys.js';
 import {nightStart} from '../content/nightStart.js';
 import {game} from '../core/game.js';
-import {
-  BUTTON_HEIGHT,
-  BUTTON_PADDING_X,
-  getSceneArea,
-  LINE_HEIGHT,
-  MARGIN,
-  type SceneArea,
-  TOP_ROW_WIDTH,
-} from '../core/getSceneArea.js';
+import {BUTTON_HEIGHT, LINE_HEIGHT, MARGIN, TOP_ROW_WIDTH} from '../core/getSceneArea.js';
 import {getSpotPosition} from '../core/getSpotPosition.js';
 import {isOpenAt} from '../core/hours.js';
-import {input} from '../core/input.js';
 import {type Location, type LocationId} from '../core/location.js';
 import {logChoice} from '../core/log.js';
-import {measureText} from '../core/measureText.js';
 import {createNight, formatStatus, type Night} from '../core/night.js';
 import {type Place} from '../core/place.js';
 import {playFocusSound} from '../core/playFocusSound.js';
@@ -34,13 +24,22 @@ import {UI_FADE_DURATION} from '../core/theme.js';
 import {formatTravel, getLocation, takeJourney} from '../core/travel.js';
 import {errorScreen} from './errorScreen.js';
 // The nightScreen -> menuModal -> mainMenuScreen -> nightScreen static import
-// cycle is deliberate and safe: each module reads the next one's binding only
-// inside a click handler (Quit to menu in the menu, New Game in the main menu),
-// long after all of them have evaluated.
-// eslint-disable-next-line import/no-cycle -- see comment above: the cycle only resolves inside event handlers, long after both modules evaluate
-import {openMenu} from './menuModal.js';
+// cycle is deliberate and safe: no module reads another's binding while it
+// evaluates, only as the game runs. This screen calls the menu's functions from
+// its Menu button, its update and its hide, the menu reads the main menu in
+// Quit to menu's click, and the main menu reads this screen in New Game's click.
+// eslint-disable-next-line import/no-cycle -- see comment above: the cycle only resolves as the game runs, long after the modules evaluate
+import {destroyMenus, openMenu, openMenuOnCancel} from './menuModal.js';
 import {PlacePicture} from './placePicture.js';
 import {StoryWindow} from './storyWindow.js';
+import {
+  createLabel,
+  createMenuButton,
+  createStatusText,
+  getArea,
+  getButtonWidth,
+  setStatus,
+} from './topRow.js';
 import {TravelWindow} from './travelWindow.js';
 
 type NightScreenContents = {
@@ -112,29 +111,8 @@ type PlaceParts = {
   spotButtons: Button[];
 };
 
-function getButtonWidth(label: string): number {
-  return measureText(label, 'label') + 2 * BUTTON_PADDING_X;
-}
-
 function getPlaceLabel(place: Place): string {
   return place.shortName ?? place.name;
-}
-
-// A label with an explicit size: a leaf sized by its own bounds is measured
-// again later, and its button would move it then.
-function createLabel(text: string): Text {
-  return new Text({
-    text,
-    theme: game.theme,
-    layout: {width: measureText(text, 'label'), height: LINE_HEIGHT},
-  });
-}
-
-function getArea(): SceneArea {
-  return getSceneArea(
-    game.app.screen.width / game.pixelScale,
-    game.app.screen.height / game.pixelScale,
-  );
 }
 
 // It runs in every update, so it touches the text and the layout only when the
@@ -147,8 +125,7 @@ function writeStatus(screen: NightScreen): void {
   }
 
   screen.contents.status = status;
-  screen.contents.statusText.setText(status);
-  screen.contents.statusText.view.layout = {width: measureText(status, 'label')};
+  setStatus(screen.contents.statusText, status);
 }
 
 function layOut(screen: NightScreen): void {
@@ -572,25 +549,9 @@ export const nightScreen = new GameScreen<NightScreenContents>({
     screen.ui.view.layout = {width: '100%', height: '100%'};
 
     // layOut() positions it and writeStatus() sets its text and width.
-    let statusText = new Text({
-      text: '',
-      theme: game.theme,
-      fontFamily: 'monogram-outline',
-      layout: {position: 'absolute', left: 0, top: 0, width: 0, height: LINE_HEIGHT},
-    });
-    let menuButton = new Button({
-      theme: game.theme,
-      children: [createLabel('Menu')],
-      layout: {
-        position: 'absolute',
-        right: MARGIN,
-        top: MARGIN,
-        width: getButtonWidth('Menu'),
-        height: BUTTON_HEIGHT,
-      },
-      onClick: () => {
-        openMenu(screen);
-      },
+    let statusText = createStatusText();
+    let menuButton = createMenuButton(() => {
+      openMenu(screen);
     });
     // The same scrim as a Modal's. It takes no taps: the windows' own layers do.
     let backdrop = new pixi.Graphics();
@@ -651,11 +612,10 @@ export const nightScreen = new GameScreen<NightScreenContents>({
   onHide: (screen) => {
     // Owning-screen teardown rule: synchronous destroy(), never the animated
     // close(), because the scheduler was already cleared before onHide. The
-    // topmost window goes first. The travel window is kept for the next night:
-    // its modal only leaves the UI root, and reports no destination, as its
-    // onClosed does not fire.
-    screen.contents.optionsModal?.destroy();
-    screen.contents.menuModal?.destroy();
+    // topmost window goes first: the menus, then the windows of the night. The
+    // travel window is kept for the next night: its modal only leaves the UI
+    // root, and reports no destination, as its onClosed does not fire.
+    destroyMenus(screen);
 
     if (isTravelWindowShown(screen)) {
       screen.ui.removeOverlay(screen.contents.travelWindow.modal);
@@ -663,8 +623,6 @@ export const nightScreen = new GameScreen<NightScreenContents>({
 
     screen.contents.storyWindow?.destroy();
 
-    screen.contents.optionsModal = null;
-    screen.contents.menuModal = null;
     screen.contents.storyWindow = null;
     leavePlace(screen);
     dropNextPlace(screen);
@@ -713,23 +671,9 @@ export const nightScreen = new GameScreen<NightScreenContents>({
     // window.
     fadeBackdrop(screen);
 
-    // The engine has already sent this frame's cancel command to the topmost
-    // overlay, which it closed if the overlay declares close: the menu, the
-    // Options window or the travel window. With no overlay, or with a story
-    // window on top, a journey's too, which declares none, the command opens
-    // the menu. focusPressed only reads the latched state, so reading it again
-    // here is safe. The overlay that took the command is, as a rule, the one on
-    // top at the end of the last update, not the one on top now: a frame as long
-    // as a UI fade can finish the closing of that overlay before this point. (A
-    // tap that opened another overlay since then makes it a miss.) The overlay
-    // is recorded after the rule, so the menu this rule opens is on record too.
-    let {lastTopOverlay} = screen.contents;
-
-    if (input.focusPressed('cancel') && lastTopOverlay?.close === undefined) {
-      openMenu(screen);
-    }
-
-    screen.contents.lastTopOverlay = screen.ui.topOverlay;
+    // Escape with no overlay that takes it opens the menu, above a story window
+    // too (see openMenuOnCancel).
+    openMenuOnCancel(screen);
   },
   onResize: (screen) => {
     layOut(screen);
