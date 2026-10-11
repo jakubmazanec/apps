@@ -19,6 +19,13 @@ import {stripMarks} from '../core/markedText.js';
 import {measureText} from '../core/measureText.js';
 import {formatStatus, type Night} from '../core/night.js';
 import {playFocusSound} from '../core/playFocusSound.js';
+// The logScreen -> menuModal -> mainMenuScreen -> nightScreen -> logScreen
+// static import cycle is deliberate and safe: no module reads another's binding
+// while it evaluates, only as the game runs. This screen calls the menu's
+// functions from its Menu button, its update and its hide, the menu reads the
+// main menu in Quit to menu's click, the main menu reads the night screen in
+// New Game's click, and the night screen reads this screen when the night ends.
+// eslint-disable-next-line import/no-cycle -- see comment above: the cycle only resolves as the game runs, long after the modules evaluate
 import {destroyMenus, openMenu, openMenuOnCancel} from './menuModal.js';
 import {TextBlock} from './textBlock.js';
 import {createLabel, createMenuButton, createStatusText, getArea, setStatus} from './topRow.js';

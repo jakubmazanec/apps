@@ -6,6 +6,7 @@ import map from '../source/game/content/data/map.json';
 import travel from '../source/game/content/data/travel.json';
 import {journeys} from '../source/game/content/journeys.js';
 import {locations, places} from '../source/game/content/locations.js';
+import {nightEnd} from '../source/game/content/nightEnd.js';
 import {nightStart} from '../source/game/content/nightStart.js';
 import {checkContent} from '../source/game/core/checkContent.js';
 import {
@@ -83,7 +84,19 @@ function readCornerTableAt(minutes: number): string[] {
 
 describe('the game content', () => {
   test("the game's content has no problem", () => {
-    expect(checkContent({locations, places, journeys, locationData, travel, map})).toEqual([]);
+    expect(
+      checkContent({locations, places, journeys, locationData, travel, map, end: nightEnd}),
+    ).toEqual([]);
+  });
+
+  test('the end text reads the money', () => {
+    let dialogue = new Dialogue({
+      script: nightEnd,
+      context: createNight({place: 'rotorBarRoom', minutes: 1925, money: 120}),
+    });
+
+    expect(dialogue.pageText).toContain('120 Kč');
+    expect(dialogue.node?.speaker).toBe('Morning');
   });
 
   test('locations holds the seven locations, each with the places of the spec', () => {
