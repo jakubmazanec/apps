@@ -17,6 +17,7 @@ export default function Index() {
       let [
         {game: importedGame},
         {errorScreen},
+        {logScreen},
         {mainMenuScreen},
         {nightScreen},
         {nightStart},
@@ -24,6 +25,7 @@ export default function Index() {
       ] = await Promise.all([
         import('../game/core/game.js'),
         import('../game/screens/errorScreen.js'),
+        import('../game/screens/logScreen.js'),
         import('../game/screens/mainMenuScreen.js'),
         import('../game/screens/nightScreen.js'),
         import('../game/content/nightStart.js'),
@@ -50,6 +52,7 @@ export default function Index() {
       importedGame.addErrorScreen(errorScreen);
       importedGame.addScreen(mainMenuScreen);
       importedGame.addScreen(nightScreen);
+      importedGame.addScreen(logScreen);
 
       // A jump-in in the address starts the night at once, in every build, so
       // a scene can be tried on a phone. Its values stay in nightStart for the

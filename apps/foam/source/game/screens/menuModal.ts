@@ -1,10 +1,33 @@
-import {Button, Modal, Panel, type Scheduler, Text, type UiRoot} from 'tellurion';
+import {
+  Button,
+  type GameScreenState,
+  Modal,
+  Panel,
+  type Scheduler,
+  Text,
+  type UiRoot,
+} from 'tellurion';
 
 import {game} from '../core/game.js';
 import {BUTTON_PADDING_X} from '../core/getSceneArea.js';
 import {measureText} from '../core/measureText.js';
 import {UI_FADE_DURATION} from '../core/theme.js';
+// The menuModal -> mainMenuScreen -> nightScreen -> menuModal static import
+// cycle is deliberate and safe: each module reads the next one's binding only
+// inside a click handler (Quit to menu here, New Game in the main menu), long
+// after all of them have evaluated.
+// eslint-disable-next-line import/no-cycle -- see comment above: the cycle only resolves inside event handlers, long after both modules evaluate
+import {mainMenuScreen} from './mainMenuScreen.js';
+import {openOptionsModal} from './optionsModal.js';
 import {createWindowTitle, WINDOW_PADDING} from './windowTitle.js';
+
+/** A screen that opens the night's menu: the night screen and the log screen. */
+type MenuScreen = {
+  state: GameScreenState;
+  ui: UiRoot;
+  scheduler: Scheduler;
+  contents: {menuModal: Modal | null; optionsModal: Modal | null};
+};
 
 export type MenuModalOptions = {
   /** UI root of the screen that opens the window. */
@@ -96,4 +119,37 @@ export function openMenuModal({
   ui.addOverlay(modal);
 
   return modal;
+}
+
+// The night's menu, which the night screen and the log screen open with their
+// Menu button and with Escape. The menu also opens above a story window, whose
+// text waits meanwhile. A hidden screen opens no menu: Quit to menu hides the
+// screen inside its click, and an Escape in the same frame still reaches
+// onUpdate, where the screen has no overlay left.
+export function openMenu(screen: MenuScreen): void {
+  if (screen.state !== 'shown' || screen.contents.menuModal !== null) {
+    return;
+  }
+
+  screen.contents.menuModal = openMenuModal({
+    ui: screen.ui,
+    scheduler: screen.scheduler,
+    onOptions: () => {
+      screen.contents.optionsModal = openOptionsModal({
+        ui: screen.ui,
+        scheduler: screen.scheduler,
+        onClosed: () => {
+          screen.contents.optionsModal = null;
+        },
+      });
+    },
+    onQuit: () => {
+      // The swap runs this screen's onHide, which destroys the menu.
+      // showScreen never rejects; a failure lands on the error screen.
+      void game.showScreen(mainMenuScreen);
+    },
+    onClosed: () => {
+      screen.contents.menuModal = null;
+    },
+  });
 }
