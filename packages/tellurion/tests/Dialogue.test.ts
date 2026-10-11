@@ -1,0 +1,843 @@
+import {describe, expect, test, vitest} from 'vitest';
+
+import {Dialogue} from '../source/dialogue/Dialogue.js';
+
+type TestContext = {calls: string[]; metMira: boolean};
+
+function createContext(): TestContext {
+  return {calls: [], metMira: false};
+}
+
+describe('Dialogue node entry', () => {
+  test('enters the start node revealing from zero', () => {
+    let dialogue = new Dialogue({script: {start: {text: 'Hello.'}}, context: createContext()});
+
+    expect(dialogue.phase).toBe('revealing');
+    expect(dialogue.pageText).toBe('Hello.');
+    expect(dialogue.pageIndex).toBe(0);
+    expect(dialogue.revealedCount).toBe(0);
+  });
+
+  test('a callable start resolves against the context', () => {
+    let dialogue = new Dialogue({
+      script: {
+        start: (context: TestContext) => (context.metMira ? 'again' : 'greeting'),
+        nodes: {greeting: {text: 'First time.'}, again: {text: 'Back already?'}},
+      },
+      context: {...createContext(), metMira: true},
+    });
+
+    expect(dialogue.pageText).toBe('Back already?');
+  });
+
+  test('node entry runs onEnter, then the text function, then isVisible, each once', () => {
+    let context = createContext();
+
+    void new Dialogue({
+      script: {
+        start: {
+          onEnter: (c: TestContext) => {
+            c.calls.push('onEnter');
+          },
+          text: (c: TestContext) => {
+            c.calls.push('text');
+
+            return 'Hi.';
+          },
+          choices: [
+            {
+              text: 'Ok',
+              isVisible: (c: TestContext) => {
+                c.calls.push('isVisible');
+
+                return true;
+              },
+            },
+          ],
+        },
+      },
+      context,
+    });
+
+    expect(context.calls).toEqual(['onEnter', 'text', 'isVisible']);
+  });
+});
+
+describe('Dialogue tick and advance', () => {
+  test('tick accumulates fractional characters at revealSpeed per second', () => {
+    let dialogue = new Dialogue({
+      script: {start: {text: 'abcdef'}},
+      context: createContext(),
+      revealSpeed: 10,
+    });
+
+    dialogue.tick(50); // 0.5 characters: nothing visible yet
+
+    expect(dialogue.revealedCount).toBe(0);
+
+    dialogue.tick(50); // 1.0 accumulated
+
+    expect(dialogue.revealedCount).toBe(1);
+
+    dialogue.tick(500); // +5, page complete
+
+    expect(dialogue.revealedCount).toBe(6);
+    expect(dialogue.phase).toBe('idle');
+  });
+
+  test('the fully revealed last page of a node with visible choices becomes choosing', () => {
+    let dialogue = new Dialogue({
+      script: {start: {text: 'Hi.', choices: [{text: 'A'}, {text: 'B'}]}},
+      context: createContext(),
+    });
+
+    dialogue.tick(1000);
+
+    expect(dialogue.phase).toBe('choosing');
+    expect(dialogue.visibleChoices).toHaveLength(2);
+    expect(dialogue.selectedIndex).toBe(0);
+  });
+
+  test('advance while revealing skips to the stop and enters the same phase a tick would', () => {
+    let plain = new Dialogue({script: {start: {text: 'abcdef'}}, context: createContext()});
+
+    plain.advance();
+
+    expect(plain.revealedCount).toBe(6);
+    expect(plain.phase).toBe('idle');
+
+    let choosing = new Dialogue({
+      script: {start: {text: 'Hi.', choices: [{text: 'A'}]}},
+      context: createContext(),
+    });
+
+    choosing.advance();
+
+    expect(choosing.phase).toBe('choosing');
+  });
+
+  test('string[] pages turn on advance and end after the last one', () => {
+    let dialogue = new Dialogue({
+      script: {start: {text: ['One.', 'Two.']}},
+      context: createContext(),
+    });
+
+    dialogue.advance(); // skip page 0
+
+    expect(dialogue.phase).toBe('idle');
+
+    dialogue.advance(); // page turn
+
+    expect(dialogue.pageIndex).toBe(1);
+    expect(dialogue.pageText).toBe('Two.');
+    expect(dialogue.phase).toBe('revealing');
+    expect(dialogue.revealedCount).toBe(0);
+
+    dialogue.advance(); // skip page 1
+    dialogue.advance(); // no next, no choices: ends
+
+    expect(dialogue.phase).toBe('ended');
+  });
+
+  test('advance follows next by id and by inline node', () => {
+    let dialogue = new Dialogue({
+      script: {
+        start: 'a',
+        nodes: {a: {text: 'A', next: {text: 'B', next: 'c'}}, c: {text: 'C'}},
+      },
+      context: createContext(),
+    });
+
+    dialogue.advance();
+    dialogue.advance();
+
+    expect(dialogue.pageText).toBe('B');
+
+    dialogue.advance();
+    dialogue.advance();
+
+    expect(dialogue.pageText).toBe('C');
+  });
+
+  test('advance past the last page follows a function next once, by id and by inline node', () => {
+    let context = createContext();
+    let toB = vitest.fn<(c: TestContext) => string>(() => 'b');
+    let toInline = vitest.fn<(c: TestContext) => {text: string}>(() => ({text: 'C'}));
+    let dialogue = new Dialogue({
+      script: {
+        start: 'a',
+        nodes: {a: {text: ['A1', 'A2'], next: toB}, b: {text: 'B', next: toInline}},
+      },
+      context,
+    });
+
+    dialogue.advance(); // skip page A1
+    dialogue.advance(); // page turn
+
+    expect(toB).not.toHaveBeenCalled();
+
+    dialogue.advance(); // skip page A2
+    dialogue.advance(); // past the last page: follows next
+
+    expect(toB).toHaveBeenCalledTimes(1);
+    expect(toB).toHaveBeenCalledWith(context);
+    expect(dialogue.pageText).toBe('B');
+
+    dialogue.advance();
+    dialogue.advance();
+
+    expect(toInline).toHaveBeenCalledTimes(1);
+    expect(toInline).toHaveBeenCalledWith(context);
+    expect(dialogue.pageText).toBe('C');
+    expect(toB).toHaveBeenCalledTimes(1);
+  });
+
+  test("an error thrown by a node's function next reaches the caller and the runner stays", () => {
+    let dialogue = new Dialogue({
+      script: {
+        start: {
+          text: 'A',
+          next: () => {
+            throw new Error('Nowhere to go.');
+          },
+        },
+      },
+      context: createContext(),
+    });
+
+    dialogue.advance();
+
+    expect(() => {
+      dialogue.advance();
+    }).toThrow('Nowhere to go.');
+    expect(dialogue.phase).toBe('idle');
+    expect(dialogue.pageText).toBe('A');
+  });
+});
+
+describe('Dialogue breaks', () => {
+  test('the reveal pauses at breaks, advance resumes inside the page', () => {
+    let dialogue = new Dialogue({
+      script: {start: {text: 'abcdefgh'}},
+      context: createContext(),
+      revealSpeed: 1000,
+    });
+
+    dialogue.setBreaks([3, 6]);
+    dialogue.tick(1000);
+
+    expect(dialogue.revealedCount).toBe(3);
+    expect(dialogue.phase).toBe('idle');
+
+    dialogue.advance(); // resume, not page turn
+
+    expect(dialogue.phase).toBe('revealing');
+
+    dialogue.tick(1000);
+
+    expect(dialogue.revealedCount).toBe(6);
+
+    dialogue.advance();
+    dialogue.tick(1000);
+
+    expect(dialogue.revealedCount).toBe(8);
+    expect(dialogue.phase).toBe('idle');
+  });
+
+  test('advance while revealing completes only the current stretch', () => {
+    let dialogue = new Dialogue({script: {start: {text: 'abcdefgh'}}, context: createContext()});
+
+    dialogue.setBreaks([3]);
+    dialogue.advance();
+
+    expect(dialogue.revealedCount).toBe(3);
+    expect(dialogue.phase).toBe('idle');
+  });
+
+  test('offsets at or before revealedCount are ignored', () => {
+    let dialogue = new Dialogue({
+      script: {start: {text: 'abcdefgh'}},
+      context: createContext(),
+      revealSpeed: 1000,
+    });
+
+    dialogue.setBreaks([5]);
+    dialogue.tick(1000); // paused at 5
+    dialogue.advance(); // resume
+    dialogue.setBreaks([3, 5, 7]); // 3 and 5 are stale, 7 holds
+    dialogue.tick(1000);
+
+    expect(dialogue.revealedCount).toBe(7);
+    expect(dialogue.phase).toBe('idle');
+  });
+
+  test('breaks clear on a page turn', () => {
+    let dialogue = new Dialogue({
+      script: {start: {text: ['abcdef', 'ghijkl']}},
+      context: createContext(),
+      revealSpeed: 1000,
+    });
+
+    dialogue.setBreaks([3]);
+    dialogue.advance(); // to 3
+    dialogue.advance(); // resume
+    dialogue.tick(1000); // page 0 complete
+    dialogue.advance(); // page turn clears the breaks
+    dialogue.tick(1000);
+
+    expect(dialogue.revealedCount).toBe(6); // no pause at 3 on the new page
+    expect(dialogue.phase).toBe('idle');
+  });
+});
+
+describe('Dialogue choices', () => {
+  test('moveSelection wraps in both directions', () => {
+    let dialogue = new Dialogue({
+      script: {start: {text: 'Q', choices: [{text: 'A'}, {text: 'B'}, {text: 'C'}]}},
+      context: createContext(),
+    });
+
+    dialogue.advance();
+    dialogue.moveSelection(-1);
+
+    expect(dialogue.selectedIndex).toBe(2);
+
+    dialogue.moveSelection(1);
+
+    expect(dialogue.selectedIndex).toBe(0);
+  });
+
+  test('select sets the index only while choosing and in bounds', () => {
+    let dialogue = new Dialogue({
+      script: {start: {text: 'Q', choices: [{text: 'A'}, {text: 'B'}]}},
+      context: createContext(),
+    });
+
+    dialogue.select(1); // still revealing: ignored
+
+    expect(dialogue.selectedIndex).toBe(0);
+
+    dialogue.advance();
+    dialogue.select(1);
+
+    expect(dialogue.selectedIndex).toBe(1);
+
+    dialogue.select(5);
+    dialogue.select(-1);
+
+    expect(dialogue.selectedIndex).toBe(1);
+  });
+
+  test('choose follows the choice next and out-of-bounds is ignored', () => {
+    let dialogue = new Dialogue({
+      script: {
+        start: 'q',
+        nodes: {
+          q: {text: 'Q', choices: [{text: 'A', next: 'a'}, {text: 'B'}]},
+          a: {text: 'Went A.'},
+        },
+      },
+      context: createContext(),
+    });
+
+    dialogue.advance();
+    dialogue.choose(5); // ignored
+
+    expect(dialogue.phase).toBe('choosing');
+
+    dialogue.choose(0);
+
+    expect(dialogue.pageText).toBe('Went A.');
+  });
+
+  test('choosing a choice without next ends the dialogue', () => {
+    let dialogue = new Dialogue({
+      script: {start: {text: 'Q', choices: [{text: 'Bye'}]}},
+      context: createContext(),
+    });
+
+    dialogue.advance();
+    dialogue.advance(); // confirms the selected choice
+
+    expect(dialogue.phase).toBe('ended');
+  });
+
+  test('isVisible filters once on entry and indices address visibleChoices', () => {
+    let dialogue = new Dialogue({
+      script: {
+        start: 'q',
+        nodes: {
+          q: {
+            text: 'Q',
+            choices: [
+              {text: 'Hidden', isVisible: () => false, next: 'wrong'},
+              {text: 'Shown', next: 'right'},
+            ],
+          },
+          wrong: {text: 'Wrong.'},
+          right: {text: 'Right.'},
+        },
+      },
+      context: createContext(),
+    });
+
+    dialogue.advance();
+
+    expect(dialogue.visibleChoices).toHaveLength(1);
+    expect(dialogue.visibleChoices[0]?.text).toBe('Shown');
+
+    dialogue.choose(0);
+
+    expect(dialogue.pageText).toBe('Right.');
+  });
+
+  test('a node whose choices all filter invisible is choice-less, with a DEV warning', () => {
+    let warn = vitest.spyOn(console, 'warn').mockImplementation(() => {});
+    let dialogue = new Dialogue({
+      script: {start: {text: 'Q', choices: [{text: 'A', isVisible: () => false}]}},
+      context: createContext(),
+    });
+
+    expect(warn).toHaveBeenCalledTimes(1);
+
+    dialogue.advance();
+
+    expect(dialogue.phase).toBe('idle'); // not choosing
+
+    dialogue.advance(); // no next: ends
+
+    expect(dialogue.phase).toBe('ended');
+
+    warn.mockRestore();
+  });
+
+  test("choose runs the choice's onChoose once with the context, before the next node's onEnter", () => {
+    let context = createContext();
+    let onChoose = vitest.fn<(c: TestContext) => void>((c) => {
+      c.calls.push('onChoose');
+    });
+    let dialogue = new Dialogue({
+      script: {
+        start: 'q',
+        nodes: {
+          q: {text: 'Q', choices: [{text: 'A', next: 'a', onChoose}]},
+          a: {
+            text: 'Went A.',
+            onEnter: (c: TestContext) => {
+              c.calls.push('onEnter');
+            },
+          },
+        },
+      },
+      context,
+    });
+
+    dialogue.advance();
+    dialogue.choose(0);
+
+    expect(onChoose).toHaveBeenCalledTimes(1);
+    expect(onChoose).toHaveBeenCalledWith(context);
+    expect(context.calls).toEqual(['onChoose', 'onEnter']);
+    expect(dialogue.pageText).toBe('Went A.');
+  });
+
+  test('a choice with onChoose and no next runs it and ends the dialogue', () => {
+    let onChoose = vitest.fn<() => void>();
+    let dialogue = new Dialogue({
+      script: {start: {text: 'Q', choices: [{text: 'Bye', onChoose}]}},
+      context: createContext(),
+    });
+
+    dialogue.advance();
+    dialogue.choose(0);
+
+    expect(onChoose).toHaveBeenCalledTimes(1);
+    expect(dialogue.phase).toBe('ended');
+  });
+
+  test("advance while choosing runs the selected choice's onChoose", () => {
+    let first = vitest.fn<() => void>();
+    let second = vitest.fn<() => void>();
+    let dialogue = new Dialogue({
+      script: {
+        start: {
+          text: 'Q',
+          choices: [
+            {text: 'A', onChoose: first},
+            {text: 'B', onChoose: second},
+          ],
+        },
+      },
+      context: createContext(),
+    });
+
+    dialogue.advance();
+    dialogue.select(1);
+    dialogue.advance();
+
+    expect(second).toHaveBeenCalledTimes(1);
+    expect(first).not.toHaveBeenCalled();
+  });
+
+  test('choose out of bounds or while revealing runs no onChoose', () => {
+    let onChoose = vitest.fn<() => void>();
+    let dialogue = new Dialogue({
+      script: {start: {text: 'Q', choices: [{text: 'A', onChoose}]}},
+      context: createContext(),
+    });
+
+    dialogue.choose(0); // still revealing: ignored
+    dialogue.advance();
+    dialogue.choose(5); // out of bounds: ignored
+
+    expect(onChoose).not.toHaveBeenCalled();
+    expect(dialogue.phase).toBe('choosing');
+  });
+
+  test('an error thrown by onChoose reaches the caller and the runner stays choosing', () => {
+    let dialogue = new Dialogue({
+      script: {
+        start: 'q',
+        nodes: {
+          q: {
+            text: 'Q',
+            choices: [
+              {
+                text: 'A',
+                next: 'a',
+                onChoose: () => {
+                  throw new Error('No way.');
+                },
+              },
+            ],
+          },
+          a: {text: 'Went A.'},
+        },
+      },
+      context: createContext(),
+    });
+
+    dialogue.advance();
+
+    expect(() => {
+      dialogue.choose(0);
+    }).toThrow('No way.');
+    expect(dialogue.phase).toBe('choosing');
+    expect(dialogue.pageText).toBe('Q');
+  });
+
+  test('a choice filtered out by isVisible never runs its onChoose', () => {
+    let hidden = vitest.fn<() => void>();
+    let shown = vitest.fn<() => void>();
+    let dialogue = new Dialogue({
+      script: {
+        start: {
+          text: 'Q',
+          choices: [
+            {text: 'Hidden', isVisible: () => false, onChoose: hidden},
+            {text: 'Shown', onChoose: shown},
+          ],
+        },
+      },
+      context: createContext(),
+    });
+
+    dialogue.advance();
+    dialogue.choose(0);
+
+    expect(shown).toHaveBeenCalledTimes(1);
+    expect(hidden).not.toHaveBeenCalled();
+  });
+
+  test('the same choice taken again runs its onChoose again', () => {
+    let onChoose = vitest.fn<() => void>();
+    let dialogue = new Dialogue({
+      script: {
+        start: 'q',
+        nodes: {q: {text: 'Q', choices: [{text: 'Again', next: 'q', onChoose}, {text: 'Done'}]}},
+      },
+      context: createContext(),
+    });
+
+    dialogue.advance();
+    dialogue.choose(0);
+    dialogue.advance();
+    dialogue.choose(0);
+
+    expect(onChoose).toHaveBeenCalledTimes(2);
+  });
+
+  test("the next node's isVisible sees what onChoose changed", () => {
+    let dialogue = new Dialogue({
+      script: {
+        start: 'q',
+        nodes: {
+          q: {
+            text: 'Q',
+            choices: [
+              {
+                text: 'Meet',
+                next: 'r',
+                onChoose: (c: TestContext) => {
+                  c.metMira = true;
+                },
+              },
+            ],
+          },
+          r: {text: 'R', choices: [{text: 'Hi again', isVisible: (c: TestContext) => c.metMira}]},
+        },
+      },
+      context: createContext(),
+    });
+
+    dialogue.advance();
+    dialogue.choose(0);
+    dialogue.advance();
+
+    expect(dialogue.visibleChoices.map((choice) => choice.text)).toEqual(['Hi again']);
+  });
+
+  test('an ended dialogue runs no onChoose', () => {
+    let onChoose = vitest.fn<() => void>();
+    let dialogue = new Dialogue({
+      script: {start: {text: 'Q', choices: [{text: 'Bye', onChoose}]}},
+      context: createContext(),
+    });
+
+    dialogue.advance();
+    dialogue.choose(0);
+    dialogue.choose(0);
+
+    expect(onChoose).toHaveBeenCalledTimes(1);
+  });
+
+  test('choose follows a function next once with the context, after onChoose, before onEnter', () => {
+    let context = createContext();
+    let next = vitest.fn<(c: TestContext) => string>((c) => {
+      c.calls.push('next');
+
+      return 'a';
+    });
+    let dialogue = new Dialogue({
+      script: {
+        start: 'q',
+        nodes: {
+          q: {
+            text: 'Q',
+            choices: [
+              {
+                text: 'A',
+                next,
+                onChoose: (c: TestContext) => {
+                  c.calls.push('onChoose');
+                },
+              },
+            ],
+          },
+          a: {
+            text: 'Went A.',
+            onEnter: (c: TestContext) => {
+              c.calls.push('onEnter');
+            },
+          },
+        },
+      },
+      context,
+    });
+
+    dialogue.advance();
+
+    expect(next).not.toHaveBeenCalled(); // unlike isVisible, not evaluated on node entry
+
+    dialogue.choose(0);
+
+    expect(next).toHaveBeenCalledTimes(1);
+    expect(next).toHaveBeenCalledWith(context);
+    expect(context.calls).toEqual(['onChoose', 'next', 'onEnter']);
+    expect(dialogue.pageText).toBe('Went A.');
+  });
+
+  test('a function next followed again on a later visit runs again and may lead elsewhere', () => {
+    let next = vitest.fn<(c: TestContext) => string>((c) => (c.metMira ? 'again' : 'first'));
+    let dialogue = new Dialogue({
+      script: {
+        start: 'q',
+        nodes: {
+          q: {text: 'Q', choices: [{text: 'Hello', next}]},
+          first: {
+            text: 'First time.',
+            next: 'q',
+            onEnter: (c: TestContext) => {
+              c.metMira = true;
+            },
+          },
+          again: {text: 'Back already?'},
+        },
+      },
+      context: createContext(),
+    });
+
+    dialogue.advance();
+    dialogue.choose(0);
+
+    expect(dialogue.pageText).toBe('First time.');
+
+    dialogue.advance();
+    dialogue.advance(); // back to q
+    dialogue.advance();
+    dialogue.choose(0);
+
+    expect(next).toHaveBeenCalledTimes(2);
+    expect(dialogue.pageText).toBe('Back already?');
+  });
+
+  test("a choice's function next reads what its onChoose wrote", () => {
+    let dialogue = new Dialogue({
+      script: {
+        start: 'q',
+        nodes: {
+          q: {
+            text: 'Q',
+            choices: [
+              {
+                text: 'Roll',
+                next: (c: TestContext) => (c.metMira ? 'success' : 'failure'),
+                onChoose: (c: TestContext) => {
+                  c.metMira = true;
+                },
+              },
+            ],
+          },
+          success: {text: 'Success.'},
+          failure: {text: 'Failure.'},
+        },
+      },
+      context: createContext(),
+    });
+
+    dialogue.advance();
+    dialogue.choose(0);
+
+    expect(dialogue.pageText).toBe('Success.');
+  });
+
+  test("an error thrown by a choice's function next reaches the caller after onChoose", () => {
+    let onChoose = vitest.fn<() => void>();
+    let dialogue = new Dialogue({
+      script: {
+        start: {
+          text: 'Q',
+          choices: [
+            {
+              text: 'A',
+              next: () => {
+                throw new Error('Nowhere to go.');
+              },
+              onChoose,
+            },
+          ],
+        },
+      },
+      context: createContext(),
+    });
+
+    dialogue.advance();
+
+    expect(() => {
+      dialogue.choose(0);
+    }).toThrow('Nowhere to go.');
+    expect(onChoose).toHaveBeenCalledTimes(1);
+    expect(dialogue.phase).toBe('choosing');
+    expect(dialogue.pageText).toBe('Q');
+  });
+});
+
+describe('Dialogue termination and inertness', () => {
+  test('ended is inert: every method is a no-op', () => {
+    let dialogue = new Dialogue({script: {start: {text: 'x'}}, context: createContext()});
+
+    dialogue.advance();
+    dialogue.advance();
+
+    expect(dialogue.phase).toBe('ended');
+
+    dialogue.tick(1000);
+    dialogue.advance();
+    dialogue.moveSelection(1);
+    dialogue.select(0);
+    dialogue.choose(0);
+    dialogue.setBreaks([1]);
+
+    expect(dialogue.phase).toBe('ended');
+    expect(dialogue.revealedCount).toBe(1);
+  });
+});
+
+describe('Dialogue DEV invariants', () => {
+  test('an empty page list throws on construction', () => {
+    expect(() => new Dialogue({script: {start: {text: []}}, context: createContext()})).toThrow(
+      /empty page list/,
+    );
+  });
+
+  test('an empty page list throws on every entry, not only at construction', () => {
+    let dialogue = new Dialogue({
+      script: {start: {text: 'ok', next: {text: []}}},
+      context: createContext(),
+    });
+
+    dialogue.advance();
+
+    expect(() => {
+      dialogue.advance();
+    }).toThrow(/empty page list/);
+  });
+
+  test('a node carrying both choices and next throws', () => {
+    expect(
+      () =>
+        new Dialogue({
+          script: {start: {text: 'x', choices: [{text: 'A'}], next: {text: 'y'}}},
+          context: createContext(),
+        }),
+    ).toThrow(/both choices and next/);
+  });
+
+  test('a non-positive revealSpeed throws', () => {
+    expect(
+      () => new Dialogue({script: {start: {text: 'x'}}, context: createContext(), revealSpeed: 0}),
+    ).toThrow(/revealSpeed/);
+  });
+
+  test('a dangling node id throws (untyped data escape hatch)', () => {
+    expect(() => new Dialogue({script: {start: 'missing'}, context: createContext()})).toThrow(
+      /wasn't found/,
+    );
+  });
+
+  test('a function next returning a dangling id throws, naming the id', () => {
+    let dialogue = new Dialogue({
+      script: {start: {text: 'x', next: () => 'missing'}},
+      context: createContext(),
+    });
+
+    dialogue.advance();
+
+    expect(() => {
+      dialogue.advance();
+    }).toThrow(/Dialogue node "missing" wasn't found/);
+  });
+
+  test('a node carrying both choices and a function next throws without calling it', () => {
+    let next = vitest.fn<(c: TestContext) => string>(() => 'y');
+
+    expect(
+      () =>
+        new Dialogue({
+          script: {start: {text: 'x', choices: [{text: 'A'}], next}},
+          context: createContext(),
+        }),
+    ).toThrow(/both choices and next/);
+    expect(next).not.toHaveBeenCalled();
+  });
+});

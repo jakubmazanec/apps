@@ -1,0 +1,86 @@
+import {type Constructor} from '../utilities/Constructor.js';
+import {type Event} from './Event.js';
+import {type EventChannelOptions} from './EventChannelOptions.js';
+import {type World} from './World.js';
+
+/** A per-frame queue of events. */
+export class EventChannel<const T extends Constructor<Event> = Constructor<Event>> {
+  /** Name for debugging purposes. */
+  displayName: string;
+
+  /** Event class. */
+  readonly event: T;
+
+  /** This frame's events. */
+  #currentEvents: Array<InstanceType<T>> = []; // this frame's readable snapshot
+
+  /** Next frame's events. */
+  #nextEvents: Array<InstanceType<T>> = []; // pushed now, become current next frame
+
+  /** World the query is attached to. */
+  #world: World | null = null;
+
+  constructor({event, displayName}: EventChannelOptions<T>) {
+    this.event = event;
+
+    if (displayName === undefined) {
+      this.displayName = EventChannel.name;
+    } else {
+      this.displayName = displayName;
+    }
+  }
+
+  /** This frame's events. */
+  get events(): ReadonlyArray<InstanceType<T>> {
+    return this.#currentEvents;
+  }
+
+  /** Is the channel attached? */
+  get isAttached(): boolean {
+    return this.#world !== null;
+  }
+
+  /** @internal Called by `World`. */
+  attach(world: World): void {
+    if (this.#world) {
+      throw new Error('Event channel is already attached to a world!');
+    }
+
+    this.#world = world;
+  }
+
+  /** @internal Called by `World`. */
+  clear(): void {
+    this.#nextEvents.length = 0;
+    this.#currentEvents.length = 0;
+  }
+
+  /** @internal Called by `World`. */
+  detach(): void {
+    if (!this.#world) {
+      throw new Error('Event channel is not attached to a world!');
+    }
+
+    this.#world = null;
+  }
+
+  /** Pushes one or more events onto the channel. */
+  push(...events: Array<InstanceType<T>>): void {
+    if (!this.#world) {
+      throw new Error(
+        `Cannot push to the detached event channel "${this.displayName}" — events would never be delivered! Add it to a world with world.addEventChannel() first.`,
+      );
+    }
+
+    this.#nextEvents.push(...events);
+  }
+
+  /** @internal Called by `World` on each tick. */
+  swap(): void {
+    let recycled = this.#currentEvents; // last frame's, already consumed
+
+    recycled.length = 0; // reuse the drained array, no per-frame allocation
+    this.#currentEvents = this.#nextEvents; // next frame's events become current
+    this.#nextEvents = recycled;
+  }
+}
