@@ -236,7 +236,7 @@ its own plan, build and review, in this order:
    function of the context that returns a node or an id, evaluated when it is followed. Effects stay
    in `onChoose` and `onEnter`. Dice and conditions branch through it. The choice effect spec
    rejected a function `next` while it was the proposed way to do effects; this spec reopens it for
-   routing only. It is designed:
+   routing only. It is built:
    [spec](../../../docs/superpowers/specs/2026-10-08-dialogue-next-function-design.md),
    [plan](../../../docs/superpowers/plans/2026-10-08-dialogue-next-function.md).
 2. Actions with costs, odds and conditions: Foam's own choice type with plain fields for the price,

@@ -1,7 +1,8 @@
 # Dialogue next as a function: design
 
-Date: 2026-10-08. Package: `packages/tellurion`. Status: designed. It is the first of phase 5's four
-specs in Foam's [direction document](../../../apps/foam/docs/direction.md).
+Date: 2026-10-08. Package: `packages/tellurion`. Status: implemented by
+[2026-10-08-dialogue-next-function.md](../plans/2026-10-08-dialogue-next-function.md). It is the
+first of phase 5's four specs in Foam's [direction document](../../../apps/foam/docs/direction.md).
 
 ## Background
 
