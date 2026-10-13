@@ -130,7 +130,7 @@ compile-time assertion files `Disposables.types.ts` and `GameScreenContents.type
 `tests/engine/GameInput.browser.test.ts` flattens to `tests/GameInput.browser.test.ts`. In every
 moved file the import prefix `../source/engine/` becomes `../source/` (and `../../source/engine/`
 becomes `../source/` for the flattened file), which keeps deep paths intact; several tests exercise
-or mock `internals/` modules such as `measureTextWidth`, `createBackground` and `swapBackground`,
+or mock `internals/` modules such as `measureTextWidth`, `createBackground` and `setLayerContainerBackground`,
 which the barrel does not expose.
 
 ### Helpers and fixture

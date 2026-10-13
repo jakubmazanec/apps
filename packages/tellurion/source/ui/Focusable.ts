@@ -1,20 +1,22 @@
 import type * as pixi from 'pixi.js';
 
 export type Focusable = {
+  /** View. */
   readonly view: pixi.Container;
-  // False while the component cannot take focus (it is disabled).
+
+  /** Can the component be focused? E.g. disabled components aren't focusable. */
   readonly isFocusable: boolean;
+
+  /** Executes component's primary semantic action; usually what click or tap would do. */
   // The component's Enter/Space action: what a click/tap would do.
   activate: () => void;
-  // Equal/PageUp and Minus/PageDown while focused. Optional: a component with
-  // no incremental value (Button, Toggle, TextInput) omits them, because
-  // Enter/Space (activate) already owns its one action. Slider is the only
-  // implementer that does real work here.
+
+  /** Executes component's increase action. */
   increase?: () => void;
+
+  /** Executes component's decrease action. */
   decrease?: () => void;
-  // Ends what activate started, when it is still running. Optional: only a
-  // component that stays busy after activation has something to end, which
-  // today is TextInput and its edit. UiRoot calls it on every focusable of an
-  // overlay it removes.
+
+  /** Ends what activation started. */
   deactivate?: () => void;
 };

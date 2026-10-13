@@ -4,8 +4,8 @@ import {type Disposables} from '../utilities/Disposables.js';
 import {type Focusable} from './Focusable.js';
 import {type FocusDirection} from './FocusDirection.js';
 import {type FocusScope} from './FocusScope.js';
-import {adoptChildren} from './internals/adoptChildren.js';
 import {collectFocusables} from './internals/collectFocusables.js';
+import {disposeChildren} from './internals/disposeChildren.js';
 import {nearestInDirection} from './internals/nearestInDirection.js';
 import {nearestTopLeft} from './internals/nearestTopLeft.js';
 import {resolveView} from './internals/resolveView.js';
@@ -18,7 +18,7 @@ import {type UiRootParts} from './UiRootParts.js';
 import {type UiRootRuntime} from './UiRootRuntime.js';
 
 export class UiRoot implements UiParent {
-  /** TBD */
+  /** Children. */
   readonly children: UiChild[] = [];
 
   /** View. */
@@ -108,7 +108,7 @@ export class UiRoot implements UiParent {
       globalThis.removeEventListener('pointerdown', handlePointerDown);
     });
     this.#disposables.instance.defer(() => this.view.destroy({children: true}));
-    adoptChildren(this.#disposables.instance, this.children);
+    disposeChildren(this.children, this.#disposables.instance);
   }
 
   /** TBD */
@@ -131,7 +131,7 @@ export class UiRoot implements UiParent {
     return this.#runtime.scopes.at(-1)?.root ?? null;
   }
 
-  /** TBD */
+  /** Activates the focused component. */
   activate() {
     if (this.#runtime.focused === null) {
       return;
@@ -146,7 +146,7 @@ export class UiRoot implements UiParent {
     this.#runtime.focused.activate();
   }
 
-  /** TBD */
+  /** Adds children to the UI root's view. */
   addChild(...children: UiChild[]): this {
     for (let child of children) {
       this.children.push(child);
@@ -346,7 +346,7 @@ export class UiRoot implements UiParent {
     }
   }
 
-  /** TBD */
+  /** Removes children from the UI root's view. */
   removeChild(...children: UiChild[]): this {
     if (children.some((child) => this.#runtime.scopes.some((scope) => scope.root === child))) {
       throw new Error('Overlay must be removed with removeOverlay()!');

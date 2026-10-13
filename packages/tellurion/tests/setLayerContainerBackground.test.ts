@@ -2,7 +2,7 @@ import {type LayoutContainer} from '@pixi/layout/components';
 import type * as pixi from 'pixi.js';
 import {describe, expect, test, vitest} from 'vitest';
 
-import {swapBackground} from '../source/ui/internals/swapBackground.js';
+import {setLayerContainerBackground} from '../source/ui/internals/setLayerContainerBackground.js';
 
 function fakeContainer(width: number, height: number) {
   return {
@@ -23,7 +23,7 @@ function fakeView(background: unknown) {
   return {removeChild, addChildAt, view};
 }
 
-describe(swapBackground, () => {
+describe(setLayerContainerBackground, () => {
   // States the caller left unspecified resolve to one shared container, so two
   // states routinely map to the same object; removing and re-adding the live
   // background would be a detach/reattach for nothing.
@@ -31,7 +31,10 @@ describe(swapBackground, () => {
     let shared = fakeContainer(10, 10);
     let {removeChild, addChildAt, view} = fakeView(shared);
 
-    swapBackground(view as unknown as LayoutContainer, shared as unknown as pixi.Container);
+    setLayerContainerBackground(
+      view as unknown as LayoutContainer,
+      shared as unknown as pixi.Container,
+    );
 
     expect(removeChild).not.toHaveBeenCalled();
     expect(addChildAt).not.toHaveBeenCalled();
@@ -43,7 +46,10 @@ describe(swapBackground, () => {
     let next = fakeContainer(0, 0);
     let {removeChild, addChildAt, view} = fakeView(previous);
 
-    swapBackground(view as unknown as LayoutContainer, next as unknown as pixi.Container);
+    setLayerContainerBackground(
+      view as unknown as LayoutContainer,
+      next as unknown as pixi.Container,
+    );
 
     expect(removeChild).toHaveBeenCalledWith(previous);
     expect(addChildAt).toHaveBeenCalledWith(next, 0);

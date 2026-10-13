@@ -1,13 +1,12 @@
 import {LayoutContainer} from '@pixi/layout/components';
-import type * as pixi from 'pixi.js';
 
 import {type Disposables} from '../utilities/Disposables.js';
 import {type Focusable} from './Focusable.js';
 import {adoptDetachedBackgrounds} from './internals/adoptDetachedBackgrounds.js';
 import {attachWidgetInteraction} from './internals/attachWidgetInteraction.js';
 import {resolveThemedBackgrounds} from './internals/resolveThemedBackgrounds.js';
-import {setInteractionEnabled} from './internals/setInteractionEnabled.js';
-import {swapBackground} from './internals/swapBackground.js';
+import {setLayerContainerBackground} from './internals/setLayerContainerBackground.js';
+import {toggleBackground} from './internals/toggleBackground.js';
 import {type ToggleConfig} from './ToggleConfig.js';
 import {type ToggleOptions} from './ToggleOptions.js';
 import {type ToggleParts} from './ToggleParts.js';
@@ -83,7 +82,7 @@ export class Toggle implements Focusable {
       setState: (state) => {
         this.#state = state;
 
-        swapBackground(
+        setLayerContainerBackground(
           this.view,
           toggleBackground(this.#parts.backgrounds, this.#runtime.isChecked, state),
         );
@@ -115,12 +114,12 @@ export class Toggle implements Focusable {
     return this.#state !== 'disabled';
   }
 
-  /** TBD */
+  /** State. */
   get state(): ToggleState {
     return this.#state;
   }
 
-  /** TBD */
+  /** Activates the toggle; flips whether it's checked and calls `onChange` handler. */
   activate() {
     if (this.#state === 'disabled') {
       return;
@@ -128,7 +127,7 @@ export class Toggle implements Focusable {
 
     this.#runtime.isChecked = !this.#runtime.isChecked;
 
-    swapBackground(
+    setLayerContainerBackground(
       this.view,
       toggleBackground(this.#parts.backgrounds, this.#runtime.isChecked, this.#state),
     );
@@ -144,7 +143,10 @@ export class Toggle implements Focusable {
 
     this.#runtime.isChecked = true;
 
-    swapBackground(this.view, toggleBackground(this.#parts.backgrounds, true, this.#state));
+    setLayerContainerBackground(
+      this.view,
+      toggleBackground(this.#parts.backgrounds, true, this.#state),
+    );
   }
 
   /** Destroys the instance. */
@@ -152,7 +154,7 @@ export class Toggle implements Focusable {
     this.#disposables.instance.dispose();
   }
 
-  /** TBD */
+  /** Disables the toggle. */
   disable() {
     if (this.#state === 'disabled') {
       return;
@@ -160,28 +162,29 @@ export class Toggle implements Focusable {
 
     this.#state = 'disabled';
 
-    swapBackground(
+    this.view.eventMode = 'none';
+    this.view.cursor = 'default';
+
+    setLayerContainerBackground(
       this.view,
       toggleBackground(this.#parts.backgrounds, this.#runtime.isChecked, 'disabled'),
     );
-
-    setInteractionEnabled(this.view, false);
   }
 
-  /** TBD */
+  /** Enables the toggle. */
   enable() {
     if (this.#state !== 'disabled') {
       return;
     }
 
     this.#state = 'normal';
+    this.view.eventMode = 'static';
+    this.view.cursor = 'pointer';
 
-    swapBackground(
+    setLayerContainerBackground(
       this.view,
       toggleBackground(this.#parts.backgrounds, this.#runtime.isChecked, 'normal'),
     );
-
-    setInteractionEnabled(this.view, true, 'pointer');
   }
 
   /** TBD */
@@ -192,17 +195,9 @@ export class Toggle implements Focusable {
 
     this.#runtime.isChecked = false;
 
-    swapBackground(this.view, toggleBackground(this.#parts.backgrounds, false, this.#state));
+    setLayerContainerBackground(
+      this.view,
+      toggleBackground(this.#parts.backgrounds, false, this.#state),
+    );
   }
-}
-
-function toggleBackground(
-  backgrounds: {
-    checked: Record<ToggleState, pixi.Container>;
-    unchecked: Record<ToggleState, pixi.Container>;
-  },
-  isChecked: boolean,
-  state: ToggleState,
-): pixi.Container {
-  return backgrounds[isChecked ? 'checked' : 'unchecked'][state];
 }
