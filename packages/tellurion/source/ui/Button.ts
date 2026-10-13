@@ -6,20 +6,19 @@ import {type ButtonOptions} from './ButtonOptions.js';
 import {type ButtonParts} from './ButtonParts.js';
 import {type ButtonState} from './ButtonState.js';
 import {type Focusable} from './Focusable.js';
-import {adoptChildren} from './internals/adoptChildren.js';
 import {adoptDetachedBackgrounds} from './internals/adoptDetachedBackgrounds.js';
-import {applyPressShift} from './internals/applyPressShift.js';
 import {attachWidgetInteraction} from './internals/attachWidgetInteraction.js';
+import {disposeChildren} from './internals/disposeChildren.js';
 import {resolveThemedBackgrounds} from './internals/resolveThemedBackgrounds.js';
 import {resolveView} from './internals/resolveView.js';
-import {setInteractionEnabled} from './internals/setInteractionEnabled.js';
-import {swapBackground} from './internals/swapBackground.js';
+import {setLayerContainerBackground} from './internals/setLayerContainerBackground.js';
+import {setVerticalOffset} from './internals/setVerticalOffset.js';
 import {type UiChild, type UiParent} from './UiChild.js';
 
 import '@pixi/layout';
 
 export class Button implements Focusable, UiParent {
-  /** TBD */
+  /** Children. */
   readonly children: UiChild[] = [];
 
   /** View. */
@@ -69,10 +68,10 @@ export class Button implements Focusable, UiParent {
         this.#state = state;
 
         if (this.#config.pressOffset !== 0) {
-          applyPressShift(this.children, state, this.#config.pressOffset);
+          setVerticalOffset(this.children, 0);
         }
 
-        swapBackground(this.view, this.#parts.backgrounds[state]);
+        setLayerContainerBackground(this.view, this.#parts.backgrounds[state]);
       },
     });
 
@@ -84,10 +83,10 @@ export class Button implements Focusable, UiParent {
       this.#state = 'active';
 
       if (this.#config.pressOffset !== 0) {
-        applyPressShift(this.children, 'active', this.#config.pressOffset);
+        setVerticalOffset(this.children, this.#config.pressOffset);
       }
 
-      swapBackground(this.view, this.#parts.backgrounds.active);
+      setLayerContainerBackground(this.view, this.#parts.backgrounds.active);
     });
 
     this.view.on('pointerup', () => {
@@ -98,10 +97,10 @@ export class Button implements Focusable, UiParent {
       this.#state = 'hovered';
 
       if (this.#config.pressOffset !== 0) {
-        applyPressShift(this.children, 'hovered', this.#config.pressOffset);
+        setVerticalOffset(this.children, 0);
       }
 
-      swapBackground(this.view, this.#parts.backgrounds.hovered);
+      setLayerContainerBackground(this.view, this.#parts.backgrounds.hovered);
     });
 
     // A press released outside the button never fires `pointerup`.
@@ -113,10 +112,10 @@ export class Button implements Focusable, UiParent {
       this.#state = 'normal';
 
       if (this.#config.pressOffset !== 0) {
-        applyPressShift(this.children, 'normal', this.#config.pressOffset);
+        setVerticalOffset(this.children, 0);
       }
 
-      swapBackground(this.view, this.#parts.backgrounds.normal);
+      setLayerContainerBackground(this.view, this.#parts.backgrounds.normal);
     });
 
     this.view.on('pointertap', (event) => {
@@ -138,25 +137,25 @@ export class Button implements Focusable, UiParent {
     };
 
     this.#disposables.instance.defer(() => this.view.destroy({children: true}));
-    adoptChildren(this.#disposables.instance, this.children);
+    disposeChildren(this.children, this.#disposables.instance);
   }
 
-  /** TBD */
+  /** Is the button disabled? */
   get isDisabled(): boolean {
     return this.#state === 'disabled';
   }
 
-  /** TBD */
+  /** Is the button focusable? */
   get isFocusable(): boolean {
     return this.#state !== 'disabled';
   }
 
-  /** TBD */
+  /** State. */
   get state(): ButtonState {
     return this.#state;
   }
 
-  /** TBD */
+  /** Activates the button; calls `onClick` handler. */
   activate() {
     if (this.#state === 'disabled') {
       return;
@@ -165,14 +164,14 @@ export class Button implements Focusable, UiParent {
     this.#onClick?.(this);
   }
 
-  /** TBD */
+  /** Adds children to the button's view. */
   addChild(...children: UiChild[]): this {
     for (let child of children) {
       this.children.push(child);
       this.view.addChild(resolveView(child));
 
       if (this.#config.pressOffset !== 0) {
-        applyPressShift([child], this.#state, this.#config.pressOffset);
+        setVerticalOffset([child], this.#state === 'active' ? this.#config.pressOffset : 0);
       }
     }
 
@@ -184,41 +183,41 @@ export class Button implements Focusable, UiParent {
     this.#disposables.instance.dispose();
   }
 
-  /** TBD */
+  /** Disables the button. */
   disable() {
     if (this.#state === 'disabled') {
       return;
     }
 
     this.#state = 'disabled';
+    this.view.eventMode = 'none';
+    this.view.cursor = 'default';
 
     if (this.#config.pressOffset !== 0) {
-      applyPressShift(this.children, 'disabled', this.#config.pressOffset);
+      setVerticalOffset(this.children, 0);
     }
 
-    swapBackground(this.view, this.#parts.backgrounds.disabled);
-
-    setInteractionEnabled(this.view, false);
+    setLayerContainerBackground(this.view, this.#parts.backgrounds.disabled);
   }
 
-  /** TBD */
+  /** Enables the button. */
   enable() {
     if (this.#state !== 'disabled') {
       return;
     }
 
     this.#state = 'normal';
+    this.view.eventMode = 'static';
+    this.view.cursor = 'pointer';
 
     if (this.#config.pressOffset !== 0) {
-      applyPressShift(this.children, 'normal', this.#config.pressOffset);
+      setVerticalOffset(this.children, 0);
     }
 
-    swapBackground(this.view, this.#parts.backgrounds.normal);
-
-    setInteractionEnabled(this.view, true, 'pointer');
+    setLayerContainerBackground(this.view, this.#parts.backgrounds.normal);
   }
 
-  /** TBD */
+  /** Removes children from the button's view. */
   removeChild(...children: UiChild[]): this {
     for (let child of children) {
       let index = this.children.indexOf(child);
@@ -228,7 +227,7 @@ export class Button implements Focusable, UiParent {
       }
 
       if (this.#config.pressOffset !== 0) {
-        applyPressShift([child], 'normal', this.#config.pressOffset);
+        setVerticalOffset([child], 0);
       }
 
       this.view.removeChild(resolveView(child));

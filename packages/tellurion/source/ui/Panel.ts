@@ -1,7 +1,7 @@
 import {LayoutContainer} from '@pixi/layout/components';
 
 import {type Disposables} from '../utilities/Disposables.js';
-import {adoptChildren} from './internals/adoptChildren.js';
+import {disposeChildren} from './internals/disposeChildren.js';
 import {resolveThemedBackgrounds} from './internals/resolveThemedBackgrounds.js';
 import {resolveView} from './internals/resolveView.js';
 import {type PanelConfig} from './PanelConfig.js';
@@ -12,7 +12,7 @@ import {type UiChild, type UiParent} from './UiChild.js';
 import '@pixi/layout';
 
 export class Panel implements UiParent {
-  /** TBD */
+  /** Children. */
   readonly children: UiChild[] = [];
 
   /** View. */
@@ -40,10 +40,10 @@ export class Panel implements UiParent {
     this.view.layout = {...this.#config.theme?.panel.layout, ...layout};
 
     this.#disposables.instance.defer(() => this.view.destroy({children: true}));
-    adoptChildren(this.#disposables.instance, this.children);
+    disposeChildren(this.children, this.#disposables.instance);
   }
 
-  /** TBD */
+  /** Adds children to the panel's view. */
   addChild(...children: UiChild[]): this {
     for (let child of children) {
       this.children.push(child);
@@ -58,7 +58,7 @@ export class Panel implements UiParent {
     this.#disposables.instance.dispose();
   }
 
-  /** TBD */
+  /** Removes children from the panel's view. */
   removeChild(...children: UiChild[]): this {
     for (let child of children) {
       let index = this.children.indexOf(child);

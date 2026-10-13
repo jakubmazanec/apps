@@ -7,8 +7,7 @@ import {adoptDetachedBackgrounds} from './internals/adoptDetachedBackgrounds.js'
 import {attachWidgetInteraction} from './internals/attachWidgetInteraction.js';
 import {measureTextWidth} from './internals/measureTextWidth.js';
 import {resolveThemedBackgrounds} from './internals/resolveThemedBackgrounds.js';
-import {setInteractionEnabled} from './internals/setInteractionEnabled.js';
-import {swapBackground} from './internals/swapBackground.js';
+import {setLayerContainerBackground} from './internals/setLayerContainerBackground.js';
 import {Text} from './Text.js';
 import {type TextInputConfig} from './TextInputConfig.js';
 import {type TextInputOptions} from './TextInputOptions.js';
@@ -190,7 +189,7 @@ export class TextInput implements Focusable {
       setState: (state) => {
         this.#state = state;
 
-        swapBackground(this.view, this.#parts.backgrounds[state]);
+        setLayerContainerBackground(this.view, this.#parts.backgrounds[state]);
       },
     });
 
@@ -339,9 +338,7 @@ export class TextInput implements Focusable {
     this.#refresh();
   }
 
-  // Navigation focus and editing focus are distinct: activating the
-  // navigation-focused field is what starts editing.
-  /** TBD */
+  /** Activates the text input; starts editing. */
   activate() {
     if (this.#state === 'disabled') {
       return;
@@ -361,31 +358,31 @@ export class TextInput implements Focusable {
     this.#disposables.instance.dispose();
   }
 
-  /** TBD */
+  /** Disables the text input. */
   disable() {
     if (this.#state === 'disabled') {
       return;
     }
 
     this.#state = 'disabled';
+    this.view.eventMode = 'none';
+    this.view.cursor = 'default';
 
-    swapBackground(this.view, this.#parts.backgrounds.disabled);
-
-    setInteractionEnabled(this.view, false);
+    setLayerContainerBackground(this.view, this.#parts.backgrounds.disabled);
     this.stopEditing();
   }
 
-  /** TBD */
+  /** Enables the text input. */
   enable() {
     if (this.#state !== 'disabled') {
       return;
     }
 
     this.#state = 'normal';
+    this.view.eventMode = 'static';
+    this.view.cursor = 'text';
 
-    swapBackground(this.view, this.#parts.backgrounds.normal);
-
-    setInteractionEnabled(this.view, true, 'text');
+    setLayerContainerBackground(this.view, this.#parts.backgrounds.normal);
   }
 
   /** TBD */

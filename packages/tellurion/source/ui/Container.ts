@@ -2,14 +2,14 @@ import * as pixi from 'pixi.js';
 
 import {type Disposables} from '../utilities/Disposables.js';
 import {type ContainerOptions} from './ContainerOptions.js';
-import {adoptChildren} from './internals/adoptChildren.js';
+import {disposeChildren} from './internals/disposeChildren.js';
 import {resolveView} from './internals/resolveView.js';
 import {type UiChild, type UiParent} from './UiChild.js';
 
 import '@pixi/layout';
 
 export class Container implements UiParent {
-  /** TBD */
+  /** Children. */
   readonly children: UiChild[] = [];
 
   /** View. */
@@ -30,10 +30,10 @@ export class Container implements UiParent {
     };
 
     this.#disposables.instance.defer(() => this.view.destroy({children: true}));
-    adoptChildren(this.#disposables.instance, this.children);
+    disposeChildren(this.children, this.#disposables.instance);
   }
 
-  /** TBD */
+  /** Adds children to the container's view. */
   addChild(...children: UiChild[]): this {
     for (let child of children) {
       this.children.push(child);
@@ -48,7 +48,7 @@ export class Container implements UiParent {
     this.#disposables.instance.dispose();
   }
 
-  /** TBD */
+  /** Removes children from the container's view. */
   removeChild(...children: UiChild[]): this {
     for (let child of children) {
       let index = this.children.indexOf(child);

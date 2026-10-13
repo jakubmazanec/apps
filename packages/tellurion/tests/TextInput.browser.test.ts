@@ -591,7 +591,7 @@ describe('TextInput', () => {
   });
 
   // A suite that passed the same container for every state would never exercise
-  // the swap: it would always short-circuit at swapBackground's no-change guard.
+  // the swap: it would always short-circuit at setLayerContainerBackground's no-change guard.
   // Hence the distinct containers here.
   test('disable() swaps the view background to the disabled state', () => {
     let normal = background();

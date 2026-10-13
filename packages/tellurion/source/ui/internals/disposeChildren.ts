@@ -5,7 +5,7 @@ import {type UiChild} from '../UiChild.js';
 // Iterates a snapshot, because an overlay's destroy() splices it out of its
 // root's children. Call it after deferring the view's own destroy, so the
 // (LIFO) stack tears the children down first.
-export function adoptChildren(disposables: DisposableStack, children: UiChild[]): void {
+export function disposeChildren(children: UiChild[], disposables: DisposableStack): void {
   disposables.defer(() => {
     let snapshot = [...children];
 

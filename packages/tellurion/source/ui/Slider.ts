@@ -6,8 +6,7 @@ import {type Focusable} from './Focusable.js';
 import {adoptDetachedBackgrounds} from './internals/adoptDetachedBackgrounds.js';
 import {attachWidgetInteraction} from './internals/attachWidgetInteraction.js';
 import {resolveThemedBackgrounds} from './internals/resolveThemedBackgrounds.js';
-import {setInteractionEnabled} from './internals/setInteractionEnabled.js';
-import {swapBackground} from './internals/swapBackground.js';
+import {setLayerContainerBackground} from './internals/setLayerContainerBackground.js';
 import {type SliderConfig} from './SliderConfig.js';
 import {type SliderOptions} from './SliderOptions.js';
 import {type SliderParts} from './SliderParts.js';
@@ -90,7 +89,7 @@ export class Slider implements Focusable {
       setState: (state) => {
         this.#state = state;
 
-        swapBackground(this.view, this.#parts.trackBackgrounds[state]);
+        setLayerContainerBackground(this.view, this.#parts.trackBackgrounds[state]);
       },
     });
 
@@ -102,7 +101,7 @@ export class Slider implements Focusable {
     // computedLayout.width / getLocalBounds().width against the *unscaled*
     // texture and composes the two multiplicatively — a 32 art-px fill would
     // render at 256. Positioning it directly (no yoga node) is the same shape
-    // swapBackground/LayoutContainer use for a view's background child.
+    // setLayerContainerBackground/LayoutContainer use for a view's background child.
     this.#parts.fill.position.set(0, 0);
     this.view.addChild(this.#parts.fill);
 
@@ -196,7 +195,7 @@ export class Slider implements Focusable {
     return this.#state !== 'disabled';
   }
 
-  /** TBD */
+  /** State. */
   get state(): SliderState {
     return this.#state;
   }
@@ -214,9 +213,7 @@ export class Slider implements Focusable {
     );
   }
 
-  // No single equivalent action for a continuously-variable value —
-  // increase()/decrease() own the discrete steps instead.
-  /** TBD */
+  /** Activates the slider; does nothing, use `increase` and `decrease`. */
   activate() {}
 
   /** TBD */
@@ -234,7 +231,7 @@ export class Slider implements Focusable {
     this.#disposables.instance.dispose();
   }
 
-  /** TBD */
+  /** Disables the slider. */
   disable() {
     if (this.#state === 'disabled') {
       return;
@@ -242,23 +239,23 @@ export class Slider implements Focusable {
 
     this.#runtime.isDragging = false;
     this.#state = 'disabled';
+    this.view.eventMode = 'none';
+    this.view.cursor = 'default';
 
-    swapBackground(this.view, this.#parts.trackBackgrounds.disabled);
-
-    setInteractionEnabled(this.view, false);
+    setLayerContainerBackground(this.view, this.#parts.trackBackgrounds.disabled);
   }
 
-  /** TBD */
+  /** Enables the slider. */
   enable() {
     if (this.#state !== 'disabled') {
       return;
     }
 
     this.#state = 'normal';
+    this.view.eventMode = 'static';
+    this.view.cursor = 'pointer';
 
-    swapBackground(this.view, this.#parts.trackBackgrounds.normal);
-
-    setInteractionEnabled(this.view, true, 'pointer');
+    setLayerContainerBackground(this.view, this.#parts.trackBackgrounds.normal);
   }
 
   /** TBD */

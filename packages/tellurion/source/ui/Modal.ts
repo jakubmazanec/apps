@@ -3,7 +3,7 @@ import * as pixi from 'pixi.js';
 import {easeOutQuad} from '../scheduler/easing.js';
 import {type Disposables} from '../utilities/Disposables.js';
 import {type Focusable} from './Focusable.js';
-import {adoptChildren} from './internals/adoptChildren.js';
+import {disposeChildren} from './internals/disposeChildren.js';
 import {resolveView} from './internals/resolveView.js';
 import {type ModalConfig} from './ModalConfig.js';
 import {type ModalOptions} from './ModalOptions.js';
@@ -18,7 +18,7 @@ import '@pixi/layout';
 
 /** TBD */
 export class Modal implements Overlay {
-  /** TBD */
+  /** Children. */
   readonly children: UiChild[] = [];
 
   /** The component that takes the focus, with the ring shown, each time the modal is added. */
@@ -113,7 +113,7 @@ export class Modal implements Overlay {
     };
 
     this.#disposables.instance.defer(() => this.view.destroy({children: true}));
-    adoptChildren(this.#disposables.instance, this.children);
+    disposeChildren(this.children, this.#disposables.instance);
     // Leaves the root first, while the children are alive: removeOverlay
     // deactivates the focusables inside and restores the previous focus, then
     // calls detach(), which cancels a running fade.
@@ -122,7 +122,7 @@ export class Modal implements Overlay {
     });
   }
 
-  /** TBD */
+  /** State. */
   get state(): ModalState {
     return this.#state;
   }

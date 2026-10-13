@@ -163,7 +163,7 @@ function buildSliderTrack({border, body}) {
 }
 
 // Slider fill: a small solid-color block. Slider resizes it at runtime via
-// Container.setSize (the same generic call swapBackground.ts uses for every
+// Container.setSize (the same generic call setLayerContainerBackground.ts uses for every
 // other widget background), so its authored size only needs to be small — a
 // solid color has no corner detail to distort under that stretch.
 const SLIDER_FILL_SIZE = 4;
