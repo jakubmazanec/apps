@@ -243,6 +243,12 @@ describe('log screen', {timeout: 180_000}, () => {
     expect(contents.menuModal).not.toBeNull();
     expect(ui.topOverlay).toBe(contents.menuModal);
 
+    // A tap and an Escape in one frame are a miss of openMenuOnCancel: on a
+    // frame of 100 ms the menu closes and opens again in that frame. Two frames
+    // put the menu on record first.
+    await nextFrame();
+    await nextFrame();
+
     await press('Escape');
     await waitForNoMenu();
     await press('Escape');
