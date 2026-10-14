@@ -355,7 +355,6 @@ describe('travel window', {timeout: 180_000}, () => {
     expect(readDestination(opened)).toEqual(['The bar', '4 min  till 23:00']);
     expect(describeFocus(ui.focused)).toBe('The bar');
     expect(ui.focused).toBe(parts.destination);
-    expect(ui.isRingVisible).toBe(true);
     // Every location with a position but the stop, in the order of the location data.
     expect([...parts.locations.keys()]).toEqual([FIXED_BAR_LOCATION, FIXED_SQUARE_LOCATION]);
 
@@ -548,12 +547,11 @@ describe('travel window', {timeout: 180_000}, () => {
     let parts = getTravelParts(tram);
 
     // The destination button stays, as the modal's initial focus, but it is not drawn and takes
-    // no press, so the focus and the ring go to Back.
+    // no press, so the focus goes to Back.
     expect(parts.destination).toBeNull();
     expect(parts.destinationButton.isDisabled).toBe(true);
     expect(describeFocus(ui.focused)).toBe('Back');
     expect(ui.focused).toBe(parts.back);
-    expect(ui.isRingVisible).toBe(true);
 
     await waitForPanel(tram, WIDE_WINDOW);
 
@@ -579,7 +577,6 @@ describe('travel window', {timeout: 180_000}, () => {
     expect(readDestination(opened)).toEqual(['The bar', '5 min  90 Kč\ntill 23:00']);
     expect(destination.isDisabled).toBe(true);
     expect(describeTravelFocus(opened)).toBe('Back');
-    expect(ui.isRingVisible).toBe(true);
 
     await waitForPanel(opened, WIDE_WINDOW);
 
@@ -1151,7 +1148,6 @@ describe('travel window', {timeout: 180_000}, () => {
     expect(getLocationButton(opened, FIXED_STOP_LOCATION).isDisabled).toBe(true);
     expect(readDestination(opened)).toEqual(['The square by the\nold market', '12 min']);
     expect(ui.focused).toBe(parts.destinationButton);
-    expect(ui.isRingVisible).toBe(true);
 
     let light = getLight(opened, nightStart, FIXED_BAR_LOCATION);
 

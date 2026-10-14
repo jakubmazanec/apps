@@ -11,8 +11,8 @@ export type ModalOptions = UiComponentThemeOptions<'modal'> & {
   // 'center', alignItems: 'center'} for a centered dialog); passed through
   // verbatim — the primitive has no placement opinion for its content.
   layout?: pixi.ContainerOptions['layout'] | undefined;
-  // The component that takes the focus, with the ring shown, each time the
-  // modal is added. When omitted nothing is focused, same as screens.
+  // The component that takes the focus, with the ring left as it was, each
+  // time the modal is added. When omitted nothing is focused, same as screens.
   initialFocus?: Focusable | undefined;
   // Keeps the modal alive after close(), so the same instance can be added
   // again with ui.addOverlay(); its owner then destroys it. Off by default:

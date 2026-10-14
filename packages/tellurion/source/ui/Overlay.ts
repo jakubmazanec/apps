@@ -10,8 +10,9 @@ import {type UiRoot} from './UiRoot.js';
 // there omits them. Declaring `close` is what makes the cancel command dismiss
 // it; an overlay without one traps focus and ignores cancel (the dialogue
 // box). Declaring `initialFocus` is what makes the overlay open with that
-// component focused and the ring shown; an overlay without one opens with
-// nothing focused. Modal is the general-purpose overlay.
+// component focused and the ring left as it was, so the activate command acts
+// on it and the first focus command moves from it; an overlay without one
+// opens with nothing focused. Modal is the general-purpose overlay.
 export type Overlay = UiParent & {
   attach?: (ui: UiRoot) => void;
   close?: () => void;

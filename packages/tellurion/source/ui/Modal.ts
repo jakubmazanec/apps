@@ -21,7 +21,10 @@ export class Modal implements Overlay {
   /** Children. */
   readonly children: UiChild[] = [];
 
-  /** The component that takes the focus, with the ring shown, each time the modal is added. */
+  /**
+   * The component that takes the focus, with the ring left as it was, each time the modal is
+   * added.
+   */
   readonly initialFocus: Focusable | undefined;
 
   /** View. */

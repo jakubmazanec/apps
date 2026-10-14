@@ -2,6 +2,12 @@
 
 Date: 2026-10-04. Package: `packages/tellurion`. Status: implemented.
 
+Update 2026-10-14: the ring part of this design is reversed. An overlay that declares
+`initialFocus` still opens with that component focused, so Enter activates it and the first focus
+command moves from it, but `addOverlay()` no longer shows the ring. The ring stays as it was: hidden
+after a pointer press or at the start, and still visible for a player who is already using the
+focus. The text below is the original design and is kept as it was.
+
 ## Background
 
 A keyboard player presses Escape on a game screen and a menu opens. One of its buttons has the

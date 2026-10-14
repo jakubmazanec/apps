@@ -82,7 +82,7 @@ export function openMenuModal({
     },
   });
   // Resume is built before the modal, which declares it as its initial focus,
-  // so the menu opens with the ring on Resume. Its click reads the modal from
+  // so the menu opens with Resume focused. Its click reads the modal from
   // this variable, assigned when the modal is built.
   let modal: Modal;
   let resumeButton = new Button({

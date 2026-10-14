@@ -1067,7 +1067,7 @@ describe(UiRoot, () => {
       expect(root.focused).toBe(inside);
     });
 
-    test('an overlay that declares initialFocus opens with it focused and the ring shown', () => {
+    test('an overlay that declares initialFocus opens with it focused and the ring hidden', () => {
       let inside = focusable();
       let root = createRootWith(focusable());
       let overlay = {...panel([inside]), initialFocus: inside};
@@ -1075,6 +1075,44 @@ describe(UiRoot, () => {
       root.addOverlay(overlay);
 
       expect(root.focused).toBe(inside);
+      expect(root.isRingVisible).toBe(false);
+    });
+
+    test('an overlay that declares initialFocus leaves a visible ring visible', () => {
+      let inside = focusable();
+      let root = createRootWith(focusable());
+      let overlay = {...panel([inside]), initialFocus: inside};
+
+      root.focusNext();
+      root.addOverlay(overlay);
+
+      expect(root.focused).toBe(inside);
+      expect(root.isRingVisible).toBe(true);
+    });
+
+    test('activating a freshly opened overlay activates its initialFocus', () => {
+      let first = focusable();
+      let second = focusable();
+      let root = createRootWith(focusable());
+      let overlay = {...panel([first, second]), initialFocus: first};
+
+      root.addOverlay(overlay);
+      root.activate();
+
+      expect(first.activate).toHaveBeenCalledTimes(1);
+      expect(second.activate).not.toHaveBeenCalled();
+    });
+
+    test('the first focus command after an overlay with initialFocus opened moves from it', () => {
+      let first = focusable();
+      let second = focusable();
+      let root = createRootWith(focusable());
+      let overlay = {...panel([first, second]), initialFocus: first};
+
+      root.addOverlay(overlay);
+      root.focusNext();
+
+      expect(root.focused).toBe(second);
       expect(root.isRingVisible).toBe(true);
     });
 

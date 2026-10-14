@@ -1518,7 +1518,6 @@ describe('night screen', {timeout: 180_000}, () => {
       expect(nightScreen.ui.topOverlay).toBe(menu);
       expect(menu.initialFocus).toBe(resumeButton);
       expect(describeFocus(nightScreen.ui.focused)).toBe('Resume');
-      expect(nightScreen.ui.isRingVisible).toBe(true);
 
       await press('Enter');
       await waitForNoMenu();
@@ -1615,7 +1614,6 @@ describe('night screen', {timeout: 180_000}, () => {
       expect(storyWindow.state).not.toBe('closed');
       expect(nightScreen.ui.topOverlay).toBe(menu);
       expect(describeFocus(nightScreen.ui.focused)).toBe('Resume');
-      expect(nightScreen.ui.isRingVisible).toBe(true);
 
       let revealed = storyWindow.dialogue.revealedCount;
 
@@ -1651,7 +1649,7 @@ describe('night screen', {timeout: 180_000}, () => {
 
       expect(nightScreen.ui.topOverlay).toBe(menu);
       expect(describeFocus(nightScreen.ui.focused)).toBe('Resume');
-      expect(nightScreen.ui.isRingVisible).toBe(true);
+      expect(nightScreen.ui.isRingVisible).toBe(false);
 
       await tap(harness, getBox(harness, getMenuButton(menu, 'Resume')));
       await waitForNoMenu();
