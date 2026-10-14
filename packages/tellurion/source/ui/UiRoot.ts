@@ -170,12 +170,6 @@ export class UiRoot implements UiParent {
     this.#runtime.scopes.push({previousFocus: this.#runtime.focused, root: overlay});
     this.#runtime.focused = overlay.initialFocus ?? null;
 
-    // An overlay that declares its initial focus opens with it marked, whatever
-    // opened the overlay. A pointer press hides the ring again, as everywhere.
-    if (overlay.initialFocus !== undefined) {
-      this.#runtime.isRingVisible = true;
-    }
-
     overlay.attach?.(this);
 
     return this;

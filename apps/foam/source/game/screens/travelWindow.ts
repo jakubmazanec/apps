@@ -377,7 +377,7 @@ export class TravelWindow {
     });
     this.#size = this.#layOut();
     // The buttons are built before the modal, which declares the destination
-    // button as its initial focus, so the window opens with the ring on it.
+    // button as its initial focus, so the window opens with it focused.
     // Their clicks read the modal from this.modal, assigned right after.
     this.modal = new Modal({
       theme: game.theme,
@@ -409,8 +409,8 @@ export class TravelWindow {
    * Shows a journey from `from` and adds the modal to the UI root: the title and the map of `way`,
    * the light at `from`, the locations the way reaches, and its nearest destination on the
    * destination button. Nothing here is built, so that frame costs what any other does. The modal
-   * puts the focus and the ring on the destination button; when that takes no press, a way with no
-   * destination or one the night cannot pay, they go to Back.
+   * puts the focus on the destination button; when that takes no press, a way with no destination
+   * or one the night cannot pay, it goes to Back.
    */
   open({from, way, ways, night}: TravelJourney): void {
     let position = this.#start.locationData[from]?.position;
@@ -439,7 +439,7 @@ export class TravelWindow {
     this.#showJourney();
     this.#ui.addOverlay(this.modal);
 
-    // Moving the focus keeps the ring that adding the modal showed.
+    // Moving the focus leaves the ring as adding the modal left it.
     if (this.#destination.button.isDisabled) {
       this.#ui.focus(this.#back);
     }
