@@ -390,7 +390,7 @@ export class TravelWindow {
       scheduler,
       fadeDuration: UI_FADE_DURATION,
       initialFocus: this.#destination.button,
-      isReusable: true,
+      destroyOnClose: false,
       onClosing: () => {
         onClosing?.(this.#picked);
       },

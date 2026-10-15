@@ -197,7 +197,7 @@ describe('Modal layout', () => {
 
   test('a kept modal added again after a size change has the new size', () => {
     let {root, stage} = createStage();
-    let modal = new Modal({isReusable: true});
+    let modal = new Modal({destroyOnClose: false});
 
     root.addOverlay(modal);
     layOut(stage);

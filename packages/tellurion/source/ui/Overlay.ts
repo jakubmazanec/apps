@@ -2,20 +2,17 @@ import {type Focusable} from './Focusable.js';
 import {type UiParent} from './UiChild.js';
 import {type UiRoot} from './UiRoot.js';
 
-// A component attached to a UiRoot as an overlay. Every overlay holds the
-// focus scope while it is attached, so focus discovery cannot leave it; a
-// component shown on top that must not trap focus is a plain child. UiRoot
-// calls attach right after the overlay got its scope and detach right after it
-// left the tree; nothing else calls them, and an overlay with nothing to do
-// there omits them. Declaring `close` is what makes the cancel command dismiss
-// it; an overlay without one traps focus and ignores cancel (the dialogue
-// box). Declaring `initialFocus` is what makes the overlay open with that
-// component focused and the ring left as it was, so the activate command acts
-// on it and the first focus command moves from it; an overlay without one
-// opens with nothing focused. Modal is the general-purpose overlay.
+/** A component that is also an overlay. Overlay holds the focus scope while it is attached. */
 export type Overlay = UiParent & {
+  /** Attaches the overlay to an UI root. */
   attach?: (ui: UiRoot) => void;
+
+  /** Dissmisses the overlay. */
   close?: () => void;
+
+  /** Dettaches the overlay. */
   detach?: () => void;
+
+  /** A child component that takes the initial focus. */
   readonly initialFocus?: Focusable | undefined;
 };
