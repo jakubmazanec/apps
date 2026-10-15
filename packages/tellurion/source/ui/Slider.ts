@@ -5,7 +5,7 @@ import {type Disposables} from '../utilities/Disposables.js';
 import {type Focusable} from './Focusable.js';
 import {adoptDetachedBackgrounds} from './internals/adoptDetachedBackgrounds.js';
 import {attachWidgetInteraction} from './internals/attachWidgetInteraction.js';
-import {resolveThemedBackgrounds} from './internals/resolveThemedBackgrounds.js';
+import {resolveThemeBackgrounds} from './internals/resolveThemeBackgrounds.js';
 import {setLayerContainerBackground} from './internals/setLayerContainerBackground.js';
 import {type SliderConfig} from './SliderConfig.js';
 import {type SliderOptions} from './SliderOptions.js';
@@ -52,7 +52,7 @@ export class Slider implements Focusable {
 
     // The track's size is part of the config, and it only exists once the
     // backgrounds are resolved, so this widget resolves them first.
-    let resolved = resolveThemedBackgrounds(
+    let resolved = resolveThemeBackgrounds(
       ['track', 'fill', 'hovered', 'disabled'],
       theme?.slider,
       backgrounds,

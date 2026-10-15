@@ -6,7 +6,7 @@ import {type Focusable} from './Focusable.js';
 import {adoptDetachedBackgrounds} from './internals/adoptDetachedBackgrounds.js';
 import {attachWidgetInteraction} from './internals/attachWidgetInteraction.js';
 import {measureTextWidth} from './internals/measureTextWidth.js';
-import {resolveThemedBackgrounds} from './internals/resolveThemedBackgrounds.js';
+import {resolveThemeBackgrounds} from './internals/resolveThemeBackgrounds.js';
 import {setLayerContainerBackground} from './internals/setLayerContainerBackground.js';
 import {Text} from './Text.js';
 import {type TextInputConfig} from './TextInputConfig.js';
@@ -159,7 +159,7 @@ export class TextInput implements Focusable {
     inputStyle.pointerEvents = 'none';
 
     this.#parts = {
-      backgrounds: resolveThemedBackgrounds(
+      backgrounds: resolveThemeBackgrounds(
         ['normal', 'hovered', 'disabled'],
         this.#config.theme?.textInput,
         backgrounds,

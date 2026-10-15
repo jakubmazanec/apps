@@ -2,7 +2,7 @@ import {LayoutContainer} from '@pixi/layout/components';
 
 import {type Disposables} from '../utilities/Disposables.js';
 import {disposeChildren} from './internals/disposeChildren.js';
-import {resolveThemedBackgrounds} from './internals/resolveThemedBackgrounds.js';
+import {resolveThemeBackgrounds} from './internals/resolveThemeBackgrounds.js';
 import {resolveView} from './internals/resolveView.js';
 import {type PanelConfig} from './PanelConfig.js';
 import {type PanelOptions} from './PanelOptions.js';
@@ -29,8 +29,7 @@ export class Panel implements UiParent {
 
   constructor({backgrounds, theme, children, layout}: PanelOptions) {
     this.#config = {theme};
-    this.#parts = resolveThemedBackgrounds(['background'], this.#config.theme?.panel, backgrounds);
-
+    this.#parts = resolveThemeBackgrounds(['background'], this.#config.theme?.panel, backgrounds);
     this.view = new LayoutContainer({background: this.#parts.background});
 
     if (children !== undefined) {

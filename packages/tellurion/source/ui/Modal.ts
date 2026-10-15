@@ -198,6 +198,7 @@ export class Modal implements Overlay {
     }
 
     this.#runtime.fader?.cancel();
+
     this.#runtime.ui = null;
     this.#state = 'closed';
   }
