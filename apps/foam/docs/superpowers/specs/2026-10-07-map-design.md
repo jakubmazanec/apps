@@ -57,8 +57,8 @@ These facts shape the design:
     elsewhere.
 12. **Tellurion does not change.**
 13. **The window is built once and kept.** The night screen builds it, its map's layers drawn, when
-    the screen is attached, and keeps its modal (`isReusable`). A journey only fills it, so the
-    frame that opens it costs what any other frame does and its fade-in plays on a phone too.
+    the screen is attached, and keeps its modal (`destroyOnClose: false`). A journey only fills it,
+    so the frame that opens it costs what any other frame does and its fade-in plays on a phone too.
 
 ## Design
 
@@ -509,10 +509,10 @@ export class TravelWindow {
 }
 ```
 
-The window is a `Panel` in a `Modal` with a fade of `UI_FADE_DURATION` and `isReusable: true`. The
-modal's scrim takes every tap but draws nothing (`scrimAlpha: 0`): the night screen dims the scene
-behind its windows. The constructor builds every control and draws both layers; nothing is built
-later but the containers of a new size. Its parts:
+The window is a `Panel` in a `Modal` with a fade of `UI_FADE_DURATION` and `destroyOnClose: false`.
+The modal's scrim takes every tap but draws nothing (`scrimAlpha: 0`): the night screen dims the
+scene behind its windows. The constructor builds every control and draws both layers; nothing is
+built later but the containers of a new size. Its parts:
 
 - **Title and row of ways.** The row has a button for walk, tram and taxi, in that order. In the
   side-by-side layout it is 120 wide: three buttons of 38 and two gaps of 3. A way the journey's

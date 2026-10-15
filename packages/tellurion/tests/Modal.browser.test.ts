@@ -450,7 +450,7 @@ describe(Modal, () => {
     expect(modal.state).toBe('closed');
   });
 
-  describe('isReusable', () => {
+  describe('destroyOnClose: false', () => {
     test('close() keeps the views, fires onClosed and ends in closed', () => {
       let root = createRoot();
       let outside = focusable();
@@ -461,7 +461,7 @@ describe(Modal, () => {
       let content = {...panel([focusable()]), destroy: vitest.fn<() => void>()};
       let modal = new Modal({
         children: [content],
-        isReusable: true,
+        destroyOnClose: false,
         onClosing: () => {
           calls.push('closing');
         },
@@ -496,7 +496,7 @@ describe(Modal, () => {
       let modal = new Modal({
         children: [panel([first, second])],
         initialFocus: first,
-        isReusable: true,
+        destroyOnClose: false,
         onClosing,
         onClosed,
       });
@@ -524,7 +524,7 @@ describe(Modal, () => {
     test('a kept modal fades in again from alpha 0', () => {
       let root = createRoot();
       let scheduler = new Scheduler();
-      let modal = new Modal({isReusable: true, scheduler, fadeDuration: 200});
+      let modal = new Modal({destroyOnClose: false, scheduler, fadeDuration: 200});
       let view = modal.view as unknown as MockContainer;
 
       root.addOverlay(modal);
@@ -556,7 +556,7 @@ describe(Modal, () => {
     test('adding a kept modal that is still fading out throws', () => {
       let root = createRoot();
       let scheduler = new Scheduler();
-      let modal = new Modal({isReusable: true, scheduler, fadeDuration: 200});
+      let modal = new Modal({destroyOnClose: false, scheduler, fadeDuration: 200});
 
       root.addOverlay(modal);
       scheduler.update(tick(200)); // open
@@ -582,11 +582,11 @@ describe(Modal, () => {
       let attachedContent = {...panel([]), destroy: vitest.fn<() => void>()};
       let attached = new Modal({
         children: [attachedContent],
-        isReusable: true,
+        destroyOnClose: false,
         onClosing,
         onClosed,
       });
-      let kept = new Modal({isReusable: true, onClosing, onClosed});
+      let kept = new Modal({destroyOnClose: false, onClosing, onClosed});
 
       root.addOverlay(attached);
       attached.destroy();
@@ -606,7 +606,7 @@ describe(Modal, () => {
 
     test('adding a destroyed kept modal throws', () => {
       let root = createRoot();
-      let modal = new Modal({isReusable: true});
+      let modal = new Modal({destroyOnClose: false});
 
       root.addOverlay(modal);
       modal.close();

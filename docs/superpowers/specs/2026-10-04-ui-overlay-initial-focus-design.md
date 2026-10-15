@@ -167,7 +167,7 @@ initialFocus?: Focusable | undefined;
 | The overlay declares `initialFocus`                       | That component is focused and the ring is shown                  |
 | The overlay declares none                                 | Nothing is focused and the ring stays as it was                  |
 | The overlay's `attach` sets a focus itself                | That focus wins: `attach` runs after `initialFocus` is applied   |
-| A kept modal (`isReusable`) is added again                | `initialFocus` is applied again                                  |
+| A kept modal (`destroyOnClose: false`) is added again     | `initialFocus` is applied again                                  |
 | A pointer press after the overlay opened                  | The ring hides and the focus stays                               |
 | The overlay is removed                                    | The previous focus returns, as today; the ring stays as it is    |
 | The declared component cannot take the focus at that time | It is set as focused, as `focus()` does today, and draws no ring |
