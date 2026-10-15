@@ -9,7 +9,7 @@ import {type Focusable} from './Focusable.js';
 import {adoptDetachedBackgrounds} from './internals/adoptDetachedBackgrounds.js';
 import {attachWidgetInteraction} from './internals/attachWidgetInteraction.js';
 import {disposeChildren} from './internals/disposeChildren.js';
-import {resolveThemedBackgrounds} from './internals/resolveThemedBackgrounds.js';
+import {resolveThemeBackgrounds} from './internals/resolveThemeBackgrounds.js';
 import {resolveView} from './internals/resolveView.js';
 import {setLayerContainerBackground} from './internals/setLayerContainerBackground.js';
 import {setVerticalOffset} from './internals/setVerticalOffset.js';
@@ -50,7 +50,7 @@ export class Button implements Focusable, UiParent {
     };
 
     this.#parts = {
-      backgrounds: resolveThemedBackgrounds(
+      backgrounds: resolveThemeBackgrounds(
         ['normal', 'hovered', 'active', 'disabled'],
         this.#config.theme?.button,
         backgrounds,

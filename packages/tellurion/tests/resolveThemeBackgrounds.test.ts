@@ -2,14 +2,14 @@ import * as pixi from 'pixi.js';
 import {describe, expect, test, vitest} from 'vitest';
 
 import {createBackground} from '../source/ui/internals/createBackground.js';
-import {resolveThemedBackgrounds} from '../source/ui/internals/resolveThemedBackgrounds.js';
+import {resolveThemeBackgrounds} from '../source/ui/internals/resolveThemeBackgrounds.js';
 
 vitest.mock(import('../source/ui/internals/createBackground.js'), {spy: true});
 
-describe(resolveThemedBackgrounds, () => {
+describe(resolveThemeBackgrounds, () => {
   test('builds a background per state from the theme textures', () => {
     let textures = {normal: pixi.Texture.WHITE, hovered: pixi.Texture.WHITE};
-    let resolved = resolveThemedBackgrounds(['normal', 'hovered'], textures, undefined);
+    let resolved = resolveThemeBackgrounds(['normal', 'hovered'], textures, undefined);
 
     expect(resolved.normal).toBeInstanceOf(pixi.Sprite);
     expect(resolved.hovered).toBeInstanceOf(pixi.Sprite);
@@ -19,7 +19,7 @@ describe(resolveThemedBackgrounds, () => {
   test('an explicit background wins over the theme', () => {
     let override = new pixi.Container();
     let textures = {normal: pixi.Texture.WHITE, hovered: pixi.Texture.WHITE};
-    let resolved = resolveThemedBackgrounds(['normal', 'hovered'], textures, {normal: override});
+    let resolved = resolveThemeBackgrounds(['normal', 'hovered'], textures, {normal: override});
 
     expect(resolved.normal).toBe(override);
     expect(resolved.hovered).toBeInstanceOf(pixi.Sprite);
@@ -30,14 +30,14 @@ describe(resolveThemedBackgrounds, () => {
     let textures = {normal: pixi.Texture.WHITE};
 
     vitest.mocked(createBackground).mockClear();
-    resolveThemedBackgrounds(['normal'], textures, {normal: override});
+    resolveThemeBackgrounds(['normal'], textures, {normal: override});
 
     expect(createBackground).not.toHaveBeenCalled();
   });
 
   test('resolves from overrides alone when there is no theme', () => {
     let override = new pixi.Container();
-    let resolved = resolveThemedBackgrounds(['normal'], undefined, {normal: override});
+    let resolved = resolveThemeBackgrounds(['normal'], undefined, {normal: override});
 
     expect(resolved.normal).toBe(override);
   });

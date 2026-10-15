@@ -8,7 +8,7 @@ import {createBackground} from './createBackground.js';
 // destruction, so it would leak.
 // Every state resolves: UiComponentThemeOptions takes a theme, which carries a
 // texture for each of them, or a background for each of them, never neither.
-export function resolveThemedBackgrounds<State extends string>(
+export function resolveThemeBackgrounds<State extends string>(
   states: readonly State[],
   textures: Record<State, pixi.Texture> | undefined,
   overrides: Partial<Record<State, pixi.Container | undefined>> | undefined,

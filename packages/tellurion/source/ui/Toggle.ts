@@ -4,7 +4,7 @@ import {type Disposables} from '../utilities/Disposables.js';
 import {type Focusable} from './Focusable.js';
 import {adoptDetachedBackgrounds} from './internals/adoptDetachedBackgrounds.js';
 import {attachWidgetInteraction} from './internals/attachWidgetInteraction.js';
-import {resolveThemedBackgrounds} from './internals/resolveThemedBackgrounds.js';
+import {resolveThemeBackgrounds} from './internals/resolveThemeBackgrounds.js';
 import {setLayerContainerBackground} from './internals/setLayerContainerBackground.js';
 import {toggleBackground} from './internals/toggleBackground.js';
 import {type ToggleConfig} from './ToggleConfig.js';
@@ -44,7 +44,7 @@ export class Toggle implements Focusable {
 
     this.#config = {theme};
 
-    let resolved = resolveThemedBackgrounds(
+    let resolved = resolveThemeBackgrounds(
       ['unchecked', 'checked', 'hovered', 'hoveredChecked', 'disabled', 'disabledChecked'],
       this.#config.theme?.toggle,
       backgrounds,
