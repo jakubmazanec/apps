@@ -111,17 +111,17 @@ export class UiRoot implements UiParent {
     disposeChildren(this.children, this.#disposables.instance);
   }
 
-  /** TBD */
+  /** Focusable components in current scope. */
   get #focusables(): Focusable[] {
     return collectFocusables(this.#runtime.scopes.at(-1)?.root ?? this);
   }
 
-  /** TBD */
+  /** Currently focused component. */
   get focused(): Focusable | null {
     return this.#runtime.focused;
   }
 
-  /** TBD */
+  /** Is the focus ring visible? */
   get isRingVisible(): boolean {
     return this.#runtime.isRingVisible;
   }
@@ -175,22 +175,19 @@ export class UiRoot implements UiParent {
     return this;
   }
 
-  // The topmost overlay owns cancel. Nothing open, or an overlay that declares
-  // no close, means nothing happens here; what the game does instead is the
-  // game's business.
-  /** TBD */
+  /** Triggers closing the topmost scope. */
   cancel() {
     this.#runtime.scopes.at(-1)?.root.close?.();
   }
 
-  /** TBD */
+  /** Clears focus. */
   clearFocus() {
     this.#runtime.focused = null;
     this.#runtime.isRingVisible = false;
     this.#runtime.scopes.length = 0;
   }
 
-  /** TBD */
+  /** Triggers the focused component's decrease action. */
   decrease() {
     if (this.#runtime.focused === null) {
       return;
@@ -215,7 +212,7 @@ export class UiRoot implements UiParent {
     this.#runtime.focused = component;
   }
 
-  /** TBD */
+  /** Focues the next focusable component. */
   focusNext() {
     let focusables = this.#focusables;
 
@@ -251,7 +248,7 @@ export class UiRoot implements UiParent {
     }
   }
 
-  /** TBD */
+  /** Focuses the previous focusable component. */
   focusPrevious() {
     let focusables = this.#focusables;
 
@@ -288,7 +285,7 @@ export class UiRoot implements UiParent {
     }
   }
 
-  /** TBD */
+  /** Triggers the focused component's increase action. */
   increase() {
     if (this.#runtime.focused === null) {
       return;
@@ -303,7 +300,7 @@ export class UiRoot implements UiParent {
     this.#runtime.focused.increase?.();
   }
 
-  /** TBD */
+  /** Moves focus to a focusable component in the specified direction. */
   moveFocus(direction: FocusDirection) {
     let focusables = this.#focusables;
 
@@ -400,7 +397,7 @@ export class UiRoot implements UiParent {
     return this;
   }
 
-  /** TBD */
+  /** @internal Called by `GameScreen` on each tick. */
   update() {
     let {focused, isRingVisible} = this.#runtime;
     let {ring, ringContainer} = this.#parts;
