@@ -3,8 +3,8 @@ import type * as pixi from 'pixi.js';
 
 import {type Disposables} from '../utilities/Disposables.js';
 import {type Focusable} from './Focusable.js';
-import {adoptDetachedBackgrounds} from './internals/adoptDetachedBackgrounds.js';
 import {attachWidgetInteraction} from './internals/attachWidgetInteraction.js';
+import {disposeDetachedBackgrounds} from './internals/disposeDetachedBackgrounds.js';
 import {resolveThemeBackgrounds} from './internals/resolveThemeBackgrounds.js';
 import {setLayerContainerBackground} from './internals/setLayerContainerBackground.js';
 import {type SliderConfig} from './SliderConfig.js';
@@ -75,7 +75,7 @@ export class Slider implements Focusable {
       },
     };
 
-    adoptDetachedBackgrounds(
+    disposeDetachedBackgrounds(
       this.#disposables.instance,
       Object.values(this.#parts.trackBackgrounds),
     );
@@ -85,7 +85,6 @@ export class Slider implements Focusable {
 
     attachWidgetInteraction(this.view, {
       cursor: 'pointer',
-      getState: () => this.#state,
       setState: (state) => {
         this.#state = state;
 

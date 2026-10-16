@@ -3,8 +3,8 @@ import * as pixi from 'pixi.js';
 
 import {type Disposables} from '../utilities/Disposables.js';
 import {type Focusable} from './Focusable.js';
-import {adoptDetachedBackgrounds} from './internals/adoptDetachedBackgrounds.js';
 import {attachWidgetInteraction} from './internals/attachWidgetInteraction.js';
+import {disposeDetachedBackgrounds} from './internals/disposeDetachedBackgrounds.js';
 import {measureTextWidth} from './internals/measureTextWidth.js';
 import {resolveThemeBackgrounds} from './internals/resolveThemeBackgrounds.js';
 import {setLayerContainerBackground} from './internals/setLayerContainerBackground.js';
@@ -179,13 +179,12 @@ export class TextInput implements Focusable {
       value,
     };
 
-    adoptDetachedBackgrounds(this.#disposables.instance, Object.values(this.#parts.backgrounds));
+    disposeDetachedBackgrounds(this.#disposables.instance, Object.values(this.#parts.backgrounds));
 
     this.view = new LayoutContainer({background: this.#parts.backgrounds.normal});
 
     attachWidgetInteraction(this.view, {
       cursor: 'text',
-      getState: () => this.#state,
       setState: (state) => {
         this.#state = state;
 
