@@ -113,7 +113,7 @@ export class Modal implements Overlay {
     // Disposing is in reverse order of registration, so the removal of modal as an overlay first
     // restores focus, etc. before disposing children.
     this.#disposables.instance.defer(() => this.view.destroy({children: true}));
-    disposeChildren(this.children, this.#disposables.instance);
+    disposeChildren(this.#disposables.instance, this.children);
     this.#disposables.instance.defer(() => {
       this.#runtime.ui?.removeOverlay(this);
     });

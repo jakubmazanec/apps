@@ -2,8 +2,8 @@ import {LayoutContainer} from '@pixi/layout/components';
 
 import {type Disposables} from '../utilities/Disposables.js';
 import {type Focusable} from './Focusable.js';
-import {adoptDetachedBackgrounds} from './internals/adoptDetachedBackgrounds.js';
 import {attachWidgetInteraction} from './internals/attachWidgetInteraction.js';
+import {disposeDetachedBackgrounds} from './internals/disposeDetachedBackgrounds.js';
 import {resolveThemeBackgrounds} from './internals/resolveThemeBackgrounds.js';
 import {setLayerContainerBackground} from './internals/setLayerContainerBackground.js';
 import {toggleBackground} from './internals/toggleBackground.js';
@@ -65,7 +65,7 @@ export class Toggle implements Focusable {
       },
     };
 
-    adoptDetachedBackgrounds(this.#disposables.instance, [
+    disposeDetachedBackgrounds(this.#disposables.instance, [
       ...Object.values(this.#parts.backgrounds.unchecked),
       ...Object.values(this.#parts.backgrounds.checked),
     ]);
@@ -78,7 +78,6 @@ export class Toggle implements Focusable {
 
     attachWidgetInteraction(this.view, {
       cursor: 'pointer',
-      getState: () => this.#state,
       setState: (state) => {
         this.#state = state;
 

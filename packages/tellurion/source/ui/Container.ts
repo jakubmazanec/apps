@@ -30,7 +30,7 @@ export class Container implements UiParent {
     };
 
     this.#disposables.instance.defer(() => this.view.destroy({children: true}));
-    disposeChildren(this.children, this.#disposables.instance);
+    disposeChildren(this.#disposables.instance, this.children);
   }
 
   /** Adds children to the container's view. */

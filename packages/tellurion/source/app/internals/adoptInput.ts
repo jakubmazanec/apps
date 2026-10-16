@@ -53,7 +53,6 @@ export function adoptInput(game: Game, disposables: DisposableStack, input: Game
 
   input.attach(game);
   game.app.ticker.add(updateInput, game, pixi.UPDATE_PRIORITY.HIGH);
-
   disposables.defer(() => {
     game.app.ticker.remove(updateInput, game);
     input.detach();

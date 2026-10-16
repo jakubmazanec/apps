@@ -108,7 +108,7 @@ export class UiRoot implements UiParent {
       globalThis.removeEventListener('pointerdown', handlePointerDown);
     });
     this.#disposables.instance.defer(() => this.view.destroy({children: true}));
-    disposeChildren(this.children, this.#disposables.instance);
+    disposeChildren(this.#disposables.instance, this.children);
   }
 
   /** Focusable components in current scope. */

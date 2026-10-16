@@ -4,7 +4,7 @@ import type * as pixi from 'pixi.js';
 // true})` does not reach them; this registers a disposer per background that
 // destroys any the view did not already take down. Call it before deferring the
 // view's own destroy, so the (LIFO) stack tears the view down first.
-export function adoptDetachedBackgrounds(
+export function disposeDetachedBackgrounds(
   disposables: DisposableStack,
   backgrounds: Iterable<pixi.Container>,
 ): void {

@@ -6,9 +6,9 @@ import {type ButtonOptions} from './ButtonOptions.js';
 import {type ButtonParts} from './ButtonParts.js';
 import {type ButtonState} from './ButtonState.js';
 import {type Focusable} from './Focusable.js';
-import {adoptDetachedBackgrounds} from './internals/adoptDetachedBackgrounds.js';
 import {attachWidgetInteraction} from './internals/attachWidgetInteraction.js';
 import {disposeChildren} from './internals/disposeChildren.js';
+import {disposeDetachedBackgrounds} from './internals/disposeDetachedBackgrounds.js';
 import {resolveThemeBackgrounds} from './internals/resolveThemeBackgrounds.js';
 import {resolveView} from './internals/resolveView.js';
 import {setLayerContainerBackground} from './internals/setLayerContainerBackground.js';
@@ -57,13 +57,12 @@ export class Button implements Focusable, UiParent {
       ),
     };
 
-    adoptDetachedBackgrounds(this.#disposables.instance, Object.values(this.#parts.backgrounds));
+    disposeDetachedBackgrounds(this.#disposables.instance, Object.values(this.#parts.backgrounds));
 
     this.view = new LayoutContainer({background: this.#parts.backgrounds.normal});
 
     attachWidgetInteraction(this.view, {
       cursor: 'pointer',
-      getState: () => this.#state,
       setState: (state) => {
         this.#state = state;
 
@@ -137,7 +136,7 @@ export class Button implements Focusable, UiParent {
     };
 
     this.#disposables.instance.defer(() => this.view.destroy({children: true}));
-    disposeChildren(this.children, this.#disposables.instance);
+    disposeChildren(this.#disposables.instance, this.children);
   }
 
   /** Is the button disabled? */

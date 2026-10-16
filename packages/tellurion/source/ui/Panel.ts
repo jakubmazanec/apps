@@ -39,7 +39,7 @@ export class Panel implements UiParent {
     this.view.layout = {...this.#config.theme?.panel.layout, ...layout};
 
     this.#disposables.instance.defer(() => this.view.destroy({children: true}));
-    disposeChildren(this.children, this.#disposables.instance);
+    disposeChildren(this.#disposables.instance, this.children);
   }
 
   /** Adds children to the panel's view. */
