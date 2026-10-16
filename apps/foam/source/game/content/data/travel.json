@@ -1,0 +1,110 @@
+{
+  "hlavniNadrazi": {
+    "walk": {
+      "whiskyShop": {"minutes": 42, "computed": true},
+      "rotorBar": {"minutes": 12, "computed": true},
+      "zidenice": {"minutes": 37, "computed": true},
+      "namestiRepubliky": {"minutes": 41, "computed": true},
+      "malinovskehoNamesti": {"minutes": 9, "computed": true}
+    },
+    "taxi": {
+      "whiskyShop": {"minutes": 11, "price": 180, "computed": true},
+      "rotorBar": {"minutes": 9, "price": 120, "computed": true},
+      "zidenice": {"minutes": 12, "price": 190, "computed": true},
+      "namestiRepubliky": {"minutes": 11, "price": 180, "computed": true},
+      "malinovskehoNamesti": {"minutes": 8, "price": 100, "computed": true}
+    },
+    "tram": {
+      "namestiRepubliky": {"minutes": 17, "price": 25, "computed": true},
+      "malinovskehoNamesti": {"minutes": 7, "price": 25, "computed": true}
+    }
+  },
+  "whiskyShop": {
+    "walk": {
+      "hlavniNadrazi": {"minutes": 42, "computed": true},
+      "rotorBar": {"minutes": 35, "computed": true},
+      "zidenice": {"minutes": 23, "computed": true},
+      "namestiRepubliky": {"minutes": 4, "computed": true},
+      "malinovskehoNamesti": {"minutes": 34, "computed": true}
+    },
+    "taxi": {
+      "hlavniNadrazi": {"minutes": 11, "price": 180, "computed": true},
+      "rotorBar": {"minutes": 11, "price": 170, "computed": true},
+      "zidenice": {"minutes": 11, "price": 160, "computed": true},
+      "namestiRepubliky": {"minutes": 6, "price": 70, "computed": true},
+      "malinovskehoNamesti": {"minutes": 13, "price": 200, "computed": true}
+    }
+  },
+  "rotorBar": {
+    "walk": {
+      "hlavniNadrazi": {"minutes": 12, "computed": true},
+      "whiskyShop": {"minutes": 35, "computed": true},
+      "zidenice": {"minutes": 33, "computed": true},
+      "namestiRepubliky": {"minutes": 36, "computed": true},
+      "malinovskehoNamesti": {"minutes": 3, "computed": true}
+    },
+    "taxi": {
+      "hlavniNadrazi": {"minutes": 8, "price": 110, "computed": true},
+      "whiskyShop": {"minutes": 11, "price": 170, "computed": true},
+      "zidenice": {"minutes": 12, "price": 180, "computed": true},
+      "namestiRepubliky": {"minutes": 11, "price": 180, "computed": true},
+      "malinovskehoNamesti": {"minutes": 9, "price": 120, "computed": true}
+    }
+  },
+  "namestiRepubliky": {
+    "walk": {
+      "hlavniNadrazi": {"minutes": 41, "computed": true},
+      "whiskyShop": {"minutes": 4, "computed": true},
+      "rotorBar": {"minutes": 36, "computed": true},
+      "zidenice": {"minutes": 19, "computed": true},
+      "malinovskehoNamesti": {"minutes": 33, "computed": true}
+    },
+    "tram": {
+      "malinovskehoNamesti": {"minutes": 15, "price": 25, "computed": true},
+      "hlavniNadrazi": {"minutes": 17, "price": 25, "computed": true}
+    },
+    "taxi": {
+      "hlavniNadrazi": {"minutes": 11, "price": 180, "computed": true},
+      "whiskyShop": {"minutes": 6, "price": 70, "computed": true},
+      "rotorBar": {"minutes": 11, "price": 170, "computed": true},
+      "zidenice": {"minutes": 10, "price": 150, "computed": true},
+      "malinovskehoNamesti": {"minutes": 12, "price": 200, "computed": true}
+    }
+  },
+  "malinovskehoNamesti": {
+    "walk": {
+      "hlavniNadrazi": {"minutes": 9, "computed": true},
+      "whiskyShop": {"minutes": 34, "computed": true},
+      "rotorBar": {"minutes": 3, "computed": true},
+      "zidenice": {"minutes": 30, "computed": true},
+      "namestiRepubliky": {"minutes": 33, "computed": true}
+    },
+    "tram": {
+      "namestiRepubliky": {"minutes": 15, "price": 25, "computed": true},
+      "hlavniNadrazi": {"minutes": 7, "price": 25, "computed": true}
+    },
+    "taxi": {
+      "hlavniNadrazi": {"minutes": 7, "price": 90, "computed": true},
+      "whiskyShop": {"minutes": 10, "price": 150, "computed": true},
+      "rotorBar": {"minutes": 7, "price": 90, "computed": true},
+      "zidenice": {"minutes": 10, "price": 160, "computed": true},
+      "namestiRepubliky": {"minutes": 9, "price": 160, "computed": true}
+    }
+  },
+  "zidenice": {
+    "walk": {
+      "hlavniNadrazi": {"minutes": 37, "computed": true},
+      "whiskyShop": {"minutes": 23, "computed": true},
+      "rotorBar": {"minutes": 33, "computed": true},
+      "namestiRepubliky": {"minutes": 19, "computed": true},
+      "malinovskehoNamesti": {"minutes": 30, "computed": true}
+    },
+    "taxi": {
+      "hlavniNadrazi": {"minutes": 12, "price": 190, "computed": true},
+      "whiskyShop": {"minutes": 10, "price": 160, "computed": true},
+      "rotorBar": {"minutes": 12, "price": 180, "computed": true},
+      "namestiRepubliky": {"minutes": 10, "price": 150, "computed": true},
+      "malinovskehoNamesti": {"minutes": 14, "price": 200, "computed": true}
+    }
+  }
+}
