@@ -41,7 +41,7 @@ export class Game {
   /** Ref pointing to parent HTML element. */
   ref: React.RefObject<HTMLElement | null> | null = null;
 
-  /** All screens. */
+  /** Screens. */
   readonly screens: AnyGameScreen[] = [];
 
   /** View. */
