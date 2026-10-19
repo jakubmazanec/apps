@@ -6,7 +6,7 @@ import {type ButtonOptions} from './ButtonOptions.js';
 import {type ButtonParts} from './ButtonParts.js';
 import {type ButtonState} from './ButtonState.js';
 import {type Focusable} from './Focusable.js';
-import {attachWidgetInteraction} from './internals/attachWidgetInteraction.js';
+import {attachInteraction} from './internals/attachInteraction.js';
 import {disposeChildren} from './internals/disposeChildren.js';
 import {disposeDetachedBackgrounds} from './internals/disposeDetachedBackgrounds.js';
 import {resolveThemeBackgrounds} from './internals/resolveThemeBackgrounds.js';
@@ -61,7 +61,7 @@ export class Button implements Focusable, UiParent {
 
     this.view = new LayoutContainer({background: this.#parts.backgrounds.normal});
 
-    attachWidgetInteraction(this.view, {
+    attachInteraction(this.view, {
       cursor: 'pointer',
       setState: (state) => {
         this.#state = state;

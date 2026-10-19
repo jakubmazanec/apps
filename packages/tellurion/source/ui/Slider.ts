@@ -3,7 +3,7 @@ import type * as pixi from 'pixi.js';
 
 import {type Disposables} from '../utilities/Disposables.js';
 import {type Focusable} from './Focusable.js';
-import {attachWidgetInteraction} from './internals/attachWidgetInteraction.js';
+import {attachInteraction} from './internals/attachInteraction.js';
 import {disposeDetachedBackgrounds} from './internals/disposeDetachedBackgrounds.js';
 import {resolveThemeBackgrounds} from './internals/resolveThemeBackgrounds.js';
 import {setLayerContainerBackground} from './internals/setLayerContainerBackground.js';
@@ -83,7 +83,7 @@ export class Slider implements Focusable {
     this.view = new LayoutContainer({background: this.#parts.trackBackgrounds.normal});
     this.view.layout = {width: this.#config.trackWidth, height: this.#config.trackHeight};
 
-    attachWidgetInteraction(this.view, {
+    attachInteraction(this.view, {
       cursor: 'pointer',
       setState: (state) => {
         this.#state = state;
