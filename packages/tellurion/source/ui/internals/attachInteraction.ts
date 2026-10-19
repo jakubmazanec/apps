@@ -7,7 +7,7 @@ import {attachHitArea} from '../../utilities/attachHitArea.js';
  * Attaches interactions handling to a component. Currently it changes cursor and state when
  * hovered.
  */
-export function attachWidgetInteraction(
+export function attachInteraction(
   view: LayoutContainer,
   {cursor, setState}: {cursor: pixi.Cursor; setState: (state: 'hovered' | 'normal') => void},
 ): void {

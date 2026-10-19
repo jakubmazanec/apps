@@ -3,7 +3,7 @@ import {LayoutContainer} from '@pixi/layout/components';
 import * as pixi from 'pixi.js';
 import {beforeAll, describe, expect, test, vitest} from 'vitest';
 
-import {attachWidgetInteraction} from '../source/ui/internals/attachWidgetInteraction.js';
+import {attachInteraction} from '../source/ui/internals/attachInteraction.js';
 
 // The pointer moves below go through a real EventBoundary, which needs the
 // federated event mixin (isInteractive) on Container.
@@ -21,7 +21,7 @@ function movePointer(boundary: pixi.EventBoundary, x: number, y: number) {
   boundary.mapEvent(event);
 }
 
-describe(attachWidgetInteraction, () => {
+describe(attachInteraction, () => {
   beforeAll(async () => {
     layoutSystem = new LayoutSystem();
 
@@ -36,7 +36,7 @@ describe(attachWidgetInteraction, () => {
     view.eventMode = 'passive';
     view.cursor = 'auto';
 
-    attachWidgetInteraction(view, {
+    attachInteraction(view, {
       cursor: 'text',
       setState: vitest.fn<(state: 'hovered' | 'normal') => void>(),
     });
@@ -48,7 +48,7 @@ describe(attachWidgetInteraction, () => {
   test('sizes the hit area from the computed layout', () => {
     let view = new LayoutContainer({});
 
-    attachWidgetInteraction(view, {
+    attachInteraction(view, {
       cursor: 'pointer',
       setState: vitest.fn<(state: 'hovered' | 'normal') => void>(),
     });
@@ -63,7 +63,7 @@ describe(attachWidgetInteraction, () => {
     let view = new LayoutContainer({});
     let setState = vitest.fn<(next: 'hovered' | 'normal') => void>();
 
-    attachWidgetInteraction(view, {cursor: 'pointer', setState});
+    attachInteraction(view, {cursor: 'pointer', setState});
 
     // @ts-expect-error -- pixi emits without event data at runtime
     view.emit('pointerover');
@@ -83,7 +83,7 @@ describe(attachWidgetInteraction, () => {
     let setState = vitest.fn<(next: 'hovered' | 'normal') => void>();
 
     stage.addChild(view);
-    attachWidgetInteraction(view, {cursor: 'pointer', setState});
+    attachInteraction(view, {cursor: 'pointer', setState});
 
     // @ts-expect-error -- ComputedLayout requires more properties than needed at runtime
     view.emit('layout', {computedLayout: {width: 32, height: 6}});
