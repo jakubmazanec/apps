@@ -2,21 +2,10 @@ import {LayoutSystem} from '@pixi/layout';
 import * as pixi from 'pixi.js';
 import {beforeAll, describe, expect, test, vitest} from 'vitest';
 
-import {type createBackground} from '../source/ui/internals/createBackground.js';
 import {Panel} from '../source/ui/Panel.js';
 import {createTestTheme} from './createTestTheme.js';
 
 let layoutSystem: LayoutSystem;
-
-vitest.mock(import('../source/ui/internals/createBackground.js'), () => ({
-  createBackground: vitest.fn<typeof createBackground>((texture) => {
-    let container = new pixi.Container();
-
-    container.label = texture.label!;
-
-    return container;
-  }),
-}));
 
 describe('Panel children', () => {
   beforeAll(async () => {

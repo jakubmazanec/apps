@@ -1,17 +1,12 @@
 /* eslint-disable unicorn/consistent-destructuring -- Slider.value is a getter, cannot be statically destructured */
 import {LayoutSystem} from '@pixi/layout';
 import * as pixi from 'pixi.js';
-import {beforeAll, beforeEach, describe, expect, test, vitest} from 'vitest';
+import {beforeAll, describe, expect, test, vitest} from 'vitest';
 
-import {createBackground} from '../source/ui/internals/createBackground.js';
 import {Slider} from '../source/ui/Slider.js';
 import {createTestTheme} from './createTestTheme.js';
 
 let layoutSystem: LayoutSystem;
-
-vitest.mock(import('../source/ui/internals/createBackground.js'), () => ({
-  createBackground: vitest.fn<typeof createBackground>(() => background()),
-}));
 
 function background(width = 10, height = 10): pixi.Container {
   let sprite = new pixi.Sprite(pixi.Texture.WHITE);
@@ -358,16 +353,10 @@ describe('Slider theme', () => {
     });
   });
 
-  beforeEach(() => {
-    vitest.mocked(createBackground).mockClear();
-  });
-
   test('takes its backgrounds from the theme', () => {
-    let theme = createTestTheme();
-    let slider = new Slider({theme});
+    let slider = new Slider({theme: createTestTheme()});
 
-    expect(createBackground).toHaveBeenCalledWith(theme.slider.track);
-    expect(createBackground).toHaveBeenCalledWith(theme.slider.fill);
-    expect(slider.view.background).toBeDefined();
+    expect((slider.view.background as pixi.Container).label).toBe('slider-track');
+    expect(slider.view.getChildByLabel('slider-fill', true)).not.toBeNull();
   });
 });

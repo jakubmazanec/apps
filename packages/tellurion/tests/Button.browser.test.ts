@@ -1,16 +1,11 @@
 import {LayoutSystem} from '@pixi/layout';
 import * as pixi from 'pixi.js';
-import {beforeAll, beforeEach, describe, expect, test, vitest} from 'vitest';
+import {beforeAll, describe, expect, test, vitest} from 'vitest';
 
 import {Button} from '../source/ui/Button.js';
-import {createBackground} from '../source/ui/internals/createBackground.js';
 import {createTestTheme} from './createTestTheme.js';
 
 let layoutSystem: LayoutSystem;
-
-vitest.mock(import('../source/ui/internals/createBackground.js'), () => ({
-  createBackground: vitest.fn<() => pixi.Container>(() => background()),
-}));
 
 function background(): pixi.Container {
   let container = new pixi.Container();
@@ -209,25 +204,17 @@ describe('Button theme', () => {
     });
   });
 
-  beforeEach(() => {
-    vitest.mocked(createBackground).mockClear();
-  });
-
   test('takes its backgrounds from the theme', () => {
-    let theme = createTestTheme();
-    let button = new Button({theme});
+    let button = new Button({theme: createTestTheme()});
 
-    expect(createBackground).toHaveBeenCalledWith(theme.button.normal);
-    expect(button.view.background).toBeDefined();
+    expect((button.view.background as pixi.Container).label).toBe('button-normal');
   });
 
   test('an explicit background wins over the theme', () => {
-    let theme = createTestTheme();
     let normal = background();
-    let button = new Button({theme, backgrounds: {normal}});
+    let button = new Button({theme: createTestTheme(), backgrounds: {normal}});
 
     expect(button.view.background).toBe(normal);
-    expect(createBackground).not.toHaveBeenCalledWith(theme.button.normal);
   });
 
   test('takes layout defaults from the theme', () => {
