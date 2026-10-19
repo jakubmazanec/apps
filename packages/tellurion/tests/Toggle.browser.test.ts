@@ -1,17 +1,12 @@
 /* eslint-disable unicorn/consistent-destructuring -- Toggle.isChecked is a getter, cannot be statically destructured */
 import {LayoutSystem} from '@pixi/layout';
 import * as pixi from 'pixi.js';
-import {beforeAll, beforeEach, describe, expect, test, vitest} from 'vitest';
+import {beforeAll, describe, expect, test, vitest} from 'vitest';
 
-import {createBackground} from '../source/ui/internals/createBackground.js';
 import {Toggle} from '../source/ui/Toggle.js';
 import {createTestTheme} from './createTestTheme.js';
 
 let layoutSystem: LayoutSystem;
-
-vitest.mock(import('../source/ui/internals/createBackground.js'), () => ({
-  createBackground: vitest.fn<typeof createBackground>(() => background()),
-}));
 
 function background(): pixi.Container {
   let container = new pixi.Container();
@@ -208,25 +203,19 @@ describe('Toggle theme', () => {
     });
   });
 
-  beforeEach(() => {
-    vitest.mocked(createBackground).mockClear();
-  });
-
   test('takes its backgrounds from the theme', () => {
     let theme = createTestTheme();
-    let toggle = new Toggle({theme});
+    let unchecked = new Toggle({theme});
+    let checked = new Toggle({theme, checked: true});
 
-    expect(createBackground).toHaveBeenCalledWith(theme.toggle.unchecked);
-    expect(createBackground).toHaveBeenCalledWith(theme.toggle.checked);
-    expect(toggle.view.background).toBeDefined();
+    expect((unchecked.view.background as pixi.Container).label).toBe('toggle-unchecked');
+    expect((checked.view.background as pixi.Container).label).toBe('toggle-checked');
   });
 
   test('an explicit background wins over the theme', () => {
-    let theme = createTestTheme();
     let unchecked = background();
-    let toggle = new Toggle({theme, backgrounds: {unchecked}});
+    let toggle = new Toggle({theme: createTestTheme(), backgrounds: {unchecked}});
 
     expect(toggle.view.background).toBe(unchecked);
-    expect(createBackground).not.toHaveBeenCalledWith(theme.toggle.unchecked);
   });
 });

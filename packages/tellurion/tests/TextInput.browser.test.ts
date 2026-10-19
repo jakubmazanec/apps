@@ -2,7 +2,6 @@ import {LayoutSystem} from '@pixi/layout';
 import * as pixi from 'pixi.js';
 import {afterEach, beforeAll, beforeEach, describe, expect, test, vitest} from 'vitest';
 
-import {createBackground} from '../source/ui/internals/createBackground.js';
 import {createTestTheme} from './createTestTheme.js';
 
 // UiRoot registers its pointertap listeners via the federated event system
@@ -37,10 +36,6 @@ vitest.mock(import('../source/ui/Text.js'), async () => {
     } as never,
   };
 });
-
-vitest.mock(import('../source/ui/internals/createBackground.js'), () => ({
-  createBackground: vitest.fn<typeof createBackground>(() => background()),
-}));
 
 // Imported after the mocks so it picks up the mocked Pixi surface.
 const {TextInput} = await import('../source/ui/TextInput.js');
@@ -749,21 +744,11 @@ describe('TextInput', () => {
 });
 
 describe('TextInput theme', () => {
-  // Sentinels from createTestTheme() are structurally identical across
-  // instances (same fixed names), and toHaveBeenCalledWith matches by deep
-  // equality over the mock's ENTIRE call history, not just this test's calls.
-  // Without this, a prior test's call with a same-shaped sentinel could make
-  // a "not called with" assertion elsewhere fail spuriously.
-  beforeEach(() => {
-    vitest.mocked(createBackground).mockClear();
-  });
-
   test('takes its backgrounds from the theme', () => {
     let theme = createTestTheme();
     let input = new TextInput({theme, container: document.body, input: fakeInput()});
-    let view = input.view as unknown as {background: unknown};
+    let view = input.view as unknown as {background: pixi.Container};
 
-    expect(createBackground).toHaveBeenCalledWith(theme.textInput.normal);
-    expect(view.background).toBeDefined();
+    expect(view.background.label).toBe('text-input-normal');
   });
 });
