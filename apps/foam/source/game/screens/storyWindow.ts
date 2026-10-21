@@ -10,7 +10,7 @@ import {
   type RunnableDialogueScript,
   type Scheduler,
   Text,
-  type UiChild,
+  type UiChildComponent,
   type UiRoot,
   wrapText,
 } from 'tellurion';
@@ -92,7 +92,7 @@ function measureLabel(text: string): number {
  * in and take a tap once fully shown.
  */
 export class StoryWindow implements Overlay {
-  readonly children: UiChild[];
+  readonly children: UiChildComponent[];
   readonly dialogue: Dialogue<Night>;
   readonly view: pixi.Container = new pixi.Container();
 

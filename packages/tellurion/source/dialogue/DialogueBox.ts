@@ -5,7 +5,7 @@ import {Container} from '../ui/Container.js';
 import {type Overlay} from '../ui/Overlay.js';
 import {Panel} from '../ui/Panel.js';
 import {Text} from '../ui/Text.js';
-import {type UiChild} from '../ui/UiChild.js';
+import {type UiChildComponent} from '../ui/UiChildComponent.js';
 import {type UiRoot} from '../ui/UiRoot.js';
 import {type ResolvedUiTheme} from '../ui/UiTheme.js';
 import {attachHitArea} from '../utilities/attachHitArea.js';
@@ -237,8 +237,8 @@ export class DialogueBox implements Overlay {
     return this.#breaks;
   }
 
-  /** Focus discovery recurses through this (the UiParent contract). */
-  get children(): UiChild[] {
+  /** Focus discovery recurses through this (the UiParentComponent contract). */
+  get children(): UiChildComponent[] {
     return this.#choicesPanel === null ? [] : [this.#choicesPanel];
   }
 
@@ -488,7 +488,7 @@ export class DialogueBox implements Overlay {
     this.#choiceLabels = [];
     this.#choiceButtons = [];
 
-    let textChildren: UiChild[] = [];
+    let textChildren: UiChildComponent[] = [];
 
     if (this.#isCollapsed && node.speaker !== undefined) {
       textChildren.push(
@@ -535,7 +535,7 @@ export class DialogueBox implements Overlay {
       this.#onAdvanceTap();
     });
 
-    let boxChildren: UiChild[] = [];
+    let boxChildren: UiChildComponent[] = [];
 
     if (!this.#isCollapsed) {
       let portrait = new pixi.Sprite({texture: node.portraitTexture!});
@@ -546,7 +546,7 @@ export class DialogueBox implements Overlay {
         height: portraitSize,
       };
 
-      let portraitChildren: UiChild[] = [portrait];
+      let portraitChildren: UiChildComponent[] = [portrait];
 
       if (node.speaker !== undefined) {
         portraitChildren.push(

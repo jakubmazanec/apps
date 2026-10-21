@@ -2,7 +2,7 @@ import type * as pixi from 'pixi.js';
 import {Container} from 'pixi.js';
 import {afterEach, describe, expect, test, vitest} from 'vitest';
 
-import {type UiChild} from '../source/ui/UiChild.js';
+import {type UiChildComponent} from '../source/ui/UiChildComponent.js';
 import {type UiFocusEvent} from '../source/ui/UiFocusEvent.js';
 import {UiRoot} from '../source/ui/UiRoot.js';
 import {createTestTheme} from './createTestTheme.js';
@@ -63,7 +63,7 @@ function focusable(bounds?: {height: number; width: number; x: number; y: number
 
 // A non-focusable container component (a Panel-like stub). Children's views
 // are attached into the panel's view, mirroring the real Panel.
-function panel(children: UiChild[]) {
+function panel(children: UiChildComponent[]) {
   let view = new Container() as unknown as MockContainer;
 
   for (let child of children) {
@@ -73,7 +73,7 @@ function panel(children: UiChild[]) {
   return {view: view as unknown as pixi.Container, children};
 }
 
-function createRootWith(...children: UiChild[]) {
+function createRootWith(...children: UiChildComponent[]) {
   let root = createRoot();
 
   root.addChild(...children);
@@ -1035,7 +1035,7 @@ describe(UiRoot, () => {
     test('addOverlay calls attach with the root once the overlay holds the scope', () => {
       let root = createRootWith(focusable());
       let topOverlayInsideAttach: unknown = null;
-      let childrenInsideAttach: UiChild[] = [];
+      let childrenInsideAttach: UiChildComponent[] = [];
       let overlay = {
         ...panel([focusable()]),
         attach: vitest.fn<(ui: UiRoot) => void>((ui) => {
@@ -1186,7 +1186,7 @@ describe(UiRoot, () => {
 
     test('removeOverlay calls detach after the overlay left the children', () => {
       let root = createRootWith(focusable());
-      let childrenInsideDetach: UiChild[] | null = null;
+      let childrenInsideDetach: UiChildComponent[] | null = null;
       let topOverlayInsideDetach: unknown;
       let overlay = {
         ...panel([focusable()]),

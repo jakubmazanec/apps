@@ -10,16 +10,17 @@ import {findNearestInDirection} from './internals/findNearestInDirection.js';
 import {findNearestTopLeft} from './internals/findNearestTopLeft.js';
 import {resolveView} from './internals/resolveView.js';
 import {type Overlay} from './Overlay.js';
-import {type UiChild, type UiParent} from './UiChild.js';
+import {type UiChildComponent} from './UiChildComponent.js';
 import {type UiFocusEvent} from './UiFocusEvent.js';
+import {type UiParentComponent} from './UiParentComponent.js';
 import {type UiRootConfig} from './UiRootConfig.js';
 import {type UiRootOptions} from './UiRootOptions.js';
 import {type UiRootParts} from './UiRootParts.js';
 import {type UiRootRuntime} from './UiRootRuntime.js';
 
-export class UiRoot implements UiParent {
+export class UiRoot implements UiParentComponent {
   /** Children. */
-  readonly children: UiChild[] = [];
+  readonly children: UiChildComponent[] = [];
 
   /** View. */
   readonly view: pixi.Container = new pixi.Container();
@@ -147,7 +148,7 @@ export class UiRoot implements UiParent {
   }
 
   /** Adds children to the UI root's view. */
-  addChild(...children: UiChild[]): this {
+  addChild(...children: UiChildComponent[]): this {
     for (let child of children) {
       this.children.push(child);
       this.view.addChildAt(resolveView(child), this.view.children.length - 1); // The focus ring must stay last child, to render above other children.
@@ -338,7 +339,7 @@ export class UiRoot implements UiParent {
   }
 
   /** Removes children from the UI root's view. */
-  removeChild(...children: UiChild[]): this {
+  removeChild(...children: UiChildComponent[]): this {
     if (children.some((child) => this.#runtime.scopes.some((scope) => scope.root === child))) {
       throw new Error('Overlay must be removed with removeOverlay()!');
     }

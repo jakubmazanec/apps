@@ -1,11 +1,11 @@
-import {type UiChild} from '../UiChild.js';
+import {type UiChildComponent} from '../UiChildComponent.js';
 
 // Destroys the components still in `children` when the stack is disposed; a
 // child taken out with removeChild() earlier belongs to whoever took it.
 // Iterates a snapshot, because an overlay's destroy() splices it out of its
 // root's children. Call it after deferring the view's own destroy, so the
 // (LIFO) stack tears the children down first.
-export function disposeChildren(disposables: DisposableStack, children: UiChild[]): void {
+export function disposeChildren(disposables: DisposableStack, children: UiChildComponent[]): void {
   disposables.defer(() => {
     let snapshot = [...children];
 

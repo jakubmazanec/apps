@@ -11,7 +11,7 @@ import {type ModalParts} from './ModalParts.js';
 import {type ModalRuntime} from './ModalRuntime.js';
 import {type ModalState} from './ModalState.js';
 import {type Overlay} from './Overlay.js';
-import {type UiChild} from './UiChild.js';
+import {type UiChildComponent} from './UiChildComponent.js';
 import {type UiRoot} from './UiRoot.js';
 
 import '@pixi/layout';
@@ -19,7 +19,7 @@ import '@pixi/layout';
 /** TBD */
 export class Modal implements Overlay {
   /** Children. */
-  readonly children: UiChild[] = [];
+  readonly children: UiChildComponent[] = [];
 
   /** A component that takes the initial focus. */
   readonly initialFocus: Focusable | undefined;

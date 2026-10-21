@@ -13,13 +13,14 @@ import {resolveThemeBackgrounds} from './internals/resolveThemeBackgrounds.js';
 import {resolveView} from './internals/resolveView.js';
 import {setLayerContainerBackground} from './internals/setLayerContainerBackground.js';
 import {setVerticalOffset} from './internals/setVerticalOffset.js';
-import {type UiChild, type UiParent} from './UiChild.js';
+import {type UiChildComponent} from './UiChildComponent.js';
+import {type UiParentComponent} from './UiParentComponent.js';
 
 import '@pixi/layout';
 
-export class Button implements Focusable, UiParent {
+export class Button implements Focusable, UiParentComponent {
   /** Children. */
-  readonly children: UiChild[] = [];
+  readonly children: UiChildComponent[] = [];
 
   /** View. */
   readonly view: LayoutContainer;
@@ -164,7 +165,7 @@ export class Button implements Focusable, UiParent {
   }
 
   /** Adds children to the button's view. */
-  addChild(...children: UiChild[]): this {
+  addChild(...children: UiChildComponent[]): this {
     for (let child of children) {
       this.children.push(child);
       this.view.addChild(resolveView(child));
@@ -217,7 +218,7 @@ export class Button implements Focusable, UiParent {
   }
 
   /** Removes children from the button's view. */
-  removeChild(...children: UiChild[]): this {
+  removeChild(...children: UiChildComponent[]): this {
     for (let child of children) {
       let index = this.children.indexOf(child);
 
