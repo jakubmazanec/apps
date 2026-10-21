@@ -5,7 +5,13 @@ import {checkContent} from '../source/game/core/checkContent.js';
 import {createWayOut} from '../source/game/core/createWayOut.js';
 import {getExpectedJourneys} from '../source/game/core/getExpectedJourneys.js';
 import {type Location} from '../source/game/core/location.js';
-import {getDrunkenness, type Night, type Way} from '../source/game/core/night.js';
+import {
+  findStory,
+  getDrunkenness,
+  hasStory,
+  type Night,
+  type Way,
+} from '../source/game/core/night.js';
 import {type Place} from '../source/game/core/place.js';
 import {type Choice, defineScript} from '../source/game/core/script.js';
 import {type LocationData, type MapData, type Travel} from '../source/game/core/travel.js';
@@ -18,8 +24,19 @@ function nodeWithChoices(choices: Array<Choice<string>>): RunnableDialogueScript
   return defineScript({start: {speaker: 'Bench', text: 'Hello.', choices}});
 }
 
+function withEntry(
+  onEnter: (night: Night) => void,
+  text: ((night: Night) => string) | string = 'Hello.',
+): RunnableDialogueScript<Night> {
+  return defineDialogueScript<Night>()({start: {speaker: 'Bench', text, onEnter}});
+}
+
 function throwNoWay(): never {
   throw new Error('No way.');
+}
+
+function findGone(night: Night): void {
+  findStory(night, 'Gone');
 }
 
 function createPlace(id: Place['id'], name: string, outdoors: boolean, shortName?: string): Place {
@@ -374,7 +391,7 @@ describe(checkContent, () => {
 
     // 32 half hours from 16:00 to 07:30, and of the edges 959, 960, 1619 and 1620 of Rotor Bar's
     // hours, 960 and 1620 are half hours and 959 lies before the night.
-    expect(text).toHaveBeenCalledTimes(5 * 33 * 3);
+    expect(text).toHaveBeenCalledTimes(2 * 5 * 33 * 3);
     expect(
       lines.filter((line) => line.startsWith('zidenice › description › start: "super')),
     ).toHaveLength(1);
@@ -633,5 +650,81 @@ describe(checkContent, () => {
     expect(check({places: withZidenice({description: paid})})).toContain(line);
     expect(check({places: withZidenice({description: hidden})})).toContain(line);
     expect(check({places: withZidenice({description: free})})).not.toContain(line);
+  });
+
+  test('reports an entry effect that throws', () => {
+    expect(check({places: withZidenice({description: withEntry(throwNoWay)})})).toContain(
+      'zidenice › description › start: throws "No way."',
+    );
+  });
+
+  test("reports an empty title, a marked title and a long word of a title under the effect's path", () => {
+    let description = withEntry((night) => {
+      findStory(night, '');
+      findStory(night, 'A *marked* title');
+      findStory(night, 'A supercalifragilistic title');
+    });
+    let lines = check({places: withZidenice({description})});
+
+    expect(lines).toContain('zidenice › description › start: a story with an empty title');
+    expect(lines).toContain(
+      'zidenice › description › start: the story "A *marked* title" has an italic mark',
+    );
+    expect(lines).toContain(
+      'zidenice › description › start: "supercalifragilistic" has 20 characters, and 16 fit',
+    );
+  });
+
+  test('finds a title given under an hour condition inside the effect', () => {
+    let description = withEntry((night) => {
+      if (night.minutes === 1619) {
+        findStory(night, 'A supercalifragilistic title');
+      }
+    });
+
+    expect(check({places: withZidenice({description})})).toContain(
+      'zidenice › description › start: "supercalifragilistic" has 20 characters, and 16 fit',
+    );
+  });
+
+  test('checks a text that reads an achieved story with it achieved, which proves the full collection runs', () => {
+    let description = withEntry(findGone, (night) =>
+      hasStory(night, 'Gone') ? 'A supercalifragilistic word.' : 'Fine.',
+    );
+
+    expect(check({places: withZidenice({description})})).toContain(
+      'zidenice › description › start: "supercalifragilistic" has 20 characters, and 16 fit',
+    );
+  });
+
+  test('reports a choice hidden by an achieved story that leaves no free way out', () => {
+    let choices: Array<Choice<string>> = [
+      {text: 'Pay', price: 10},
+      {text: 'Go', isVisible: (night) => !hasStory(night, 'Gone')},
+    ];
+    let hidden = defineScript({
+      start: {speaker: 'Bench', text: 'Hello.', onEnter: findGone, choices},
+    });
+    let free = defineScript({
+      start: {
+        speaker: 'Bench',
+        text: 'Hello.',
+        onEnter: findGone,
+        choices: [...choices, {text: 'Leave'}],
+      },
+    });
+    let line = 'zidenice › description › start: no way out that costs nothing';
+
+    expect(check({places: withZidenice({description: hidden})})).toContain(line);
+    expect(check({places: withZidenice({description: free})})).not.toContain(line);
+  });
+
+  test("runs a choice's effect on a journey and the end too", () => {
+    let script = nodeWithChoices([{text: 'Try', onChoose: throwNoWay}]);
+
+    expect(check({journeys: {...journeys, tram: script}})).toContain(
+      'journeys › tram › start › "Try": throws "No way."',
+    );
+    expect(check({end: script})).toContain('end › start › "Try": throws "No way."');
   });
 });

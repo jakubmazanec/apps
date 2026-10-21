@@ -27,6 +27,8 @@ describe('the jump-in', () => {
   let oldStart: Pick<NightStart, 'minutes' | 'money' | 'place'>;
 
   beforeAll(async () => {
+    localStorage.clear();
+    localStorage.setItem('foam:stories', JSON.stringify({titles: ['An old story']}));
     oldAddress = `${globalThis.location.pathname}${globalThis.location.search}${globalThis.location.hash}`;
 
     let {minutes, money, place} = nightStart;
@@ -40,6 +42,7 @@ describe('the jump-in', () => {
     url.searchParams.set('time', '04:00');
     url.searchParams.set('money', '120');
     url.searchParams.set('drunkenness', '2.5');
+    url.searchParams.set('stories', 'none');
     globalThis.history.replaceState(null, '', url);
     harness = await bootGame(960, 540, {screen: 'night'});
   }, 60_000);
@@ -56,6 +59,14 @@ describe('the jump-in', () => {
     // than put back.
     Object.assign(nightStart, oldStart);
     delete nightStart.drunkenness;
+    localStorage.clear();
+  });
+
+  test('stories=none starts with an empty collection and an empty store', async () => {
+    let {collection} = await import('../source/game/core/stories.js');
+
+    expect(collection.titles).toEqual([]);
+    expect(localStorage.getItem('foam:stories')).toBeNull();
   });
 
   test('the game started with a jump-in shows that place, hour and money', () => {

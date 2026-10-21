@@ -79,4 +79,23 @@ describe(getJumpIn, () => {
     expect(jumpIn).not.toHaveProperty('drunkenness');
     expect(warn).toHaveBeenCalledTimes(1);
   });
+
+  test('stories=none asks to forget the collection', () => {
+    expect(getJumpIn('?place=rotorBarRoom&stories=none', places)).toEqual({
+      place: 'rotorBarRoom',
+      forgetStories: true,
+    });
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  test('drops another stories value with a warning', () => {
+    expect(getJumpIn('?place=rotorBarRoom&stories=all', places)).toEqual({place: 'rotorBarRoom'});
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('"all"'));
+  });
+
+  test('ignores stories without a place', () => {
+    expect(getJumpIn('?stories=none', places)).toBeNull();
+    expect(warn).not.toHaveBeenCalled();
+  });
 });
