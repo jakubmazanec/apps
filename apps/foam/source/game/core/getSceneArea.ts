@@ -98,3 +98,14 @@ export function getSceneArea(screenWidth: number, screenHeight: number): SceneAr
 
   return {top, width: screenWidth, height: screenHeight - top};
 }
+
+/**
+ * The width of a window's text: the window's width, or the screen less the margins when narrower,
+ * less the paddings.
+ */
+export function getTextWidth(screenWidth: number): number {
+  return Math.max(
+    1,
+    Math.min(WINDOW_WIDTH, Math.floor(screenWidth - 2 * MARGIN)) - 2 * WINDOW_PADDING_X,
+  );
+}

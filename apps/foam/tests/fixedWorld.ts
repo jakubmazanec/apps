@@ -4,7 +4,7 @@ import {createWayOut} from '../source/game/core/createWayOut.js';
 import {getMapPosition} from '../source/game/core/getMapPoint.js';
 import {isOpenAt} from '../source/game/core/hours.js';
 import {type Location, type LocationId} from '../source/game/core/location.js';
-import {type Night, type PlaceId} from '../source/game/core/night.js';
+import {findStory, hasStory, type Night, type PlaceId} from '../source/game/core/night.js';
 import {type Place} from '../source/game/core/place.js';
 import {defineScript} from '../source/game/core/script.js';
 import {
@@ -63,6 +63,10 @@ const BARTENDER = 'The bartender';
 const WOMEN = 'Two women talking';
 const PATRON = 'A patron';
 const DOOR = 'The door';
+// The two stories of ignoring the patron, found together. A night whose
+// collection holds the first does not offer the choice.
+const SHRUG_STORY = 'The shrug';
+const GLASS_STORY = 'The glass';
 const barDescription = defineDialogueScript<Night>()({
   start: {
     speaker: BAR_NAME,
@@ -113,7 +117,11 @@ const patron = defineDialogueScript<Night>()({
         'nearly empty. He nods at you as if the two of you had met before.',
       choices: [
         {text: 'Talk to him', next: 'talk'},
-        {text: 'Ignore him', next: 'ignore'},
+        {
+          text: 'Ignore him',
+          isVisible: (night) => !hasStory(night, SHRUG_STORY),
+          next: 'ignore',
+        },
       ],
     },
     talk: {
@@ -123,11 +131,28 @@ const patron = defineDialogueScript<Night>()({
         'then. He points a finger at the ceiling and waits to see if you will ask.',
       choices: [{text: 'Ask about the ceiling', next: 'ceiling'}, {text: 'Let him be'}],
     },
+    // At 480 × 270 its first page fills the 16 lines of a node without choices,
+    // so the window's panel lies under the toast, and takes more than ten
+    // seconds to type, so the toast shows while it types.
     ignore: {
       speaker: PATRON,
       text:
         'You look past him. He shrugs, turns back to his glass and says something to it that ' +
-        'you do not catch.',
+        'you do not catch. The glass does not answer. He turns it a quarter round on the table, ' +
+        'and then another quarter, as if it had a better side that he has not found in all ' +
+        'these years. The radio behind the taps plays a song that was old when he was young, ' +
+        'and his lips move with it for a line or two before they give up. Somebody at the ' +
+        'counter laughs, and he lifts his head at the sound, but it is not meant for him, and ' +
+        'he lets it go. Outside a tram goes past, and the windows shake a little in their ' +
+        'frames. He drinks what is left in the glass, slowly, and sets it down exactly where ' +
+        'it stood before, on the wet ring it left on the wood. Then he folds his hands around ' +
+        'it again and waits. What he waits for, nobody in the room could say, and least of ' +
+        'all him. After a while the bartender comes over without being asked and fills the ' +
+        'glass, and he nods at her the way he nodded at you.',
+      onEnter: (night) => {
+        findStory(night, SHRUG_STORY);
+        findStory(night, GLASS_STORY);
+      },
     },
     ceiling: {
       speaker: PATRON,
