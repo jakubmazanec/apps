@@ -2,10 +2,10 @@ import * as pixi from 'pixi.js';
 
 import {Button} from '../ui/Button.js';
 import {Container} from '../ui/Container.js';
-import {type Overlay} from '../ui/Overlay.js';
 import {Panel} from '../ui/Panel.js';
 import {Text} from '../ui/Text.js';
 import {type UiChildComponent} from '../ui/UiChildComponent.js';
+import {type UiOverlayComponent} from '../ui/UiOverlayComponent.js';
 import {type UiRoot} from '../ui/UiRoot.js';
 import {type ResolvedUiTheme} from '../ui/UiTheme.js';
 import {attachHitArea} from '../utilities/attachHitArea.js';
@@ -95,7 +95,7 @@ const CHOICE_PADDING = 1;
  * before the first character shows. The typewriter and the choices then only
  * fill boxes that already exist, so nothing moves or grows mid-node.
  */
-export class DialogueBox implements Overlay {
+export class DialogueBox implements UiOverlayComponent {
   /** View. */
   readonly view: pixi.Container = new pixi.Container();
 

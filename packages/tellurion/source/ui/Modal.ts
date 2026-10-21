@@ -10,14 +10,14 @@ import {type ModalOptions} from './ModalOptions.js';
 import {type ModalParts} from './ModalParts.js';
 import {type ModalRuntime} from './ModalRuntime.js';
 import {type ModalState} from './ModalState.js';
-import {type Overlay} from './Overlay.js';
 import {type UiChildComponent} from './UiChildComponent.js';
+import {type UiOverlayComponent} from './UiOverlayComponent.js';
 import {type UiRoot} from './UiRoot.js';
 
 import '@pixi/layout';
 
 /** TBD */
-export class Modal implements Overlay {
+export class Modal implements UiOverlayComponent {
   /** Children. */
   readonly children: UiChildComponent[] = [];
 

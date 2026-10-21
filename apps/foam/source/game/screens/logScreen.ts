@@ -1,4 +1,12 @@
-import {Button, Container, GameScreen, type Modal, type Overlay, Panel, Text} from 'tellurion';
+import {
+  Button,
+  Container,
+  GameScreen,
+  type Modal,
+  Panel,
+  Text,
+  type UiOverlayComponent,
+} from 'tellurion';
 
 import {game} from '../core/game.js';
 import {getPageBreaks} from '../core/getPageBreaks.js';
@@ -38,7 +46,7 @@ type LogScreenContents = {
   formatted: string;
 
   /** The topmost overlay at the end of the last update; see `openMenuOnCancel`. */
-  lastTopOverlay: Overlay | null;
+  lastTopOverlay: UiOverlayComponent | null;
   linesPerPage: number;
   menuButton: Button;
   menuModal: Modal | null;

@@ -2,10 +2,10 @@ import {
   Button,
   type GameScreenState,
   Modal,
-  type Overlay,
   Panel,
   type Scheduler,
   Text,
+  type UiOverlayComponent,
   type UiRoot,
 } from 'tellurion';
 
@@ -40,7 +40,7 @@ type MenuScreen = {
      * The topmost overlay at the end of the last update. As a rule it took this frame's cancel
      * command, unless a tap opened another overlay since (see `openMenuOnCancel`).
      */
-    lastTopOverlay: Overlay | null;
+    lastTopOverlay: UiOverlayComponent | null;
     menuModal: Modal | null;
 
     /** The night the Stories window lists. */
