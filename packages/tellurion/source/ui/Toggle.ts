@@ -98,17 +98,17 @@ export class Toggle implements Focusable {
     this.#disposables.instance.defer(() => this.view.destroy({children: true}));
   }
 
-  /** TBD */
+  /** Is the toggle checked? */
   get isChecked(): boolean {
     return this.#runtime.isChecked;
   }
 
-  /** TBD */
+  /** Is the toggle disabled? */
   get isDisabled(): boolean {
     return this.#state === 'disabled';
   }
 
-  /** TBD */
+  /** Is the toggle focusable? */
   get isFocusable(): boolean {
     return this.#state !== 'disabled';
   }
@@ -134,7 +134,7 @@ export class Toggle implements Focusable {
     this.#onChange?.(this);
   }
 
-  /** TBD */
+  /** Checks the toggle. */
   check() {
     if (this.#runtime.isChecked) {
       return;
@@ -186,7 +186,7 @@ export class Toggle implements Focusable {
     );
   }
 
-  /** TBD */
+  /** Unchecks the toggle. */
   uncheck() {
     if (!this.#runtime.isChecked) {
       return;
