@@ -13,7 +13,13 @@ import {journeys} from '../content/journeys.js';
 import {nightEnd} from '../content/nightEnd.js';
 import {nightStart} from '../content/nightStart.js';
 import {game} from '../core/game.js';
-import {BUTTON_HEIGHT, LINE_HEIGHT, MARGIN, TOP_ROW_WIDTH} from '../core/getSceneArea.js';
+import {
+  BUTTON_HEIGHT,
+  getTextWidth,
+  LINE_HEIGHT,
+  MARGIN,
+  TOP_ROW_WIDTH,
+} from '../core/getSceneArea.js';
 import {getSpotPosition} from '../core/getSpotPosition.js';
 import {isNightOver, isOpenAt} from '../core/hours.js';
 import {type Location, type LocationId} from '../core/location.js';
@@ -21,6 +27,7 @@ import {logChoice} from '../core/log.js';
 import {createNight, formatStatus, type Night} from '../core/night.js';
 import {type Place} from '../core/place.js';
 import {playFocusSound} from '../core/playFocusSound.js';
+import {collection, saveCollection} from '../core/stories.js';
 import {UI_FADE_DURATION} from '../core/theme.js';
 import {formatTravel, getLocation, takeJourney} from '../core/travel.js';
 import {errorScreen} from './errorScreen.js';
@@ -42,6 +49,7 @@ import {logScreen} from './logScreen.js';
 import {destroyMenus, openMenu, openMenuOnCancel} from './menuModal.js';
 import {PlacePicture} from './placePicture.js';
 import {StoryWindow} from './storyWindow.js';
+import {Toast} from './toast.js';
 import {
   createLabel,
   createMenuButton,
@@ -107,7 +115,17 @@ type NightScreenContents = {
   status: string;
 
   statusText: Text;
+
+  /** How many of the night's finds the screen has handled: shown or queued, and saved. */
+  storiesHandled: number;
+
   storyWindow: StoryWindow | null;
+
+  /** The toast showing, or null. */
+  toast: Toast | null;
+
+  /** The titles waiting for their toast, in the order found. */
+  toastQueue: string[];
 
   /**
    * Built once, when the screen is attached, and kept: a way out's choice opens it on the night's
@@ -142,8 +160,47 @@ function writeStatus(screen: NightScreen): void {
   setStatus(screen.contents.statusText, status);
 }
 
+// Shows the toast at the bottom of the screen, last on the UI root, so it lies
+// above the story window, the backdrop, the travel window and the Menu button.
+// Once it has faded out, the next title in the queue gets its toast in the next
+// update (see handleStories).
+function showToast(screen: NightScreen, title: string): void {
+  let toast = new Toast({
+    scheduler: screen.scheduler,
+    title,
+    textWidth: getTextWidth(getArea().width),
+    onDone: () => {
+      screen.ui.removeChild(toast);
+      toast.destroy();
+      screen.contents.toast = null;
+    },
+  });
+
+  screen.contents.toast = toast;
+  screen.ui.addChild(toast);
+  toast.show();
+}
+
+// Queues a toast for each story the night has found since the last update,
+// saving the collection with each, and shows the next one when none is
+// showing. A hidden screen shows none.
+function handleStories(screen: NightScreen): void {
+  let {contents, state} = screen;
+
+  // Compared each frame, as the status string is.
+  while (contents.storiesHandled < contents.night.stories.length) {
+    contents.toastQueue.push(contents.night.stories[contents.storiesHandled]!.title);
+    contents.storiesHandled += 1;
+    saveCollection();
+  }
+
+  if (contents.toast === null && contents.toastQueue.length > 0 && state === 'shown') {
+    showToast(screen, contents.toastQueue.shift()!);
+  }
+}
+
 function layOut(screen: NightScreen): void {
-  let {nextPlace, picture, place, spotButtons, statusText, storyWindow, travelWindow} =
+  let {nextPlace, picture, place, spotButtons, statusText, storyWindow, toast, travelWindow} =
     screen.contents;
   let area = getArea();
 
@@ -175,6 +232,7 @@ function layOut(screen: NightScreen): void {
   picture?.resize(area.width, area.top + area.height);
   nextPlace?.picture.resize(area.width, area.top + area.height);
   storyWindow?.resize(area);
+  toast?.resize(getTextWidth(area.width));
   // Closed too: the kept window is laid out for the screen it opens on next.
   travelWindow.resize(area.width, area.top + area.height);
 }
@@ -426,6 +484,14 @@ function showPlace(screen: NightScreen, place: Place): void {
     ...spotButtons,
     screen.contents.backdrop,
   );
+
+  // A toast still showing goes back in after them, so it stays on top through
+  // the fade to black.
+  if (screen.contents.toast !== null) {
+    screen.ui.removeChild(screen.contents.toast);
+    screen.ui.addChild(screen.contents.toast);
+  }
+
   screen.contents.place = place;
   screen.contents.placeButton = placeButton;
   screen.contents.spotButtons = spotButtons;
@@ -616,7 +682,7 @@ export const nightScreen = new GameScreen<NightScreenContents>({
       menuButton,
       menuModal: null,
       nextPlace: null,
-      night: createNight(nightStart),
+      night: createNight(nightStart, collection),
       optionsModal: null,
       picture: null,
       place: null,
@@ -624,18 +690,25 @@ export const nightScreen = new GameScreen<NightScreenContents>({
       spotButtons: [],
       status: '',
       statusText,
+      storiesHandled: 0,
       storyWindow: null,
+      toast: null,
+      toastQueue: [],
       travelWindow: createTravelWindow(screen),
     };
   },
   // A place nightStart lacks is an error, which the error screen shows.
   onShow: (screen) => {
-    let night = createNight(nightStart);
+    let night = createNight(nightStart, collection);
 
     screen.contents.night = night;
     screen.contents.hasEnded = false;
     screen.contents.hasStoryClosed = false;
     screen.contents.lastTopOverlay = null;
+    screen.contents.storiesHandled = 0;
+    // None is showing: hiding the screen destroyed it.
+    screen.contents.toast = null;
+    screen.contents.toastQueue = [];
     writeStatus(screen);
     // The place appears under its description, so it is dimmed from its first
     // frame. Hiding the screen cleared the scheduler and the fade with it.
@@ -667,6 +740,18 @@ export const nightScreen = new GameScreen<NightScreenContents>({
     screen.contents.storyWindow?.destroy();
 
     screen.contents.storyWindow = null;
+
+    if (screen.contents.toast !== null) {
+      screen.ui.removeChild(screen.contents.toast);
+      screen.contents.toast.destroy();
+    }
+
+    // The next show lays the screen out before onShow, so no destroyed toast
+    // is left for layOut to resize.
+    screen.contents.toast = null;
+    screen.contents.toastQueue = [];
+    // Saved once more, so Quit to menu loses no find.
+    saveCollection();
     leavePlace(screen);
     dropNextPlace(screen);
   },
@@ -681,6 +766,7 @@ export const nightScreen = new GameScreen<NightScreenContents>({
     // The status line follows the night while a window is open: a choice, an
     // onEnter and a journey show on it at once.
     writeStatus(screen);
+    handleStories(screen);
 
     try {
       prepareNextPlace(screen);

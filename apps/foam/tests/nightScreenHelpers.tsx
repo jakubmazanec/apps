@@ -26,6 +26,7 @@ import {type mainMenuScreen as mainMenuScreenValue} from '../source/game/screens
 import {type nightScreen as nightScreenValue} from '../source/game/screens/nightScreen.js';
 import {type PlacePicture} from '../source/game/screens/placePicture.js';
 import {type StoryWindow} from '../source/game/screens/storyWindow.js';
+import {type Toast} from '../source/game/screens/toast.js';
 import {type TravelWindow} from '../source/game/screens/travelWindow.js';
 import Index from '../source/routes/_index.js';
 import {fixedStart} from './fixedWorld.js';
@@ -794,4 +795,40 @@ export async function pickDestination(
 
   ui.focus(destination);
   await press('Enter');
+}
+
+// The screen shows a find's toast in an update after the night found it, so
+// the toast is awaited.
+export async function waitForToast({nightScreen}: Harness): Promise<Toast> {
+  return vitest.waitFor(
+    () => {
+      let {toast} = nightScreen.contents;
+
+      if (toast === null) {
+        throw new Error('No toast is showing.');
+      }
+
+      return toast;
+    },
+    {timeout: 10_000},
+  );
+}
+
+// The toast's only child is a Panel. Its children are the title block, a
+// Container whose first child is the title Text, and the text, a Text.
+export function getToastParts(toast: Toast): {panel: Panel; text: Text; title: Text} {
+  let [panel] = toast.children;
+
+  if (!(panel instanceof Panel)) {
+    throw new TypeError('The toast has no panel!');
+  }
+
+  let [titleBlock, text] = panel.children;
+  let title = titleBlock instanceof Container ? titleBlock.children[0] : undefined;
+
+  if (!(title instanceof Text) || !(text instanceof Text)) {
+    throw new TypeError('The toast has no title or no text!');
+  }
+
+  return {panel, text, title};
 }
