@@ -1,7 +1,8 @@
 # Stories (Foam phase 6, spec 1 of 3): design
 
-Date: 2026-10-19. App: `apps/foam`. Status: designed, not yet planned. It is the first of phase 6's
-three specs in the [direction document](../../direction.md). It builds on phase 5's
+Date: 2026-10-19. App: `apps/foam`. Status: implemented by
+[2026-10-21-stories.md](../plans/2026-10-21-stories.md). It is the first of phase 6's three specs in
+the [direction document](../../direction.md). It builds on phase 5's
 [end of the night and log](2026-10-10-end-of-the-night-and-log-design.md). Spec 2, the quest's
 threads, and spec 3, the endings and sleep, follow.
 
