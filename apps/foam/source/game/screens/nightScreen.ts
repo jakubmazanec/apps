@@ -4,9 +4,9 @@ import {
   easeOutQuad,
   GameScreen,
   type Modal,
-  type Overlay,
   type RunnableDialogueScript,
   type Text,
+  type UiOverlayComponent,
 } from 'tellurion';
 
 import {journeys} from '../content/journeys.js';
@@ -92,7 +92,7 @@ type NightScreenContents = {
    * The topmost overlay at the end of the last update. As a rule it took this frame's cancel
    * command, unless a tap opened another overlay since.
    */
-  lastTopOverlay: Overlay | null;
+  lastTopOverlay: UiOverlayComponent | null;
 
   menuButton: Button;
   menuModal: Modal | null;

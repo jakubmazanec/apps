@@ -9,9 +9,9 @@ import {disposeChildren} from './internals/disposeChildren.js';
 import {findNearestInDirection} from './internals/findNearestInDirection.js';
 import {findNearestTopLeft} from './internals/findNearestTopLeft.js';
 import {resolveView} from './internals/resolveView.js';
-import {type Overlay} from './Overlay.js';
 import {type UiChildComponent} from './UiChildComponent.js';
 import {type UiFocusEvent} from './UiFocusEvent.js';
+import {type UiOverlayComponent} from './UiOverlayComponent.js';
 import {type UiParentComponent} from './UiParentComponent.js';
 import {type UiRootConfig} from './UiRootConfig.js';
 import {type UiRootOptions} from './UiRootOptions.js';
@@ -128,7 +128,7 @@ export class UiRoot implements UiParentComponent {
   }
 
   /** The innermost attached overlay, which owns focus and the cancel command. */
-  get topOverlay(): Overlay | null {
+  get topOverlay(): UiOverlayComponent | null {
     return this.#runtime.scopes.at(-1)?.root ?? null;
   }
 
@@ -158,7 +158,7 @@ export class UiRoot implements UiParentComponent {
   }
 
   /** Attaches the overlay as the last UI child and gives it the focus scope. */
-  addOverlay(overlay: Overlay): this {
+  addOverlay(overlay: UiOverlayComponent): this {
     if (this.children.includes(overlay)) {
       throw new Error('Overlay was already added to the UI root!');
     }
@@ -362,7 +362,7 @@ export class UiRoot implements UiParentComponent {
   }
 
   /** Detaches the overlay and releases its focus scope. */
-  removeOverlay(overlay: Overlay): this {
+  removeOverlay(overlay: UiOverlayComponent): this {
     if (!this.children.includes(overlay)) {
       throw new Error("Overlay wasn't found!");
     }
