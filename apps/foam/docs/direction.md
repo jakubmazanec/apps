@@ -1,8 +1,8 @@
 # Foam: direction
 
 Started: 2026-10-03. App: `apps/foam`. Status: the direction is agreed; phases 1 to 5 are built, and
-phase 6 is being designed. This is a living document: it describes the current state and plan, and
-is kept correct as they change.
+phase 6 is being built. This is a living document: it describes the current state and plan, and is
+kept correct as they change.
 
 ## What Foam is
 
@@ -269,8 +269,9 @@ plan, build and review, in this order:
    helpers the script calls to give a story and to ask whether it is achieved; the toast, the log
    line and the Stories window in the night's menu, which also opens over the log at the end; the
    checker running every effect and both an empty and a full collection; the jump-in's
-   `stories=none`; and eleven stories in the content that exists. It is designed:
-   [spec](superpowers/specs/2026-10-19-stories-design.md).
+   `stories=none`; and eleven stories in the content that exists. It is built:
+   [spec](superpowers/specs/2026-10-19-stories-design.md),
+   [plan](superpowers/plans/2026-10-21-stories.md).
 2. The quest's threads: the quest's flags on the night and its constants in one file; the setup on
    the train; the friend in Rotor's room twice by the hour, with hints by the hour elsewhere and a
    failed search that costs an hour; the bottle at The Whisky Shop and the birthday at Rotor; the
