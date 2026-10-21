@@ -11,13 +11,7 @@ export type UiTextStyle = {
   fill: pixi.ColorSource;
 };
 
-// One shape, two instantiations: the description names atlas frames and is safe
-// to evaluate at module load; the resolved theme holds textures and only exists
-// after the default bundle has loaded.
-// Widget groups may also carry layout defaults (plain data, identical in both
-// instantiations); a widget merges them under its own options, so an instance
-// property wins per property.
-/** TBD... keys are Components, to be used by UiComponents... */
+/** UI theme object; keys are component themes that are used by the UI components. */
 export type UiTheme<Background> = {
   button: {
     normal: Background;
@@ -60,10 +54,16 @@ export type UiTheme<Background> = {
   };
 };
 
+/** UI theme object used for the UI theme description. */
 export type UiThemeDescription = UiTheme<readonly [spriteset: string, frame: string]>;
+
+/** UI theme object used for the resolved UI theme; instead of desciptions, object has textures. */
 export type ResolvedUiTheme = UiTheme<pixi.Texture>;
 
+/** A helper type. */
 type Slot = Opaque<unknown, 'Slot'>;
+
+/** UI theme object used as a helper type. */
 type UiThemeWithSlot = UiTheme<Slot>;
 
 /** Helper type that specifies which backgrounds a component has. */
