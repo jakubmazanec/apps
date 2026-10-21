@@ -1,5 +1,5 @@
 import {isWithin, type Span} from '../../../core/hours.js';
-import {getDrunkenness} from '../../../core/night.js';
+import {findStory, getDrunkenness} from '../../../core/night.js';
 import {type Place} from '../../../core/place.js';
 import {standIn} from '../../../core/prose.js';
 import {defineScript} from '../../../core/script.js';
@@ -9,13 +9,17 @@ import {barPicture} from '../../pictures/barPicture.js';
 // the real text. Its limits: no word is longer than 16 characters (every word must fit a line on
 // the narrowest screen), people have no names (places, streets and stops keep theirs), every node
 // sets `speaker`, a description is two or three sentences, a scene button one node of one or two,
-// and the `*` marks of italic come in pairs.
+// and the `*` marks of italic come in pairs. A story's title is stand-in text too, written with
+// standIn.
 const PLACE_NAME = 'Rotor Bar';
 const BAR = 'The bar';
 const TABLE = 'The corner table';
 const DOOR = 'The door';
 // From 22:00 to 01:00 the guitarist has the corner table.
 const GUITARIST: Span = [1320, 1500];
+const GUITARIST_STORY = standIn`The guitarist who plays for one`;
+const SEAT_STORY = standIn`A seat at the table`;
+const BEER_STORY = standIn`The spilled beer`;
 const description = defineScript({
   start: {
     speaker: PLACE_NAME,
@@ -59,6 +63,9 @@ const table = defineScript({
         He nods, finds the chords and plays it through, a little slower than you remember it. The
         next table sings the last verse with him.
       `,
+      onEnter: (night) => {
+        findStory(night, GUITARIST_STORY);
+      },
     },
     table: {
       speaker: TABLE,
@@ -85,6 +92,9 @@ const table = defineScript({
         Somebody moves a coat off the chair, and the talk opens up to let you in. A quarter of
         an hour goes by before anyone asks your name.
       `,
+      onEnter: (night) => {
+        findStory(night, SEAT_STORY);
+      },
     },
     brushedOff: {
       speaker: TABLE,
@@ -101,6 +111,7 @@ const table = defineScript({
       `,
       onEnter: (night) => {
         night.minutes += 10;
+        findStory(night, BEER_STORY);
       },
     },
   },

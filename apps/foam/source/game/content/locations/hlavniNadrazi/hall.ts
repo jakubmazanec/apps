@@ -1,3 +1,4 @@
+import {findStory} from '../../../core/night.js';
 import {type Place} from '../../../core/place.js';
 import {standIn} from '../../../core/prose.js';
 import {defineScript} from '../../../core/script.js';
@@ -7,12 +8,14 @@ import {standInPicture} from '../../pictures/standInPicture.js';
 // the real text. Its limits: no word is longer than 16 characters (every word must fit a line on
 // the narrowest screen), people have no names (places, streets and stops keep theirs), every node
 // sets `speaker`, a description is two or three sentences, a scene button one node of one or two,
-// and the `*` marks of italic come in pairs.
+// and the `*` marks of italic come in pairs. A story's title is stand-in text too, written with
+// standIn.
 const PLACE_NAME = 'Brno hlavní nádraží';
 const SHORT_NAME = 'Hlavní nádraží';
 const BOARD = 'The board';
 const HALL = 'The hall';
 const DOORS = 'The doors';
+const STATION_STORY = standIn`The station that never moved`;
 const description = defineScript({
   start: {
     speaker: PLACE_NAME,
@@ -38,6 +41,9 @@ const hall = defineScript({
       The city has been about to move this station for a hundred years. Everyone in the hall
       walks as if it already had.
     `,
+    onEnter: (night) => {
+      findStory(night, STATION_STORY);
+    },
   },
 });
 const doors = defineScript({

@@ -1,4 +1,5 @@
 import {createWayOut} from '../../../core/createWayOut.js';
+import {findStory, hasStory} from '../../../core/night.js';
 import {type Place} from '../../../core/place.js';
 import {standIn} from '../../../core/prose.js';
 import {defineScript} from '../../../core/script.js';
@@ -9,11 +10,13 @@ import {standInPicture} from '../../pictures/standInPicture.js';
 // the real text. Its limits: no word is longer than 16 characters (every word must fit a line on
 // the narrowest screen), people have no names (places, streets and stops keep theirs), every node
 // sets `speaker`, a description is two or three sentences, a scene button one node of one or two,
-// and the `*` marks of italic come in pairs.
+// and the `*` marks of italic come in pairs. A story's title is stand-in text too, written with
+// standIn.
 const PLACE_NAME = 'Dvořákova';
 const ROTOR_BAR = 'Rotor Bar';
 const SMOKERS = 'The smokers';
 const STREET = 'The street';
+const TRAM_STORY = standIn`The tram that stopped early`;
 const description = defineScript({
   start: {
     speaker: PLACE_NAME,
@@ -55,7 +58,13 @@ const smokers = defineScript({
         offers you a light you do not need.
       `,
       choices: [
-        {text: 'Ask for a cigarette', minutes: 5, drunkenness: {min: 2}, next: 'cigarette'},
+        {
+          text: 'Ask for a cigarette',
+          minutes: 5,
+          drunkenness: {min: 2},
+          isVisible: (night) => !hasStory(night, TRAM_STORY),
+          next: 'cigarette',
+        },
         {text: 'Leave them to it'},
       ],
     },
@@ -65,6 +74,9 @@ const smokers = defineScript({
         The cigarette comes with a story about a tram that stopped running early, and the five
         minutes go by in smoke.
       `,
+      onEnter: (night) => {
+        findStory(night, TRAM_STORY);
+      },
     },
   },
 });

@@ -1,3 +1,4 @@
+import {findStory, hasStory} from '../../../core/night.js';
 import {type Place} from '../../../core/place.js';
 import {standIn} from '../../../core/prose.js';
 import {defineScript} from '../../../core/script.js';
@@ -7,7 +8,8 @@ import {barPicture} from '../../pictures/barPicture.js';
 // the real text. Its limits: no word is longer than 16 characters (every word must fit a line on
 // the narrowest screen), people have no names (places, streets and stops keep theirs), every node
 // sets `speaker`, a description is two or three sentences, a scene button one node of one or two,
-// and the `*` marks of italic come in pairs.
+// and the `*` marks of italic come in pairs. A story's title is stand-in text too, written with
+// standIn.
 const PLACE_NAME = 'The Whisky Shop Brno';
 const SHORT_NAME = 'Whisky Shop';
 const TITLE = 'The Whisky Shop';
@@ -15,6 +17,8 @@ const SHELVES = 'The shelves';
 const SHOPKEEPER = 'The shopkeeper';
 const REGULARS = 'Two regulars';
 const DOOR = 'The door';
+const GOOD_ONE_STORY = standIn`The good one`;
+const BOTTLE_STORY = standIn`A bottle saved for an occasion`;
 const description = defineScript({
   start: {
     speaker: TITLE,
@@ -48,6 +52,9 @@ const shelves = defineScript({
         The good one is older than some of the regulars, and it takes its time on the tongue.
         The shopkeeper watches your face and says nothing.
       `,
+      onEnter: (night) => {
+        findStory(night, GOOD_ONE_STORY);
+      },
     },
   },
 });
@@ -69,7 +76,13 @@ const regulars = defineScript({
         comes, and the other has stopped asking which.
       `,
       choices: [
-        {text: 'Ask about the bottle', minutes: 5, drunkenness: {max: 1}, next: 'bottle'},
+        {
+          text: 'Ask about the bottle',
+          minutes: 5,
+          drunkenness: {max: 1},
+          isVisible: (night) => !hasStory(night, BOTTLE_STORY),
+          next: 'bottle',
+        },
         {text: 'Let them be'},
       ],
     },
@@ -79,6 +92,9 @@ const regulars = defineScript({
         The one with the bottle says where it came from, and the other says how long it has
         been waiting. Neither of them says what the occasion is.
       `,
+      onEnter: (night) => {
+        findStory(night, BOTTLE_STORY);
+      },
     },
   },
 });

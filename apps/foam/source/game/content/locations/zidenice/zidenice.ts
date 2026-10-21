@@ -1,4 +1,5 @@
 import {createWayOut} from '../../../core/createWayOut.js';
+import {findStory} from '../../../core/night.js';
 import {type Place} from '../../../core/place.js';
 import {standIn} from '../../../core/prose.js';
 import {defineScript} from '../../../core/script.js';
@@ -8,11 +9,13 @@ import {standInPicture} from '../../pictures/standInPicture.js';
 // the real text. Its limits: no word is longer than 16 characters (every word must fit a line on
 // the narrowest screen), people have no names (places, streets and stops keep theirs), every node
 // sets `speaker`, a description is two or three sentences, a scene button one node of one or two,
-// and the `*` marks of italic come in pairs.
+// and the `*` marks of italic come in pairs. A story's title is stand-in text too, written with
+// standIn.
 const PLACE_NAME = 'Brno-Židenice';
 const TIMETABLE = 'The timetable';
 const BENCH = 'The bench';
 const UNDERPASS = 'The underpass';
+const TRAIN_STORY = standIn`A train not on the timetable`;
 const description = defineScript({
   start: {
     speaker: PLACE_NAME,
@@ -38,6 +41,9 @@ const bench = defineScript({
       A man sits with his bag on his knees, waiting for a train that is not on the
       timetable. He does not seem to mind.
     `,
+    onEnter: (night) => {
+      findStory(night, TRAIN_STORY);
+    },
   },
 });
 const underpass = createWayOut({
