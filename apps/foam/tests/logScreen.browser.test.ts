@@ -2,7 +2,10 @@ import {AudioMixer, type Modal, Text} from 'tellurion';
 import {afterAll, beforeAll, describe, expect, type MockInstance, test, vitest} from 'vitest';
 
 import {type barPicture as barPictureValue} from '../source/game/content/pictures/barPicture.js';
-import {type createNight as createNightValue} from '../source/game/core/night.js';
+import {
+  type createNight as createNightValue,
+  type findStory as findStoryValue,
+} from '../source/game/core/night.js';
 import {type logScreen as logScreenValue} from '../source/game/screens/logScreen.js';
 import {FIXED_BAR} from './fixedWorld.js';
 import {
@@ -10,11 +13,14 @@ import {
   describeFocus,
   getBox,
   getMenuButton,
+  getStoriesParts,
+  getStoriesWindow,
   type Harness,
   nextFrame,
   press,
   readText,
   setViewport,
+  waitForNoStoriesWindow,
 } from './nightScreenHelpers.js';
 
 // Headless Chromium draws the bar in software, at about 90 ms a frame, which
@@ -38,6 +44,7 @@ describe('log screen', {timeout: 180_000}, () => {
   let harness: Harness;
   let logScreen: typeof logScreenValue;
   let createNight: typeof createNightValue;
+  let findStory: typeof findStoryValue;
   // The spy calls through to the real mixer; it only records the calls.
   let playMusic: MockInstance<AudioMixer['playMusic']>;
 
@@ -82,7 +89,7 @@ describe('log screen', {timeout: 180_000}, () => {
     playMusic = vitest.spyOn(AudioMixer.prototype, 'playMusic');
     harness = await bootGame(960, 540);
     ({logScreen} = await import('../source/game/screens/logScreen.js'));
-    ({createNight} = await import('../source/game/core/night.js'));
+    ({createNight, findStory} = await import('../source/game/core/night.js'));
 
     let {logChoice, logText} = await import('../source/game/core/log.js');
     let night = createNight({place: FIXED_BAR, minutes: 1180, money: 350});
@@ -97,6 +104,8 @@ describe('log screen', {timeout: 180_000}, () => {
       night.minutes += 10;
     }
 
+    findStory(night, 'The first');
+    findStory(night, 'The second');
     night.money = 120;
     logScreen.contents.showLog(night);
     await harness.game.showScreen(logScreen);
@@ -110,6 +119,22 @@ describe('log screen', {timeout: 180_000}, () => {
     playMusic.mockRestore();
     harness.unmount();
     localStorage.clear();
+  });
+
+  test("the Stories window opens above the log with the night's list, and Close shows the log with nothing focused", async () => {
+    let {contents, ui} = logScreen;
+    let storiesWindow = getStoriesWindow(logScreen);
+    let {close, regularLeaf, title} = getStoriesParts(storiesWindow);
+
+    expect(ui.topOverlay).toBe(storiesWindow.modal);
+    expect(readText(title)).toBe('Stories  2 found');
+    expect(readText(regularLeaf)).toBe('21:40  The first\n21:40  The second');
+
+    close.activate();
+    await waitForNoStoriesWindow(logScreen);
+
+    expect(ui.focused).toBeNull();
+    expect(contents.menuModal).toBeNull();
   });
 
   test('shows the final status, the first page, Back disabled and nothing focused', () => {
@@ -261,6 +286,31 @@ describe('log screen', {timeout: 180_000}, () => {
     await waitForNoMenu();
   });
 
+  test('Menu then Stories opens it again, and Escape closes it without closing the menu', async () => {
+    let {contents, ui} = logScreen;
+
+    contents.menuButton.activate();
+
+    let menu = getMenu();
+
+    ui.focus(getMenuButton(menu, 'Stories'));
+    await press('Enter');
+
+    expect(ui.topOverlay).toBe(getStoriesWindow(logScreen).modal);
+
+    // Two frames put the window on record first, as for the menu above.
+    await nextFrame();
+    await nextFrame();
+    await press('Escape');
+    await waitForNoStoriesWindow(logScreen);
+
+    expect(contents.menuModal).toBe(menu);
+    expect(ui.topOverlay).toBe(menu);
+
+    await press('Escape');
+    await waitForNoMenu();
+  });
+
   test('Quit to menu shows the main menu and plays its music', async () => {
     let {mainMenuScreen} = harness;
 
@@ -284,6 +334,16 @@ describe('log screen', {timeout: 180_000}, () => {
 
     logScreen.contents.showLog(createNight({place: FIXED_BAR, minutes: 1920, money: 0}));
     await game.showScreen(logScreen);
+
+    let {regularLeaf, title} = getStoriesParts(getStoriesWindow(logScreen));
+
+    expect(readText(title)).toBe('Stories  0 found');
+    expect(readText(regularLeaf)).toBe('None');
+
+    await press('Escape');
+    await waitForNoStoriesWindow(logScreen);
+
+    expect(logScreen.contents.menuModal).toBeNull();
 
     let {back, next} = logScreen.contents;
 

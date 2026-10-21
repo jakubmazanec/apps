@@ -6,13 +6,12 @@ import {
   BUTTON_GAP,
   BUTTON_HEIGHT,
   CHOICES_GAP,
+  getTextWidth,
   LINE_HEIGHT,
   MARGIN,
   TOP_ROW_WIDTH,
   WINDOW_GAP,
-  WINDOW_PADDING_X,
   WINDOW_PADDING_Y,
-  WINDOW_WIDTH,
 } from '../core/getSceneArea.js';
 import {formatLog} from '../core/log.js';
 import {stripMarks} from '../core/markedText.js';
@@ -26,7 +25,8 @@ import {playFocusSound} from '../core/playFocusSound.js';
 // main menu in Quit to menu's click, the main menu reads the night screen in
 // New Game's click, and the night screen reads this screen when the night ends.
 // eslint-disable-next-line import/no-cycle -- see comment above: the cycle only resolves as the game runs, long after the modules evaluate
-import {destroyMenus, openMenu, openMenuOnCancel} from './menuModal.js';
+import {destroyMenus, openMenu, openMenuOnCancel, openStoriesWindow} from './menuModal.js';
+import {type StoriesWindow} from './storiesWindow.js';
 import {TextBlock} from './textBlock.js';
 import {createLabel, createMenuButton, createStatusText, getArea, setStatus} from './topRow.js';
 import {createWindowTitle, TITLE_HEIGHT, WINDOW_PADDING} from './windowTitle.js';
@@ -58,6 +58,7 @@ type LogScreenContents = {
   /** Keeps the night for the next show; `onShow` lays the screen out from it. */
   showLog: (night: Night) => void;
   statusText: Text;
+  storiesWindow: StoriesWindow | null;
   textBlock: TextBlock | null;
   title: Text;
   titleBlock: Container | null;
@@ -149,8 +150,7 @@ function layOut(screen: LogScreen): void {
       {left: MARGIN, top: MARGIN + BUTTON_HEIGHT + MARGIN}
     : {left: MARGIN, top: MARGIN + (BUTTON_HEIGHT - LINE_HEIGHT) / 2};
 
-  let windowWidth = Math.min(WINDOW_WIDTH, Math.floor(area.width - 2 * MARGIN));
-  let textWidth = Math.max(1, windowWidth - 2 * WINDOW_PADDING_X);
+  let textWidth = getTextWidth(area.width);
   // The lines that fit the area's height less the margins, the paddings, the
   // title block and its gap, and the buttons' row and its gap: the window has
   // the same height on every page.
@@ -270,17 +270,23 @@ export const logScreen = new GameScreen<LogScreenContents>({
         screen.contents.page = 0;
       },
       statusText,
+      storiesWindow: null,
       textBlock: null,
       // Stands in until layOut() puts the title of its title block here.
       title: new Text({text: '', theme: game.theme}),
       titleBlock: null,
     };
   },
-  // Nothing is focused: hiding the screen cleared the focus.
+  // Nothing is focused: hiding the screen cleared the focus. The Stories window
+  // opens above the log once the screen is laid out: a modal is sized against
+  // the UI root's layout, which layOut() gives it.
   onShow: (screen) => {
-    screen.contents.lastTopOverlay = null;
     writeStatus(screen);
     layOut(screen);
+    openStoriesWindow(screen);
+    // On record before the first update, so an Escape in it closes the window
+    // and opens no menu (see openMenuOnCancel).
+    screen.contents.lastTopOverlay = screen.ui.topOverlay;
   },
   // Owning-screen teardown rule, as on the night screen: synchronous
   // destroy(), never the animated close(), because the scheduler was already
@@ -295,8 +301,10 @@ export const logScreen = new GameScreen<LogScreenContents>({
     openMenuOnCancel(screen);
   },
   // The pages are cut again for the new size, and the page is kept. An open
-  // menu is an overlay, which stays above.
+  // menu is an overlay, which stays above; the Stories window lays itself out
+  // again too.
   onResize: (screen) => {
     layOut(screen);
+    screen.contents.storiesWindow?.resize();
   },
 });

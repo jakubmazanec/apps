@@ -1579,12 +1579,14 @@ describe('night screen', {timeout: 180_000}, () => {
 
       let menu = getMenu();
       let resume = getBox(harness, getMenuButton(menu, 'Resume'));
+      let stories = getBox(harness, getMenuButton(menu, 'Stories'));
       let options = getBox(harness, getMenuButton(menu, 'Options'));
       let quit = getBox(harness, getMenuButton(menu, 'Quit to menu'));
       let [panel] = menu.children;
 
-      expect(options.top - (resume.top + resume.height)).toBeCloseTo(4);
-      expect([resume.width, options.width, quit.width]).toEqual([84, 84, 84]);
+      expect(stories.top - (resume.top + resume.height)).toBeCloseTo(4);
+      expect(options.top - (stories.top + stories.height)).toBeCloseTo(4);
+      expect([resume.width, stories.width, options.width, quit.width]).toEqual([84, 84, 84, 84]);
       expect(panel instanceof Panel ? getBox(harness, panel).width : 0).toBe(108);
 
       await press('Escape');
