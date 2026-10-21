@@ -327,4 +327,49 @@ describe('the toast of a story', {timeout: 180_000}, () => {
     await press('Escape');
     await waitForNoMenu();
   });
+
+  // The plan's Review Focus: the toast goes with the screen, and the finds are in the store. Game
+  // resizes the next screen before its onShow, so onHide must clear the slot, or the next night's
+  // layOut resizes a destroyed toast. The fixed world has no third find: the toast is built here.
+  test('Quit to menu with a toast showing destroys it and keeps the finds', async () => {
+    let {mainMenuScreen, nightScreen} = harness;
+    let {contents, ui} = nightScreen;
+    let onDone = vitest.fn<() => void>();
+    let shownToast = new Toast({
+      scheduler: nightScreen.scheduler,
+      title: 'The shrug',
+      textWidth: 114,
+      onDone,
+    });
+
+    ui.addChild(shownToast);
+    contents.toast = shownToast;
+    contents.toastQueue.push('The glass');
+    shownToast.show();
+    await nextFrame();
+    await nextFrame();
+    await press('Escape');
+    ui.focus(getMenuButton(getMenu(), 'Quit to menu'));
+    await press('Enter');
+    await vitest.waitFor(
+      () => {
+        expect(mainMenuScreen.state).toBe('shown');
+      },
+      {timeout: 10_000},
+    );
+
+    expect(contents.toast).toBeNull();
+    expect(shownToast.view.destroyed).toBe(true);
+    expect(onDone).not.toHaveBeenCalled();
+    expect(contents.toastQueue).toEqual([]);
+    expect(ui.children).not.toContain(shownToast);
+    expect(JSON.parse(localStorage.getItem('foam:stories') ?? '')).toEqual({
+      titles: ['The shrug', 'The glass'],
+    });
+
+    await startNewGame(harness);
+
+    expect(contents.toast).toBeNull();
+    expect(contents.toastQueue).toEqual([]);
+  });
 });
