@@ -1042,6 +1042,7 @@ describe('night screen', {timeout: 180_000}, () => {
 
     test('an arrow key focuses the first choice, and Enter orders a beer', async () => {
       let {nightScreen} = harness;
+      let {collection} = await import('../source/game/core/stories.js');
       let storyWindow = await openSpot(harness, 'The bartender');
 
       // Finish the text, focus "Order a beer" and take it.
@@ -1062,6 +1063,9 @@ describe('night screen', {timeout: 180_000}, () => {
         roll: null,
         random: Math.random,
         log: expect.any(Array) as unknown,
+        // The night screen builds its night with the collection the store loaded.
+        collection,
+        stories: [],
       });
       // The choice at the press, before its ten minutes; its text at 19:50.
       expect(nightScreen.contents.night.log.slice(-2)).toMatchObject([
