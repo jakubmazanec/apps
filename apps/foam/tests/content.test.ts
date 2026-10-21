@@ -61,13 +61,31 @@ function openSpot(
   id: PlaceId,
   label: string,
   minutes: number,
+  {
+    collection,
+    ...start
+  }: {money?: number; drunkenness?: number; collection?: Night['collection']} = {},
 ): {dialogue: Dialogue<Night>; night: Night} {
-  let night = createNight({place: id, minutes, money: 350});
+  let night = createNight({place: id, minutes, money: 350, ...start}, collection);
 
   return {
     dialogue: new Dialogue({script: getSpotScript(getPlace(id), label), context: night}),
     night,
   };
+}
+
+// Takes a choice of the dialogue's first node, with the dice pinned to `random`, so that a roll
+// wins or loses as the test needs.
+function takeChoice(
+  opened: {dialogue: Dialogue<Night>; night: Night},
+  index: number,
+  random = 0,
+): {dialogue: Dialogue<Night>; night: Night} {
+  opened.night.random = () => random;
+  opened.dialogue.advance();
+  opened.dialogue.choose(index);
+
+  return opened;
 }
 
 function readChoices(dialogue: Dialogue<Night>): string[] {
@@ -236,6 +254,92 @@ describe('the game content', () => {
     expect(readCornerTableAt(1499)).toEqual(['Ask for a song', 'Leave him to it']);
     expect(readCornerTableAt(1319)).toEqual(['Take the spare chair', 'Leave them to it']);
     expect(readCornerTableAt(1500)).toEqual(['Take the spare chair', 'Leave them to it']);
+  });
+
+  test("the corner table's song is a story, found once", () => {
+    let {night} = takeChoice(openSpot('rotorBarRoom', 'The corner table', 1390), 0);
+
+    expect(night.stories).toEqual([{title: 'The guitarist who plays for one', minutes: 1400}]);
+    expect(night.log).toEqual([
+      {kind: 'story', minutes: 1400, text: 'The guitarist who plays for one'},
+    ]);
+
+    let {night: later} = takeChoice(
+      openSpot('rotorBarRoom', 'The corner table', 1390, {
+        collection: {titles: ['The guitarist who plays for one']},
+      }),
+      0,
+    );
+
+    expect(later.stories).toEqual([]);
+    expect(later.log).toEqual([]);
+  });
+
+  test('the cigarette and the bottle are offered only until their story is achieved', () => {
+    expect(
+      readChoices(openSpot('rotorBarStreet', 'The smokers', 1200, {drunkenness: 2}).dialogue),
+    ).toEqual(['Ask for a cigarette', 'Leave them to it']);
+    expect(
+      readChoices(
+        openSpot('rotorBarStreet', 'The smokers', 1200, {
+          drunkenness: 2,
+          collection: {titles: ['The tram that stopped early']},
+        }).dialogue,
+      ),
+    ).toEqual(['Leave them to it']);
+    expect(readChoices(openSpot('whiskyShopRoom', 'Two regulars', 1100).dialogue)).toEqual([
+      'Ask about the bottle',
+      'Let them be',
+    ]);
+    expect(
+      readChoices(
+        openSpot('whiskyShopRoom', 'Two regulars', 1100, {
+          collection: {titles: ['A bottle saved for an occasion']},
+        }).dialogue,
+      ),
+    ).toEqual(['Let them be']);
+  });
+
+  test("the game's content has eleven stories", () => {
+    let {closing} = locations.rotorBar;
+
+    if (closing === undefined) {
+      throw new Error('Rotor Bar has no closing!');
+    }
+
+    // The bar closes at 03:00 and puts the player out on its street.
+    let closed = createNight({place: 'rotorBarStreet', minutes: 1620, money: 350});
+    // Each dialogue reaches the node of one story: 0.1 wins the spare chair's roll and the
+    // shelter's, and 0.95 loses the chair's above 0.9, which spills the beer.
+    let opened = [
+      takeChoice(openSpot('rotorBarRoom', 'The corner table', 1390), 0),
+      takeChoice(openSpot('rotorBarRoom', 'The corner table', 1200), 0, 0.1),
+      takeChoice(openSpot('rotorBarRoom', 'The corner table', 1200), 0, 0.95),
+      takeChoice(openSpot('rotorBarStreet', 'The smokers', 1200, {drunkenness: 2}), 0),
+      takeChoice(openSpot('whiskyShopRoom', 'Two regulars', 1100), 0),
+      takeChoice(openSpot('whiskyShopRoom', 'The shelves', 1100), 1),
+      takeChoice(openSpot('hlavniNadraziForecourt', 'A stranger', 1100), 0),
+      openSpot('hlavniNadraziHall', 'The hall', 1100),
+      takeChoice(openSpot('namestiRepubliky', 'The shelter', 1100), 0, 0.1),
+      openSpot('zidenice', 'The bench', 1100),
+      {dialogue: new Dialogue({script: closing, context: closed}), night: closed},
+    ];
+
+    expect(new Set(opened.flatMap(({night}) => night.stories.map(({title}) => title)))).toEqual(
+      new Set([
+        'A bottle saved for an occasion',
+        'A seat at the table',
+        'A train not on the timetable',
+        'The good one',
+        'The guitarist who plays for one',
+        'The man who knew the timetable',
+        'The spilled beer',
+        'The station that never moved',
+        'The tram that stopped early',
+        'Thrown out at three',
+        'Twenty crowns',
+      ]),
+    );
   });
 
   test('no two scene buttons of a place overlap', () => {

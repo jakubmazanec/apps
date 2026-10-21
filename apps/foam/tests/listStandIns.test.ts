@@ -11,9 +11,10 @@ describe(countTags, () => {
       '`;',
       'const c = prose`Three.`;',
       'import {standInPicture} from "./standInPicture.js"; // the prose is here',
+      'const T = standIn`The keys`;',
     ].join('\n');
 
-    expect(countTags(source)).toEqual({standIn: 2, written: 1});
+    expect(countTags(source)).toEqual({standIn: 3, written: 1});
   });
 });
 
