@@ -1,6 +1,6 @@
 import {type Focusable} from '../Focusable.js';
 
-export function nearestTopLeft(focusables: Focusable[]): Focusable | null {
+export function findNearestTopLeft(focusables: Focusable[]): Focusable | null {
   let best: Focusable | null = null;
   let bestScore = Infinity;
 
