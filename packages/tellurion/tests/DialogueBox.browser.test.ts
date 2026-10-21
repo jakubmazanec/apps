@@ -5,7 +5,7 @@ import {beforeAll, beforeEach, describe, expect, test, vitest} from 'vitest';
 import {Dialogue} from '../source/dialogue/Dialogue.js';
 import {wrapText} from '../source/dialogue/wrapText.js';
 import {type Focusable} from '../source/ui/Focusable.js';
-import {type UiParent} from '../source/ui/UiChild.js';
+import {type UiParentComponent} from '../source/ui/UiParentComponent.js';
 import {createTestTheme} from './createTestTheme.js';
 
 let layoutSystem: LayoutSystem;
@@ -484,7 +484,7 @@ describe('DialogueBox focus integration', () => {
     // Button has nothing to end on deactivate; the spy stands in for an engine
     // user's focusable that does.
     let deactivate = vitest.fn<() => void>();
-    let [choicesPanel] = box.children as [UiParent];
+    let [choicesPanel] = box.children as [UiParentComponent];
 
     for (let choice of choicesPanel.children as Focusable[]) {
       choice.deactivate = deactivate;

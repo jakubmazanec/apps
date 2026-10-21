@@ -1,7 +1,8 @@
 import {type Focusable} from '../Focusable.js';
-import {type UiChild, type UiParent} from '../UiChild.js';
+import {type UiChildComponent} from '../UiChildComponent.js';
+import {type UiParentComponent} from '../UiParentComponent.js';
 
-function walk(node: UiChild, result: Focusable[]): void {
+function walk(node: UiChildComponent, result: Focusable[]): void {
   if (!('view' in node)) {
     return;
   }
@@ -18,7 +19,7 @@ function walk(node: UiChild, result: Focusable[]): void {
     return;
   }
 
-  let {isFocusable, children} = node as Partial<Focusable> & Partial<UiParent>;
+  let {isFocusable, children} = node as Partial<Focusable> & Partial<UiParentComponent>;
 
   if (isFocusable === true) {
     result.push(node as Focusable);
@@ -32,7 +33,7 @@ function walk(node: UiChild, result: Focusable[]): void {
 // Depth-first order over the component hierarchy is the Tab order. Raw Pixi
 // containers are leaves (components are only discoverable through public
 // children arrays), and subtrees whose view is hidden are pruned.
-export function collectFocusables(root: UiChild): Focusable[] {
+export function collectFocusables(root: UiChildComponent): Focusable[] {
   let result: Focusable[] = [];
 
   walk(root, result);

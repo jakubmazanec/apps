@@ -1,9 +1,9 @@
 import {type Focusable} from './Focusable.js';
-import {type UiParent} from './UiChild.js';
+import {type UiParentComponent} from './UiParentComponent.js';
 import {type UiRoot} from './UiRoot.js';
 
 /** A component that is also an overlay. Overlay holds the focus scope while it is attached. */
-export type Overlay = UiParent & {
+export type Overlay = UiParentComponent & {
   /** Attaches the overlay to an UI root. */
   attach?: (ui: UiRoot) => void;
 

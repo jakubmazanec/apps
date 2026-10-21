@@ -5,7 +5,7 @@ import {afterEach, beforeAll, describe, expect, test, vitest} from 'vitest';
 
 import {Scheduler} from '../source/scheduler/Scheduler.js';
 import {Modal} from '../source/ui/Modal.js';
-import {type UiChild} from '../source/ui/UiChild.js';
+import {type UiChildComponent} from '../source/ui/UiChildComponent.js';
 import {UiRoot} from '../source/ui/UiRoot.js';
 import {createTestTheme} from './createTestTheme.js';
 
@@ -49,7 +49,7 @@ function focusable() {
 }
 
 // A non-focusable container component (a Panel-like stub).
-function panel(children: UiChild[]) {
+function panel(children: UiChildComponent[]) {
   return {view: new Container(), children};
 }
 

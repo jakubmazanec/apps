@@ -224,7 +224,7 @@ describe('DialogueBox vertical budget', () => {
     box.setChoices(GREETING_CHOICES, 0);
     layOut(box);
 
-    // The box's UiParent children are exactly [choicesPanel], whose own widget
+    // The box's UiParentComponent children are exactly [choicesPanel], whose own widget
     // children are the choice Buttons in order.
     let choicesPanel = box.children[0] as unknown as {
       children: Array<{view: pixi.Container}>;

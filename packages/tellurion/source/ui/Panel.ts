@@ -7,13 +7,14 @@ import {resolveView} from './internals/resolveView.js';
 import {type PanelConfig} from './PanelConfig.js';
 import {type PanelOptions} from './PanelOptions.js';
 import {type PanelParts} from './PanelParts.js';
-import {type UiChild, type UiParent} from './UiChild.js';
+import {type UiChildComponent} from './UiChildComponent.js';
+import {type UiParentComponent} from './UiParentComponent.js';
 
 import '@pixi/layout';
 
-export class Panel implements UiParent {
+export class Panel implements UiParentComponent {
   /** Children. */
-  readonly children: UiChild[] = [];
+  readonly children: UiChildComponent[] = [];
 
   /** View. */
   readonly view: LayoutContainer;
@@ -43,7 +44,7 @@ export class Panel implements UiParent {
   }
 
   /** Adds children to the panel's view. */
-  addChild(...children: UiChild[]): this {
+  addChild(...children: UiChildComponent[]): this {
     for (let child of children) {
       this.children.push(child);
       this.view.addChild(resolveView(child));
@@ -58,7 +59,7 @@ export class Panel implements UiParent {
   }
 
   /** Removes children from the panel's view. */
-  removeChild(...children: UiChild[]): this {
+  removeChild(...children: UiChildComponent[]): this {
     for (let child of children) {
       let index = this.children.indexOf(child);
 
