@@ -48,6 +48,7 @@ import {logScreen} from './logScreen.js';
 // each module once per file, and it reached the menu through the log screen.
 import {destroyMenus, openMenu, openMenuOnCancel} from './menuModal.js';
 import {PlacePicture} from './placePicture.js';
+import {type StoriesWindow} from './storiesWindow.js';
 import {StoryWindow} from './storyWindow.js';
 import {Toast} from './toast.js';
 import {
@@ -119,6 +120,7 @@ type NightScreenContents = {
   /** How many of the night's finds the screen has handled: shown or queued, and saved. */
   storiesHandled: number;
 
+  storiesWindow: StoriesWindow | null;
   storyWindow: StoryWindow | null;
 
   /** The toast showing, or null. */
@@ -200,8 +202,17 @@ function handleStories(screen: NightScreen): void {
 }
 
 function layOut(screen: NightScreen): void {
-  let {nextPlace, picture, place, spotButtons, statusText, storyWindow, toast, travelWindow} =
-    screen.contents;
+  let {
+    nextPlace,
+    picture,
+    place,
+    spotButtons,
+    statusText,
+    storiesWindow,
+    storyWindow,
+    toast,
+    travelWindow,
+  } = screen.contents;
   let area = getArea();
 
   // Beside the place button, level with its label, or under it on a screen
@@ -232,6 +243,7 @@ function layOut(screen: NightScreen): void {
   picture?.resize(area.width, area.top + area.height);
   nextPlace?.picture.resize(area.width, area.top + area.height);
   storyWindow?.resize(area);
+  storiesWindow?.resize();
   toast?.resize(getTextWidth(area.width));
   // Closed too: the kept window is laid out for the screen it opens on next.
   travelWindow.resize(area.width, area.top + area.height);
@@ -691,6 +703,7 @@ export const nightScreen = new GameScreen<NightScreenContents>({
       status: '',
       statusText,
       storiesHandled: 0,
+      storiesWindow: null,
       storyWindow: null,
       toast: null,
       toastQueue: [],

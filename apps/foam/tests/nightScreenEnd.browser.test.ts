@@ -12,6 +12,8 @@ import {
   describeEntry,
   endStory,
   getMenuButton,
+  getStoriesParts,
+  getStoriesWindow,
   getStoryWindow,
   type Harness,
   nextFrame,
@@ -22,6 +24,7 @@ import {
   restartAt,
   startNewGame,
   useFixedWorld,
+  waitForNoStoriesWindow,
   waitForSpeaker,
   waitForTravelWindow,
 } from './nightScreenHelpers.js';
@@ -123,6 +126,14 @@ describe('the end of the night', {timeout: 180_000}, () => {
 
     await endStory(end);
     await waitForLogScreen();
+
+    let {regularLeaf, title} = getStoriesParts(getStoriesWindow(logScreen));
+
+    expect(readText(title)).toBe('Stories  0 found');
+    expect(readText(regularLeaf)).toBe('None');
+
+    await press('Escape');
+    await waitForNoStoriesWindow(logScreen);
 
     let {night} = nightScreen.contents;
 

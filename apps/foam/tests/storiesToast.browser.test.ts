@@ -1,17 +1,21 @@
+import {type Modal} from 'tellurion';
 import {afterAll, beforeAll, describe, expect, test, vitest} from 'vitest';
 
 import {type barPicture as barPictureValue} from '../source/game/content/pictures/barPicture.js';
 import {type collection as collectionValue} from '../source/game/core/stories.js';
 import {type StoryWindow} from '../source/game/screens/storyWindow.js';
 import {type Toast as ToastClass} from '../source/game/screens/toast.js';
-import {FIXED_BAR} from './fixedWorld.js';
 import {
   bootGame,
   closeStory,
   describeEntry,
+  describeFocus,
   endStory,
   getBox,
   getButtonLabel,
+  getMenuButton,
+  getStoriesParts,
+  getStoriesWindow,
   getToastParts,
   getWindowButton,
   getWindowParts,
@@ -20,10 +24,11 @@ import {
   openSpot,
   press,
   readText,
-  restartAt,
+  setViewport,
   startNewGame,
   tap,
   useFixedWorld,
+  waitForNoStoriesWindow,
   waitForNoStoryWindow,
   waitForToast,
 } from './nightScreenHelpers.js';
@@ -52,6 +57,27 @@ describe('the toast of a story', {timeout: 180_000}, () => {
   let toast: ToastClass;
   let Toast: typeof ToastClass;
 
+  function getMenu(): Modal {
+    let {menuModal} = harness.nightScreen.contents;
+
+    if (menuModal === null) {
+      throw new Error('The menu is not open!');
+    }
+
+    return menuModal;
+  }
+
+  async function waitForNoMenu(): Promise<void> {
+    await vitest.waitFor(
+      () => {
+        if (harness.nightScreen.contents.menuModal !== null) {
+          throw new Error('The menu is still open.');
+        }
+      },
+      {timeout: 10_000},
+    );
+  }
+
   beforeAll(async () => {
     localStorage.clear();
     // The fixed world goes in before the boot: the night screen builds its travel window when it
@@ -68,11 +94,33 @@ describe('the toast of a story', {timeout: 180_000}, () => {
     localStorage.clear();
   });
 
-  test('the toast shows the title above the window, and the find is saved', async () => {
+  test('before any find the Stories window reads 0 found and None yet', async () => {
     let {nightScreen} = harness;
+    let {ui} = nightScreen;
 
     await startNewGame(harness);
     await closeStory(harness);
+    await press('Escape');
+    ui.focus(getMenuButton(getMenu(), 'Stories'));
+    await press('Enter');
+
+    let {back, next, regularLeaf, title} = getStoriesParts(getStoriesWindow(nightScreen));
+
+    expect(readText(title)).toBe('Stories  0 found');
+    expect(readText(regularLeaf)).toBe('None yet');
+    expect(back).toBeNull();
+    expect(next).toBeNull();
+    expect(ui.focused).toBeNull();
+
+    await press('Escape');
+    await waitForNoStoriesWindow(nightScreen);
+    await press('Escape');
+    await waitForNoMenu();
+  });
+
+  test('the toast shows the title above the window, and the find is saved', async () => {
+    let {nightScreen} = harness;
+
     storyWindow = await openSpot(harness, 'A patron');
     // Enter finishes the text, and Enter on the second choice ignores him.
     await press('Enter');
@@ -163,10 +211,90 @@ describe('the toast of a story', {timeout: 180_000}, () => {
     narrowToast.destroy();
   });
 
-  test('a second New Game gives no toast for an achieved story, and the hidden choice is gone', async () => {
-    let {contents, ui} = harness.nightScreen;
+  test("the menu's Stories window lists the night's finds, and Escape returns to the menu with Stories focused", async () => {
+    let {nightScreen} = harness;
+    let {ui} = nightScreen;
 
-    await restartAt(harness, FIXED_BAR);
+    await press('Escape');
+
+    let menu = getMenu();
+
+    ui.focus(getMenuButton(menu, 'Stories'));
+    await press('Enter');
+
+    let storiesWindow = getStoriesWindow(nightScreen);
+    let {regularLeaf, title} = getStoriesParts(storiesWindow);
+
+    expect(ui.topOverlay).toBe(storiesWindow.modal);
+    expect(readText(title)).toBe('Stories  2 found');
+    expect(readText(regularLeaf)).toBe('19:40  The shrug\n19:40  The glass');
+
+    await press('Escape');
+    await waitForNoStoriesWindow(nightScreen);
+
+    expect(ui.topOverlay).toBe(menu);
+    expect(describeFocus(ui.focused)).toBe('Stories');
+  });
+
+  test('a resize keeps the Stories window above the menu and fits the narrowest screen', async () => {
+    let {nightScreen} = harness;
+
+    // Stories has the focus.
+    await press('Enter');
+
+    let storiesWindow = getStoriesWindow(nightScreen);
+    let {panel} = getStoriesParts(storiesWindow);
+
+    try {
+      await setViewport(harness, 292, 524);
+      await vitest.waitFor(
+        () => {
+          expect(getBox(harness, panel).width).toBe(138);
+        },
+        {timeout: 10_000},
+      );
+
+      // The resize built the title block again, so its title is read anew.
+      expect(nightScreen.ui.topOverlay).toBe(storiesWindow.modal);
+      expect(readText(getStoriesParts(storiesWindow).title).length).toBeLessThanOrEqual(19);
+    } finally {
+      await setViewport(harness, 960, 540);
+    }
+
+    await press('Escape');
+    await waitForNoStoriesWindow(nightScreen);
+  });
+
+  test('Quit to menu destroys the Stories window and the menu, and the store keeps the finds', async () => {
+    let {mainMenuScreen, nightScreen} = harness;
+    let {contents} = nightScreen;
+
+    // Stories has the focus.
+    await press('Enter');
+
+    let storiesWindow = getStoriesWindow(nightScreen);
+
+    getMenuButton(getMenu(), 'Quit to menu').activate();
+    await vitest.waitFor(
+      () => {
+        expect(mainMenuScreen.state).toBe('shown');
+      },
+      {timeout: 10_000},
+    );
+
+    expect(storiesWindow.modal.view.destroyed).toBe(true);
+    expect(contents.storiesWindow).toBeNull();
+    expect(contents.menuModal).toBeNull();
+    expect(JSON.parse(localStorage.getItem('foam:stories') ?? '')).toEqual({
+      titles: ['The shrug', 'The glass'],
+    });
+  });
+
+  test('a second New Game gives no toast for an achieved story, and the hidden choice is gone', async () => {
+    let {nightScreen} = harness;
+    let {contents, ui} = nightScreen;
+
+    await startNewGame(harness);
     await closeStory(harness);
     storyWindow = await openSpot(harness, 'A patron');
     await press('Enter');
@@ -184,5 +312,19 @@ describe('the toast of a story', {timeout: 180_000}, () => {
     expect(contents.toastQueue).toEqual([]);
     expect(contents.night.log.some((entry) => entry.kind === 'story')).toBe(false);
     expect(collection.titles).toEqual(['The shrug', 'The glass']);
+
+    await press('Escape');
+    ui.focus(getMenuButton(getMenu(), 'Stories'));
+    await press('Enter');
+
+    let {regularLeaf, title} = getStoriesParts(getStoriesWindow(nightScreen));
+
+    expect(readText(title)).toBe('Stories  0 found');
+    expect(readText(regularLeaf)).toBe('None yet');
+
+    await press('Escape');
+    await waitForNoStoriesWindow(nightScreen);
+    await press('Escape');
+    await waitForNoMenu();
   });
 });

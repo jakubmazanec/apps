@@ -13,6 +13,7 @@ import {game} from '../core/game.js';
 import {BUTTON_PADDING_X} from '../core/getSceneArea.js';
 import {input} from '../core/input.js';
 import {measureText} from '../core/measureText.js';
+import {type Night} from '../core/night.js';
 import {UI_FADE_DURATION} from '../core/theme.js';
 // The menuModal -> mainMenuScreen -> nightScreen -> menuModal static import
 // cycle is deliberate and safe: no module reads another's binding while it
@@ -26,6 +27,7 @@ import {UI_FADE_DURATION} from '../core/theme.js';
 // eslint-disable-next-line import/no-cycle -- see comment above: the cycle only resolves as the game runs, long after the modules evaluate
 import {mainMenuScreen} from './mainMenuScreen.js';
 import {openOptionsModal} from './optionsModal.js';
+import {StoriesWindow} from './storiesWindow.js';
 import {createWindowTitle, WINDOW_PADDING} from './windowTitle.js';
 
 /** A screen that opens the night's menu: the night screen and the log screen. */
@@ -40,7 +42,11 @@ type MenuScreen = {
      */
     lastTopOverlay: Overlay | null;
     menuModal: Modal | null;
+
+    /** The night the Stories window lists. */
+    night: Night | null;
     optionsModal: Modal | null;
+    storiesWindow: StoriesWindow | null;
   };
 };
 
@@ -51,6 +57,7 @@ export type MenuModalOptions = {
   /** Scheduler of that screen; it drives the fade. */
   scheduler: Scheduler;
 
+  onStories: () => void;
   onOptions: () => void;
   onQuit: () => void;
 
@@ -63,13 +70,18 @@ export type MenuModalOptions = {
 export function openMenuModal({
   ui,
   scheduler,
+  onStories,
   onOptions,
   onQuit,
   onClosed,
 }: MenuModalOptions): Modal {
-  // The three buttons share the width of the longest label; the panel stretches them.
+  // The four buttons share the width of the longest label; the panel stretches them.
   let width =
-    Math.max(...['Resume', 'Options', 'Quit to menu'].map((label) => measureText(label, 'label'))) +
+    Math.max(
+      ...['Resume', 'Stories', 'Options', 'Quit to menu'].map((label) =>
+        measureText(label, 'label'),
+      ),
+    ) +
     2 * BUTTON_PADDING_X;
   let panel = new Panel({
     theme: game.theme,
@@ -105,12 +117,21 @@ export function openMenuModal({
 
   // The other buttons are added after the modal exists, because they read it.
   // A press can still arrive during the fade: Escape and then Enter must not
-  // quit the night or open the Options window over a closing menu. Resume
-  // needs no check, as close() does nothing on a closing modal.
+  // quit the night or open the Stories or the Options window over a closing
+  // menu. Resume needs no check, as close() does nothing on a closing modal.
   let isClosing = () => modal.state === 'closing' || modal.state === 'closed';
 
   panel.addChild(
     resumeButton,
+    new Button({
+      theme: game.theme,
+      children: [new Text({text: 'Stories', theme: game.theme, layout: true})],
+      onClick: () => {
+        if (!isClosing()) {
+          onStories();
+        }
+      },
+    }),
     new Button({
       theme: game.theme,
       children: [new Text({text: 'Options', theme: game.theme, layout: true})],
@@ -149,6 +170,10 @@ export function openMenu(screen: MenuScreen): void {
   screen.contents.menuModal = openMenuModal({
     ui: screen.ui,
     scheduler: screen.scheduler,
+    // Above the menu, which stays open underneath, as for Options.
+    onStories: () => {
+      openStoriesWindow(screen);
+    },
     onOptions: () => {
       screen.contents.optionsModal = openOptionsModal({
         ui: screen.ui,
@@ -169,11 +194,25 @@ export function openMenu(screen: MenuScreen): void {
   });
 }
 
+// The Stories window, with the screen's night, above whatever is on top: the
+// menu's Stories button opens it, and the log screen opens it when shown.
+export function openStoriesWindow(screen: MenuScreen): void {
+  screen.contents.storiesWindow = new StoriesWindow({
+    ui: screen.ui,
+    scheduler: screen.scheduler,
+    night: screen.contents.night,
+    onClosed: () => {
+      screen.contents.storiesWindow = null;
+    },
+  });
+}
+
 // Called at the end of the screen's onUpdate, in every frame. The engine has
 // already sent this frame's cancel command to the topmost overlay, which it
-// closed if the overlay declares close: the menu, the Options window or the
-// night screen's travel window. With no overlay, or with a story window on top,
-// a journey's too, which declares none, the command opens the menu.
+// closed if the overlay declares close: the menu, the Stories window, the
+// Options window or the night screen's travel window. With no overlay, or with
+// a story window on top, a journey's too, which declares none, the command
+// opens the menu.
 // focusPressed only reads the latched state, so reading it again here is safe.
 // The overlay that took the command is, as a rule, the one on top at the end of
 // the last update, not the one on top now: a frame as long as a UI fade can
@@ -194,9 +233,11 @@ export function openMenuOnCancel(screen: MenuScreen): void {
 // destroy(), never the animated close(), because the scheduler was already
 // cleared before onHide. The topmost window goes first.
 export function destroyMenus(screen: MenuScreen): void {
+  screen.contents.storiesWindow?.modal.destroy();
   screen.contents.optionsModal?.destroy();
   screen.contents.menuModal?.destroy();
 
+  screen.contents.storiesWindow = null;
   screen.contents.optionsModal = null;
   screen.contents.menuModal = null;
 }

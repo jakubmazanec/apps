@@ -25,6 +25,7 @@ import {type NightStart} from '../source/game/core/travel.js';
 import {type mainMenuScreen as mainMenuScreenValue} from '../source/game/screens/mainMenuScreen.js';
 import {type nightScreen as nightScreenValue} from '../source/game/screens/nightScreen.js';
 import {type PlacePicture} from '../source/game/screens/placePicture.js';
+import {type StoriesWindow} from '../source/game/screens/storiesWindow.js';
 import {type StoryWindow} from '../source/game/screens/storyWindow.js';
 import {type Toast} from '../source/game/screens/toast.js';
 import {type TravelWindow} from '../source/game/screens/travelWindow.js';
@@ -587,7 +588,7 @@ export function getColor({pixels, width}: Pixels, x: number, y: number): number 
 }
 
 // The menu is a Modal holding one Panel: the title, then the buttons Resume,
-// Options and Quit to menu.
+// Stories, Options and Quit to menu.
 export function getMenuButton(menu: Modal, label: string): Button {
   let [panel] = menu.children;
 
@@ -604,6 +605,72 @@ export function getMenuButton(menu: Modal, label: string): Button {
   }
 
   return button;
+}
+
+export function getStoriesWindow(screen: {
+  contents: {storiesWindow: StoriesWindow | null};
+}): StoriesWindow {
+  let {storiesWindow} = screen.contents;
+
+  if (storiesWindow === null) {
+    throw new Error('No Stories window is open!');
+  }
+
+  return storiesWindow;
+}
+
+// The window closes after a 100 ms fade, so closing is awaited.
+export async function waitForNoStoriesWindow(screen: {
+  contents: {storiesWindow: StoriesWindow | null};
+}): Promise<void> {
+  await vitest.waitFor(
+    () => {
+      if (screen.contents.storiesWindow !== null) {
+        throw new Error('The Stories window is still open.');
+      }
+    },
+    {timeout: 10_000},
+  );
+}
+
+// The Stories window's modal holds one Panel. Its children are, in this order:
+// the title block, a Container whose first child is the title Text; the text
+// block, a Container of two Texts, the regular one and then the italic one; the
+// row (only for a list of more than one page), a Container of Back and Next;
+// and Close, a Button.
+export function getStoriesParts(storiesWindow: StoriesWindow): {
+  back: Button | null;
+  close: Button;
+  next: Button | null;
+  panel: Panel;
+  regularLeaf: Text;
+  title: Text;
+} {
+  let [panel] = storiesWindow.modal.children;
+
+  if (!(panel instanceof Panel)) {
+    throw new TypeError('The Stories window has no panel!');
+  }
+
+  let [titleBlock, textBlock, ...rest] = panel.children;
+  let title = titleBlock instanceof Container ? titleBlock.children[0] : undefined;
+  let regularLeaf = textBlock instanceof Container ? textBlock.children[0] : undefined;
+  let row = rest.find((child) => child instanceof Container);
+  let [back, next] = row?.children ?? [];
+  let close = rest.at(-1);
+
+  if (!(title instanceof Text) || !(regularLeaf instanceof Text) || !(close instanceof Button)) {
+    throw new TypeError('The Stories window has no title, no text or no Close button!');
+  }
+
+  return {
+    back: back instanceof Button ? back : null,
+    close,
+    next: next instanceof Button ? next : null,
+    panel,
+    regularLeaf,
+    title,
+  };
 }
 
 // The window's choice at the given position.
