@@ -82,7 +82,9 @@ function getCheckTimes(locationData: LocationData): number[] {
 /**
  * Checks the content of the game and returns one line for each problem, or an empty list. A text,
  * a start, an odds or a next that is a function is called with each check night: once per place,
- * time and level, and a choice's next with odds once for each roll as well.
+ * time and level, and a choice's next with odds once for each roll as well. A choice's effect and a
+ * node's entry effect run on a copy of each check night. Every check night is made twice: with no
+ * story achieved and with every story the effects gave.
  */
 export function checkContent(content: Content): string[] {
   let lines = new Set<string>();
@@ -91,9 +93,11 @@ export function checkContent(content: Content): string[] {
   let times = getCheckTimes(content.locationData);
   // The nodes of the script being checked, where follow looks up an id that a next returns.
   let nodes: NonNullable<RunnableDialogueScript<Night>['nodes']> = {};
+  // Every title the effects gave: the second pass's collection holds them all.
+  let titles = new Set<string>();
 
   function checkNode(path: string, node: Node, nights: Night[], home: Place | null): void {
-    let {text, speaker, next} = node;
+    let {text, speaker, next, onEnter} = node;
     let choices = (node.choices ?? []).map(asChoice);
     let words = new Set<string>();
 
@@ -103,6 +107,10 @@ export function checkContent(content: Content): string[] {
       lines.add(
         `${path}: the title "${speaker}" has ${speaker.length} characters, and ${room.title} fit`,
       );
+    }
+
+    if (onEnter !== undefined) {
+      checkEffect(path, onEnter, nights, home);
     }
 
     for (let night of nights) {
@@ -158,8 +166,8 @@ export function checkContent(content: Content): string[] {
         }
       }
 
-      if (home !== null && onChoose !== undefined) {
-        checkWayOut(where, onChoose, home);
+      if (onChoose !== undefined) {
+        checkEffect(where, onChoose, nights, home);
       }
 
       if (typeof choice.next === 'object') {
@@ -258,36 +266,81 @@ export function checkContent(content: Content): string[] {
     }
   }
 
-  // A way out sets night.leaving: walk and taxi need the street, the tram a stop on it.
-  function checkWayOut(where: string, onChoose: (night: Night) => void, home: Place): void {
-    let night = createNight({place: home.id, minutes: NIGHT_START, money: CHECK_MONEY});
-
-    try {
-      onChoose(night);
-    } catch (error) {
-      lines.add(`${where}: throws "${error instanceof Error ? error.message : String(error)}"`);
-
+  // The log wraps a title and sets it in italic marks of its own, so the title can hold no mark
+  // and no word too long to wrap. Each title is checked once, under the first effect that gave it.
+  function checkTitle(where: string, title: string): void {
+    if (titles.has(title)) {
       return;
     }
 
-    if (night.leaving === null) {
-      return;
+    titles.add(title);
+
+    if (title === '') {
+      lines.add(`${where}: a story with an empty title`);
     }
 
-    let {way} = night.leaving;
-    let location = Object.values(content.locations).find((candidate) =>
-      candidate.places.some((place) => place.id === home.id),
-    );
+    if (title.includes(MARK)) {
+      lines.add(`${where}: the story "${title}" has an italic mark`);
+    }
 
-    if (way !== 'tram' && !home.outdoors) {
-      lines.add(`${where}: ${way} is offered indoors`);
-    } else if (
-      way === 'tram' &&
-      (!home.outdoors ||
-        location === undefined ||
-        content.locationData[location.id]?.tramStop === undefined)
-    ) {
-      lines.add(`${where}: the tram does not stop here`);
+    for (let word of stripMarks(title).split(/\s+/)) {
+      if (word.length > WORD_ROOM) {
+        lines.add(`${where}: "${word}" has ${word.length} characters, and ${WORD_ROOM} fit`);
+      }
+    }
+  }
+
+  // Each run has a night and a collection of its own, so what an effect does to them never
+  // reaches the check nights, which the texts, the conditions and the nexts read.
+  function checkEffect(
+    where: string,
+    effect: (night: Night) => void,
+    nights: Night[],
+    home: Place | null,
+  ): void {
+    for (let night of nights) {
+      let fresh = createNight(
+        {
+          place: night.place,
+          minutes: night.minutes,
+          money: night.money,
+          drunkenness: night.drunkenness.level,
+        },
+        {titles: [...night.collection.titles]},
+      );
+
+      try {
+        effect(fresh);
+      } catch (error) {
+        lines.add(`${where}: throws "${error instanceof Error ? error.message : String(error)}"`);
+
+        continue;
+      }
+
+      for (let {title} of fresh.stories) {
+        checkTitle(where, title);
+      }
+
+      if (home === null || fresh.leaving === null) {
+        continue;
+      }
+
+      // A way out sets night.leaving: walk and taxi need the street, the tram a stop on it.
+      let {way} = fresh.leaving;
+      let location = Object.values(content.locations).find((candidate) =>
+        candidate.places.some((place) => place.id === home.id),
+      );
+
+      if (way !== 'tram' && !home.outdoors) {
+        lines.add(`${where}: ${way} is offered indoors`);
+      } else if (
+        way === 'tram' &&
+        (!home.outdoors ||
+          location === undefined ||
+          content.locationData[location.id]?.tramStop === undefined)
+      ) {
+        lines.add(`${where}: the tram does not stop here`);
+      }
     }
   }
 
@@ -295,6 +348,7 @@ export function checkContent(content: Content): string[] {
     name: string,
     script: RunnableDialogueScript<Night>,
     home: Place | null,
+    collection: Night['collection'],
   ): void {
     let {start} = script;
 
@@ -303,13 +357,16 @@ export function checkContent(content: Content): string[] {
     for (let id of placeIds) {
       let nights = times.flatMap((minutes) =>
         CHECK_LEVELS.map((drunkenness) =>
-          createNight({
-            // The keys of content.places are the ids of the places.
-            place: id as PlaceId,
-            minutes,
-            money: CHECK_MONEY,
-            drunkenness,
-          }),
+          createNight(
+            {
+              // The keys of content.places are the ids of the places.
+              place: id as PlaceId,
+              minutes,
+              money: CHECK_MONEY,
+              drunkenness,
+            },
+            collection,
+          ),
         ),
       );
 
@@ -333,6 +390,31 @@ export function checkContent(content: Content): string[] {
     }
   }
 
+  // The pass's collection is one object for all its nights: they only read it.
+  function checkScripts(collectionTitles: string[]): void {
+    let collection = {titles: collectionTitles};
+
+    for (let [id, place] of Object.entries(content.places)) {
+      checkScript(`${id}${SEPARATOR}description`, place.description, place, collection);
+
+      for (let spot of place.spots) {
+        checkScript(`${id}${SEPARATOR}${spot.label}`, spot.script, place, collection);
+      }
+    }
+
+    for (let [id, location] of Object.entries(content.locations)) {
+      if (location.closing !== undefined) {
+        checkScript(`${id}${SEPARATOR}closing`, location.closing, null, collection);
+      }
+    }
+
+    for (let [way, script] of Object.entries(content.journeys)) {
+      checkScript(`journeys${SEPARATOR}${way}`, script, null, collection);
+    }
+
+    checkScript('end', content.end, null, collection);
+  }
+
   for (let [id, place] of Object.entries(content.places)) {
     let name = place.shortName ?? place.name;
 
@@ -345,8 +427,6 @@ export function checkContent(content: Content): string[] {
           `${room.placeButton}${advice}`,
       );
     }
-
-    checkScript(`${id}${SEPARATOR}description`, place.description, place);
 
     for (let spot of place.spots) {
       if (spot.label.length > room.sceneButton) {
@@ -361,8 +441,6 @@ export function checkContent(content: Content): string[] {
           lines.add(`${id}${SEPARATOR}${spot.label}: ${axis} is ${spot[axis]}`);
         }
       }
-
-      checkScript(`${id}${SEPARATOR}${spot.label}`, spot.script, place);
     }
   }
 
@@ -411,17 +489,12 @@ export function checkContent(content: Content): string[] {
         lines.add(`${id}: outside "${location.outside}" is not outdoors`);
       }
     }
-
-    if (location.closing !== undefined) {
-      checkScript(`${id}${SEPARATOR}closing`, location.closing, null);
-    }
   }
 
-  for (let [way, script] of Object.entries(content.journeys)) {
-    checkScript(`journeys${SEPARATOR}${way}`, script, null);
-  }
-
-  checkScript('end', content.end, null);
+  // With no story achieved, then with every title the first pass gathered achieved, so a text, a
+  // condition or a way out that reads the collection is met both ways.
+  checkScripts([]);
+  checkScripts([...titles]);
 
   for (let id of Object.keys(content.locations)) {
     if (!OFF_THE_MAP.has(id) && content.locationData[id] === undefined) {

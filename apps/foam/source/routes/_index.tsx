@@ -22,6 +22,7 @@ export default function Index() {
         {nightScreen},
         {nightStart},
         {getJumpIn},
+        {forgetStories},
       ] = await Promise.all([
         import('../game/core/game.js'),
         import('../game/screens/errorScreen.js'),
@@ -30,6 +31,7 @@ export default function Index() {
         import('../game/screens/nightScreen.js'),
         import('../game/content/nightStart.js'),
         import('../game/core/getJumpIn.js'),
+        import('../game/core/stories.js'),
         // Evaluates the audio bootstrap (decode context and first-gesture
         // unlock) before init() below loads the default bundle's sounds.
         import('../game/core/audio.js'),
@@ -60,7 +62,13 @@ export default function Index() {
       let jumpIn = getJumpIn(globalThis.location.search, nightStart.places);
 
       if (jumpIn !== null) {
-        Object.assign(nightStart, jumpIn);
+        let {forgetStories: shouldForget, ...start} = jumpIn;
+
+        Object.assign(nightStart, start);
+
+        if (shouldForget === true) {
+          forgetStories();
+        }
       }
 
       // Not awaited: setGame below must run in the same tick so React mounts

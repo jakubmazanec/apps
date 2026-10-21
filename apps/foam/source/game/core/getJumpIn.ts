@@ -31,7 +31,13 @@ function readTime(value: string): number | null {
 export function getJumpIn(
   search: string,
   places: Readonly<Record<string, Place>>,
-): {place: PlaceId; minutes?: number; money?: number; drunkenness?: number} | null {
+): {
+  place: PlaceId;
+  minutes?: number;
+  money?: number;
+  drunkenness?: number;
+  forgetStories?: boolean;
+} | null {
   let parameters = new URLSearchParams(search);
   let place = parameters.get('place');
 
@@ -46,12 +52,19 @@ export function getJumpIn(
     return null;
   }
 
-  let jumpIn: {place: PlaceId; minutes?: number; money?: number; drunkenness?: number} = {
+  let jumpIn: {
+    place: PlaceId;
+    minutes?: number;
+    money?: number;
+    drunkenness?: number;
+    forgetStories?: boolean;
+  } = {
     place: place as PlaceId,
   };
   let time = parameters.get('time');
   let money = parameters.get('money');
   let drunkenness = parameters.get('drunkenness');
+  let stories = parameters.get('stories');
 
   if (time !== null) {
     let minutes = readTime(time);
@@ -81,6 +94,15 @@ export function getJumpIn(
       console.warn(
         `The jump-in ignores the drunkenness "${drunkenness}": it is not a number of drinks.`,
       );
+    }
+  }
+
+  if (stories !== null) {
+    if (stories === 'none') {
+      jumpIn.forgetStories = true;
+    } else {
+      // eslint-disable-next-line no-console -- see above
+      console.warn(`The jump-in ignores the stories "${stories}": only "none" is known.`);
     }
   }
 
