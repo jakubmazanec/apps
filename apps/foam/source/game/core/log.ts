@@ -16,6 +16,15 @@ export type LogEntry =
       text: string;
     }
   | {
+      kind: 'story';
+
+      /** The minute of the night the story was achieved. */
+      minutes: number;
+
+      /** The story's title. */
+      text: string;
+    }
+  | {
       kind: 'text';
 
       /** The minute of the night the page appeared. */
@@ -38,11 +47,17 @@ export function logChoice(night: Night, text: string): void {
   night.log.push({kind: 'choice', minutes: night.minutes, text});
 }
 
+/** Logs a story by its title, at the night's minute. */
+export function logStory(night: Night, title: string): void {
+  night.log.push({kind: 'story', minutes: night.minutes, text: title});
+}
+
 /**
  * The log as one marked text, wrapped to the width: a text entry is its time and its title on one
- * line and its text under them; a choice is one line in italic, its time and its label; a blank
- * line separates entries. Empty for an empty log. `measure` gives the width of a piece of text and
- * does not count the marks, as the story window's measure does not.
+ * line and its text under them; a choice or a story is one line in italic, its time and its label
+ * or "A story:" and its title; a blank line separates entries. Empty for an empty log. `measure`
+ * gives the width of a piece of text and does not count the marks, as the story window's measure
+ * does not.
  */
 export function formatLog(
   log: readonly LogEntry[],
@@ -53,9 +68,11 @@ export function formatLog(
     .map((entry) => {
       let time = formatTime(entry.minutes);
 
-      if (entry.kind === 'choice') {
+      if (entry.kind !== 'text') {
+        let label = entry.kind === 'story' ? `A story: ${entry.text}` : entry.text;
+
         // The label's own marks go first, so one stray mark cannot turn the rest italic.
-        return wrapText(`${MARK}${time}  ${stripMarks(entry.text)}${MARK}`, width, measure);
+        return wrapText(`${MARK}${time}  ${stripMarks(label)}${MARK}`, width, measure);
       }
 
       let title = entry.speaker === undefined ? time : `${time}  ${entry.speaker}`;

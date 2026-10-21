@@ -2,7 +2,7 @@ import {describe, expect, test} from 'vitest';
 
 import {getPageBreaks} from '../source/game/core/getPageBreaks.js';
 import {GLYPH_WIDTH} from '../source/game/core/getSceneArea.js';
-import {formatLog, logChoice, type LogEntry, logText} from '../source/game/core/log.js';
+import {formatLog, logChoice, type LogEntry, logStory, logText} from '../source/game/core/log.js';
 import {splitMarked, stripMarks} from '../source/game/core/markedText.js';
 import {createNight} from '../source/game/core/night.js';
 
@@ -21,6 +21,7 @@ const LONG_LABEL: LogEntry[] = [
     text: 'Ask about the *better* beer of the winter the pipes froze',
   },
 ];
+const STORY: LogEntry[] = [{kind: 'story', minutes: 1390, text: 'The guitarist who plays for one'}];
 
 describe(logText, () => {
   test("writes the page with the night's minutes and the window's title", () => {
@@ -47,6 +48,16 @@ describe(logChoice, () => {
   });
 });
 
+describe(logStory, () => {
+  test("writes the title with the night's minutes", () => {
+    let night = createTestNight();
+
+    logStory(night, 'The keys');
+
+    expect(night.log).toEqual([{kind: 'story', minutes: 1180, text: 'The keys'}]);
+  });
+});
+
 describe(formatLog, () => {
   test('gives a text entry its time and title, a choice one italic line, and a blank line between', () => {
     let log: LogEntry[] = [
@@ -68,6 +79,18 @@ describe(formatLog, () => {
   test('wraps a long label, strips its own marks and keeps the whole line italic', () => {
     expect(formatLog(LONG_LABEL, 20 * GLYPH_WIDTH, measure)).toBe(
       '*19:40  Ask about the\nbetter beer of the\nwinter the pipes\nfroze*',
+    );
+  });
+
+  test('renders a story as one italic line with "A story:"', () => {
+    expect(formatLog(STORY, 48 * GLYPH_WIDTH, measure)).toBe(
+      '*23:10  A story: The guitarist who plays for one*',
+    );
+  });
+
+  test('wraps a long story inside its marks', () => {
+    expect(formatLog(STORY, 20 * GLYPH_WIDTH, measure)).toBe(
+      '*23:10  A story: The\nguitarist who plays\nfor one*',
     );
   });
 

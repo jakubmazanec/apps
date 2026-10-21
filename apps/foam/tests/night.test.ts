@@ -21,7 +21,20 @@ describe('night', () => {
       roll: null,
       random: Math.random,
       log: [],
+      collection: {titles: []},
+      stories: [],
     });
+  });
+
+  test('createNight holds the collection passed in', () => {
+    let collection = {titles: ['A']};
+
+    expect(createNight(START, collection).collection).toBe(collection);
+  });
+
+  test('createNight gives each night an empty collection of its own', () => {
+    expect(createNight(START).collection).not.toBe(createNight(START).collection);
+    expect(createNight(START).collection).toEqual({titles: []});
   });
 
   test('createNight starts at the given level', () => {
