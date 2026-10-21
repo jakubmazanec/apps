@@ -6,8 +6,8 @@ import {type FocusDirection} from './FocusDirection.js';
 import {type FocusScope} from './FocusScope.js';
 import {collectFocusables} from './internals/collectFocusables.js';
 import {disposeChildren} from './internals/disposeChildren.js';
-import {nearestInDirection} from './internals/nearestInDirection.js';
-import {nearestTopLeft} from './internals/nearestTopLeft.js';
+import {findNearestInDirection} from './internals/findNearestInDirection.js';
+import {findNearestTopLeft} from './internals/findNearestTopLeft.js';
 import {resolveView} from './internals/resolveView.js';
 import {type Overlay} from './Overlay.js';
 import {type UiChild, type UiParent} from './UiChild.js';
@@ -311,7 +311,7 @@ export class UiRoot implements UiParent {
     this.#runtime.isRingVisible = true;
 
     if (this.#runtime.focused === null) {
-      this.#runtime.focused = nearestTopLeft(focusables);
+      this.#runtime.focused = findNearestTopLeft(focusables);
 
       if (this.#runtime.focused !== null) {
         this.#onFocusEvent?.({type: 'move'});
@@ -326,7 +326,7 @@ export class UiRoot implements UiParent {
       return;
     }
 
-    let next = nearestInDirection(this.#runtime.focused, focusables, direction);
+    let next = findNearestInDirection(focusables, this.#runtime.focused, direction);
 
     if (next === null) {
       // Arrow-key navigation hit a wall: the clean, detectable negative-feedback case.

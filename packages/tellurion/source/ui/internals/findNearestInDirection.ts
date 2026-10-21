@@ -9,9 +9,9 @@ import {type FocusDirection} from '../FocusDirection.js';
 const PERPENDICULAR_PENALTY = 2;
 const OVERLAP_BONUS = 0.5;
 
-export function nearestInDirection(
-  current: Focusable,
+export function findNearestInDirection(
   focusables: Focusable[],
+  current: Focusable,
   direction: FocusDirection,
 ): Focusable | null {
   let source = current.view.getBounds();
@@ -31,8 +31,9 @@ export function nearestInDirection(
       direction === 'right' ? dx
       : direction === 'left' ? -dx
       : direction === 'down' ? dy
-      : -dy;
+      : -dy; // Select appopriate delta based on the direction.
 
+    // Negative delta means candidate is behind and can't be focused.
     if (forward <= 0) {
       continue;
     }
@@ -41,12 +42,6 @@ export function nearestInDirection(
       horizontal ?
         bounds.y < source.y + source.height && source.y < bounds.y + bounds.height
       : bounds.x < source.x + source.width && source.x < bounds.x + bounds.width;
-    // Perpendicular distance is the gap between the two extents on the cross
-    // axis, which is zero whenever the candidate sits within the source's
-    // column (vertical moves) or row (horizontal moves). Measuring the gap
-    // rather than the center-to-center offset means a small control directly
-    // under a wide one counts as straight ahead, so "down" prefers it over a
-    // farther but center-aligned component.
     let perpendicularGap =
       horizontal ?
         Math.max(
