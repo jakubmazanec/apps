@@ -309,6 +309,11 @@ export function checkContent(content: Content): string[] {
         {titles: [...night.collection.titles]},
       );
 
+      // An entry effect reached after a rolled next reads the roll its check night made, and the
+      // fresh night rolls as its check night does.
+      fresh.roll = night.roll;
+      fresh.random = night.random;
+
       try {
         effect(fresh);
       } catch (error) {

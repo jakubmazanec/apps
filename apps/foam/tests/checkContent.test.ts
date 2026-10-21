@@ -13,7 +13,7 @@ import {
   type Way,
 } from '../source/game/core/night.js';
 import {type Place} from '../source/game/core/place.js';
-import {type Choice, defineScript} from '../source/game/core/script.js';
+import {type Choice, defineScript, type Node} from '../source/game/core/script.js';
 import {type LocationData, type MapData, type Travel} from '../source/game/core/travel.js';
 
 function oneNode(text: string, speaker = 'Someone'): RunnableDialogueScript<Night> {
@@ -684,6 +684,27 @@ describe(checkContent, () => {
 
     expect(check({places: withZidenice({description})})).toContain(
       'zidenice › description › start: "supercalifragilistic" has 20 characters, and 16 fit',
+    );
+  });
+
+  test('finds a title given on the roll inside an entry effect', () => {
+    let won: Node<string> = {
+      speaker: 'Bench',
+      text: 'You won.',
+      onEnter: (night) => {
+        if (night.roll?.won) {
+          findStory(night, 'A supercalifragilistic title');
+        }
+      },
+    };
+    let lost: Node<string> = {speaker: 'Bench', text: 'You lost.'};
+    let description = nodeWithChoices([
+      {text: 'Try', odds: 0.5, next: (night) => (night.roll?.won ? won : lost)},
+    ]);
+
+    expect(check({places: withZidenice({description})})).toContain(
+      'zidenice › description › start › "Try" › next: "supercalifragilistic" has 20 characters, ' +
+        'and 16 fit',
     );
   });
 
