@@ -36,7 +36,7 @@ export class TextInput implements Focusable {
   /** Lifecycle hook called when the input's value changes. */
   readonly #onChange?: (input: TextInput) => void;
 
-  /** Lifecycle hook called when an `activate` key is pressed while editing. */
+  /** Lifecycle hook called when the input is done editing. */
   readonly #onSubmit?: (input: TextInput) => void;
 
   /** Object for keeping references to display objects or DOM elements. */
@@ -57,7 +57,6 @@ export class TextInput implements Focusable {
     placeholder = '',
     maxLength,
     container,
-    input: gameInput,
     body,
     onChange,
     onSubmit,
@@ -81,7 +80,6 @@ export class TextInput implements Focusable {
       // the text style above.
       caretHeight: style?.fontSize ?? 0,
       container,
-      input: gameInput,
       maxLength,
       theme,
     };
@@ -184,7 +182,7 @@ export class TextInput implements Focusable {
 
     // Cancel the native pointerdown so the browser does not generate the
     // compatibility mouse events whose default action moves focus to the canvas,
-    // which would immediately blur the hidden input right after startEditing() and close
+    // which would immediately blur the hidden input right after #startEditing() and close
     // the soft keyboard. (Per the Pointer Events spec, canceling pointerdown
     // suppresses the compatibility mouse events.)
     this.view.on('pointerdown', (event) => {
@@ -198,7 +196,7 @@ export class TextInput implements Focusable {
     // would never focus and the soft keyboard would never open.
     this.view.on('pointerup', (event) => {
       event.stopPropagation();
-      this.startEditing();
+      this.#startEditing();
     });
 
     // The view is a row (@pixi/layout defaults flexDirection to 'row'), so
@@ -231,34 +229,11 @@ export class TextInput implements Focusable {
       this.#parts.valueText.setText(next);
       this.#onChange?.(this);
     };
-    // The DOM listener stays: GameInput ignores every key while a text-entry
-    // element has DOM focus, which is what keeps arrows and Space as editing
-    // keys.
-    // TODO: remove when linter config contains fix for this: https://github.com/sindresorhus/eslint-plugin-unicorn/issues/2088
-    // eslint-disable-next-line unicorn/consistent-function-scoping -- false positive
-    let handleKeyDown = (event: KeyboardEvent) => {
-      // While editing, a key that produces a character is literal text, never a
-      // command: `activate` binds Space, and any binding could name a printable
-      // key. `code` identifies the physical key for bindings, `key` says what the
-      // current layout produces.
-      if (event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey) {
-        return;
-      }
-
-      if (this.#config.input.focusMatches('activate', event)) {
-        this.#onSubmit?.(this);
-        this.stopEditing();
-      } else if (this.#config.input.focusMatches('cancel', event)) {
-        this.stopEditing();
-      }
-    };
 
     input.addEventListener('input', handleInput);
-    input.addEventListener('keydown', handleKeyDown);
 
     this.#disposables.instance.defer(() => {
       input.removeEventListener('input', handleInput);
-      input.removeEventListener('keydown', handleKeyDown);
       input.remove();
     });
 
@@ -325,23 +300,33 @@ export class TextInput implements Focusable {
     this.#refresh();
   }
 
-  /** Activates the text input; starts editing. */
+  /** Activates the text input: starts editing, or, while editing, submits and stops. */
+  // GameInput ignores every key while a text-entry element has DOM focus, which
+  // is what keeps arrows and Space as editing keys; the keys bound to activate
+  // and cancel land here through UiRoot like any other command.
   activate() {
     if (this.#state === 'disabled') {
       return;
     }
 
-    this.startEditing();
+    if (this.#runtime.isEditing) {
+      this.#onSubmit?.(this);
+      this.#stopEditing();
+
+      return;
+    }
+
+    this.#startEditing();
   }
 
   /** @internal Called by `UiRoot`. */
   deactivate() {
-    this.stopEditing();
+    this.#stopEditing();
   }
 
   /** Destroys the instance. */
   destroy() {
-    this.stopEditing();
+    this.#stopEditing();
     this.#disposables.instance.dispose();
   }
 
@@ -356,7 +341,7 @@ export class TextInput implements Focusable {
     this.view.cursor = 'default';
 
     setLayerContainerBackground(this.view, this.#parts.backgrounds.disabled);
-    this.stopEditing();
+    this.#stopEditing();
   }
 
   /** Enables the text input. */
@@ -370,86 +355,6 @@ export class TextInput implements Focusable {
     this.view.cursor = 'text';
 
     setLayerContainerBackground(this.view, this.#parts.backgrounds.normal);
-  }
-
-  /** TBD */
-  startEditing(): this {
-    if (this.#runtime.isEditing) {
-      return this;
-    }
-
-    this.#runtime.isEditing = true;
-
-    // Clear the own-pointer flag the opening tap set, so the first outside tap
-    // is recognized as outside (nothing else clears it before the listener
-    // below exists).
-    this.#runtime.isOwnPointerDown = false;
-
-    // Everything that only matters during an edit is registered by the edit and
-    // torn down with it, so idle inputs hold no app-wide listeners. Closes the
-    // editor when a pointerdown lands outside this field, and when the input
-    // loses focus on its own (e.g. the soft keyboard is dismissed), so the
-    // field can be focused again afterwards. A tap on this field's own view
-    // sets #runtime.isOwnPointerDown first (the view's federated pointerdown runs
-    // before the window listener), so an in-field tap keeps the edit — and the
-    // soft keyboard — alive.
-    this.#disposables.editing = new DisposableStack();
-
-    // TODO: remove when linter config contains fix for this: https://github.com/sindresorhus/eslint-plugin-unicorn/issues/2088
-    // eslint-disable-next-line unicorn/consistent-function-scoping -- false positive
-    let handleBlur = () => {
-      if (this.#runtime.isOwnPointerDown) {
-        this.#runtime.isOwnPointerDown = false;
-
-        return;
-      }
-
-      this.stopEditing();
-    };
-
-    globalThis.addEventListener('pointerdown', handleBlur);
-    this.#parts.input.addEventListener('blur', handleBlur);
-    this.#disposables.editing.defer(() => {
-      globalThis.removeEventListener('pointerdown', handleBlur);
-      this.#parts.input.removeEventListener('blur', handleBlur);
-    });
-
-    this.#parts.input.value = this.#runtime.value;
-
-    let {x, y} = this.view.getGlobalPosition();
-    let ratio = window.devicePixelRatio || 1;
-    // getGlobalPosition is in renderer (device) pixels relative to the canvas;
-    // the input is position: fixed (viewport-relative), so offset by the canvas
-    // container's viewport rect and convert device px -> CSS px.
-    let rect = this.#config.container.getBoundingClientRect();
-
-    this.#parts.input.style.left = `${rect.left + x / ratio}px`;
-    this.#parts.input.style.top = `${rect.top + y / ratio}px`;
-
-    this.#parts.input.focus({preventScroll: true});
-
-    this.#refresh();
-
-    return this;
-  }
-
-  /** TBD */
-  stopEditing(): this {
-    if (!this.#runtime.isEditing) {
-      return this;
-    }
-
-    this.#runtime.isEditing = false;
-
-    // Disposed before blur() below, so the blur it raises finds no listener.
-    this.#disposables.editing?.dispose();
-    this.#disposables.editing = null;
-
-    this.#parts.input.blur();
-
-    this.#refresh();
-
-    return this;
   }
 
   /** TBD */
@@ -485,6 +390,82 @@ export class TextInput implements Focusable {
     } else {
       this.#parts.row.addChild(this.#parts.valueText.view);
     }
+  }
+
+  /** Starts the edit: focuses the hidden input and shows the caret. */
+  #startEditing() {
+    if (this.#runtime.isEditing) {
+      return;
+    }
+
+    this.#runtime.isEditing = true;
+
+    // Clear the own-pointer flag the opening tap set, so the first outside tap
+    // is recognized as outside (nothing else clears it before the listener
+    // below exists).
+    this.#runtime.isOwnPointerDown = false;
+
+    // Everything that only matters during an edit is registered by the edit and
+    // torn down with it, so idle inputs hold no app-wide listeners. Closes the
+    // editor when a pointerdown lands outside this field, and when the input
+    // loses focus on its own (e.g. the soft keyboard is dismissed), so the
+    // field can be focused again afterwards. A tap on this field's own view
+    // sets #runtime.isOwnPointerDown first (the view's federated pointerdown runs
+    // before the window listener), so an in-field tap keeps the edit — and the
+    // soft keyboard — alive.
+    this.#disposables.editing = new DisposableStack();
+
+    // TODO: remove when linter config contains fix for this: https://github.com/sindresorhus/eslint-plugin-unicorn/issues/2088
+    // eslint-disable-next-line unicorn/consistent-function-scoping -- false positive
+    let handleBlur = () => {
+      if (this.#runtime.isOwnPointerDown) {
+        this.#runtime.isOwnPointerDown = false;
+
+        return;
+      }
+
+      this.#stopEditing();
+    };
+
+    globalThis.addEventListener('pointerdown', handleBlur);
+    this.#parts.input.addEventListener('blur', handleBlur);
+    this.#disposables.editing.defer(() => {
+      globalThis.removeEventListener('pointerdown', handleBlur);
+      this.#parts.input.removeEventListener('blur', handleBlur);
+    });
+
+    this.#parts.input.value = this.#runtime.value;
+
+    let {x, y} = this.view.getGlobalPosition();
+    let ratio = window.devicePixelRatio || 1;
+    // getGlobalPosition is in renderer (device) pixels relative to the canvas;
+    // the input is position: fixed (viewport-relative), so offset by the canvas
+    // container's viewport rect and convert device px -> CSS px.
+    let rect = this.#config.container.getBoundingClientRect();
+
+    this.#parts.input.style.left = `${rect.left + x / ratio}px`;
+    this.#parts.input.style.top = `${rect.top + y / ratio}px`;
+
+    this.#parts.input.focus({preventScroll: true});
+
+    this.#refresh();
+  }
+
+  /** Ends the edit: blurs the hidden input and hides the caret. */
+  #stopEditing() {
+    if (!this.#runtime.isEditing) {
+      return;
+    }
+
+    this.#runtime.isEditing = false;
+
+    // Disposed before blur() below, so the blur it raises finds no listener.
+    this.#disposables.editing?.dispose();
+    this.#disposables.editing = null;
+
+    this.#parts.input.blur();
+
+    this.#refresh();
   }
 
   /** TBD */

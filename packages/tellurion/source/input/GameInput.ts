@@ -195,6 +195,9 @@ export class GameInput {
 
     // eslint-disable-next-line unicorn/consistent-function-scoping -- false positive
     let handleKeyDown = (event: KeyboardEvent) => {
+      // Keys inside a text-entry element belong to the DOM, so nothing is
+      // recorded. The two that end an edit, activate and cancel, are routed by
+      // `adoptInput`'s own keydown listener.
       if (isTextEntryTarget(event)) {
         return;
       }
@@ -275,9 +278,10 @@ export class GameInput {
 
   /**
    * Whether the event matches one of the command's bindings. A pure read of
-   * the table, independent of the latched state: a text field with DOM focus
-   * asks it for the keys that commit or dismiss it, while the window listeners
-   * ignore text entry. Unbound commands read false.
+   * the table, independent of the latched state: the game's text-entry key
+   * listener asks it for the keys that commit or dismiss a field with DOM
+   * focus, while the window listeners ignore text entry. Unbound commands read
+   * false.
    */
   focusMatches(command: FocusCommand, event: KeyboardEvent): boolean {
     // The event's flags stand in for the down-set the matcher reads modifier

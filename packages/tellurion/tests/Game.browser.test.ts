@@ -182,6 +182,7 @@ async function createGame(
     increase: vitest.fn<() => void>(),
     decrease: vitest.fn<() => void>(),
     cancel: vitest.fn<() => void>(),
+    deactivate: vitest.fn<() => void>(),
   };
   let view = new pixi.Container();
 
@@ -224,6 +225,18 @@ function press(code: string, init: KeyboardEventInit = {}) {
   globalThis.dispatchEvent(event);
 
   return event;
+}
+
+// A keydown whose target is a text-entry element, as the hidden input of an
+// editing TextInput would receive it.
+function pressInField(code: string, init: KeyboardEventInit = {}) {
+  let field = document.createElement('input');
+
+  document.body.append(field);
+  field.dispatchEvent(
+    new KeyboardEvent('keydown', {code, cancelable: true, bubbles: true, ...init}),
+  );
+  field.remove();
 }
 
 // eslint-disable-next-line vitest/require-top-level-describe -- global beforeAll shared by all describe blocks
@@ -347,6 +360,43 @@ describe('Game focus key routing', () => {
     frame(game);
 
     expect(ui.focusNext).not.toHaveBeenCalled();
+  });
+
+  test('activate inside a DOM input element is routed at the keydown, without a frame', async () => {
+    let {ui} = await createGame(new GameInput(FOCUS_BINDINGS));
+
+    pressInField('Enter', {key: 'Enter'});
+
+    expect(ui.activate).toHaveBeenCalledTimes(1);
+  });
+
+  test('cancel inside a DOM input element deactivates at the keydown, without a frame', async () => {
+    let {ui} = await createGame(new GameInput(FOCUS_BINDINGS));
+
+    pressInField('Escape', {key: 'Escape'});
+
+    expect(ui.deactivate).toHaveBeenCalledTimes(1);
+    expect(ui.cancel).not.toHaveBeenCalled();
+  });
+
+  test('a printable key bound to activate inside a DOM input element is typed, not routed', async () => {
+    let {game, ui} = await createGame(new GameInput(FOCUS_BINDINGS));
+
+    pressInField('Space', {key: ' '});
+    frame(game);
+
+    expect(ui.activate).not.toHaveBeenCalled();
+  });
+
+  test('a modified binding inside a DOM input element reads the modifier from the event', async () => {
+    let {ui} = await createGame(
+      new GameInput({focus: {activate: {keys: ['Enter']}, cancel: {keys: ['Shift+Enter']}}}),
+    );
+
+    pressInField('Enter', {key: 'Enter', shiftKey: true});
+
+    expect(ui.deactivate).toHaveBeenCalledTimes(1);
+    expect(ui.activate).not.toHaveBeenCalled();
   });
 
   test('mount after unmount does not stack duplicate resize handlers', async () => {

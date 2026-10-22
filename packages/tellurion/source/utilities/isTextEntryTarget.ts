@@ -4,6 +4,8 @@
  * drives its editing through a hidden DOM `<input>`, so `GameInput`'s key
  * listener calls this before consuming a key, letting text entry (or any
  * other native text field) keep its own keys instead of the game.
+ * `adoptInput`'s listener calls it too, to route the keys that end an edit
+ * from inside the field.
  */
 export function isTextEntryTarget(event: Event): boolean {
   let {target} = event;

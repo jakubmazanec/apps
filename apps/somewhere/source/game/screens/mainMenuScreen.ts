@@ -13,7 +13,6 @@ import {
 import {assets} from '../core/assets.js';
 import {audio} from '../core/audio.js';
 import {game} from '../core/game.js';
-import {input} from '../core/input.js';
 import {playFocusSound} from '../core/playFocusSound.js';
 import {clearStagedSave, loadSave, stageContinue} from '../core/save.js';
 import {saveSettings, saveSettingsSoon, settings} from '../core/settings.js';
@@ -59,7 +58,6 @@ function openOptionsModal(screen: GameScreen<MainMenuScreenContents>) {
     // Evaluated on the Options click — after the canvas is mounted — so it
     // resolves to the real canvas container.
     container: game.app.canvas.parentElement ?? document.body,
-    input,
     onChange: (changed) => {
       settings.playerName = changed.value;
       saveSettings();
