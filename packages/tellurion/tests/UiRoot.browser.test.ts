@@ -593,6 +593,50 @@ describe(UiRoot, () => {
     });
   });
 
+  describe('deactivate', () => {
+    test('deactivates the focused component', () => {
+      let a = {...focusable(), deactivate: vitest.fn<() => void>()};
+      let root = createRootWith(a);
+
+      root.focus(a);
+      root.deactivate();
+
+      expect(a.deactivate).toHaveBeenCalledTimes(1);
+    });
+
+    test('is a no-op with nothing focused', () => {
+      let a = {...focusable(), deactivate: vitest.fn<() => void>()};
+      let root = createRootWith(a);
+
+      root.deactivate();
+
+      expect(a.deactivate).not.toHaveBeenCalled();
+    });
+
+    test('is a no-op for a component without deactivate', () => {
+      let a = focusable();
+      let root = createRootWith(a);
+
+      root.focus(a);
+
+      expect(() => {
+        root.deactivate();
+      }).not.toThrow();
+    });
+
+    test('drops focus instead of calling deactivate on a stale component', () => {
+      let a = {...focusable(), deactivate: vitest.fn<() => void>()};
+      let root = createRootWith(a);
+
+      root.focus(a);
+      a.isFocusable = false;
+      root.deactivate();
+
+      expect(a.deactivate).not.toHaveBeenCalled();
+      expect(root.focused).toBeNull();
+    });
+  });
+
   describe('stale focus', () => {
     test('an arrow command drops stale focus; the next one starts over', () => {
       let a = focusable({x: 0, y: 0, width: 10, height: 10});
@@ -886,6 +930,19 @@ describe(UiRoot, () => {
       expect(() => {
         root.cancel();
       }).not.toThrow();
+    });
+
+    test('does not deactivate the focused component', () => {
+      let field = {...focusable(), deactivate: vitest.fn<() => void>()};
+      let root = createRootWith(field);
+      let overlay = {...panel([field]), close: vitest.fn<() => void>()};
+
+      root.addOverlay(overlay);
+      root.focus(field);
+      root.cancel();
+
+      expect(field.deactivate).not.toHaveBeenCalled();
+      expect(overlay.close).toHaveBeenCalledTimes(1);
     });
   });
 

@@ -6,10 +6,6 @@ export type TextInputOptions = UiComponentThemeOptions<'textInput'> & {
   placeholder?: string | undefined;
   maxLength?: number | undefined;
   container: HTMLElement;
-  // Consulted while editing, so the keys that commit or dismiss a field follow
-  // the game's bindings. Structural, so tests pass a fake and neither module
-  // imports the other.
-  input: {focusMatches: (command: 'activate' | 'cancel', event: KeyboardEvent) => boolean};
   onChange?: ((input: TextInput) => void) | undefined;
   onSubmit?: ((input: TextInput) => void) | undefined;
 };

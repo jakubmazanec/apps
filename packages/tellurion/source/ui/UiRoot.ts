@@ -188,6 +188,21 @@ export class UiRoot implements UiParentComponent {
     this.#runtime.scopes.length = 0;
   }
 
+  /** Deactivates the focused component. */
+  deactivate() {
+    if (this.#runtime.focused === null) {
+      return;
+    }
+
+    if (!this.#focusables.includes(this.#runtime.focused)) {
+      this.#runtime.focused = null;
+
+      return;
+    }
+
+    this.#runtime.focused.deactivate?.();
+  }
+
   /** Triggers the focused component's decrease action. */
   decrease() {
     if (this.#runtime.focused === null) {

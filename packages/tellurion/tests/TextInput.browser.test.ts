@@ -102,20 +102,6 @@ function tick(steps = 1, stepMs = 100) {
   }
 }
 
-type FakeBindings = {activate?: string[]; cancel?: string[]};
-
-// The game's real table binds Space to activate, so the default here does too.
-const DEFAULT_BINDINGS: FakeBindings = {activate: ['Enter', 'Space'], cancel: ['Escape']};
-
-// Stands in for GameInput: a command matches when the event's code is one of
-// its keys.
-function fakeInput(bindings: FakeBindings = DEFAULT_BINDINGS) {
-  return {
-    focusMatches: (command: 'activate' | 'cancel', event: KeyboardEvent) =>
-      (bindings[command] ?? []).includes(event.code),
-  };
-}
-
 function caretWidthOf(view: pixi.Container): number {
   return (caretOf(view).layout as unknown as {computedLayout: {width: number}}).computedLayout
     .width;
@@ -138,35 +124,10 @@ describe('TextInput', () => {
     return new TextInput({
       backgrounds: backgrounds(),
       container,
-      input: fakeInput(),
       body: {fontFamily: 'monogram', fontSize: 16, fill: 0xffffff},
       ...(layout === undefined ? {} : {layout}),
       ...(onChange === undefined ? {} : {onChange}),
     });
-  }
-
-  function createEditing(bindings?: FakeBindings) {
-    let onSubmit = vitest.fn<() => void>();
-    let input = new TextInput({
-      backgrounds: backgrounds(),
-      container,
-      input: fakeInput(bindings),
-      body: {fontFamily: 'monogram', fontSize: 16, fill: 0xffffff},
-      onSubmit,
-    });
-    let element = container.querySelector('input');
-
-    if (element === null) {
-      throw new Error('hidden input was not created');
-    }
-
-    input.startEditing();
-
-    let press = (code: string, key: string) => {
-      element.dispatchEvent(new KeyboardEvent('keydown', {code, key}));
-    };
-
-    return {element, onSubmit, press};
   }
 
   beforeAll(async () => {
@@ -200,19 +161,19 @@ describe('TextInput', () => {
     // An idle input holds no app-wide listener.
     expect(added()).toBe(0);
 
-    input.startEditing();
+    input.activate();
 
     expect(added()).toBe(1);
     expect(removed()).toBe(0);
 
-    input.stopEditing();
+    input.deactivate();
 
     expect(added()).toBe(1);
     expect(removed()).toBe(1);
 
     // A second edit cycle attaches and detaches again, staying balanced.
-    input.startEditing();
-    input.stopEditing();
+    input.activate();
+    input.deactivate();
 
     expect(added()).toBe(2);
     expect(removed()).toBe(2);
@@ -227,16 +188,16 @@ describe('TextInput', () => {
     let added = () => addSpy.mock.calls.filter(([type]) => type === 'blur').length;
     let removed = () => removeSpy.mock.calls.filter(([type]) => type === 'blur').length;
 
-    // The hidden input is only ever focused by startEditing, so an idle field
+    // The hidden input is only ever focused by #startEditing, so an idle field
     // has nothing to hear.
     expect(added()).toBe(0);
 
-    input.startEditing();
+    input.activate();
 
     expect(added()).toBe(1);
     expect(removed()).toBe(0);
 
-    input.stopEditing();
+    input.deactivate();
 
     expect(added()).toBe(1);
     expect(removed()).toBe(1);
@@ -246,7 +207,7 @@ describe('TextInput', () => {
     let removeSpy = vitest.spyOn(globalThis, 'removeEventListener');
     let input = createInput();
 
-    input.startEditing();
+    input.activate();
     input.destroy();
 
     expect(removeSpy.mock.calls.filter(([type]) => type === 'pointerdown')).toHaveLength(1);
@@ -318,7 +279,7 @@ describe('TextInput', () => {
 
     expect(blurSpy).not.toHaveBeenCalled();
 
-    input.startEditing();
+    input.activate();
     globalThis.dispatchEvent(new Event('pointerdown'));
 
     expect(blurSpy).toHaveBeenCalledWith();
@@ -335,7 +296,7 @@ describe('TextInput', () => {
     let blurSpy = vitest.spyOn(element, 'blur');
     let {view} = input;
 
-    input.startEditing();
+    input.activate();
 
     // The same native tap: the federated pointerdown reaches the view first,
     // then the global listener runs for that same event. The real event needs
@@ -364,14 +325,14 @@ describe('TextInput', () => {
 
     // The tap that opens the field sets #isOwnPointerDown via the view's
     // federated pointerdown; editing then begins on pointerup. The window
-    // listener is only attached now, so startEditing must clear that flag or the
+    // listener is only attached now, so #startEditing must clear that flag or the
     // next outside tap would be mistaken for the leftover opening tap.
     view.emit('pointerdown', {
       global: {x: -1000, y: -1000},
       stopPropagation() {},
       preventDefault() {},
     } as never);
-    input.startEditing();
+    input.activate();
 
     globalThis.dispatchEvent(new Event('pointerdown'));
 
@@ -388,7 +349,7 @@ describe('TextInput', () => {
 
     let blurSpy = vitest.spyOn(element, 'blur');
 
-    input.startEditing();
+    input.activate();
     globalThis.dispatchEvent(new Event('pointerdown'));
 
     expect(blurSpy).toHaveBeenCalledWith();
@@ -421,6 +382,28 @@ describe('TextInput', () => {
     expect(focusSpy).toHaveBeenCalledTimes(1);
   });
 
+  test('activate while editing submits and ends the edit', () => {
+    let onSubmit = vitest.fn<() => void>();
+    let input = new TextInput({
+      backgrounds: backgrounds(),
+      container,
+      body: {fontFamily: 'monogram', fontSize: 16, fill: 0xffffff},
+      onSubmit,
+    });
+    let element = container.querySelector('input');
+
+    if (element === null) {
+      throw new Error('hidden input was not created');
+    }
+
+    input.activate();
+    input.activate();
+
+    expect(onSubmit).toHaveBeenCalledTimes(1);
+    expect(document.activeElement).not.toBe(element);
+    expect(findCaret(input.view)).toBeUndefined();
+  });
+
   test('activate is a no-op while disabled', () => {
     let input = createInput();
     let element = container.querySelector('input');
@@ -445,7 +428,7 @@ describe('TextInput', () => {
       throw new Error('hidden input was not created');
     }
 
-    input.startEditing();
+    input.activate();
 
     element.value = 'abcd';
     element.dispatchEvent(new Event('input'));
@@ -470,7 +453,7 @@ describe('TextInput', () => {
       throw new Error('hidden input was not created');
     }
 
-    input.startEditing();
+    input.activate();
 
     element.value = 'abcd';
     element.dispatchEvent(new Event('input'));
@@ -490,7 +473,7 @@ describe('TextInput', () => {
       throw new Error('hidden input was not created');
     }
 
-    input.startEditing();
+    input.activate();
 
     element.value = 'abcd';
     element.dispatchEvent(new Event('input'));
@@ -512,7 +495,7 @@ describe('TextInput', () => {
       throw new Error('hidden input was not created');
     }
 
-    input.startEditing();
+    input.activate();
 
     element.value = 'abcd';
     element.dispatchEvent(new Event('input'));
@@ -540,7 +523,7 @@ describe('TextInput', () => {
       throw new Error('hidden input was not created');
     }
 
-    input.startEditing();
+    input.activate();
 
     element.value = 'abcd';
     element.dispatchEvent(new Event('input'));
@@ -571,7 +554,7 @@ describe('TextInput', () => {
       throw new Error('hidden input was not created');
     }
 
-    input.startEditing();
+    input.activate();
 
     element.value = 'abcd';
     element.dispatchEvent(new Event('input'));
@@ -599,7 +582,6 @@ describe('TextInput', () => {
     let input = new TextInput({
       backgrounds: {...backgrounds(), normal, disabled},
       container,
-      input: fakeInput(),
       body: {fontFamily: 'monogram', fontSize: 16, fill: 0xffffff},
     });
     let view = input.view as unknown as {background: unknown};
@@ -622,7 +604,7 @@ describe('TextInput', () => {
 
     let removeSpy = vitest.spyOn(globalThis, 'removeEventListener');
 
-    input.startEditing();
+    input.activate();
 
     element.value = 'typed';
     element.dispatchEvent(new Event('input'));
@@ -631,7 +613,7 @@ describe('TextInput', () => {
 
     input.disable();
 
-    // disable() ends the edit via stopEditing(), so the window listener is gone.
+    // disable() ends the edit via #stopEditing(), so the window listener is gone.
     expect(removeSpy.mock.calls.filter(([type]) => type === 'pointerdown')).toHaveLength(1);
     expect(document.activeElement).not.toBe(element);
 
@@ -651,7 +633,7 @@ describe('TextInput', () => {
 
     let removeSpy = vitest.spyOn(globalThis, 'removeEventListener');
 
-    input.startEditing();
+    input.activate();
 
     expect(document.activeElement).toBe(element);
 
@@ -694,7 +676,7 @@ describe('TextInput', () => {
 
     overlay.view.addChild(input.view);
     root.addOverlay(overlay);
-    input.startEditing();
+    input.activate();
 
     expect(document.activeElement).toBe(element);
 
@@ -713,44 +695,52 @@ describe('TextInput', () => {
     root.destroy();
   });
 
-  describe('keys while editing follow the bindings', () => {
-    test('a key bound to activate submits and stops editing', () => {
-      let {element, onSubmit, press} = createEditing();
-
-      press('Enter', 'Enter');
-
-      expect(onSubmit).toHaveBeenCalledTimes(1);
-      expect(document.activeElement).not.toBe(element);
+  test('the UiRoot commands reach an editing field it has focused', () => {
+    let root = new UiRoot({theme: createTestTheme()});
+    let onSubmit = vitest.fn<() => void>();
+    let input = new TextInput({
+      backgrounds: backgrounds(),
+      container,
+      body: {fontFamily: 'monogram', fontSize: 16, fill: 0xffffff},
+      onSubmit,
     });
+    let element = container.querySelector('input');
 
-    test('a printable key bound to activate types instead of committing', () => {
-      let {element, onSubmit, press} = createEditing();
+    if (element === null) {
+      throw new Error('hidden input was not created');
+    }
 
-      press('Space', ' ');
+    let overlay = {view: new pixi.Container(), children: [input]};
 
-      expect(onSubmit).not.toHaveBeenCalled();
-      expect(document.activeElement).toBe(element);
-    });
+    overlay.view.addChild(input.view);
+    root.addOverlay(overlay);
+    root.focus(input);
+    root.activate();
 
-    test('a rebound cancel dismisses the field, and the old key no longer does', () => {
-      let {element, onSubmit, press} = createEditing({activate: ['Enter'], cancel: ['F2']});
+    expect(document.activeElement).toBe(element);
 
-      press('Escape', 'Escape');
+    // A second activate submits and ends the edit.
+    root.activate();
 
-      expect(document.activeElement).toBe(element);
+    expect(onSubmit).toHaveBeenCalledTimes(1);
+    expect(document.activeElement).not.toBe(element);
 
-      press('F2', 'F2');
+    // deactivate ends the edit without submitting.
+    root.activate();
+    root.deactivate();
 
-      expect(onSubmit).not.toHaveBeenCalled();
-      expect(document.activeElement).not.toBe(element);
-    });
+    expect(onSubmit).toHaveBeenCalledTimes(1);
+    expect(document.activeElement).not.toBe(element);
+
+    input.destroy();
+    root.destroy();
   });
 });
 
 describe('TextInput theme', () => {
   test('takes its backgrounds from the theme', () => {
     let theme = createTestTheme();
-    let input = new TextInput({theme, container: document.body, input: fakeInput()});
+    let input = new TextInput({theme, container: document.body});
     let view = input.view as unknown as {background: pixi.Container};
 
     expect(view.background.label).toBe('text-input-normal');
@@ -767,11 +757,10 @@ describe('TextInput theme', () => {
       theme,
       backgrounds: backgrounds(),
       container: document.body,
-      input: fakeInput(),
     });
 
     // The caret is only in the tree while editing.
-    input.startEditing();
+    input.activate();
 
     expect(caretOf(input.view).tint).toBe(0x123456);
     expect(mockTextOptions.slice(-2)).toEqual([
@@ -789,10 +778,9 @@ describe('TextInput theme', () => {
       backgrounds: backgrounds(),
       body,
       container: document.body,
-      input: fakeInput(),
     });
 
-    input.startEditing();
+    input.activate();
 
     expect(caretOf(input.view).tint).toBe(0x654321);
     expect(mockTextOptions.slice(-2)).toEqual([
