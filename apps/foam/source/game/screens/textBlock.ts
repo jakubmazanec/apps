@@ -23,7 +23,7 @@ export class TextBlock extends Container {
       text: '',
       theme: game.theme,
       role: 'body',
-      fontFamily: 'monogram-italic',
+      body: {...game.theme.text.body, fontFamily: 'monogram-italic'},
       layout: leafLayout,
     });
 

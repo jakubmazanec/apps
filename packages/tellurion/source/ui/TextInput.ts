@@ -58,10 +58,7 @@ export class TextInput implements Focusable {
     maxLength,
     container,
     input: gameInput,
-    role,
-    fontFamily,
-    fontSize,
-    fill,
+    body,
     onChange,
     onSubmit,
     layout,
@@ -74,24 +71,15 @@ export class TextInput implements Focusable {
       this.#onSubmit = onSubmit;
     }
 
-    // TextInput defaults to 'body' because it renders entered text, not a label.
-    let style = theme === undefined ? undefined : theme.text[role ?? 'body'];
-    let resolvedFontFamily = fontFamily ?? style?.fontFamily;
-    let resolvedFontSize = fontSize ?? style?.fontSize;
-    let resolvedFill = fill ?? style?.fill;
-    let textStyle = {
-      ...(resolvedFontFamily === undefined ? undefined : {fontFamily: resolvedFontFamily}),
-      ...(resolvedFontSize === undefined ? undefined : {fontSize: resolvedFontSize}),
-      ...(resolvedFill === undefined ? undefined : {fill: resolvedFill}),
-    };
+    let style = body ?? theme?.textInput.body;
 
     this.#config = {
       // The block covers the character's whole line box, the way a terminal's cell
-      // cursor does. Falls back to 0 only in the no-theme, no-explicit-fontSize
+      // cursor does. Falls back to 0 only in the no-theme, no-override
       // branch — unreachable through TextInputOptions in practice (the theme, when
       // present, always supplies a fontSize), used here only, not smuggled into
       // the text style above.
-      caretHeight: resolvedFontSize ?? 0,
+      caretHeight: style?.fontSize ?? 0,
       container,
       input: gameInput,
       maxLength,
@@ -108,18 +96,18 @@ export class TextInput implements Focusable {
     // view's 'text' cursor wherever the text covers the field.
     row.eventMode = 'none';
 
-    let valueText = new Text({text: value, layout: true, ...textStyle});
+    let valueText = new Text({text: value, layout: true, label: style});
     let placeholderText = new Text({
       text: placeholder,
       layout: true,
-      ...textStyle,
+      label: style,
     });
 
     placeholderText.view.alpha = 0.5;
 
     let caret = new pixi.Sprite(pixi.Texture.WHITE);
 
-    caret.tint = textStyle.fill ?? 0xffffff;
+    caret.tint = style?.fill ?? 0xffffff;
 
     let input = document.createElement('input');
 

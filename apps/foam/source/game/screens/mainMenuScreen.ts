@@ -68,7 +68,7 @@ export const mainMenuScreen = new GameScreen<MainMenuScreenContents>({
     let title = new Text({
       text: 'Foam',
       theme: game.theme,
-      fontSize: 48,
+      label: {...game.theme.text.label, fontSize: 48},
       layout: {width: 96, height: 48},
     });
     let newGameButton = new Button({

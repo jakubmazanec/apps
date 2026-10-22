@@ -55,7 +55,6 @@ function openOptionsModal(screen: GameScreen<MainMenuScreenContents>) {
     theme: game.theme,
     value: settings.playerName,
     placeholder: 'Name...',
-    role: 'body',
     maxLength: 16,
     // Evaluated on the Options click — after the canvas is mounted — so it
     // resolves to the real canvas container.

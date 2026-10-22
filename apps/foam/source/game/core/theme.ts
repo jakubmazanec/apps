@@ -40,6 +40,11 @@ export const theme: UiThemeDescription = {
     normal: ['ui', 'text-input-normal'],
     hovered: ['ui', 'text-input-hovered'],
     disabled: ['ui', 'text-input-disabled'],
+    body: {
+      fontFamily: 'monogram',
+      fontSize: 12,
+      fill: palette.white,
+    },
   },
   slider: {
     track: ['ui', 'slider-track'],

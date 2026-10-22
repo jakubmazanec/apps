@@ -44,7 +44,7 @@ export function createStatusText(): Text {
   return new Text({
     text: '',
     theme: game.theme,
-    fontFamily: 'monogram-outline',
+    label: {...game.theme.text.label, fontFamily: 'monogram-outline'},
     layout: {position: 'absolute', left: 0, top: 0, width: 0, height: LINE_HEIGHT},
   });
 }

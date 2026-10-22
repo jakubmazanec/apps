@@ -21,6 +21,7 @@ export function createTestTheme(): ResolvedUiTheme {
       normal: texture('text-input-normal'),
       hovered: texture('text-input-hovered'),
       disabled: texture('text-input-disabled'),
+      body: {fontFamily: 'monogram', fontSize: 12, fill: 0xffffff},
     },
     slider: {
       track: texture('slider-track'),
