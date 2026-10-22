@@ -30,7 +30,7 @@ export function createWindowTitle(text: string, width: number): Container {
       new Text({
         text,
         theme: game.theme,
-        fill: palette.rose,
+        label: {...game.theme.text.label, fill: palette.rose},
         layout: {width, height: LINE_HEIGHT},
       }),
       // The frame is 1 × 1; without objectFit: 'fill' the layout would not stretch it.

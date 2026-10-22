@@ -32,9 +32,7 @@ export const errorScreen = new GameScreen<ErrorScreenContents>({
       // is 144 wide (12 px padding either side) and fits a 146-pixel screen, the
       // narrowest the tests keep. breakWords covers the long unbroken tokens error
       // messages are full of: urls, module paths, minified identifiers.
-      wordWrap: true,
-      wordWrapWidth: 120,
-      breakWords: true,
+      wrapWidth: 120,
       layout: true,
     });
 

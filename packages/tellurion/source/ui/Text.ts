@@ -26,19 +26,23 @@ export class Text {
   constructor({
     text,
     theme,
+    label,
+    body,
     role = 'label',
+    wrapWidth,
     anchor = DEFAULT_ANCHOR,
     layout,
-    ...style
   }: TextOptions) {
     this.#config = {theme};
     this.#parts = {
       content: new pixi.BitmapText({
         text,
-        style:
-          this.#config.theme?.text[role] === undefined ?
-            style
-          : {...this.#config.theme.text[role], ...style},
+        style: {
+          ...({label, body}[role] ?? this.#config.theme?.text[role]),
+          ...(wrapWidth === undefined ? undefined : (
+            {wordWrap: true, wordWrapWidth: wrapWidth, breakWords: true}
+          )),
+        },
       }),
     };
 

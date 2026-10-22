@@ -424,9 +424,7 @@ export class DialogueBox implements UiOverlayComponent {
         // #applySelected overwrites this a few lines down; wrapping here keeps
         // the label from ever existing at its unwrapped width.
         text: this.#wrapChoice(index, UNSELECTED_PREFIX),
-        fontFamily: this.#font.fontFamily,
-        fontSize: this.#font.fontSize,
-        fill: this.#font.fill,
+        label: this.#font,
         layout: true,
       });
 
@@ -494,9 +492,7 @@ export class DialogueBox implements UiOverlayComponent {
       textChildren.push(
         new Text({
           text: node.speaker,
-          fontFamily: font.fontFamily,
-          fontSize: font.fontSize,
-          fill: font.fill,
+          label: font,
           layout: true,
         }),
       );
@@ -510,9 +506,7 @@ export class DialogueBox implements UiOverlayComponent {
     // first frame and the typewriter only fills it.
     this.#content = new Text({
       text: '',
-      fontFamily: font.fontFamily,
-      fontSize: font.fontSize,
-      fill: font.fill,
+      label: font,
       layout: {width: contentWidth, height: contentHeight},
     });
     textChildren.push(this.#content);
@@ -552,9 +546,7 @@ export class DialogueBox implements UiOverlayComponent {
         portraitChildren.push(
           new Text({
             text: node.speaker,
-            fontFamily: font.fontFamily,
-            fontSize: font.fontSize,
-            fill: font.fill,
+            label: font,
             layout: true,
           }),
         );

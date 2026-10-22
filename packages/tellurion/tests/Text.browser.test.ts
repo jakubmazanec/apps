@@ -9,6 +9,8 @@ import {Text} from '../source/ui/Text.js';
 import {createTestTheme} from './createTestTheme.js';
 import {installMonogram} from './installMonogram.js';
 
+const MONOGRAM = {fontFamily: 'monogram', fontSize: 12, fill: 0xffffff};
+
 describe('Text layout', () => {
   const PAGE = 'The old lighthouse keeper squints at\nthe horizon and says nothing.';
 
@@ -34,13 +36,7 @@ describe('Text layout', () => {
     textPanel.layout = {flexDirection: 'column', padding: 3, gap: 3, width: 240, height: 64};
     root.addChild(textPanel);
 
-    let content = new Text({
-      text: '',
-      fontFamily: 'monogram',
-      fontSize: 12,
-      fill: 0xffffff,
-      layout: true,
-    });
+    let content = new Text({text: '', label: MONOGRAM, layout: true});
 
     textPanel.addChild(content.view);
 
@@ -88,13 +84,7 @@ describe('Text layout', () => {
     textPanel.layout = {flexDirection: 'column', padding: 3, gap: 3, width: 240, height: 20};
     root.addChild(textPanel);
 
-    let content = new Text({
-      text: 'One\nTwo\nThree\nFour',
-      fontFamily: 'monogram',
-      fontSize: 12,
-      fill: 0xffffff,
-      layout: true,
-    });
+    let content = new Text({text: 'One\nTwo\nThree\nFour', label: MONOGRAM, layout: true});
 
     textPanel.addChild(content.view);
     layoutSystem.update(root);
@@ -112,8 +102,8 @@ describe('Text measurement', () => {
   });
 
   test('measures a substring exactly as wide as that substring renders', () => {
-    let text = new Text({text: 'One Two', fontFamily: 'monogram', fontSize: 12});
-    let prefix = new Text({text: 'One', fontFamily: 'monogram', fontSize: 12});
+    let text = new Text({text: 'One Two', label: MONOGRAM});
+    let prefix = new Text({text: 'One', label: MONOGRAM});
 
     // A caret sits at the right edge of the glyphs before it, so the measured
     // prefix has to match what those glyphs actually occupy.
@@ -123,13 +113,13 @@ describe('Text measurement', () => {
   // A block caret past the last character has no character to cover, so it takes
   // a space's advance; a zero there would collapse it to nothing.
   test('measures a lone space as its advance', () => {
-    let text = new Text({text: '', fontFamily: 'monogram', fontSize: 12});
+    let text = new Text({text: '', label: MONOGRAM});
 
     expect(measureTextWidth(' ', text.style)).toBeGreaterThan(0);
   });
 
   test('counts a trailing space', () => {
-    let text = new Text({text: '', fontFamily: 'monogram', fontSize: 12});
+    let text = new Text({text: '', label: MONOGRAM});
 
     // BitmapFontManager trims trailing whitespace by default, but a caret has to
     // advance when a space is typed.
@@ -155,9 +145,42 @@ describe('Text theming', () => {
     expect(text.style.fontFamily).toBe('monogram');
   });
 
-  test('an explicit font family wins over the theme', () => {
-    let text = new Text({text: 'Play', theme: createTestTheme(), fontFamily: 'other'});
+  test('a label override wins over the theme label', () => {
+    let theme = createTestTheme();
+    let text = new Text({text: 'Play', theme, label: {...theme.text.label, fontFamily: 'other'}});
 
     expect(text.style.fontFamily).toBe('other');
+  });
+
+  test('a body override applies only to the body role', () => {
+    let theme = createTestTheme();
+    let body = {...theme.text.body, fontFamily: 'other'};
+
+    expect(new Text({text: 'Play', theme, body}).style.fontFamily).toBe('monogram-outline');
+    expect(new Text({text: 'Loading', theme, role: 'body', body}).style.fontFamily).toBe('other');
+  });
+});
+
+describe('Text wrapping', () => {
+  // One unbroken token, so only breaking inside the word can wrap it.
+  const TOKEN = 'https://example.com/some/long/module/path';
+
+  beforeAll(() => {
+    installMonogram();
+  });
+
+  test('wrapWidth wraps the text, breaking words longer than the width', () => {
+    let unwrapped = new Text({text: TOKEN, label: MONOGRAM});
+    let wrapped = new Text({text: TOKEN, label: MONOGRAM, wrapWidth: 40});
+
+    expect(wrapped.view.getLocalBounds().height).toBeGreaterThan(
+      unwrapped.view.getLocalBounds().height,
+    );
+  });
+
+  test('without wrapWidth the text does not wrap', () => {
+    let text = new Text({text: TOKEN, label: MONOGRAM});
+
+    expect(text.style.wordWrap).toBe(false);
   });
 });

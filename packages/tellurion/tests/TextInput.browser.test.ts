@@ -17,6 +17,9 @@ vitest.mock(import('../source/ui/internals/measureTextWidth.js'), () => ({
   measureTextWidth: (text: string) => text.length * CHARACTER_WIDTH,
 }));
 
+// The options each mocked Text was built with, so a test can check the style it got.
+const mockTextOptions = vitest.hoisted(() => [] as unknown[]);
+
 vitest.mock(import('../source/ui/Text.js'), async () => {
   let {Container} = await import('pixi.js');
 
@@ -25,6 +28,10 @@ vitest.mock(import('../source/ui/Text.js'), async () => {
     // structural stand-in can satisfy the mocked module's declared shape.
     Text: class Text {
       view = new Container();
+
+      constructor(options: unknown) {
+        mockTextOptions.push(options);
+      }
 
       destroy() {
         this.view.destroy();
@@ -132,8 +139,7 @@ describe('TextInput', () => {
       backgrounds: backgrounds(),
       container,
       input: fakeInput(),
-      fontFamily: 'monogram',
-      fontSize: 16,
+      body: {fontFamily: 'monogram', fontSize: 16, fill: 0xffffff},
       ...(layout === undefined ? {} : {layout}),
       ...(onChange === undefined ? {} : {onChange}),
     });
@@ -145,8 +151,7 @@ describe('TextInput', () => {
       backgrounds: backgrounds(),
       container,
       input: fakeInput(bindings),
-      fontFamily: 'monogram',
-      fontSize: 16,
+      body: {fontFamily: 'monogram', fontSize: 16, fill: 0xffffff},
       onSubmit,
     });
     let element = container.querySelector('input');
@@ -595,8 +600,7 @@ describe('TextInput', () => {
       backgrounds: {...backgrounds(), normal, disabled},
       container,
       input: fakeInput(),
-      fontFamily: 'monogram',
-      fontSize: 16,
+      body: {fontFamily: 'monogram', fontSize: 16, fill: 0xffffff},
     });
     let view = input.view as unknown as {background: unknown};
 
@@ -750,5 +754,52 @@ describe('TextInput theme', () => {
     let view = input.view as unknown as {background: pixi.Container};
 
     expect(view.background.label).toBe('text-input-normal');
+  });
+
+  test('takes its text style from the theme', () => {
+    let theme = createTestTheme();
+    let body = {fontFamily: 'monogram', fontSize: 10, fill: 0x123456};
+
+    theme.textInput.body = body;
+
+    // Container backgrounds: the theme's would be sprites, and caretOf finds the first sprite.
+    let input = new TextInput({
+      theme,
+      backgrounds: backgrounds(),
+      container: document.body,
+      input: fakeInput(),
+    });
+
+    // The caret is only in the tree while editing.
+    input.startEditing();
+
+    expect(caretOf(input.view).tint).toBe(0x123456);
+    expect(mockTextOptions.slice(-2)).toEqual([
+      expect.objectContaining({label: body}),
+      expect.objectContaining({label: body}),
+    ]);
+
+    input.destroy();
+  });
+
+  test('a body option wins over the theme', () => {
+    let body = {fontFamily: 'monogram', fontSize: 10, fill: 0x654321};
+    let input = new TextInput({
+      theme: createTestTheme(),
+      backgrounds: backgrounds(),
+      body,
+      container: document.body,
+      input: fakeInput(),
+    });
+
+    input.startEditing();
+
+    expect(caretOf(input.view).tint).toBe(0x654321);
+    expect(mockTextOptions.slice(-2)).toEqual([
+      expect.objectContaining({label: body}),
+      expect.objectContaining({label: body}),
+    ]);
+
+    input.destroy();
   });
 });

@@ -25,6 +25,7 @@ export type UiTheme<Background> = {
     normal: Background;
     hovered: Background;
     disabled: Background;
+    body: UiTextStyle;
     layout?: LayoutStyles;
   };
   slider: {track: Background; fill: Background; hovered: Background; disabled: Background};
