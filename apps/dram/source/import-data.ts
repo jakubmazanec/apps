@@ -18,7 +18,7 @@ let rowSchema = z
     Name: z.string().optional(),
     Edition: z.string().optional(),
     Batch: z.string().optional(),
-    Age: z.union([z.undefined(), z.coerce.number()]),
+    Age: z.coerce.number().optional(),
     Vintage: z.string().optional(),
     Bottled: z.string().optional(),
     'Cask type': z.string().optional(),
@@ -36,14 +36,14 @@ let rowSchema = z
 
         return Number.parseFloat((Number.parseFloat(value.slice(0, -1)) / 100).toFixed(4));
       }),
-    Size: z.union([z.undefined(), z.coerce.number()]),
-    'Bottles count': z.union([z.undefined(), z.coerce.number()]),
-    'Nose rating': z.union([z.undefined(), z.coerce.number()]),
-    'Taste rating': z.union([z.undefined(), z.coerce.number()]),
-    'Finish rating': z.union([z.undefined(), z.coerce.number()]),
-    'Balance rating': z.union([z.undefined(), z.coerce.number()]),
-    Rating: z.union([z.undefined(), z.coerce.number()]),
-    Score: z.union([z.undefined(), z.coerce.number()]),
+    Size: z.coerce.number().optional(),
+    'Bottles count': z.coerce.number().optional(),
+    'Nose rating': z.coerce.number().optional(),
+    'Taste rating': z.coerce.number().optional(),
+    'Finish rating': z.coerce.number().optional(),
+    'Balance rating': z.coerce.number().optional(),
+    Rating: z.coerce.number().optional(),
+    Score: z.coerce.number().optional(),
     'Tasted at': z.coerce
       .date()
       .optional()
@@ -59,7 +59,7 @@ let rowSchema = z
     Nose: z.string().optional(),
     Taste: z.string().optional(),
     Finish: z.string().optional(),
-    'Bottle number': z.union([z.undefined(), z.string()]),
+    'Bottle number': z.string().optional(),
     'Bar code': z.string().optional(),
     'Bottle code': z.string().optional(),
     'Bought at': z.coerce

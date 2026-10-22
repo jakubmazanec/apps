@@ -6,11 +6,6 @@ import {type Route} from './+types/notes.js';
 export const loader = async () => {
   let notes = noteSchema.array().parse(data);
 
-  // TODO: this is hack so global search works (see https://tanstack.com/table/v8/docs/api/features/global-filtering#can-filter); fix this!
-  if (notes[0]) {
-    notes[0].name ??= '';
-  }
-
   return {
     notes,
   };
