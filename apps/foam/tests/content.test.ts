@@ -20,6 +20,7 @@ import {getSpotPosition} from '../source/game/core/getSpotPosition.js';
 import {isOpenAt} from '../source/game/core/hours.js';
 import {createNight, type Night, type PlaceId, type Quest} from '../source/game/core/night.js';
 import {type Place, type Spot} from '../source/game/core/place.js';
+import {asChoice, formatChoice} from '../source/game/core/script.js';
 
 const SCREENS = [
   {width: 480, height: 270},
@@ -102,6 +103,23 @@ function readChoices(dialogue: Dialogue<Night>): string[] {
 // The node a spot's script holds under the key.
 function nodeOf(id: PlaceId, label: string, key: string): unknown {
   return getSpotScript(getPlace(id), label).nodes?.[key];
+}
+
+function getBackRoomNode(minutes: number, quest?: Partial<Quest>): unknown {
+  return openSpot('rotorBarRoom', 'The back room', minutes, quest === undefined ? {} : {quest})
+    .dialogue.node;
+}
+
+// The answer of the spot's friend node, asked for at the hour.
+function ask(id: PlaceId, label: string, minutes: number, quest?: Partial<Quest>): string {
+  let {dialogue} = openSpot(id, label, minutes, quest === undefined ? {} : {quest});
+
+  dialogue.advance();
+  dialogue.choose(
+    dialogue.visibleChoices.findIndex((choice) => choice.text === 'Ask after your friend'),
+  );
+
+  return dialogue.pageText;
 }
 
 function openWhiskyShopDoor(minutes: number): {dialogue: Dialogue<Night>; night: Night} {
@@ -347,7 +365,7 @@ describe('the game content', () => {
   test('the cigarette and the bottle are offered only until their story is achieved', () => {
     expect(
       readChoices(openSpot('rotorBarStreet', 'The smokers', 1200, {drunkenness: 2}).dialogue),
-    ).toEqual(['Ask for a cigarette', 'Leave them to it']);
+    ).toEqual(['Ask for a cigarette', 'Ask after your friend', 'Leave them to it']);
     expect(
       readChoices(
         openSpot('rotorBarStreet', 'The smokers', 1200, {
@@ -355,7 +373,7 @@ describe('the game content', () => {
           collection: {titles: ['The tram that stopped early']},
         }).dialogue,
       ),
-    ).toEqual(['Leave them to it']);
+    ).toEqual(['Ask after your friend', 'Leave them to it']);
     expect(readChoices(openSpot('whiskyShopRoom', 'Two regulars', 1100).dialogue)).toEqual([
       'Ask about the bottle',
       'Let them be',
@@ -367,6 +385,68 @@ describe('the game content', () => {
         }).dialogue,
       ),
     ).toEqual(['Let them be']);
+  });
+
+  test('the back room has the friend by the hour, and is a chat once the keys are in hand', () => {
+    expect(getBackRoomNode(1000)).toBe(nodeOf('rotorBarRoom', 'The back room', 'away'));
+    expect(getBackRoomNode(1020)).toBe(nodeOf('rotorBarRoom', 'The back room', 'there'));
+    expect(getBackRoomNode(1199)).toBe(nodeOf('rotorBarRoom', 'The back room', 'there'));
+    expect(getBackRoomNode(1200)).toBe(nodeOf('rotorBarRoom', 'The back room', 'away'));
+    expect(getBackRoomNode(1379)).toBe(nodeOf('rotorBarRoom', 'The back room', 'away'));
+    expect(getBackRoomNode(1380)).toBe(nodeOf('rotorBarRoom', 'The back room', 'there'));
+    expect(getBackRoomNode(1619)).toBe(nodeOf('rotorBarRoom', 'The back room', 'there'));
+    expect(getBackRoomNode(1300, {hasKeys: true})).toBe(
+      nodeOf('rotorBarRoom', 'The back room', 'chat'),
+    );
+  });
+
+  test("the search's odds fall with the drinks", () => {
+    for (let [drunkenness, label] of [
+      [0, 'Look for them  10 min  70%'],
+      [3, 'Look for them  10 min  40%'],
+    ] as const) {
+      let {dialogue, night} = openSpot('rotorBarRoom', 'The back room', 1100, {drunkenness});
+
+      dialogue.advance();
+
+      expect(formatChoice(asChoice(dialogue.visibleChoices[0]!), night)).toBe(label);
+    }
+  });
+
+  test('a won search hands over the keys, and a lost one costs an hour', () => {
+    let won = takeChoice(openSpot('rotorBarRoom', 'The back room', 1100), 0, 0.1);
+
+    expect(won.night.quest.hasKeys).toBe(true);
+    expect(won.night.stories).toEqual([{title: 'The keys', minutes: 1110}]);
+    expect(won.dialogue.node).toBe(nodeOf('rotorBarRoom', 'The back room', 'found'));
+
+    let lost = takeChoice(openSpot('rotorBarRoom', 'The back room', 1100), 0, 0.9);
+
+    expect(lost.night.quest.hasKeys).toBe(false);
+    expect(lost.night.minutes).toBe(1170);
+    expect(lost.dialogue.node).toBe(nodeOf('rotorBarRoom', 'The back room', 'missed'));
+  });
+
+  test('the hints answer by the hour and by the keys, and read nothing else', () => {
+    let bartender = [1000, 1100, 1300, 1400].map((minutes) =>
+      ask('rotorBarRoom', 'The bar', minutes),
+    );
+    let smokers = [1000, 1100, 1300, 1400].map((minutes) =>
+      ask('rotorBarStreet', 'The smokers', minutes),
+    );
+
+    expect(new Set(bartender).size).toBe(4);
+    expect(bartender[2]).toContain('eleven');
+    expect(new Set(smokers).size).toBe(4);
+    expect(ask('rotorBarRoom', 'The bar', 1100, {hasKeys: true})).not.toBe(bartender[1]);
+    expect(ask('rotorBarRoom', 'The bar', 1100, {hasBottle: true, hasTicket: true})).toBe(
+      bartender[1],
+    );
+
+    let shopkeeper = ask('whiskyShopRoom', 'The shopkeeper', 1100);
+
+    expect(shopkeeper).toContain('Dvořákova');
+    expect(ask('whiskyShopRoom', 'The shopkeeper', 1100, {hasKeys: true})).not.toBe(shopkeeper);
   });
 
   test("the game's content has eleven stories", () => {

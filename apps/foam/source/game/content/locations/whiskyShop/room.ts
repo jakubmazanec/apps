@@ -59,11 +59,25 @@ const shelves = defineScript({
   },
 });
 const shopkeeper = defineScript({
-  start: {
-    speaker: SHOPKEEPER,
-    text: standIn`
-      He asks whether you like smoke or sweet, and waits as if the answer mattered to him.
-    `,
+  start: 'shopkeeper',
+  nodes: {
+    shopkeeper: {
+      speaker: SHOPKEEPER,
+      text: standIn`
+        He asks whether you like smoke or sweet, and waits as if the answer mattered to him.
+      `,
+      choices: [{text: 'Ask after your friend', next: 'friend'}, {text: 'Say nothing'}],
+    },
+    friend: {
+      speaker: SHOPKEEPER,
+      text: (night) =>
+        night.quest.hasKeys ?
+          standIn`He shrugs. Your friend is wherever they are tonight, and you have the keys.`
+        : standIn`
+            Your friend bought a bottle this afternoon, he says, and said something about
+            Dvořákova.
+          `,
+    },
   },
 });
 const regulars = defineScript({
