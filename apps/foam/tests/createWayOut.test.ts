@@ -75,16 +75,6 @@ describe(createWayOut, () => {
     expect(again.night.leaving).toEqual({way: 'tram', ways: ['tram']});
     expect(again.dialogue.phase).toBe('ended');
   });
-});
-
-describe(leaveBy, () => {
-  test('the returned function sets leaving', () => {
-    let night = createNight({place: 'zidenice', minutes: 1020, money: 350});
-
-    leaveBy('taxi', ALL_WAYS)(night);
-
-    expect(night.leaving).toEqual({way: 'taxi', ways: ALL_WAYS});
-  });
 
   test('the flat is offered with the keys, between the ways and Stay', () => {
     let {dialogue} = start(ALL_WAYS, {hasKeys: true});
@@ -111,5 +101,15 @@ describe(leaveBy, () => {
     dialogue.advance();
 
     expect(dialogue.phase).toBe('ended');
+  });
+});
+
+describe(leaveBy, () => {
+  test('the returned function sets leaving', () => {
+    let night = createNight({place: 'zidenice', minutes: 1020, money: 350});
+
+    leaveBy('taxi', ALL_WAYS)(night);
+
+    expect(night.leaving).toEqual({way: 'taxi', ways: ALL_WAYS});
   });
 });
