@@ -1,8 +1,8 @@
 # Foam: direction
 
-Started: 2026-10-03. App: `apps/foam`. Status: the direction is agreed; phases 1 to 5 are built, and
-phase 6 is being built. This is a living document: it describes the current state and plan, and is
-kept correct as they change.
+Started: 2026-10-03. App: `apps/foam`. Status: the direction is agreed; phases 1 to 6 are built, and
+the review of phase 6 is next. This is a living document: it describes the current state and plan,
+and is kept correct as they change.
 
 ## What Foam is
 
@@ -262,8 +262,8 @@ its own plan, build and review, in this order:
    It is built: [spec](superpowers/specs/2026-10-10-end-of-the-night-and-log-design.md),
    [plan](superpowers/plans/2026-10-10-end-of-the-night-and-log.md).
 
-Phase 6 is larger than one design-and-plan cycle and is cut into three specs, each with its own
-plan, build and review, in this order:
+Phase 6 is larger than one design-and-plan cycle and was cut into three specs, each with its own
+plan, build and review, in this order; all three are built:
 
 1. Stories: the collection of titles, saved in the browser's storage and shared by every night; the
    helpers the script calls to give a story and to ask whether it is achieved; the toast, the log
@@ -281,8 +281,9 @@ plan, build and review, in this order:
 3. The endings and sleep: the Morning text's branch, a ticket, then the keys, then stranded, each
    with a line on the bottle; two choices in the Morning text when the player holds both; and the
    sleep choices that set the clock to 08:00, on the hall's and the stops' benches and, with the
-   keys, in any outdoor place. It is designed:
-   [spec](superpowers/specs/2026-10-19-endings-and-sleep-design.md).
+   keys, in any outdoor place. It is built:
+   [spec](superpowers/specs/2026-10-19-endings-and-sleep-design.md),
+   [plan](superpowers/plans/2026-10-21-endings-and-sleep.md).
 
 **Phase 6 completes the first prototype: one whole night.** Its review decides what is kept and what
 is rewritten, and reopens the content model.
