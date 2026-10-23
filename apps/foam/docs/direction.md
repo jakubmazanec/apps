@@ -276,7 +276,8 @@ plan, build and review, in this order:
    the train; the friend in Rotor's room twice by the hour, with hints by the hour elsewhere and a
    failed search that costs an hour; the bottle at The Whisky Shop and the birthday at Rotor; the
    ticket machine in the hall; the quest's own stories; the checker over the quest's states; and the
-   jump-in's `quest=`. It is designed: [spec](superpowers/specs/2026-10-19-quest-threads-design.md).
+   jump-in's `quest=`. It is built: [spec](superpowers/specs/2026-10-19-quest-threads-design.md),
+   [plan](superpowers/plans/2026-10-21-quest-threads.md).
 3. The endings and sleep: the Morning text's branch, a ticket, then the keys, then stranded, each
    with a line on the bottle; two choices in the Morning text when the player holds both; and the
    sleep choices that set the clock to 08:00, on the hall's and the stops' benches and, with the
