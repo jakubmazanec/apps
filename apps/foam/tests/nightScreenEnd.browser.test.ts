@@ -176,6 +176,7 @@ describe('the end of the night', {timeout: 180_000}, () => {
     expect(nightScreen.contents.nextPlace?.place.id ?? null).toBeNull();
     expect(nightScreen.contents.hasEnded).toBe(true);
     expect(readText(nightScreen.contents.statusText)).toBe('08:05   305 Kč   1.0');
+    expect(end.dialogue.node).toBe(nightEnd.nodes?.stranded);
 
     await endStory(end);
     await waitForLogScreen();
@@ -298,6 +299,8 @@ describe('the end of the night', {timeout: 180_000}, () => {
   });
 
   test('a ticket in the pocket leaves on the 08:04', async () => {
+    // From here on the tests run on the game's own content through startFrom, which the fixed
+    // world the file booted in has none of the places for.
     restore();
     await startFrom(harness, '?place=hlavniNadraziHall&time=07:50&quest=ticket');
     await closeStory(harness);
@@ -351,6 +354,12 @@ describe('the end of the night', {timeout: 180_000}, () => {
 
     await endStory(end);
     await waitForLogScreen();
+
+    expect(harness.nightScreen.contents.night.log.slice(-3).map(describeEntry)).toEqual([
+      ['text', 1920, 'Morning'],
+      ['choice', 1920, 'Take the train'],
+      ['text', 1920, 'Morning'],
+    ]);
 
     end = await sleepInTheFlat(search);
     await pressThrough(harness, end);
