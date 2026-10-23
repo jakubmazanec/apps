@@ -1,5 +1,6 @@
 import {afterAll, beforeAll, describe, expect, test, vitest} from 'vitest';
 
+import {nightEnd} from '../source/game/content/nightEnd.js';
 import {nightStart} from '../source/game/content/nightStart.js';
 import {type barPicture as barPictureValue} from '../source/game/content/pictures/barPicture.js';
 import {type logScreen as logScreenValue} from '../source/game/screens/logScreen.js';
@@ -11,23 +12,33 @@ import {
   closeStory,
   describeEntry,
   endStory,
+  getButtonLabel,
   getMenuButton,
   getStoriesParts,
   getStoriesWindow,
   getStoryWindow,
+  getWindowParts,
   type Harness,
   nextFrame,
   openSpot,
   pickDestination,
   press,
+  pressThrough,
   readText,
   restartAt,
+  startFrom,
   startNewGame,
   useFixedWorld,
   waitForNoStoriesWindow,
+  waitForNoStoryWindow,
   waitForSpeaker,
   waitForTravelWindow,
 } from './nightScreenHelpers.js';
+
+// The labels of the choices the window offers.
+function getLabels(storyWindow: StoryWindow): string[] {
+  return getWindowParts(storyWindow).buttons.map((button) => getButtonLabel(button));
+}
 
 // Headless Chromium draws the bar in software, at about 90 ms a frame, which
 // slows every frame of these tests. They check the end of the night, not what
@@ -64,6 +75,45 @@ describe('the end of the night', {timeout: 180_000}, () => {
     await endStory(bartender);
   }
 
+  // Focuses the choice at the index and takes it.
+  async function takeChoice(storyWindow: StoryWindow, index: number): Promise<void> {
+    let button = getWindowParts(storyWindow).buttons[index];
+
+    if (button === undefined) {
+      throw new Error(`The story window has no button ${index}!`);
+    }
+
+    harness.nightScreen.ui.focus(button);
+    await press('Enter');
+  }
+
+  // Starts a night at the street with the keys at 23:40 and takes the flat's choice.
+  async function sleepInTheFlat(search: string): Promise<StoryWindow> {
+    await startFrom(harness, search);
+    await closeStory(harness);
+
+    let street = await openSpot(harness, 'The street');
+
+    await pressThrough(harness, street);
+
+    expect(getLabels(street)).toEqual([
+      'Walk',
+      'Take a taxi',
+      'Walk to the flat and sleep',
+      'Stay',
+    ]);
+
+    await takeChoice(street, 2);
+
+    let flat = getStoryWindow(harness);
+
+    expect(flat.dialogue.node?.speaker).toBe('The flat');
+
+    await endStory(flat);
+
+    return waitForSpeaker(harness, 'Morning');
+  }
+
   async function waitForLogScreen(): Promise<void> {
     await vitest.waitFor(
       () => {
@@ -85,6 +135,8 @@ describe('the end of the night', {timeout: 180_000}, () => {
 
   afterAll(() => {
     restore();
+    delete nightStart.quest;
+    delete nightStart.drunkenness;
     harness.unmount();
     localStorage.clear();
   });
@@ -242,5 +294,96 @@ describe('the end of the night', {timeout: 180_000}, () => {
     expect(contents.hasEnded).toBe(false);
     expect(contents.night.log.map(describeEntry)).toEqual([['text', 1915, 'The bar']]);
     expect(readText(contents.statusText)).toBe('07:55   350 Kč   0.0');
+  });
+
+  test('a ticket in the pocket leaves on the 08:04', async () => {
+    restore();
+    await startFrom(harness, '?place=hlavniNadraziHall&time=07:50&quest=ticket');
+    await closeStory(harness);
+
+    let benches = await openSpot(harness, 'The benches');
+
+    await pressThrough(harness, benches);
+    await takeChoice(benches, 0);
+
+    expect(readText(harness.nightScreen.contents.statusText).startsWith('08:00')).toBe(true);
+
+    await endStory(benches);
+
+    let end = await waitForSpeaker(harness, 'Morning');
+
+    expect(end.dialogue.node).toBe(nightEnd.nodes?.leave);
+
+    await endStory(end);
+    await waitForLogScreen();
+  });
+
+  test('the keys and the flat end the night on Dvořákova', async () => {
+    let end = await sleepInTheFlat('?place=rotorBarStreet&time=23:40&quest=keys');
+    let {contents} = harness.nightScreen;
+
+    expect(end.dialogue.node).toBe(nightEnd.nodes?.stay);
+
+    await endStory(end);
+    await waitForLogScreen();
+
+    expect(contents.night.log.slice(-3).map(describeEntry)).toEqual([
+      ['choice', 1420, 'Walk to the flat and sleep'],
+      ['text', 1920, 'The flat'],
+      ['text', 1920, 'Morning'],
+    ]);
+  });
+
+  test('with both the Morning text asks, and each answer leads to its ending', async () => {
+    let search = '?place=rotorBarStreet&time=23:40&quest=keys,ticket';
+    let end = await sleepInTheFlat(search);
+
+    expect(end.dialogue.node).toBe(nightEnd.nodes?.both);
+
+    await pressThrough(harness, end);
+
+    expect(getLabels(end)).toEqual(['Take the train', 'Stay']);
+
+    await takeChoice(end, 0);
+
+    expect(end.dialogue.node).toBe(nightEnd.nodes?.leave);
+
+    await endStory(end);
+    await waitForLogScreen();
+
+    end = await sleepInTheFlat(search);
+    await pressThrough(harness, end);
+    await takeChoice(end, 1);
+
+    expect(end.dialogue.node).toBe(nightEnd.nodes?.stay);
+  });
+
+  test('without the keys the flat is not offered, and the benches leave the player stranded', async () => {
+    await startFrom(harness, '?place=rotorBarStreet&time=23:40');
+    await closeStory(harness);
+
+    let street = await openSpot(harness, 'The street');
+
+    await pressThrough(harness, street);
+
+    expect(getLabels(street)).toEqual(['Walk', 'Take a taxi', 'Stay']);
+
+    await takeChoice(street, 2);
+    await waitForNoStoryWindow(harness);
+    await startFrom(harness, '?place=hlavniNadraziHall&time=23:00');
+    await closeStory(harness);
+
+    let benches = await openSpot(harness, 'The benches');
+
+    await pressThrough(harness, benches);
+    await takeChoice(benches, 0);
+    await endStory(benches);
+
+    let end = await waitForSpeaker(harness, 'Morning');
+
+    expect(end.dialogue.node).toBe(nightEnd.nodes?.stranded);
+
+    await endStory(end);
+    await waitForLogScreen();
   });
 });
