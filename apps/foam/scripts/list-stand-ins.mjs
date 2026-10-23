@@ -60,6 +60,7 @@ export async function listStandIns() {
     ...(await readLocationFiles()),
     {name: 'journeys.ts', source: await readFile(new URL('journeys.ts', contentDir), 'utf8')},
     {name: 'nightEnd.ts', source: await readFile(new URL('nightEnd.ts', contentDir), 'utf8')},
+    {name: 'quest.ts', source: await readFile(new URL('quest.ts', contentDir), 'utf8')},
   ];
   let lines = [
     `${'Texts'.padEnd(NAME_WIDTH)}${'stand-in'.padStart(STAND_IN_WIDTH)}${'written'.padStart(WRITTEN_WIDTH)}`,

@@ -2,6 +2,7 @@ import {type Place} from '../../../core/place.js';
 import {standIn} from '../../../core/prose.js';
 import {defineScript} from '../../../core/script.js';
 import {standInPicture} from '../../pictures/standInPicture.js';
+import {TICKET_PRICE} from '../../quest.js';
 
 // The text of this place is stand-in text: the author replaces standIn by prose when writing
 // the real text. Its limits: no word is longer than 16 characters (every word must fit a line on
@@ -12,13 +13,15 @@ const PLACE_NAME = 'The train';
 const WINDOW = 'The window';
 const PASSENGER = 'A passenger';
 const DOOR = 'The door';
+const BAG = 'The bag';
+const TIMETABLE = 'The timetable';
 const description = defineScript({
   start: {
     speaker: PLACE_NAME,
     text: standIn`
       The carriage rocks and the seats smell of dust and old coffee. Outside, the dark slides
       past in long strips, and a few other people sit far apart, each with a window of their
-      own.
+      own. The night is yours until the morning.
     `,
   },
 });
@@ -37,6 +40,28 @@ const passenger = defineScript({
     text: standIn`
       Without being asked, he tells you which stop is for what. Židenice is for the quiet, the
       main station is for everything else.
+    `,
+  },
+});
+const bag = defineScript({
+  start: 'bag',
+  nodes: {
+    bag: {
+      speaker: BAG,
+      text: standIn`
+        Under a jacket there is a note. Keys are with me. Find me, I'm out. It names no place.
+
+        Under the note lies an invitation: a birthday at Rotor Bar tonight. A bottle is promised, and
+        you are the one who promised it.
+      `,
+    },
+  },
+});
+const timetable = defineScript({
+  start: {
+    speaker: TIMETABLE,
+    text: standIn`
+      The train home leaves the main station at 08:04. A ticket costs ${TICKET_PRICE} Kč.
     `,
   },
 });
@@ -80,5 +105,7 @@ export const train: Place = {
     {label: WINDOW, x: 0.3, y: 0.3, script: scenery},
     {label: PASSENGER, x: 0.7, y: 0.55, script: passenger},
     {label: DOOR, x: 0.5, y: 0.8, script: door},
+    {label: BAG, x: 0.85, y: 0.3, script: bag},
+    {label: TIMETABLE, x: 0.5, y: 0.12, script: timetable},
   ],
 };
