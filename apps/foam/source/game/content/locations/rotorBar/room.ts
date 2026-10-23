@@ -4,7 +4,15 @@ import {type Place} from '../../../core/place.js';
 import {standIn} from '../../../core/prose.js';
 import {defineScript} from '../../../core/script.js';
 import {barPicture} from '../../pictures/barPicture.js';
-import {FRIEND_EARLY, FRIEND_LATE, isFriendIn, KEYS_STORY, SEARCH_HOUR} from '../../quest.js';
+import {
+  BIRTHDAY_STORY,
+  FRIEND_EARLY,
+  FRIEND_LATE,
+  isFriendIn,
+  KEYS_STORY,
+  PARTY,
+  SEARCH_HOUR,
+} from '../../quest.js';
 
 // The text of this place is stand-in text: the author replaces standIn by prose when writing
 // the real text. Its limits: no word is longer than 16 characters (every word must fit a line on
@@ -16,6 +24,7 @@ const PLACE_NAME = 'Rotor Bar';
 const BAR = 'The bar';
 const BACK_ROOM = 'The back room';
 const TABLE = 'The corner table';
+const LONG_TABLE = 'The long table';
 const DOOR = 'The door';
 // From 22:00 to 01:00 the guitarist has the corner table.
 const GUITARIST: Span = [1320, 1500];
@@ -193,6 +202,82 @@ const table = defineScript({
     },
   },
 });
+const longTable = defineScript({
+  start: (night) =>
+    isWithin(night, PARTY) ?
+      night.quest.bottleGiven ? 'thanked'
+      : night.quest.hasBottle ? 'withBottle'
+      : 'withoutBottle'
+    : night.minutes < PARTY[0] ? 'laid'
+    : 'over',
+  nodes: {
+    withBottle: {
+      speaker: LONG_TABLE,
+      text: standIn`
+        The long table is full of friends and half-finished plates. There is a gap at the head
+        of it, just the size of a bottle.
+      `,
+      choices: [
+        {
+          text: 'Hand over the bottle',
+          onChoose: (night) => {
+            night.quest.bottleGiven = true;
+          },
+          next: (night) => (getDrunkenness(night) >= 3 ? 'opened' : 'given'),
+        },
+        {text: 'Keep it for now'},
+      ],
+    },
+    given: {
+      speaker: LONG_TABLE,
+      text: standIn`
+        The bottle goes down the table from hand to hand, and somebody finds glasses. The
+        toast is short, and everybody means it.
+      `,
+      onEnter: (night) => {
+        findStory(night, BIRTHDAY_STORY);
+      },
+    },
+    opened: {
+      speaker: LONG_TABLE,
+      text: standIn`
+        The bottle is open before anybody has found a glass. It goes round the table anyway,
+        and the toast is longer than it should be, and louder.
+      `,
+      onEnter: (night) => {
+        findStory(night, BIRTHDAY_STORY);
+      },
+    },
+    withoutBottle: {
+      speaker: LONG_TABLE,
+      text: standIn`
+        The long table is full of friends and half-finished plates. Somebody asks, kindly,
+        whether you brought anything, and you say you will see.
+      `,
+    },
+    thanked: {
+      speaker: LONG_TABLE,
+      text: standIn`
+        They thank you again for the bottle, and make room for you on the bench. The party goes
+        on around you, warm and loud.
+      `,
+    },
+    laid: {
+      speaker: LONG_TABLE,
+      text: standIn`
+        A long table stands ready at the back, laid with plates and paper cups. The party has
+        not started yet.
+      `,
+    },
+    over: {
+      speaker: LONG_TABLE,
+      text: standIn`
+        The long table is bare, with crumbs on the cloth and one forgotten cup. The party is
+        over, and the room has moved on.
+      `,
+    },
+  },
+});
 const door = defineScript({
   start: {
     speaker: DOOR,
@@ -218,6 +303,7 @@ export const rotorBarRoom: Place = {
     {label: BAR, x: 0.22, y: 0.51, script: bar},
     {label: BACK_ROOM, x: 0.3, y: 0.2, script: backRoom},
     {label: TABLE, x: 0.7, y: 0.84, script: table},
+    {label: LONG_TABLE, x: 0.72, y: 0.62, script: longTable},
     {label: DOOR, x: 0.91, y: 0.4, script: door},
   ],
 };

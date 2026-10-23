@@ -249,6 +249,107 @@ describe('the quest', {timeout: 180_000}, () => {
     await waitForPlace(harness, 'rotorBarStreet');
   });
 
+  test('the bottle is greyed out with 100 Kč and bought with 350', async () => {
+    let {nightScreen} = harness;
+
+    await startFrom(harness, '?place=whiskyShopRoom&time=17:00&money=100');
+    await closeStory(harness);
+
+    let storyWindow = await openSpot(harness, 'The shelves');
+
+    await pressThrough(harness, storyWindow);
+
+    let button = getWindowButton(storyWindow, 0);
+
+    expect(getButtonLabel(button)).toBe('Buy the bottle for the birthday  250 Kč');
+    expect(button.isDisabled).toBe(true);
+
+    nightScreen.ui.focus(getWindowButton(storyWindow, 3));
+    await press('Enter');
+    await waitForNoStoryWindow(harness);
+    await startFrom(harness, '?place=whiskyShopRoom&time=17:00');
+    await closeStory(harness);
+
+    storyWindow = await openSpot(harness, 'The shelves');
+
+    await pressThrough(harness, storyWindow);
+
+    button = getWindowButton(storyWindow, 0);
+
+    expect(getButtonLabel(button)).toBe('Buy the bottle for the birthday  250 Kč');
+    expect(button.isDisabled).toBe(false);
+
+    nightScreen.ui.focus(button);
+    await press('Enter');
+
+    expect(readText(nightScreen.contents.statusText)).toBe('17:00   100 Kč   0.0');
+    expect(nightScreen.contents.night.quest.hasBottle).toBe(true);
+
+    await endStory(storyWindow);
+    await waitForNoStoryWindow(harness);
+
+    storyWindow = await openSpot(harness, 'The shelves');
+
+    await pressThrough(harness, storyWindow);
+
+    expect(getWindowParts(storyWindow).buttons.map((each) => getButtonLabel(each))).toEqual([
+      'Pour a dram  15 min  90 Kč',
+      'Pour the good one  15 min  180 Kč',
+      'Not now',
+    ]);
+
+    nightScreen.ui.focus(getWindowButton(storyWindow, 2));
+    await press('Enter');
+    await waitForNoStoryWindow(harness);
+  });
+
+  test('the long table takes the bottle, and the birthday is a story', async () => {
+    let {nightScreen} = harness;
+
+    await startFrom(harness, '?place=rotorBarRoom&time=20:30&quest=bottle');
+    await closeStory(harness);
+
+    let storyWindow = await openSpot(harness, 'The long table');
+
+    await pressThrough(harness, storyWindow);
+
+    expect(getWindowParts(storyWindow).buttons.map((button) => getButtonLabel(button))).toEqual([
+      'Hand over the bottle',
+      'Keep it for now',
+    ]);
+
+    nightScreen.ui.focus(getWindowButton(storyWindow, 0));
+    await press('Enter');
+
+    let toast = await waitForToast(harness);
+
+    expect(readText(getToastParts(toast).text)).toBe('The birthday');
+    expect(nightScreen.contents.night.quest.bottleGiven).toBe(true);
+    expect(storyWindow.dialogue.node).toBe(getNode('rotorBarRoom', 'The long table', 'given'));
+
+    await endStory(storyWindow);
+    await waitForNoStoryWindow(harness);
+  });
+
+  test('at three drinks the bottle is opened on the spot', async () => {
+    let {nightScreen} = harness;
+
+    await startFrom(harness, '?place=rotorBarRoom&time=20:30&quest=bottle&drunkenness=3');
+    await closeStory(harness);
+
+    let storyWindow = await openSpot(harness, 'The long table');
+
+    await pressThrough(harness, storyWindow);
+    nightScreen.ui.focus(getWindowButton(storyWindow, 0));
+    await press('Enter');
+
+    expect(storyWindow.dialogue.node).toBe(getNode('rotorBarRoom', 'The long table', 'opened'));
+    expect(nightScreen.contents.night.quest.bottleGiven).toBe(true);
+
+    await endStory(storyWindow);
+    await waitForNoStoryWindow(harness);
+  });
+
   test("the bartender's answer changes with the hour", async () => {
     let answers: string[] = [];
 

@@ -3,6 +3,7 @@ import {type Place} from '../../../core/place.js';
 import {standIn} from '../../../core/prose.js';
 import {defineScript} from '../../../core/script.js';
 import {barPicture} from '../../pictures/barPicture.js';
+import {BOTTLE_PRICE} from '../../quest.js';
 
 // The text of this place is stand-in text: the author replaces standIn by prose when writing
 // the real text. Its limits: no word is longer than 16 characters (every word must fit a line on
@@ -37,10 +38,26 @@ const shelves = defineScript({
         Sixty bottles stand open for tasting, each with a small card in a careful hand.
       `,
       choices: [
+        {
+          text: 'Buy the bottle for the birthday',
+          price: BOTTLE_PRICE,
+          isVisible: (night) => !night.quest.hasBottle,
+          onChoose: (night) => {
+            night.quest.hasBottle = true;
+          },
+          next: 'wrapped',
+        },
         {text: 'Pour a dram', price: 90, minutes: 15, drinks: 1, next: 'dram'},
         {text: 'Pour the good one', price: 180, minutes: 15, drinks: 1, next: 'goodOne'},
         {text: 'Not now'},
       ],
+    },
+    wrapped: {
+      speaker: SHELVES,
+      text: standIn`
+        The shopkeeper wraps the bottle in brown paper and ties it with string. It goes into
+        the bag, heavy and quiet, and waits for the evening.
+      `,
     },
     dram: {
       speaker: SHELVES,

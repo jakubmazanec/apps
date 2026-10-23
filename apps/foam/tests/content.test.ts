@@ -105,6 +105,15 @@ function nodeOf(id: PlaceId, label: string, key: string): unknown {
   return getSpotScript(getPlace(id), label).nodes?.[key];
 }
 
+function getLongTableNode(minutes: number, quest?: Partial<Quest>): unknown {
+  return openSpot('rotorBarRoom', 'The long table', minutes, quest === undefined ? {} : {quest})
+    .dialogue.node;
+}
+
+function getLongTableKey(key: string): unknown {
+  return nodeOf('rotorBarRoom', 'The long table', key);
+}
+
 function getBackRoomNode(minutes: number, quest?: Partial<Quest>): unknown {
   return openSpot('rotorBarRoom', 'The back room', minutes, quest === undefined ? {} : {quest})
     .dialogue.node;
@@ -449,7 +458,67 @@ describe('the game content', () => {
     expect(ask('whiskyShopRoom', 'The shopkeeper', 1100, {hasKeys: true})).not.toBe(shopkeeper);
   });
 
-  test("the game's content has eleven stories", () => {
+  test('the shelves sell the bottle once', () => {
+    let opened = openSpot('whiskyShopRoom', 'The shelves', 1020);
+
+    opened.dialogue.advance();
+
+    expect(readChoices(opened.dialogue)).toEqual([
+      'Buy the bottle for the birthday',
+      'Pour a dram',
+      'Pour the good one',
+      'Not now',
+    ]);
+
+    opened.dialogue.choose(0);
+
+    expect(opened.night.quest.hasBottle).toBe(true);
+    expect(opened.night.money).toBe(100);
+    expect(opened.dialogue.node).toBe(nodeOf('whiskyShopRoom', 'The shelves', 'wrapped'));
+
+    let bought = openSpot('whiskyShopRoom', 'The shelves', 1020, {quest: {hasBottle: true}});
+
+    bought.dialogue.advance();
+
+    expect(readChoices(bought.dialogue)).toEqual(['Pour a dram', 'Pour the good one', 'Not now']);
+  });
+
+  test('the long table is the birthday from 20:00 to 01:00', () => {
+    expect(getLongTableNode(1100)).toBe(getLongTableKey('laid'));
+    expect(getLongTableNode(1200)).toBe(getLongTableKey('withoutBottle'));
+    expect(getLongTableNode(1200, {hasBottle: true})).toBe(getLongTableKey('withBottle'));
+    expect(getLongTableNode(1499, {hasBottle: true})).toBe(getLongTableKey('withBottle'));
+    expect(getLongTableNode(1200, {hasBottle: true, bottleGiven: true})).toBe(
+      getLongTableKey('thanked'),
+    );
+    expect(getLongTableNode(1200, {bottleGiven: true})).toBe(getLongTableKey('thanked'));
+    expect(getLongTableNode(1500)).toBe(getLongTableKey('over'));
+  });
+
+  test('the hand-over keeps the promise, and at three drinks the bottle is opened', () => {
+    let given = takeChoice(
+      openSpot('rotorBarRoom', 'The long table', 1200, {quest: {hasBottle: true}}),
+      0,
+    );
+
+    expect(given.night.quest.bottleGiven).toBe(true);
+    expect(given.night.stories).toEqual([{title: 'The birthday', minutes: 1200}]);
+    expect(given.dialogue.node).toBe(nodeOf('rotorBarRoom', 'The long table', 'given'));
+
+    let opened = takeChoice(
+      openSpot('rotorBarRoom', 'The long table', 1200, {
+        drunkenness: 3,
+        quest: {hasBottle: true},
+      }),
+      0,
+    );
+
+    expect(opened.night.quest.bottleGiven).toBe(true);
+    expect(opened.night.stories).toEqual([{title: 'The birthday', minutes: 1200}]);
+    expect(opened.dialogue.node).toBe(nodeOf('rotorBarRoom', 'The long table', 'opened'));
+  });
+
+  test("the game's content has thirteen stories", () => {
     let {closing} = locations.rotorBar;
 
     if (closing === undefined) {
@@ -459,14 +528,17 @@ describe('the game content', () => {
     // The bar closes at 03:00 and puts the player out on its street.
     let closed = createNight({place: 'rotorBarStreet', minutes: 1620, money: 350});
     // Each dialogue reaches the node of one story: 0.1 wins the spare chair's roll and the
-    // shelter's, and 0.95 loses the chair's above 0.9, which spills the beer.
+    // shelter's and the back room's search, and 0.95 loses the chair's above 0.9, which spills
+    // the beer. The long table hands the bottle over for the birthday.
     let opened = [
       takeChoice(openSpot('rotorBarRoom', 'The corner table', 1390), 0),
       takeChoice(openSpot('rotorBarRoom', 'The corner table', 1200), 0, 0.1),
       takeChoice(openSpot('rotorBarRoom', 'The corner table', 1200), 0, 0.95),
       takeChoice(openSpot('rotorBarStreet', 'The smokers', 1200, {drunkenness: 2}), 0),
       takeChoice(openSpot('whiskyShopRoom', 'Two regulars', 1100), 0),
-      takeChoice(openSpot('whiskyShopRoom', 'The shelves', 1100), 1),
+      takeChoice(openSpot('whiskyShopRoom', 'The shelves', 1100), 2),
+      takeChoice(openSpot('rotorBarRoom', 'The back room', 1100), 0, 0.1),
+      takeChoice(openSpot('rotorBarRoom', 'The long table', 1200, {quest: {hasBottle: true}}), 0),
       takeChoice(openSpot('hlavniNadraziForecourt', 'A stranger', 1100), 0),
       openSpot('hlavniNadraziHall', 'The hall', 1100),
       takeChoice(openSpot('namestiRepubliky', 'The shelter', 1100), 0, 0.1),
@@ -479,8 +551,10 @@ describe('the game content', () => {
         'A bottle saved for an occasion',
         'A seat at the table',
         'A train not on the timetable',
+        'The birthday',
         'The good one',
         'The guitarist who plays for one',
+        'The keys',
         'The man who knew the timetable',
         'The spilled beer',
         'The station that never moved',
