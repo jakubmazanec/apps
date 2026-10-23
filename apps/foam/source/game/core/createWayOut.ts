@@ -29,7 +29,10 @@ export function leaveBy(way: Way, ways: readonly Way[]): (night: Night) => void 
   };
 }
 
-/** A script of one node: a choice for each way, then "Stay", which costs nothing. */
+/**
+ * A script of one node: a choice for each way, then, with the keys, the walk to the flat and sleep,
+ * then "Stay", which costs nothing.
+ */
 export function createWayOut(options: WayOutOptions): Script<string> {
   let {speaker, text, ways} = options;
 
@@ -47,7 +50,7 @@ export function createWayOut(options: WayOutOptions): Script<string> {
             speaker: 'The flat',
             text: standIn`
               The keys turn easily in the lock. You sleep through the rest of the night, and the
-              morning finds you in your own bed.
+              morning finds you in a borrowed bed.
             `,
           },
         },

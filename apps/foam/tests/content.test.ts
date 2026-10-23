@@ -210,21 +210,26 @@ describe('the game content', () => {
   });
 
   test("every ending tells the bottle's fate", () => {
-    let never = openEnd({}).pageText;
-    let carried = openEnd({hasBottle: true}).pageText;
-    let given = openEnd({hasBottle: true, bottleGiven: true}).pageText;
+    // The flag sets that give stranded, stay and leave.
+    for (let base of [{}, {hasKeys: true}, {hasTicket: true}]) {
+      let never = openEnd({...base}).pageText;
+      let carried = openEnd({...base, hasBottle: true}).pageText;
+      let given = openEnd({...base, hasBottle: true, bottleGiven: true}).pageText;
 
-    expect(new Set([carried, given, never]).size).toBe(3);
-    expect(openEnd({bottleGiven: true}).pageText).toBe(given);
+      expect(new Set([carried, given, never]).size).toBe(3);
+      expect(openEnd({...base, bottleGiven: true}).pageText).toBe(given);
+    }
   });
 
   test('every ending counts the stories', () => {
-    let none = openEnd({hasKeys: true}, 0).pageText;
-    let one = openEnd({hasKeys: true}, 1).pageText;
-    let three = openEnd({hasKeys: true}, 3).pageText;
+    for (let base of [{}, {hasKeys: true}, {hasTicket: true}]) {
+      let none = openEnd({...base}, 0).pageText;
+      let one = openEnd({...base}, 1).pageText;
+      let three = openEnd({...base}, 3).pageText;
 
-    expect(new Set([none, one, three]).size).toBe(3);
-    expect(three).toContain('3');
+      expect(new Set([none, one, three]).size).toBe(3);
+      expect(three).toContain('3');
+    }
   });
 
   test('locations holds the seven locations, each with the places of the spec', () => {
