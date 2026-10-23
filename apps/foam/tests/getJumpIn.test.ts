@@ -94,6 +94,39 @@ describe(getJumpIn, () => {
     expect(warn).toHaveBeenCalledWith(expect.stringContaining('"all"'));
   });
 
+  test("reads the quest's flags in any order", () => {
+    expect(getJumpIn('?place=rotorBarRoom&quest=keys,ticket', places)).toEqual({
+      place: 'rotorBarRoom',
+      quest: {hasKeys: true, hasTicket: true},
+    });
+    expect(getJumpIn('?place=rotorBarRoom&quest=ticket,keys', places)).toEqual({
+      place: 'rotorBarRoom',
+      quest: {hasKeys: true, hasTicket: true},
+    });
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  test('reads every flag', () => {
+    expect(getJumpIn('?place=rotorBarRoom&quest=bottle,given', places)?.quest).toEqual({
+      hasBottle: true,
+      bottleGiven: true,
+    });
+  });
+
+  test('drops an unknown flag with a warning and keeps the others', () => {
+    expect(getJumpIn('?place=rotorBarRoom&quest=keys,flat', places)).toEqual({
+      place: 'rotorBarRoom',
+      quest: {hasKeys: true},
+    });
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('"flat"'));
+  });
+
+  test('leaves quest off the result when no flag is known', () => {
+    expect(getJumpIn('?place=rotorBarRoom&quest=flat', places)).toEqual({place: 'rotorBarRoom'});
+    expect(warn).toHaveBeenCalledTimes(1);
+  });
+
   test('ignores stories without a place', () => {
     expect(getJumpIn('?stories=none', places)).toBeNull();
     expect(warn).not.toHaveBeenCalled();

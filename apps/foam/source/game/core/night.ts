@@ -19,6 +19,20 @@ export type Way = 'taxi' | 'tram' | 'walk';
 /** A roll of the dice: what came up, the odds it was held against, and whether it won. */
 export type Roll = {value: number; odds: number; won: boolean};
 
+export type Quest = {
+  /** The bottle for the birthday is in the bag. */
+  hasBottle: boolean;
+
+  /** The bottle was handed over at the birthday. */
+  bottleGiven: boolean;
+
+  /** The friend gave the player the keys. */
+  hasKeys: boolean;
+
+  /** A ticket for the morning train is in the pocket. */
+  hasTicket: boolean;
+};
+
 export type Night = {
   /** Minutes since midnight; 19:40 is 1180. */
   minutes: number;
@@ -55,6 +69,9 @@ export type Night = {
 
   /** The stories this night achieved, with the clock, in the order found. */
   stories: Array<{title: string; minutes: number}>;
+
+  /** What the night has done about its three threads; content writes it in effects. */
+  quest: Quest;
 };
 
 /** The drinks the body clears in an hour. */
@@ -68,6 +85,7 @@ export function createNight(
     minutes: number;
     money: number;
     drunkenness?: number;
+    quest?: Partial<Quest>;
   },
   collection?: Collection,
 ): Night {
@@ -82,6 +100,7 @@ export function createNight(
     log: [],
     collection: collection ?? {titles: []},
     stories: [],
+    quest: {hasBottle: false, bottleGiven: false, hasKeys: false, hasTicket: false, ...start.quest},
   };
 }
 

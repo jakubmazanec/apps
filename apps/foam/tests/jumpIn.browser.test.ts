@@ -59,6 +59,7 @@ describe('the jump-in', () => {
     // than put back.
     Object.assign(nightStart, oldStart);
     delete nightStart.drunkenness;
+    delete nightStart.quest;
     localStorage.clear();
   });
 
