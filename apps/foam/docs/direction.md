@@ -262,8 +262,8 @@ its own plan, build and review, in this order:
    It is built: [spec](superpowers/specs/2026-10-10-end-of-the-night-and-log-design.md),
    [plan](superpowers/plans/2026-10-10-end-of-the-night-and-log.md).
 
-Phase 6 is larger than one design-and-plan cycle and was cut into three specs, each with its own
-plan, build and review, in this order; all three are built:
+Phase 6 is built. It is larger than one design-and-plan cycle and is cut into three specs, each with
+its own plan, build and review, in this order:
 
 1. Stories: the collection of titles, saved in the browser's storage and shared by every night; the
    helpers the script calls to give a story and to ask whether it is achieved; the toast, the log
