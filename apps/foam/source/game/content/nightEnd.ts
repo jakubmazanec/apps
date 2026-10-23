@@ -45,6 +45,7 @@ export const nightEnd = defineScript({
       speaker: 'Morning',
       text: standIn`
         The sky has gone grey, with a ticket in one pocket and the keys in the other.
+        The 08:04 leaves soon, and the door is waiting too.
       `,
       choices: [
         {text: 'Take the train', next: 'leave'},
