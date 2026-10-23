@@ -108,6 +108,17 @@ function offersFlat(id: PlaceId, quest: Partial<Quest>): boolean {
   });
 }
 
+// The end script opened on a night at its final minute, with the quest and the stories given.
+function openEnd(quest: Partial<Quest>, stories = 0): Dialogue<Night> {
+  let night = createNight({place: 'hlavniNadraziHall', minutes: 1920, money: 50, quest});
+
+  for (let index = 0; index < stories; index++) {
+    night.stories.push({title: 'A story', minutes: 1500});
+  }
+
+  return new Dialogue({script: nightEnd, context: night});
+}
+
 function readChoices(dialogue: Dialogue<Night>): string[] {
   return dialogue.visibleChoices.map((choice) => choice.text);
 }
@@ -160,14 +171,60 @@ describe('the game content', () => {
     ).toEqual([]);
   }, 30_000);
 
-  test('the end text reads the money', () => {
-    let dialogue = new Dialogue({
-      script: nightEnd,
-      context: createNight({place: 'rotorBarRoom', minutes: 1925, money: 120}),
-    });
+  test("the end's start reads the flags: a ticket, then the keys, then stranded", () => {
+    let both = openEnd({hasKeys: true, hasTicket: true});
 
-    expect(dialogue.pageText).toContain('120 Kč');
-    expect(dialogue.node?.speaker).toBe('Morning');
+    expect(openEnd({hasTicket: true}).node).toBe(nightEnd.nodes?.leave);
+    expect(openEnd({hasKeys: true}).node).toBe(nightEnd.nodes?.stay);
+    expect(both.node).toBe(nightEnd.nodes?.both);
+    expect(openEnd({}).node).toBe(nightEnd.nodes?.stranded);
+    expect(openEnd({hasBottle: true}).node).toBe(nightEnd.nodes?.stranded);
+    expect(both.node?.speaker).toBe('Morning');
+    expect(openEnd({hasTicket: true}).node?.speaker).toBe('Morning');
+    expect(openEnd({hasKeys: true}).node?.speaker).toBe('Morning');
+    expect(openEnd({}).node?.speaker).toBe('Morning');
+  });
+
+  test('both offers two free choices, each to its ending', () => {
+    let dialogue = openEnd({hasKeys: true, hasTicket: true});
+
+    dialogue.advance();
+
+    expect(readChoices(dialogue)).toEqual(['Take the train', 'Stay']);
+    expect(
+      dialogue.visibleChoices.every(
+        (choice) => !('price' in choice || 'minutes' in choice || 'drinks' in choice),
+      ),
+    ).toBe(true);
+
+    dialogue.choose(0);
+
+    expect(dialogue.node).toBe(nightEnd.nodes?.leave);
+
+    let again = openEnd({hasKeys: true, hasTicket: true});
+
+    again.advance();
+    again.choose(1);
+
+    expect(again.node).toBe(nightEnd.nodes?.stay);
+  });
+
+  test("every ending tells the bottle's fate", () => {
+    let never = openEnd({}).pageText;
+    let carried = openEnd({hasBottle: true}).pageText;
+    let given = openEnd({hasBottle: true, bottleGiven: true}).pageText;
+
+    expect(new Set([carried, given, never]).size).toBe(3);
+    expect(openEnd({bottleGiven: true}).pageText).toBe(given);
+  });
+
+  test('every ending counts the stories', () => {
+    let none = openEnd({hasKeys: true}, 0).pageText;
+    let one = openEnd({hasKeys: true}, 1).pageText;
+    let three = openEnd({hasKeys: true}, 3).pageText;
+
+    expect(new Set([none, one, three]).size).toBe(3);
+    expect(three).toContain('3');
   });
 
   test('locations holds the seven locations, each with the places of the spec', () => {

@@ -141,7 +141,7 @@ describe('the end of the night', {timeout: 180_000}, () => {
     expect(logScreen.contents.night).toBe(night);
     expect(readText(logScreen.contents.statusText)).toBe('08:05   305 Kč   1.0');
     // The bar closed at 08:00, and its closing script never ran: the end came first. The end
-    // text read the night as the beer left it.
+    // text read the night's flags, none set, so the stranded ending.
     expect(night.log.map(describeEntry)).toEqual([
       ['text', 1915, 'The bar'],
       ['text', 1915, 'The bartender'],
@@ -149,7 +149,6 @@ describe('the end of the night', {timeout: 180_000}, () => {
       ['text', 1925, 'The bartender'],
       ['text', 1925, 'Morning'],
     ]);
-    expect(night.log.at(-1)?.text).toContain('305 Kč');
   });
 
   test('a travel that arrives after 08:00 shows its text and then the end, never the destination', async () => {
