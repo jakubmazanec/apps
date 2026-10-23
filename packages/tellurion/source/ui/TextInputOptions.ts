@@ -5,6 +5,8 @@ export type TextInputOptions = UiComponentThemeOptions<'textInput'> & {
   value?: string | undefined;
   placeholder?: string | undefined;
   maxLength?: number | undefined;
+  // TODO: think of better way how to handle this (i.e. needing container element so native
+  // <input> can be properly placed).
   container: HTMLElement;
   onChange?: ((input: TextInput) => void) | undefined;
   onSubmit?: ((input: TextInput) => void) | undefined;

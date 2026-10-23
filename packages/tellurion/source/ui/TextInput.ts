@@ -42,8 +42,6 @@ export class TextInput implements Focusable {
   /** Object for keeping references to display objects or DOM elements. */
   readonly #parts: TextInputParts;
 
-  // caretOffset and caretWidth are -1 until #syncCaret writes the first layout; no
-  // measured offset or width can be negative, so the first sync always applies.
   /** Object for internal values that may change. */
   readonly #runtime: TextInputRuntime;
 
@@ -73,11 +71,6 @@ export class TextInput implements Focusable {
     let style = body ?? theme?.textInput.body;
 
     this.#config = {
-      // The block covers the character's whole line box, the way a terminal's cell
-      // cursor does. Falls back to 0 only in the no-theme, no-override
-      // branch — unreachable through TextInputOptions in practice (the theme, when
-      // present, always supplies a fontSize), used here only, not smuggled into
-      // the text style above.
       caretHeight: style?.fontSize ?? 0,
       container,
       maxLength,
@@ -87,12 +80,7 @@ export class TextInput implements Focusable {
     let row = new LayoutContainer({});
 
     row.layout = {flexDirection: 'row', alignItems: 'center'};
-
-    // LayoutContainer makes itself an interactive hit target ('static', for its
-    // scroll trackpad), and Pixi takes the canvas cursor from the deepest
-    // interactive hit target only; the purely visual row would override the
-    // view's 'text' cursor wherever the text covers the field.
-    row.eventMode = 'none';
+    row.eventMode = 'none'; // LayoutContainer makes itself an interactive hit target, that's unwanted here.
 
     let valueText = new Text({text: value, layout: true, label: style});
     let placeholderText = new Text({
@@ -122,27 +110,20 @@ export class TextInput implements Focusable {
       input.maxLength = this.#config.maxLength;
     }
 
-    let inputStyle = input.style;
-
-    // Keep the element genuinely present and focusable so mobile opens the soft
-    // keyboard, but make it visually invisible via transparent colors rather than
-    // display:none / visibility:hidden / opacity:0 / z-index:-1, all of which can
-    // stop Android from opening the keyboard. pointerEvents is 'none' so taps
-    // always route through the Pixi view, never this element.
-    inputStyle.position = 'fixed';
-    inputStyle.top = '0';
-    inputStyle.left = '0';
-    inputStyle.width = '1px';
-    inputStyle.height = '1px';
-    inputStyle.padding = '0';
-    inputStyle.margin = '0';
-    inputStyle.border = '0';
-    inputStyle.outline = 'none';
-    inputStyle.background = 'transparent';
-    inputStyle.color = 'transparent';
-    inputStyle.caretColor = 'transparent';
-    inputStyle.fontSize = '16px'; // >= 16px avoids iOS focus zoom
-    inputStyle.pointerEvents = 'none';
+    input.style.position = 'fixed';
+    input.style.top = '0';
+    input.style.left = '0';
+    input.style.width = '1px';
+    input.style.height = '1px';
+    input.style.padding = '0';
+    input.style.margin = '0';
+    input.style.border = '0';
+    input.style.outline = 'none';
+    input.style.background = 'transparent';
+    input.style.color = 'transparent';
+    input.style.caretColor = 'transparent';
+    input.style.fontSize = '16px';
+    input.style.pointerEvents = 'none';
 
     this.#parts = {
       backgrounds: resolveThemeBackgrounds(
@@ -158,8 +139,8 @@ export class TextInput implements Focusable {
     };
     this.#runtime = {
       blinkTick: 0,
-      caretOffset: -1,
-      caretWidth: -1,
+      caretOffset: undefined,
+      caretWidth: undefined,
       isEditing: false,
       isOwnPointerDown: false,
       value,
@@ -168,6 +149,12 @@ export class TextInput implements Focusable {
     disposeDetachedBackgrounds(this.#disposables.instance, Object.values(this.#parts.backgrounds));
 
     this.view = new LayoutContainer({background: this.#parts.backgrounds.normal});
+    this.view.layout = {
+      justifyContent: 'flex-start',
+      alignItems: 'center',
+      ...this.#config.theme?.textInput.layout,
+      ...layout,
+    };
 
     attachInteraction(this.view, {
       cursor: 'text',
@@ -180,36 +167,18 @@ export class TextInput implements Focusable {
 
     this.view.addChild(row);
 
-    // Cancel the native pointerdown so the browser does not generate the
-    // compatibility mouse events whose default action moves focus to the canvas,
-    // which would immediately blur the hidden input right after #startEditing() and close
-    // the soft keyboard. (Per the Pointer Events spec, canceling pointerdown
-    // suppresses the compatibility mouse events.)
+    // We need to cancel the event, so focus isn¨t moved from the hidden <input> element.
     this.view.on('pointerdown', (event) => {
       event.stopPropagation();
       event.preventDefault();
+
       this.#runtime.isOwnPointerDown = true;
     });
 
-    // Use pointerup rather than pointertap: on touch, a tap with slight finger
-    // movement is classified as a drag and pointertap never fires, so the field
-    // would never focus and the soft keyboard would never open.
     this.view.on('pointerup', (event) => {
       event.stopPropagation();
       this.#startEditing();
     });
-
-    // The view is a row (@pixi/layout defaults flexDirection to 'row'), so
-    // justifyContent is the horizontal axis. Typed text reads left-to-right from
-    // the field's left edge, as text fields customarily do; only the vertical
-    // axis is centered. Centering the main axis instead would drift the value
-    // sideways on every keystroke whenever the field is wider than its content.
-    this.view.layout = {
-      justifyContent: 'flex-start',
-      alignItems: 'center',
-      ...this.#config.theme?.textInput.layout,
-      ...layout,
-    };
 
     this.#config.container.append(input);
 
