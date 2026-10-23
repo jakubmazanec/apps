@@ -108,6 +108,7 @@ describe('the end of the night', {timeout: 180_000}, () => {
     let flat = getStoryWindow(harness);
 
     expect(flat.dialogue.node?.speaker).toBe('The flat');
+    expect(readText(harness.nightScreen.contents.statusText)).toBe('08:00   350 Kč   0.0');
 
     await endStory(flat);
 
