@@ -390,8 +390,9 @@ describe(checkContent, () => {
     let lines = check({places: withZidenice({description})});
 
     // 32 half hours from 16:00 to 07:30, and of the edges 959, 960, 1619 and 1620 of Rotor Bar's
-    // hours, 960 and 1620 are half hours and 959 lies before the night.
-    expect(text).toHaveBeenCalledTimes(2 * 5 * 33 * 3);
+    // hours, 960 and 1620 are half hours and 959 lies before the night. The 16 is the quest states,
+    // the 2 the two collections, the 5 the fixture's places and the 3 the levels.
+    expect(text).toHaveBeenCalledTimes(16 * 2 * 5 * 33 * 3);
     expect(
       lines.filter((line) => line.startsWith('zidenice › description › start: "super')),
     ).toHaveLength(1);
@@ -510,6 +511,43 @@ describe(checkContent, () => {
 
     expect(check({places: withZidenice({description})})).toContain(
       'zidenice › description › start: "supercalifragilistic" has 20 characters, and 16 fit',
+    );
+  });
+
+  test('a text that reads the keys is checked with and without them, which proves the quest states run', () => {
+    let description = defineScript({
+      start: {
+        speaker: 'Bench',
+        text: (night) => (night.quest.hasKeys ? 'A supercalifragilistic word.' : 'Fine.'),
+      },
+    });
+
+    expect(check({places: withZidenice({description})})).toContain(
+      'zidenice › description › start: "supercalifragilistic" has 20 characters, and 16 fit',
+    );
+  });
+
+  test('an effect runs on the state of its night', () => {
+    let description = defineScript({
+      start: {
+        speaker: 'Bench',
+        text: 'Hello.',
+        choices: [
+          {
+            text: 'Try',
+            onChoose(night) {
+              if (night.quest.hasTicket && !night.quest.hasKeys) {
+                throwNoWay();
+              }
+            },
+          },
+          {text: 'Go'},
+        ],
+      },
+    });
+
+    expect(check({places: withZidenice({description})})).toContain(
+      'zidenice › description › start › "Try": throws "No way."',
     );
   });
 
