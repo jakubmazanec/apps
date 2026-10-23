@@ -125,11 +125,23 @@ export function checkContent(content: Content): string[] {
       checkEffect(path, onEnter, nights, home);
     }
 
+    // The loop over the nights exists for a text that is a function; the marks and the words of a
+    // page are the same on every night, so a page already seen is not split again.
+    let seen = new Set<string>();
+
     for (let night of nights) {
       let result = typeof text === 'function' ? text(night) : text;
       let pages = typeof result === 'string' ? [result] : result;
 
       for (let [index, page] of pages.entries()) {
+        let key = `${index}:${page}`;
+
+        if (seen.has(key)) {
+          continue;
+        }
+
+        seen.add(key);
+
         let marks = page.split(MARK).length - 1;
 
         if (marks % 2 !== 0) {

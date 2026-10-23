@@ -101,11 +101,13 @@ function readCornerTableAt(minutes: number): string[] {
 }
 
 describe('the game content', () => {
+  // The checker runs every script on 33,600 nights, and the CI runners are several times slower
+  // than a dev machine.
   test("the game's content has no problem", () => {
     expect(
       checkContent({locations, places, journeys, locationData, travel, map, end: nightEnd}),
     ).toEqual([]);
-  });
+  }, 30_000);
 
   test('the end text reads the money', () => {
     let dialogue = new Dialogue({
