@@ -1,6 +1,7 @@
 # The quest's threads (Foam phase 6, spec 2 of 3): design
 
-Date: 2026-10-19. App: `apps/foam`. Status: designed, not yet planned. It is the second of phase 6's
+Date: 2026-10-19. App: `apps/foam`. Status: implemented by
+[2026-10-21-quest-threads.md](../plans/2026-10-21-quest-threads.md). It is the second of phase 6's
 three specs in the [direction document](../../direction.md). It builds on spec 1,
 [stories](2026-10-19-stories-design.md), which is built before this one, and on phase 5's
 [locations and hours](2026-10-10-locations-and-hours-design.md) and
