@@ -1,4 +1,5 @@
 import {createWayOut} from '../../../core/createWayOut.js';
+import {sleepTillMorning} from '../../../core/hours.js';
 import {findStory} from '../../../core/night.js';
 import {type Place} from '../../../core/place.js';
 import {standIn} from '../../../core/prose.js';
@@ -43,7 +44,15 @@ const shelter = defineScript({
           next: ({roll}) => (roll?.won ? 'knows' : 'shrugs'),
         },
         {text: 'Wait in silence'},
+        {text: 'Sleep it off', onChoose: sleepTillMorning, next: 'asleep'},
       ],
+    },
+    asleep: {
+      speaker: SHELTER,
+      text: standIn`
+        You sit down on the cold bench under the glass and close your eyes. The first tram of
+        the morning wakes you.
+      `,
     },
     knows: {
       speaker: SHELTER,

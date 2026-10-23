@@ -7,8 +7,9 @@ import {
   isNightOver,
   isOpenAt,
   isWithin,
+  sleepTillMorning,
 } from '../source/game/core/hours.js';
-import {createNight} from '../source/game/core/night.js';
+import {createNight, getDrunkenness} from '../source/game/core/night.js';
 
 const GUITARIST = [1320, 1500] as const;
 
@@ -127,5 +128,24 @@ describe(isNightOver, () => {
     night.minutes = 1921;
 
     expect(isNightOver(night)).toBe(true);
+  });
+});
+
+describe(sleepTillMorning, () => {
+  test('moves the clock to 08:00 and the level falls with it', () => {
+    let night = createNight({place: 'zidenice', minutes: 1620, money: 350, drunkenness: 5});
+
+    sleepTillMorning(night);
+
+    expect(night.minutes).toBe(1920);
+    expect(getDrunkenness(night)).toBe(0);
+  });
+
+  test('moves one minute from 07:59', () => {
+    let night = createNight({place: 'zidenice', minutes: 1919, money: 350});
+
+    sleepTillMorning(night);
+
+    expect(night.minutes).toBe(1920);
   });
 });

@@ -1,4 +1,5 @@
 import {createWayOut} from '../../../core/createWayOut.js';
+import {sleepTillMorning} from '../../../core/hours.js';
 import {findStory} from '../../../core/night.js';
 import {type Place} from '../../../core/place.js';
 import {standIn} from '../../../core/prose.js';
@@ -35,14 +36,28 @@ const timetable = defineScript({
   },
 });
 const bench = defineScript({
-  start: {
-    speaker: BENCH,
-    text: standIn`
-      A man sits with his bag on his knees, waiting for a train that is not on the
-      timetable. He does not seem to mind.
-    `,
-    onEnter: (night) => {
-      findStory(night, TRAIN_STORY);
+  start: 'bench',
+  nodes: {
+    bench: {
+      speaker: BENCH,
+      text: standIn`
+        A man sits with his bag on his knees, waiting for a train that is not on the
+        timetable. He does not seem to mind.
+      `,
+      onEnter: (night) => {
+        findStory(night, TRAIN_STORY);
+      },
+      choices: [
+        {text: 'Sleep it off', onChoose: sleepTillMorning, next: 'asleep'},
+        {text: 'Leave him to it'},
+      ],
+    },
+    asleep: {
+      speaker: BENCH,
+      text: standIn`
+        You lie down at the far end of the bench and the night goes by without you. A tram bell
+        wakes you, and it is morning.
+      `,
     },
   },
 });
