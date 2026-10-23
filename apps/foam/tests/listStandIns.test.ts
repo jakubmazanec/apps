@@ -28,6 +28,7 @@ describe(listStandIns, () => {
       'rotorBar/location.ts',
       'journeys.ts',
       'nightEnd.ts',
+      'quest.ts',
       'Locations not checked:',
     ];
 

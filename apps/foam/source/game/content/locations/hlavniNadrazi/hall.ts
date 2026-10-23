@@ -3,6 +3,7 @@ import {type Place} from '../../../core/place.js';
 import {standIn} from '../../../core/prose.js';
 import {defineScript} from '../../../core/script.js';
 import {standInPicture} from '../../pictures/standInPicture.js';
+import {TICKET_PRICE} from '../../quest.js';
 
 // The text of this place is stand-in text: the author replaces standIn by prose when writing
 // the real text. Its limits: no word is longer than 16 characters (every word must fit a line on
@@ -15,6 +16,7 @@ const SHORT_NAME = 'Hlavní nádraží';
 const BOARD = 'The board';
 const HALL = 'The hall';
 const DOORS = 'The doors';
+const MACHINE = 'The ticket machine';
 const STATION_STORY = standIn`The station that never moved`;
 const description = defineScript({
   start: {
@@ -60,6 +62,34 @@ const doors = defineScript({
     ],
   },
 });
+const machine = defineScript({
+  start: (night) => (night.quest.hasTicket ? 'ticketed' : 'machine'),
+  nodes: {
+    machine: {
+      speaker: MACHINE,
+      text: standIn`The machine hums beside the board. A ticket home costs ${TICKET_PRICE} Kč.`,
+      choices: [
+        {
+          text: 'Buy a ticket home',
+          price: TICKET_PRICE,
+          onChoose: (night) => {
+            night.quest.hasTicket = true;
+          },
+          next: 'bought',
+        },
+        {text: 'Walk away'},
+      ],
+    },
+    bought: {
+      speaker: MACHINE,
+      text: standIn`The ticket slides out, warm. It is for the 08:04.`,
+    },
+    ticketed: {
+      speaker: MACHINE,
+      text: standIn`You already have the ticket in your pocket. The machine can wait.`,
+    },
+  },
+});
 
 export const hlavniNadraziHall: Place = {
   id: 'hlavniNadraziHall',
@@ -72,5 +102,6 @@ export const hlavniNadraziHall: Place = {
     {label: BOARD, x: 0.3, y: 0.3, script: board},
     {label: HALL, x: 0.7, y: 0.55, script: hall},
     {label: DOORS, x: 0.5, y: 0.8, script: doors},
+    {label: MACHINE, x: 0.5, y: 0.12, script: machine},
   ],
 };

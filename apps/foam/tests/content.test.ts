@@ -8,6 +8,7 @@ import {journeys} from '../source/game/content/journeys.js';
 import {locations, places} from '../source/game/content/locations.js';
 import {nightEnd} from '../source/game/content/nightEnd.js';
 import {nightStart} from '../source/game/content/nightStart.js';
+import {FRIEND_EARLY, FRIEND_LATE, PARTY} from '../source/game/content/quest.js';
 import {checkContent} from '../source/game/core/checkContent.js';
 import {
   BUTTON_HEIGHT,
@@ -16,7 +17,8 @@ import {
   GLYPH_WIDTH,
 } from '../source/game/core/getSceneArea.js';
 import {getSpotPosition} from '../source/game/core/getSpotPosition.js';
-import {createNight, type Night, type PlaceId} from '../source/game/core/night.js';
+import {isOpenAt} from '../source/game/core/hours.js';
+import {createNight, type Night, type PlaceId, type Quest} from '../source/game/core/night.js';
 import {type Place, type Spot} from '../source/game/core/place.js';
 
 const SCREENS = [
@@ -64,7 +66,12 @@ function openSpot(
   {
     collection,
     ...start
-  }: {money?: number; drunkenness?: number; collection?: Night['collection']} = {},
+  }: {
+    money?: number;
+    drunkenness?: number;
+    collection?: Night['collection'];
+    quest?: Partial<Quest>;
+  } = {},
 ): {dialogue: Dialogue<Night>; night: Night} {
   let night = createNight({place: id, minutes, money: 350, ...start}, collection);
 
@@ -90,6 +97,11 @@ function takeChoice(
 
 function readChoices(dialogue: Dialogue<Night>): string[] {
   return dialogue.visibleChoices.map((choice) => choice.text);
+}
+
+// The node a spot's script holds under the key.
+function nodeOf(id: PlaceId, label: string, key: string): unknown {
+  return getSpotScript(getPlace(id), label).nodes?.[key];
 }
 
 function openWhiskyShopDoor(minutes: number): {dialogue: Dialogue<Night>; night: Night} {
@@ -230,6 +242,61 @@ describe('the game content', () => {
     dialogue.choose(1);
 
     expect(night.place).toBe('hlavniNadraziHall');
+  });
+
+  test("the quest's spans lie inside Rotor's hours", () => {
+    let {hours} = locationData.rotorBar;
+
+    for (let span of [FRIEND_EARLY, FRIEND_LATE, PARTY]) {
+      expect(isOpenAt(hours, span[0])).toBe(true);
+      expect(isOpenAt(hours, span[1] - 1)).toBe(true);
+    }
+  });
+
+  test('the bag holds the note and the invitation, and the timetable the train and its price', () => {
+    let {dialogue} = openSpot('train', 'The bag', 960);
+    let first = dialogue.pageText;
+
+    // The first press shows the rest of the page, the second turns it.
+    dialogue.advance();
+    dialogue.advance();
+
+    expect(dialogue.node).toBe(nodeOf('train', 'The bag', 'bag'));
+    expect(dialogue.pageIndex).toBe(1);
+    expect(first).toContain("Keys are with me. Find me, I'm out.");
+    expect(dialogue.pageText).toContain('Rotor Bar');
+
+    let timetable = openSpot('train', 'The timetable', 960).dialogue;
+
+    expect(timetable.pageText).toContain('08:04');
+    expect(timetable.pageText).toContain('300 Kč');
+  });
+
+  test('the ticket machine sells the ticket once', () => {
+    let opened = openSpot('hlavniNadraziHall', 'The ticket machine', 1500);
+
+    expect(opened.dialogue.node).toBe(nodeOf('hlavniNadraziHall', 'The ticket machine', 'machine'));
+
+    opened.dialogue.advance();
+
+    expect(readChoices(opened.dialogue)).toEqual(['Buy a ticket home', 'Walk away']);
+
+    opened.dialogue.choose(0);
+
+    expect(opened.night.quest.hasTicket).toBe(true);
+    expect(opened.night.money).toBe(50);
+    expect(opened.dialogue.node).toBe(nodeOf('hlavniNadraziHall', 'The ticket machine', 'bought'));
+
+    let ticketed = openSpot('hlavniNadraziHall', 'The ticket machine', 1500, {
+      quest: {hasTicket: true},
+    });
+
+    ticketed.dialogue.advance();
+
+    expect(ticketed.dialogue.node).toBe(
+      nodeOf('hlavniNadraziHall', 'The ticket machine', 'ticketed'),
+    );
+    expect(readChoices(ticketed.dialogue)).toEqual([]);
   });
 
   test("Vranovská's door waits before the opening, opens at 16:30 and is locked from 21:00", () => {

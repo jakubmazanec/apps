@@ -16,6 +16,7 @@ import {page, userEvent} from 'vitest/browser';
 
 import {nightStart} from '../source/game/content/nightStart.js';
 import {type assets as assetsValue} from '../source/game/core/assets.js';
+import {getJumpIn} from '../source/game/core/getJumpIn.js';
 import {type LocationId} from '../source/game/core/location.js';
 import {type LogEntry} from '../source/game/core/log.js';
 import {type measureText as measureTextValue} from '../source/game/core/measureText.js';
@@ -178,10 +179,44 @@ export function useFixedWorld(
   };
 }
 
+// The game's own start, taken when this module is first evaluated. The test files import the
+// helpers before any test or boot writes into nightStart, so these are the game's own values, and
+// startFrom starts over them as the address does at the boot.
+const OWN_START = {
+  minutes: nightStart.minutes,
+  money: nightStart.money,
+  place: nightStart.place,
+};
+
 // Starts a new night in the given place: quits to the main menu and activates
 // New Game.
 export async function restartAt(harness: Harness, place: PlaceId): Promise<void> {
   nightStart.place = place;
+  await harness.game.showScreen(harness.mainMenuScreen);
+  await startNewGame(harness);
+}
+
+/**
+ * Starts a new night from a jump-in's query, as the address does at the boot: the result's place,
+ * hour, money, level and quest go into nightStart, the level and the quest cleared first so a start
+ * names only what it gives; then Quit to menu and New Game. A query that is no jump-in throws.
+ */
+export async function startFrom(harness: Harness, search: string): Promise<void> {
+  let jumpIn = getJumpIn(search, nightStart.places);
+
+  if (jumpIn === null) {
+    throw new Error(`The query "${search}" is no jump-in!`);
+  }
+
+  let start = {...jumpIn};
+
+  // The stories are the boot's business, not the night's.
+  delete start.forgetStories;
+
+  Object.assign(nightStart, OWN_START);
+  delete nightStart.drunkenness;
+  delete nightStart.quest;
+  Object.assign(nightStart, start);
   await harness.game.showScreen(harness.mainMenuScreen);
   await startNewGame(harness);
 }
