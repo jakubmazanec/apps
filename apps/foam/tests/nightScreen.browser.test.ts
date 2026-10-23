@@ -1066,6 +1066,7 @@ describe('night screen', {timeout: 180_000}, () => {
         // The night screen builds its night with the collection the store loaded.
         collection,
         stories: [],
+        quest: {hasBottle: false, bottleGiven: false, hasKeys: false, hasTicket: false},
       });
       // The choice at the press, before its ten minutes; its text at 19:50.
       expect(nightScreen.contents.night.log.slice(-2)).toMatchObject([
