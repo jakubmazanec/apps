@@ -56,7 +56,7 @@ describe('the jump-in', () => {
     // block as it came in: a block added after it in this file starts its New
     // Game from the game's own start, not from the jump-in's. The level of
     // drunkenness is not part of the game's own start, so it is removed rather
-    // than put back.
+    // than put back; the quest flags are not part of it either, so they are removed too.
     Object.assign(nightStart, oldStart);
     delete nightStart.drunkenness;
     delete nightStart.quest;

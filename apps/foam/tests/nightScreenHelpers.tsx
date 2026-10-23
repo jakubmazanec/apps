@@ -199,7 +199,8 @@ export async function restartAt(harness: Harness, place: PlaceId): Promise<void>
 /**
  * Starts a new night from a jump-in's query, as the address does at the boot: the result's place,
  * hour, money, level and quest go into nightStart, the level and the quest cleared first so a start
- * names only what it gives; then Quit to menu and New Game. A query that is no jump-in throws.
+ * names only what it gives, and the game's own minutes, money and place first put back; then
+ * Quit to menu and New Game. A query that is no jump-in throws.
  */
 export async function startFrom(harness: Harness, search: string): Promise<void> {
   let jumpIn = getJumpIn(search, nightStart.places);

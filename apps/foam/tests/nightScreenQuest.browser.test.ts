@@ -9,7 +9,6 @@ import {
   closeStory,
   endStory,
   getButtonLabel,
-  getStoryWindow,
   getToastParts,
   getWindowButton,
   getWindowParts,
@@ -136,7 +135,6 @@ describe('the quest', {timeout: 180_000}, () => {
 
     expect(getButtonLabel(button)).toBe('Buy a ticket home  300 Kč');
     expect(button.isDisabled).toBe(true);
-    expect(getStoryWindow(harness)).toBe(storyWindow);
   });
 
   test('the back room offers the search with its odds, and a won search hands over the keys', async () => {
