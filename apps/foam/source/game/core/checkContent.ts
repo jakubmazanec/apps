@@ -6,7 +6,7 @@ import {getMapPoint} from './getMapPoint.js';
 import {NIGHT_END, NIGHT_START} from './hours.js';
 import {type Location} from './location.js';
 import {MARK, stripMarks} from './markedText.js';
-import {createNight, type Night, type PlaceId, roll, type Way} from './night.js';
+import {createNight, type Night, type PlaceId, type Quest, roll, type Way} from './night.js';
 import {type Place} from './place.js';
 import {asChoice} from './script.js';
 import {type LocationData, type MapData, type Travel} from './travel.js';
@@ -32,6 +32,18 @@ const CHECK_LEVELS = [0, 2, 5];
 // 0.00 to 0.99: every outcome an author can write by a threshold in hundredths comes up.
 const CHECK_ROLLS = Array.from({length: 100}, (_, index) => index / 100);
 const SEPARATOR = ' › ';
+const QUEST_FLAGS = ['hasBottle', 'bottleGiven', 'hasKeys', 'hasTicket'] as const;
+// Every combination of the quest's flags, the one with none first: a text, a start or a next that
+// reads the quest, or an effect that writes it, meets each state it can be in.
+const QUEST_STATES: readonly Quest[] = Array.from({length: 2 ** QUEST_FLAGS.length}, (_, bits) => {
+  let quest: Quest = {hasBottle: false, bottleGiven: false, hasKeys: false, hasTicket: false};
+
+  for (let [index, flag] of QUEST_FLAGS.entries()) {
+    quest[flag] = Math.floor(bits / 2 ** index) % 2 === 1;
+  }
+
+  return quest;
+});
 
 type Node = DialogueNode<Night, string>;
 
@@ -82,9 +94,9 @@ function getCheckTimes(locationData: LocationData): number[] {
 /**
  * Checks the content of the game and returns one line for each problem, or an empty list. A text,
  * a start, an odds or a next that is a function is called with each check night: once per place,
- * time and level, and a choice's next with odds once for each roll as well. A choice's effect and a
- * node's entry effect run on a copy of each check night. Every check night is made twice: with no
- * story achieved and with every story the effects gave.
+ * time, level and quest state, and a choice's next with odds once for each roll as well. A
+ * choice's effect and a node's entry effect run on a copy of each check night. Every check night
+ * is made twice: with no story achieved and with every story the effects gave.
  */
 export function checkContent(content: Content): string[] {
   let lines = new Set<string>();
@@ -305,6 +317,8 @@ export function checkContent(content: Content): string[] {
           minutes: night.minutes,
           money: night.money,
           drunkenness: night.drunkenness.level,
+          // A copy, so that an effect that writes the quest never reaches its check night.
+          quest: {...night.quest},
         },
         {titles: [...night.collection.titles]},
       );
@@ -360,17 +374,21 @@ export function checkContent(content: Content): string[] {
     nodes = script.nodes ?? {};
 
     for (let id of placeIds) {
+      // A night for each place, time, level and quest state, the four axes a condition reads.
       let nights = times.flatMap((minutes) =>
-        CHECK_LEVELS.map((drunkenness) =>
-          createNight(
-            {
-              // The keys of content.places are the ids of the places.
-              place: id as PlaceId,
-              minutes,
-              money: CHECK_MONEY,
-              drunkenness,
-            },
-            collection,
+        CHECK_LEVELS.flatMap((drunkenness) =>
+          QUEST_STATES.map((quest) =>
+            createNight(
+              {
+                // The keys of content.places are the ids of the places.
+                place: id as PlaceId,
+                minutes,
+                money: CHECK_MONEY,
+                drunkenness,
+                quest,
+              },
+              collection,
+            ),
           ),
         ),
       );
