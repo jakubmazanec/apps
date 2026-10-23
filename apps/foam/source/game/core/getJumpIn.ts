@@ -1,10 +1,16 @@
-import {type PlaceId} from './night.js';
+import {type PlaceId, type Quest} from './night.js';
 import {type Place} from './place.js';
 
 const TIME_FORM = /^(\d{2}):(\d{2})$/;
 const MONEY_FORM = /^-?\d+$/;
 const DRUNKENNESS_FORM = /^\d+(\.\d+)?$/;
 const MINUTES_IN_DAY = 1440;
+const QUEST_FLAGS: Readonly<Record<string, keyof Quest>> = {
+  keys: 'hasKeys',
+  bottle: 'hasBottle',
+  given: 'bottleGiven',
+  ticket: 'hasTicket',
+};
 
 function readTime(value: string): number | null {
   let match = TIME_FORM.exec(value);
@@ -37,6 +43,7 @@ export function getJumpIn(
   money?: number;
   drunkenness?: number;
   forgetStories?: boolean;
+  quest?: Partial<Quest>;
 } | null {
   let parameters = new URLSearchParams(search);
   let place = parameters.get('place');
@@ -58,6 +65,7 @@ export function getJumpIn(
     money?: number;
     drunkenness?: number;
     forgetStories?: boolean;
+    quest?: Partial<Quest>;
   } = {
     place: place as PlaceId,
   };
@@ -65,6 +73,7 @@ export function getJumpIn(
   let money = parameters.get('money');
   let drunkenness = parameters.get('drunkenness');
   let stories = parameters.get('stories');
+  let quest = parameters.get('quest');
 
   if (time !== null) {
     let minutes = readTime(time);
@@ -103,6 +112,27 @@ export function getJumpIn(
     } else {
       // eslint-disable-next-line no-console -- see above
       console.warn(`The jump-in ignores the stories "${stories}": only "none" is known.`);
+    }
+  }
+
+  if (quest !== null) {
+    let flags: Partial<Quest> = {};
+    let known = false;
+
+    for (let name of quest.split(',')) {
+      if (Object.hasOwn(QUEST_FLAGS, name)) {
+        flags[QUEST_FLAGS[name]!] = true;
+        known = true;
+      } else {
+        // eslint-disable-next-line no-console -- see above
+        console.warn(
+          `The jump-in ignores the quest flag "${name}": the flags are keys, bottle, given and ticket.`,
+        );
+      }
+    }
+
+    if (known) {
+      jumpIn.quest = flags;
     }
   }
 

@@ -1,7 +1,7 @@
 import {formatCosts} from './formatCosts.js';
 import {isOpenAt} from './hours.js';
 import {type Location, type LocationId} from './location.js';
-import {type Night, type PlaceId, type Way} from './night.js';
+import {type Night, type PlaceId, type Quest, type Way} from './night.js';
 import {type Place} from './place.js';
 
 export type Position = {latitude: number; longitude: number};
@@ -80,6 +80,9 @@ export type NightStart = {
 
   /** The level of drunkenness the night starts at, in drinks; 0 when absent. */
   drunkenness?: number;
+
+  /** The flags the night starts with; a jump-in writes them. */
+  quest?: Partial<Quest>;
 };
 
 /**

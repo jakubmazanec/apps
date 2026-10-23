@@ -23,6 +23,16 @@ describe('night', () => {
       log: [],
       collection: {titles: []},
       stories: [],
+      quest: {hasBottle: false, bottleGiven: false, hasKeys: false, hasTicket: false},
+    });
+  });
+
+  test('createNight keeps the flags a start names and leaves the others false', () => {
+    expect(createNight({...START, quest: {hasKeys: true, hasTicket: true}}).quest).toEqual({
+      hasBottle: false,
+      bottleGiven: false,
+      hasKeys: true,
+      hasTicket: true,
     });
   });
 
