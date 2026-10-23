@@ -440,13 +440,13 @@ describe('the game content', () => {
     let bartender = [1000, 1100, 1300, 1400].map((minutes) =>
       ask('rotorBarRoom', 'The bar', minutes),
     );
-    let smokers = [1000, 1100, 1300, 1400].map((minutes) =>
+    let smokers = [1000, 1100, 1300, 1400, 1650].map((minutes) =>
       ask('rotorBarStreet', 'The smokers', minutes),
     );
 
     expect(new Set(bartender).size).toBe(4);
     expect(bartender[2]).toContain('eleven');
-    expect(new Set(smokers).size).toBe(4);
+    expect(new Set(smokers).size).toBe(5);
     expect(ask('rotorBarRoom', 'The bar', 1100, {hasKeys: true})).not.toBe(bartender[1]);
     expect(ask('rotorBarRoom', 'The bar', 1100, {hasBottle: true, hasTicket: true})).toBe(
       bartender[1],

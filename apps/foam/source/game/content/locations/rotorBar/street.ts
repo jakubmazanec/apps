@@ -82,7 +82,10 @@ const smokers = defineScript({
           standIn`Somebody nods at the door. Your friend went in a while ago.`
         : night.minutes < FRIEND_LATE[0] ?
           standIn`Your friend came out, somebody says, and said something about later.`
-        : standIn`Somebody points at the door. Your friend went back in.`,
+          // The close ends the friend's hours, and the player stands outside after it.
+        : isWithin(night, FRIEND_LATE) ?
+          standIn`Somebody points at the door. Your friend went back in.`
+        : standIn`Your friend came out at closing with everybody else, and went off somewhere.`,
     },
     cigarette: {
       speaker: SMOKERS,
