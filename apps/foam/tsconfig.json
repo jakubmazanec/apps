@@ -15,8 +15,8 @@
     "isolatedModules": true,
     "jsx": "react-jsx",
     "lib": ["dom", "es2025"],
-    "module": "node16",
-    "moduleResolution": "node16",
+    "module": "preserve",
+    "moduleResolution": "bundler",
     "noEmitOnError": true,
     "noImplicitOverride": true,
     "noImplicitReturns": true,
@@ -31,5 +31,9 @@
     "rootDirs": [".", "./.react-router/types"]
   },
   "include": ["./.react-router/types/**/*", "./source/**/*", "./*"],
-  "references": []
+  "references": [
+    {
+      "path": "../../packages/tellurion"
+    }
+  ]
 }
