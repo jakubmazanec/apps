@@ -1,7 +1,8 @@
 # The endings and sleep (Foam phase 6, spec 3 of 3): design
 
-Date: 2026-10-19. App: `apps/foam`. Status: designed, not yet planned. It is the last of phase 6's
-three specs in the [direction document](../../direction.md). It builds on spec 2,
+Date: 2026-10-19. App: `apps/foam`. Status: implemented by
+[2026-10-21-endings-and-sleep.md](../plans/2026-10-21-endings-and-sleep.md). It is the last of phase
+6's three specs in the [direction document](../../direction.md). It builds on spec 2,
 [the quest's threads](2026-10-19-quest-threads-design.md), which is built before this one, and on
 phase 5's [end of the night and log](2026-10-10-end-of-the-night-and-log-design.md). It closes the
 first prototype: one whole night.
