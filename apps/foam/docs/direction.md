@@ -1,7 +1,7 @@
 # Foam: direction
 
-Started: 2026-10-03. App: `apps/foam`. Status: the direction is agreed; phases 1 to 6 are built, and
-the review of phase 6 is next. This is a living document: it describes the current state and plan,
+Started: 2026-10-03. App: `apps/foam`. Status: the direction is agreed; phases 1 to 6 are built and
+reviewed, and phase 7 is next. This is a living document: it describes the current state and plan,
 and is kept correct as they change.
 
 ## What Foam is
@@ -62,14 +62,14 @@ Foam runs on the `tellurion` engine, as Somewhere does.
 These are important and deliberately not decided yet. Each is decided inside the phase that first
 needs it, or at a phase review.
 
-| Question                                                                  | Reopens                                                     |
-| ------------------------------------------------------------------------- | ----------------------------------------------------------- |
-| Content model: how the story is broken into pieces and how the game picks | At the review after phase 6, or earlier if a phase needs it |
-| What is saved between runs beyond the story collection                    | Phase 7                                                     |
-| A long arc across nights (phone contacts unlocked by flashbacks)          | After phase 8                                               |
-| The journal as a novel                                                    | After logs from phase 6 have been read                      |
-| Adaptive music built from blocks                                          | When the author's own songs exist                           |
-| Languages other than English                                              | Not before the first public version                         |
+| Question                                                                  | Reopens                                                           |
+| ------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| Content model: how the story is broken into pieces and how the game picks | Reopened at the phase 6 review; decided in the phase 7 brainstorm |
+| What is saved between runs beyond the story collection                    | Phase 7                                                           |
+| A long arc across nights (phone contacts unlocked by flashbacks)          | After phase 8                                                     |
+| The journal as a novel                                                    | After logs from phase 6 have been read                            |
+| Adaptive music built from blocks                                          | When the author's own songs exist                                 |
+| Languages other than English                                              | Not before the first public version                               |
 
 ## How the work is organised
 
@@ -285,8 +285,20 @@ its own plan, build and review, in this order:
    [spec](superpowers/specs/2026-10-19-endings-and-sleep-design.md),
    [plan](superpowers/plans/2026-10-21-endings-and-sleep.md).
 
-**Phase 6 completes the first prototype: one whole night.** Its review decides what is kept and what
-is rewritten, and reopens the content model.
+**Phase 6 completes the first prototype: one whole night.** Its review, on 2026-10-23, kept
+everything that is built and rewrote nothing: the night runs on stand-in text, and the real text is
+the author's, as the Text row says. It reopened the content model, which phase 7 decides in its
+brainstorm: a second night that differs from the first is the first thing that needs to know how the
+game picks its content. The pictures of the places keep the place the phase 4 review gave them: a
+place is drawn when its real text is written, and none is yet. Three things from phase 6 wait for
+the author or a later spec:
+
+- The checker's nights carry no stories, so the end text's sentence for one story and for several is
+  never checked; only the sentence for none is.
+- The leave ending says the player waits for the 08:04, but the clock can be past 08:04 when it
+  shows, as after a walk that started at 07:59.
+- Two texts in Rotor's room write the friend's hours as words, eight and eleven, so a change to the
+  spans in `content/quest.ts` means editing them too.
 
 ### After phase 8
 
