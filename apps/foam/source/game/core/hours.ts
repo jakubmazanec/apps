@@ -23,6 +23,11 @@ export function isNightOver(night: Night): boolean {
   return night.minutes >= NIGHT_END;
 }
 
+/** Moves the clock to the end of the night: the night is over once the window closes. */
+export function sleepTillMorning(night: Night): void {
+  night.minutes = NIGHT_END;
+}
+
 /** Whether the clock lies in the span: from its start up to, not including, its end. */
 export function isWithin(night: Night, span: Span): boolean {
   return holds(span, night.minutes);

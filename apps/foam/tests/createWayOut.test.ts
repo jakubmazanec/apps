@@ -2,12 +2,17 @@ import {Dialogue} from 'tellurion';
 import {describe, expect, test} from 'vitest';
 
 import {createWayOut, leaveBy} from '../source/game/core/createWayOut.js';
-import {createNight, type Way} from '../source/game/core/night.js';
+import {createNight, type Quest, type Way} from '../source/game/core/night.js';
 
 const ALL_WAYS: readonly Way[] = ['walk', 'tram', 'taxi'];
 
-function start(ways: readonly Way[]) {
-  let night = createNight({place: 'zidenice', minutes: 1020, money: 350});
+function start(ways: readonly Way[], quest?: Partial<Quest>) {
+  let night = createNight({
+    place: 'zidenice',
+    minutes: 1020,
+    money: 350,
+    ...(quest === undefined ? {} : {quest}),
+  });
   let dialogue = new Dialogue({
     script: createWayOut({speaker: 'The door', text: 'Out.', ways}),
     context: night,
@@ -79,5 +84,32 @@ describe(leaveBy, () => {
     leaveBy('taxi', ALL_WAYS)(night);
 
     expect(night.leaving).toEqual({way: 'taxi', ways: ALL_WAYS});
+  });
+
+  test('the flat is offered with the keys, between the ways and Stay', () => {
+    let {dialogue} = start(ALL_WAYS, {hasKeys: true});
+
+    expect(dialogue.visibleChoices.map((choice) => choice.text)).toEqual([
+      'Walk',
+      'Take the tram',
+      'Take a taxi',
+      'Walk to the flat and sleep',
+      'Stay',
+    ]);
+  });
+
+  test('the flat choice sleeps till morning, chooses no way and tells one page', () => {
+    let {night, dialogue} = start(ALL_WAYS, {hasKeys: true});
+
+    dialogue.choose(3);
+
+    expect(night.minutes).toBe(1920);
+    expect(night.leaving).toBeNull();
+    expect(dialogue.node?.speaker).toBe('The flat');
+
+    dialogue.advance();
+    dialogue.advance();
+
+    expect(dialogue.phase).toBe('ended');
   });
 });

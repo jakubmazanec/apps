@@ -1,3 +1,4 @@
+import {sleepTillMorning} from '../../../core/hours.js';
 import {findStory} from '../../../core/night.js';
 import {type Place} from '../../../core/place.js';
 import {standIn} from '../../../core/prose.js';
@@ -17,6 +18,7 @@ const BOARD = 'The board';
 const HALL = 'The hall';
 const DOORS = 'The doors';
 const MACHINE = 'The ticket machine';
+const BENCHES = 'The benches';
 const STATION_STORY = standIn`The station that never moved`;
 const description = defineScript({
   start: {
@@ -90,6 +92,29 @@ const machine = defineScript({
     },
   },
 });
+const benches = defineScript({
+  start: 'benches',
+  nodes: {
+    benches: {
+      speaker: BENCHES,
+      text: standIn`
+        A row of steel benches stands under the departures board. Several people sleep on them
+        with their coats pulled up.
+      `,
+      choices: [
+        {text: 'Doze till the first train', onChoose: sleepTillMorning, next: 'dozed'},
+        {text: 'Stay on your feet'},
+      ],
+    },
+    dozed: {
+      speaker: BENCHES,
+      text: standIn`
+        You doze through the night with one hand on your bag. The first train wakes the whole
+        hall, and it is morning.
+      `,
+    },
+  },
+});
 
 export const hlavniNadraziHall: Place = {
   id: 'hlavniNadraziHall',
@@ -103,5 +128,6 @@ export const hlavniNadraziHall: Place = {
     {label: HALL, x: 0.7, y: 0.55, script: hall},
     {label: DOORS, x: 0.5, y: 0.8, script: doors},
     {label: MACHINE, x: 0.5, y: 0.12, script: machine},
+    {label: BENCHES, x: 0.5, y: 0.95, script: benches},
   ],
 };

@@ -96,6 +96,18 @@ function takeChoice(
   return opened;
 }
 
+// Whether some spot of the place offers the flat at 1400 on a night with this quest.
+function offersFlat(id: PlaceId, quest: Partial<Quest>): boolean {
+  return getPlace(id).spots.some((spot) => {
+    let night = createNight({place: id, minutes: 1400, money: 350, quest});
+    let dialogue = new Dialogue({script: spot.script, context: night});
+
+    dialogue.advance();
+
+    return readChoices(dialogue).includes('Walk to the flat and sleep');
+  });
+}
+
 function readChoices(dialogue: Dialogue<Night>): string[] {
   return dialogue.visibleChoices.map((choice) => choice.text);
 }
@@ -598,5 +610,52 @@ describe('the game content', () => {
         expect(overlaps).toEqual([]);
       }
     }
+  });
+
+  test('three places let a stranded player sleep till morning', () => {
+    let benches = openSpot('hlavniNadraziHall', 'The benches', 1380);
+
+    benches.dialogue.advance();
+
+    expect(readChoices(benches.dialogue)).toEqual([
+      'Doze till the first train',
+      'Stay on your feet',
+    ]);
+
+    benches.dialogue.choose(0);
+
+    expect(benches.night.minutes).toBe(1920);
+
+    let bench = openSpot('zidenice', 'The bench', 1380);
+
+    bench.dialogue.advance();
+
+    expect(readChoices(bench.dialogue)).toEqual(['Sleep it off', 'Leave him to it']);
+
+    bench.dialogue.choose(0);
+
+    expect(bench.night.minutes).toBe(1920);
+
+    let shelter = openSpot('namestiRepubliky', 'The shelter', 1380);
+
+    shelter.dialogue.advance();
+
+    expect(readChoices(shelter.dialogue)).toEqual([
+      'Ask when the next tram goes',
+      'Wait in silence',
+      'Sleep it off',
+    ]);
+
+    shelter.dialogue.choose(2);
+
+    expect(shelter.night.minutes).toBe(1920);
+  });
+
+  test('every outdoor place offers the flat with the keys, and none without', () => {
+    let outdoor = Object.values(places).filter((place) => place.outdoors);
+
+    expect(outdoor.length).toBeGreaterThan(0);
+    expect(outdoor.filter((place) => !offersFlat(place.id, {hasKeys: true}))).toEqual([]);
+    expect(outdoor.filter((place) => offersFlat(place.id, {}))).toEqual([]);
   });
 });

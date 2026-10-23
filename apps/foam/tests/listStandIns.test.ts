@@ -29,6 +29,7 @@ describe(listStandIns, () => {
       'journeys.ts',
       'nightEnd.ts',
       'quest.ts',
+      'core/createWayOut.ts',
       'Locations not checked:',
     ];
 
