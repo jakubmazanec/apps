@@ -725,6 +725,9 @@ describe(checkContent, () => {
     );
   });
 
+  // Its rolled next returns an inline node, which the checker follows on each of 100 rolls of
+  // every check night, now on sixteen quest states too, so it does a great deal more work than its
+  // neighbours; under coverage the run passes five seconds.
   test('finds a title given on the roll inside an entry effect', () => {
     let won: Node<string> = {
       speaker: 'Bench',
@@ -744,7 +747,7 @@ describe(checkContent, () => {
       'zidenice › description › start › "Try" › next: "supercalifragilistic" has 20 characters, ' +
         'and 16 fit',
     );
-  });
+  }, 60_000);
 
   test('checks a text that reads an achieved story with it achieved, which proves the full collection runs', () => {
     let description = withEntry(findGone, (night) =>
