@@ -4,6 +4,7 @@ import {type Place} from '../../../core/place.js';
 import {standIn} from '../../../core/prose.js';
 import {defineScript} from '../../../core/script.js';
 import {barPicture} from '../../pictures/barPicture.js';
+import {FRIEND_EARLY, FRIEND_LATE, isFriendIn, KEYS_STORY, SEARCH_HOUR} from '../../quest.js';
 
 // The text of this place is stand-in text: the author replaces standIn by prose when writing
 // the real text. Its limits: no word is longer than 16 characters (every word must fit a line on
@@ -13,6 +14,7 @@ import {barPicture} from '../../pictures/barPicture.js';
 // standIn.
 const PLACE_NAME = 'Rotor Bar';
 const BAR = 'The bar';
+const BACK_ROOM = 'The back room';
 const TABLE = 'The corner table';
 const DOOR = 'The door';
 // From 22:00 to 01:00 the guitarist has the corner table.
@@ -37,12 +39,87 @@ const bar = defineScript({
       text: standIn`The bartender nods at the taps.`,
       choices: [
         {text: 'Order a beer', price: 45, minutes: 10, drinks: 1, next: 'beer'},
+        {text: 'Ask after your friend', next: 'friend'},
         {text: 'Not now'},
       ],
     },
     beer: {
       speaker: BAR,
       text: standIn`The beer is cold and the foam is thick, and for a while nothing else needs doing.`,
+    },
+    friend: {
+      speaker: BAR,
+      text: (night) =>
+        night.quest.hasKeys ?
+          standIn`The bartender shrugs. Your friend is wherever they are tonight, and you have the keys.`
+        : night.minutes < FRIEND_EARLY[0] ?
+          standIn`The bartender has not seen your friend yet. Come back when the room fills up.`
+        : isWithin(night, FRIEND_EARLY) ?
+          standIn`Your friend is in the back room, the bartender says, and points with a cloth.`
+        : night.minutes < FRIEND_LATE[0] ?
+          standIn`Your friend left at eight, the bartender says, and promised to be back at eleven.`
+        : standIn`Back in the back room again, the bartender says, as if they never left.`,
+    },
+  },
+});
+const backRoom = defineScript({
+  start: (night) =>
+    night.quest.hasKeys ? 'chat'
+    : isFriendIn(night) ? 'there'
+    : 'away',
+  nodes: {
+    there: {
+      speaker: BACK_ROOM,
+      text: standIn`
+        The back room is full and warm, and your friend is somewhere in it. Every face turns
+        out to be someone else.
+      `,
+      choices: [
+        {
+          text: 'Look for them',
+          minutes: 10,
+          odds: (night) => (getDrunkenness(night) >= 3 ? 0.4 : 0.7),
+          next: ({roll}) => (roll?.won ? 'found' : 'missed'),
+        },
+        {text: 'Not now'},
+      ],
+    },
+    found: {
+      speaker: BACK_ROOM,
+      text: standIn`
+        There they are, at the back, and the keys change hands across a table of glasses.
+        Nobody asks what they open.
+      `,
+      onEnter: (night) => {
+        night.quest.hasKeys = true;
+        findStory(night, KEYS_STORY);
+      },
+    },
+    missed: {
+      speaker: BACK_ROOM,
+      text: (night) => standIn`
+        You go from table to table and an hour goes by without a sign of them.${
+          isFriendIn(night) ? '' : ' By the end the back room has emptied.'
+        }
+      `,
+      onEnter: (night) => {
+        night.minutes += SEARCH_HOUR;
+      },
+    },
+    away: {
+      speaker: BACK_ROOM,
+      text: (night) => standIn`
+        The back room is ${night.minutes < FRIEND_EARLY[0] ? 'still empty' : 'quiet'}, and your friend is not in it. ${
+          night.minutes < FRIEND_EARLY[0] ? 'Not yet.' : 'They will be back at eleven.'
+        }
+      `,
+    },
+    chat: {
+      speaker: BACK_ROOM,
+      text: standIn`
+        Your friend waves you over, and the two of you talk until the music takes the words
+        away. The keys are where they belong now.
+      `,
     },
   },
 });
@@ -139,6 +216,7 @@ export const rotorBarRoom: Place = {
   picture: barPicture,
   spots: [
     {label: BAR, x: 0.22, y: 0.51, script: bar},
+    {label: BACK_ROOM, x: 0.3, y: 0.2, script: backRoom},
     {label: TABLE, x: 0.7, y: 0.84, script: table},
     {label: DOOR, x: 0.91, y: 0.4, script: door},
   ],

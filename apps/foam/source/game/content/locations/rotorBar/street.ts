@@ -1,10 +1,12 @@
 import {createWayOut} from '../../../core/createWayOut.js';
+import {isWithin} from '../../../core/hours.js';
 import {findStory, hasStory} from '../../../core/night.js';
 import {type Place} from '../../../core/place.js';
 import {standIn} from '../../../core/prose.js';
 import {defineScript} from '../../../core/script.js';
 import {isOpen} from '../../hours.js';
 import {standInPicture} from '../../pictures/standInPicture.js';
+import {FRIEND_EARLY, FRIEND_LATE} from '../../quest.js';
 
 // The text of this place is stand-in text: the author replaces standIn by prose when writing
 // the real text. Its limits: no word is longer than 16 characters (every word must fit a line on
@@ -65,8 +67,22 @@ const smokers = defineScript({
           isVisible: (night) => !hasStory(night, TRAM_STORY),
           next: 'cigarette',
         },
+        {text: 'Ask after your friend', next: 'friend'},
         {text: 'Leave them to it'},
       ],
+    },
+    friend: {
+      speaker: SMOKERS,
+      text: (night) =>
+        night.quest.hasKeys ?
+          standIn`Somebody shrugs. Your friend is wherever they are tonight, and you have the keys.`
+        : night.minutes < FRIEND_EARLY[0] ?
+          standIn`Nobody has seen your friend here tonight, and nobody has looked.`
+        : isWithin(night, FRIEND_EARLY) ?
+          standIn`Somebody nods at the door. Your friend went in a while ago.`
+        : night.minutes < FRIEND_LATE[0] ?
+          standIn`Your friend came out, somebody says, and said something about later.`
+        : standIn`Somebody points at the door. Your friend went back in.`,
     },
     cigarette: {
       speaker: SMOKERS,

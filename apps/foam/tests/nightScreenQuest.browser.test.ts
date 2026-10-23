@@ -10,6 +10,7 @@ import {
   endStory,
   getButtonLabel,
   getStoryWindow,
+  getToastParts,
   getWindowButton,
   getWindowParts,
   type Harness,
@@ -19,6 +20,9 @@ import {
   readText,
   startFrom,
   waitForNoStoryWindow,
+  waitForPlace,
+  waitForSpeaker,
+  waitForToast,
 } from './nightScreenHelpers.js';
 
 // The bar's shader costs about 88 ms a frame in headless Chromium, and the main menu shows the
@@ -133,5 +137,145 @@ describe('the quest', {timeout: 180_000}, () => {
     expect(getButtonLabel(button)).toBe('Buy a ticket home  300 Kč');
     expect(button.isDisabled).toBe(true);
     expect(getStoryWindow(harness)).toBe(storyWindow);
+  });
+
+  test('the back room offers the search with its odds, and a won search hands over the keys', async () => {
+    let {nightScreen} = harness;
+
+    await startFrom(harness, '?place=rotorBarRoom&time=17:30');
+    await closeStory(harness);
+
+    let storyWindow = await openSpot(harness, 'The back room');
+
+    await pressThrough(harness, storyWindow);
+
+    expect(getWindowParts(storyWindow).buttons.map((button) => getButtonLabel(button))).toEqual([
+      'Look for them  10 min  70%',
+      'Not now',
+    ]);
+
+    nightScreen.contents.night.random = () => 0.1;
+    nightScreen.ui.focus(getWindowButton(storyWindow, 0));
+    await press('Enter');
+
+    let toast = await waitForToast(harness);
+
+    expect(readText(getToastParts(toast).text)).toBe('The keys');
+    expect(nightScreen.contents.night.quest.hasKeys).toBe(true);
+    expect(readText(nightScreen.contents.statusText)).toBe('17:40   350 Kč   0.0');
+
+    await endStory(storyWindow);
+    await waitForNoStoryWindow(harness);
+
+    storyWindow = await openSpot(harness, 'The back room');
+
+    expect(storyWindow.dialogue.node).toBe(getNode('rotorBarRoom', 'The back room', 'chat'));
+
+    await endStory(storyWindow);
+    await waitForNoStoryWindow(harness);
+  });
+
+  test('a lost search costs an hour', async () => {
+    let {nightScreen} = harness;
+
+    await startFrom(harness, '?place=rotorBarRoom&time=17:30');
+    await closeStory(harness);
+
+    let storyWindow = await openSpot(harness, 'The back room');
+
+    await pressThrough(harness, storyWindow);
+
+    nightScreen.contents.night.random = () => 0.9;
+    nightScreen.ui.focus(getWindowButton(storyWindow, 0));
+    await press('Enter');
+
+    expect(readText(nightScreen.contents.statusText)).toBe('18:40   350 Kč   0.0');
+    expect(nightScreen.contents.night.quest.hasKeys).toBe(false);
+    expect(storyWindow.dialogue.node).toBe(getNode('rotorBarRoom', 'The back room', 'missed'));
+
+    await endStory(storyWindow);
+    await waitForNoStoryWindow(harness);
+  });
+
+  test('at three drinks the odds read 40%', async () => {
+    await startFrom(harness, '?place=rotorBarRoom&time=17:30&drunkenness=3');
+    await closeStory(harness);
+
+    let storyWindow = await openSpot(harness, 'The back room');
+
+    await pressThrough(harness, storyWindow);
+
+    expect(getButtonLabel(getWindowButton(storyWindow, 0))).toBe('Look for them  10 min  40%');
+
+    harness.nightScreen.ui.focus(getWindowButton(storyWindow, 1));
+    await press('Enter');
+    await waitForNoStoryWindow(harness);
+  });
+
+  test('at 20:30 the back room is away', async () => {
+    await startFrom(harness, '?place=rotorBarRoom&time=20:30');
+    await closeStory(harness);
+
+    let storyWindow = await openSpot(harness, 'The back room');
+
+    expect(storyWindow.dialogue.node).toBe(getNode('rotorBarRoom', 'The back room', 'away'));
+    expect(storyWindow.dialogue.visibleChoices).toEqual([]);
+
+    await endStory(storyWindow);
+    await waitForNoStoryWindow(harness);
+  });
+
+  test('a lost search after half past two lands after the close', async () => {
+    let {nightScreen} = harness;
+
+    await startFrom(harness, '?place=rotorBarRoom&time=02:30');
+    await closeStory(harness);
+
+    let storyWindow = await openSpot(harness, 'The back room');
+
+    await pressThrough(harness, storyWindow);
+
+    nightScreen.contents.night.random = () => 0.9;
+    nightScreen.ui.focus(getWindowButton(storyWindow, 0));
+    await press('Enter');
+
+    expect(readText(nightScreen.contents.statusText).startsWith('03:40')).toBe(true);
+
+    await endStory(storyWindow);
+
+    let closing = await waitForSpeaker(harness, 'Closing time');
+
+    await endStory(closing);
+    await waitForPlace(harness, 'rotorBarStreet');
+  });
+
+  test("the bartender's answer changes with the hour", async () => {
+    let answers: string[] = [];
+
+    for (let time of ['16:30', '21:00']) {
+      await startFrom(harness, `?place=rotorBarRoom&time=${time}`);
+      await closeStory(harness);
+
+      let storyWindow = await openSpot(harness, 'The bar');
+
+      await pressThrough(harness, storyWindow);
+
+      let {buttons} = getWindowParts(storyWindow);
+
+      expect(buttons.map((button) => getButtonLabel(button))).toEqual([
+        'Order a beer  10 min  45 Kč',
+        'Ask after your friend',
+        'Not now',
+      ]);
+
+      harness.nightScreen.ui.focus(getWindowButton(storyWindow, 1));
+      await press('Enter');
+      answers.push(storyWindow.dialogue.pageText);
+      await endStory(storyWindow);
+      await waitForNoStoryWindow(harness);
+    }
+
+    expect(answers[1]).not.toBe(answers[0]);
+    expect(answers[1]).toContain('eleven');
   });
 });
