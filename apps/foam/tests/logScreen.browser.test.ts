@@ -148,7 +148,7 @@ describe('log screen', {timeout: 180_000}, () => {
     expect(back.isDisabled).toBe(true);
     expect(next.isDisabled).toBe(false);
     expect(logScreen.ui.focused).toBeNull();
-    expect(readText(regular).startsWith('19:40  The bar')).toBe(true);
+    expect(readText(regular).startsWith('Seed 20261025\n\n19:40  The bar')).toBe(true);
     expect(readText(italic)).toContain('nobody');
   });
 
@@ -329,7 +329,7 @@ describe('log screen', {timeout: 180_000}, () => {
     expect(playMusic).toHaveBeenCalledTimes(2);
   });
 
-  test('an empty log is one empty page with both buttons disabled, and Tab reaches Menu', async () => {
+  test("an empty log is the seed's line on one page with both buttons disabled, and Tab reaches Menu", async () => {
     let {game, mainMenuScreen} = harness;
 
     logScreen.contents.showLog(createNight({seed: 5, place: FIXED_BAR, minutes: 1920, money: 0}));
@@ -350,7 +350,7 @@ describe('log screen', {timeout: 180_000}, () => {
     expect(getTitle()).toBe('The night  1 of 1');
     expect(back.isDisabled).toBe(true);
     expect(next.isDisabled).toBe(true);
-    expect(readText(getLeaves().regular)).toBe('');
+    expect(readText(getLeaves().regular).trimEnd()).toBe('Seed 5');
 
     logScreen.ui.focusNext();
 
