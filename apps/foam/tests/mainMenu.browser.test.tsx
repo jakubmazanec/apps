@@ -12,6 +12,7 @@ import {
   Panel,
   Slider,
   Text,
+  type TextInput,
 } from 'tellurion';
 import {
   afterAll,
@@ -24,10 +25,14 @@ import {
   vitest,
 } from 'vitest';
 
+import {nightStart} from '../source/game/content/nightStart.js';
 import {type barPicture as barPictureValue} from '../source/game/content/pictures/barPicture.js';
 import {type assets as assetsValue} from '../source/game/core/assets.js';
+import {hash} from '../source/game/core/hash.js';
+import {todaySeed} from '../source/game/core/todaySeed.js';
 import {type PlacePicture} from '../source/game/screens/placePicture.js';
 import Index from '../source/routes/_index.js';
+import {getNewNightParts} from './newNightParts.js';
 
 // Headless Chromium draws the bar in software, at about 90 ms a frame, which
 // slows every frame of these tests. They check placement and speed, not the
@@ -162,6 +167,38 @@ describe('main menu', () => {
     }
 
     return modal;
+  }
+
+  async function openNewNight(): Promise<Modal> {
+    mainMenuScreen.ui.focus(mainMenuScreen.contents.newGameButton);
+    await press('Enter');
+
+    let modal = mainMenuScreen.contents.openModal;
+
+    if (modal === null) {
+      throw new Error('The New night window did not open!');
+    }
+
+    return modal;
+  }
+
+  // Types into the field as the player does, through the hidden <input> Tellurion
+  // appends to the canvas's container. A field not being edited is focused and
+  // Enter starts the edit; in a field being edited, Enter would submit it.
+  async function typeSeed(input: TextInput, text: string): Promise<void> {
+    let element = document.querySelector('input');
+
+    if (element === null) {
+      throw new Error('The field has no hidden input!');
+    }
+
+    if (document.activeElement !== element) {
+      mainMenuScreen.ui.focus(input);
+      await press('Enter');
+    }
+
+    element.value = text;
+    element.dispatchEvent(new Event('input'));
   }
 
   // The window closes after a 100 ms fade, so closing is awaited.
@@ -495,6 +532,99 @@ describe('main menu', () => {
     expect(picture.speed).toBe(1);
   });
 
+  test("New Game opens the New night window with today's date in the field and nothing focused", async () => {
+    let modal = await openNewNight();
+    let {input, start} = getNewNightParts(modal);
+    let [titleBlock] = getPanel(modal).children;
+    let title = titleBlock instanceof Container ? titleBlock.children[0] : undefined;
+
+    if (!(title instanceof Text)) {
+      throw new TypeError('The New night window has no title!');
+    }
+
+    expect(readText(title)).toBe('New night');
+    expect(input.value).toBe(String(todaySeed()));
+    expect(describeFocus(mainMenuScreen.ui.focused)).toBe('nothing');
+    expect(start.isDisabled).toBe(false);
+    expect(mainMenuScreen.ui.topOverlay).toBe(modal);
+
+    await closeWithEscape();
+  });
+
+  test('letters and spaces typed into the field are dropped, the digits kept, and a sixteenth digit too', async () => {
+    let {input, close} = getNewNightParts(await openNewNight());
+
+    await typeSeed(input, '2a0 2b6');
+
+    expect(input.value).toBe('2026');
+
+    await typeSeed(input, '1234567890123456');
+
+    expect(input.value).toBe('123456789012345');
+
+    mainMenuScreen.ui.focus(close);
+    await press('Enter');
+    await waitForClosed();
+  });
+
+  test('an emptied field disables Start, and Enter does nothing', async () => {
+    let modal = await openNewNight();
+    let {input, start, close} = getNewNightParts(modal);
+
+    await typeSeed(input, '');
+
+    expect(start.isDisabled).toBe(true);
+
+    await press('Enter');
+
+    expect(mainMenuScreen.state).toBe('shown');
+    expect(mainMenuScreen.contents.openModal).toBe(modal);
+
+    await typeSeed(input, '7');
+
+    expect(start.isDisabled).toBe(false);
+
+    mainMenuScreen.ui.focus(close);
+    await press('Enter');
+    await waitForClosed();
+  });
+
+  test('Escape closes the window with the focus back on New Game', async () => {
+    await openNewNight();
+    await closeWithEscape();
+
+    expect(describeFocus(mainMenuScreen.ui.focused)).toBe('New Game');
+    expect(mainMenuScreen.ui.topOverlay).toBeNull();
+  });
+
+  test('Close closes the window with the focus back on New Game', async () => {
+    let {close} = getNewNightParts(await openNewNight());
+
+    mainMenuScreen.ui.focus(close);
+    await press('Enter');
+    await waitForClosed();
+
+    expect(describeFocus(mainMenuScreen.ui.focused)).toBe('New Game');
+  });
+
+  test('the picture runs at half speed while the New night window is open', async () => {
+    let {picture} = mainMenuScreen.contents;
+
+    await nextFrame();
+
+    expect(picture.speed).toBe(1);
+
+    await openNewNight();
+    await nextFrame();
+
+    expect(picture.speed).toBe(0.5);
+
+    await closeWithEscape();
+    await nextFrame();
+
+    expect(picture.speed).toBe(1);
+  });
+
   test('the error screen has no picture', () => {
     let {view} = errorScreen as MainMenuScreen;
     let hasPicture = (node: pixi.Container): boolean =>
@@ -506,7 +636,7 @@ describe('main menu', () => {
 
   // It leaves the night screen shown, for the test after it.
   test('a new game takes the picture off the main menu, and a frame draws nothing into it', async () => {
-    let {newGameButton, picture} = mainMenuScreen.contents;
+    let {picture} = mainMenuScreen.contents;
     let [sprite] = picture.view.children;
 
     if (!(sprite instanceof pixi.Sprite)) {
@@ -514,8 +644,10 @@ describe('main menu', () => {
     }
 
     let {texture} = sprite;
+    let {input, start} = getNewNightParts(await openNewNight());
 
-    mainMenuScreen.ui.focus(newGameButton);
+    await typeSeed(input, '007');
+    mainMenuScreen.ui.focus(start);
     await press('Enter');
     await vitest.waitFor(
       () => {
@@ -549,8 +681,9 @@ describe('main menu', () => {
   });
 
   // The game's own content: the night starts in the train at 16:00. The id,
-  // not a sentence, so the test holds when the text is written.
-  test('New Game shows the night screen in the train', async () => {
+  // not a sentence, so the test holds when the text is written. The hash gives
+  // 0.398 for the seed 7, so the money is the second of the five amounts.
+  test('Start plays the night of the typed seed in the train, with the money the hash gives it', async () => {
     let {nightScreen} = await import('../source/game/screens/nightScreen.js');
 
     await vitest.waitFor(
@@ -561,6 +694,30 @@ describe('main menu', () => {
     );
 
     expect(nightScreen.contents.place?.id).toBe('train');
+    expect(nightStart.seed).toBe(7);
+    expect(nightScreen.contents.night.seed).toBe(7);
+    expect(nightScreen.contents.night.money).toBe(300 + 50 * Math.floor(hash(7, 'money') * 5));
     expect(readText(nightScreen.contents.statusText)).toBe('16:00   350 Kč   0.0');
+  });
+
+  // The hash gives 0.828 for the seed 20261026, so the money is the last of the five amounts.
+  test('Enter in the field starts the night too', async () => {
+    let {nightScreen} = await import('../source/game/screens/nightScreen.js');
+
+    await game.showScreen(mainMenuScreen);
+
+    let {input} = getNewNightParts(await openNewNight());
+
+    await typeSeed(input, '20261026');
+    await press('Enter');
+    await vitest.waitFor(
+      () => {
+        expect(nightScreen.state).toBe('shown');
+      },
+      {timeout: 10_000},
+    );
+
+    expect(nightScreen.contents.night.seed).toBe(20261026);
+    expect(readText(nightScreen.contents.statusText)).toBe('16:00   500 Kč   0.0');
   });
 });

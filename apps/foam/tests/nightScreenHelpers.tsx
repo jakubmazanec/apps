@@ -32,6 +32,7 @@ import {type Toast} from '../source/game/screens/toast.js';
 import {type TravelWindow} from '../source/game/screens/travelWindow.js';
 import Index from '../source/routes/_index.js';
 import {fixedStart} from './fixedWorld.js';
+import {getNewNightParts} from './newNightParts.js';
 
 // The page's stylesheet gives the canvas the size of the viewport, as in the
 // running app. Without it the canvas has no height the tests can rely on.
@@ -148,11 +149,19 @@ export async function setViewport({game}: Harness, width: number, height: number
   );
 }
 
-// Activates New Game on the main menu and waits for the night screen and its
-// first layout.
+// Activates New Game on the main menu, then Start in the New night window, and
+// waits for the night screen and its first layout.
 export async function startNewGame({mainMenuScreen, nightScreen}: Harness): Promise<void> {
   mainMenuScreen.ui.focus(mainMenuScreen.contents.newGameButton);
   await press('Enter');
+
+  let modal = mainMenuScreen.contents.openModal;
+
+  if (modal === null) {
+    throw new Error('The New night window did not open!');
+  }
+
+  getNewNightParts(modal).start.activate();
   await vitest.waitFor(
     () => {
       if (nightScreen.state !== 'shown') {
@@ -183,6 +192,7 @@ export function useFixedWorld(
 // helpers before any test or boot writes into nightStart, so these are the game's own values, and
 // startFrom starts over them as the address does at the boot.
 const OWN_START = {
+  seed: nightStart.seed,
   minutes: nightStart.minutes,
   money: nightStart.money,
   place: nightStart.place,
@@ -199,8 +209,8 @@ export async function restartAt(harness: Harness, place: PlaceId): Promise<void>
 /**
  * Starts a new night from a jump-in's query, as the address does at the boot: the result's place,
  * hour, money, level and quest go into nightStart, the level and the quest cleared first so a start
- * names only what it gives, and the game's own minutes, money and place first put back; then
- * Quit to menu and New Game. A query that is no jump-in throws.
+ * names only what it gives, and the game's own seed, minutes, money and place first put back;
+ * then Quit to menu and New Game. A query that is no jump-in throws.
  */
 export async function startFrom(harness: Harness, search: string): Promise<void> {
   let jumpIn = getJumpIn(search, nightStart.places);

@@ -1,6 +1,7 @@
 import * as pixi from 'pixi.js';
 import {Button, Container, GameScreen, type Modal, Text} from 'tellurion';
 
+import {nightStart} from '../content/nightStart.js';
 import {barPicture} from '../content/pictures/barPicture.js';
 import {assets} from '../core/assets.js';
 import {audio} from '../core/audio.js';
@@ -8,10 +9,11 @@ import {game} from '../core/game.js';
 import {measureText} from '../core/measureText.js';
 import {palette} from '../core/palette.js';
 import {playFocusSound} from '../core/playFocusSound.js';
+import {openNewNightModal} from './newNightModal.js';
 // The mainMenuScreen -> nightScreen -> menuModal -> mainMenuScreen static
 // import cycle is deliberate and safe: no module reads another's binding while
 // it evaluates, only as the game runs. This screen reads the night screen in
-// New Game's click, the night screen calls the menu's functions from its Menu
+// the New night window's Start, the night screen calls the menu's functions from its Menu
 // button, its update and its hide, and the menu reads this screen in Quit to
 // menu's click. The directive covers the route through the log screen too,
 // mainMenuScreen -> nightScreen -> logScreen -> menuModal -> mainMenuScreen:
@@ -76,8 +78,18 @@ export const mainMenuScreen = new GameScreen<MainMenuScreenContents>({
       children: [labelText('New Game')],
       layout: {width: 96, marginTop: 16},
       onClick: () => {
-        // showScreen never rejects; a failure lands on the error screen.
-        void game.showScreen(nightScreen);
+        screen.contents.openModal = openNewNightModal({
+          ui: screen.ui,
+          scheduler: screen.scheduler,
+          onClosed: () => {
+            screen.contents.openModal = null;
+          },
+          onStart: (seed) => {
+            nightStart.seed = seed;
+            // showScreen never rejects; a failure lands on the error screen.
+            void game.showScreen(nightScreen);
+          },
+        });
       },
     });
     let optionsButton = new Button({
@@ -136,7 +148,7 @@ export const mainMenuScreen = new GameScreen<MainMenuScreenContents>({
     screen.contents.openModal = null;
   },
   onUpdate: (ticker, screen) => {
-    // The Options window is an overlay.
+    // The Options and New night windows are overlays.
     screen.contents.picture.speed = screen.ui.topOverlay === null ? 1 : 0.5;
   },
   onResize: (screen) => {
