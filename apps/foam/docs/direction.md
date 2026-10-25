@@ -1,8 +1,8 @@
 # Foam: direction
 
 Started: 2026-10-03. App: `apps/foam`. Status: the direction is agreed; phases 1 to 6 are built and
-reviewed, and phase 7 is being designed. This is a living document: it describes the current state
-and plan, and is kept correct as they change.
+reviewed, and phase 7 is being built, its first spec done. This is a living document: it describes
+the current state and plan, and is kept correct as they change.
 
 ## What Foam is
 
@@ -308,7 +308,8 @@ plan, build and review, in this order:
    window New Game opens or given by the jump-in's `seed=`; the hash of the seed and a key behind
    `night.random`; the dice rolled from it by their count; the start money drawn from a range; the
    seed on the log's first line; and the checker's six values of `random`, run where a function
-   reads it. It is designed: [spec](superpowers/specs/2026-10-25-seed-design.md).
+   reads it. It is built: [spec](superpowers/specs/2026-10-25-seed-design.md),
+   [plan](superpowers/plans/2026-10-25-seed.md).
 2. Versions: a scene written in two or three versions, of which the night picks one by the seed; the
    friend's evening in versions that carry their hours and the texts that name them, which closes
    the loose end above; Rotor's corner table in versions; an event on arrival at a stop; and the
