@@ -80,6 +80,25 @@ describe(getJumpIn, () => {
     expect(warn).toHaveBeenCalledTimes(1);
   });
 
+  test('reads the seed, leading zeros and all', () => {
+    expect(getJumpIn('?place=rotorBarRoom&seed=7', places)).toEqual({
+      place: 'rotorBarRoom',
+      seed: 7,
+    });
+    expect(getJumpIn('?place=rotorBarRoom&seed=20261025', places)?.seed).toBe(20_261_025);
+    expect(getJumpIn('?place=rotorBarRoom&seed=007', places)?.seed).toBe(7);
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  test.each(['abc', '-1', '1234567890123456'])('drops the seed %s with a warning', (seed) => {
+    let jumpIn = getJumpIn(`?place=rotorBarRoom&seed=${seed}`, places);
+
+    expect(jumpIn).toEqual({place: 'rotorBarRoom'});
+    expect(jumpIn).not.toHaveProperty('seed');
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining(`"${seed}"`));
+  });
+
   test('stories=none asks to forget the collection', () => {
     expect(getJumpIn('?place=rotorBarRoom&stories=none', places)).toEqual({
       place: 'rotorBarRoom',
