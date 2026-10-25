@@ -4,6 +4,7 @@ import {type Place} from './place.js';
 const TIME_FORM = /^(\d{2}):(\d{2})$/;
 const MONEY_FORM = /^-?\d+$/;
 const DRUNKENNESS_FORM = /^\d+(\.\d+)?$/;
+const SEED_FORM = /^\d{1,15}$/;
 const MINUTES_IN_DAY = 1440;
 const QUEST_FLAGS: Readonly<Record<string, keyof Quest>> = {
   keys: 'hasKeys',
@@ -44,6 +45,7 @@ export function getJumpIn(
   drunkenness?: number;
   forgetStories?: boolean;
   quest?: Partial<Quest>;
+  seed?: number;
 } | null {
   let parameters = new URLSearchParams(search);
   let place = parameters.get('place');
@@ -66,6 +68,7 @@ export function getJumpIn(
     drunkenness?: number;
     forgetStories?: boolean;
     quest?: Partial<Quest>;
+    seed?: number;
   } = {
     place: place as PlaceId,
   };
@@ -74,6 +77,7 @@ export function getJumpIn(
   let drunkenness = parameters.get('drunkenness');
   let stories = parameters.get('stories');
   let quest = parameters.get('quest');
+  let seed = parameters.get('seed');
 
   if (time !== null) {
     let minutes = readTime(time);
@@ -133,6 +137,17 @@ export function getJumpIn(
 
     if (known) {
       jumpIn.quest = flags;
+    }
+  }
+
+  if (seed !== null) {
+    if (SEED_FORM.test(seed)) {
+      jumpIn.seed = Number(seed);
+    } else {
+      // eslint-disable-next-line no-console -- see above
+      console.warn(
+        `The jump-in ignores the seed "${seed}": it is a whole number of up to 15 digits.`,
+      );
     }
   }
 
