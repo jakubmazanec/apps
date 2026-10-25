@@ -25,8 +25,8 @@ physical layout and look of the device.
 
 ### Whole project
 
-- **Rust**, sharing one core between the browser and the device. Go was considered and rejected:
-  its garbage collector risks audio dropouts, and its WASM and microcontroller support (TinyGo) is a
+- **Rust**, sharing one core between the browser and the device. Go was considered and rejected: its
+  garbage collector risks audio dropouts, and its WASM and microcontroller support (TinyGo) is a
   poor fit for real-time audio.
 - **One shared core.** The sound engine, sequencer, display rendering, and control handling live in
   one Rust crate that builds both for WASM and for bare-metal firmware (`no_std`, no allocation on
@@ -36,9 +36,9 @@ physical layout and look of the device.
   effects, modulation, sequencing, piano roll – is shared and identical.
 - **Recording.** The device has mic and line inputs. Resampling (recording the device's own output)
   is a feature.
-- **Standalone.** Every musical feature works on the device alone. The companion app can make
-  things more convenient, but it is never required. A feature that only works with a computer
-  attached is a design failure.
+- **Standalone.** Every musical feature works on the device alone. The companion app can make things
+  more convenient, but it is never required. A feature that only works with a computer attached is a
+  design failure.
 - **Open source, buildable by others.** Primarily for me, but built from parts and files anyone can
   order, so others could theoretically build one too.
 
@@ -48,8 +48,8 @@ Designed first, in its own document. Decided so far:
 
 - The core is compiled to WASM and runs in an AudioWorklet.
 - A thin browser shell around it shows the device's actual display pixels and on-screen controls,
-  and feeds input back to the core. Computer keyboard, mouse, and USB MIDI controllers can drive
-  the controls.
+  and feeds input back to the core. Computer keyboard, mouse, and USB MIDI controllers can drive the
+  controls.
 - The core respects hardware-realistic constraints – CPU budget, memory, a display resolution and a
   control set that can be bought and fitted – so that part 3 stays possible. The display in
   particular must match a real, purchasable part (size, resolution, colour depth).
