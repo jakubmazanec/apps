@@ -1,7 +1,8 @@
 # The seed (Foam phase 7, spec 1 of 3): design
 
-Date: 2026-10-25. App: `apps/foam`. Status: designed; the plan follows. It is the first of phase 7's
-three specs in the [direction document](../../direction.md). It builds on phase 6's
+Date: 2026-10-25. App: `apps/foam`. Status: implemented by
+[2026-10-25-seed.md](../plans/2026-10-25-seed.md). It is the first of phase 7's three specs in the
+[direction document](../../direction.md). It builds on phase 6's
 [endings and sleep](2026-10-19-endings-and-sleep-design.md). Spec 2, versions, and spec 3, saving
 and Continue, follow.
 
