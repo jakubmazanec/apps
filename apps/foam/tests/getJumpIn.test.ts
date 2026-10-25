@@ -87,10 +87,14 @@ describe(getJumpIn, () => {
     });
     expect(getJumpIn('?place=rotorBarRoom&seed=20261025', places)?.seed).toBe(20_261_025);
     expect(getJumpIn('?place=rotorBarRoom&seed=007', places)?.seed).toBe(7);
+    expect(getJumpIn('?place=rotorBarRoom&seed=999999999999999', places)?.seed).toBe(
+      999_999_999_999_999,
+    );
+    expect(getJumpIn('?place=rotorBarRoom&seed=0', places)?.seed).toBe(0);
     expect(warn).not.toHaveBeenCalled();
   });
 
-  test.each(['abc', '-1', '1234567890123456'])('drops the seed %s with a warning', (seed) => {
+  test.each(['', 'abc', '-1', '1234567890123456'])('drops the seed %s with a warning', (seed) => {
     let jumpIn = getJumpIn(`?place=rotorBarRoom&seed=${seed}`, places);
 
     expect(jumpIn).toEqual({place: 'rotorBarRoom'});

@@ -151,6 +151,7 @@ describe('main menu', () => {
   let settings: Settings;
   let assets: typeof assetsValue;
   let errorScreen: unknown;
+  let seed: number;
   // The spies call through to the real mixer; they only record the calls.
   let setVolume: MockInstance<AudioMixer['setVolume']>;
   let playMusic: MockInstance<AudioMixer['playMusic']>;
@@ -221,6 +222,9 @@ describe('main menu', () => {
   // the way the app does, inside StrictMode like entry.client.tsx: the boot
   // effect then runs twice and must still initialise the game once.
   beforeAll(async () => {
+    // The tests start nights, and each night's window writes its seed into the shared start.
+    ({seed} = nightStart);
+
     // Seeded before anything imports settings.ts, which reads storage at
     // module load: the route imports the game modules dynamically, so they
     // evaluate after this line.
@@ -281,6 +285,7 @@ describe('main menu', () => {
     root.unmount();
     container.remove();
     localStorage.clear();
+    nightStart.seed = seed;
   });
 
   test('the main menu is the current screen', () => {

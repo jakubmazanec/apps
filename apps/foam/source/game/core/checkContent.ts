@@ -100,7 +100,8 @@ function getCheckTimes(locationData: LocationData): number[] {
  * time, level and quest state, and a choice's next with odds once for each roll as well. A
  * choice's effect and a node's entry effect run on a copy of each check night. Every check night
  * is made twice: with no story achieved and with every story the effects gave. A function of the
- * content that reads random runs again under each of the other values of CHECK_RANDOM.
+ * content that reads random runs again under each of the other values of CHECK_RANDOM, except
+ * under a roll, where it reads the roll's value.
  */
 export function checkContent(content: Content): string[] {
   let lines = new Set<string>();
@@ -184,11 +185,10 @@ export function checkContent(content: Content): string[] {
     // The loop over the nights exists for a text that is a function; the marks and the words of a
     // page are the same on every night, so a page already seen is not split again.
     let seen = new Set<string>();
-    let results = nights.flatMap((night) =>
-      typeof text === 'function' ? tryWithRandom(path, night, text) : [{night, result: text}],
-    );
 
-    for (let {result} of results) {
+    for (let {result} of nights.flatMap((night) =>
+      typeof text === 'function' ? tryWithRandom(path, night, text) : [{night, result: text}],
+    )) {
       let pages = typeof result === 'string' ? [result] : result;
 
       for (let [index, page] of pages.entries()) {
@@ -257,9 +257,9 @@ export function checkContent(content: Content): string[] {
       }
 
       for (let night of nights) {
-        let pairs = typeof odds === 'function' ? withRandom(night, odds) : [{night, result: odds}];
-
-        for (let {night: source, result: chance} of pairs) {
+        for (let {night: source, result: chance} of typeof odds === 'function' ?
+          withRandom(night, odds)
+        : [{night, result: odds}]) {
           if (chance !== undefined && !(chance > 0 && chance < 1)) {
             lines.add(`${where}: odds is ${chance}`);
           }
