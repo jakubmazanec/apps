@@ -38,6 +38,16 @@ describe('night', () => {
     expect(createNight({...START, seed: 8}).random('money')).toBe(hash(8, 'money'));
   });
 
+  test("random keeps the seed the night was made with when the start's seed changes later", () => {
+    let start: Parameters<typeof createNight>[0] = {...START};
+    let night = createNight(start);
+
+    start.seed = 8;
+
+    expect(night.random('money')).toBe(hash(7, 'money'));
+    expect(night.seed).toBe(7);
+  });
+
   test('keeps a number for the money', () => {
     expect(createNight({...START, money: 120}).money).toBe(120);
   });

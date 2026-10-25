@@ -94,7 +94,10 @@ export const DRINKS_PER_HOUR = 1;
 const MINUTES_PER_HOUR = 60;
 
 export function createNight(
-  start: {
+  {
+    seed,
+    ...start
+  }: {
     seed: number;
     place: PlaceId;
     minutes: number;
@@ -104,10 +107,10 @@ export function createNight(
   },
   collection?: Collection,
 ): Night {
-  let random: Night['random'] = (...keys) => hash(start.seed, ...keys);
+  let random: Night['random'] = (...keys) => hash(seed, ...keys);
 
   return {
-    seed: start.seed,
+    seed,
     rolls: 0,
     random,
     minutes: start.minutes,
