@@ -31,7 +31,7 @@ import {playFocusSound} from '../core/playFocusSound.js';
 // while it evaluates, only as the game runs. This screen calls the menu's
 // functions from its Menu button, its update and its hide, the menu reads the
 // main menu in Quit to menu's click, the main menu reads the night screen in
-// New Game's click, and the night screen reads this screen when the night ends.
+// the New night window's Start, and the night screen reads this screen when the night ends.
 // eslint-disable-next-line import/no-cycle -- see comment above: the cycle only resolves as the game runs, long after the modules evaluate
 import {destroyMenus, openMenu, openMenuOnCancel, openStoriesWindow} from './menuModal.js';
 import {type StoriesWindow} from './storiesWindow.js';
