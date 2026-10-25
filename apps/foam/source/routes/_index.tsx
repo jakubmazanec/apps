@@ -58,7 +58,7 @@ export default function Index() {
 
       // A jump-in in the address starts the night at once, in every build, so
       // a scene can be tried on a phone. Its values stay in nightStart for the
-      // page load, so Quit to menu and New Game start the same scene again.
+      // page load, so Quit to menu and New Game start the same scene again, on the window's seed.
       let jumpIn = getJumpIn(globalThis.location.search, nightStart.places);
 
       if (jumpIn !== null) {

@@ -35,7 +35,8 @@ export function hash(seed: number, ...keys: Array<number | string>): number {
       }
     }
 
-    // The boundary tag keeps ('roll', 7) and ('roll7') from reading as one stream.
+    // A string has no fixed length, so the boundary tag marks where a key ends: ('ab', 'c') and
+    // ('ab\u0002c') differ.
     mix(0);
   }
 

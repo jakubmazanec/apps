@@ -1154,6 +1154,7 @@ describe('night screen', {timeout: 180_000}, () => {
       let {nightScreen} = harness;
       let {night} = nightScreen.contents;
       let script = sampleBar.spots.find((spot) => spot.label === 'The door')?.script;
+      let ownRandom = night.random;
 
       try {
         for (let [value, won, node] of [
@@ -1178,7 +1179,7 @@ describe('night screen', {timeout: 180_000}, () => {
           expect(storyWindow.dialogue.node).toBe(node);
         }
       } finally {
-        night.random = Math.random;
+        night.random = ownRandom;
       }
     });
 
