@@ -42,7 +42,10 @@ import {createWindowTitle, TITLE_HEIGHT, WINDOW_PADDING} from './windowTitle.js'
 type LogScreenContents = {
   back: Button;
 
-  /** The log as one marked text, wrapped to the text's width. */
+  /**
+   * The log as one marked text, wrapped to the text's width; the night's seed and a blank line
+   * come first.
+   */
   formatted: string;
 
   /** The topmost overlay at the end of the last update; see `openMenuOnCancel`. */
@@ -176,7 +179,10 @@ function layOut(screen: LogScreen): void {
     ),
   );
   // Marks show nothing, so a line holds as many letters as without them.
-  let formatted = formatLog(night?.log ?? [], textWidth, (text) => measureText(stripMarks(text)));
+  let formatted =
+    night ?
+      `Seed ${night.seed}\n\n${formatLog(night.log, textWidth, (text) => measureText(stripMarks(text)))}`
+    : '';
   let newPageStarts = [0, ...getPageBreaks(formatted, linesPerPage)];
   // A resize keeps the player's place: the page shown is the one that holds the
   // offset at which the shown page began. wrapText adds and removes no
