@@ -69,6 +69,8 @@ Designed first, in its own document. Decided so far:
 - Needs an audio codec with mic preamp and line input, a display big enough for a piano roll, a CPU
   with a hardware FPU (synthesis), and external RAM plus storage (samples). The Daisy Seed (STM32H7,
   64 MB SDRAM) is an example of this class of board; no board has been chosen.
+- Memory must be generous enough that a user never has to worry about running out, even for very
+  long songs. Note data is small; samples are what drive the memory and storage sizing.
 - Circuit boards are designed for manufacturing and assembly services (e.g. JLCPCB, PCBWay), leaving
   little or no hand-soldering.
 - Controls are the hardest part to match: velocity- or pressure-sensitive pads and good encoders are
