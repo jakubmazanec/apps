@@ -325,6 +325,7 @@ export function checkContent(content: Content): string[] {
     for (let night of nights) {
       let fresh = createNight(
         {
+          seed: 0,
           place: night.place,
           minutes: night.minutes,
           money: night.money,
@@ -392,6 +393,8 @@ export function checkContent(content: Content): string[] {
           QUEST_STATES.map((quest) =>
             createNight(
               {
+                // Nothing reads the seed: the checker puts values of its own in random.
+                seed: 0,
                 // The keys of content.places are the ids of the places.
                 place: id as PlaceId,
                 minutes,

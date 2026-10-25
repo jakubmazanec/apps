@@ -2,7 +2,7 @@ import {describe, expect, test} from 'vitest';
 
 import {createNight, findStory, hasStory} from '../source/game/core/night.js';
 
-const START = {place: 'rotorBarRoom', minutes: 1390, money: 350} as const;
+const START = {seed: 1, place: 'rotorBarRoom', minutes: 1390, money: 350} as const;
 const SONG = 'The guitarist who plays for one';
 
 describe(findStory, () => {

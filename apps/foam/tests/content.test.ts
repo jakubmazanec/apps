@@ -21,6 +21,7 @@ import {isOpenAt} from '../source/game/core/hours.js';
 import {createNight, type Night, type PlaceId, type Quest} from '../source/game/core/night.js';
 import {type Place, type Spot} from '../source/game/core/place.js';
 import {asChoice, formatChoice} from '../source/game/core/script.js';
+import {todaySeed} from '../source/game/core/todaySeed.js';
 
 const SCREENS = [
   {width: 480, height: 270},
@@ -74,7 +75,7 @@ function openSpot(
     quest?: Partial<Quest>;
   } = {},
 ): {dialogue: Dialogue<Night>; night: Night} {
-  let night = createNight({place: id, minutes, money: 350, ...start}, collection);
+  let night = createNight({seed: 1, place: id, minutes, money: 350, ...start}, collection);
 
   return {
     dialogue: new Dialogue({script: getSpotScript(getPlace(id), label), context: night}),
@@ -99,7 +100,7 @@ function takeChoice(
 // Whether some spot of the place offers the flat at 1400 on a night with this quest.
 function offersFlat(id: PlaceId, quest: Partial<Quest>): boolean {
   return getPlace(id).spots.some((spot) => {
-    let night = createNight({place: id, minutes: 1400, money: 350, quest});
+    let night = createNight({seed: 1, place: id, minutes: 1400, money: 350, quest});
     let dialogue = new Dialogue({script: spot.script, context: night});
 
     dialogue.advance();
@@ -110,7 +111,7 @@ function offersFlat(id: PlaceId, quest: Partial<Quest>): boolean {
 
 // The end script opened on a night at its final minute, with the quest and the stories given.
 function openEnd(quest: Partial<Quest>, stories = 0): Dialogue<Night> {
-  let night = createNight({place: 'hlavniNadraziHall', minutes: 1920, money: 50, quest});
+  let night = createNight({seed: 1, place: 'hlavniNadraziHall', minutes: 1920, money: 50, quest});
 
   for (let index = 0; index < stories; index++) {
     night.stories.push({title: 'A story', minutes: 1500});
@@ -326,10 +327,11 @@ describe('the game content', () => {
     }
   });
 
-  test('a night starts on the train at 16:00 with 350 Kč', () => {
+  test("a night starts on the train at 16:00 with today's seed and 300 to 500 Kč by 50", () => {
     expect(nightStart.place).toBe('train');
     expect(nightStart.minutes).toBe(960);
-    expect(nightStart.money).toBe(350);
+    expect(nightStart.seed).toBe(todaySeed());
+    expect(nightStart.money).toEqual({min: 300, max: 500, step: 50});
     expect(nightStart.locations).toBe(locations);
     expect(nightStart.places).toBe(places);
     expect(nightStart.locationData).toBe(locationData);
@@ -600,7 +602,7 @@ describe('the game content', () => {
     }
 
     // The bar closes at 03:00 and puts the player out on its street.
-    let closed = createNight({place: 'rotorBarStreet', minutes: 1620, money: 350});
+    let closed = createNight({seed: 1, place: 'rotorBarStreet', minutes: 1620, money: 350});
     // Each dialogue reaches the node of one story: 0.1 wins the spare chair's roll and the
     // shelter's and the back room's search, and 0.95 loses the chair's above 0.9, which spills
     // the beer. The long table hands the bottle over for the birthday.

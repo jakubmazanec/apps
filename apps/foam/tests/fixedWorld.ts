@@ -476,6 +476,7 @@ export const fixedStart: NightStart = {
   locationData: fixedLocationData,
   travel: fixedTravel,
   map: fixedMap,
+  seed: 1,
   place: FIXED_BAR,
   minutes: 1180,
   money: 350,
