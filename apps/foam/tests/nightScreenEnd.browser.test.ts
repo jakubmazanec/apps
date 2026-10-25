@@ -323,7 +323,7 @@ describe('the end of the night', {timeout: 180_000}, () => {
   });
 
   test('the keys and the flat end the night on Dvořákova', async () => {
-    let end = await sleepInTheFlat('?place=rotorBarStreet&time=23:40&quest=keys');
+    let end = await sleepInTheFlat('?place=rotorBarStreet&time=23:40&money=350&quest=keys');
     let {contents} = harness.nightScreen;
 
     expect(end.dialogue.node).toBe(nightEnd.nodes?.stay);
@@ -339,7 +339,7 @@ describe('the end of the night', {timeout: 180_000}, () => {
   });
 
   test('with both the Morning text asks, and each answer leads to its ending', async () => {
-    let search = '?place=rotorBarStreet&time=23:40&quest=keys,ticket';
+    let search = '?place=rotorBarStreet&time=23:40&money=350&quest=keys,ticket';
     let end = await sleepInTheFlat(search);
 
     expect(end.dialogue.node).toBe(nightEnd.nodes?.both);

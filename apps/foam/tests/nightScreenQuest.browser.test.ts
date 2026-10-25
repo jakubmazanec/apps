@@ -89,7 +89,7 @@ describe('the quest', {timeout: 180_000}, () => {
   test('the machine sells the ticket and reads it back', async () => {
     let {nightScreen} = harness;
 
-    await startFrom(harness, '?place=hlavniNadraziHall&time=23:00');
+    await startFrom(harness, '?place=hlavniNadraziHall&time=23:00&money=350');
     await closeStory(harness);
 
     let storyWindow = await openSpot(harness, 'The ticket machine');
@@ -140,7 +140,7 @@ describe('the quest', {timeout: 180_000}, () => {
   test('the back room offers the search with its odds, and a won search hands over the keys', async () => {
     let {nightScreen} = harness;
 
-    await startFrom(harness, '?place=rotorBarRoom&time=17:30');
+    await startFrom(harness, '?place=rotorBarRoom&time=17:30&money=350');
     await closeStory(harness);
 
     let storyWindow = await openSpot(harness, 'The back room');
@@ -176,7 +176,7 @@ describe('the quest', {timeout: 180_000}, () => {
   test('a lost search costs an hour', async () => {
     let {nightScreen} = harness;
 
-    await startFrom(harness, '?place=rotorBarRoom&time=17:30');
+    await startFrom(harness, '?place=rotorBarRoom&time=17:30&money=350');
     await closeStory(harness);
 
     let storyWindow = await openSpot(harness, 'The back room');
@@ -265,7 +265,7 @@ describe('the quest', {timeout: 180_000}, () => {
     nightScreen.ui.focus(getWindowButton(storyWindow, 3));
     await press('Enter');
     await waitForNoStoryWindow(harness);
-    await startFrom(harness, '?place=whiskyShopRoom&time=17:00');
+    await startFrom(harness, '?place=whiskyShopRoom&time=17:00&money=350');
     await closeStory(harness);
 
     storyWindow = await openSpot(harness, 'The shelves');
