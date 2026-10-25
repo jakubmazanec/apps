@@ -31,6 +31,9 @@ const CHECK_MONEY = 350;
 const CHECK_LEVELS = [0, 2, 5];
 // 0.00 to 0.99: every outcome an author can write by a threshold in hundredths comes up.
 const CHECK_ROLLS = Array.from({length: 100}, (_, index) => index / 100);
+// Every side of an equal split into two to six is met: a `start` that picks one of three versions
+// by `random` is followed into all three. An unequal split is the author's to meet, as the levels.
+const CHECK_RANDOM = [0, 0.2, 0.4, 0.6, 0.8, 0.99];
 const SEPARATOR = ' › ';
 const QUEST_FLAGS = ['hasBottle', 'bottleGiven', 'hasKeys', 'hasTicket'] as const;
 // Every combination of the quest's flags, the one with none first: a text, a start or a next that
@@ -96,7 +99,8 @@ function getCheckTimes(locationData: LocationData): number[] {
  * a start, an odds or a next that is a function is called with each check night: once per place,
  * time, level and quest state, and a choice's next with odds once for each roll as well. A
  * choice's effect and a node's entry effect run on a copy of each check night. Every check night
- * is made twice: with no story achieved and with every story the effects gave.
+ * is made twice: with no story achieved and with every story the effects gave. A function of the
+ * content that reads random runs again under each of the other values of CHECK_RANDOM.
  */
 export function checkContent(content: Content): string[] {
   let lines = new Set<string>();
@@ -107,6 +111,58 @@ export function checkContent(content: Content): string[] {
   let nodes: NonNullable<RunnableDialogueScript<Night>['nodes']> = {};
   // Every title the effects gave: the second pass's collection holds them all.
   let titles = new Set<string>();
+  // Set by a check night's random when it is read, for withRandom to see.
+  let randomRead = false;
+
+  function createRandom(value: number): Night['random'] {
+    return () => {
+      randomRead = true;
+
+      return value;
+    };
+  }
+
+  // Calls the function with the night and, when it read random, with a copy of the night for each
+  // other check value, so every side of a split on random is met. Each result comes with the night
+  // that gave it, for the check to go on with that night.
+  function withRandom<T>(
+    night: Night,
+    call: (night: Night) => T,
+  ): Array<{night: Night; result: T}> {
+    randomRead = false;
+
+    let results = [{night, result: call(night)}];
+
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- createRandom sets it
+    if (randomRead) {
+      let own = night.random();
+
+      for (let value of CHECK_RANDOM) {
+        if (value !== own) {
+          let copy = {...night, random: createRandom(value)};
+
+          results.push({night: copy, result: call(copy)});
+        }
+      }
+    }
+
+    return results;
+  }
+
+  // A throw is reported under the path and gives no result to go on with.
+  function tryWithRandom<T>(
+    where: string,
+    night: Night,
+    call: (night: Night) => T,
+  ): Array<{night: Night; result: T}> {
+    try {
+      return withRandom(night, call);
+    } catch (error) {
+      lines.add(`${where}: throws "${error instanceof Error ? error.message : String(error)}"`);
+
+      return [];
+    }
+  }
 
   function checkNode(path: string, node: Node, nights: Night[], home: Place | null): void {
     let {text, speaker, next, onEnter} = node;
@@ -128,9 +184,11 @@ export function checkContent(content: Content): string[] {
     // The loop over the nights exists for a text that is a function; the marks and the words of a
     // page are the same on every night, so a page already seen is not split again.
     let seen = new Set<string>();
+    let results = nights.flatMap((night) =>
+      typeof text === 'function' ? tryWithRandom(path, night, text) : [{night, result: text}],
+    );
 
-    for (let night of nights) {
-      let result = typeof text === 'function' ? text(night) : text;
+    for (let {result} of results) {
       let pages = typeof result === 'string' ? [result] : result;
 
       for (let [index, page] of pages.entries()) {
@@ -199,21 +257,29 @@ export function checkContent(content: Content): string[] {
       }
 
       for (let night of nights) {
-        let chance = typeof odds === 'function' ? odds(night) : odds;
+        let pairs = typeof odds === 'function' ? withRandom(night, odds) : [{night, result: odds}];
 
-        if (chance !== undefined && !(chance > 0 && chance < 1)) {
-          lines.add(`${where}: odds is ${chance}`);
-        }
+        for (let {night: source, result: chance} of pairs) {
+          if (chance !== undefined && !(chance > 0 && chance < 1)) {
+            lines.add(`${where}: odds is ${chance}`);
+          }
 
-        if (typeof choice.next === 'function') {
-          if (chance === undefined) {
-            night.roll = null;
-            follow(`${where}${SEPARATOR}next`, choice.next, night, home);
-          } else {
-            for (let value of CHECK_ROLLS) {
-              night.random = () => value;
-              roll(night, chance);
-              follow(`${where}${SEPARATOR}next`, choice.next, night, home);
+          if (typeof choice.next === 'function') {
+            if (chance === undefined) {
+              source.roll = null;
+              follow(`${where}${SEPARATOR}next`, choice.next, source, home);
+            } else {
+              // A constant notes no read, so the next meets the hundred rolls and not six times as
+              // many; the night's own random is put back for a function checked after the roll.
+              let {random} = source;
+
+              for (let value of CHECK_ROLLS) {
+                source.random = () => value;
+                roll(source, chance);
+                follow(`${where}${SEPARATOR}next`, choice.next, source, home);
+              }
+
+              source.random = random;
             }
           }
         }
@@ -242,7 +308,12 @@ export function checkContent(content: Content): string[] {
           choice.price === undefined &&
           choice.minutes === undefined &&
           choice.drinks === undefined &&
-          nights.every((night) => choice.isVisible?.(night) ?? true),
+          (choice.isVisible === undefined ||
+            nights.every((night) =>
+              withRandom(night, (source) => choice.isVisible?.(source) ?? true).every(
+                ({result}) => result,
+              ),
+            )),
       )
     ) {
       lines.add(`${path}: no way out that costs nothing`);
@@ -255,21 +326,13 @@ export function checkContent(content: Content): string[] {
     night: Night,
     home: Place | null,
   ): void {
-    let target: Node | string;
-
-    try {
-      target = reference(night);
-    } catch (error) {
-      lines.add(`${where}: throws "${error instanceof Error ? error.message : String(error)}"`);
-
-      return;
-    }
-
-    // An id the script has is not checked again: the node is checked under its own key.
-    if (typeof target === 'object') {
-      checkNode(where, target, [night], home);
-    } else if (nodes[target] === undefined) {
-      lines.add(`${where}: returns "${target}", which is not a node`);
+    for (let {night: source, result: target} of tryWithRandom(where, night, reference)) {
+      // An id the script has is not checked again: the node is checked under its own key.
+      if (typeof target === 'object') {
+        checkNode(where, target, [source], home);
+      } else if (nodes[target] === undefined) {
+        lines.add(`${where}: returns "${target}", which is not a node`);
+      }
     }
   }
 
@@ -323,56 +386,58 @@ export function checkContent(content: Content): string[] {
     home: Place | null,
   ): void {
     for (let night of nights) {
-      let fresh = createNight(
-        {
-          seed: 0,
-          place: night.place,
-          minutes: night.minutes,
-          money: night.money,
-          drunkenness: night.drunkenness.level,
-          // A copy, so that an effect that writes the quest never reaches its check night.
-          quest: {...night.quest},
-        },
-        {titles: [...night.collection.titles]},
-      );
+      withRandom(night, (source) => {
+        let fresh = createNight(
+          {
+            seed: 0,
+            place: source.place,
+            minutes: source.minutes,
+            money: source.money,
+            drunkenness: source.drunkenness.level,
+            // A copy, so that an effect that writes the quest never reaches its check night.
+            quest: {...source.quest},
+          },
+          {titles: [...source.collection.titles]},
+        );
 
-      // An entry effect reached after a rolled next reads the roll its check night made, and the
-      // fresh night rolls as its check night does.
-      fresh.roll = night.roll;
-      fresh.random = night.random;
+        // An entry effect reached after a rolled next reads the roll its check night made, and the
+        // fresh night rolls as its check night does.
+        fresh.roll = source.roll;
+        fresh.random = source.random;
 
-      try {
-        effect(fresh);
-      } catch (error) {
-        lines.add(`${where}: throws "${error instanceof Error ? error.message : String(error)}"`);
+        try {
+          effect(fresh);
+        } catch (error) {
+          lines.add(`${where}: throws "${error instanceof Error ? error.message : String(error)}"`);
 
-        continue;
-      }
+          return;
+        }
 
-      for (let {title} of fresh.stories) {
-        checkTitle(where, title);
-      }
+        for (let {title} of fresh.stories) {
+          checkTitle(where, title);
+        }
 
-      if (home === null || fresh.leaving === null) {
-        continue;
-      }
+        if (home === null || fresh.leaving === null) {
+          return;
+        }
 
-      // A way out sets night.leaving: walk and taxi need the street, the tram a stop on it.
-      let {way} = fresh.leaving;
-      let location = Object.values(content.locations).find((candidate) =>
-        candidate.places.some((place) => place.id === home.id),
-      );
+        // A way out sets night.leaving: walk and taxi need the street, the tram a stop on it.
+        let {way} = fresh.leaving;
+        let location = Object.values(content.locations).find((candidate) =>
+          candidate.places.some((place) => place.id === home.id),
+        );
 
-      if (way !== 'tram' && !home.outdoors) {
-        lines.add(`${where}: ${way} is offered indoors`);
-      } else if (
-        way === 'tram' &&
-        (!home.outdoors ||
-          location === undefined ||
-          content.locationData[location.id]?.tramStop === undefined)
-      ) {
-        lines.add(`${where}: the tram does not stop here`);
-      }
+        if (way !== 'tram' && !home.outdoors) {
+          lines.add(`${where}: ${way} is offered indoors`);
+        } else if (
+          way === 'tram' &&
+          (!home.outdoors ||
+            location === undefined ||
+            content.locationData[location.id]?.tramStop === undefined)
+        ) {
+          lines.add(`${where}: the tram does not stop here`);
+        }
+      });
     }
   }
 
@@ -408,6 +473,10 @@ export function checkContent(content: Content): string[] {
         ),
       );
 
+      for (let night of nights) {
+        night.random = createRandom(0);
+      }
+
       for (let [key, node] of Object.entries(nodes)) {
         if (node !== undefined) {
           checkNode(`${name}${SEPARATOR}${key}`, node, nights, home);
@@ -417,11 +486,13 @@ export function checkContent(content: Content): string[] {
       if (typeof start === 'object') {
         checkNode(`${name}${SEPARATOR}start`, start, nights, home);
       } else if (typeof start === 'function') {
-        for (let night of nights) {
-          let node = start(night);
+        let where = `${name}${SEPARATOR}start`;
 
-          if (typeof node === 'object') {
-            checkNode(`${name}${SEPARATOR}start`, node, [night], home);
+        for (let night of nights) {
+          for (let {night: source, result: node} of tryWithRandom(where, night, start)) {
+            if (typeof node === 'object') {
+              checkNode(where, node, [source], home);
+            }
           }
         }
       }

@@ -131,6 +131,9 @@ const journeys: Record<Way, RunnableDialogueScript<Night>> = {
   taxi: oneNode('You drive.', 'The taxi'),
 };
 const end = oneNode('Morning.', 'Morning');
+const LONG = 'A supercalifragilistic word.';
+const LONG_LINE =
+  'zidenice › description › start: "supercalifragilistic" has 20 characters, and 16 fit';
 
 function check(
   changes: {
@@ -788,5 +791,100 @@ describe(checkContent, () => {
       'journeys › tram › start › "Try": throws "No way."',
     );
     expect(check({end: script})).toContain('end › start › "Try": throws "No way."');
+  });
+
+  test('follows a start that picks one of three versions by random into all three', () => {
+    let description = defineScript({
+      start: (night) => {
+        let version = night.random('version');
+
+        return (
+          version < 1 / 3 ? {speaker: 'Bench', text: 'Fine.'}
+          : version < 2 / 3 ? {speaker: 'Bench', text: 'Also fine.'}
+          : {speaker: 'Bench', text: LONG}
+        );
+      },
+    });
+
+    expect(check({places: withZidenice({description})})).toContain(LONG_LINE);
+  });
+
+  test('reports a text that throws under one of the six values', () => {
+    let description = defineScript({
+      start: {
+        speaker: 'Bench',
+        text: (night) => (night.random('mood') > 0.8 ? throwNoWay() : 'Fine.'),
+      },
+    });
+
+    expect(check({places: withZidenice({description})})).toContain(
+      'zidenice › description › start: throws "No way."',
+    );
+  });
+
+  test('runs a text that reads random under the six values, and reports its long word once', () => {
+    let text = vitest.fn<(night: Night) => string>((night) =>
+      night.random('mood') > 0.8 ? LONG : 'Fine.',
+    );
+    let description = defineDialogueScript<Night>()({start: {speaker: 'Bench', text}});
+    let lines = check({places: withZidenice({description})});
+
+    // The six values of random, each on every check night of the test of the half hours.
+    expect(text).toHaveBeenCalledTimes(6 * 16 * 2 * 5 * 33 * 3);
+    expect(
+      lines.filter((line) => line.startsWith('zidenice › description › start: "super')),
+    ).toHaveLength(1);
+  });
+
+  test('runs an effect that reads random under the six values', () => {
+    let description = withEntry((night) => {
+      if (night.random('luck') > 0.8) {
+        throwNoWay();
+      }
+    });
+
+    expect(check({places: withZidenice({description})})).toContain(
+      'zidenice › description › start: throws "No way."',
+    );
+  });
+
+  test('reports a free way out hidden under one value of random', () => {
+    let description = nodeWithChoices([
+      {text: 'Pay', price: 10},
+      {text: 'Go', isVisible: (night) => night.random('door') < 0.5},
+    ]);
+
+    expect(check({places: withZidenice({description})})).toContain(
+      'zidenice › description › start: no way out that costs nothing',
+    );
+  });
+
+  test('reports odds that are 1 under one value of random', () => {
+    let description = nodeWithChoices([
+      {text: 'Try', odds: (night) => (night.random('luck') > 0.8 ? 1 : 0.5)},
+      {text: 'Go'},
+    ]);
+
+    expect(check({places: withZidenice({description})})).toContain(
+      'zidenice › description › start › "Try": odds is 1',
+    );
+  });
+
+  test("puts the night's random back after the hundred rolls", () => {
+    let description = defineScript({
+      start: 'a',
+      nodes: {
+        a: {
+          speaker: 'Bench',
+          text: 'Hello.',
+          choices: [{text: 'Try', odds: 0.5, next: () => 'b'}, {text: 'Go'}],
+        },
+        b: {speaker: 'Bench', text: (night) => (night.random('mood') < 0.1 ? LONG : 'Fine.')},
+      },
+    });
+
+    expect(check({places: withZidenice({description})})).toContain(
+      'zidenice › description › b: "supercalifragilistic" has 20 characters, and 16 fit',
+    );
   });
 });
