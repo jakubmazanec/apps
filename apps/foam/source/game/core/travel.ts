@@ -1,7 +1,7 @@
 import {formatCosts} from './formatCosts.js';
 import {isOpenAt} from './hours.js';
 import {type Location, type LocationId} from './location.js';
-import {type Night, type PlaceId, type Quest, type Way} from './night.js';
+import {type MoneyRange, type Night, type PlaceId, type Quest, type Way} from './night.js';
 import {type Place} from './place.js';
 
 export type Position = {latitude: number; longitude: number};
@@ -72,11 +72,18 @@ export type NightStart = {
   /** The content of `map.json`. */
   map: MapData;
 
+  /**
+   * The whole number the next night is played on; the New night window and the jump-in write it.
+   */
+  seed: number;
+
   /** The place a night starts in. */
   place: PlaceId;
 
   minutes: number;
-  money: number;
+
+  /** The money a night starts with, or the range it is drawn from. */
+  money: MoneyRange | number;
 
   /** The level of drunkenness the night starts at, in drinks; 0 when absent. */
   drunkenness?: number;

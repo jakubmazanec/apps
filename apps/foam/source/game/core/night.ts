@@ -1,3 +1,4 @@
+import {hash} from './hash.js';
 import {formatTime} from './hours.js';
 import {type LogEntry, logStory} from './log.js';
 import {type Collection} from './stories.js';
@@ -33,7 +34,23 @@ export type Quest = {
   hasTicket: boolean;
 };
 
+export type MoneyRange = {min: number; max: number; step: number};
+
 export type Night = {
+  /** The whole number that stands for the night: `random` is a hash of it. */
+  seed: number;
+
+  /** The dice rolled so far; the key of the next roll. */
+  rolls: number;
+
+  /**
+   * A number from 0 up to 1 for the seed and the keys, the same every time: content reads what
+   * varies by the night with a fixed key, `night.random('money')`, and `roll` reads the dice with
+   * `'roll'` and the count. The checker and the tests replace it with a function that returns a
+   * fixed value.
+   */
+  random: (...keys: Array<number | string>) => number;
+
   /** Minutes since midnight; 19:40 is 1180. */
   minutes: number;
 
@@ -51,9 +68,6 @@ export type Night = {
 
   /** The last roll, or null before any. */
   roll: Roll | null;
-
-  /** The source of the dice: a number from 0 up to but not including 1. */
-  random: () => number;
 
   /**
    * Every text read and every choice taken, with its time; the story window and the night screen
@@ -81,22 +95,36 @@ const MINUTES_PER_HOUR = 60;
 
 export function createNight(
   start: {
+    seed: number;
     place: PlaceId;
     minutes: number;
-    money: number;
+    money: MoneyRange | number;
     drunkenness?: number;
     quest?: Partial<Quest>;
   },
   collection?: Collection,
 ): Night {
+  let random: Night['random'] = (...keys) => hash(start.seed, ...keys);
+
   return {
+    seed: start.seed,
+    rolls: 0,
+    random,
     minutes: start.minutes,
-    money: start.money,
+    // The count of steps is floored, so a step that does not divide the range never draws past max.
+    money:
+      typeof start.money === 'number' ?
+        start.money
+      : start.money.min +
+        start.money.step *
+          Math.floor(
+            random('money') *
+              (Math.floor((start.money.max - start.money.min) / start.money.step) + 1),
+          ),
     place: start.place,
     leaving: null,
     drunkenness: {level: start.drunkenness ?? 0, at: start.minutes},
     roll: null,
-    random: Math.random,
     log: [],
     collection: collection ?? {titles: []},
     stories: [],
@@ -118,8 +146,9 @@ export function addDrinks(night: Night, drinks: number): void {
 }
 
 export function roll(night: Night, odds: number): void {
-  let value = night.random();
+  let value = night.random('roll', night.rolls);
 
+  night.rolls += 1;
   night.roll = {value, odds, won: value < odds};
 }
 

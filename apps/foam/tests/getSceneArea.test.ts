@@ -47,7 +47,13 @@ describe('TOP_ROW_WIDTH', () => {
   });
 
   test('the status room holds the money to four digits with a sign and the level with one decimal', () => {
-    let night = createNight({place: 'train', minutes: 1020, money: -1350, drunkenness: 12.5});
+    let night = createNight({
+      seed: 1,
+      place: 'train',
+      minutes: 1020,
+      money: -1350,
+      drunkenness: 12.5,
+    });
 
     expect(formatStatus(night)).toBe('17:00   -1350 Kč   12.5');
     expect(formatStatus(night).length).toBeLessThanOrEqual(STATUS_ROOM);

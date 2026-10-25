@@ -70,6 +70,7 @@ const START: NightStart = {
     parks: [],
     tramLines: [],
   },
+  seed: 1,
   place: 'train',
   minutes: 1020,
   money: 350,

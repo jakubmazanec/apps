@@ -11,7 +11,7 @@ function measure(text: string): number {
 }
 
 function createTestNight() {
-  return createNight({place: 'rotorBarRoom', minutes: 1180, money: 350});
+  return createNight({seed: 1, place: 'rotorBarRoom', minutes: 1180, money: 350});
 }
 
 const LONG_LABEL: LogEntry[] = [

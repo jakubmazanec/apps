@@ -14,7 +14,7 @@ import {createNight, getDrunkenness} from '../source/game/core/night.js';
 const GUITARIST = [1320, 1500] as const;
 
 function at(minutes: number): boolean {
-  return isWithin(createNight({place: 'rotorBarRoom', minutes, money: 350}), GUITARIST);
+  return isWithin(createNight({seed: 1, place: 'rotorBarRoom', minutes, money: 350}), GUITARIST);
 }
 
 describe(isWithin, () => {
@@ -117,7 +117,7 @@ describe(formatTime, () => {
 
 describe(isNightOver, () => {
   test('is over from 08:00', () => {
-    let night = createNight({place: 'rotorBarRoom', minutes: 1919, money: 350});
+    let night = createNight({seed: 1, place: 'rotorBarRoom', minutes: 1919, money: 350});
 
     expect(isNightOver(night)).toBe(false);
 
@@ -133,7 +133,13 @@ describe(isNightOver, () => {
 
 describe(sleepTillMorning, () => {
   test('moves the clock to 08:00 and the level falls with it', () => {
-    let night = createNight({place: 'zidenice', minutes: 1620, money: 350, drunkenness: 5});
+    let night = createNight({
+      seed: 1,
+      place: 'zidenice',
+      minutes: 1620,
+      money: 350,
+      drunkenness: 5,
+    });
 
     sleepTillMorning(night);
 
@@ -142,7 +148,7 @@ describe(sleepTillMorning, () => {
   });
 
   test('moves one minute from 07:59', () => {
-    let night = createNight({place: 'zidenice', minutes: 1919, money: 350});
+    let night = createNight({seed: 1, place: 'zidenice', minutes: 1919, money: 350});
 
     sleepTillMorning(night);
 

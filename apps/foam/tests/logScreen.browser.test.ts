@@ -92,7 +92,7 @@ describe('log screen', {timeout: 180_000}, () => {
     ({createNight, findStory} = await import('../source/game/core/night.js'));
 
     let {logChoice, logText} = await import('../source/game/core/log.js');
-    let night = createNight({place: FIXED_BAR, minutes: 1180, money: 350});
+    let night = createNight({seed: 20261025, place: FIXED_BAR, minutes: 1180, money: 350});
 
     for (let index = 0; index < 12; index += 1) {
       logText(
@@ -332,7 +332,7 @@ describe('log screen', {timeout: 180_000}, () => {
   test('an empty log is one empty page with both buttons disabled, and Tab reaches Menu', async () => {
     let {game, mainMenuScreen} = harness;
 
-    logScreen.contents.showLog(createNight({place: FIXED_BAR, minutes: 1920, money: 0}));
+    logScreen.contents.showLog(createNight({seed: 5, place: FIXED_BAR, minutes: 1920, money: 0}));
     await game.showScreen(logScreen);
 
     let {regularLeaf, title} = getStoriesParts(getStoriesWindow(logScreen));

@@ -12,6 +12,7 @@ import {
 } from 'vitest';
 import {page} from 'vitest/browser';
 
+import {nightStart} from '../source/game/content/nightStart.js';
 import {type barPicture as barPictureValue} from '../source/game/content/pictures/barPicture.js';
 import {getSceneArea} from '../source/game/core/getSceneArea.js';
 import {getSpotPosition} from '../source/game/core/getSpotPosition.js';
@@ -1055,13 +1056,15 @@ describe('night screen', {timeout: 180_000}, () => {
       await press('Enter');
 
       expect(nightScreen.contents.night).toEqual({
+        seed: nightStart.seed,
+        rolls: 0,
+        random: expect.any(Function) as unknown,
         minutes: 1190,
         money: 305,
         place: FIXED_BAR,
         leaving: null,
         drunkenness: {level: 1, at: 1190},
         roll: null,
-        random: Math.random,
         log: expect.any(Array) as unknown,
         // The night screen builds its night with the collection the store loaded.
         collection,

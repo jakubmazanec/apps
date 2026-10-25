@@ -8,6 +8,7 @@ const ALL_WAYS: readonly Way[] = ['walk', 'tram', 'taxi'];
 
 function start(ways: readonly Way[], quest?: Partial<Quest>) {
   let night = createNight({
+    seed: 1,
     place: 'zidenice',
     minutes: 1020,
     money: 350,
@@ -106,7 +107,7 @@ describe(createWayOut, () => {
 
 describe(leaveBy, () => {
   test('the returned function sets leaving', () => {
-    let night = createNight({place: 'zidenice', minutes: 1020, money: 350});
+    let night = createNight({seed: 1, place: 'zidenice', minutes: 1020, money: 350});
 
     leaveBy('taxi', ALL_WAYS)(night);
 
