@@ -108,8 +108,10 @@ WASM and microcontroller support (TinyGo) is a poor fit for real-time audio.
 - **Note:** a time, a length, a pitch, a velocity, and which sound it plays. Each note can play a
   different sound **(decided)**.
 - **Sounds live in one pool shared by the whole project** **(decided)**. Any track can play any
-  sound, including sounds other tracks use. The exact way sounds are created, browsed, and assigned
-  is to be decided **(decided)**; for the first version, see "Creating sounds" below.
+  sound, including sounds other tracks use. A sound exists once: when the same sound is used on two
+  tracks, editing it on one changes it on both **(decided)**. The exact way sounds are created,
+  browsed, and assigned is to be decided **(decided)**; for the first version, see "Creating sounds"
+  below.
 - **Track:** a lane of notes that can mix any sounds from the pool **(decided)**, with its own level
   and mute **(my call)**.
 - **Four tracks** in the first version **(decided)**.
@@ -125,7 +127,9 @@ browser shell. For the first version **(my call)**:
 - The core reads samples through an abstract storage layer. On the device that will be an SD card or
   flash; in the browser it is browser storage. Dropping files onto the browser shell only stands in
   for copying files onto the device's storage card.
-- In PADS mode, each track has its own map of 12 pads, each pointing to a sound in the pool.
+- **Each track has its own pad mapping** **(decided)**: switching tracks changes which sounds the 12
+  pads play in PADS mode. Each pad points to a sound in the pool, so two tracks can put the same
+  sound on their pads.
 - New projects start empty, with no bundled samples.
 
 ### Engines in the first version
