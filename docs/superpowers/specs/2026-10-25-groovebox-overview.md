@@ -41,6 +41,7 @@ physical layout and look of the device.
   design failure.
 - **Open source, buildable by others.** Primarily for me, but built from parts and files anyone can
   order, so others could theoretically build one too.
+- **GPL-family licences**: GPL-3.0-or-later for code, CERN-OHL-S-2.0 for hardware files.
 
 ### Part 1 – Rust core and browser virtual device
 
@@ -53,7 +54,12 @@ Designed first, in its own document. Decided so far:
 - The core respects hardware-realistic constraints – CPU budget, memory, a display resolution and a
   control set that can be bought and fitted – so that part 3 stays possible. The display in
   particular must match a real, purchasable part (size, resolution, colour depth).
-- In the browser, recording uses the computer's microphone or audio interface.
+- Recording and resampling are not in the first version. When they come, the browser uses the
+  computer's microphone or audio interface.
+- Sounds live in one pool shared by the whole project. A project holds several patterns; a pattern
+  is what the four tracks currently contain. How patterns work is expected to change.
+- Every parameter of everything is reachable and settable on the device.
+- Full design: [part 1 design](./2026-10-26-groovebox-core-browser-design.md).
 
 ### Part 2 – Companion features
 
