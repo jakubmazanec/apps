@@ -1,12 +1,16 @@
 # Groovebox part 1 – Rust core and browser virtual device
 
-Status: draft – four open questions to the owner (sound ownership, recording in v1, pattern
-structure, repository and licence), then approval. Part of the groovebox project; see
+Status: design, awaiting the owner's approval. Part of the groovebox project; see
 [the overview](./2026-10-25-groovebox-overview.md) for the whole picture and for parts 2–4.
 
 Throughout, **(decided)** marks something the owner decided in the brainstorm and **(my call)**
 marks a default proposed during the design that the owner has not explicitly confirmed. Anything
 unmarked follows directly from the decided points.
+
+**Everything here may change.** The point of part 1 is to find out what the workflow should be, so
+even decided points – especially how patterns and sounds are structured – are expected to move as
+the owner experiments. Where the owner was unsure, this document says so. The core's data model and
+project format must be easy to evolve, not tuned to today's answers.
 
 ## Intent
 
@@ -23,12 +27,16 @@ controls do. What part 1 teaches then decides the physical layout and look (part
 - One Rust core that will later run unchanged on the device's microcontroller **(decided)**.
 - Fast iteration on the panel and the workflow: moving controls and rebinding them is cheap
   **(decided)**.
+- **Every parameter of everything is reachable and settable on the device** **(decided)**, even when
+  a faster way to change it also exists (such as a pattern growing while recording).
 
 ## Non-goals for this version
 
 - Song mode and pattern chaining **(decided)**.
-- Recording from a microphone or line input, and resampling. Both are required on the device and
-  come in a later version; the first version uses samples loaded from files **(my call)**.
+- Recording from a microphone or line input, and resampling **(decided)**. Both are required on the
+  device and come in a later version; the first version uses samples loaded from files. The memory
+  model must still leave room for audio written at runtime, so recording can be added without
+  reworking it **(my call)**.
 - Effects **(my call)**.
 - Editing notes in the piano roll. The piano roll is shown; editing in it may come later **(my
   call)**.
@@ -99,9 +107,26 @@ WASM and microcontroller support (TinyGo) is a poor fit for real-time audio.
   follows the decided equality)**.
 - **Note:** a time, a length, a pitch, a velocity, and which sound it plays. Each note can play a
   different sound **(decided)**.
-- **Track:** a lane of notes that can mix any sounds **(decided)**, with its own level and mute
-  **(my call)**.
+- **Sounds live in one pool shared by the whole project** **(decided)**. Any track can play any
+  sound, including sounds other tracks use. The exact way sounds are created, browsed, and assigned
+  is to be decided **(decided)**; for the first version, see "Creating sounds" below.
+- **Track:** a lane of notes that can mix any sounds from the pool **(decided)**, with its own level
+  and mute **(my call)**.
 - **Four tracks** in the first version **(decided)**.
+
+### Creating sounds
+
+The device must be usable standalone, so creating a sound, choosing its source (sample or synth),
+and picking a sample all happen in the core, on the device's own screens and controls – never in the
+browser shell. For the first version **(my call)**:
+
+- A sound list screen shows the pool; from it a sound can be added, its source type chosen, and a
+  sample picked from the samples in storage.
+- The core reads samples through an abstract storage layer. On the device that will be an SD card or
+  flash; in the browser it is browser storage. Dropping files onto the browser shell only stands in
+  for copying files onto the device's storage card.
+- In PADS mode, each track has its own map of 12 pads, each pointing to a sound in the pool.
+- New projects start empty, with no bundled samples.
 
 ### Engines in the first version
 
@@ -114,8 +139,16 @@ WASM and microcontroller support (TinyGo) is a poor fit for real-time audio.
 
 ### Patterns and recording
 
+The owner is not yet sure how patterns should work; everything in this section is the current
+leaning and is expected to change.
+
+- **A pattern is what the four tracks currently contain**, so all four tracks share one length
+  **(decided, provisional)**. Per-track lengths must stay possible to add later.
+- **A project holds several patterns** that can be switched **(decided)**. Song mode and chaining
+  come later and their details are undecided.
 - **Pattern length has no fixed limit** **(decided)**; it is bounded only by the generous note
-  memory.
+  memory. The length can always be set by hand, and it can also grow while recording live
+  **(decided)**.
 - **Step sequencer:** the 16 step buttons enter and remove notes for the selected sound
   **(decided)**.
 - **Live recording with looping and overdub:** play the pads while the pattern loops, and the notes
@@ -171,7 +204,17 @@ control depends on the selected sound and its source type **(my call)**.
 - Runs the core in an AudioWorklet and shows its frame buffer on a canvas **(decided)**.
 - Draws the panel from the layout data, to scale **(my call)**.
 - Drives the controls with mouse, computer keyboard, and USB MIDI controllers **(my call)**.
-- Loads samples from files the user drops onto it **(my call)**.
+- Accepts sample files dropped onto it and puts them into browser storage, standing in for the
+  device's storage card **(my call)**.
+
+## Repository and licence
+
+- **GPL-family licence** **(decided)**. The code is GPL-3.0-or-later; the hardware files (parts 3
+  and 4) will be CERN-OHL-S-2.0, its hardware counterpart **(my call)**. Dependencies must be
+  compatible with the GPL.
+- The project lives in this monorepo, which already licenses each project separately: the Rust core
+  as a crate and the browser shell as an app in the workspace **(my call)**. It can move to its own
+  repository later, when firmware and hardware files join it.
 
 ## Left to the builder
 
