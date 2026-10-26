@@ -165,12 +165,12 @@ function readCornerTableAt(minutes: number): string[] {
 
 describe('the game content', () => {
   // The checker runs every script on 33,600 nights, and the CI runners are several times slower
-  // than a dev machine.
+  // than a dev machine and uneven among themselves: the slowest took it close to 50 seconds.
   test("the game's content has no problem", () => {
     expect(
       checkContent({locations, places, journeys, locationData, travel, map, end: nightEnd}),
     ).toEqual([]);
-  }, 30_000);
+  }, 120_000);
 
   test("the end's start reads the flags: a ticket, then the keys, then stranded", () => {
     let both = openEnd({hasKeys: true, hasTicket: true});
