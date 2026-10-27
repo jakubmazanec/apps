@@ -6,12 +6,15 @@ import {
   createNight,
   formatStatus,
   getDrunkenness,
+  hasMet,
+  meet,
   type Night,
   roll,
 } from '../source/game/core/night.js';
 
 const START = {seed: 7, place: 'zidenice', minutes: 1020, money: 350} as const;
 const RANGE = {min: 300, max: 500, step: 50};
+const ODDS = {a: 0.5, b: 0.3, c: 0.2};
 
 describe('night', () => {
   test("createNight returns the start's values, sober at the start's minutes, before any roll", () => {
@@ -19,6 +22,7 @@ describe('night', () => {
       seed: 7,
       rolls: 0,
       random: expect.any(Function) as unknown,
+      pick: expect.any(Function) as unknown,
       minutes: 1020,
       money: 350,
       place: 'zidenice',
@@ -29,6 +33,7 @@ describe('night', () => {
       collection: {titles: []},
       stories: [],
       quest: {hasBottle: false, bottleGiven: false, hasKeys: false, hasTicket: false},
+      events: [],
     });
   });
 
@@ -46,6 +51,70 @@ describe('night', () => {
 
     expect(night.random('money')).toBe(hash(7, 'money'));
     expect(night.seed).toBe(7);
+  });
+
+  test('pick holds random against the odds in their written order', () => {
+    let night = createNight(START);
+
+    for (let [value, name] of [
+      [0, 'a'],
+      [0.49, 'a'],
+      [0.5, 'b'],
+      [0.79, 'b'],
+      [0.8, 'c'],
+      [0.99, 'c'],
+    ] as const) {
+      night.random = () => value;
+
+      expect(night.pick('key', ODDS)).toBe(name);
+    }
+  });
+
+  test('pick reads random once, with the key', () => {
+    let night = createNight(START);
+
+    night.random = vitest.fn<Night['random']>(() => 0.1);
+    night.pick('cornerTable', ODDS);
+
+    expect(night.random).toHaveBeenCalledTimes(1);
+    expect(night.random).toHaveBeenCalledWith('cornerTable');
+  });
+
+  test('the same key gives the same name all night, and every name comes up over fifty seeds', () => {
+    let night = createNight(START);
+    let names = new Set<string>();
+
+    for (let seed = 0; seed < 50; seed++) {
+      names.add(createNight({...START, seed}).pick('friend', ODDS));
+    }
+
+    expect(night.pick('friend', ODDS)).toBe(night.pick('friend', ODDS));
+    expect(night.pick('friend', ODDS)).toBe(createNight(START).pick('friend', ODDS));
+    expect(names).toEqual(new Set(['a', 'b', 'c']));
+  });
+
+  test('the last name takes a sum just under 1', () => {
+    let night = createNight(START);
+
+    night.random = () => 0.9999999;
+
+    expect(night.pick('key', {a: 0.5, b: 0.4999999})).toBe('b');
+
+    night.random = () => 0.9999999999999999;
+
+    expect(night.pick('key', {a: 0.7, b: 0.2, c: 0.1})).toBe('c');
+  });
+
+  test('events starts empty, or as the start lists them, in a list of its own', () => {
+    let events = ['wallet'];
+    let night = createNight({...START, events});
+
+    expect(createNight(START).events).toEqual([]);
+    expect(night.events).toEqual(['wallet']);
+
+    meet(night, 'drunk');
+
+    expect(events).toEqual(['wallet']);
   });
 
   test('keeps a number for the money', () => {
@@ -228,5 +297,30 @@ describe('night', () => {
     expect(formatStatus({...createNight(START), minutes: 1440, money: 12})).toBe(
       '00:00   12 Kč   0.0',
     );
+  });
+});
+
+describe(meet, () => {
+  test('adds the key once', () => {
+    let night = createNight(START);
+
+    meet(night, 'wallet');
+    meet(night, 'wallet');
+    meet(night, 'drunk');
+
+    expect(night.events).toEqual(['wallet', 'drunk']);
+  });
+});
+
+describe(hasMet, () => {
+  test('is false before meet and true after, by the key', () => {
+    let night = createNight(START);
+
+    expect(hasMet(night, 'wallet')).toBe(false);
+
+    meet(night, 'wallet');
+
+    expect(hasMet(night, 'wallet')).toBe(true);
+    expect(hasMet(night, 'drunk')).toBe(false);
   });
 });
