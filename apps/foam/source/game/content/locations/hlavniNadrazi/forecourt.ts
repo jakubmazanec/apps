@@ -1,5 +1,5 @@
 import {createWayOut} from '../../../core/createWayOut.js';
-import {findStory} from '../../../core/night.js';
+import {findStory, hasMet, meet} from '../../../core/night.js';
 import {type Place} from '../../../core/place.js';
 import {standIn} from '../../../core/prose.js';
 import {defineScript} from '../../../core/script.js';
@@ -15,15 +15,62 @@ const PLACE_NAME = 'Nádražní';
 const DOORS = 'The doors';
 const STRANGER = 'A stranger';
 const STREET = 'The street';
+const SELLER = 'The seller';
 const CROWNS_STORY = standIn`Twenty crowns`;
+const PHONE_STORY = standIn`The phone from the forecourt`;
 const description = defineScript({
-  start: {
-    speaker: PLACE_NAME,
-    text: standIn`
-      The forecourt is a strip of wet paving between the station and the tram stop, with a line
-      of taxis idling at the kerb. Trams pull in and out under the wires, and everybody here is
-      on the way somewhere else.
-    `,
+  start: (night) => {
+    let event = night.pick('forecourtArrival', {none: 0.6, phone: 0.4});
+
+    return event === 'none' || hasMet(night, event) ? 'stop' : event;
+  },
+  nodes: {
+    stop: {
+      speaker: PLACE_NAME,
+      text: standIn`
+        The forecourt is a strip of wet paving between the station and the tram stop, with a line
+        of taxis idling at the kerb. Trams pull in and out under the wires, and everybody here is
+        on the way somewhere else.
+      `,
+    },
+    phone: {
+      speaker: SELLER,
+      text: standIn`
+        A man by the taxis opens his coat on a row of phones, each in its original box. He taps
+        one and says two hundred, and no questions.
+      `,
+      onEnter: (night) => {
+        meet(night, 'phone');
+      },
+      choices: [
+        {
+          text: 'Buy the phone',
+          price: 200,
+          odds: 0.5,
+          next: ({roll}) => (roll?.won ? 'works' : 'brick'),
+        },
+        {text: 'Walk on', next: 'stop'},
+      ],
+    },
+    works: {
+      speaker: SELLER,
+      text: standIn`
+        The screen lights up before you reach the tram, and the signal bars climb. It is a good
+        phone, and a good deal.
+      `,
+      onEnter: (night) => {
+        findStory(night, PHONE_STORY);
+      },
+      next: 'stop',
+    },
+    brick: {
+      speaker: SELLER,
+      text: standIn`
+        The box is heavy and sealed, and inside it lies a brick wrapped in a cloth. The man is
+        already gone among the taxis.
+      `,
+      next: 'stop',
+    },
   },
 });
 const doors = defineScript({

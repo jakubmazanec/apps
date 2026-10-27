@@ -1,6 +1,6 @@
 import {createWayOut} from '../../../core/createWayOut.js';
 import {sleepTillMorning} from '../../../core/hours.js';
-import {findStory} from '../../../core/night.js';
+import {findStory, hasMet, meet, type Night} from '../../../core/night.js';
 import {type Place} from '../../../core/place.js';
 import {standIn} from '../../../core/prose.js';
 import {defineScript} from '../../../core/script.js';
@@ -15,16 +15,89 @@ import {standInPicture} from '../../pictures/standInPicture.js';
 const PLACE_NAME = 'Náměstí Republiky';
 const SHORT_NAME = 'Nám. Republiky';
 const SHELTER = 'The shelter';
+const BENCH = 'The bench';
+const DRUNK = 'The drunk';
 const DISPLAY = 'The display';
 const STREET = 'The street';
 const TIMETABLE_STORY = standIn`The man who knew the timetable`;
+const WALLET_STORY = standIn`The wallet on the bench`;
+const DRINK_STORY = standIn`A drink at the stop`;
+
+// The wallet holds 100, 200 or 300 Kč by the night, drawn where it is used.
+function getWalletMoney(night: Night): number {
+  return 100 + 100 * Math.floor(night.random('walletMoney') * 3);
+}
+
 const description = defineScript({
-  start: {
-    speaker: PLACE_NAME,
-    text: standIn`
-      The tram stop is a glass shelter on a wide, empty street. A few lit windows hang above
-      it, and the rails shine wet in both directions.
-    `,
+  start: (night) => {
+    let event = night.pick('republikyArrival', {none: 0.5, wallet: 0.25, drunk: 0.25});
+
+    return event === 'none' || hasMet(night, event) ? 'stop' : event;
+  },
+  nodes: {
+    stop: {
+      speaker: PLACE_NAME,
+      text: standIn`
+        The tram stop is a glass shelter on a wide, empty street. A few lit windows hang above
+        it, and the rails shine wet in both directions.
+      `,
+    },
+    wallet: {
+      speaker: BENCH,
+      text: (night) => standIn`
+        A wallet lies forgotten on the bench under the glass. Inside are
+        ${getWalletMoney(night)} Kč in notes and nothing to say whose they are.
+      `,
+      onEnter: (night) => {
+        meet(night, 'wallet');
+      },
+      choices: [
+        {
+          text: 'Keep the money',
+          onChoose: (night) => {
+            night.money += getWalletMoney(night);
+          },
+          next: 'kept',
+        },
+        {text: 'Leave it', next: 'stop'},
+      ],
+    },
+    kept: {
+      speaker: BENCH,
+      text: standIn`
+        The notes go into your pocket, and the empty wallet goes back on the bench. Nobody comes
+        running along the street.
+      `,
+      onEnter: (night) => {
+        findStory(night, WALLET_STORY);
+      },
+      next: 'stop',
+    },
+    drunk: {
+      speaker: DRUNK,
+      text: standIn`
+        A man with a bottle sways up to the shelter and insists that you drink with him. He holds
+        it out like a ticket you have to take.
+      `,
+      onEnter: (night) => {
+        meet(night, 'drunk');
+      },
+      choices: [
+        {text: 'Drink with him', minutes: 10, drinks: 1, next: 'drank'},
+        {text: 'Refuse', next: 'stop'},
+      ],
+    },
+    drank: {
+      speaker: DRUNK,
+      text: standIn`
+        The bottle is warm, and the drink burns all the way down. He talks for ten minutes about
+        a tram he never caught, and then he forgets you were there.
+      `,
+      onEnter: (night) => {
+        findStory(night, DRINK_STORY);
+      },
+      next: 'stop',
+    },
   },
 });
 const shelter = defineScript({

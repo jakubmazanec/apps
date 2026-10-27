@@ -18,7 +18,13 @@ import {
 } from '../source/game/core/getSceneArea.js';
 import {getSpotPosition} from '../source/game/core/getSpotPosition.js';
 import {isOpenAt} from '../source/game/core/hours.js';
-import {createNight, type Night, type PlaceId, type Quest} from '../source/game/core/night.js';
+import {
+  createNight,
+  getDrunkenness,
+  type Night,
+  type PlaceId,
+  type Quest,
+} from '../source/game/core/night.js';
 import {type Place, type Spot} from '../source/game/core/place.js';
 import {asChoice, formatChoice} from '../source/game/core/script.js';
 import {todaySeed} from '../source/game/core/todaySeed.js';
@@ -27,6 +33,12 @@ const SCREENS = [
   {width: 480, height: 270},
   {width: 195, height: 350},
   {width: 146, height: 262},
+] as const;
+// The events of the arrival at each stop, by the place that has them.
+const ARRIVALS = [
+  ['namestiRepubliky', ['wallet', 'drunk']],
+  ['malinovskehoNamesti', ['fight']],
+  ['hlavniNadraziForecourt', ['phone']],
 ] as const;
 
 type Box = {left: number; top: number; width: number; height: number};
@@ -60,25 +72,12 @@ function getSpotScript(place: Place, label: string): Spot['script'] {
   return spot.script;
 }
 
-// A dialogue on a spot's script, as the story window runs it, on a night of its own in the place.
-function openSpot(
+// A night of its own in the place, with the version of today and the dice pinned.
+function createPinnedNight(
   id: PlaceId,
-  label: string,
   minutes: number,
-  {
-    collection,
-    pick,
-    random,
-    ...start
-  }: {
-    money?: number;
-    drunkenness?: number;
-    collection?: Night['collection'];
-    quest?: Partial<Quest>;
-    pick?: string;
-    random?: number;
-  } = {},
-): {dialogue: Dialogue<Night>; night: Night} {
+  {collection, pick, random, ...start}: Parameters<typeof openSpot>[3] = {},
+): Night {
   let night = createNight({seed: 1, place: id, minutes, money: 350, ...start}, collection);
 
   // The version of today is the first name of every table, unless the test names one: the night's
@@ -90,10 +89,40 @@ function openSpot(
     night.random = () => random;
   }
 
+  return night;
+}
+
+// A dialogue on a spot's script, as the story window runs it, on a night of its own in the place.
+function openSpot(
+  id: PlaceId,
+  label: string,
+  minutes: number,
+  options: {
+    money?: number;
+    drunkenness?: number;
+    collection?: Night['collection'];
+    quest?: Partial<Quest>;
+    pick?: string;
+    random?: number;
+  } = {},
+): {dialogue: Dialogue<Night>; night: Night} {
+  let night = createPinnedNight(id, minutes, options);
+
   return {
     dialogue: new Dialogue({script: getSpotScript(getPlace(id), label), context: night}),
     night,
   };
+}
+
+// A dialogue on the place's description, as the night screen opens it on arrival.
+function openDescription(
+  id: PlaceId,
+  minutes: number,
+  start: Parameters<typeof openSpot>[3] = {},
+): {dialogue: Dialogue<Night>; night: Night} {
+  let night = createPinnedNight(id, minutes, start);
+
+  return {dialogue: new Dialogue({script: getPlace(id).description, context: night}), night};
 }
 
 // Takes a choice of the dialogue's first node, with the dice pinned to `random`, so that a roll
@@ -140,6 +169,11 @@ function readChoices(dialogue: Dialogue<Night>): string[] {
 // The node a spot's script holds under the key.
 function nodeOf(id: PlaceId, label: string, key: string): unknown {
   return getSpotScript(getPlace(id), label).nodes?.[key];
+}
+
+// The node a place's description holds under the key.
+function descriptionNodeOf(id: PlaceId, key: string): unknown {
+  return getPlace(id).description.nodes?.[key];
 }
 
 function getLongTableNode(minutes: number, quest?: Partial<Quest>): unknown {
@@ -722,7 +756,154 @@ describe('the game content', () => {
     expect(opened.dialogue.node).toBe(nodeOf('rotorBarRoom', 'The long table', 'opened'));
   });
 
-  test("the game's content has fifteen stories", () => {
+  test('at each stop none gives the plain description, and each event its node, met on entry', () => {
+    for (let [id, events] of ARRIVALS) {
+      let plain = openDescription(id, 1400, {pick: 'none'});
+
+      expect(plain.dialogue.node).toBe(descriptionNodeOf(id, 'stop'));
+      expect(plain.night.events).toEqual([]);
+
+      for (let event of events) {
+        let opened = openDescription(id, 1400, {pick: event});
+
+        expect(opened.dialogue.node).toBe(descriptionNodeOf(id, event));
+        expect(opened.night.events).toEqual([event]);
+      }
+    }
+  });
+
+  test('the refusing choice of every event leads to the description and costs nothing', () => {
+    for (let [id, events] of ARRIVALS) {
+      for (let event of events) {
+        let {dialogue, night} = takeChoice(openDescription(id, 1400, {pick: event}), 1);
+
+        expect(dialogue.node).toBe(descriptionNodeOf(id, 'stop'));
+        expect(night.money).toBe(350);
+        expect(night.minutes).toBe(1400);
+      }
+    }
+  });
+
+  test('a second opening on the same night gives the plain description', () => {
+    for (let [id, events] of ARRIVALS) {
+      for (let event of events) {
+        let {night} = openDescription(id, 1400, {pick: event});
+        let again = new Dialogue({script: getPlace(id).description, context: night});
+
+        expect(again.node).toBe(descriptionNodeOf(id, 'stop'));
+      }
+    }
+  });
+
+  test('the wallet pays what its text names', () => {
+    let opened = openDescription('namestiRepubliky', 1400, {pick: 'wallet', random: 0.5});
+
+    expect(opened.dialogue.pageText).toContain('200 Kč');
+
+    let {dialogue, night} = takeChoice(opened, 0, 0.5);
+
+    expect(night.money).toBe(550);
+    expect(dialogue.node).toBe(descriptionNodeOf('namestiRepubliky', 'kept'));
+    expect(night.stories).toEqual([{title: 'The wallet on the bench', minutes: 1400}]);
+
+    // The first press shows the rest of the page, the second follows next.
+    dialogue.advance();
+    dialogue.advance();
+
+    expect(dialogue.node).toBe(descriptionNodeOf('namestiRepubliky', 'stop'));
+    expect(
+      openDescription('namestiRepubliky', 1400, {pick: 'wallet', random: 0}).dialogue.pageText,
+    ).toContain('100 Kč');
+    expect(
+      openDescription('namestiRepubliky', 1400, {pick: 'wallet', random: 0.99}).dialogue.pageText,
+    ).toContain('300 Kč');
+  });
+
+  test('the drunk costs ten minutes and a drink', () => {
+    let {dialogue, night} = takeChoice(
+      openDescription('namestiRepubliky', 1400, {pick: 'drunk'}),
+      0,
+    );
+
+    expect(night.minutes).toBe(1410);
+    expect(getDrunkenness(night)).toBe(1);
+    expect(dialogue.node).toBe(descriptionNodeOf('namestiRepubliky', 'drank'));
+    expect(night.stories).toEqual([{title: 'A drink at the stop', minutes: 1410}]);
+  });
+
+  test('the fight happens from 22:00, and the same night meets it then', () => {
+    let {dialogue, night} = openDescription('malinovskehoNamesti', 1319, {pick: 'fight'});
+
+    expect(dialogue.node).toBe(descriptionNodeOf('malinovskehoNamesti', 'stop'));
+    expect(night.events).toEqual([]);
+
+    night.minutes = 1320;
+
+    let later = new Dialogue({script: getPlace('malinovskehoNamesti').description, context: night});
+
+    expect(later.node).toBe(descriptionNodeOf('malinovskehoNamesti', 'fight'));
+    expect(night.events).toEqual(['fight']);
+  });
+
+  test("the fight's odds fall with the drinks, a won one is a story and a lost one costs half an hour", () => {
+    for (let [drunkenness, label] of [
+      [0, 'Step in  10 min  50%'],
+      [3, 'Step in  10 min  30%'],
+    ] as const) {
+      let {dialogue, night} = openDescription('malinovskehoNamesti', 1400, {
+        pick: 'fight',
+        drunkenness,
+      });
+
+      dialogue.advance();
+
+      expect(formatChoice(asChoice(dialogue.visibleChoices[0]!), night)).toBe(label);
+    }
+
+    let won = takeChoice(openDescription('malinovskehoNamesti', 1400, {pick: 'fight'}), 0, 0.1);
+
+    expect(won.night.minutes).toBe(1410);
+    expect(won.dialogue.node).toBe(descriptionNodeOf('malinovskehoNamesti', 'won'));
+    expect(won.night.stories).toEqual([{title: 'The fight at the stop', minutes: 1410}]);
+
+    let lost = takeChoice(openDescription('malinovskehoNamesti', 1400, {pick: 'fight'}), 0, 0.9);
+
+    expect(lost.night.minutes).toBe(1440);
+    expect(lost.dialogue.node).toBe(descriptionNodeOf('malinovskehoNamesti', 'lost'));
+    expect(lost.night.stories).toEqual([]);
+  });
+
+  test('the phone is a story when it works, and a brick when it does not', () => {
+    let {dialogue, night} = openDescription('hlavniNadraziForecourt', 1400, {pick: 'phone'});
+
+    dialogue.advance();
+
+    expect(formatChoice(asChoice(dialogue.visibleChoices[0]!), night)).toBe(
+      'Buy the phone  200 Kč  50%',
+    );
+
+    let works = takeChoice(
+      openDescription('hlavniNadraziForecourt', 1400, {pick: 'phone'}),
+      0,
+      0.1,
+    );
+
+    expect(works.night.money).toBe(150);
+    expect(works.dialogue.node).toBe(descriptionNodeOf('hlavniNadraziForecourt', 'works'));
+    expect(works.night.stories).toEqual([{title: 'The phone from the forecourt', minutes: 1400}]);
+
+    let brick = takeChoice(
+      openDescription('hlavniNadraziForecourt', 1400, {pick: 'phone'}),
+      0,
+      0.9,
+    );
+
+    expect(brick.night.money).toBe(150);
+    expect(brick.dialogue.node).toBe(descriptionNodeOf('hlavniNadraziForecourt', 'brick'));
+    expect(brick.night.stories).toEqual([]);
+  });
+
+  test("the game's content has nineteen stories", () => {
     let {closing} = locations.rotorBar;
 
     if (closing === undefined) {
@@ -732,8 +913,9 @@ describe('the game content', () => {
     // The bar closes at 03:00 and puts the player out on its street.
     let closed = createNight({seed: 1, place: 'rotorBarStreet', minutes: 1620, money: 350});
     // Each dialogue reaches the node of one story: 0.1 wins the spare chair's roll and the
-    // shelter's and the back room's search and the hand of cards, and 0.95 loses the chair's above
-    // 0.9, which spills the beer. The long table hands the bottle over for the birthday.
+    // shelter's and the back room's search and the hand of cards and the fight and the phone, and
+    // 0.95 loses the chair's above 0.9, which spills the beer. The long table hands the bottle
+    // over for the birthday.
     let opened = [
       takeChoice(openSpot('rotorBarRoom', 'The corner table', 1390), 0),
       takeChoice(openSpot('rotorBarRoom', 'The corner table', 1200), 0, 0.1),
@@ -748,6 +930,10 @@ describe('the game content', () => {
       takeChoice(openSpot('hlavniNadraziForecourt', 'A stranger', 1100), 0),
       openSpot('hlavniNadraziHall', 'The hall', 1100),
       takeChoice(openSpot('namestiRepubliky', 'The shelter', 1100), 0, 0.1),
+      takeChoice(openDescription('namestiRepubliky', 1400, {pick: 'wallet'}), 0, 0.5),
+      takeChoice(openDescription('namestiRepubliky', 1400, {pick: 'drunk'}), 0),
+      takeChoice(openDescription('malinovskehoNamesti', 1400, {pick: 'fight'}), 0, 0.1),
+      takeChoice(openDescription('hlavniNadraziForecourt', 1400, {pick: 'phone'}), 0, 0.1),
       openSpot('zidenice', 'The bench', 1100),
       {dialogue: new Dialogue({script: closing, context: closed}), night: closed},
     ];
@@ -755,18 +941,22 @@ describe('the game content', () => {
     expect(new Set(opened.flatMap(({night}) => night.stories.map(({title}) => title)))).toEqual(
       new Set([
         'A bottle saved for an occasion',
+        'A drink at the stop',
         'A seat at the table',
         'A train not on the timetable',
         'The argument in whispers',
         'The birthday',
+        'The fight at the stop',
         'The good one',
         'The guitarist who plays for one',
         'The hand that paid for a round',
         'The keys',
         'The man who knew the timetable',
+        'The phone from the forecourt',
         'The spilled beer',
         'The station that never moved',
         'The tram that stopped early',
+        'The wallet on the bench',
         'Thrown out at three',
         'Twenty crowns',
       ]),
