@@ -176,8 +176,8 @@ function openWhiskyShopDoor(minutes: number): {dialogue: Dialogue<Night>; night:
   return openSpot('whiskyShopStreet', 'The Whisky Shop', minutes);
 }
 
-function readCornerTableAt(minutes: number): string[] {
-  return readChoices(openSpot('rotorBarRoom', 'The corner table', minutes).dialogue);
+function readCornerTableAt(minutes: number, pick = 'music'): string[] {
+  return readChoices(openSpot('rotorBarRoom', 'The corner table', minutes, {pick}).dialogue);
 }
 
 describe('the game content', () => {
@@ -469,6 +469,64 @@ describe('the game content', () => {
     expect(later.log).toEqual([]);
   });
 
+  test("the corner table's other two versions last all night, with their choices", () => {
+    for (let minutes of [1000, 1390]) {
+      expect(readCornerTableAt(minutes, 'cards')).toEqual(['Sit in for a hand', 'Watch a while']);
+      expect(readCornerTableAt(minutes, 'couple')).toEqual(['Listen in', 'Leave them to it']);
+    }
+  });
+
+  test("the hand's label reads its costs and its odds, which fall with the drinks", () => {
+    for (let [drunkenness, label] of [
+      [0, 'Sit in for a hand  15 min  50 Kč  50%'],
+      [3, 'Sit in for a hand  15 min  50 Kč  30%'],
+    ] as const) {
+      let {dialogue, night} = openSpot('rotorBarRoom', 'The corner table', 1200, {
+        pick: 'cards',
+        drunkenness,
+      });
+
+      dialogue.advance();
+
+      expect(formatChoice(asChoice(dialogue.visibleChoices[0]!), night)).toBe(label);
+    }
+  });
+
+  test('a won hand pays the pot and its story, and a lost one costs the stake', () => {
+    let won = takeChoice(
+      openSpot('rotorBarRoom', 'The corner table', 1200, {pick: 'cards'}),
+      0,
+      0.1,
+    );
+
+    expect(won.night.money).toBe(400);
+    expect(won.night.minutes).toBe(1215);
+    expect(won.dialogue.node).toBe(nodeOf('rotorBarRoom', 'The corner table', 'won'));
+    expect(won.night.stories).toEqual([{title: 'The hand that paid for a round', minutes: 1215}]);
+
+    let lost = takeChoice(
+      openSpot('rotorBarRoom', 'The corner table', 1200, {pick: 'cards'}),
+      0,
+      0.9,
+    );
+
+    expect(lost.night.money).toBe(300);
+    expect(lost.night.minutes).toBe(1215);
+    expect(lost.dialogue.node).toBe(nodeOf('rotorBarRoom', 'The corner table', 'lost'));
+    expect(lost.night.stories).toEqual([]);
+  });
+
+  test('listening to the couple is a story', () => {
+    let {dialogue, night} = takeChoice(
+      openSpot('rotorBarRoom', 'The corner table', 1200, {pick: 'couple'}),
+      0,
+    );
+
+    expect(night.minutes).toBe(1210);
+    expect(dialogue.node).toBe(nodeOf('rotorBarRoom', 'The corner table', 'listened'));
+    expect(night.stories).toEqual([{title: 'The argument in whispers', minutes: 1210}]);
+  });
+
   test('the cigarette and the bottle are offered only until their story is achieved', () => {
     expect(
       readChoices(openSpot('rotorBarStreet', 'The smokers', 1200, {drunkenness: 2}).dialogue),
@@ -664,7 +722,7 @@ describe('the game content', () => {
     expect(opened.dialogue.node).toBe(nodeOf('rotorBarRoom', 'The long table', 'opened'));
   });
 
-  test("the game's content has thirteen stories", () => {
+  test("the game's content has fifteen stories", () => {
     let {closing} = locations.rotorBar;
 
     if (closing === undefined) {
@@ -674,12 +732,14 @@ describe('the game content', () => {
     // The bar closes at 03:00 and puts the player out on its street.
     let closed = createNight({seed: 1, place: 'rotorBarStreet', minutes: 1620, money: 350});
     // Each dialogue reaches the node of one story: 0.1 wins the spare chair's roll and the
-    // shelter's and the back room's search, and 0.95 loses the chair's above 0.9, which spills
-    // the beer. The long table hands the bottle over for the birthday.
+    // shelter's and the back room's search and the hand of cards, and 0.95 loses the chair's above
+    // 0.9, which spills the beer. The long table hands the bottle over for the birthday.
     let opened = [
       takeChoice(openSpot('rotorBarRoom', 'The corner table', 1390), 0),
       takeChoice(openSpot('rotorBarRoom', 'The corner table', 1200), 0, 0.1),
       takeChoice(openSpot('rotorBarRoom', 'The corner table', 1200), 0, 0.95),
+      takeChoice(openSpot('rotorBarRoom', 'The corner table', 1200, {pick: 'cards'}), 0, 0.1),
+      takeChoice(openSpot('rotorBarRoom', 'The corner table', 1200, {pick: 'couple'}), 0),
       takeChoice(openSpot('rotorBarStreet', 'The smokers', 1200, {drunkenness: 2}), 0),
       takeChoice(openSpot('whiskyShopRoom', 'Two regulars', 1100), 0),
       takeChoice(openSpot('whiskyShopRoom', 'The shelves', 1100), 2),
@@ -697,9 +757,11 @@ describe('the game content', () => {
         'A bottle saved for an occasion',
         'A seat at the table',
         'A train not on the timetable',
+        'The argument in whispers',
         'The birthday',
         'The good one',
         'The guitarist who plays for one',
+        'The hand that paid for a round',
         'The keys',
         'The man who knew the timetable',
         'The spilled beer',
