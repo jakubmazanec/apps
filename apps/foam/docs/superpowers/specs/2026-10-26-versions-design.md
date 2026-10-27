@@ -368,6 +368,11 @@ The texts are stand-in text, marked as such, and the stories' titles too.
   `rotorBarRoom › The corner table › start: the odds of "cornerTable" sum to 0.9`, when the sum is
   off by more than a billionth, and `…: the odds of "cornerTable" give "couple" 0`, for an odd of 0
   or less.
+- **A pick belongs at the top of its function.** A key first picked in a copy under another value of
+  `random`, or in a run under another table's name, lies in a branch whose other names never run;
+  the checker reports it under the function's path:
+  `…: "crowd" is picked only in a branch; pick it at the top of the function`. `pick` has no side
+  effects, so every pick can sit at the top and the branches follow.
 - **Events.** The fresh night an effect runs on carries the check night's events, its `random` and
   its `pick`. The keys the effects met are gathered as the titles are. The second pass runs with
   every title achieved and every key met, so a `start` that reads `hasMet` is run with none met and
@@ -387,18 +392,19 @@ The texts are stand-in text, marked as such, and the stories' titles too.
 
 ## Error handling
 
-| What goes wrong                                      | In CI                                    | In the running game                                        |
-| ---------------------------------------------------- | ---------------------------------------- | ---------------------------------------------------------- |
-| A table's odds do not sum to 1                       | The checker reports it under its path    | The last name takes the rest, or a name is never picked    |
-| An odd is 0 or less                                  | The checker reports it                   | That name is never picked                                  |
-| A version's node has a mistake                       | Every name is run, so it is reported     |                                                            |
-| An event's node forgets `meet`                       | The content test for that stop fails     | The event shows on every arrival                           |
-| An evening's visit lies outside Rotor's hours        | The content test fails                   | The friend is offered in a closed bar; never reached       |
-| An evening's late visit does not end at the close    | The content test fails                   | The smokers say "came out at closing" too early            |
-| A version's hour is not a whole hour                 |                                          | The text reads "22:40"                                     |
-| The fight's half hour crosses 08:00                  |                                          | The window finishes and the night ends, as any late action |
-| A jump-in lands at a stop whose seed has an event    |                                          | The event shows, as on arrival                             |
-| A test pins `pick` to a name the table does not have | The dialogue reports the unknown node id |                                                            |
+| What goes wrong                                         | In CI                                    | In the running game                                        |
+| ------------------------------------------------------- | ---------------------------------------- | ---------------------------------------------------------- |
+| A table's odds do not sum to 1                          | The checker reports it under its path    | The last name takes the rest, or a name is never picked    |
+| An odd is 0 or less                                     | The checker reports it                   | That name is never picked                                  |
+| A version's node has a mistake                          | Every node is checked, so it is reported |                                                            |
+| A pick sits in a branch, not at the top of its function | The checker reports it                   | The names the branch skips were never checked              |
+| An event's node forgets `meet`                          | The content test for that stop fails     | The event shows on every arrival                           |
+| An evening's visit lies outside Rotor's hours           | The content test fails                   | The friend is offered in a closed bar; never reached       |
+| An evening's late visit does not end at the close       | The content test fails                   | The smokers say "came out at closing" too early            |
+| A version's hour is not a whole hour                    |                                          | The text reads "22:40"                                     |
+| The fight's half hour crosses 08:00                     |                                          | The window finishes and the night ends, as any late action |
+| A jump-in lands at a stop whose seed has an event       |                                          | The event shows, as on arrival                             |
+| A test pins `pick` to a name the table does not have    | The dialogue reports the unknown node id |                                                            |
 
 ## Testing
 

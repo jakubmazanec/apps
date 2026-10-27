@@ -977,6 +977,57 @@ describe(checkContent, () => {
     );
   });
 
+  test("reports a pick reached only under another table's second name", () => {
+    let description = defineScript({
+      start: (night) => {
+        if (night.pick('outer', {x: 0.5, y: 0.5}) === 'y') {
+          night.pick('inner', {p: 0.5, q: 0.5});
+        }
+
+        return {speaker: 'Bench', text: 'Fine.'};
+      },
+    });
+
+    expect(check({places: withZidenice({description})})).toContain(
+      'zidenice › description › start: "inner" is picked only in a branch; pick it at the top of the function',
+    );
+  });
+
+  test('reports a pick reached only under a value of random', () => {
+    let description = defineDialogueScript<Night>()({
+      start: {
+        speaker: 'Bench',
+        text: (night) =>
+          night.random('weather') >= 0.5 ?
+            `A ${night.pick('crowd', {a: 0.5, b: 0.5})} crowd.`
+          : 'Quiet.',
+      },
+    });
+
+    expect(check({places: withZidenice({description})})).toContain(
+      'zidenice › description › start: "crowd" is picked only in a branch; pick it at the top of the function',
+    );
+  });
+
+  test('passes a pick at the top of a function that goes on to read random', () => {
+    let description = defineDialogueScript<Night>()({
+      start: {
+        speaker: 'Bench',
+        text: (night) => {
+          let mood = night.pick('mood', {a: 0.5, b: 0.5});
+
+          return night.random('weather') >= 0.5 ? `A ${mood} crowd.` : 'Quiet.';
+        },
+      },
+    });
+
+    expect(
+      check({places: withZidenice({description})}).filter((line) =>
+        line.includes('is picked only'),
+      ),
+    ).toEqual([]);
+  });
+
   test('reports a text that throws once an event is met, which proves the second pass carries the keys', () => {
     let description = withEntry(
       (night) => {

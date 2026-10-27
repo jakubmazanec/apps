@@ -106,8 +106,8 @@ function getCheckTimes(locationData: LocationData): number[] {
  * other values of CHECK_RANDOM, except under a roll, where it reads the roll's value. A function
  * that picked a version runs again under each other name of the longest table it picked from, a
  * shorter table wrapping; a table whose odds do not sum to 1, or give a name 0 or less, is reported
- * under the function's path. A pick reached only under another table's later name, or only under a
- * high value of random, is not run under each of its names, so a pick belongs at the top of its
+ * under the function's path. A pick reached only in a branch, under another table's name or a value
+ * of random, is not run under each of its names, and is reported: a pick belongs at the top of its
  * function.
  */
 export function checkContent(content: Content): string[] {
@@ -170,8 +170,9 @@ export function checkContent(content: Content): string[] {
   // Calls the function with the night and, when it read random, with a copy of the night for each
   // other check value, so every side of a split on random is met. A function that picked a version
   // then runs again under each other name of the longest table it picked from, a shorter table
-  // wrapping, with the night's own value of random; the tables are reported under the path. Each
-  // result comes with the night that gave it, for the check to go on with that night.
+  // wrapping, with the night's own value of random; the tables are reported under the path, and so
+  // is a key picked only in a branch, whose other names never run. Each result comes with the night
+  // that gave it, for the check to go on with that night.
   function withRandom<T>(
     where: string,
     night: Night,
@@ -183,6 +184,9 @@ export function checkContent(content: Content): string[] {
     pickIndex = 0;
 
     let results = [{night, result: call(night)}];
+    // The keys the function picks on every run: a key first picked in a copy or a re-run lies in a
+    // branch, so its other names never run.
+    let topKeys = new Set(tables.map(({key}) => key));
 
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- createRandom sets it
     if (randomRead) {
@@ -198,7 +202,7 @@ export function checkContent(content: Content): string[] {
     }
 
     // The tables of the runs at index 0 set the longest. The runs below push tables again, and the
-    // walk after them reports the ones that only a re-run picked, as inside another table's name.
+    // walk after them reports a bad table, and a key, that only a copy or a re-run picked.
     let longest = 0;
 
     for (let {key, odds} of tables) {
@@ -212,6 +216,12 @@ export function checkContent(content: Content): string[] {
 
     for (let {key, odds} of tables) {
       checkTable(where, key, odds);
+
+      if (!topKeys.has(key)) {
+        lines.add(
+          `${where}: "${key}" is picked only in a branch; pick it at the top of the function`,
+        );
+      }
     }
 
     return results;
