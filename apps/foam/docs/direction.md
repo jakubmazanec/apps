@@ -1,8 +1,8 @@
 # Foam: direction
 
 Started: 2026-10-03. App: `apps/foam`. Status: the direction is agreed; phases 1 to 6 are built and
-reviewed, and phase 7 is being built: its first spec is built, its second and third designed. This
-is a living document: it describes the current state and plan, and is kept correct as they change.
+reviewed, and phase 7 is being built: its first two specs are built and its third designed. This is
+a living document: it describes the current state and plan, and is kept correct as they change.
 
 ## What Foam is
 
@@ -291,15 +291,13 @@ everything that is built and rewrote nothing: the night runs on stand-in text, a
 the author's, as the Text row says. It reopened the content model, which phase 7 decides in its
 brainstorm: a second night that differs from the first is the first thing that needs to know how the
 game picks its content. The pictures of the places keep the place the phase 4 review gave them: a
-place is drawn when its real text is written, and none is yet. Three things from phase 6 wait for
-the author or a later spec:
+place is drawn when its real text is written, and none is yet. Two things from phase 6 wait for the
+author or a later spec:
 
 - The checker's nights carry no stories, so the end text's sentence for one story and for several is
   never checked; only the sentence for none is.
 - The leave ending says the player waits for the 08:04, but the clock can be past 08:04 when it
   shows, as after a walk that started at 07:59.
-- Two texts in Rotor's room write the friend's hours as words, eight and eleven, so a change to the
-  spans in `content/quest.ts` means editing them too.
 
 Phase 7 is larger than one design-and-plan cycle and is cut into three specs, each with its own
 plan, build and review, in this order:
@@ -311,10 +309,10 @@ plan, build and review, in this order:
    reads it. It is built: [spec](superpowers/specs/2026-10-25-seed-design.md),
    [plan](superpowers/plans/2026-10-25-seed.md).
 2. Versions: a scene written in two or three versions, of which the night picks one by the seed; the
-   friend's evening in versions that carry their hours and the texts that name them, which closes
-   the loose end above; Rotor's corner table in versions; an event on arrival at a stop; and the
-   checker over every version. It is designed:
-   [spec](superpowers/specs/2026-10-26-versions-design.md).
+   friend's evening in versions that carry their hours and the texts that name them, which closed a
+   loose end of phase 6; Rotor's corner table in versions; an event on arrival at a stop; and the
+   checker over every version. It is built: [spec](superpowers/specs/2026-10-26-versions-design.md),
+   [plan](superpowers/plans/2026-10-27-versions.md).
 3. Saving and Continue: the night saved when a story window's text ends and when a journey is
    picked, with its seed and its versions; Continue in the main menu, and Quit to menu keeping the
    night at its last save; the record of past nights and the set of texts read; the Collection

@@ -1,8 +1,9 @@
 # Versions (Foam phase 7, spec 2 of 3): design
 
-Date: 2026-10-26. App: `apps/foam`. Status: designed; the implementation plan follows. It is the
-second of phase 7's three specs in the [direction document](../../direction.md). It builds on spec
-1, [the seed](2026-10-25-seed-design.md), which is built. Spec 3, saving and Continue, follows.
+Date: 2026-10-26. App: `apps/foam`. Status: implemented by
+[2026-10-27-versions.md](../plans/2026-10-27-versions.md). It is the second of phase 7's three specs
+in the [direction document](../../direction.md). It builds on spec 1,
+[the seed](2026-10-25-seed-design.md), which is built. Spec 3, saving and Continue, follows.
 
 ## Background
 
