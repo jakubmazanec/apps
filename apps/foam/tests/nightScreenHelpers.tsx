@@ -150,8 +150,12 @@ export async function setViewport({game}: Harness, width: number, height: number
 }
 
 // Activates New Game on the main menu, then Start in the New night window, and
-// waits for the night screen and its first layout.
-export async function startNewGame({mainMenuScreen, nightScreen}: Harness): Promise<void> {
+// waits for the night screen and its first layout. A seed given goes into the
+// window's field first, so Start takes it in place of the date.
+export async function startNewGame(
+  {mainMenuScreen, nightScreen}: Harness,
+  seed?: number,
+): Promise<void> {
   mainMenuScreen.ui.focus(mainMenuScreen.contents.newGameButton);
   await press('Enter');
 
@@ -161,7 +165,13 @@ export async function startNewGame({mainMenuScreen, nightScreen}: Harness): Prom
     throw new Error('The New night window did not open!');
   }
 
-  getNewNightParts(modal).start.activate();
+  let {input, start} = getNewNightParts(modal);
+
+  if (seed !== undefined) {
+    input.value = String(seed);
+  }
+
+  start.activate();
   await vitest.waitFor(
     () => {
       if (nightScreen.state !== 'shown') {
@@ -210,8 +220,9 @@ export async function restartAt(harness: Harness, place: PlaceId): Promise<void>
  * Starts a new night from a jump-in's query, as the address does at the boot: the result's place,
  * hour, money, seed, level and quest go into nightStart, the level and the quest cleared first so a
  * start names only what it gives, and the game's own seed, minutes, money and place first put back;
- * then Quit to menu and New Game. The New Game window's Start writes today's date over the seed,
- * so a seed from the query never reaches the night. A query that is no jump-in throws.
+ * then Quit to menu and New Game. The New Game window's Start writes the field's seed over
+ * nightStart's, so a seed in the query reaches the night through the field, and without one the
+ * window's date is the seed. A query that is no jump-in throws.
  */
 export async function startFrom(harness: Harness, search: string): Promise<void> {
   let jumpIn = getJumpIn(search, nightStart.places);
@@ -230,7 +241,19 @@ export async function startFrom(harness: Harness, search: string): Promise<void>
   delete nightStart.quest;
   Object.assign(nightStart, start);
   await harness.game.showScreen(harness.mainMenuScreen);
-  await startNewGame(harness);
+  await startNewGame(harness, jumpIn.seed);
+}
+
+// A browser test plays a version by a seed whose night has it, as the game does: the night picks
+// its versions from the seed it starts on.
+export function findSeed(is: (seed: number) => boolean): number {
+  for (let seed = 0; seed < 500; seed += 1) {
+    if (is(seed)) {
+      return seed;
+    }
+  }
+
+  throw new Error('No seed among the first 500 fits!');
 }
 
 // The screen changes the place in its next frame after a story window has

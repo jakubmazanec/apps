@@ -8,7 +8,7 @@ import {journeys} from '../source/game/content/journeys.js';
 import {locations, places} from '../source/game/content/locations.js';
 import {nightEnd} from '../source/game/content/nightEnd.js';
 import {nightStart} from '../source/game/content/nightStart.js';
-import {FRIEND_EARLY, FRIEND_LATE, PARTY} from '../source/game/content/quest.js';
+import {FRIEND_EVENINGS, PARTY} from '../source/game/content/quest.js';
 import {checkContent} from '../source/game/core/checkContent.js';
 import {
   BUTTON_HEIGHT,
@@ -67,15 +67,28 @@ function openSpot(
   minutes: number,
   {
     collection,
+    pick,
+    random,
     ...start
   }: {
     money?: number;
     drunkenness?: number;
     collection?: Night['collection'];
     quest?: Partial<Quest>;
+    pick?: string;
+    random?: number;
   } = {},
 ): {dialogue: Dialogue<Night>; night: Night} {
   let night = createNight({seed: 1, place: id, minutes, money: 350, ...start}, collection);
+
+  // The version of today is the first name of every table, unless the test names one: the night's
+  // own pick would read the hash of the seed. It is pinned here because the dialogue is built
+  // before a test could replace it, and the cast stands in for the generic name.
+  night.pick = (key, odds) => (pick ?? Object.keys(odds)[0]) as never;
+
+  if (random !== undefined) {
+    night.random = () => random;
+  }
 
   return {
     dialogue: new Dialogue({script: getSpotScript(getPlace(id), label), context: night}),
@@ -138,14 +151,18 @@ function getLongTableKey(key: string): unknown {
   return nodeOf('rotorBarRoom', 'The long table', key);
 }
 
-function getBackRoomNode(minutes: number, quest?: Partial<Quest>): unknown {
-  return openSpot('rotorBarRoom', 'The back room', minutes, quest === undefined ? {} : {quest})
-    .dialogue.node;
+function getBackRoomNode(minutes: number, options?: Parameters<typeof openSpot>[3]): unknown {
+  return openSpot('rotorBarRoom', 'The back room', minutes, options).dialogue.node;
 }
 
 // The answer of the spot's friend node, asked for at the hour.
-function ask(id: PlaceId, label: string, minutes: number, quest?: Partial<Quest>): string {
-  let {dialogue} = openSpot(id, label, minutes, quest === undefined ? {} : {quest});
+function ask(
+  id: PlaceId,
+  label: string,
+  minutes: number,
+  options?: Parameters<typeof openSpot>[3],
+): string {
+  let {dialogue} = openSpot(id, label, minutes, options);
 
   dialogue.advance();
   dialogue.choose(
@@ -347,12 +364,17 @@ describe('the game content', () => {
     expect(night.place).toBe('hlavniNadraziHall');
   });
 
-  test("the quest's spans lie inside Rotor's hours", () => {
+  test("every evening's visits lie inside Rotor's hours, and the late one ends at its close", () => {
     let {hours} = locationData.rotorBar;
+    let evenings = Object.values(FRIEND_EVENINGS);
 
-    for (let span of [FRIEND_EARLY, FRIEND_LATE, PARTY]) {
+    for (let span of [...evenings.flatMap(({early, late}) => [early, late]), PARTY]) {
       expect(isOpenAt(hours, span[0])).toBe(true);
       expect(isOpenAt(hours, span[1] - 1)).toBe(true);
+    }
+
+    for (let {late} of evenings) {
+      expect(late[1]).toBe(hours.at(-1)?.[1]);
     }
   });
 
@@ -472,16 +494,62 @@ describe('the game content', () => {
     ).toEqual(['Let them be']);
   });
 
-  test('the back room has the friend by the hour, and is a chat once the keys are in hand', () => {
-    expect(getBackRoomNode(1000)).toBe(nodeOf('rotorBarRoom', 'The back room', 'away'));
-    expect(getBackRoomNode(1020)).toBe(nodeOf('rotorBarRoom', 'The back room', 'there'));
-    expect(getBackRoomNode(1199)).toBe(nodeOf('rotorBarRoom', 'The back room', 'there'));
-    expect(getBackRoomNode(1200)).toBe(nodeOf('rotorBarRoom', 'The back room', 'away'));
-    expect(getBackRoomNode(1379)).toBe(nodeOf('rotorBarRoom', 'The back room', 'away'));
-    expect(getBackRoomNode(1380)).toBe(nodeOf('rotorBarRoom', 'The back room', 'there'));
-    expect(getBackRoomNode(1619)).toBe(nodeOf('rotorBarRoom', 'The back room', 'there'));
-    expect(getBackRoomNode(1300, {hasKeys: true})).toBe(
+  test('the back room has the friend by the hour on each evening, and is a chat once the keys are in hand', () => {
+    for (let [pick, minutes, key] of [
+      ['usual', 1000, 'away'],
+      ['usual', 1020, 'there'],
+      ['usual', 1199, 'there'],
+      ['usual', 1200, 'away'],
+      ['usual', 1379, 'away'],
+      ['usual', 1380, 'there'],
+      ['usual', 1619, 'there'],
+      ['sooner', 959, 'away'],
+      ['sooner', 960, 'there'],
+      ['sooner', 1079, 'there'],
+      ['sooner', 1080, 'away'],
+      ['sooner', 1319, 'away'],
+      ['sooner', 1320, 'there'],
+      ['later', 1139, 'away'],
+      ['later', 1140, 'there'],
+      ['later', 1259, 'there'],
+      ['later', 1260, 'away'],
+      ['later', 1439, 'away'],
+      ['later', 1440, 'there'],
+    ] as const) {
+      expect(getBackRoomNode(minutes, {pick})).toBe(nodeOf('rotorBarRoom', 'The back room', key));
+    }
+
+    expect(getBackRoomNode(1300, {quest: {hasKeys: true}})).toBe(
       nodeOf('rotorBarRoom', 'The back room', 'chat'),
+    );
+  });
+
+  test("the bartender and the back room name the evening's hours", () => {
+    for (let [pick, left, back] of [
+      ['usual', 'eight', 'eleven'],
+      ['sooner', 'six', 'ten'],
+      ['later', 'nine', 'midnight'],
+    ] as const) {
+      let answer = ask('rotorBarRoom', 'The bar', 1300, {pick});
+
+      expect(answer).toContain(left);
+      expect(answer).toContain(back);
+      expect(openSpot('rotorBarRoom', 'The back room', 1300, {pick}).dialogue.pageText).toContain(
+        back,
+      );
+    }
+  });
+
+  test('the smokers read the evening', () => {
+    expect(ask('rotorBarStreet', 'The smokers', 1100, {pick: 'later'})).toBe(
+      ask('rotorBarStreet', 'The smokers', 1000, {pick: 'later'}),
+    );
+    expect(ask('rotorBarStreet', 'The smokers', 1100, {pick: 'later'})).not.toBe(
+      ask('rotorBarStreet', 'The smokers', 1100, {pick: 'usual'}),
+    );
+    // The sooner late visit has begun at 22:30, and the usual one has not.
+    expect(ask('rotorBarStreet', 'The smokers', 1350, {pick: 'sooner'})).not.toBe(
+      ask('rotorBarStreet', 'The smokers', 1350, {pick: 'usual'}),
     );
   });
 
@@ -523,15 +591,17 @@ describe('the game content', () => {
     expect(new Set(bartender).size).toBe(4);
     expect(bartender[2]).toContain('eleven');
     expect(new Set(smokers).size).toBe(5);
-    expect(ask('rotorBarRoom', 'The bar', 1100, {hasKeys: true})).not.toBe(bartender[1]);
-    expect(ask('rotorBarRoom', 'The bar', 1100, {hasBottle: true, hasTicket: true})).toBe(
+    expect(ask('rotorBarRoom', 'The bar', 1100, {quest: {hasKeys: true}})).not.toBe(bartender[1]);
+    expect(ask('rotorBarRoom', 'The bar', 1100, {quest: {hasBottle: true, hasTicket: true}})).toBe(
       bartender[1],
     );
 
     let shopkeeper = ask('whiskyShopRoom', 'The shopkeeper', 1100);
 
     expect(shopkeeper).toContain('Dvořákova');
-    expect(ask('whiskyShopRoom', 'The shopkeeper', 1100, {hasKeys: true})).not.toBe(shopkeeper);
+    expect(ask('whiskyShopRoom', 'The shopkeeper', 1100, {quest: {hasKeys: true}})).not.toBe(
+      shopkeeper,
+    );
   });
 
   test('the shelves sell the bottle once', () => {
