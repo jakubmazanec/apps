@@ -106,7 +106,9 @@ function getCheckTimes(locationData: LocationData): number[] {
  * other values of CHECK_RANDOM, except under a roll, where it reads the roll's value. A function
  * that picked a version runs again under each other name of the longest table it picked from, a
  * shorter table wrapping; a table whose odds do not sum to 1, or give a name 0 or less, is reported
- * under the function's path.
+ * under the function's path. A pick reached only under another table's later name, or only under a
+ * high value of random, is not run under each of its names, so a pick belongs at the top of its
+ * function.
  */
 export function checkContent(content: Content): string[] {
   let lines = new Set<string>();
@@ -195,7 +197,8 @@ export function checkContent(content: Content): string[] {
       }
     }
 
-    // The tables of the runs at index 0, which the runs below push again.
+    // The tables of the runs at index 0 set the longest. The runs below push tables again, and the
+    // walk after them reports the ones that only a re-run picked, as inside another table's name.
     let longest = 0;
 
     for (let {key, odds} of tables) {
@@ -205,6 +208,10 @@ export function checkContent(content: Content): string[] {
 
     for (pickIndex = 1; pickIndex < longest; pickIndex += 1) {
       results.push({night, result: call(night)});
+    }
+
+    for (let {key, odds} of tables) {
+      checkTable(where, key, odds);
     }
 
     return results;
