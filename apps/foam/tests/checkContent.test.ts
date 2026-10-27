@@ -8,7 +8,9 @@ import {type Location} from '../source/game/core/location.js';
 import {
   findStory,
   getDrunkenness,
+  hasMet,
   hasStory,
+  meet,
   type Night,
   type Way,
 } from '../source/game/core/night.js';
@@ -885,6 +887,117 @@ describe(checkContent, () => {
 
     expect(check({places: withZidenice({description})})).toContain(
       'zidenice › description › b: "supercalifragilistic" has 20 characters, and 16 fit',
+    );
+  });
+
+  test('follows a start that picks one of three names into all three', () => {
+    let description = defineScript({
+      start: (night) => {
+        let version = night.pick('version', {a: 0.5, b: 0.3, c: 0.2});
+
+        return version === 'c' ? {speaker: 'Bench', text: LONG} : {speaker: 'Bench', text: 'Fine.'};
+      },
+    });
+
+    expect(check({places: withZidenice({description})})).toContain(LONG_LINE);
+  });
+
+  test('runs a text that picks from a table of three under each name, and reports its long word once', () => {
+    let text = vitest.fn<(night: Night) => string>((night) =>
+      night.pick('mood', {a: 0.5, b: 0.3, c: 0.2}) === 'c' ? LONG : 'Fine.',
+    );
+    let description = defineDialogueScript<Night>()({start: {speaker: 'Bench', text}});
+    let lines = check({places: withZidenice({description})});
+
+    expect(text).toHaveBeenCalledTimes(3 * 16 * 2 * 5 * 33 * 3);
+    expect(
+      lines.filter((line) => line.startsWith('zidenice › description › start: "super')),
+    ).toHaveLength(1);
+  });
+
+  test('runs a function that picked from tables of two and three names three times, wrapping the shorter', () => {
+    let seen = new Set<string>();
+    let description = defineDialogueScript<Night>()({
+      start: {
+        speaker: 'Bench',
+        text: (night) => {
+          seen.add(
+            `${night.pick('two', {x: 0.5, y: 0.5})} ${night.pick('three', {p: 0.5, q: 0.3, r: 0.2})}`,
+          );
+
+          return 'Fine.';
+        },
+      },
+    });
+
+    check({places: withZidenice({description})});
+
+    expect(seen).toEqual(new Set(['x p', 'x r', 'y q']));
+  });
+
+  test('reports odds that do not sum to 1, an odd of 0 or less and an empty table, and passes a rounding error', () => {
+    let description = defineScript({
+      start: (night) => {
+        night.pick('short', {a: 0.5, b: 0.4});
+        night.pick('zero', {a: 1, b: 0});
+        night.pick('below', {a: 1.5, b: -0.5});
+        night.pick('empty', {});
+        night.pick('rounded', {a: 0.7, b: 0.2, c: 0.1});
+
+        return {speaker: 'Bench', text: 'Fine.'};
+      },
+    });
+    let lines = check({places: withZidenice({description})});
+
+    expect(lines).toContain('zidenice › description › start: the odds of "short" sum to 0.9');
+    expect(lines).toContain('zidenice › description › start: the odds of "zero" give "b" 0');
+    expect(lines).toContain('zidenice › description › start: the odds of "below" give "b" -0.5');
+    expect(lines).toContain('zidenice › description › start: the odds of "empty" sum to 0');
+    expect(
+      lines.filter(
+        (line) =>
+          line.includes('"rounded"') || line.includes('"zero" sum') || line.includes('"below" sum'),
+      ),
+    ).toEqual([]);
+  });
+
+  test('reports a text that throws once an event is met, which proves the second pass carries the keys', () => {
+    let description = withEntry(
+      (night) => {
+        meet(night, 'wallet');
+      },
+      (night) => (hasMet(night, 'wallet') ? throwNoWay() : 'Fine.'),
+    );
+
+    expect(check({places: withZidenice({description})})).toContain(
+      'zidenice › description › start: throws "No way."',
+    );
+  });
+
+  test('runs an effect on the events of its night, and gathers what it met', () => {
+    let description = withEntry((night) => {
+      if (hasMet(night, 'wallet')) {
+        throwNoWay();
+      }
+
+      meet(night, 'wallet');
+    });
+
+    expect(check({places: withZidenice({description})})).toContain(
+      'zidenice › description › start: throws "No way."',
+    );
+  });
+
+  test('runs an effect that picks under every name', () => {
+    // The night's own hash would all but never give 'b'.
+    let description = withEntry((night) => {
+      if (night.pick('luck', {a: 0.999, b: 0.001}) === 'b') {
+        throwNoWay();
+      }
+    });
+
+    expect(check({places: withZidenice({description})})).toContain(
+      'zidenice › description › start: throws "No way."',
     );
   });
 });
