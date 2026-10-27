@@ -2,12 +2,14 @@ import {afterAll, beforeAll, describe, expect, test, vitest} from 'vitest';
 
 import {nightStart} from '../source/game/content/nightStart.js';
 import {type barPicture as barPictureValue} from '../source/game/content/pictures/barPicture.js';
-import {type PlaceId} from '../source/game/core/night.js';
+import {FRIEND_EVENINGS, getFriendEvening} from '../source/game/content/quest.js';
+import {createNight, type PlaceId} from '../source/game/core/night.js';
 import {type NightStart} from '../source/game/core/travel.js';
 import {
   bootGame,
   closeStory,
   endStory,
+  findSeed,
   getButtonLabel,
   getToastParts,
   getWindowButton,
@@ -38,6 +40,18 @@ function getNode(place: PlaceId, label: string, key: string): unknown {
 
   return spot?.script.nodes?.[key];
 }
+
+// Today's date picks any of the three evenings, so a test that reads the friend's hours names a
+// seed whose night has the evening it needs.
+function findEveningSeed(evening: keyof typeof FRIEND_EVENINGS): number {
+  return findSeed(
+    (seed) =>
+      getFriendEvening(createNight({seed, place: 'rotorBarRoom', minutes: 960, money: 350})) ===
+      FRIEND_EVENINGS[evening],
+  );
+}
+
+const USUAL_SEED = findEveningSeed('usual');
 
 // The world is the game's own content, with the threads in its places. Each test starts its scene
 // with a jump-in's query. The frames of a headless browser are slow, so the tests get a long
@@ -140,7 +154,7 @@ describe('the quest', {timeout: 180_000}, () => {
   test('the back room offers the search with its odds, and a won search hands over the keys', async () => {
     let {nightScreen} = harness;
 
-    await startFrom(harness, '?place=rotorBarRoom&time=17:30&money=350');
+    await startFrom(harness, `?place=rotorBarRoom&time=17:30&money=350&seed=${USUAL_SEED}`);
     await closeStory(harness);
 
     let storyWindow = await openSpot(harness, 'The back room');
@@ -176,7 +190,7 @@ describe('the quest', {timeout: 180_000}, () => {
   test('a lost search costs an hour', async () => {
     let {nightScreen} = harness;
 
-    await startFrom(harness, '?place=rotorBarRoom&time=17:30&money=350');
+    await startFrom(harness, `?place=rotorBarRoom&time=17:30&money=350&seed=${USUAL_SEED}`);
     await closeStory(harness);
 
     let storyWindow = await openSpot(harness, 'The back room');
@@ -196,7 +210,7 @@ describe('the quest', {timeout: 180_000}, () => {
   });
 
   test('at three drinks the odds read 40%', async () => {
-    await startFrom(harness, '?place=rotorBarRoom&time=17:30&drunkenness=3');
+    await startFrom(harness, `?place=rotorBarRoom&time=17:30&drunkenness=3&seed=${USUAL_SEED}`);
     await closeStory(harness);
 
     let storyWindow = await openSpot(harness, 'The back room');
@@ -211,7 +225,7 @@ describe('the quest', {timeout: 180_000}, () => {
   });
 
   test('at 20:30 the back room is away', async () => {
-    await startFrom(harness, '?place=rotorBarRoom&time=20:30');
+    await startFrom(harness, `?place=rotorBarRoom&time=20:30&seed=${USUAL_SEED}`);
     await closeStory(harness);
 
     let storyWindow = await openSpot(harness, 'The back room');
@@ -352,7 +366,7 @@ describe('the quest', {timeout: 180_000}, () => {
     let answers: string[] = [];
 
     for (let time of ['16:30', '21:00']) {
-      await startFrom(harness, `?place=rotorBarRoom&time=${time}`);
+      await startFrom(harness, `?place=rotorBarRoom&time=${time}&seed=${USUAL_SEED}`);
       await closeStory(harness);
 
       let storyWindow = await openSpot(harness, 'The bar');
@@ -376,5 +390,39 @@ describe('the quest', {timeout: 180_000}, () => {
 
     expect(answers[1]).not.toBe(answers[0]);
     expect(answers[1]).toContain('eleven');
+  });
+
+  test('on a sooner evening the back room has the friend at 16:30, and the bartender says six and ten at 18:30', async () => {
+    let {nightScreen} = harness;
+    let seed = findEveningSeed('sooner');
+
+    await startFrom(harness, `?place=rotorBarRoom&time=16:30&seed=${seed}`);
+
+    expect(nightScreen.contents.night.seed).toBe(seed);
+
+    await closeStory(harness);
+
+    let storyWindow = await openSpot(harness, 'The back room');
+
+    expect(storyWindow.dialogue.node).toBe(getNode('rotorBarRoom', 'The back room', 'there'));
+
+    await pressThrough(harness, storyWindow);
+    nightScreen.ui.focus(getWindowButton(storyWindow, 1));
+    await press('Enter');
+    await waitForNoStoryWindow(harness);
+    await startFrom(harness, `?place=rotorBarRoom&time=18:30&seed=${seed}`);
+    await closeStory(harness);
+
+    storyWindow = await openSpot(harness, 'The bar');
+
+    await pressThrough(harness, storyWindow);
+    nightScreen.ui.focus(getWindowButton(storyWindow, 1));
+    await press('Enter');
+
+    expect(storyWindow.dialogue.pageText).toContain('six');
+    expect(storyWindow.dialogue.pageText).toContain('ten');
+
+    await endStory(storyWindow);
+    await waitForNoStoryWindow(harness);
   });
 });

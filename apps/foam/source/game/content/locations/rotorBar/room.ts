@@ -1,4 +1,4 @@
-import {isWithin, type Span} from '../../../core/hours.js';
+import {formatHourWords, isWithin, type Span} from '../../../core/hours.js';
 import {findStory, getDrunkenness} from '../../../core/night.js';
 import {type Place} from '../../../core/place.js';
 import {standIn} from '../../../core/prose.js';
@@ -6,8 +6,7 @@ import {defineScript} from '../../../core/script.js';
 import {barPicture} from '../../pictures/barPicture.js';
 import {
   BIRTHDAY_STORY,
-  FRIEND_EARLY,
-  FRIEND_LATE,
+  getFriendEvening,
   isFriendIn,
   KEYS_STORY,
   PARTY,
@@ -58,16 +57,21 @@ const bar = defineScript({
     },
     friend: {
       speaker: BAR,
-      text: (night) =>
-        night.quest.hasKeys ?
-          standIn`The bartender shrugs. Your friend is wherever they are tonight, and you have the keys.`
-        : night.minutes < FRIEND_EARLY[0] ?
-          standIn`The bartender has not seen your friend yet. Come back when the room fills up.`
-        : isWithin(night, FRIEND_EARLY) ?
-          standIn`Your friend is in the back room, the bartender says, and points with a cloth.`
-        : night.minutes < FRIEND_LATE[0] ?
-          standIn`Your friend left at eight, the bartender says, and promised to be back at eleven.`
-        : standIn`Back in the back room again, the bartender says, as if they never left.`,
+      text: (night) => {
+        let {early, late} = getFriendEvening(night);
+
+        return (
+          night.quest.hasKeys ?
+            standIn`The bartender shrugs. Your friend is wherever they are tonight, and you have the keys.`
+          : night.minutes < early[0] ?
+            standIn`The bartender has not seen your friend yet. Come back when the room fills up.`
+          : isWithin(night, early) ?
+            standIn`Your friend is in the back room, the bartender says, and points with a cloth.`
+          : night.minutes < late[0] ?
+            standIn`Your friend left at ${formatHourWords(early[1])}, the bartender says, and promised to be back at ${formatHourWords(late[0])}.`
+          : standIn`Back in the back room again, the bartender says, as if they never left.`
+        );
+      },
     },
   },
 });
@@ -117,11 +121,17 @@ const backRoom = defineScript({
     },
     away: {
       speaker: BACK_ROOM,
-      text: (night) => standIn`
-        The back room is ${night.minutes < FRIEND_EARLY[0] ? 'still empty' : 'quiet'}, and your friend is not in it. ${
-          night.minutes < FRIEND_EARLY[0] ? 'Not yet.' : 'They will be back at eleven.'
-        }
-      `,
+      text: (night) => {
+        let {early, late} = getFriendEvening(night);
+
+        return standIn`
+          The back room is ${night.minutes < early[0] ? 'still empty' : 'quiet'}, and your friend is not in it. ${
+            night.minutes < early[0] ?
+              'Not yet.'
+            : `They will be back at ${formatHourWords(late[0])}.`
+          }
+        `;
+      },
     },
     chat: {
       speaker: BACK_ROOM,
