@@ -961,6 +961,22 @@ describe(checkContent, () => {
     ).toEqual([]);
   });
 
+  test("reports a bad table first picked under another table's second name", () => {
+    let description = defineScript({
+      start: (night) => {
+        if (night.pick('outer', {x: 0.5, y: 0.5}) === 'y') {
+          night.pick('inner', {p: 1, bad: 0});
+        }
+
+        return {speaker: 'Bench', text: 'Fine.'};
+      },
+    });
+
+    expect(check({places: withZidenice({description})})).toContain(
+      'zidenice › description › start: the odds of "inner" give "bad" 0',
+    );
+  });
+
   test('reports a text that throws once an event is met, which proves the second pass carries the keys', () => {
     let description = withEntry(
       (night) => {
