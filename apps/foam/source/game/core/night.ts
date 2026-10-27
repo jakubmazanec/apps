@@ -51,6 +51,13 @@ export type Night = {
    */
   random: (...keys: Array<number | string>) => number;
 
+  /**
+   * The name the night picks for the key, by the table's odds, which sum to 1: `random(key)` is
+   * read once and held against the odds in their written order, so the same key gives the same
+   * name all night. The checker and the tests replace it.
+   */
+  pick: <TName extends string>(key: string, odds: Readonly<Record<TName, number>>) => TName;
+
   /** Minutes since midnight; 19:40 is 1180. */
   minutes: number;
 
@@ -86,6 +93,9 @@ export type Night = {
 
   /** What the night has done about its three threads; content writes it in effects. */
   quest: Quest;
+
+  /** The events the player has met tonight, by key. `meet` writes it and `hasMet` reads it. */
+  events: string[];
 };
 
 /** The drinks the body clears in an hour. */
@@ -104,15 +114,34 @@ export function createNight(
     money: MoneyRange | number;
     drunkenness?: number;
     quest?: Partial<Quest>;
+    events?: string[];
   },
   collection?: Collection,
 ): Night {
   let random: Night['random'] = (...keys) => hash(seed, ...keys);
-
-  return {
+  let night: Night = {
     seed,
     rolls: 0,
     random,
+    pick: (key, odds) => {
+      // The signature has already held the names to the table's.
+      let names = Object.keys(odds) as Array<keyof typeof odds>;
+      let value = night.random(key);
+      let sum = 0;
+
+      for (let name of names) {
+        sum += odds[name];
+
+        if (value < sum) {
+          return name;
+        }
+      }
+
+      // The last name takes whatever lies above the running sum, so a sum of 0.9999999999999999
+      // from floating-point arithmetic never leaves a gap. An empty table, which the checker
+      // reports, has no last name.
+      return names.at(-1)!;
+    },
     minutes: start.minutes,
     // The count of steps is floored, so a step that does not divide the range never draws past max.
     money:
@@ -132,7 +161,10 @@ export function createNight(
     collection: collection ?? {titles: []},
     stories: [],
     quest: {hasBottle: false, bottleGiven: false, hasKeys: false, hasTicket: false, ...start.quest},
+    events: [...(start.events ?? [])],
   };
+
+  return night;
 }
 
 /** The level of drunkenness now: it falls with the clock and stops at 0. */
@@ -182,6 +214,18 @@ export function findStory(night: Night, title: string[] | string): void {
 /** Whether the story is in the collection, from this night or an earlier one. */
 export function hasStory(night: Night, title: string[] | string): boolean {
   return night.collection.titles.includes(readTitle(title));
+}
+
+/** Records that the player met the event tonight; a key already there does nothing. */
+export function meet(night: Night, key: string): void {
+  if (!hasMet(night, key)) {
+    night.events.push(key);
+  }
+}
+
+/** Whether the player met the event tonight. */
+export function hasMet(night: Night, key: string): boolean {
+  return night.events.includes(key);
 }
 
 export function formatStatus(night: Night): string {

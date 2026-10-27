@@ -1059,6 +1059,7 @@ describe('night screen', {timeout: 180_000}, () => {
         seed: nightStart.seed,
         rolls: 0,
         random: expect.any(Function) as unknown,
+        pick: expect.any(Function) as unknown,
         minutes: 1190,
         money: 305,
         place: FIXED_BAR,
@@ -1070,6 +1071,7 @@ describe('night screen', {timeout: 180_000}, () => {
         collection,
         stories: [],
         quest: {hasBottle: false, bottleGiven: false, hasKeys: false, hasTicket: false},
+        events: [],
       });
       // The choice at the press, before its ten minutes; its text at 19:50.
       expect(nightScreen.contents.night.log.slice(-2)).toMatchObject([
