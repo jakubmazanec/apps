@@ -8,6 +8,20 @@ export const NIGHT_END = 1920;
 
 const MINUTES_PER_HOUR = 60;
 const MINUTES_PER_DAY = 1440;
+const HOUR_WORDS = [
+  'twelve',
+  'one',
+  'two',
+  'three',
+  'four',
+  'five',
+  'six',
+  'seven',
+  'eight',
+  'nine',
+  'ten',
+  'eleven',
+];
 
 export type Span = readonly [from: number, to: number];
 
@@ -81,12 +95,34 @@ export function getHoursForms(hours: ReadonlyArray<readonly number[]> | undefine
   ];
 }
 
+function getMinuteOfDay(minutes: number): number {
+  // The second modulo keeps a time before midnight of the first day positive.
+  return ((minutes % MINUTES_PER_DAY) + MINUTES_PER_DAY) % MINUTES_PER_DAY;
+}
+
 /** "03:00" for 1620. `formatStatus` uses it. */
 export function formatTime(minutes: number): string {
-  // The second modulo keeps a time before midnight of the first day positive.
-  let inDay = ((minutes % MINUTES_PER_DAY) + MINUTES_PER_DAY) % MINUTES_PER_DAY;
+  let inDay = getMinuteOfDay(minutes);
   let hours = String(Math.floor(inDay / MINUTES_PER_HOUR)).padStart(2, '0');
   let rest = String(inDay % MINUTES_PER_HOUR).padStart(2, '0');
 
   return `${hours}:${rest}`;
+}
+
+/**
+ * A whole hour as prose names it, on a twelve-hour clock: "eleven" for 1380, "midnight" for 1440.
+ * Any other minute is the clock's form, "22:40".
+ */
+export function formatHourWords(minutes: number): string {
+  let inDay = getMinuteOfDay(minutes);
+
+  if (inDay % MINUTES_PER_HOUR !== 0) {
+    return formatTime(minutes);
+  }
+
+  if (inDay === 0) {
+    return 'midnight';
+  }
+
+  return HOUR_WORDS[(inDay / MINUTES_PER_HOUR) % 12] ?? formatTime(minutes);
 }

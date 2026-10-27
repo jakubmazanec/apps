@@ -1,6 +1,7 @@
 import {describe, expect, test} from 'vitest';
 
 import {
+  formatHourWords,
   formatTime,
   getHoursForms,
   getHoursWords,
@@ -112,6 +113,28 @@ describe(formatTime, () => {
     expect(formatTime(1440)).toBe('00:00');
     expect(formatTime(1620)).toBe('03:00');
     expect(formatTime(1920)).toBe('08:00');
+  });
+});
+
+describe(formatHourWords, () => {
+  test('names a whole hour on a twelve-hour clock', () => {
+    expect(formatHourWords(1380)).toBe('eleven');
+    expect(formatHourWords(1200)).toBe('eight');
+    expect(formatHourWords(1620)).toBe('three');
+    expect(formatHourWords(1080)).toBe('six');
+    expect(formatHourWords(1320)).toBe('ten');
+    expect(formatHourWords(1260)).toBe('nine');
+    expect(formatHourWords(960)).toBe('four');
+  });
+
+  test('says midnight for 00:00', () => {
+    expect(formatHourWords(1440)).toBe('midnight');
+    expect(formatHourWords(0)).toBe('midnight');
+  });
+
+  test('writes any other minute as the clock does', () => {
+    expect(formatHourWords(1360)).toBe('22:40');
+    expect(formatHourWords(1441)).toBe('00:01');
   });
 });
 
