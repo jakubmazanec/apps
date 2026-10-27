@@ -31,8 +31,10 @@ const CHECK_MONEY = 350;
 const CHECK_LEVELS = [0, 2, 5];
 // 0.00 to 0.99: every outcome an author can write by a threshold in hundredths comes up.
 const CHECK_ROLLS = Array.from({length: 100}, (_, index) => index / 100);
-// Every side of an equal split into two to six is met: a `start` that picks one of three versions
-// by `random` is followed into all three. An unequal split is the author's to meet, as the levels.
+// For the numbers content draws directly, `night.random('walletMoney')`: every side of an equal
+// split into two to six is met, so a `start` that splits the number into three is followed into all
+// three. An unequal split is the author's to meet, as the levels. Versions are met by name through
+// `pick`, which runs a function once under each name of its table.
 const CHECK_RANDOM = [0, 0.2, 0.4, 0.6, 0.8, 0.99];
 const SEPARATOR = ' › ';
 const QUEST_FLAGS = ['hasBottle', 'bottleGiven', 'hasKeys', 'hasTicket'] as const;
@@ -99,9 +101,12 @@ function getCheckTimes(locationData: LocationData): number[] {
  * a start, an odds or a next that is a function is called with each check night: once per place,
  * time, level and quest state, and a choice's next with odds once for each roll as well. A
  * choice's effect and a node's entry effect run on a copy of each check night. Every check night
- * is made twice: with no story achieved and with every story the effects gave. A function of the
- * content that reads random runs again under each of the other values of CHECK_RANDOM, except
- * under a roll, where it reads the roll's value.
+ * is made twice: with no story achieved and no event met, and with every title the effects gave
+ * and every key they met. A function of the content that reads random runs again under each of the
+ * other values of CHECK_RANDOM, except under a roll, where it reads the roll's value. A function
+ * that picked a version runs again under each other name of the longest table it picked from, a
+ * shorter table wrapping; a table whose odds do not sum to 1, or give a name 0 or less, is reported
+ * under the function's path.
  */
 export function checkContent(content: Content): string[] {
   let lines = new Set<string>();
@@ -112,8 +117,16 @@ export function checkContent(content: Content): string[] {
   let nodes: NonNullable<RunnableDialogueScript<Night>['nodes']> = {};
   // Every title the effects gave: the second pass's collection holds them all.
   let titles = new Set<string>();
+  // Every key the effects met: the second pass's nights have met them all.
+  let events = new Set<string>();
   // Set by a check night's random when it is read, for withRandom to see.
   let randomRead = false;
+  // The tables a check night's pick was called with during one call of a function, for withRandom
+  // to run it once per name and to report a bad one.
+  let tables: Array<{key: string; odds: Readonly<Record<string, number>>}> = [];
+  // The run's index: pick returns each table's name at it, wrapping a table shorter than the
+  // longest.
+  let pickIndex = 0;
 
   function createRandom(value: number): Night['random'] {
     return () => {
@@ -123,14 +136,49 @@ export function checkContent(content: Content): string[] {
     };
   }
 
+  function checkPick<TName extends string>(
+    key: string,
+    odds: Readonly<Record<TName, number>>,
+  ): TName {
+    tables.push({key, odds});
+
+    let names = Object.keys(odds) as TName[];
+
+    // An empty table has no name; checkTable reports it.
+    return names[pickIndex % names.length] ?? ('' as TName);
+  }
+
+  function checkTable(where: string, key: string, odds: Readonly<Record<string, number>>): void {
+    let sum = 0;
+
+    for (let [name, odd] of Object.entries(odds)) {
+      sum += odd;
+
+      if (!(odd > 0)) {
+        lines.add(`${where}: the odds of "${key}" give "${name}" ${odd}`);
+      }
+    }
+
+    // A sum of 0.9999999999999999 from floating-point arithmetic is no fault of the author's.
+    if (Math.abs(sum - 1) > 1e-9) {
+      lines.add(`${where}: the odds of "${key}" sum to ${sum}`);
+    }
+  }
+
   // Calls the function with the night and, when it read random, with a copy of the night for each
-  // other check value, so every side of a split on random is met. Each result comes with the night
-  // that gave it, for the check to go on with that night.
+  // other check value, so every side of a split on random is met. A function that picked a version
+  // then runs again under each other name of the longest table it picked from, a shorter table
+  // wrapping, with the night's own value of random; the tables are reported under the path. Each
+  // result comes with the night that gave it, for the check to go on with that night.
   function withRandom<T>(
+    where: string,
     night: Night,
     call: (night: Night) => T,
   ): Array<{night: Night; result: T}> {
     randomRead = false;
+    tables = [];
+    // The call before, which a throw can cut short, left the index at its last run.
+    pickIndex = 0;
 
     let results = [{night, result: call(night)}];
 
@@ -147,6 +195,18 @@ export function checkContent(content: Content): string[] {
       }
     }
 
+    // The tables of the runs at index 0, which the runs below push again.
+    let longest = 0;
+
+    for (let {key, odds} of tables) {
+      checkTable(where, key, odds);
+      longest = Math.max(longest, Object.keys(odds).length);
+    }
+
+    for (pickIndex = 1; pickIndex < longest; pickIndex += 1) {
+      results.push({night, result: call(night)});
+    }
+
     return results;
   }
 
@@ -157,7 +217,7 @@ export function checkContent(content: Content): string[] {
     call: (night: Night) => T,
   ): Array<{night: Night; result: T}> {
     try {
-      return withRandom(night, call);
+      return withRandom(where, night, call);
     } catch (error) {
       lines.add(`${where}: throws "${error instanceof Error ? error.message : String(error)}"`);
 
@@ -258,7 +318,7 @@ export function checkContent(content: Content): string[] {
 
       for (let night of nights) {
         for (let {night: source, result: chance} of typeof odds === 'function' ?
-          withRandom(night, odds)
+          withRandom(where, night, odds)
         : [{night, result: odds}]) {
           if (chance !== undefined && !(chance > 0 && chance < 1)) {
             lines.add(`${where}: odds is ${chance}`);
@@ -310,7 +370,7 @@ export function checkContent(content: Content): string[] {
           choice.drinks === undefined &&
           (choice.isVisible === undefined ||
             nights.every((night) =>
-              withRandom(night, (source) => choice.isVisible?.(source) ?? true).every(
+              withRandom(path, night, (source) => choice.isVisible?.(source) ?? true).every(
                 ({result}) => result,
               ),
             )),
@@ -386,7 +446,7 @@ export function checkContent(content: Content): string[] {
     home: Place | null,
   ): void {
     for (let night of nights) {
-      withRandom(night, (source) => {
+      withRandom(where, night, (source) => {
         let fresh = createNight(
           {
             seed: 0,
@@ -396,14 +456,17 @@ export function checkContent(content: Content): string[] {
             drunkenness: source.drunkenness.level,
             // A copy, so that an effect that writes the quest never reaches its check night.
             quest: {...source.quest},
+            // A copy, as the quest is, so that meeting an event never reaches its check night.
+            events: [...source.events],
           },
           {titles: [...source.collection.titles]},
         );
 
         // An entry effect reached after a rolled next reads the roll its check night made, and the
-        // fresh night rolls as its check night does.
+        // fresh night rolls and picks as its check night does.
         fresh.roll = source.roll;
         fresh.random = source.random;
+        fresh.pick = source.pick;
 
         try {
           effect(fresh);
@@ -415,6 +478,10 @@ export function checkContent(content: Content): string[] {
 
         for (let {title} of fresh.stories) {
           checkTitle(where, title);
+        }
+
+        for (let key of fresh.events) {
+          events.add(key);
         }
 
         if (home === null || fresh.leaving === null) {
@@ -446,6 +513,7 @@ export function checkContent(content: Content): string[] {
     script: RunnableDialogueScript<Night>,
     home: Place | null,
     collection: Night['collection'],
+    met: string[],
   ): void {
     let {start} = script;
 
@@ -466,6 +534,7 @@ export function checkContent(content: Content): string[] {
                 money: CHECK_MONEY,
                 drunkenness,
                 quest,
+                events: met,
               },
               collection,
             ),
@@ -475,6 +544,7 @@ export function checkContent(content: Content): string[] {
 
       for (let night of nights) {
         night.random = createRandom(0);
+        night.pick = checkPick;
       }
 
       for (let [key, node] of Object.entries(nodes)) {
@@ -499,29 +569,30 @@ export function checkContent(content: Content): string[] {
     }
   }
 
-  // The pass's collection is one object for all its nights: they only read it.
-  function checkScripts(collectionTitles: string[]): void {
+  // The pass's collection is one object for all its nights: they only read it. The events are
+  // copied into each night.
+  function checkScripts(collectionTitles: string[], met: string[]): void {
     let collection = {titles: collectionTitles};
 
     for (let [id, place] of Object.entries(content.places)) {
-      checkScript(`${id}${SEPARATOR}description`, place.description, place, collection);
+      checkScript(`${id}${SEPARATOR}description`, place.description, place, collection, met);
 
       for (let spot of place.spots) {
-        checkScript(`${id}${SEPARATOR}${spot.label}`, spot.script, place, collection);
+        checkScript(`${id}${SEPARATOR}${spot.label}`, spot.script, place, collection, met);
       }
     }
 
     for (let [id, location] of Object.entries(content.locations)) {
       if (location.closing !== undefined) {
-        checkScript(`${id}${SEPARATOR}closing`, location.closing, null, collection);
+        checkScript(`${id}${SEPARATOR}closing`, location.closing, null, collection, met);
       }
     }
 
     for (let [way, script] of Object.entries(content.journeys)) {
-      checkScript(`journeys${SEPARATOR}${way}`, script, null, collection);
+      checkScript(`journeys${SEPARATOR}${way}`, script, null, collection, met);
     }
 
-    checkScript('end', content.end, null, collection);
+    checkScript('end', content.end, null, collection, met);
   }
 
   for (let [id, place] of Object.entries(content.places)) {
@@ -600,10 +671,11 @@ export function checkContent(content: Content): string[] {
     }
   }
 
-  // With no story achieved, then with every title the first pass gathered achieved, so a text, a
-  // condition or a way out that reads the collection is met both ways.
-  checkScripts([]);
-  checkScripts([...titles]);
+  // With no story achieved and no event met, then with every title and every key the first pass
+  // gathered, so a text, a condition or a way out that reads the collection is met both ways, and a
+  // start that reads hasMet is met with none met and with all met.
+  checkScripts([], []);
+  checkScripts([...titles], [...events]);
 
   for (let id of Object.keys(content.locations)) {
     if (!OFF_THE_MAP.has(id) && content.locationData[id] === undefined) {
