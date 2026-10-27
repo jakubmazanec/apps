@@ -58,14 +58,14 @@ const USUAL_SEED = findEveningSeed('usual');
 // timeout.
 describe('the quest', {timeout: 180_000}, () => {
   let harness: Harness;
-  let oldStart: Pick<NightStart, 'minutes' | 'money' | 'place'>;
+  let oldStart: Pick<NightStart, 'minutes' | 'money' | 'place' | 'seed'>;
 
   beforeAll(async () => {
     localStorage.clear();
 
-    let {minutes, money, place} = nightStart;
+    let {minutes, money, place, seed} = nightStart;
 
-    oldStart = {minutes, money, place};
+    oldStart = {minutes, money, place, seed};
     harness = await bootGame(960, 540);
   }, 60_000);
 
@@ -419,8 +419,8 @@ describe('the quest', {timeout: 180_000}, () => {
     nightScreen.ui.focus(getWindowButton(storyWindow, 1));
     await press('Enter');
 
-    expect(storyWindow.dialogue.pageText).toContain('six');
-    expect(storyWindow.dialogue.pageText).toContain('ten');
+    expect(storyWindow.dialogue.pageText).toContain('left at six');
+    expect(storyWindow.dialogue.pageText).toContain('back at ten');
 
     await endStory(storyWindow);
     await waitForNoStoryWindow(harness);

@@ -68,14 +68,14 @@ const NONE_SEED = findArrivalSeed('stop');
 // frames of a headless browser are slow, so the tests get a long timeout.
 describe('the events on arrival', {timeout: 180_000}, () => {
   let harness: Harness;
-  let oldStart: Pick<NightStart, 'minutes' | 'money' | 'place'>;
+  let oldStart: Pick<NightStart, 'minutes' | 'money' | 'place' | 'seed'>;
 
   beforeAll(async () => {
     localStorage.clear();
 
-    let {minutes, money, place} = nightStart;
+    let {minutes, money, place, seed} = nightStart;
 
-    oldStart = {minutes, money, place};
+    oldStart = {minutes, money, place, seed};
     harness = await bootGame(960, 540);
   }, 60_000);
 

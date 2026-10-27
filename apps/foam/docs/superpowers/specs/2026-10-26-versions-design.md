@@ -62,7 +62,7 @@ Three things shape this spec:
 
 ### What the player sees
 
-1. A new night on the seed 20261026 starts on the train as before. At Rotor's bar at 18:30, "Ask
+1. A new night on the seed 20261027 starts on the train as before. At Rotor's bar at 18:30, "Ask
    after your friend" gets the answer that they left at six and will be back at ten. On another seed
    the hours are eight and eleven, as today, or nine and midnight.
 2. The back room has the friend in the hours the bartender named, and the smokers on Dvořákova

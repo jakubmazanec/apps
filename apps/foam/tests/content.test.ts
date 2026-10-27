@@ -624,8 +624,8 @@ describe('the game content', () => {
     ] as const) {
       let answer = ask('rotorBarRoom', 'The bar', 1300, {pick});
 
-      expect(answer).toContain(left);
-      expect(answer).toContain(back);
+      expect(answer).toContain(`left at ${left}`);
+      expect(answer).toContain(`back at ${back}`);
       expect(openSpot('rotorBarRoom', 'The back room', 1300, {pick}).dialogue.pageText).toContain(
         back,
       );
