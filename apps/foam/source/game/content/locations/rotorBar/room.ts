@@ -25,11 +25,13 @@ const BACK_ROOM = 'The back room';
 const TABLE = 'The corner table';
 const LONG_TABLE = 'The long table';
 const DOOR = 'The door';
-// From 22:00 to 01:00 the guitarist has the corner table.
+// On music night the guitarist has the corner table from 22:00 to 01:00.
 const GUITARIST: Span = [1320, 1500];
 const GUITARIST_STORY = standIn`The guitarist who plays for one`;
 const SEAT_STORY = standIn`A seat at the table`;
 const BEER_STORY = standIn`The spilled beer`;
+const CARDS_STORY = standIn`The hand that paid for a round`;
+const COUPLE_STORY = standIn`The argument in whispers`;
 const description = defineScript({
   start: {
     speaker: PLACE_NAME,
@@ -143,7 +145,17 @@ const backRoom = defineScript({
   },
 });
 const table = defineScript({
-  start: (night) => (isWithin(night, GUITARIST) ? 'guitarist' : 'table'),
+  // Cards night and the couple last all night, while music night keeps the guitarist's hours.
+  start: (night) => {
+    let version = night.pick('cornerTable', {music: 0.5, cards: 0.3, couple: 0.2});
+
+    return (
+      version === 'music' ?
+        isWithin(night, GUITARIST) ? 'guitarist'
+        : 'table'
+      : version
+    );
+  },
   nodes: {
     guitarist: {
       speaker: TABLE,
@@ -208,6 +220,59 @@ const table = defineScript({
       onEnter: (night) => {
         night.minutes += 10;
         findStory(night, BEER_STORY);
+      },
+    },
+    cards: {
+      speaker: TABLE,
+      text: standIn`
+        Four strangers play cards for small money, and a fifth chair stands empty. One of them
+        gathers the deck and raises an eyebrow at you.
+      `,
+      choices: [
+        {
+          text: 'Sit in for a hand',
+          price: 50,
+          minutes: 15,
+          odds: (night) => (getDrunkenness(night) >= 3 ? 0.3 : 0.5),
+          next: ({roll}) => (roll?.won ? 'won' : 'lost'),
+        },
+        {text: 'Watch a while'},
+      ],
+    },
+    won: {
+      speaker: TABLE,
+      text: standIn`
+        The last card falls your way, and the pot is yours. Somebody pushes the coins across the
+        table and orders a round for everyone.
+      `,
+      onEnter: (night) => {
+        night.money += 100;
+        findStory(night, CARDS_STORY);
+      },
+    },
+    lost: {
+      speaker: TABLE,
+      text: standIn`
+        The last card falls against you, and the fifty is gone. Somebody sweeps the coins to the
+        other side of the table without looking up.
+      `,
+    },
+    couple: {
+      speaker: TABLE,
+      text: standIn`
+        A couple at the corner table argue in whispers, leaning so close that their foreheads
+        almost touch. Neither of them raises a voice, and neither gives way.
+      `,
+      choices: [{text: 'Listen in', minutes: 10, next: 'listened'}, {text: 'Leave them to it'}],
+    },
+    listened: {
+      speaker: TABLE,
+      text: standIn`
+        You lean on the next chair, and the whispers come in pieces: a promise, a silence, a
+        door that was left open. Ten minutes later you know more than you wanted.
+      `,
+      onEnter: (night) => {
+        findStory(night, COUPLE_STORY);
       },
     },
   },
