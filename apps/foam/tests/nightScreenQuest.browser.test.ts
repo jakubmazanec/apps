@@ -3,7 +3,7 @@ import {afterAll, beforeAll, describe, expect, test, vitest} from 'vitest';
 import {nightStart} from '../source/game/content/nightStart.js';
 import {type barPicture as barPictureValue} from '../source/game/content/pictures/barPicture.js';
 import {FRIEND_EVENINGS, getFriendEvening} from '../source/game/content/quest.js';
-import {createNight, type PlaceId} from '../source/game/core/night.js';
+import {createNight, type Night, type PlaceId} from '../source/game/core/night.js';
 import {type NightStart} from '../source/game/core/travel.js';
 import {
   bootGame,
@@ -52,6 +52,14 @@ function findEveningSeed(evening: keyof typeof FRIEND_EVENINGS): number {
 }
 
 const USUAL_SEED = findEveningSeed('usual');
+
+// Pins the dice to the value and leaves every other key to the night's own hash, so a forced roll
+// never changes the version of a scene.
+function pinRoll(night: Night, value: number): void {
+  let own = night.random;
+
+  night.random = (...keys) => (keys[0] === 'roll' ? value : own(...keys));
+}
 
 // The world is the game's own content, with the threads in its places. Each test starts its scene
 // with a jump-in's query. The frames of a headless browser are slow, so the tests get a long
@@ -166,7 +174,7 @@ describe('the quest', {timeout: 180_000}, () => {
       'Not now',
     ]);
 
-    nightScreen.contents.night.random = () => 0.1;
+    pinRoll(nightScreen.contents.night, 0.1);
     nightScreen.ui.focus(getWindowButton(storyWindow, 0));
     await press('Enter');
 
@@ -197,13 +205,15 @@ describe('the quest', {timeout: 180_000}, () => {
 
     await pressThrough(harness, storyWindow);
 
-    nightScreen.contents.night.random = () => 0.9;
+    pinRoll(nightScreen.contents.night, 0.9);
     nightScreen.ui.focus(getWindowButton(storyWindow, 0));
     await press('Enter');
 
     expect(readText(nightScreen.contents.statusText)).toBe('18:40   350 Kč   0.0');
     expect(nightScreen.contents.night.quest.hasKeys).toBe(false);
     expect(storyWindow.dialogue.node).toBe(getNode('rotorBarRoom', 'The back room', 'missed'));
+    // The forced roll leaves the evening alone, so the missed text speaks of the usual one.
+    expect(getFriendEvening(nightScreen.contents.night)).toBe(FRIEND_EVENINGS.usual);
 
     await endStory(storyWindow);
     await waitForNoStoryWindow(harness);
@@ -247,7 +257,7 @@ describe('the quest', {timeout: 180_000}, () => {
 
     await pressThrough(harness, storyWindow);
 
-    nightScreen.contents.night.random = () => 0.9;
+    pinRoll(nightScreen.contents.night, 0.9);
     nightScreen.ui.focus(getWindowButton(storyWindow, 0));
     await press('Enter');
 
