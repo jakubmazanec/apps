@@ -118,7 +118,7 @@ describe('the toast of a story', {timeout: 180_000}, () => {
     await waitForNoMenu();
   });
 
-  test('the toast shows the title above the window, and the find is saved', async () => {
+  test("the toast shows the title above the window, and the find waits for the window's end to reach the store", async () => {
     let {nightScreen} = harness;
 
     storyWindow = await openSpot(harness, 'A patron');
@@ -139,9 +139,7 @@ describe('the toast of a story', {timeout: 180_000}, () => {
       {title: 'The glass', minutes: 1180},
     ]);
     expect(collection.titles).toEqual(['The shrug', 'The glass']);
-    expect(JSON.parse(localStorage.getItem('foam:stories') ?? '')).toEqual({
-      titles: ['The shrug', 'The glass'],
-    });
+    expect(JSON.parse(localStorage.getItem('foam:stories') ?? '')).toEqual({titles: []});
     expect(night.log.slice(-4).map(describeEntry)).toEqual([
       ['choice', 1180, 'Ignore him'],
       ['story', 1180, 'The shrug'],
@@ -183,6 +181,10 @@ describe('the toast of a story', {timeout: 180_000}, () => {
     );
     await endStory(storyWindow);
     await waitForNoStoryWindow(harness);
+
+    expect(JSON.parse(localStorage.getItem('foam:stories') ?? '')).toEqual({
+      titles: ['The shrug', 'The glass'],
+    });
   });
 
   test('a toast on the narrowest width is two lines and 59 tall', async () => {
