@@ -18,7 +18,8 @@ export const betSettled: Message = {
   // From 22:05, once the bet is on.
   arrives: (night) => night.minutes >= 1325 && hasMet(night, 'bet'),
   script: defineScript({
-    start: (night) => (getCornerTable(night) === 'guitarist' ? 'payUp' : 'win'),
+    // The bet is on tonight: after 01:00 the guitarist has left, but he was there.
+    start: (night) => (['guitarist', 'table'].includes(getCornerTable(night)) ? 'payUp' : 'win'),
     nodes: {
       payUp: {
         speaker: SENDER,

@@ -1168,6 +1168,10 @@ describe('the game content', () => {
 
     expect(skint.night.money).toBe(350);
     expect(skint.dialogue.node).toBe(messageNode('betSettled', 'skint'));
+    // Music night after 01:00: the guitarist is gone, but he was there tonight.
+    expect(openMessage('betSettled', 1505, {events: ['bet']}).dialogue.node).toBe(
+      messageNode('betSettled', 'payUp'),
+    );
 
     let won = openMessage('betSettled', 1325, {events: ['bet'], pick: 'cards'});
 
