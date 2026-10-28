@@ -27,6 +27,7 @@ const SAVED: SavedNight = {
   quest: {hasBottle: false, bottleGiven: false, hasKeys: true, hasTicket: false},
   events: ['wallet'],
   ending: 'stay',
+  phone: {unread: ['hello'], read: ['four']},
 };
 
 describe('the saved night', () => {
@@ -89,6 +90,12 @@ describe('the saved night', () => {
       NIGHT_KEY,
       JSON.stringify({...SAVED, log: [{kind: 'what', minutes: 1, text: 'x'}]}),
     );
+
+    expect(loadSavedNight(fixedPlaces)).toBeNull();
+  });
+
+  test('a night without the phone gives null', () => {
+    localStorage.setItem(NIGHT_KEY, JSON.stringify({...SAVED, phone: undefined}));
 
     expect(loadSavedNight(fixedPlaces)).toBeNull();
   });

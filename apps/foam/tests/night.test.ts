@@ -30,6 +30,7 @@ const SAVED: SavedNight = {
   quest: {hasBottle: false, bottleGiven: false, hasKeys: true, hasTicket: false},
   events: ['wallet'],
   ending: 'stay',
+  phone: {unread: ['hello'], read: ['four']},
 };
 
 describe('night', () => {
@@ -51,7 +52,13 @@ describe('night', () => {
       quest: {hasBottle: false, bottleGiven: false, hasKeys: false, hasTicket: false},
       events: [],
       ending: null,
+      phone: {unread: [], read: []},
     });
+  });
+
+  test('createNight gives each night phone lists of its own', () => {
+    expect(createNight(START).phone).not.toBe(createNight(START).phone);
+    expect(createNight(START).phone).toEqual({unread: [], read: []});
   });
 
   test('random is the hash of the seed and the keys', () => {

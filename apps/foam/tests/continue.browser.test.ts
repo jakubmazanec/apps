@@ -167,6 +167,9 @@ describe('saving and continue', {timeout: 180_000}, () => {
       quest: {hasBottle: false, bottleGiven: false, hasKeys: false, hasTicket: false},
       events: [],
       ending: null,
+      // The night is saved when the description's text ends, and the hello arrives only once the
+      // window has closed.
+      phone: {unread: [], read: []},
     });
     expect(JSON.parse(localStorage.getItem('foam:stories') ?? '')).toEqual({titles: []});
   });
