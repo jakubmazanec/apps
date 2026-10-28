@@ -18,7 +18,9 @@ const THEATRE = 'The theatre';
 const DISPLAY = 'The display';
 const STREET = 'The street';
 const FIGHT = 'The fight';
-const FIGHT_STORY = standIn`The fight at the stop`;
+
+export const FIGHT_STORY = standIn`The fight at the stop`;
+
 // The square has its fight from 22:00.
 const FIGHT_FROM = 1320;
 const description = defineScript({

@@ -19,13 +19,15 @@ describe(countTags, () => {
 });
 
 describe(listStandIns, () => {
-  test('lists the files of every location folder, the journeys, the end text and the data', async () => {
+  test('lists the files of every location folder, the phone, the journeys, the end text and the data', async () => {
     let lines = (await listStandIns()).split('\n');
     let starts = [
       'train/train.ts',
       'rotorBar/room.ts',
       'rotorBar/street.ts',
       'rotorBar/location.ts',
+      'phone/hello.ts',
+      'phone/lastCall.ts',
       'journeys.ts',
       'nightEnd.ts',
       'quest.ts',

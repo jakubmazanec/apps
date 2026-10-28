@@ -8,7 +8,8 @@ import {rotorBarStreet} from './street.js';
 // The text of this location is stand-in text, with the limits of its places' text: the author
 // replaces standIn by prose when writing the real text. A story's title is stand-in text too,
 // written with standIn.
-const THROWN_OUT_STORY = standIn`Thrown out at three`;
+export const THROWN_OUT_STORY = standIn`Thrown out at three`;
+
 const closing = defineScript({
   start: {
     speaker: 'Closing time',

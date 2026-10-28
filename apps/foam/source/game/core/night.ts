@@ -209,7 +209,8 @@ export function roll(night: Night, odds: number): void {
   night.roll = {value, odds, won: value < odds};
 }
 
-function readTitle(title: string[] | string): string {
+/** A story's title as the collection holds it: a one-page text; one of several pages throws. */
+export function readTitle(title: string[] | string): string {
   if (typeof title !== 'string') {
     throw new Error("A story's title has several pages!");
   }
