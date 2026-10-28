@@ -52,13 +52,13 @@ import {
   press,
   pressThrough,
   readPixels,
-  readText,
   setViewport,
   startNewGame,
   tap,
   useFixedWorld,
   waitForNoStoryWindow,
 } from './nightScreenHelpers.js';
+import {readText} from './readText.js';
 
 // Headless Chromium draws the bar in software, at about 90 ms a frame, which
 // slows every frame of these tests. They check the window, not the picture's

@@ -44,7 +44,6 @@ import {
   type Pixels,
   press,
   pressThrough,
-  readText,
   restartAt,
   setViewport,
   startNewGame,
@@ -54,6 +53,7 @@ import {
   waitForSpeaker,
   waitForTravelWindow,
 } from './nightScreenHelpers.js';
+import {readText} from './readText.js';
 
 // What the screen warns when a script names "nowhere" in the fixed square.
 const UNKNOWN_PLACE_WARNING = `No place "nowhere"; the night stays in "${FIXED_SQUARE}".`;

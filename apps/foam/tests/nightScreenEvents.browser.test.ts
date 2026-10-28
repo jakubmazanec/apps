@@ -20,11 +20,11 @@ import {
   type Harness,
   press,
   pressThrough,
-  readText,
   startFrom,
   waitForNoStoryWindow,
   waitForToast,
 } from './nightScreenHelpers.js';
+import {readText} from './readText.js';
 
 // The bar's shader costs about 88 ms a frame in headless Chromium, and the main menu shows the
 // bar; the tests check the events, not the picture's pixels.

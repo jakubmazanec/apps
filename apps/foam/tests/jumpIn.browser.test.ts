@@ -10,10 +10,10 @@ import {
   type Harness,
   press,
   pressThrough,
-  readText,
   startNewGame,
   waitForPlace,
 } from './nightScreenHelpers.js';
+import {readText} from './readText.js';
 
 // The bar's shader costs about 88 ms a frame in headless Chromium, and Rotor
 // Bar uses it; the test checks the start, not the picture's pixels.

@@ -37,6 +37,7 @@ import Index from '../source/routes/_index.js';
 import {getConfirmParts} from './confirmParts.js';
 import {getStoriesParts, readLeaves} from './listParts.js';
 import {getNewNightParts} from './newNightParts.js';
+import {readText} from './readText.js';
 
 // Headless Chromium draws the bar in software, at about 90 ms a frame, which
 // slows every frame of these tests. They check placement and speed, not the
@@ -104,16 +105,6 @@ async function press(code: string): Promise<void> {
   globalThis.dispatchEvent(new KeyboardEvent('keyup', {code, cancelable: true}));
   await nextFrame();
   await nextFrame();
-}
-
-function readText(text: Text): string {
-  let [content] = text.view.children;
-
-  if (!(content instanceof pixi.BitmapText)) {
-    throw new TypeError('The text has no BitmapText!');
-  }
-
-  return content.text;
 }
 
 // Names the focused target, so a failed focus check prints a label and not a
