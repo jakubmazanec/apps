@@ -85,6 +85,23 @@ describe('night screen on a narrow screen', {timeout: 180_000}, () => {
     expect(place.left + place.width + 4).toBeLessThanOrEqual(menu.left);
   });
 
+  test('the Phone button is greyed out at the bottom right, last before the backdrop, and every scene button lies a margin above it', () => {
+    let {backdrop, phoneButton, spotButtons} = harness.nightScreen.contents;
+    let {ui} = harness.nightScreen;
+
+    expect(getButtonLabel(phoneButton)).toBe('Phone');
+    expect(phoneButton.isDisabled).toBe(true);
+    expect(getBox(harness, phoneButton)).toEqual({left: 100, top: 242, width: 42, height: 16});
+    expect(ui.children.indexOf(phoneButton)).toBe(ui.children.indexOf(backdrop) - 1);
+
+    for (let button of spotButtons) {
+      let box = getBox(harness, button);
+
+      expect(ui.children.indexOf(phoneButton)).toBeGreaterThan(ui.children.indexOf(button));
+      expect(box.top + box.height + 4).toBeLessThanOrEqual(242);
+    }
+  });
+
   test('every scene button lies inside the screen and under the top row', () => {
     for (let button of harness.nightScreen.contents.spotButtons) {
       let box = getBox(harness, button);

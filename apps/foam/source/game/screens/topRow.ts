@@ -14,8 +14,9 @@ import {measureText} from '../core/measureText.js';
 // The top row the night screen and the log screen share: the status line at the
 // left and the Menu button at the right, with the sizes and the label their
 // buttons are built from. Each screen places the status line itself; the night
-// screen's place button stands beside it. This module imports no screen, so
-// both screens import it with no cycle.
+// screen's place button stands beside it. The night screen's Phone button, at
+// the right end of the bottom row, is built here too. This module imports no
+// screen, so both screens import it with no cycle.
 
 export function getButtonWidth(label: string): number {
   return measureText(label, 'label') + 2 * BUTTON_PADDING_X;
@@ -69,4 +70,52 @@ export function createMenuButton(onClick: () => void): Button {
     },
     onClick,
   });
+}
+
+/**
+ * The Phone button at the right end of the bottom row; `onClick` opens the oldest unread message.
+ */
+export function createPhoneButton(onClick: () => void): Button {
+  let phoneButton = new Button({
+    theme: game.theme,
+    children: [createLabel('Phone')],
+    layout: {
+      position: 'absolute',
+      right: MARGIN,
+      bottom: MARGIN,
+      width: getButtonWidth('Phone'),
+      height: BUTTON_HEIGHT,
+    },
+    onClick,
+  });
+
+  // A night starts with nothing unread.
+  phoneButton.disable();
+
+  return phoneButton;
+}
+
+/**
+ * Writes the count into the label, "Phone" for none and "Phone 2" for two, gives the button the
+ * label's width, and greys it out for none.
+ */
+export function setPhoneCount(phoneButton: Button, count: number): void {
+  let [label] = phoneButton.children;
+
+  if (!(label instanceof Text)) {
+    throw new TypeError('The Phone button has no label!');
+  }
+
+  let text = count === 0 ? 'Phone' : `Phone ${count}`;
+
+  label.setText(text);
+  label.view.layout = {width: measureText(text, 'label')};
+  // The button is right-aligned, so the wider label grows to the left.
+  phoneButton.view.layout = {width: getButtonWidth(text)};
+
+  if (count === 0) {
+    phoneButton.disable();
+  } else {
+    phoneButton.enable();
+  }
 }

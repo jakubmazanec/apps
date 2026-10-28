@@ -191,6 +191,7 @@ describe('the toast of a story', {timeout: 180_000}, () => {
     let {nightScreen} = harness;
     let narrowToast = new Toast({
       scheduler: nightScreen.scheduler,
+      heading: 'A story',
       title: 'The guitarist who plays for one',
       textWidth: 114,
       onDone: () => {},
@@ -207,6 +208,8 @@ describe('the toast of a story', {timeout: 180_000}, () => {
     // As wide as its longest line plus the paddings: "The guitarist who" is 17 glyphs, 102 + 24.
     expect(box.width).toBe(126);
     expect(box.height).toBe(59);
+    // The strip stands the bottom row above the edge, one margin above the Phone button.
+    expect(box.top + box.height).toBe(270 - 24);
     expect(readText(text).split('\n')).toHaveLength(2);
 
     nightScreen.ui.removeChild(narrowToast);
@@ -339,6 +342,7 @@ describe('the toast of a story', {timeout: 180_000}, () => {
     let onDone = vitest.fn<() => void>();
     let shownToast = new Toast({
       scheduler: nightScreen.scheduler,
+      heading: 'A story',
       title: 'The shrug',
       textWidth: 114,
       onDone,
@@ -346,7 +350,7 @@ describe('the toast of a story', {timeout: 180_000}, () => {
 
     ui.addChild(shownToast);
     contents.toast = shownToast;
-    contents.toastQueue.push('The glass');
+    contents.toastQueue.push({heading: 'A story', title: 'The glass'});
     shownToast.show();
     await nextFrame();
     await nextFrame();
