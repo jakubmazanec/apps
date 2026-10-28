@@ -19,6 +19,17 @@ Given:
 - Cards can represent skills or acquired knowledge.
 - Cards must be upgradable, as in Balatro.
 
+### What a card does in play
+
+All four ways are possible:
+
+1. **Keys.** Holding a card adds or changes choices in a scene. Definitely in.
+2. **Spent in a run.** Cards that can be spent during a single run are a good idea.
+3. **Passive.** Cards that change things passively are possible too.
+4. **Items.** Items as cards sound good.
+
+Each story could also be a special kind of card.
+
 ## Pass 2
 
 Not started.
