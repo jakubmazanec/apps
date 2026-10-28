@@ -433,7 +433,8 @@ it, and the focus returns through the focus-scope pop.
 
 | What goes wrong                                      | In CI                  | In the running game                                                          |
 | ---------------------------------------------------- | ---------------------- | ---------------------------------------------------------------------------- |
-| The stored night is not JSON or fails the schema     |                        | The store warns; no Continue; the next night replaces it                     |
+| The stored night is not JSON                         |                        | The store warns; no Continue; the next night replaces it                     |
+| The stored night fails the schema                    |                        | It lands on null without a warning; no Continue; the next night replaces it  |
 | The stored night's place is not in the content       |                        | A console warning; no Continue                                               |
 | Storage is unavailable, private mode or quota        |                        | Every store warns; the night plays on; nothing to continue after a quit      |
 | A reload or a closed tab mid-window                  |                        | The night stands at its last save; the window's costs are not paid           |

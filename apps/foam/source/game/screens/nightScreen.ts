@@ -628,7 +628,8 @@ function closeLocation(screen: NightScreen, location: Location): void {
 // night moved the player to, then a way out, then the closing. The end comes
 // first, so a travel that arrives after 08:00 never shows its destination,
 // and a closing never runs on the close that ends the night. A way out exists
-// only outdoors and a closing only indoors, so the last two never meet.
+// only outdoors and a closing only indoors, so the last two never meet. It is
+// also called directly when a saved night is shown.
 function actOnNight(screen: NightScreen): void {
   let {hasEnded, night, place} = screen.contents;
 
@@ -675,7 +676,7 @@ function actOnNight(screen: NightScreen): void {
     // Only a journey or a resume leaves no place shown, and both lead to a
     // place of nightStart, the saved one checked by its loader. The error screen
     // shows the impossible rather than a black screen with no way on.
-    throw new Error(`The journey ended in "${night.place}", which is not a place!`);
+    throw new Error(`The night is in "${night.place}", which is not a place!`);
   } else {
     // eslint-disable-next-line no-console -- the running game reports a script's unknown place
     console.warn(`No place "${night.place}"; the night stays in "${place.id}".`);

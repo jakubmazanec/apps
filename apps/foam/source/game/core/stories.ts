@@ -22,9 +22,7 @@ export function saveCollection(): void {
  * Reads the store back into the shared object in place: a find in an abandoned window is undone.
  */
 export function reloadCollection(): void {
-  let stored = storiesStore.load();
-
-  collection.titles.splice(0, Infinity, ...stored.titles);
+  collection.titles.splice(0, Infinity, ...storiesStore.load().titles);
 }
 
 /**

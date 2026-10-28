@@ -1240,9 +1240,7 @@ describe('night screen places', {timeout: 180_000}, () => {
 
       expect(consoleError).toHaveBeenCalledTimes(1);
       expect(error).toBeInstanceOf(Error);
-      expect((error as Error).message).toBe(
-        'The journey ended in "nowhere", which is not a place!',
-      );
+      expect((error as Error).message).toBe('The night is in "nowhere", which is not a place!');
     } finally {
       consoleError.mockRestore();
     }

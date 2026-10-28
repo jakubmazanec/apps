@@ -534,11 +534,14 @@ export class StoryWindow implements UiOverlayComponent {
 
   // Marks the node read under the id the checker names it by: its key in the script's table, found
   // by identity, since the runner holds the table's own node; else `start` for the window's first
-  // node, a start written as a node, and `next` for an inline next after it.
+  // node, a start written as a node. An inline next after it is `next` under the window's `where`,
+  // which the checker does not name it by: it nests the next under its parent node or choice.
   #markRead(node: DialogueNode<Night, string>): void {
-    let entry = Object.entries(this.#script.nodes ?? {}).find(([, value]) => value === node);
-
-    markRead(this.#where, entry?.[0] ?? (this.#hasMarkedNode ? 'next' : 'start'));
+    markRead(
+      this.#where,
+      Object.entries(this.#script.nodes ?? {}).find(([, value]) => value === node)?.[0] ??
+        (this.#hasMarkedNode ? 'next' : 'start'),
+    );
     this.#hasMarkedNode = true;
   }
 

@@ -152,6 +152,19 @@ export async function setViewport({game}: Harness, width: number, height: number
   );
 }
 
+// Waits for the night screen to be shown, and a frame for its first layout.
+async function waitForNightShown(nightScreen: typeof nightScreenValue): Promise<void> {
+  await vitest.waitFor(
+    () => {
+      if (nightScreen.state !== 'shown') {
+        throw new Error(`The night screen is ${nightScreen.state}, not shown.`);
+      }
+    },
+    {timeout: 10_000},
+  );
+  await nextFrame();
+}
+
 // Activates New Game on the main menu, then Start in the New night window, and
 // waits for the night screen and its first layout. A seed given goes into the
 // window's field first, so Start takes it in place of the day's next seed.
@@ -183,15 +196,7 @@ export async function startNewGame(
     getConfirmParts(confirm).action.activate();
   }
 
-  await vitest.waitFor(
-    () => {
-      if (nightScreen.state !== 'shown') {
-        throw new Error(`The night screen is ${nightScreen.state}, not shown.`);
-      }
-    },
-    {timeout: 10_000},
-  );
-  await nextFrame();
+  await waitForNightShown(nightScreen);
 }
 
 // Activates Continue on the main menu and waits for the night screen and its
@@ -199,15 +204,7 @@ export async function startNewGame(
 export async function continueNight({mainMenuScreen, nightScreen}: Harness): Promise<void> {
   mainMenuScreen.ui.focus(mainMenuScreen.contents.continueButton);
   await press('Enter');
-  await vitest.waitFor(
-    () => {
-      if (nightScreen.state !== 'shown') {
-        throw new Error(`The night screen is ${nightScreen.state}, not shown.`);
-      }
-    },
-    {timeout: 10_000},
-  );
-  await nextFrame();
+  await waitForNightShown(nightScreen);
 }
 
 // Puts the fixed world into nightStart, with the given values over its own,

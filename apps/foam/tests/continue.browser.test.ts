@@ -146,10 +146,8 @@ describe('saving and continue', {timeout: 180_000}, () => {
   });
 
   test("the night is saved with the collection when a window's text ends, and not before", async () => {
-    // The test before left its night saved. This one pins the moment of a night's first save;
-    // clearing the save at a start is the main menu's business.
+    // The test before left its night saved.
     await quitToMenu(harness);
-    localStorage.removeItem('foam:night');
     await startNewGame(harness, 7);
 
     expect(localStorage.getItem('foam:night')).toBeNull();
