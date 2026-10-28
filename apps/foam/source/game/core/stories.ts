@@ -19,6 +19,15 @@ export function saveCollection(): void {
 }
 
 /**
+ * Reads the store back into the shared object in place: a find in an abandoned window is undone.
+ */
+export function reloadCollection(): void {
+  let stored = storiesStore.load();
+
+  collection.titles.splice(0, Infinity, ...stored.titles);
+}
+
+/**
  * Empties the collection in place, so every night that holds it sees it empty, and clears the
  * store.
  */

@@ -1,7 +1,10 @@
 import {afterAll, beforeAll, describe, expect, test, vitest} from 'vitest';
 
 import {type barPicture as barPictureValue} from '../source/game/content/pictures/barPicture.js';
-import {FIXED_PAVEMENT, FIXED_SQUARE, FIXED_SQUARE_LOCATION} from './fixedWorld.js';
+import {type PastNight} from '../source/game/core/nights.js';
+import {type SavedNight} from '../source/game/core/save.js';
+import {todaySeed} from '../source/game/core/todaySeed.js';
+import {FIXED_BAR, FIXED_PAVEMENT, FIXED_SQUARE, FIXED_SQUARE_LOCATION} from './fixedWorld.js';
 import {
   bootGame,
   chooseWayOut,
@@ -12,11 +15,15 @@ import {
   openSpot,
   pickDestination,
   press,
+  quitToMenu,
+  startFrom,
   startNewGame,
   useFixedWorld,
+  waitForNoStoriesWindow,
   waitForNoStoryWindow,
   waitForPlace,
   waitForSpeaker,
+  waitForToast,
   waitForTravelWindow,
 } from './nightScreenHelpers.js';
 
@@ -30,6 +37,11 @@ vitest.mock(import('../source/game/content/pictures/barPicture.js'), async () =>
 
   return {barPicture: PROOF_PICTURE as typeof barPictureValue};
 });
+
+// The night as the game saved it, read straight from the storage.
+function readSavedNight(): SavedNight {
+  return JSON.parse(localStorage.getItem('foam:night') ?? '') as SavedNight;
+}
 
 // 960 × 540 CSS pixels are 480 × 270 art pixels. The night starts in the fixed
 // bar at 19:40, with nothing kept: the storage is cleared before the boot,
@@ -122,5 +134,138 @@ describe('saving and continue', {timeout: 180_000}, () => {
     } finally {
       info.mockRestore();
     }
+  });
+
+  test("the night is saved with the collection when a window's text ends, and not before", async () => {
+    // The test before left its night saved. This one pins the moment of a night's first save;
+    // clearing the save at a start is the main menu's business.
+    await quitToMenu(harness);
+    localStorage.removeItem('foam:night');
+    await startNewGame(harness, 7);
+
+    expect(localStorage.getItem('foam:night')).toBeNull();
+
+    await closeStory(harness);
+
+    expect(readSavedNight()).toEqual({
+      seed: 7,
+      rolls: 0,
+      minutes: 1180,
+      money: 350,
+      place: FIXED_BAR,
+      drunkenness: {level: 0, at: 1180},
+      roll: null,
+      log: [{kind: 'text', minutes: 1180, speaker: 'The bar', text: expect.any(String) as unknown}],
+      stories: [],
+      quest: {hasBottle: false, bottleGiven: false, hasKeys: false, hasTicket: false},
+      events: [],
+      ending: null,
+    });
+    expect(JSON.parse(localStorage.getItem('foam:stories') ?? '')).toEqual({titles: []});
+  });
+
+  test("a journey's pick is saved with the destination before the journey's window ends", async () => {
+    let {ui} = harness.nightScreen;
+    // Go out moves the player to the pavement, through the door's next node.
+    let storyWindow = await openSpot(harness, 'The door');
+
+    await press('Enter');
+    ui.focus(getWindowButton(storyWindow, 0));
+    await press('Enter');
+    await endStory(storyWindow);
+    await waitForPlace(harness, FIXED_PAVEMENT);
+
+    expect(readSavedNight().place).toBe(FIXED_PAVEMENT);
+
+    await closeStory(harness);
+    await chooseWayOut(harness, 'Walk');
+    await pickDestination(harness, await waitForTravelWindow(harness), FIXED_SQUARE_LOCATION);
+
+    let journey = await waitForSpeaker(harness, 'On foot');
+    let saved = readSavedNight();
+
+    expect(saved.place).toBe(FIXED_SQUARE);
+    expect(saved.minutes).toBe(1192);
+    expect(saved.log.at(-1)).toEqual({
+      kind: 'choice',
+      minutes: 1180,
+      text: expect.any(String) as unknown,
+    });
+
+    await endStory(journey);
+    await waitForPlace(harness, FIXED_SQUARE);
+    await closeStory(harness);
+  });
+
+  test('the record is written and the save cleared when the log screen opens', async () => {
+    let {logScreen} = await import('../source/game/screens/logScreen.js');
+    let {textsRead} = await import('../source/game/core/textsRead.js');
+
+    await startFrom(harness, `?place=${FIXED_BAR}&time=07:55&seed=7`);
+    await closeStory(harness);
+
+    // The beer takes the clock from 07:55 to 08:05, past the end.
+    let bartender = await openSpot(harness, 'The bartender');
+
+    // Enter finishes the text, the arrow focuses the beer, and Enter takes it.
+    await press('Enter');
+    await press('ArrowDown');
+    await press('Enter');
+    await endStory(bartender);
+
+    // The beer's window saved the night as it closed; the Morning text has not ended yet.
+    let end = await waitForSpeaker(harness, 'Morning');
+    let saved = readSavedNight();
+
+    expect(saved.minutes).toBe(1925);
+    expect(saved.ending).toBeNull();
+
+    await endStory(end);
+    await vitest.waitFor(
+      () => {
+        expect(logScreen.state).toBe('shown');
+      },
+      {timeout: 10_000},
+    );
+
+    expect(localStorage.getItem('foam:night')).toBeNull();
+    expect(
+      (JSON.parse(localStorage.getItem('foam:nights') ?? '') as {past: PastNight[]}).past,
+    ).toEqual([{seed: 7, date: todaySeed(), ending: 'stranded', stories: []}]);
+    expect(textsRead.paths).toContain('end › stranded');
+
+    // The log screen opens with its Stories window, which takes the first Escape.
+    await press('Escape');
+    await waitForNoStoriesWindow(logScreen);
+    await quitToMenu(harness, logScreen);
+  });
+
+  test('a find in an abandoned window is undone in the collection and the store on Quit to menu', async () => {
+    let {collection} = await import('../source/game/core/stories.js');
+
+    await startNewGame(harness, 7);
+    await closeStory(harness);
+
+    let storyWindow = await openSpot(harness, 'A patron');
+
+    // Enter finishes the text, and Enter on the second choice ignores him.
+    await press('Enter');
+    harness.nightScreen.ui.focus(getWindowButton(storyWindow, 1));
+    await press('Enter');
+    await waitForToast(harness);
+
+    expect(collection.titles).toEqual(['The shrug', 'The glass']);
+    expect(JSON.parse(localStorage.getItem('foam:stories') ?? '')).toEqual({titles: []});
+
+    let {titles} = collection;
+
+    await quitToMenu(harness);
+
+    let {titles: titlesAfter} = collection;
+
+    expect(titlesAfter).toEqual([]);
+    expect(titlesAfter).toBe(titles);
+    expect(JSON.parse(localStorage.getItem('foam:stories') ?? '')).toEqual({titles: []});
+    expect(readSavedNight().stories).toEqual([]);
   });
 });

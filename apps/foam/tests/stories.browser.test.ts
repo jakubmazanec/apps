@@ -9,6 +9,7 @@ let storiesImport = 0;
 interface StoriesModule {
   collection: {titles: string[]};
   forgetStories: () => void;
+  reloadCollection: () => void;
   saveCollection: () => void;
 }
 
@@ -66,6 +67,22 @@ describe('stories', () => {
     saveCollection();
 
     expect(JSON.parse(localStorage.getItem(STORIES_KEY) ?? '')).toEqual({titles: ['A']});
+  });
+
+  test('reloadCollection replaces the titles in place from the store', async () => {
+    localStorage.setItem(STORIES_KEY, JSON.stringify({titles: ['A', 'B']}));
+
+    let {collection, reloadCollection} = await importStories();
+    let {titles} = collection;
+
+    titles.push('C');
+    localStorage.setItem(STORIES_KEY, JSON.stringify({titles: ['A']}));
+    reloadCollection();
+
+    let {titles: titlesAfter} = collection;
+
+    expect(titlesAfter).toEqual(['A']);
+    expect(titlesAfter).toBe(titles);
   });
 
   test('forgetStories empties the object in place and removes the key', async () => {

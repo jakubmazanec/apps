@@ -10,6 +10,7 @@ import {
   Panel,
   Slider,
   Text,
+  type UiRoot,
 } from 'tellurion';
 import {vitest} from 'vitest';
 import {page, userEvent} from 'vitest/browser';
@@ -684,6 +685,33 @@ export function getMenuButton(menu: Modal, label: string): Button {
   }
 
   return button;
+}
+
+// Opens the screen's menu by Escape, takes Quit to menu by the keyboard and
+// waits for the main menu. The night screen's menu by default; the log screen
+// has one too.
+export async function quitToMenu(
+  harness: Harness,
+  screen: {ui: UiRoot; contents: {menuModal: Modal | null}} = harness.nightScreen,
+): Promise<void> {
+  await press('Escape');
+
+  let {menuModal} = screen.contents;
+
+  if (menuModal === null) {
+    throw new Error('The menu did not open!');
+  }
+
+  screen.ui.focus(getMenuButton(menuModal, 'Quit to menu'));
+  await press('Enter');
+  await vitest.waitFor(
+    () => {
+      if (harness.mainMenuScreen.state !== 'shown') {
+        throw new Error(`The main menu is ${harness.mainMenuScreen.state}, not shown.`);
+      }
+    },
+    {timeout: 10_000},
+  );
 }
 
 export function getStoriesWindow(screen: {

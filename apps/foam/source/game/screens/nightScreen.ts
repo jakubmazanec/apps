@@ -26,10 +26,13 @@ import {isNightOver, isOpenAt} from '../core/hours.js';
 import {type Location, type LocationId} from '../core/location.js';
 import {logChoice} from '../core/log.js';
 import {createNight, formatStatus, type Night} from '../core/night.js';
+import {recordNight} from '../core/nights.js';
 import {type Place} from '../core/place.js';
 import {playFocusSound} from '../core/playFocusSound.js';
-import {collection, saveCollection} from '../core/stories.js';
+import {clearSavedNight, saveNight} from '../core/save.js';
+import {collection, reloadCollection, saveCollection} from '../core/stories.js';
 import {UI_FADE_DURATION} from '../core/theme.js';
+import {todaySeed} from '../core/todaySeed.js';
 import {formatTravel, getLocation, takeJourney} from '../core/travel.js';
 import {errorScreen} from './errorScreen.js';
 // The nightScreen -> logScreen -> menuModal -> mainMenuScreen -> nightScreen
@@ -118,7 +121,7 @@ type NightScreenContents = {
 
   statusText: Text;
 
-  /** How many of the night's finds the screen has handled: shown or queued, and saved. */
+  /** How many of the night's finds the screen has handled: shown or queued. */
   storiesHandled: number;
 
   storiesWindow: StoriesWindow | null;
@@ -184,9 +187,9 @@ function showToast(screen: NightScreen, title: string): void {
   toast.show();
 }
 
-// Queues a toast for each story the night has found since the last update,
-// saving the collection with each, and shows the next one when none is
-// showing. A hidden screen shows none.
+// Queues a toast for each story the night has found since the last update, and
+// shows the next one when none is showing. A hidden screen shows none. The
+// collection is saved with the night when a window's text ends (see openStory).
 function handleStories(screen: NightScreen): void {
   let {contents, state} = screen;
 
@@ -194,7 +197,6 @@ function handleStories(screen: NightScreen): void {
   while (contents.storiesHandled < contents.night.stories.length) {
     contents.toastQueue.push(contents.night.stories[contents.storiesHandled]!.title);
     contents.storiesHandled += 1;
-    saveCollection();
   }
 
   if (contents.toast === null && contents.toastQueue.length > 0 && state === 'shown') {
@@ -339,6 +341,13 @@ function openStory(
       screen.contents.isPlaceChanging =
         getNextPlace(screen) !== undefined || isNightOver(screen.contents.night);
       fadeBackdrop(screen);
+      // The window calls it when its text has ended, so the last choice's
+      // effects, the last node's entry effect and the last page's log line are
+      // in the night, and the window's fade has not begun. A save that waited for
+      // every overlay to close would lose a finished window to Escape in the
+      // fade and then Quit, since the menu opens above a closing window.
+      saveNight(screen.contents.night);
+      saveCollection();
     },
     onClosed: () => {
       screen.contents.storyWindow = null;
@@ -548,6 +557,9 @@ function createTravelWindow(screen: NightScreen): TravelWindow {
       // logs its text at the minute of arrival.
       logChoice(screen.contents.night, formatTravel(destination));
       takeJourney(nightStart, screen.contents.night, destination);
+      // The change of place, saved before the journey's window opens: a
+      // journey is never undone by a quit. Back saves nothing.
+      saveNight(screen.contents.night);
       leavePlace(screen);
       layOut(screen);
       openStory(screen, journeys[destination.way], `journeys${SEPARATOR}${destination.way}`);
@@ -616,6 +628,11 @@ function actOnNight(screen: NightScreen): void {
 
   if (isNightOver(night)) {
     if (hasEnded) {
+      // A night is recorded once, when its Morning text has been read through.
+      // The save the Morning text's own closing wrote is cleared here a moment
+      // later.
+      recordNight(night, todaySeed());
+      clearSavedNight();
       logScreen.contents.showLog(night);
       // showScreen never rejects; a failure lands on the error screen.
       void game.showScreen(logScreen);
@@ -769,8 +786,11 @@ export const nightScreen = new GameScreen<NightScreenContents>({
     // is left for layOut to resize.
     screen.contents.toast = null;
     screen.contents.toastQueue = [];
-    // Saved once more, so Quit to menu loses no find.
-    saveCollection();
+    // Read back from the store in place, so every night that holds it sees the
+    // stored titles: a find in an abandoned window is undone with the night.
+    // With no window open the store already equals the object, so the call is
+    // unconditional.
+    reloadCollection();
     leavePlace(screen);
     dropNextPlace(screen);
   },
