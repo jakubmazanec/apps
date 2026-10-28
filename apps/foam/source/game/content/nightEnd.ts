@@ -6,7 +6,8 @@ import {defineScript} from '../core/script.js';
 // Its limits: no word is longer than 16 characters, every node sets `speaker`, and the `*` marks
 // of italic come in pairs. It opens over black once the night is over, after the window that
 // crossed 08:00, and the night it reads stands at its final minute. The end reads the quest's four
-// flags and the night's list of stories, never the place or the money.
+// flags and the night's list of stories, never the place or the money. The three ending nodes write
+// `ending` on the night, as the quest's flags are written by content, and the record reads it.
 
 // What became of the bottle, from the flags alone.
 function bottleLine(night: Night): string[] | string {
@@ -54,6 +55,9 @@ export const nightEnd = defineScript({
     },
     leave: {
       speaker: 'Morning',
+      onEnter: (night) => {
+        night.ending = 'leave';
+      },
       text: (night) => standIn`
         You stand on the platform in the grey light, waiting for the 08:04.
         ${bottleLine(night)} ${storiesLine(night)}
@@ -61,6 +65,9 @@ export const nightEnd = defineScript({
     },
     stay: {
       speaker: 'Morning',
+      onEnter: (night) => {
+        night.ending = 'stay';
+      },
       text: (night) => standIn`
         You are at the flat, with the grey light on the wall and the keys in your hand.
         ${bottleLine(night)} ${storiesLine(night)}
@@ -68,6 +75,9 @@ export const nightEnd = defineScript({
     },
     stranded: {
       speaker: 'Morning',
+      onEnter: (night) => {
+        night.ending = 'stranded';
+      },
       text: (night) => standIn`
         The sky has gone grey and you have neither a ticket nor a door to open.
         ${bottleLine(night)} ${storiesLine(night)}
