@@ -35,6 +35,7 @@ import Index from '../source/routes/_index.js';
 import {getConfirmParts} from './confirmParts.js';
 import {fixedStart} from './fixedWorld.js';
 import {getNewNightParts} from './newNightParts.js';
+import {readText} from './readText.js';
 
 // The page's stylesheet gives the canvas the size of the viewport, as in the
 // running app. Without it the canvas has no height the tests can rely on.
@@ -295,17 +296,6 @@ export async function waitForPlace({nightScreen}: Harness, place: PlaceId): Prom
     },
     {timeout: 10_000},
   );
-}
-
-// Text has no getter for its string, so the tests read the BitmapText inside.
-export function readText(text: Text): string {
-  let [content] = text.view.children;
-
-  if (!(content instanceof pixi.BitmapText)) {
-    throw new TypeError('The text has no BitmapText!');
-  }
-
-  return content.text;
 }
 
 // The box the layout gave a component. toGlobal includes the engine's pixel

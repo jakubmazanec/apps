@@ -24,7 +24,6 @@ import {
   pickDestination,
   press,
   pressThrough,
-  readText,
   restartAt,
   startFrom,
   startNewGame,
@@ -34,6 +33,7 @@ import {
   waitForSpeaker,
   waitForTravelWindow,
 } from './nightScreenHelpers.js';
+import {readText} from './readText.js';
 
 // The labels of the choices the window offers.
 function getLabels(storyWindow: StoryWindow): string[] {

@@ -1,5 +1,6 @@
-import * as pixi from 'pixi.js';
 import {Button, Container, type Modal, Panel, Text} from 'tellurion';
+
+import {readText} from './readText.js';
 
 // A list window's modal holds one Panel. Its children are, in this order: the
 // title block, a Container whose first child is the title Text; the text block,
@@ -56,24 +57,11 @@ export function getStoriesParts(window: {modal: Modal}): {
   };
 }
 
-// Text has no getter for its string, so the leaf is read from the BitmapText
-// inside, as readText in nightScreenHelpers.tsx does; importing that file would
-// bring in its stylesheet.
-function readLeaf(leaf: Text): string {
-  let [content] = leaf.view.children;
-
-  if (!(content instanceof pixi.BitmapText)) {
-    throw new TypeError('The text has no BitmapText!');
-  }
-
-  return content.text;
-}
-
 // A text block's two leaves as one string: the italic letter where the regular
 // leaf has a space, so a text with italic headings reads as one. The offsets
 // are UTF-16 units, as the leaves are split.
 export function readLeaves(regularLeaf: Text, italicLeaf: Text): string {
-  let italic = readLeaf(italicLeaf);
+  let italic = readText(italicLeaf);
 
-  return readLeaf(regularLeaf).replaceAll(' ', (space, offset: number) => italic[offset] ?? space);
+  return readText(regularLeaf).replaceAll(' ', (space, offset: number) => italic[offset] ?? space);
 }
