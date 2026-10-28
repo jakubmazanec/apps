@@ -1,8 +1,8 @@
 # Foam: direction
 
 Started: 2026-10-03. App: `apps/foam`. Status: the direction is agreed; phases 1 to 7 are built and
-reviewed, and phase 8 is being designed: its first spec is designed, its second is next. This is a
-living document: it describes the current state and plan, and is kept correct as they change.
+reviewed, and phase 8's two specs are designed. This is a living document: it describes the current
+state and plan, and is kept correct as they change.
 
 ## What Foam is
 
@@ -59,6 +59,7 @@ Foam runs on the `tellurion` engine, as Somewhere does.
 | Stories      | A story is a titled piece of content that the script gives through a helper in a choice's effect or a node's entry effect, with the conditions the script has. It is achieved once across all runs: a toast shows it, the log keeps its line, the night's menu lists the night's finds, and the list opens over the log at the end. The collection of titles is saved in the browser's storage from phase 6 on, and with the night from phase 7 on. The author may hide a choice once its story is achieved.                                                                                                                                                                                                                                                                                                                    |
 | Saving       | An unfinished night is saved when a story window's text ends and when a journey is picked, with the collection; the main menu's Continue resumes it at its last save, and Quit to menu keeps it, so a quit mid-window rewinds to the window's opening. Kept across nights: the collection, a record of past nights with seed, date, ending and stories, and the set of texts the player has read, by the path of each node, so that what changes between nights can be experimented with later. The main menu's Collection window lists the stories and the nights, with a Reset that erases everything kept. The default seed then counts the nights started on one day, the date followed by the night's number, so a same-day replay is fresh while the first night of the day is everyone's. Phase 7's third spec built it. |
 | Phone        | The player has a phone, and only the author writes on it; the player replies and never starts a conversation. A message is a scene with a condition on the night. It arrives once per night, the first time its condition holds, when the night is looked at between windows, and a toast and a sound announce it. A Phone button in a row at the bottom of the screen counts the unread messages and opens the oldest in the story window, titled by the sender; reading costs nothing, and a reply costs what a choice costs. Past messages are in the log only. Phase 8's first spec builds it.                                                                                                                                                                                                                              |
+| Author       | Jakub can be met. The night picks one of three seats by the seed: The Whisky Shop's room from 17:00 to 19:00, Rotor's room from 21:00 to 23:00, or the main station's hall from 07:00. The invitation on the phone names the seat and its hours. A place's button may carry a condition on the night, read when the place is shown and whenever the night is looked at, and the button appears and goes by it; that is how a "Jakub" button stands in the seat's place during his hours. Each seat has a meeting of its own, a short scene, and the first meeting anywhere gives the story "The author". Phase 8's second spec builds it.                                                                                                                                                                                       |
 | Music        | Static stock synthwave, until the author's own songs exist. Stock tracks need a licence that allows use in a public web game. Until a track is chosen, Somewhere's menu music plays on the menu and keeps playing on the game screen.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 
 ## Shelved questions
@@ -340,6 +341,7 @@ build and review, in this order:
    station hall at dawn; the invitation message that names it; a place's button that appears and
    goes by a condition on the night, which is how Jakub stands in the place at the hour; the three
    meetings, each a short scene of its own; and the story "The author", found at the first meeting.
+   It is designed: [spec](superpowers/specs/2026-10-28-author-design.md).
 
 ### After phase 8
 
