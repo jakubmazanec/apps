@@ -73,8 +73,10 @@ const LAMP_PAGE =
   'ticks as it warms. Nobody else looks up at it. Perhaps they all know something about ' +
   'it that you do not.';
 // The thing of the bar's picture that each scene button lies on, in the design
-// of 480 × 270, which stretches to the screen. The bottom row covers the lowest
-// 24 of the 270, so no thing lies there.
+// of 480 × 270, which stretches to the screen. The two lowest things are given
+// where their buttons land, above the bottom row: the bar picture still draws
+// the women's table at row 222 and the patron's at 244, so those two buttons
+// stand just above their tables, and the test holds them there.
 const THINGS = new Map<string, Box>([
   ['A patron', {left: 20, top: 218, width: 98, height: 26}],
   // The first lamp's light above the counter.
