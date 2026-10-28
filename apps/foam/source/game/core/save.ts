@@ -18,9 +18,8 @@ const savedNightSchema: z.ZodType<SavedNight> = z.object({
   place: z.custom<PlaceId>((value) => typeof value === 'string'),
   drunkenness: z.object({level: z.number(), at: z.number()}),
   roll: z.object({value: z.number(), odds: z.number(), won: z.boolean()}).nullable(),
-  // A plain union, not a discriminated one: a transformed member is no object.
   log: z.array(
-    z.union([
+    z.discriminatedUnion('kind', [
       z.object({kind: z.literal('choice'), minutes: z.number(), text: z.string()}),
       z.object({kind: z.literal('story'), minutes: z.number(), text: z.string()}),
       z
