@@ -8,6 +8,7 @@ import {NIGHT_END, NIGHT_START} from './hours.js';
 import {type Location} from './location.js';
 import {MARK, stripMarks} from './markedText.js';
 import {createNight, type Night, type PlaceId, type Quest, roll, type Way} from './night.js';
+import {type Message} from './phone.js';
 import {type Place} from './place.js';
 import {asChoice} from './script.js';
 import {type LocationData, type MapData, type Travel} from './travel.js';
@@ -20,6 +21,9 @@ export type Content = {
   travel: Travel;
   map: MapData;
   end: RunnableDialogueScript<Night>;
+
+  /** The phone's messages, in the order the night tries them. */
+  messages: readonly Message[];
 };
 
 // A location's button and its neighbourhood must lie inside the map, with this much to spare.
@@ -108,7 +112,8 @@ function getCheckTimes(locationData: LocationData): number[] {
  * shorter table wrapping; a table whose odds do not sum to 1, or give a name 0 or less, is reported
  * under the function's path. A pick reached only in a branch, under another table's name or a value
  * of random, is not run under each of its names, and is reported: a pick belongs at the top of its
- * function.
+ * function. A message's script is checked under its key with no home, and its condition runs on
+ * every check night, where a throw is reported under `arrives`.
  */
 export function checkContent(content: Content): string[] {
   let lines = new Set<string>();
@@ -117,6 +122,9 @@ export function checkContent(content: Content): string[] {
   let times = getCheckTimes(content.locationData);
   // The nodes of the script being checked, where follow looks up an id that a next returns.
   let nodes: NonNullable<RunnableDialogueScript<Night>['nodes']> = {};
+  // The sender of the message being checked, which every node's speaker must equal; null for any
+  // other script.
+  let sender: string | null = null;
   // Every title the effects gave: the second pass's collection holds them all.
   let titles = new Set<string>();
   // Every key the effects met: the second pass's nights have met them all.
@@ -253,6 +261,10 @@ export function checkContent(content: Content): string[] {
       lines.add(
         `${path}: the title "${speaker}" has ${speaker.length} characters, and ${room.title} fit`,
       );
+    }
+
+    if (sender !== null && speaker !== undefined && speaker !== '' && speaker !== sender) {
+      lines.add(`${path}: the speaker "${speaker}" is not the sender "${sender}"`);
     }
 
     if (onEnter !== undefined) {
@@ -525,6 +537,36 @@ export function checkContent(content: Content): string[] {
     }
   }
 
+  function createCheckNights(id: string, collection: Night['collection'], met: string[]): Night[] {
+    let nights = times.flatMap((minutes) =>
+      CHECK_LEVELS.flatMap((drunkenness) =>
+        QUEST_STATES.map((quest) =>
+          createNight(
+            {
+              // Nothing reads the seed: the checker puts values of its own in random.
+              seed: 0,
+              // The keys of content.places are the ids of the places.
+              place: id as PlaceId,
+              minutes,
+              money: CHECK_MONEY,
+              drunkenness,
+              quest,
+              events: met,
+            },
+            collection,
+          ),
+        ),
+      ),
+    );
+
+    for (let night of nights) {
+      night.random = createRandom(0);
+      night.pick = checkPick;
+    }
+
+    return nights;
+  }
+
   function checkScript(
     name: string,
     script: RunnableDialogueScript<Night>,
@@ -538,31 +580,7 @@ export function checkContent(content: Content): string[] {
 
     for (let id of placeIds) {
       // A night for each place, time, level and quest state, the four axes a condition reads.
-      let nights = times.flatMap((minutes) =>
-        CHECK_LEVELS.flatMap((drunkenness) =>
-          QUEST_STATES.map((quest) =>
-            createNight(
-              {
-                // Nothing reads the seed: the checker puts values of its own in random.
-                seed: 0,
-                // The keys of content.places are the ids of the places.
-                place: id as PlaceId,
-                minutes,
-                money: CHECK_MONEY,
-                drunkenness,
-                quest,
-                events: met,
-              },
-              collection,
-            ),
-          ),
-        ),
-      );
-
-      for (let night of nights) {
-        night.random = createRandom(0);
-        night.pick = checkPick;
-      }
+      let nights = createCheckNights(id, collection, met);
 
       for (let [key, node] of Object.entries(nodes)) {
         if (node !== undefined) {
@@ -610,6 +628,21 @@ export function checkContent(content: Content): string[] {
     }
 
     checkScript('end', content.end, null, collection, met);
+
+    for (let message of content.messages) {
+      let name = `phone${SEPARATOR}${message.key}`;
+
+      sender = message.from;
+      checkScript(name, message.script, null, collection, met);
+      sender = null;
+
+      // The result is not read: a condition that never holds on a check night is no fault.
+      for (let id of placeIds) {
+        for (let night of createCheckNights(id, collection, met)) {
+          tryWithRandom(`${name}${SEPARATOR}arrives`, night, message.arrives);
+        }
+      }
+    }
   }
 
   for (let [id, place] of Object.entries(content.places)) {
@@ -686,6 +719,22 @@ export function checkContent(content: Content): string[] {
         lines.add(`${id}: outside "${location.outside}" is not outdoors`);
       }
     }
+  }
+
+  let keys = new Set<string>();
+
+  for (let {key, from} of content.messages) {
+    if (key === '') {
+      lines.add('phone: a message with an empty key');
+    } else if (keys.has(key)) {
+      lines.add(`phone${SEPARATOR}${key}: two messages share the key`);
+    }
+
+    if (from === '') {
+      lines.add(`phone${SEPARATOR}${key}: no sender`);
+    }
+
+    keys.add(key);
   }
 
   // With no story achieved and no event met, then with every title and every key the first pass
