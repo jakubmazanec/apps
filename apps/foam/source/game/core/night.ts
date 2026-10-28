@@ -102,6 +102,12 @@ export type Night = {
 
   /** How the night ended: the Morning text's ending node writes it; null until then. */
   ending: Ending | null;
+
+  /**
+   * The phone: the keys of the messages that have arrived and wait, oldest first, and of those
+   * read. The night screen writes both through `core/phone.ts`.
+   */
+  phone: {unread: string[]; read: string[]};
 };
 
 /** The drinks the body clears in an hour. */
@@ -169,6 +175,7 @@ export function createNight(
     quest: {hasBottle: false, bottleGiven: false, hasKeys: false, hasTicket: false, ...start.quest},
     events: [...(start.events ?? [])],
     ending: null,
+    phone: {unread: [], read: []},
   };
 
   return night;

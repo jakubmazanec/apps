@@ -73,6 +73,7 @@ const STORED_NIGHT = {
   quest: {hasBottle: false, bottleGiven: false, hasKeys: false, hasTicket: false},
   events: [],
   ending: null,
+  phone: {unread: [], read: []},
 };
 
 type MainMenuScreen = GameScreen<{

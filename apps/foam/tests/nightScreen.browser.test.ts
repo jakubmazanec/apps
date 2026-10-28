@@ -1074,6 +1074,7 @@ describe('night screen', {timeout: 180_000}, () => {
         quest: {hasBottle: false, bottleGiven: false, hasKeys: false, hasTicket: false},
         events: [],
         ending: null,
+        phone: {unread: [], read: []},
       });
       // The choice at the press, before its ten minutes; its text at 19:50.
       expect(nightScreen.contents.night.log.slice(-2)).toMatchObject([

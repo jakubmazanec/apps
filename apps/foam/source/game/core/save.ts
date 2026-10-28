@@ -44,6 +44,7 @@ const savedNightSchema: z.ZodType<SavedNight> = z.object({
   }),
   events: z.array(z.string()),
   ending: endingSchema.nullable(),
+  phone: z.object({unread: z.array(z.string()), read: z.array(z.string())}),
 });
 // Null is "no night", and anything unusable lands there too: a half-defaulted night would drop
 // the player somewhere they never stood. There is no version field: the schema is the version,
@@ -69,8 +70,21 @@ export function loadSavedNight(places: Readonly<Record<string, Place>>): SavedNi
 
 /** Writes the night's data: every field of `SavedNight`, picked by name. */
 export function saveNight(night: Night): void {
-  let {seed, rolls, minutes, money, place, drunkenness, roll, log, stories, quest, events, ending} =
-    night;
+  let {
+    seed,
+    rolls,
+    minutes,
+    money,
+    place,
+    drunkenness,
+    roll,
+    log,
+    stories,
+    quest,
+    events,
+    ending,
+    phone,
+  } = night;
 
   savedNightStore.save({
     seed,
@@ -85,6 +99,7 @@ export function saveNight(night: Night): void {
     quest,
     events,
     ending,
+    phone,
   });
 }
 
