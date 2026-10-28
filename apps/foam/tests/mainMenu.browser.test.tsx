@@ -32,6 +32,7 @@ import {hash} from '../source/game/core/hash.js';
 import {todaySeed} from '../source/game/core/todaySeed.js';
 import {type PlacePicture} from '../source/game/screens/placePicture.js';
 import Index from '../source/routes/_index.js';
+import {getConfirmParts} from './confirmParts.js';
 import {getNewNightParts} from './newNightParts.js';
 
 // Headless Chromium draws the bar in software, at about 90 ms a frame, which
@@ -71,6 +72,7 @@ const STORED_NIGHT = {
 };
 
 type MainMenuScreen = GameScreen<{
+  confirmModal: Modal | null;
   continueButton: Button;
   newGameButton: Button;
   openModal: Modal | null;
@@ -242,6 +244,16 @@ describe('main menu', () => {
     await waitForClosed();
   }
 
+  // The confirmation fades as the window does.
+  async function waitForNoConfirmation(): Promise<void> {
+    await vitest.waitFor(
+      () => {
+        expect(mainMenuScreen.contents.confirmModal).toBeNull();
+      },
+      {timeout: 5000},
+    );
+  }
+
   // The game is a process-lifetime singleton and init() runs once, so the file
   // boots it once and the tests share it. It boots through the index route,
   // the way the app does, inside StrictMode like entry.client.tsx: the boot
@@ -297,13 +309,13 @@ describe('main menu', () => {
   }, 30_000);
 
   // A failed test must not leave the window open for the next one.
+  // The confirmation is the topmost, so it goes first.
   afterEach(() => {
-    let modal = mainMenuScreen.contents.openModal;
+    mainMenuScreen.contents.confirmModal?.destroy();
+    mainMenuScreen.contents.openModal?.destroy();
 
-    if (modal !== null) {
-      modal.destroy();
-      mainMenuScreen.contents.openModal = null;
-    }
+    mainMenuScreen.contents.confirmModal = null;
+    mainMenuScreen.contents.openModal = null;
   });
 
   afterAll(() => {
@@ -807,5 +819,86 @@ describe('main menu', () => {
     await game.showScreen(mainMenuScreen);
 
     expect(mainMenuScreen.ui.children.filter((child) => child === continueButton)).toHaveLength(1);
+  });
+
+  // Two nights were started in this file so far, and Continue counts none.
+  test("the field reads the day's next seed after a start", async () => {
+    let {input} = getNewNightParts(await openNewNight());
+
+    expect(input.value).toBe(`${todaySeed()}3`);
+
+    await closeWithEscape();
+  });
+
+  test('Start with a stored night opens the confirmation with Close focused, and Enter again closes it', async () => {
+    let modal = await openNewNight();
+
+    mainMenuScreen.ui.focus(getNewNightParts(modal).start);
+    await press('Enter');
+
+    let confirm = mainMenuScreen.contents.confirmModal;
+
+    if (confirm === null) {
+      throw new Error('The confirmation did not open!');
+    }
+
+    let {line, title} = getConfirmParts(confirm);
+
+    expect(readText(title)).toBe('Night in progress');
+    expect(readText(line)).toBe('Start ends the saved\nnight.');
+    expect(describeFocus(mainMenuScreen.ui.focused)).toBe('Close');
+    expect(mainMenuScreen.ui.topOverlay).toBe(confirm);
+
+    await press('Enter');
+    await waitForNoConfirmation();
+
+    expect(mainMenuScreen.state).toBe('shown');
+    expect(mainMenuScreen.contents.openModal).toBe(modal);
+    expect(mainMenuScreen.ui.topOverlay).toBe(modal);
+    expect(localStorage.getItem('foam:night')).not.toBeNull();
+    expect(describeFocus(mainMenuScreen.ui.focused)).toBe('Start');
+
+    await press('Enter');
+
+    expect(mainMenuScreen.contents.confirmModal).not.toBeNull();
+
+    await press('Escape');
+    await waitForNoConfirmation();
+    await closeWithEscape();
+  });
+
+  test("the confirmation's Start plays the new night and clears the save", async () => {
+    let {nightScreen} = await import('../source/game/screens/nightScreen.js');
+    let {input, start} = getNewNightParts(await openNewNight());
+
+    await typeSeed(input, '7');
+    mainMenuScreen.ui.focus(start);
+    await press('Enter');
+
+    let confirm = mainMenuScreen.contents.confirmModal;
+
+    if (confirm === null) {
+      throw new Error('The confirmation did not open!');
+    }
+
+    mainMenuScreen.ui.focus(getConfirmParts(confirm).action);
+    await press('Enter');
+    await vitest.waitFor(
+      () => {
+        expect(nightScreen.state).toBe('shown');
+      },
+      {timeout: 10_000},
+    );
+
+    expect(nightScreen.contents.night.seed).toBe(7);
+    expect(localStorage.getItem('foam:night')).toBeNull();
+    expect((JSON.parse(localStorage.getItem('foam:nights') ?? '') as {day: unknown}).day).toEqual({
+      date: todaySeed(),
+      started: 3,
+    });
+
+    await game.showScreen(mainMenuScreen);
+
+    expect(mainMenuScreen.ui.children).not.toContain(mainMenuScreen.contents.continueButton);
   });
 });

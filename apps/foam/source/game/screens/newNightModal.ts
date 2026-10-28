@@ -10,6 +10,7 @@ import {
 } from 'tellurion';
 
 import {game} from '../core/game.js';
+import {getNextSeed} from '../core/nights.js';
 import {UI_FADE_DURATION} from '../core/theme.js';
 import {todaySeed} from '../core/todaySeed.js';
 import {createLabel} from './topRow.js';
@@ -37,7 +38,8 @@ const BUTTON_WIDTH = (ROW_WIDTH - ROW_GAP) / 2;
 
 // The window is built per call, so the field reads the clock when the window
 // opens: a page loaded before midnight shows the new day once New Game is
-// pressed after it. The window reports the seed and reads no screen, so the
+// pressed after it. The day's count makes the second night of the day the date
+// followed by 2. The window reports the seed and reads no screen, so the
 // main menu starts the night and the import cycle keeps its one link from the
 // main menu to the night screen.
 export function openNewNightModal({ui, scheduler, onClosed, onStart}: NewNightModalOptions): Modal {
@@ -50,7 +52,7 @@ export function openNewNightModal({ui, scheduler, onClosed, onStart}: NewNightMo
   });
   let input = new TextInput({
     theme: game.theme,
-    value: String(todaySeed()),
+    value: String(getNextSeed(todaySeed())),
     maxLength: 15,
     container: game.app.canvas.parentElement ?? document.body,
     onChange: (changed) => {
@@ -92,8 +94,8 @@ export function openNewNightModal({ui, scheduler, onClosed, onStart}: NewNightMo
     },
   });
   // No initialFocus. Nothing is focused on open: on a phone, a focused field
-  // raises the keyboard before the player has decided to type, and the date is
-  // right for most.
+  // raises the keyboard before the player has decided to type, and the day's
+  // next seed is right for most.
   let modal = new Modal({
     theme: game.theme,
     children: [panel],
