@@ -177,7 +177,10 @@ function withDoor(id: 'namestiRepubliky' | 'rotorBarRoom' | 'rotorBarStreet'): s
   );
 }
 
-describe(checkContent, () => {
+// Every test runs the checker over the near-real content, which costs seconds on the CI runners,
+// several times slower than a dev machine and uneven among themselves: the slowest tests passed
+// the default five seconds there.
+describe(checkContent, {timeout: 60_000}, () => {
   test('gives no line for good content', () => {
     expect(check()).toEqual([]);
   });
@@ -752,7 +755,7 @@ describe(checkContent, () => {
       'zidenice › description › start › "Try" › next: "supercalifragilistic" has 20 characters, ' +
         'and 16 fit',
     );
-  }, 60_000);
+  });
 
   test('checks a text that reads an achieved story with it achieved, which proves the full collection runs', () => {
     let description = withEntry(findGone, (night) =>
