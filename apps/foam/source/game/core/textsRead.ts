@@ -24,7 +24,7 @@ export function markRead(where: string, nodeId: string): void {
 
   textsRead.paths.push(path);
   textsReadStore.save(textsRead);
-  // eslint-disable-next-line no-console -- the author reads what the game keeps from the console
+  // eslint-disable-next-line no-console -- the author reads what the game keeps in the console
   console.info(`Read: ${path}`);
 }
 
