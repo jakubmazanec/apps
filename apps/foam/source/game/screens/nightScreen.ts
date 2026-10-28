@@ -12,6 +12,7 @@ import {
 import {journeys} from '../content/journeys.js';
 import {nightEnd} from '../content/nightEnd.js';
 import {nightStart} from '../content/nightStart.js';
+import {SEPARATOR} from '../core/contentPath.js';
 import {game} from '../core/game.js';
 import {
   BUTTON_HEIGHT,
@@ -316,7 +317,11 @@ function getNextPlace({contents: {night, place}}: NightScreen): Place | undefine
   return night.place === place?.id ? undefined : nightStart.places[night.place];
 }
 
-function openStory(screen: NightScreen, script: RunnableDialogueScript<Night>): void {
+function openStory(
+  screen: NightScreen,
+  script: RunnableDialogueScript<Night>,
+  where: string,
+): void {
   if (screen.contents.storyWindow !== null) {
     return;
   }
@@ -326,6 +331,7 @@ function openStory(screen: NightScreen, script: RunnableDialogueScript<Night>): 
     script,
     context: screen.contents.night,
     area: getArea(),
+    where,
     // A script that moved the player, the end of a journey, or a window that
     // closes on a night that is over: the scene goes out with the window (see
     // getBackdropAlpha).
@@ -395,7 +401,7 @@ function buildPlace(screen: NightScreen, place: Place): PlaceParts {
       height: BUTTON_HEIGHT,
     },
     onClick: () => {
-      openStory(screen, place.description);
+      openStory(screen, place.description, `${place.id}${SEPARATOR}description`);
     },
   });
   // layOut() positions the scene buttons.
@@ -412,7 +418,7 @@ function buildPlace(screen: NightScreen, place: Place): PlaceParts {
           height: BUTTON_HEIGHT,
         },
         onClick: () => {
-          openStory(screen, spot.script);
+          openStory(screen, spot.script, `${place.id}${SEPARATOR}${spot.label}`);
         },
       }),
   );
@@ -510,7 +516,7 @@ function showPlace(screen: NightScreen, place: Place): void {
   layOut(screen);
   // Showing a place clears a way out that a script chose together with it.
   screen.contents.night.leaving = null;
-  openStory(screen, place.description);
+  openStory(screen, place.description, `${place.id}${SEPARATOR}description`);
 }
 
 // Builds the travel window, once, when the screen is attached: every control and
@@ -544,7 +550,7 @@ function createTravelWindow(screen: NightScreen): TravelWindow {
       takeJourney(nightStart, screen.contents.night, destination);
       leavePlace(screen);
       layOut(screen);
-      openStory(screen, journeys[destination.way]);
+      openStory(screen, journeys[destination.way], `journeys${SEPARATOR}${destination.way}`);
     },
   });
 }
@@ -589,7 +595,7 @@ function closeLocation(screen: NightScreen, location: Location): void {
   }
 
   screen.contents.night.place = outside;
-  openStory(screen, closing);
+  openStory(screen, closing, `${id}${SEPARATOR}closing`);
 }
 
 // Looks at the night once a story window has closed. A night that is over
@@ -617,7 +623,7 @@ function actOnNight(screen: NightScreen): void {
       screen.contents.hasEnded = true;
       leavePlace(screen);
       layOut(screen);
-      openStory(screen, nightEnd);
+      openStory(screen, nightEnd, 'end');
     }
 
     return;

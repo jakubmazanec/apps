@@ -152,6 +152,7 @@ describe('night screen', {timeout: 180_000}, () => {
       }),
       context: contents.night,
       area: getSceneArea(480, 270),
+      where: 'test',
       onClosed: () => {
         contents.storyWindow = null;
       },
@@ -1380,6 +1381,7 @@ describe('night screen', {timeout: 180_000}, () => {
           }),
           context: contents.night,
           area: getSceneArea(480, 270),
+          where: 'test',
           onClosed: () => {
             contents.storyWindow = null;
           },
@@ -1447,6 +1449,7 @@ describe('night screen', {timeout: 180_000}, () => {
         script: defineDialogueScript<Night>()({start: {text}}),
         context: contents.night,
         area: getSceneArea(480, 270),
+        where: 'test',
         onClosed: () => {
           contents.storyWindow = null;
         },
