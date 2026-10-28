@@ -249,13 +249,13 @@ function layOut(screen: NightScreen): void {
     }
   }
 
-  picture?.resize(area.width, area.top + area.height);
-  nextPlace?.picture.resize(area.width, area.top + area.height);
+  picture?.resize(area.width, area.top + area.height + area.bottom);
+  nextPlace?.picture.resize(area.width, area.top + area.height + area.bottom);
   storyWindow?.resize(area);
   storiesWindow?.resize();
   toast?.resize(getTextWidth(area.width));
   // Closed too: the kept window is laid out for the screen it opens on next.
-  travelWindow.resize(area.width, area.top + area.height);
+  travelWindow.resize(area.width, area.top + area.height + area.bottom);
 }
 
 // Whether the travel window is on the UI root: opening, open or closing.
@@ -401,7 +401,7 @@ function buildPlace(screen: NightScreen, place: Place): PlaceParts {
   let area = getArea();
 
   picture.view.visible = false;
-  picture.resize(area.width, area.top + area.height);
+  picture.resize(area.width, area.top + area.height + area.bottom);
   screen.addToView(picture);
 
   let label = getPlaceLabel(place);
@@ -545,7 +545,7 @@ function createTravelWindow(screen: NightScreen): TravelWindow {
     scheduler: screen.scheduler,
     start: nightStart,
     screenWidth: area.width,
-    screenHeight: area.top + area.height,
+    screenHeight: area.top + area.height + area.bottom,
     onClosing: (destination) => {
       screen.contents.isPlaceChanging = destination !== null;
       fadeBackdrop(screen);

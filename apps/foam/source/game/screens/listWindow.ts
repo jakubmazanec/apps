@@ -124,15 +124,18 @@ export class ListWindow {
       layout: {...WINDOW_PADDING, flexDirection: 'column', gap: WINDOW_GAP},
     });
     this.#layout = this.#layOut();
-    // Nothing is focused on open. On the top placement the top padding centres
-    // the window in the scene area, as the story window's view does.
+    // Nothing is focused on open. On the top placement the paddings centre the
+    // window between the top row and the bottom row, in the scene area, as the
+    // story window's view does.
     this.modal = new Modal({
       theme: game.theme,
       children: [this.#panel],
       layout: {
         justifyContent: 'center',
         alignItems: 'center',
-        ...(placement === 'top' ? {paddingTop: this.#layout.area.top} : {}),
+        ...(placement === 'top' ?
+          {paddingTop: this.#layout.area.top, paddingBottom: this.#layout.area.bottom}
+        : {}),
       },
       scheduler,
       fadeDuration: UI_FADE_DURATION,
@@ -162,7 +165,7 @@ export class ListWindow {
     this.#rebuild();
 
     if (this.#placement === 'top') {
-      this.modal.view.layout = {paddingTop: area.top};
+      this.modal.view.layout = {paddingTop: area.top, paddingBottom: area.bottom};
     }
   }
 

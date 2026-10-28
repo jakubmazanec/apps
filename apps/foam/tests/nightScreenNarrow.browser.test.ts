@@ -15,6 +15,7 @@ import {
   getWindowParts,
   type Harness,
   press,
+  pressThrough,
   readPages,
   startNewGame,
   tap,
@@ -91,7 +92,7 @@ describe('night screen on a narrow screen', {timeout: 180_000}, () => {
       expect(box.left).toBeGreaterThanOrEqual(4);
       expect(box.left + box.width).toBeLessThanOrEqual(146 - 4);
       expect(box.top).toBeGreaterThanOrEqual(40);
-      expect(box.top + box.height).toBeLessThanOrEqual(262 - 4);
+      expect(box.top + box.height).toBeLessThanOrEqual(262 - 24 - 4);
     }
   });
 
@@ -102,7 +103,7 @@ describe('night screen on a narrow screen', {timeout: 180_000}, () => {
     expect(box.width).toBe(138);
     expect(box.left).toBe(4);
     expect(box.top).toBeGreaterThanOrEqual(40 + 4);
-    expect(box.top + box.height).toBeLessThanOrEqual(262 - 4);
+    expect(box.top + box.height).toBeLessThanOrEqual(262 - 24 - 4);
   });
 
   test(
@@ -130,8 +131,8 @@ describe('night screen on a narrow screen', {timeout: 180_000}, () => {
       let {buttons, cursor} = getWindowParts(storyWindow);
 
       expect(revealed).toBeLessThan(storyWindow.dialogue.pageText.length);
-      // A full page: 14 lines, the last ending where the page ends.
-      expect(shown.trimEnd().split('\n')).toHaveLength(14);
+      // A full page: 12 lines, the last ending where the page ends.
+      expect(shown.trimEnd().split('\n')).toHaveLength(12);
       expect(shown.replaceAll('\n', ' ')).toBe(
         stripMarks(storyWindow.dialogue.pageText.slice(0, revealed)),
       );
@@ -167,7 +168,7 @@ describe('night screen on a narrow screen', {timeout: 180_000}, () => {
   );
 
   // It starts where the test before ended, at the end of the first page.
-  test('the description takes more than one page of at most 14 lines', async () => {
+  test('the description takes more than one page of at most 12 lines', async () => {
     let storyWindow = getStoryWindow(harness);
     let whole = storyWindow.dialogue.pageText;
     let pages = await readPages(storyWindow);
@@ -177,7 +178,7 @@ describe('night screen on a narrow screen', {timeout: 180_000}, () => {
     for (let shown of pages) {
       let lines = shown.trimEnd().split('\n');
 
-      expect(lines.length).toBeLessThanOrEqual(14);
+      expect(lines.length).toBeLessThanOrEqual(12);
 
       // The text is 138 wide less 12 of padding on both sides.
       for (let line of lines) {
@@ -200,11 +201,12 @@ describe('night screen on a narrow screen', {timeout: 180_000}, () => {
 
     let storyWindow = getStoryWindow(harness);
 
-    // Finish the text, take "Talk to him", finish its text.
+    // Finish the text, take "Talk to him", and press through its text: the talk
+    // runs to two pages on this width now that the area is one row shorter.
     await press('Enter');
     nightScreen.ui.focus(getWindowButton(storyWindow, 0));
     await press('Enter');
-    await press('Enter');
+    await pressThrough(harness, storyWindow);
 
     let {buttons, panel, textBlock} = getWindowParts(storyWindow);
     let panelBox = getBox(harness, panel);
@@ -239,7 +241,7 @@ describe('night screen on a narrow screen', {timeout: 180_000}, () => {
     expect(second.height).toBe(16);
     expect(doBoxesOverlap(first, second)).toBe(false);
     expect(panelBox.top).toBeGreaterThanOrEqual(40 + 4);
-    expect(panelBox.top + panelBox.height).toBeLessThanOrEqual(262 - 4);
+    expect(panelBox.top + panelBox.height).toBeLessThanOrEqual(262 - 24 - 4);
 
     // "Let him be" has no next node.
     nightScreen.ui.focus(getWindowButton(storyWindow, 1));
@@ -258,8 +260,12 @@ describe('night screen on a narrow screen', {timeout: 180_000}, () => {
     expect(doorNode?.speaker).toBe('The door');
 
     // A real tap takes seconds, and the text may have typed to its end by
-    // itself in that time. Otherwise the tap on the text finishes it.
-    await tap(harness, getBox(harness, getWindowParts(storyWindow).textBlock));
+    // itself in that time. Otherwise the tap on the text finishes it. The
+    // door's text runs to two pages on this width beside its three choices, so
+    // a tap may only finish page one: the taps go on until the choices show.
+    for (let count = 0; count < 4 && storyWindow.dialogue.phase !== 'choosing'; count += 1) {
+      await tap(harness, getBox(harness, getWindowParts(storyWindow).textBlock));
+    }
 
     expect(storyWindow.dialogue.revealedCount).toBe(storyWindow.dialogue.pageText.length);
     expect(getWindowParts(storyWindow).buttons.map(getButtonLabel)).toEqual([

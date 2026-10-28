@@ -78,17 +78,23 @@ export const TOP_ROW_WIDTH =
   MENU_BUTTON_WIDTH +
   MARGIN;
 
+/** The row at the bottom of the screen: a margin, the Phone button and a margin. */
+export const BOTTOM_ROW_HEIGHT = MARGIN + BUTTON_HEIGHT + MARGIN;
+
 export type SceneArea = {
   /** Distance from the top of the screen to the area. */
   top: number;
+
+  /** Distance from the bottom of the screen to the area: the bottom row. */
+  bottom: number;
 
   width: number;
   height: number;
 };
 
-// The scene area is the screen under the top row. The top row is a margin, the
-// buttons and a margin; on a screen narrower than the one-line top row the
-// status line and one more margin follow.
+// The scene area is the screen between the top row and the bottom row. The top
+// row is a margin, the buttons and a margin; on a screen narrower than the
+// one-line top row the status line and one more margin follow.
 export function getSceneArea(screenWidth: number, screenHeight: number): SceneArea {
   let top = MARGIN + BUTTON_HEIGHT + MARGIN;
 
@@ -96,7 +102,12 @@ export function getSceneArea(screenWidth: number, screenHeight: number): SceneAr
     top += LINE_HEIGHT + MARGIN;
   }
 
-  return {top, width: screenWidth, height: screenHeight - top};
+  return {
+    top,
+    bottom: BOTTOM_ROW_HEIGHT,
+    width: screenWidth,
+    height: screenHeight - top - BOTTOM_ROW_HEIGHT,
+  };
 }
 
 /**

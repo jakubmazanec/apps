@@ -73,13 +73,14 @@ const LAMP_PAGE =
   'ticks as it warms. Nobody else looks up at it. Perhaps they all know something about ' +
   'it that you do not.';
 // The thing of the bar's picture that each scene button lies on, in the design
-// of 480 × 270, which stretches to the screen.
+// of 480 × 270, which stretches to the screen. The bottom row covers the lowest
+// 24 of the 270, so no thing lies there.
 const THINGS = new Map<string, Box>([
-  ['A patron', {left: 20, top: 244, width: 98, height: 26}],
+  ['A patron', {left: 20, top: 218, width: 98, height: 26}],
   // The first lamp's light above the counter.
   ['The bartender', {left: 60, top: 110, width: 88, height: 77}],
   ['The door', {left: 418, top: 70, width: 40, height: 106}],
-  ['Two women talking', {left: 300, top: 222, width: 72, height: 48}],
+  ['Two women talking', {left: 300, top: 190, width: 72, height: 48}],
 ]);
 
 function getThing(label: string, width: number, height: number): Box {
@@ -422,7 +423,8 @@ describe('night screen', {timeout: 180_000}, () => {
         expect(box.left + box.width).toBeLessThanOrEqual(480 - 4);
         // The scene area starts 24 from the top.
         expect(box.top).toBeGreaterThanOrEqual(24);
-        expect(box.top + box.height).toBeLessThanOrEqual(270 - 4);
+        // The box ends a margin above the bottom row of 24.
+        expect(box.top + box.height).toBeLessThanOrEqual(270 - 24 - 4);
       }
     });
 
@@ -676,7 +678,7 @@ describe('night screen', {timeout: 180_000}, () => {
 
       expect(storyWindow.dialogue.phase).toBe('idle');
       expect(pageEnd).toBeLessThan(storyWindow.dialogue.pageText.length);
-      expect(storyWindow.text.trimEnd().split('\n')).toHaveLength(16);
+      expect(storyWindow.text.trimEnd().split('\n')).toHaveLength(14);
 
       await tap(harness, getBox(harness, getWindowParts(storyWindow).textBlock));
 
@@ -699,8 +701,8 @@ describe('night screen', {timeout: 180_000}, () => {
 
       let withoutEnd = shown.slice(0, -1);
 
-      // On the page's 16th line, not on a new line after it.
-      expect(withoutEnd.split('\n')).toHaveLength(16);
+      // On the page's 14th line, not on a new line after it.
+      expect(withoutEnd.split('\n')).toHaveLength(14);
 
       expectCursorAfter(storyWindow, withoutEnd);
     });
@@ -1007,17 +1009,17 @@ describe('night screen', {timeout: 180_000}, () => {
       expect(log.slice(logStart)).toMatchObject([{kind: 'choice', text: 'Talk to him'}]);
     });
 
-    test('the long text is shown in pages of at most 16 lines', async () => {
+    test('the long text is shown in pages of at most 14 lines', async () => {
       let storyWindow = await openLongText();
       let whole = storyWindow.dialogue.pageText;
       let pages = await readPages(storyWindow);
 
       expect(pages.length).toBeGreaterThan(1);
       // A node without choices reserves no room under the text.
-      expect(pages[0]?.trimEnd().split('\n')).toHaveLength(16);
+      expect(pages[0]?.trimEnd().split('\n')).toHaveLength(14);
 
       for (let shown of pages) {
-        expect(shown.trimEnd().split('\n').length).toBeLessThanOrEqual(16);
+        expect(shown.trimEnd().split('\n').length).toBeLessThanOrEqual(14);
       }
 
       // Nothing is lost or repeated where one page ends and the next begins.
@@ -1270,7 +1272,7 @@ describe('night screen', {timeout: 180_000}, () => {
         for (let shown of pages) {
           let lines = shown.trimEnd().split('\n');
 
-          expect(lines.length).toBeLessThanOrEqual(16);
+          expect(lines.length).toBeLessThanOrEqual(14);
 
           for (let line of lines) {
             expect(measureText(line)).toBeLessThanOrEqual(268);
@@ -1419,7 +1421,8 @@ describe('night screen', {timeout: 180_000}, () => {
         // The title block of 15 and the gap of 4 under it.
         expect(box.height).toBe(heightWithTitle - 19);
         expect(box.top).toBeGreaterThanOrEqual(24 + 4);
-        expect(box.top + box.height).toBeLessThanOrEqual(270 - 4);
+        // The box ends a margin above the bottom row of 24.
+        expect(box.top + box.height).toBeLessThanOrEqual(270 - 24 - 4);
 
         await press('Enter');
 
