@@ -79,7 +79,7 @@ export default function Index() {
       // the canvas during the first transition rather than after it.
       // showScreen never rejects; a failure lands on the error screen.
       void importedGame.showScreen(jumpIn === null ? mainMenuScreen : nightScreen);
-      // eslint-disable-next-line no-console -- the author reads what the game keeps from the console
+      // eslint-disable-next-line no-console -- the author reads what the game keeps in the console
       console.info(
         `Foam keeps ${nights.past.length} nights and ${textsRead.paths.length} texts read.`,
         textsRead.paths,
