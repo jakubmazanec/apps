@@ -59,7 +59,7 @@ export function loadSavedNight(places: Readonly<Record<string, Place>>): SavedNi
   let saved = savedNightStore.load();
 
   if (saved !== null && !Object.hasOwn(places, saved.place)) {
-    // eslint-disable-next-line no-console -- the running game reports a saved place the content lacks
+    // eslint-disable-next-line no-console -- the running game reports a place the content lacks
     console.warn(`The saved night is in "${saved.place}", which is not a place.`);
 
     return null;
