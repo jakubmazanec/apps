@@ -46,6 +46,15 @@ vitest.mock(import('../source/game/content/pictures/barPicture.js'), async () =>
 });
 
 const SETTINGS_KEY = 'foam:settings';
+const STORED_STORIES = {titles: ["The regulars' bottle", 'The timetable']};
+const STORED_NIGHTS = {
+  past: [
+    {seed: 3, date: 20261025, ending: null, stories: []},
+    {seed: 7, date: 20261026, ending: 'stranded', stories: []},
+    {seed: 202610272, date: 20261027, ending: 'stay', stories: ['The timetable']},
+  ],
+  day: {date: 20200101, started: 5},
+};
 
 type MainMenuScreen = GameScreen<{
   newGameButton: Button;
@@ -152,10 +161,11 @@ describe('main menu', () => {
   let assets: typeof assetsValue;
   let errorScreen: unknown;
   let seed: number;
-  // The spies call through to the real mixer; they only record the calls.
+  // The spies call through to the real mixer and the console; they only record the calls.
   let setVolume: MockInstance<AudioMixer['setVolume']>;
   let playMusic: MockInstance<AudioMixer['playMusic']>;
   let play: MockInstance<AudioMixer['play']>;
+  let info: MockInstance<typeof console.info>;
 
   async function openOptions(): Promise<Modal> {
     mainMenuScreen.ui.focus(mainMenuScreen.contents.optionsButton);
@@ -225,19 +235,22 @@ describe('main menu', () => {
     // The tests start nights, and each night's window writes its seed into the shared start.
     ({seed} = nightStart);
 
-    // Seeded before anything imports settings.ts, which reads storage at
+    // Seeded before anything imports settings.ts, stories.ts and nights.ts, which read storage at
     // module load: the route imports the game modules dynamically, so they
-    // evaluate after this line.
+    // evaluate after these lines.
     localStorage.setItem(
       SETTINGS_KEY,
       JSON.stringify({volumes: {master: 1, music: 0.4, sfx: 1, ui: 1}}),
     );
+    localStorage.setItem('foam:stories', JSON.stringify(STORED_STORIES));
+    localStorage.setItem('foam:nights', JSON.stringify(STORED_NIGHTS));
 
     // Installed before the route's dynamic imports evaluate audio.ts, which
-    // sets the volumes at module load.
+    // sets the volumes at module load, and before the boot prints what the game keeps.
     setVolume = vitest.spyOn(AudioMixer.prototype, 'setVolume');
     playMusic = vitest.spyOn(AudioMixer.prototype, 'playMusic');
     play = vitest.spyOn(AudioMixer.prototype, 'play');
+    info = vitest.spyOn(console, 'info');
 
     container = document.createElement('div');
     document.body.append(container);
@@ -282,6 +295,7 @@ describe('main menu', () => {
     setVolume.mockRestore();
     playMusic.mockRestore();
     play.mockRestore();
+    info.mockRestore();
     root.unmount();
     container.remove();
     localStorage.clear();
@@ -301,6 +315,10 @@ describe('main menu', () => {
     expect(setVolume).toHaveBeenCalledWith('master', 1);
     expect(setVolume).toHaveBeenCalledWith('sfx', 1);
     expect(setVolume).toHaveBeenCalledWith('ui', 1);
+  });
+
+  test('the console names what the game keeps at boot', () => {
+    expect(info).toHaveBeenCalledWith('Foam keeps 3 nights and 0 texts read.', []);
   });
 
   test('the menu music starts once', () => {

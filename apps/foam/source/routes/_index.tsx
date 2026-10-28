@@ -23,6 +23,8 @@ export default function Index() {
         {nightStart},
         {getJumpIn},
         {forgetStories},
+        {nights},
+        {textsRead},
       ] = await Promise.all([
         import('../game/core/game.js'),
         import('../game/screens/errorScreen.js'),
@@ -32,6 +34,8 @@ export default function Index() {
         import('../game/content/nightStart.js'),
         import('../game/core/getJumpIn.js'),
         import('../game/core/stories.js'),
+        import('../game/core/nights.js'),
+        import('../game/core/textsRead.js'),
         // Evaluates the audio bootstrap (decode context and first-gesture
         // unlock) before init() below loads the default bundle's sounds.
         import('../game/core/audio.js'),
@@ -75,6 +79,11 @@ export default function Index() {
       // the canvas during the first transition rather than after it.
       // showScreen never rejects; a failure lands on the error screen.
       void importedGame.showScreen(jumpIn === null ? mainMenuScreen : nightScreen);
+      // eslint-disable-next-line no-console -- the author reads what the game keeps from the console
+      console.info(
+        `Foam keeps ${nights.past.length} nights and ${textsRead.paths.length} texts read.`,
+        textsRead.paths,
+      );
       setGame(importedGame);
     })().catch((error: unknown) => {
       // A failed boot (WebGL context creation, a script or asset that did not

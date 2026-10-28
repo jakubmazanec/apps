@@ -1,5 +1,6 @@
 import {type DialogueNode, type RunnableDialogueScript} from 'tellurion';
 
+import {SEPARATOR} from './contentPath.js';
 import {getExpectedJourneys} from './getExpectedJourneys.js';
 import {getLabelRoom, WORD_ROOM} from './getLabelRoom.js';
 import {getMapPoint} from './getMapPoint.js';
@@ -36,7 +37,6 @@ const CHECK_ROLLS = Array.from({length: 100}, (_, index) => index / 100);
 // three. An unequal split is the author's to meet, as the levels. Versions are met by name through
 // `pick`, which runs a function once under each name of its table.
 const CHECK_RANDOM = [0, 0.2, 0.4, 0.6, 0.8, 0.99];
-const SEPARATOR = ' › ';
 const QUEST_FLAGS = ['hasBottle', 'bottleGiven', 'hasKeys', 'hasTicket'] as const;
 // Every combination of the quest's flags, the one with none first: a text, a start or a next that
 // reads the quest, or an effect that writes it, meets each state it can be in.

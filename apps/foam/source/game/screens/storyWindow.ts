@@ -39,6 +39,7 @@ import {MARK, stripMarks} from '../core/markedText.js';
 import {measureText} from '../core/measureText.js';
 import {type Night} from '../core/night.js';
 import {asChoice, type Choice, formatChoice} from '../core/script.js';
+import {markRead} from '../core/textsRead.js';
 import {UI_FADE_DURATION} from '../core/theme.js';
 import {TextBlock} from './textBlock.js';
 import {createWindowTitle, TITLE_HEIGHT, WINDOW_PADDING} from './windowTitle.js';
@@ -50,6 +51,9 @@ export type StoryWindowOptions = {
   script: RunnableDialogueScript<Night>;
   context: Night;
   area: SceneArea;
+
+  /** What opened the window, as the checker names it: the texts read are keyed under it. */
+  where: string;
 
   /** Called when the window starts to fade out, once its text has ended. */
   onClosing?: () => void;
@@ -130,6 +134,9 @@ export class StoryWindow implements UiOverlayComponent {
   /** Shows that a press turns the page or closes the window. It sits after the last letter. */
   readonly #cursor: pixi.Sprite;
 
+  /** Whether a node is marked read: a node outside the table is the start before, a next after. */
+  #hasMarkedNode = false;
+
   /** Whether an `update` has got past its guard: the window open or opening, and topmost. */
   #hasUpdated = false;
 
@@ -149,6 +156,7 @@ export class StoryWindow implements UiOverlayComponent {
   readonly #pressSurface: pixi.Container = new pixi.Container();
 
   readonly #scheduler: Scheduler;
+  readonly #script: RunnableDialogueScript<Night>;
   #shownNode: DialogueNode<Night, string> | null = null;
   #shownPageIndex = 0;
 
@@ -174,12 +182,16 @@ export class StoryWindow implements UiOverlayComponent {
   /** Whether the runner was idle at the last `update`. */
   #wasIdle = false;
 
+  readonly #where: string;
+
   /** The runner's page, wrapped to the width of the text, marks kept. */
   #wrapped = '';
 
-  constructor({scheduler, script, context, area, onClosing, onClosed}: StoryWindowOptions) {
+  constructor({scheduler, script, context, area, where, onClosing, onClosed}: StoryWindowOptions) {
     this.#scheduler = scheduler;
+    this.#script = script;
     this.#area = area;
+    this.#where = where;
     this.#onClosing = onClosing;
     this.#onClosed = onClosed;
     this.#night = context;
@@ -505,14 +517,29 @@ export class StoryWindow implements UiOverlayComponent {
   // Logs the runner's page when the window first shows it: in the constructor, and in update when
   // the runner has moved to another node or page or entered the same node again. A resize shows
   // the same page again and logs nothing, nor do the window's own pages of it. The page is the
-  // runner's, so a text that is a function is evaluated once, by the runner.
+  // runner's, so a text that is a function is evaluated once, by the runner. A node's first page
+  // marks the node read.
   #logPage(): void {
-    let {node, pageText} = this.dialogue;
+    let {node, pageIndex, pageText} = this.dialogue;
 
     // The runner ended before it showed a node.
     if (node !== null) {
       logText(this.#night, node.speaker, pageText);
+
+      if (pageIndex === 0) {
+        this.#markRead(node);
+      }
     }
+  }
+
+  // Marks the node read under the id the checker names it by: its key in the script's table, found
+  // by identity, since the runner holds the table's own node; else `start` for the window's first
+  // node, a start written as a node, and `next` for an inline next after it.
+  #markRead(node: DialogueNode<Night, string>): void {
+    let entry = Object.entries(this.#script.nodes ?? {}).find(([, value]) => value === node);
+
+    markRead(this.#where, entry?.[0] ?? (this.#hasMarkedNode ? 'next' : 'start'));
+    this.#hasMarkedNode = true;
   }
 
   // Puts the cursor after the last letter shown. A page that another page
