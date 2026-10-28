@@ -1,5 +1,5 @@
 import {formatHourWords, isWithin, type Span} from '../../../core/hours.js';
-import {findStory, getDrunkenness} from '../../../core/night.js';
+import {findStory, getDrunkenness, type Night} from '../../../core/night.js';
 import {type Place} from '../../../core/place.js';
 import {standIn} from '../../../core/prose.js';
 import {defineScript} from '../../../core/script.js';
@@ -27,11 +27,29 @@ const LONG_TABLE = 'The long table';
 const DOOR = 'The door';
 // On music night the guitarist has the corner table from 22:00 to 01:00.
 const GUITARIST: Span = [1320, 1500];
-const GUITARIST_STORY = standIn`The guitarist who plays for one`;
+
+export const GUITARIST_STORY = standIn`The guitarist who plays for one`;
+
 const SEAT_STORY = standIn`A seat at the table`;
 const BEER_STORY = standIn`The spilled beer`;
 const CARDS_STORY = standIn`The hand that paid for a round`;
 const COUPLE_STORY = standIn`The argument in whispers`;
+
+/**
+ * The corner table tonight: the version by the seed, with the guitarist in his hours on music
+ * night.
+ */
+export function getCornerTable(night: Night): 'cards' | 'couple' | 'guitarist' | 'table' {
+  let version = night.pick('cornerTable', {music: 0.5, cards: 0.3, couple: 0.2});
+
+  return (
+    version === 'music' ?
+      isWithin(night, GUITARIST) ? 'guitarist'
+      : 'table'
+    : version
+  );
+}
+
 const description = defineScript({
   start: {
     speaker: PLACE_NAME,
@@ -146,16 +164,7 @@ const backRoom = defineScript({
 });
 const table = defineScript({
   // Cards night and the couple last all night, while music night keeps the guitarist's hours.
-  start: (night) => {
-    let version = night.pick('cornerTable', {music: 0.5, cards: 0.3, couple: 0.2});
-
-    return (
-      version === 'music' ?
-        isWithin(night, GUITARIST) ? 'guitarist'
-        : 'table'
-      : version
-    );
-  },
+  start: getCornerTable,
   nodes: {
     guitarist: {
       speaker: TABLE,

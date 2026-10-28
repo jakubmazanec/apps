@@ -6,9 +6,14 @@ import map from '../source/game/content/data/map.json';
 import travel from '../source/game/content/data/travel.json';
 import {journeys} from '../source/game/content/journeys.js';
 import {locations, places} from '../source/game/content/locations.js';
+import {CROWNS_STORY} from '../source/game/content/locations/hlavniNadrazi/forecourt.js';
+import {FIGHT_STORY} from '../source/game/content/locations/malinovskehoNamesti/stop.js';
+import {THROWN_OUT_STORY} from '../source/game/content/locations/rotorBar/location.js';
+import {GUITARIST_STORY} from '../source/game/content/locations/rotorBar/room.js';
 import {nightEnd} from '../source/game/content/nightEnd.js';
 import {nightStart} from '../source/game/content/nightStart.js';
-import {FRIEND_EVENINGS, PARTY} from '../source/game/content/quest.js';
+import {messages} from '../source/game/content/phone/index.js';
+import {BIRTHDAY_STORY, FRIEND_EVENINGS, PARTY} from '../source/game/content/quest.js';
 import {checkContent} from '../source/game/core/checkContent.js';
 import {
   BUTTON_HEIGHT,
@@ -21,11 +26,13 @@ import {isOpenAt} from '../source/game/core/hours.js';
 import {
   createNight,
   type Ending,
+  findStory,
   getDrunkenness,
   type Night,
   type PlaceId,
   type Quest,
 } from '../source/game/core/night.js';
+import {type Message} from '../source/game/core/phone.js';
 import {type Place, type Spot} from '../source/game/core/place.js';
 import {asChoice, formatChoice} from '../source/game/core/script.js';
 import {todaySeed} from '../source/game/core/todaySeed.js';
@@ -103,6 +110,7 @@ function openSpot(
     drunkenness?: number;
     collection?: Night['collection'];
     quest?: Partial<Quest>;
+    events?: string[];
     pick?: string;
     random?: number;
   } = {},
@@ -124,6 +132,47 @@ function openDescription(
   let night = createPinnedNight(id, minutes, start);
 
   return {dialogue: new Dialogue({script: getPlace(id).description, context: night}), night};
+}
+
+function getMessage(key: string): Message {
+  let message = messages.find((candidate) => candidate.key === key);
+
+  if (message === undefined) {
+    throw new Error(`The phone has no message "${key}"!`);
+  }
+
+  return message;
+}
+
+// A night of its own at the minute, in Rotor's room unless the test names a place.
+function nightAt(
+  minutes: number,
+  {place, ...rest}: Parameters<typeof openSpot>[3] & {place?: PlaceId} = {},
+): Night {
+  return createPinnedNight(place ?? 'rotorBarRoom', minutes, rest);
+}
+
+function arrives(key: string, night: Night): boolean {
+  return getMessage(key).arrives(night);
+}
+
+// A dialogue on the message's script, as the phone opens it, over the night.
+function openMessageOn(key: string, night: Night): {dialogue: Dialogue<Night>; night: Night} {
+  return {dialogue: new Dialogue({script: getMessage(key).script, context: night}), night};
+}
+
+// A dialogue on the message's script, on a night of its own at the minute.
+function openMessage(
+  key: string,
+  minutes: number,
+  options?: Parameters<typeof nightAt>[1],
+): {dialogue: Dialogue<Night>; night: Night} {
+  return openMessageOn(key, nightAt(minutes, options));
+}
+
+// The node a message's script holds under the id.
+function messageNode(key: string, id: string): unknown {
+  return getMessage(key).script.nodes?.[id];
 }
 
 // Takes a choice of the dialogue's first node, with the dice pinned to `random`, so that a roll
@@ -246,7 +295,7 @@ describe('the game content', () => {
         travel,
         map,
         end: nightEnd,
-        messages: [],
+        messages,
       }),
     ).toEqual([]);
   }, 120_000);
@@ -952,7 +1001,253 @@ describe('the game content', () => {
     expect(brick.night.stories).toEqual([]);
   });
 
-  test("the game's content has nineteen stories", () => {
+  test('the messages carry the twelve keys in order, and Jakub sends every one', () => {
+    expect(messages.map(({key}) => key)).toEqual([
+      'hello',
+      'hours',
+      'four',
+      'five',
+      'shop',
+      'sang',
+      'broke',
+      'bet',
+      'betSettled',
+      'wrongNumber',
+      'realOne',
+      'lastCall',
+    ]);
+    expect(new Set(messages.map(({from}) => from))).toEqual(new Set(['Jakub']));
+  });
+
+  test('the hello always arrives, in three versions that answer "Who is this?" by the same pick, and reads the collection', () => {
+    expect(arrives('hello', nightAt(960))).toBe(true);
+    expect(arrives('hello', nightAt(1919, {place: 'train'}))).toBe(true);
+
+    let answers = new Set<string>();
+
+    for (let pick of ['code', 'guide', 'tram']) {
+      let {dialogue} = openMessage('hello', 960, {pick});
+
+      expect(dialogue.node).toBe(messageNode('hello', pick));
+
+      dialogue.advance();
+
+      expect(readChoices(dialogue)).toEqual(['Hi', 'Who is this?', 'Mute']);
+
+      let who = takeChoice(openMessage('hello', 960, {pick}), 1).dialogue;
+
+      expect(who.node).toBe(messageNode('hello', 'who'));
+
+      answers.add(who.pageText);
+    }
+
+    expect(answers.size).toBe(3);
+
+    let muted = takeChoice(openMessage('hello', 960), 2);
+
+    expect(muted.dialogue.phase).toBe('ended');
+    expect(muted.night.money).toBe(350);
+    expect(muted.night.minutes).toBe(960);
+
+    let first = openMessage('hello', 960).dialogue.pageText;
+    let again = openMessage('hello', 960, {collection: {titles: ['A story']}}).dialogue.pageText;
+
+    expect(again.length).toBeGreaterThan(first.length);
+    expect(again).not.toBe(first);
+  });
+
+  test("the hint comes at 17:00 without the keys on a night that sends it, and names the evening's hours", () => {
+    expect(arrives('hours', nightAt(1020))).toBe(true);
+    expect(arrives('hours', nightAt(1019))).toBe(false);
+    expect(arrives('hours', nightAt(1020, {pick: 'silent'}))).toBe(false);
+    expect(arrives('hours', nightAt(1020, {quest: {hasKeys: true}}))).toBe(false);
+
+    // The usual evening: the early visit from 17:00, the late one from 23:00.
+    let text = openMessage('hours', 1300).dialogue.pageText;
+
+    expect(text).toContain('five');
+    expect(text).toContain('eleven');
+    expect(takeChoice(openMessage('hours', 1300), 1).dialogue.node).toBe(
+      messageNode('hours', 'room'),
+    );
+  });
+
+  test('the water comes at four drinks, and a fifth after it was ignored brings a story', () => {
+    expect(arrives('four', nightAt(1200, {drunkenness: 4}))).toBe(true);
+    expect(arrives('four', nightAt(1200, {drunkenness: 3.9}))).toBe(false);
+
+    let {dialogue, night} = openMessage('four', 1200, {drunkenness: 4});
+
+    dialogue.advance();
+
+    expect(formatChoice(asChoice(dialogue.visibleChoices[0]!), night)).toBe('Water  10 min');
+
+    let water = takeChoice(openMessage('four', 1200, {drunkenness: 4}), 0);
+
+    expect(water.night.minutes).toBe(1210);
+    expect(water.dialogue.node).toBe(messageNode('four', 'drank'));
+
+    let another = takeChoice(openMessage('four', 1200, {drunkenness: 4}), 1);
+
+    expect(another.night.events).toEqual(['ignoredWater']);
+    expect(another.night.minutes).toBe(1200);
+    expect(another.dialogue.node).toBe(messageNode('four', 'shrug'));
+    expect(arrives('five', nightAt(1200, {drunkenness: 5, events: ['ignoredWater']}))).toBe(true);
+    expect(arrives('five', nightAt(1200, {drunkenness: 5}))).toBe(false);
+    expect(arrives('five', nightAt(1200, {drunkenness: 4.9, events: ['ignoredWater']}))).toBe(
+      false,
+    );
+    expect(
+      openMessage('five', 1200, {drunkenness: 5, events: ['ignoredWater']}).night.stories,
+    ).toEqual([{title: 'Not carried home', minutes: 1200}]);
+  });
+
+  test('the shop nags at 20:30 without the bottle, and the skip brings the singing at 01:05', () => {
+    expect(arrives('shop', nightAt(1230))).toBe(true);
+    expect(arrives('shop', nightAt(1229))).toBe(false);
+    expect(arrives('shop', nightAt(1230, {quest: {hasBottle: true}}))).toBe(false);
+    expect(arrives('shop', nightAt(1230, {quest: {bottleGiven: true}}))).toBe(false);
+    expect(takeChoice(openMessage('shop', 1230), 1).night.events).toEqual(['skippedBottle']);
+    expect(takeChoice(openMessage('shop', 1230), 0).night.events).toEqual([]);
+    expect(arrives('sang', nightAt(1505, {events: ['skippedBottle']}))).toBe(true);
+    expect(arrives('sang', nightAt(1504, {events: ['skippedBottle']}))).toBe(false);
+    expect(arrives('sang', nightAt(1505))).toBe(false);
+    expect(
+      arrives('sang', nightAt(1505, {events: ['skippedBottle'], quest: {bottleGiven: true}})),
+    ).toBe(false);
+  });
+
+  test('broke comes from 20:00 under 50 Kč with neither keys nor ticket, and "Please" waits half an hour for a hundred', () => {
+    expect(arrives('broke', nightAt(1200, {money: 49}))).toBe(true);
+    expect(arrives('broke', nightAt(1200, {money: 50}))).toBe(false);
+    expect(arrives('broke', nightAt(1199, {money: 49}))).toBe(false);
+    expect(arrives('broke', nightAt(1200, {money: 49, quest: {hasKeys: true}}))).toBe(false);
+    expect(arrives('broke', nightAt(1200, {money: 49, quest: {hasTicket: true}}))).toBe(false);
+
+    let {dialogue, night} = openMessage('broke', 1200, {money: 40});
+
+    expect(dialogue.node).toBe(messageNode('broke', 'pays'));
+
+    dialogue.advance();
+
+    expect(formatChoice(asChoice(dialogue.visibleChoices[0]!), night)).toBe('Please  30 min');
+
+    let please = takeChoice(openMessage('broke', 1200, {money: 40}), 0);
+
+    expect(please.night.money).toBe(140);
+    expect(please.night.minutes).toBe(1230);
+    expect(please.dialogue.node).toBe(messageNode('broke', 'sent'));
+    expect(openMessage('broke', 1200, {money: 40, pick: 'dry'}).dialogue.node).toBe(
+      messageNode('broke', 'dry'),
+    );
+  });
+
+  test('the bet is offered from 20:10, and settled from 22:05 by the corner table', () => {
+    expect(arrives('bet', nightAt(1210))).toBe(true);
+    expect(arrives('bet', nightAt(1209))).toBe(false);
+    expect(takeChoice(openMessage('bet', 1210), 0).night.events).toEqual(['bet']);
+    expect(arrives('betSettled', nightAt(1325, {events: ['bet']}))).toBe(true);
+    expect(arrives('betSettled', nightAt(1324, {events: ['bet']}))).toBe(false);
+    expect(arrives('betSettled', nightAt(1325))).toBe(false);
+
+    // Music night, in the guitarist's hours.
+    let {dialogue, night} = openMessage('betSettled', 1325, {events: ['bet']});
+
+    expect(dialogue.node).toBe(messageNode('betSettled', 'payUp'));
+
+    dialogue.advance();
+
+    expect(formatChoice(asChoice(dialogue.visibleChoices[0]!), night)).toBe('Here  50 Kč');
+
+    let here = takeChoice(openMessage('betSettled', 1325, {events: ['bet']}), 0);
+
+    expect(here.night.money).toBe(300);
+    expect(here.dialogue.node).toBe(messageNode('betSettled', 'paid'));
+
+    let skint = takeChoice(openMessage('betSettled', 1325, {events: ['bet']}), 1);
+
+    expect(skint.night.money).toBe(350);
+    expect(skint.dialogue.node).toBe(messageNode('betSettled', 'skint'));
+
+    let won = openMessage('betSettled', 1325, {events: ['bet'], pick: 'cards'});
+
+    expect(won.dialogue.node).toBe(messageNode('betSettled', 'win'));
+    expect(won.night.money).toBe(400);
+    expect(won.night.stories).toEqual([{title: 'The fifty on the guitar', minutes: 1325}]);
+  });
+
+  test('the wrong number comes from 18:40 on a night that sends it, and the back door is a story', () => {
+    expect(arrives('wrongNumber', nightAt(1120))).toBe(true);
+    expect(arrives('wrongNumber', nightAt(1119))).toBe(false);
+    expect(arrives('wrongNumber', nightAt(1120, {pick: 'none'}))).toBe(false);
+
+    let asked = takeChoice(openMessage('wrongNumber', 1120), 0);
+
+    expect(asked.dialogue.node).toBe(messageNode('wrongNumber', 'backDoor'));
+    expect(asked.night.stories).toEqual([{title: 'The wrong number', minutes: 1120}]);
+    expect(takeChoice(openMessage('wrongNumber', 1120), 1).night.stories).toEqual([]);
+  });
+
+  test('the real one answers the first of five stories found tonight', () => {
+    for (let [title, id] of [
+      [CROWNS_STORY, 'crowns'],
+      [FIGHT_STORY, 'fight'],
+      [GUITARIST_STORY, 'guitarist'],
+      [THROWN_OUT_STORY, 'thrownOut'],
+      [BIRTHDAY_STORY, 'birthday'],
+    ] as const) {
+      let night = nightAt(1400);
+
+      findStory(night, title);
+
+      expect(arrives('realOne', night)).toBe(true);
+      expect(openMessageOn('realOne', night).dialogue.node).toBe(messageNode('realOne', id));
+    }
+
+    let keys = nightAt(1400);
+
+    findStory(keys, 'The keys');
+
+    expect(arrives('realOne', nightAt(1400))).toBe(false);
+    expect(arrives('realOne', keys)).toBe(false);
+
+    let both = nightAt(1400);
+
+    findStory(both, FIGHT_STORY);
+    findStory(both, CROWNS_STORY);
+
+    expect(openMessageOn('realOne', both).dialogue.node).toBe(messageNode('realOne', 'fight'));
+    expect(takeChoice(openMessageOn('realOne', both), 0).dialogue.node).toBe(
+      messageNode('realOne', 'really'),
+    );
+  });
+
+  test("the last call comes from 07:00 away from the station, and reads the ticket's price", () => {
+    expect(arrives('lastCall', nightAt(1860))).toBe(true);
+    expect(arrives('lastCall', nightAt(1859))).toBe(false);
+    expect(arrives('lastCall', nightAt(1860, {place: 'hlavniNadraziHall'}))).toBe(false);
+    expect(arrives('lastCall', nightAt(1860, {place: 'hlavniNadraziForecourt'}))).toBe(false);
+    expect(arrives('lastCall', nightAt(1860, {quest: {hasKeys: true}}))).toBe(false);
+    expect(arrives('lastCall', nightAt(1860, {quest: {hasTicket: true}}))).toBe(false);
+
+    let go = openMessage('lastCall', 1860, {money: 300}).dialogue;
+
+    expect(go.node).toBe(messageNode('lastCall', 'go'));
+
+    go.advance();
+
+    expect(readChoices(go)).toEqual(['Going', 'Let it leave']);
+
+    let stranded = openMessage('lastCall', 1860, {money: 299}).dialogue;
+
+    expect(stranded.node).toBe(messageNode('lastCall', 'stranded'));
+
+    stranded.advance();
+
+    expect(readChoices(stranded)).toEqual(['Thanks']);
+  });
+
+  test("the game's content has twenty-two stories", () => {
     let {closing} = locations.rotorBar;
 
     if (closing === undefined) {
@@ -964,7 +1259,8 @@ describe('the game content', () => {
     // Each dialogue reaches the node of one story: 0.1 wins the spare chair's roll and the
     // shelter's and the back room's search and the hand of cards and the fight and the phone, and
     // 0.95 loses the chair's above 0.9, which spills the beer. The long table hands the bottle
-    // over for the birthday.
+    // over for the birthday. Three messages find theirs: the fifth drink, the bet settled on cards
+    // night and the wrong number's back door.
     let opened = [
       takeChoice(openSpot('rotorBarRoom', 'The corner table', 1390), 0),
       takeChoice(openSpot('rotorBarRoom', 'The corner table', 1200), 0, 0.1),
@@ -985,6 +1281,9 @@ describe('the game content', () => {
       takeChoice(openDescription('hlavniNadraziForecourt', 1400, {pick: 'phone'}), 0, 0.1),
       openSpot('zidenice', 'The bench', 1100),
       {dialogue: new Dialogue({script: closing, context: closed}), night: closed},
+      openMessage('five', 1200, {drunkenness: 5, events: ['ignoredWater']}),
+      openMessage('betSettled', 1325, {events: ['bet'], pick: 'cards'}),
+      takeChoice(openMessage('wrongNumber', 1120), 0),
     ];
 
     expect(new Set(opened.flatMap(({night}) => night.stories.map(({title}) => title)))).toEqual(
@@ -993,8 +1292,10 @@ describe('the game content', () => {
         'A drink at the stop',
         'A seat at the table',
         'A train not on the timetable',
+        'Not carried home',
         'The argument in whispers',
         'The birthday',
+        'The fifty on the guitar',
         'The fight at the stop',
         'The good one',
         'The guitarist who plays for one',
@@ -1006,6 +1307,7 @@ describe('the game content', () => {
         'The station that never moved',
         'The tram that stopped early',
         'The wallet on the bench',
+        'The wrong number',
         'Thrown out at three',
         'Twenty crowns',
       ]),

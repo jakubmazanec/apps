@@ -16,7 +16,9 @@ const DOORS = 'The doors';
 const STRANGER = 'A stranger';
 const STREET = 'The street';
 const SELLER = 'The seller';
-const CROWNS_STORY = standIn`Twenty crowns`;
+
+export const CROWNS_STORY = standIn`Twenty crowns`;
+
 const PHONE_STORY = standIn`The phone from the forecourt`;
 const description = defineScript({
   start: (night) => {
