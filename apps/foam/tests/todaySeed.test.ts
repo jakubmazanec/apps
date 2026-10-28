@@ -1,6 +1,6 @@
 import {afterEach, beforeEach, describe, expect, test, vitest} from 'vitest';
 
-import {todaySeed} from '../source/game/core/todaySeed.js';
+import {formatDate, todaySeed} from '../source/game/core/todaySeed.js';
 
 describe(todaySeed, () => {
   beforeEach(() => {
@@ -31,5 +31,12 @@ describe(todaySeed, () => {
     vitest.setSystemTime(new Date(2026, 9, 26, 0, 0));
 
     expect(todaySeed()).toBe(20261026);
+  });
+});
+
+describe(formatDate, () => {
+  test("writes the day, the month's short name and the year", () => {
+    expect(formatDate(20261027)).toBe('27 Oct 2026');
+    expect(formatDate(20270101)).toBe('1 Jan 2027');
   });
 });
