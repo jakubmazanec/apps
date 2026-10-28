@@ -9,12 +9,28 @@ import {
   hasMet,
   meet,
   type Night,
+  restoreNight,
   roll,
 } from '../source/game/core/night.js';
+import {type SavedNight} from '../source/game/core/save.js';
 
 const START = {seed: 7, place: 'zidenice', minutes: 1020, money: 350} as const;
 const RANGE = {min: 300, max: 500, step: 50};
 const ODDS = {a: 0.5, b: 0.3, c: 0.2};
+const SAVED: SavedNight = {
+  seed: 7,
+  rolls: 1,
+  minutes: 1300,
+  money: 120,
+  place: 'rotorBarRoom',
+  drunkenness: {level: 2, at: 1300},
+  roll: {value: 0.25, odds: 0.5, won: true},
+  log: [{kind: 'text', minutes: 1300, speaker: 'The bar', text: 'A line.'}],
+  stories: [{title: 'A story', minutes: 1300}],
+  quest: {hasBottle: false, bottleGiven: false, hasKeys: true, hasTicket: false},
+  events: ['wallet'],
+  ending: 'stay',
+};
 
 describe('night', () => {
   test("createNight returns the start's values, sober at the start's minutes, before any roll", () => {
@@ -34,6 +50,7 @@ describe('night', () => {
       stories: [],
       quest: {hasBottle: false, bottleGiven: false, hasKeys: false, hasTicket: false},
       events: [],
+      ending: null,
     });
   });
 
@@ -297,6 +314,26 @@ describe('night', () => {
     expect(formatStatus({...createNight(START), minutes: 1440, money: 12})).toBe(
       '00:00   12 Kč   0.0',
     );
+  });
+});
+
+describe(restoreNight, () => {
+  test('rebuilds random and pick from the seed, starts leaving null and keeps every saved field', () => {
+    let collection = {titles: ['A story']};
+    let night = restoreNight(SAVED, collection);
+
+    expect(night).toEqual({
+      ...SAVED,
+      random: expect.any(Function) as unknown,
+      pick: expect.any(Function) as unknown,
+      collection,
+      leaving: null,
+    });
+    expect(night.random('money')).toBe(hash(7, 'money'));
+    expect(night.pick('key', {a: 0.5, b: 0.5})).toBe(
+      createNight({...START, seed: 7}).pick('key', {a: 0.5, b: 0.5}),
+    );
+    expect(night.collection).toBe(collection);
   });
 });
 

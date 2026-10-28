@@ -1,6 +1,7 @@
 import {hash} from './hash.js';
 import {formatTime} from './hours.js';
 import {type LogEntry, logStory} from './log.js';
+import {type SavedNight} from './save.js';
 import {type Collection} from './stories.js';
 
 export type PlaceId =
@@ -35,6 +36,8 @@ export type Quest = {
 };
 
 export type MoneyRange = {min: number; max: number; step: number};
+
+export type Ending = 'leave' | 'stay' | 'stranded';
 
 export type Night = {
   /** The whole number that stands for the night: `random` is a hash of it. */
@@ -96,6 +99,9 @@ export type Night = {
 
   /** The events the player has met tonight, by key. `meet` writes it and `hasMet` reads it. */
   events: string[];
+
+  /** How the night ended: the Morning text's ending node writes it; null until then. */
+  ending: Ending | null;
 };
 
 /** The drinks the body clears in an hour. */
@@ -162,9 +168,18 @@ export function createNight(
     stories: [],
     quest: {hasBottle: false, bottleGiven: false, hasKeys: false, hasTicket: false, ...start.quest},
     events: [...(start.events ?? [])],
+    ending: null,
   };
 
   return night;
+}
+
+/** The night built back from its saved data: `random` and `pick` from the seed, no way out. */
+export function restoreNight(saved: SavedNight, collection: Collection): Night {
+  let {seed, place, minutes, money} = saved;
+
+  // A number for the money draws nothing.
+  return {...createNight({seed, place, minutes, money}, collection), ...saved};
 }
 
 /** The level of drunkenness now: it falls with the clock and stops at 0. */

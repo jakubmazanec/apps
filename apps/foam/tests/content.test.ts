@@ -20,6 +20,7 @@ import {getSpotPosition} from '../source/game/core/getSpotPosition.js';
 import {isOpenAt} from '../source/game/core/hours.js';
 import {
   createNight,
+  type Ending,
   getDrunkenness,
   type Night,
   type PlaceId,
@@ -151,15 +152,33 @@ function offersFlat(id: PlaceId, quest: Partial<Quest>): boolean {
   });
 }
 
-// The end script opened on a night at its final minute, with the quest and the stories given.
-function openEnd(quest: Partial<Quest>, stories = 0): Dialogue<Night> {
+// A night at its final minute, with the quest and the stories given.
+function createEndNight(quest: Partial<Quest>, stories = 0): Night {
   let night = createNight({seed: 1, place: 'hlavniNadraziHall', minutes: 1920, money: 50, quest});
 
   for (let index = 0; index < stories; index++) {
     night.stories.push({title: 'A story', minutes: 1500});
   }
 
+  return night;
+}
+
+function openEndOn(night: Night): Dialogue<Night> {
   return new Dialogue({script: nightEnd, context: night});
+}
+
+// The end script opened on a night at its final minute, with the quest and the stories given.
+function openEnd(quest: Partial<Quest>, stories = 0): Dialogue<Night> {
+  return openEndOn(createEndNight(quest, stories));
+}
+
+// The ending the night holds once the end script has opened on it.
+function endingOf(quest: Partial<Quest>): Ending | null {
+  let night = createEndNight(quest);
+
+  openEndOn(night);
+
+  return night.ending;
 }
 
 function readChoices(dialogue: Dialogue<Night>): string[] {
@@ -259,6 +278,27 @@ describe('the game content', () => {
     again.choose(1);
 
     expect(again.node).toBe(nightEnd.nodes?.stay);
+  });
+
+  test('each ending node writes its name on entry, and both writes none until an answer', () => {
+    let both = {hasKeys: true, hasTicket: true};
+    let leaving = createEndNight(both);
+    let leavingDialogue = openEndOn(leaving);
+    let staying = createEndNight(both);
+    let stayingDialogue = openEndOn(staying);
+
+    expect(endingOf({hasTicket: true})).toBe('leave');
+    expect(endingOf({hasKeys: true})).toBe('stay');
+    expect(endingOf({})).toBe('stranded');
+    expect(leaving.ending).toBeNull();
+
+    leavingDialogue.advance();
+    leavingDialogue.choose(0);
+    stayingDialogue.advance();
+    stayingDialogue.choose(1);
+
+    expect(leaving.ending).toBe('leave');
+    expect(staying.ending).toBe('stay');
   });
 
   test("every ending tells the bottle's fate", () => {
