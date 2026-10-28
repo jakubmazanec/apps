@@ -7,9 +7,12 @@ import {assets} from '../core/assets.js';
 import {audio} from '../core/audio.js';
 import {game} from '../core/game.js';
 import {measureText} from '../core/measureText.js';
+import {countStart} from '../core/nights.js';
 import {palette} from '../core/palette.js';
 import {playFocusSound} from '../core/playFocusSound.js';
-import {loadSavedNight} from '../core/save.js';
+import {clearSavedNight, loadSavedNight} from '../core/save.js';
+import {todaySeed} from '../core/todaySeed.js';
+import {openConfirmModal} from './confirmModal.js';
 import {openNewNightModal} from './newNightModal.js';
 // The mainMenuScreen -> nightScreen -> menuModal -> mainMenuScreen static
 // import cycle is deliberate and safe: no module reads another's binding while
@@ -27,6 +30,7 @@ import {PlacePicture} from './placePicture.js';
 
 type MainMenuScreenContents = {
   title: Text;
+  confirmModal: Modal | null;
   continueButton: Button;
   newGameButton: Button;
   openModal: Modal | null;
@@ -73,6 +77,18 @@ function slotContinue(screen: GameScreen<MainMenuScreenContents>): void {
     screen.ui.removeChild(continueButton);
     newGameButton.view.layout = {marginTop: 16};
   }
+}
+
+// Counted at the start, so a night started and abandoned at once still counts.
+function startNight(seed: number): void {
+  countStart(todaySeed());
+  // The clear makes "Start ends the saved night" literal, and the null keeps a
+  // Continue that failed to show the screen from leaking into a fresh night.
+  clearSavedNight();
+  nightScreen.contents.resuming = null;
+  nightStart.seed = seed;
+  // showScreen never rejects; a failure lands on the error screen.
+  void game.showScreen(nightScreen);
 }
 
 export const mainMenuScreen = new GameScreen<MainMenuScreenContents>({
@@ -125,9 +141,24 @@ export const mainMenuScreen = new GameScreen<MainMenuScreenContents>({
             slotContinue(screen);
           },
           onStart: (seed) => {
-            nightStart.seed = seed;
-            // showScreen never rejects; a failure lands on the error screen.
-            void game.showScreen(nightScreen);
+            if (loadSavedNight(nightStart.places) === null) {
+              startNight(seed);
+            } else {
+              screen.contents.confirmModal = openConfirmModal({
+                ui: screen.ui,
+                scheduler: screen.scheduler,
+                title: 'Night in progress',
+                text: 'Start ends the saved night.',
+                action: 'Start',
+                // The night screen's show destroys both windows through the menu's hide.
+                onAction: () => {
+                  startNight(seed);
+                },
+                onClosed: () => {
+                  screen.contents.confirmModal = null;
+                },
+              });
+            }
           },
         });
       },
@@ -164,6 +195,7 @@ export const mainMenuScreen = new GameScreen<MainMenuScreenContents>({
 
     return {
       title,
+      confirmModal: null,
       continueButton,
       newGameButton,
       openModal: null,
@@ -185,9 +217,12 @@ export const mainMenuScreen = new GameScreen<MainMenuScreenContents>({
     screen.removeFromView(screen.contents.picture);
 
     // Owning-screen teardown rule: synchronous destroy(), never the animated
-    // close(), because the scheduler was already cleared before onHide.
+    // close(), because the scheduler was already cleared before onHide. The
+    // topmost window goes first.
+    screen.contents.confirmModal?.destroy();
     screen.contents.openModal?.destroy();
 
+    screen.contents.confirmModal = null;
     screen.contents.openModal = null;
   },
   onUpdate: (ticker, screen) => {

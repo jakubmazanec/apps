@@ -32,6 +32,7 @@ import {type StoryWindow} from '../source/game/screens/storyWindow.js';
 import {type Toast} from '../source/game/screens/toast.js';
 import {type TravelWindow} from '../source/game/screens/travelWindow.js';
 import Index from '../source/routes/_index.js';
+import {getConfirmParts} from './confirmParts.js';
 import {fixedStart} from './fixedWorld.js';
 import {getNewNightParts} from './newNightParts.js';
 
@@ -152,7 +153,7 @@ export async function setViewport({game}: Harness, width: number, height: number
 
 // Activates New Game on the main menu, then Start in the New night window, and
 // waits for the night screen and its first layout. A seed given goes into the
-// window's field first, so Start takes it in place of the date.
+// window's field first, so Start takes it in place of the day's next seed.
 export async function startNewGame(
   {mainMenuScreen, nightScreen}: Harness,
   seed?: number,
@@ -173,6 +174,14 @@ export async function startNewGame(
   }
 
   start.activate();
+
+  // A saved night asks first, and the test ends it as the player would.
+  let confirm = mainMenuScreen.contents.confirmModal;
+
+  if (confirm !== null) {
+    getConfirmParts(confirm).action.activate();
+  }
+
   await vitest.waitFor(
     () => {
       if (nightScreen.state !== 'shown') {
@@ -239,7 +248,7 @@ export async function restartAt(harness: Harness, place: PlaceId): Promise<void>
  * start names only what it gives, and the game's own seed, minutes, money and place first put back;
  * then Quit to menu and New Game. The New Game window's Start writes the field's seed over
  * nightStart's, so a seed in the query reaches the night through the field, and without one the
- * window's date is the seed. A query that is no jump-in throws.
+ * window's own, the day's next seed, is the seed. A query that is no jump-in throws.
  */
 export async function startFrom(harness: Harness, search: string): Promise<void> {
   let jumpIn = getJumpIn(search, nightStart.places);
