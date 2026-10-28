@@ -5,6 +5,7 @@ import {type barPicture as barPictureValue} from '../source/game/content/picture
 import {type collection as collectionValue} from '../source/game/core/stories.js';
 import {type StoryWindow} from '../source/game/screens/storyWindow.js';
 import {type Toast as ToastClass} from '../source/game/screens/toast.js';
+import {getStoriesParts} from './listParts.js';
 import {
   bootGame,
   closeStory,
@@ -14,7 +15,6 @@ import {
   getBox,
   getButtonLabel,
   getMenuButton,
-  getStoriesParts,
   getStoriesWindow,
   getToastParts,
   getWindowButton,

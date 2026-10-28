@@ -8,12 +8,12 @@ import {
 } from '../source/game/core/night.js';
 import {type logScreen as logScreenValue} from '../source/game/screens/logScreen.js';
 import {FIXED_BAR} from './fixedWorld.js';
+import {getStoriesParts} from './listParts.js';
 import {
   bootGame,
   describeFocus,
   getBox,
   getMenuButton,
-  getStoriesParts,
   getStoriesWindow,
   type Harness,
   nextFrame,

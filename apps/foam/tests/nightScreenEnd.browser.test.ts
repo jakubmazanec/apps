@@ -6,6 +6,7 @@ import {type barPicture as barPictureValue} from '../source/game/content/picture
 import {type logScreen as logScreenValue} from '../source/game/screens/logScreen.js';
 import {type StoryWindow} from '../source/game/screens/storyWindow.js';
 import {FIXED_BAR, FIXED_BAR_LOCATION, FIXED_SQUARE} from './fixedWorld.js';
+import {getStoriesParts} from './listParts.js';
 import {
   bootGame,
   chooseWayOut,
@@ -14,7 +15,6 @@ import {
   endStory,
   getButtonLabel,
   getMenuButton,
-  getStoriesParts,
   getStoriesWindow,
   getStoryWindow,
   getWindowParts,
