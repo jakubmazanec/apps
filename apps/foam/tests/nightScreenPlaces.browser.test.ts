@@ -207,7 +207,7 @@ describe('night screen places', {timeout: 180_000}, () => {
   }
 
   // What hiding the screen leaves: no window, no place, and in the UI only the
-  // status line, Menu and the backdrop. The travel window's modal is kept for
+  // status line, Menu, Phone and the backdrop. The travel window's modal is kept for
   // the next night, whether it closed before or the screen took it off.
   function expectNothingLeft(travelModal: Modal): void {
     let {contents, ui} = harness.nightScreen;
@@ -220,9 +220,10 @@ describe('night screen places', {timeout: 180_000}, () => {
     expect(contents.placeButton).toBeNull();
     expect(contents.picture).toBeNull();
     expect(contents.nextPlace).toBeNull();
-    expect(ui.children).toHaveLength(3);
+    expect(ui.children).toHaveLength(4);
     expect(ui.children).toContain(contents.statusText);
     expect(ui.children).toContain(contents.menuButton);
+    expect(ui.children).toContain(contents.phoneButton);
     expect(ui.children).toContain(contents.backdrop);
   }
 

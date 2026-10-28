@@ -12,6 +12,7 @@ import {
 import {journeys} from '../content/journeys.js';
 import {nightEnd} from '../content/nightEnd.js';
 import {nightStart} from '../content/nightStart.js';
+import {messages} from '../content/phone/index.js';
 import {SEPARATOR} from '../core/contentPath.js';
 import {game} from '../core/game.js';
 import {
@@ -27,6 +28,7 @@ import {type Location, type LocationId} from '../core/location.js';
 import {logChoice} from '../core/log.js';
 import {createNight, formatStatus, type Night, restoreNight} from '../core/night.js';
 import {recordNight} from '../core/nights.js';
+import {getUnreadMessage} from '../core/phone.js';
 import {type Place} from '../core/place.js';
 import {playFocusSound} from '../core/playFocusSound.js';
 import {clearSavedNight, type SavedNight, saveNight} from '../core/save.js';
@@ -58,9 +60,11 @@ import {Toast} from './toast.js';
 import {
   createLabel,
   createMenuButton,
+  createPhoneButton,
   createStatusText,
   getArea,
   getButtonWidth,
+  setPhoneCount,
   setStatus,
 } from './topRow.js';
 import {TravelWindow} from './travelWindow.js';
@@ -110,11 +114,23 @@ type NightScreenContents = {
   night: Night;
   optionsModal: Modal | null;
 
+  /** The Phone button in the bottom row, built once with the screen. */
+  phoneButton: Button;
+
+  /** The count the button shows, as last written. */
+  phoneCount: number;
+
   /** The place being shown and its picture and buttons; `null` and empty while none is. */
   picture: PlacePicture | null;
   place: Place | null;
   placeButton: Button | null;
   spotButtons: Button[];
+
+  /**
+   * The key of the message whose window is open, for the window's end to mark it read; null
+   * otherwise.
+   */
+  reading: string | null;
 
   /**
    * The saved night Continue hands over for the next show, which reads and empties it; null for a
@@ -136,8 +152,11 @@ type NightScreenContents = {
   /** The toast showing, or null. */
   toast: Toast | null;
 
-  /** The titles waiting for their toast, in the order found. */
-  toastQueue: string[];
+  /**
+   * The toasts waiting, in order: a find's "A story" and its title, an arrival's "A message" and
+   * its sender.
+   */
+  toastQueue: Array<{heading: string; title: string}>;
 
   /**
    * Built once, when the screen is attached, and kept: a way out's choice opens it on the night's
@@ -172,13 +191,27 @@ function writeStatus(screen: NightScreen): void {
   setStatus(screen.contents.statusText, status);
 }
 
+// As writeStatus, it runs in every update, so it touches the button only when
+// the count has changed.
+function writePhoneCount(screen: NightScreen): void {
+  let count = screen.contents.night.phone.unread.length;
+
+  if (count === screen.contents.phoneCount) {
+    return;
+  }
+
+  screen.contents.phoneCount = count;
+  setPhoneCount(screen.contents.phoneButton, count);
+}
+
 // Shows the toast at the bottom of the screen, last on the UI root, so it lies
 // above the story window, the backdrop, the travel window and the Menu button.
 // Once it has faded out, the next title in the queue gets its toast in the next
 // update (see handleStories).
-function showToast(screen: NightScreen, title: string): void {
+function showToast(screen: NightScreen, {heading, title}: {heading: string; title: string}): void {
   let toast = new Toast({
     scheduler: screen.scheduler,
+    heading,
     title,
     textWidth: getTextWidth(getArea().width),
     onDone: () => {
@@ -201,7 +234,10 @@ function handleStories(screen: NightScreen): void {
 
   // Compared each frame, as the status string is.
   while (contents.storiesHandled < contents.night.stories.length) {
-    contents.toastQueue.push(contents.night.stories[contents.storiesHandled]!.title);
+    contents.toastQueue.push({
+      heading: 'A story',
+      title: contents.night.stories[contents.storiesHandled]!.title,
+    });
     contents.storiesHandled += 1;
   }
 
@@ -369,6 +405,20 @@ function openStory(
   fadeBackdrop(screen);
 }
 
+// Opens the oldest unread message and notes its key in reading. With none, or
+// with a story window open, it does nothing: openStory would open nothing then
+// either, and reading would name a message no window shows.
+function openPhone(screen: NightScreen): void {
+  let message = getUnreadMessage(screen.contents.night, messages);
+
+  if (message === undefined || screen.contents.storyWindow !== null) {
+    return;
+  }
+
+  screen.contents.reading = message.key;
+  openStory(screen, message.script, `phone${SEPARATOR}${message.key}`);
+}
+
 // Takes the place being shown off the screen. The screen behind is black,
 // which is the game's background colour.
 function leavePlace(screen: NightScreen): void {
@@ -501,13 +551,15 @@ function showPlace(screen: NightScreen, place: Place): void {
   screen.contents.picture = picture;
 
   // Tab follows the UI root's children, and UiRoot only appends, so the status
-  // line and Menu go out and back in after the place button: Tab then keeps
-  // reading order, the place button, Menu and the scene buttons. A new place
-  // starts with nothing focused. The backdrop goes back in last, above the
-  // scene; no window is open, so the windows come after it.
+  // line and Menu go out and back in after the place button, and Phone after the
+  // scene buttons: Tab then keeps reading order, the place button, Menu, the
+  // scene buttons and Phone. A new place starts with nothing focused. The
+  // backdrop goes back in last, above the scene; no window is open, so the
+  // windows come after it.
   screen.ui.removeChild(
     screen.contents.statusText,
     screen.contents.menuButton,
+    screen.contents.phoneButton,
     screen.contents.backdrop,
   );
   screen.ui.addChild(
@@ -515,6 +567,7 @@ function showPlace(screen: NightScreen, place: Place): void {
     screen.contents.statusText,
     screen.contents.menuButton,
     ...spotButtons,
+    screen.contents.phoneButton,
     screen.contents.backdrop,
   );
 
@@ -702,6 +755,9 @@ export const nightScreen = new GameScreen<NightScreenContents>({
     let menuButton = createMenuButton(() => {
       openMenu(screen);
     });
+    let phoneButton = createPhoneButton(() => {
+      openPhone(screen);
+    });
     // The same scrim as a Modal's. It takes no taps: the windows' own layers do.
     let backdrop = new pixi.Graphics();
 
@@ -711,7 +767,7 @@ export const nightScreen = new GameScreen<NightScreenContents>({
     backdrop.layout = {position: 'absolute', left: 0, top: 0, width: '100%', height: '100%'};
 
     // The place's members are built when a place is shown (showPlace).
-    screen.ui.addChild(statusText, menuButton, backdrop);
+    screen.ui.addChild(statusText, menuButton, phoneButton, backdrop);
 
     return {
       backdrop,
@@ -726,10 +782,13 @@ export const nightScreen = new GameScreen<NightScreenContents>({
       nextPlace: null,
       night: createNight(nightStart, collection),
       optionsModal: null,
+      phoneButton,
+      phoneCount: 0,
       picture: null,
       place: null,
       placeButton: null,
       spotButtons: [],
+      reading: null,
       resuming: null,
       status: '',
       statusText,
@@ -758,6 +817,7 @@ export const nightScreen = new GameScreen<NightScreenContents>({
     screen.contents.toast = null;
     screen.contents.toastQueue = [];
     writeStatus(screen);
+    writePhoneCount(screen);
     // The place appears under its description, so it is dimmed from its first
     // frame. Hiding the screen cleared the scheduler and the fade with it.
     screen.contents.backdrop.alpha = game.theme.modal.scrimAlpha;
@@ -836,6 +896,7 @@ export const nightScreen = new GameScreen<NightScreenContents>({
     // The status line follows the night while a window is open: a choice, an
     // onEnter and a journey show on it at once.
     writeStatus(screen);
+    writePhoneCount(screen);
     handleStories(screen);
 
     try {
