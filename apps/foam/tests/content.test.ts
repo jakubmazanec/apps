@@ -238,7 +238,16 @@ describe('the game content', () => {
   // than a dev machine and uneven among themselves: the slowest took it close to 50 seconds.
   test("the game's content has no problem", () => {
     expect(
-      checkContent({locations, places, journeys, locationData, travel, map, end: nightEnd}),
+      checkContent({
+        locations,
+        places,
+        journeys,
+        locationData,
+        travel,
+        map,
+        end: nightEnd,
+        messages: [],
+      }),
     ).toEqual([]);
   }, 120_000);
 

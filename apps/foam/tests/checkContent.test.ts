@@ -14,6 +14,7 @@ import {
   type Night,
   type Way,
 } from '../source/game/core/night.js';
+import {type Message} from '../source/game/core/phone.js';
 import {type Place} from '../source/game/core/place.js';
 import {type Choice, defineScript, type Node} from '../source/game/core/script.js';
 import {type LocationData, type MapData, type Travel} from '../source/game/core/travel.js';
@@ -39,6 +40,13 @@ function throwNoWay(): never {
 
 function findGone(night: Night): void {
   findStory(night, 'Gone');
+}
+
+function message(
+  script: RunnableDialogueScript<Night>,
+  arrives: (night: Night) => boolean = () => true,
+): Message {
+  return {key: 'hello', from: 'Jakub', arrives, script};
 }
 
 function createPlace(id: Place['id'], name: string, outdoors: boolean, shortName?: string): Place {
@@ -133,6 +141,7 @@ const journeys: Record<Way, RunnableDialogueScript<Night>> = {
   taxi: oneNode('You drive.', 'The taxi'),
 };
 const end = oneNode('Morning.', 'Morning');
+const messages: Message[] = [];
 const LONG = 'A supercalifragilistic word.';
 const LONG_LINE =
   'zidenice › description › start: "supercalifragilistic" has 20 characters, and 16 fit';
@@ -146,9 +155,20 @@ function check(
     map?: MapData;
     journeys?: Record<Way, RunnableDialogueScript<Night>>;
     end?: RunnableDialogueScript<Night>;
+    messages?: readonly Message[];
   } = {},
 ): string[] {
-  return checkContent({locations, places, journeys, locationData, travel, map, end, ...changes});
+  return checkContent({
+    locations,
+    places,
+    journeys,
+    locationData,
+    travel,
+    map,
+    end,
+    messages,
+    ...changes,
+  });
 }
 
 function withZidenice(change: Partial<Place>): Record<string, Place> {
@@ -390,6 +410,55 @@ describe(checkContent, {timeout: 60_000}, () => {
     });
 
     expect(lines).toContain('rotorBar › closing › start: no speaker');
+  });
+
+  test("checks a message's script under its key, with no home", () => {
+    expect(check({messages: [message(oneNode(LONG, 'Jakub'))]})).toContain(
+      'phone › hello › start: "supercalifragilistic" has 20 characters, and 16 fit',
+    );
+  });
+
+  test('reports two messages with one key, an empty key and an empty sender', () => {
+    let lines = check({
+      messages: [
+        message(oneNode('Hi.', 'Jakub')),
+        message(oneNode('Hi.', 'Jakub')),
+        {...message(oneNode('Hi.', 'Jakub')), key: 'x', from: ''},
+        {...message(oneNode('Hi.', 'Jakub')), key: ''},
+      ],
+    });
+
+    expect(lines).toContain('phone › hello: two messages share the key');
+    expect(lines).toContain('phone › x: no sender');
+    expect(lines).toContain('phone: a message with an empty key');
+  });
+
+  test('reports a node whose speaker is not the sender under its path, and a node without one as before', () => {
+    let lines = check({
+      messages: [message(defineDialogueScript<Night>()({start: {text: 'Hi.'}}))],
+    });
+
+    expect(check({messages: [message(oneNode('Hi.', 'Someone'))]})).toContain(
+      'phone › hello › start: the speaker "Someone" is not the sender "Jakub"',
+    );
+    expect(lines).toContain('phone › hello › start: no speaker');
+    expect(lines.filter((line) => line.includes('is not the sender'))).toEqual([]);
+  });
+
+  test('reports a condition that throws', () => {
+    expect(check({messages: [message(oneNode('Hi.', 'Jakub'), throwNoWay)]})).toContain(
+      'phone › hello › arrives: throws "No way."',
+    );
+  });
+
+  test('runs a condition that picks under every name of its table, on every check night', () => {
+    let arrives = vitest.fn<(night: Night) => boolean>(
+      (night) => night.pick('sent', {a: 0.5, b: 0.5}) === 'a',
+    );
+    let lines = check({messages: [message(oneNode('Hi.', 'Jakub'), arrives)]});
+
+    expect(arrives).toHaveBeenCalledTimes(2 * 16 * 2 * 5 * 33 * 3);
+    expect(lines.filter((line) => line.startsWith('phone'))).toEqual([]);
   });
 
   test('checks every script at each half hour and both sides of every opening and closing', () => {
