@@ -224,8 +224,8 @@ export class StoryWindow implements UiOverlayComponent {
     tapBlocker.hitArea = {contains: () => true};
 
     // The view covers the screen; position: 'absolute' keeps it out of the flex
-    // flow of the UI root's view. The top padding leaves the top row out, so
-    // the panel is centred in the scene area.
+    // flow of the UI root's view. The paddings leave the top row and the bottom
+    // row out, so the panel is centred between them, in the scene area.
     this.view.layout = {
       position: 'absolute',
       left: 0,
@@ -235,6 +235,7 @@ export class StoryWindow implements UiOverlayComponent {
       justifyContent: 'center',
       alignItems: 'center',
       paddingTop: area.top,
+      paddingBottom: area.bottom,
     };
     this.view.addChild(tapBlocker, this.#panel.view);
     this.#showNode();
@@ -317,7 +318,7 @@ export class StoryWindow implements UiOverlayComponent {
     let previousFocus = ui.focused;
     let focusedIndex = previousFocus instanceof Button ? this.#buttons.indexOf(previousFocus) : -1;
 
-    this.view.layout = {paddingTop: area.top};
+    this.view.layout = {paddingTop: area.top, paddingBottom: area.bottom};
     this.#showNode();
 
     let focusedButton = this.#buttons[focusedIndex];

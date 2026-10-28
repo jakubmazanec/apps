@@ -19,8 +19,8 @@ function clamp(value: number, minimum: number, maximum: number): number {
 
 // Returns the top left corner of a scene button in screen coordinates, in whole
 // pixels. The centre goes to the given fractions of the area, and the button
-// is then moved fully on screen: the margin away from the left, right and
-// bottom edges, and under the top row.
+// is then moved fully on screen: the margin away from the left and right edges
+// and from the bottom row, and under the top row.
 export function getSpotPosition({x, y, width, height, area}: SpotPositionOptions): {
   left: number;
   top: number;

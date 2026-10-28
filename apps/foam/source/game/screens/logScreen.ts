@@ -145,14 +145,16 @@ function layOut(screen: LogScreen): void {
   let {back, next, night, page, pageStarts, panel, statusText} = screen.contents;
   let area = getArea();
 
-  // The panel is centred in the scene area, as the story window is; the status
-  // line and Menu stand out of the flow, in the top row.
+  // The panel is centred in the scene area, between the top row and the bottom
+  // row, as the story window is; the status line and Menu stand out of the
+  // flow, in the top row.
   screen.ui.view.layout = {
     width: '100%',
     height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
     paddingTop: area.top,
+    paddingBottom: area.bottom,
   };
   // Where the night screen puts it with no place shown: at the left of the top
   // row, level with Menu's label, or under the top row on a screen narrower

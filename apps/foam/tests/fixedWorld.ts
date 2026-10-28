@@ -131,7 +131,7 @@ const patron = defineDialogueScript<Night>()({
         'then. He points a finger at the ceiling and waits to see if you will ask.',
       choices: [{text: 'Ask about the ceiling', next: 'ceiling'}, {text: 'Let him be'}],
     },
-    // At 480 × 270 its first page fills the 16 lines of a node without choices,
+    // At 480 × 270 its first page fills the 14 lines of a node without choices,
     // so the window's panel lies under the toast, and takes more than ten
     // seconds to type, so the toast shows while it types.
     ignore: {
@@ -226,7 +226,7 @@ const testBar: Place = {
   picture: PROOF_PICTURE,
   spots: [
     {label: BARTENDER, x: 0.22, y: 0.51, script: bartender},
-    {label: WOMEN, x: 0.7, y: 0.84, script: women},
+    {label: WOMEN, x: 0.75, y: 0.84, script: women},
     {label: PATRON, x: 0.14, y: 0.93, script: patron},
     {label: DOOR, x: 0.91, y: 0.4, script: door},
   ],
