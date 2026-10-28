@@ -9,13 +9,14 @@ import {game} from '../core/game.js';
 import {measureText} from '../core/measureText.js';
 import {palette} from '../core/palette.js';
 import {playFocusSound} from '../core/playFocusSound.js';
+import {loadSavedNight} from '../core/save.js';
 import {openNewNightModal} from './newNightModal.js';
 // The mainMenuScreen -> nightScreen -> menuModal -> mainMenuScreen static
 // import cycle is deliberate and safe: no module reads another's binding while
 // it evaluates, only as the game runs. This screen reads the night screen in
-// the New night window's Start, the night screen calls the menu's functions from its Menu
-// button, its update and its hide, and the menu reads this screen in Quit to
-// menu's click. The directive covers the route through the log screen too,
+// the New night window's Start and Continue's click, the night screen calls the menu's
+// functions from its Menu button, its update and its hide, and the menu reads this screen
+// in Quit to menu's click. The directive covers the route through the log screen too,
 // mainMenuScreen -> nightScreen -> logScreen -> menuModal -> mainMenuScreen:
 // the night screen reads the log screen when the night ends, and the log screen
 // calls the menu's functions from its Menu button, its update and its hide.
@@ -26,6 +27,7 @@ import {PlacePicture} from './placePicture.js';
 
 type MainMenuScreenContents = {
   title: Text;
+  continueButton: Button;
   newGameButton: Button;
   openModal: Modal | null;
   optionsButton: Button;
@@ -47,6 +49,30 @@ function resizePicture(screen: GameScreen<MainMenuScreenContents>): void {
     game.app.screen.width / game.pixelScale,
     game.app.screen.height / game.pixelScale,
   );
+}
+
+// Continue stands above New Game while there is a saved night. It is checked on
+// show, as the menu lives across shows and the night saves while the menu is
+// hidden, and when a window over the menu closes, since Reset can take the save
+// away while the menu is shown. On show nothing is focused, and on a window's
+// close only a removal can happen, with the focus back on the button that opened
+// the window, so no focused button is ever taken out.
+function slotContinue(screen: GameScreen<MainMenuScreenContents>): void {
+  let {continueButton, newGameButton, optionsButton} = screen.contents;
+  let hasSave = loadSavedNight(nightStart.places) !== null;
+  let isContinueShown = screen.ui.children.includes(continueButton);
+
+  if (hasSave && !isContinueShown) {
+    // UiRoot.addChild only appends, so New Game and Options go out and back in
+    // to slot Continue between the title and New Game.
+    screen.ui.removeChild(newGameButton, optionsButton);
+    screen.ui.addChild(continueButton, newGameButton, optionsButton);
+    newGameButton.view.layout = {marginTop: 6};
+  } else if (!hasSave && isContinueShown) {
+    // Dropping it from the root also drops it from the focus order.
+    screen.ui.removeChild(continueButton);
+    newGameButton.view.layout = {marginTop: 16};
+  }
 }
 
 export const mainMenuScreen = new GameScreen<MainMenuScreenContents>({
@@ -73,6 +99,19 @@ export const mainMenuScreen = new GameScreen<MainMenuScreenContents>({
       label: {...game.theme.text.label, fontSize: 48},
       layout: {width: 96, height: 48},
     });
+    // Not added here: slotContinue puts it above New Game while there is a saved night.
+    let continueButton = new Button({
+      theme: game.theme,
+      children: [labelText('Continue')],
+      layout: {width: 96, marginTop: 16},
+      onClick: () => {
+        // The save is read once more and handed to the night screen for its
+        // show, as the night screen hands the night to the log screen.
+        nightScreen.contents.resuming = loadSavedNight(nightStart.places);
+        // showScreen never rejects; a failure lands on the error screen.
+        void game.showScreen(nightScreen);
+      },
+    });
     let newGameButton = new Button({
       theme: game.theme,
       children: [labelText('New Game')],
@@ -83,6 +122,7 @@ export const mainMenuScreen = new GameScreen<MainMenuScreenContents>({
           scheduler: screen.scheduler,
           onClosed: () => {
             screen.contents.openModal = null;
+            slotContinue(screen);
           },
           onStart: (seed) => {
             nightStart.seed = seed;
@@ -102,6 +142,7 @@ export const mainMenuScreen = new GameScreen<MainMenuScreenContents>({
           scheduler: screen.scheduler,
           onClosed: () => {
             screen.contents.openModal = null;
+            slotContinue(screen);
           },
         });
       },
@@ -123,6 +164,7 @@ export const mainMenuScreen = new GameScreen<MainMenuScreenContents>({
 
     return {
       title,
+      continueButton,
       newGameButton,
       openModal: null,
       optionsButton,
@@ -133,6 +175,7 @@ export const mainMenuScreen = new GameScreen<MainMenuScreenContents>({
   onShow: (screen) => {
     screen.addToView(screen.contents.picture);
     resizePicture(screen);
+    slotContinue(screen);
 
     // Music is driven by direct mixer calls from the screen. playMusic
     // replaces the current track.

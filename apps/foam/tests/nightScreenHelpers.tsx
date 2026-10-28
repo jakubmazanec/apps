@@ -184,6 +184,22 @@ export async function startNewGame(
   await nextFrame();
 }
 
+// Activates Continue on the main menu and waits for the night screen and its
+// first layout.
+export async function continueNight({mainMenuScreen, nightScreen}: Harness): Promise<void> {
+  mainMenuScreen.ui.focus(mainMenuScreen.contents.continueButton);
+  await press('Enter');
+  await vitest.waitFor(
+    () => {
+      if (nightScreen.state !== 'shown') {
+        throw new Error(`The night screen is ${nightScreen.state}, not shown.`);
+      }
+    },
+    {timeout: 10_000},
+  );
+  await nextFrame();
+}
+
 // Puts the fixed world into nightStart, with the given values over its own,
 // and returns the function that puts the game's own values back. The next
 // New Game starts the night from them.

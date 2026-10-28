@@ -18,8 +18,8 @@ import {UI_FADE_DURATION} from '../core/theme.js';
 // The menuModal -> mainMenuScreen -> nightScreen -> menuModal static import
 // cycle is deliberate and safe: no module reads another's binding while it
 // evaluates, only as the game runs. This module reads the main menu in Quit to
-// menu's click, the main menu reads the night screen in the New night window's Start, and
-// the night screen calls this module's functions from its Menu button, its
+// menu's click, the main menu reads the night screen in the New night window's Start and
+// Continue's click, and the night screen calls this module's functions from its Menu button, its
 // update and its hide. The directive covers the route through the log screen
 // too, menuModal -> mainMenuScreen -> nightScreen -> logScreen -> menuModal:
 // the night screen reads the log screen when the night ends, and the log screen

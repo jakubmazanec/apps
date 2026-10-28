@@ -25,11 +25,11 @@ import {getSpotPosition} from '../core/getSpotPosition.js';
 import {isNightOver, isOpenAt} from '../core/hours.js';
 import {type Location, type LocationId} from '../core/location.js';
 import {logChoice} from '../core/log.js';
-import {createNight, formatStatus, type Night} from '../core/night.js';
+import {createNight, formatStatus, type Night, restoreNight} from '../core/night.js';
 import {recordNight} from '../core/nights.js';
 import {type Place} from '../core/place.js';
 import {playFocusSound} from '../core/playFocusSound.js';
-import {clearSavedNight, saveNight} from '../core/save.js';
+import {clearSavedNight, type SavedNight, saveNight} from '../core/save.js';
 import {collection, reloadCollection, saveCollection} from '../core/stories.js';
 import {UI_FADE_DURATION} from '../core/theme.js';
 import {todaySeed} from '../core/todaySeed.js';
@@ -40,14 +40,14 @@ import {errorScreen} from './errorScreen.js';
 // while it evaluates, only as the game runs. This screen reads the log screen
 // when the night ends, the log screen calls the menu's functions from its Menu
 // button, its update and its hide, the menu reads the main menu in Quit to
-// menu's click, and the main menu reads this screen in New Game's click.
+// menu's click, and the main menu reads this screen in New Game's and Continue's clicks.
 // eslint-disable-next-line import/no-cycle -- see comment above: the cycle only resolves as the game runs, long after the modules evaluate
 import {logScreen} from './logScreen.js';
 // The nightScreen -> menuModal -> mainMenuScreen -> nightScreen static import
 // cycle is deliberate and safe: no module reads another's binding while it
 // evaluates, only as the game runs. This screen calls the menu's functions from
 // its Menu button, its update and its hide, the menu reads the main menu in
-// Quit to menu's click, and the main menu reads this screen in New Game's click.
+// Quit to menu's click, and the main menu reads this screen in New Game's and Continue's clicks.
 // import/no-cycle reports it at the log screen's import above: the rule walks
 // each module once per file, and it reached the menu through the log screen.
 import {destroyMenus, openMenu, openMenuOnCancel} from './menuModal.js';
@@ -115,6 +115,12 @@ type NightScreenContents = {
   place: Place | null;
   placeButton: Button | null;
   spotButtons: Button[];
+
+  /**
+   * The saved night Continue hands over for the next show, which reads and empties it; null for a
+   * fresh night.
+   */
+  resuming: SavedNight | null;
 
   /** The status line's text, as last written. */
   status: string;
@@ -666,9 +672,9 @@ function actOnNight(screen: NightScreen): void {
   if (nextPlace !== undefined) {
     showPlace(screen, nextPlace);
   } else if (place === null) {
-    // Only a journey leaves no place shown, and it ends in a place of
-    // nightStart. The error screen shows the impossible rather than a black
-    // screen with no way on.
+    // Only a journey or a resume leaves no place shown, and both lead to a
+    // place of nightStart, the saved one checked by its loader. The error screen
+    // shows the impossible rather than a black screen with no way on.
     throw new Error(`The journey ended in "${night.place}", which is not a place!`);
   } else {
     // eslint-disable-next-line no-console -- the running game reports a script's unknown place
@@ -723,6 +729,7 @@ export const nightScreen = new GameScreen<NightScreenContents>({
       place: null,
       placeButton: null,
       spotButtons: [],
+      resuming: null,
       status: '',
       statusText,
       storiesHandled: 0,
@@ -735,13 +742,17 @@ export const nightScreen = new GameScreen<NightScreenContents>({
   },
   // A place nightStart lacks is an error, which the error screen shows.
   onShow: (screen) => {
-    let night = createNight(nightStart, collection);
+    let saved = screen.contents.resuming;
+    let night =
+      saved === null ? createNight(nightStart, collection) : restoreNight(saved, collection);
 
+    screen.contents.resuming = null;
     screen.contents.night = night;
     screen.contents.hasEnded = false;
     screen.contents.hasStoryClosed = false;
     screen.contents.lastTopOverlay = null;
-    screen.contents.storiesHandled = 0;
+    // A resumed night queues no toast for its finds.
+    screen.contents.storiesHandled = night.stories.length;
     // None is showing: hiding the screen destroyed it.
     screen.contents.toast = null;
     screen.contents.toastQueue = [];
@@ -752,6 +763,25 @@ export const nightScreen = new GameScreen<NightScreenContents>({
     screen.contents.backdropAlpha = game.theme.modal.scrimAlpha;
     screen.contents.cancelBackdropFade = null;
     screen.contents.isPlaceChanging = false;
+
+    if (saved !== null) {
+      // With no place shown, actOnNight does the right thing for every state a
+      // save can hold. A night that is over opens the end text over black: its
+      // Morning lines were never saved, so the log doubles nothing, and when it
+      // ends the night is recorded and the save cleared. A place a script
+      // changed, or a journey's destination, is the saved place, and showPlace
+      // opens it under its description; a journey's own text is not shown again
+      // and was never logged, as the pick was logged and paid. With nothing
+      // pending, the saved place opens under its description, logged once more
+      // at the saved minute. A location closed on the player shows the room
+      // under its description, then its closing when the description closes, as
+      // live. The call is direct rather than through hasStoryClosed, so the
+      // first frame is not black and the flag keeps the meaning its comment
+      // gives it.
+      actOnNight(screen);
+
+      return;
+    }
 
     let place = nightStart.places[night.place];
 

@@ -55,8 +55,23 @@ const STORED_NIGHTS = {
   ],
   day: {date: 20200101, started: 5},
 };
+const STORED_NIGHT = {
+  seed: 7,
+  rolls: 0,
+  minutes: 1000,
+  money: 420,
+  place: 'train',
+  drunkenness: {level: 0, at: 1000},
+  roll: null,
+  log: [],
+  stories: [],
+  quest: {hasBottle: false, bottleGiven: false, hasKeys: false, hasTicket: false},
+  events: [],
+  ending: null,
+};
 
 type MainMenuScreen = GameScreen<{
+  continueButton: Button;
   newGameButton: Button;
   openModal: Modal | null;
   optionsButton: Button;
@@ -742,5 +757,55 @@ describe('main menu', () => {
 
     expect(nightScreen.contents.night.seed).toBe(20261026);
     expect(readText(nightScreen.contents.statusText)).toBe('16:00   500 Kč   0.0');
+  });
+
+  test('Continue is not on the menu without a stored night', async () => {
+    await game.showScreen(mainMenuScreen);
+
+    expect(mainMenuScreen.ui.children).not.toContain(mainMenuScreen.contents.continueButton);
+  });
+
+  test('Continue comes in above New Game when a window over the menu closes on a stored night', async () => {
+    localStorage.setItem('foam:night', JSON.stringify(STORED_NIGHT));
+    await openOptions();
+    await closeWithEscape();
+    await nextFrame();
+
+    let {continueButton, newGameButton, title} = mainMenuScreen.contents;
+    let {children} = mainMenuScreen.ui;
+    let scale = game.pixelScale;
+
+    expect(children.indexOf(continueButton)).toBe(children.indexOf(newGameButton) - 1);
+    expect(children.indexOf(continueButton)).toBeGreaterThan(0);
+    expect(continueButton.view.layout?.computedLayout.width).toBe(96);
+
+    let titleBounds = title.view.getBounds();
+    let continueBounds = continueButton.view.getBounds();
+    let newGameBounds = newGameButton.view.getBounds();
+
+    expect(continueBounds.y / scale - titleBounds.maxY / scale).toBeCloseTo(24);
+    expect(newGameBounds.y / scale - continueBounds.maxY / scale).toBeCloseTo(6);
+  });
+
+  test('Continue opens the saved place with its status line, and stands until the night is saved again', async () => {
+    let {nightScreen} = await import('../source/game/screens/nightScreen.js');
+    let {continueButton} = mainMenuScreen.contents;
+
+    mainMenuScreen.ui.focus(continueButton);
+    await press('Enter');
+    await vitest.waitFor(
+      () => {
+        expect(nightScreen.state).toBe('shown');
+      },
+      {timeout: 10_000},
+    );
+
+    expect(nightScreen.contents.place?.id).toBe('train');
+    expect(readText(nightScreen.contents.statusText)).toBe('16:40   420 Kč   0.0');
+    expect(nightScreen.contents.night.seed).toBe(7);
+
+    await game.showScreen(mainMenuScreen);
+
+    expect(mainMenuScreen.ui.children.filter((child) => child === continueButton)).toHaveLength(1);
   });
 });
