@@ -65,8 +65,10 @@ function resizePicture(screen: GameScreen<MainMenuScreenContents>): void {
 // show, as the menu lives across shows and the night saves while the menu is
 // hidden, and when a window over the menu closes, since Reset can take the save
 // away while the menu is shown. On show nothing is focused, and on a window's
-// close only a removal can happen, with the focus back on the button that opened
-// the window, so no focused button is ever taken out.
+// close a removal takes out only Continue, with the focus back on the button
+// that opened the window. A save can appear while the menu is shown only from
+// another tab (or a test seeding the store), and then Continue comes in and the
+// restored focus lands on nothing.
 function slotContinue(screen: GameScreen<MainMenuScreenContents>): void {
   let {collectionButton, continueButton, newGameButton, optionsButton} = screen.contents;
   let hasSave = loadSavedNight(nightStart.places) !== null;

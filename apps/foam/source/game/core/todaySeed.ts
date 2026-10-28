@@ -9,9 +9,5 @@ const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', '
 
 /** The date number as the Collection window writes it: 27 Oct 2026 for 20261027. */
 export function formatDate(date: number): string {
-  let year = Math.floor(date / 10000);
-  let month = Math.floor(date / 100) % 100;
-  let day = date % 100;
-
-  return `${day} ${MONTHS[month - 1]} ${year}`;
+  return `${date % 100} ${MONTHS[(Math.floor(date / 100) % 100) - 1]} ${Math.floor(date / 10000)}`;
 }

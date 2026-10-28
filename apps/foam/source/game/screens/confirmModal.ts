@@ -102,8 +102,6 @@ export function openConfirmModal({
   // can still arrive during the fade: Escape and then Enter must not act over
   // a closing window. Close needs no check, as close() does nothing on a
   // closing modal.
-  let isClosing = () => modal.state === 'closing' || modal.state === 'closed';
-
   panel.addChild(
     new Container({
       children: [
@@ -112,7 +110,7 @@ export function openConfirmModal({
           children: [createLabel(action)],
           layout: {width: BUTTON_WIDTH},
           onClick: () => {
-            if (!isClosing()) {
+            if (modal.state !== 'closing' && modal.state !== 'closed') {
               onAction();
             }
           },

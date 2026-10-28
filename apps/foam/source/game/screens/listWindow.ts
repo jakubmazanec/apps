@@ -142,7 +142,9 @@ export class ListWindow {
     ui.addOverlay(this.modal);
   }
 
-  /** Runs the formatter again and lays the window out anew, keeping the page as a resize does. */
+  /**
+   * Runs the formatter again and lays the window out anew, showing the page the offset falls on.
+   */
   refresh(): void {
     this.#rebuild();
   }
