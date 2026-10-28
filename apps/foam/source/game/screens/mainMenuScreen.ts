@@ -7,12 +7,16 @@ import {assets} from '../core/assets.js';
 import {audio} from '../core/audio.js';
 import {game} from '../core/game.js';
 import {measureText} from '../core/measureText.js';
-import {countStart} from '../core/nights.js';
+import {countStart, forgetNights} from '../core/nights.js';
 import {palette} from '../core/palette.js';
 import {playFocusSound} from '../core/playFocusSound.js';
 import {clearSavedNight, loadSavedNight} from '../core/save.js';
+import {forgetStories} from '../core/stories.js';
+import {forgetTextsRead} from '../core/textsRead.js';
 import {todaySeed} from '../core/todaySeed.js';
+import {openCollectionWindow} from './collectionWindow.js';
 import {openConfirmModal} from './confirmModal.js';
+import {type ListWindow} from './listWindow.js';
 import {openNewNightModal} from './newNightModal.js';
 // The mainMenuScreen -> nightScreen -> menuModal -> mainMenuScreen static
 // import cycle is deliberate and safe: no module reads another's binding while
@@ -30,6 +34,8 @@ import {PlacePicture} from './placePicture.js';
 
 type MainMenuScreenContents = {
   title: Text;
+  collectionButton: Button;
+  collectionWindow: ListWindow | null;
   confirmModal: Modal | null;
   continueButton: Button;
   newGameButton: Button;
@@ -62,15 +68,15 @@ function resizePicture(screen: GameScreen<MainMenuScreenContents>): void {
 // close only a removal can happen, with the focus back on the button that opened
 // the window, so no focused button is ever taken out.
 function slotContinue(screen: GameScreen<MainMenuScreenContents>): void {
-  let {continueButton, newGameButton, optionsButton} = screen.contents;
+  let {collectionButton, continueButton, newGameButton, optionsButton} = screen.contents;
   let hasSave = loadSavedNight(nightStart.places) !== null;
   let isContinueShown = screen.ui.children.includes(continueButton);
 
   if (hasSave && !isContinueShown) {
-    // UiRoot.addChild only appends, so New Game and Options go out and back in
-    // to slot Continue between the title and New Game.
-    screen.ui.removeChild(newGameButton, optionsButton);
-    screen.ui.addChild(continueButton, newGameButton, optionsButton);
+    // UiRoot.addChild only appends, so New Game, Collection and Options go out
+    // and back in to slot Continue between the title and New Game.
+    screen.ui.removeChild(newGameButton, collectionButton, optionsButton);
+    screen.ui.addChild(continueButton, newGameButton, collectionButton, optionsButton);
     newGameButton.view.layout = {marginTop: 6};
   } else if (!hasSave && isContinueShown) {
     // Dropping it from the root also drops it from the focus order.
@@ -163,6 +169,42 @@ export const mainMenuScreen = new GameScreen<MainMenuScreenContents>({
         });
       },
     });
+    let collectionButton = new Button({
+      theme: game.theme,
+      children: [labelText('Collection')],
+      layout: {width: 96, marginTop: 6},
+      onClick: () => {
+        screen.contents.collectionWindow = openCollectionWindow({
+          ui: screen.ui,
+          scheduler: screen.scheduler,
+          onReset: () => {
+            screen.contents.confirmModal = openConfirmModal({
+              ui: screen.ui,
+              scheduler: screen.scheduler,
+              title: 'Reset',
+              text: 'Everything the game kept goes: the stories, the nights, the texts read and the saved night.',
+              action: 'Reset',
+              // Continue leaves the menu when the Collection window closes.
+              onAction: () => {
+                forgetStories();
+                forgetNights();
+                forgetTextsRead();
+                clearSavedNight();
+                screen.contents.collectionWindow?.refresh();
+                screen.contents.confirmModal?.close();
+              },
+              onClosed: () => {
+                screen.contents.confirmModal = null;
+              },
+            });
+          },
+          onClosed: () => {
+            screen.contents.collectionWindow = null;
+            slotContinue(screen);
+          },
+        });
+      },
+    });
     let optionsButton = new Button({
       theme: game.theme,
       children: [labelText('Options')],
@@ -191,10 +233,12 @@ export const mainMenuScreen = new GameScreen<MainMenuScreenContents>({
     });
 
     // The main menu has no window: the title and the buttons stand on the picture.
-    screen.ui.addChild(titleBlock, newGameButton, optionsButton);
+    screen.ui.addChild(titleBlock, newGameButton, collectionButton, optionsButton);
 
     return {
       title,
+      collectionButton,
+      collectionWindow: null,
       confirmModal: null,
       continueButton,
       newGameButton,
@@ -220,16 +264,19 @@ export const mainMenuScreen = new GameScreen<MainMenuScreenContents>({
     // close(), because the scheduler was already cleared before onHide. The
     // topmost window goes first.
     screen.contents.confirmModal?.destroy();
+    screen.contents.collectionWindow?.modal.destroy();
     screen.contents.openModal?.destroy();
 
     screen.contents.confirmModal = null;
+    screen.contents.collectionWindow = null;
     screen.contents.openModal = null;
   },
   onUpdate: (ticker, screen) => {
-    // The Options and New night windows are overlays.
+    // The Options, New night and Collection windows and the confirmations are overlays.
     screen.contents.picture.speed = screen.ui.topOverlay === null ? 1 : 0.5;
   },
   onResize: (screen) => {
     resizePicture(screen);
+    screen.contents.collectionWindow?.resize();
   },
 });

@@ -29,10 +29,13 @@ import {nightStart} from '../source/game/content/nightStart.js';
 import {type barPicture as barPictureValue} from '../source/game/content/pictures/barPicture.js';
 import {type assets as assetsValue} from '../source/game/core/assets.js';
 import {hash} from '../source/game/core/hash.js';
+import {type nights as nightsValue} from '../source/game/core/nights.js';
+import {type collection as collectionValue} from '../source/game/core/stories.js';
 import {todaySeed} from '../source/game/core/todaySeed.js';
 import {type PlacePicture} from '../source/game/screens/placePicture.js';
 import Index from '../source/routes/_index.js';
 import {getConfirmParts} from './confirmParts.js';
+import {getStoriesParts, readLeaves} from './listParts.js';
 import {getNewNightParts} from './newNightParts.js';
 
 // Headless Chromium draws the bar in software, at about 90 ms a frame, which
@@ -72,6 +75,8 @@ const STORED_NIGHT = {
 };
 
 type MainMenuScreen = GameScreen<{
+  collectionButton: Button;
+  collectionWindow: {modal: Modal; refresh: () => void} | null;
   confirmModal: Modal | null;
   continueButton: Button;
   newGameButton: Button;
@@ -125,13 +130,7 @@ function describeFocus(target: Focusable | null): string {
   }
 
   if (target instanceof Button) {
-    let [label] = target.children;
-
-    if (!(label instanceof Text)) {
-      throw new TypeError('The button has no label!');
-    }
-
-    return readText(label);
+    return getLabel(target);
   }
 
   if (target instanceof Slider) {
@@ -139,6 +138,16 @@ function describeFocus(target: Focusable | null): string {
   }
 
   return target.constructor.name;
+}
+
+function getLabel(button: Button): string {
+  let [label] = button.children;
+
+  if (!(label instanceof Text)) {
+    throw new TypeError('The button has no label!');
+  }
+
+  return readText(label);
 }
 
 // The window is a Modal holding one Panel: the title block, four rows (a Container
@@ -175,6 +184,8 @@ describe('main menu', () => {
   let game: Game;
   let mainMenuScreen: MainMenuScreen;
   let settings: Settings;
+  let collection: typeof collectionValue;
+  let nights: typeof nightsValue;
   let assets: typeof assetsValue;
   let errorScreen: unknown;
   let seed: number;
@@ -229,6 +240,19 @@ describe('main menu', () => {
     element.dispatchEvent(new Event('input'));
   }
 
+  async function openCollection(): Promise<{modal: Modal; refresh: () => void}> {
+    mainMenuScreen.ui.focus(mainMenuScreen.contents.collectionButton);
+    await press('Enter');
+
+    let window = mainMenuScreen.contents.collectionWindow;
+
+    if (window === null) {
+      throw new Error('The Collection window did not open!');
+    }
+
+    return window;
+  }
+
   // The window closes after a 100 ms fade, so closing is awaited.
   async function waitForClosed(): Promise<void> {
     await vitest.waitFor(
@@ -249,6 +273,16 @@ describe('main menu', () => {
     await vitest.waitFor(
       () => {
         expect(mainMenuScreen.contents.confirmModal).toBeNull();
+      },
+      {timeout: 5000},
+    );
+  }
+
+  // The Collection window fades as the others do.
+  async function waitForNoCollectionWindow(): Promise<void> {
+    await vitest.waitFor(
+      () => {
+        expect(mainMenuScreen.contents.collectionWindow).toBeNull();
       },
       {timeout: 5000},
     );
@@ -291,6 +325,8 @@ describe('main menu', () => {
     ({game} = await import('../source/game/core/game.js'));
     ({mainMenuScreen} = await import('../source/game/screens/mainMenuScreen.js'));
     ({settings} = await import('../source/game/core/settings.js'));
+    ({collection} = await import('../source/game/core/stories.js'));
+    ({nights} = await import('../source/game/core/nights.js'));
     ({assets} = await import('../source/game/core/assets.js'));
     ({errorScreen} = await import('../source/game/screens/errorScreen.js'));
 
@@ -309,12 +345,14 @@ describe('main menu', () => {
   }, 30_000);
 
   // A failed test must not leave the window open for the next one.
-  // The confirmation is the topmost, so it goes first.
+  // The confirmation is the topmost, so it goes first, and the Collection window next.
   afterEach(() => {
     mainMenuScreen.contents.confirmModal?.destroy();
+    mainMenuScreen.contents.collectionWindow?.modal.destroy();
     mainMenuScreen.contents.openModal?.destroy();
 
     mainMenuScreen.contents.confirmModal = null;
+    mainMenuScreen.contents.collectionWindow = null;
     mainMenuScreen.contents.openModal = null;
   });
 
@@ -357,7 +395,7 @@ describe('main menu', () => {
     expect(mainMenuScreen.contents.newGameButton.isDisabled).toBe(false);
   });
 
-  test('the first focus command lands on New Game, and the next on Options', async () => {
+  test('the first focus command lands on New Game, the next on Collection and the third on Options', async () => {
     mainMenuScreen.ui.clearFocus();
 
     let clicks = (): number =>
@@ -375,8 +413,13 @@ describe('main menu', () => {
 
     await press('Tab');
 
-    expect(describeFocus(mainMenuScreen.ui.focused)).toBe('Options');
+    expect(describeFocus(mainMenuScreen.ui.focused)).toBe('Collection');
     expect(clicks()).toBe(2);
+
+    await press('Tab');
+
+    expect(describeFocus(mainMenuScreen.ui.focused)).toBe('Options');
+    expect(clicks()).toBe(3);
   });
 
   test('activating Options opens the window', async () => {
@@ -454,23 +497,27 @@ describe('main menu', () => {
     expect(mainMenuScreen.ui.topOverlay).toBeNull();
   });
 
-  test('the title is 96 × 48 and both buttons are 96 wide', () => {
-    let {title, newGameButton, optionsButton} = mainMenuScreen.contents;
+  test('the title is 96 × 48 and the three buttons are 96 wide', () => {
+    let {title, newGameButton, collectionButton, optionsButton} = mainMenuScreen.contents;
     let scale = game.pixelScale;
     let titleSize = title.view.layout?.computedLayout;
     let newGameSize = newGameButton.view.layout?.computedLayout;
+    let collectionSize = collectionButton.view.layout?.computedLayout;
     let optionsSize = optionsButton.view.layout?.computedLayout;
 
     expect([titleSize?.width, titleSize?.height]).toEqual([96, 48]);
     expect(newGameSize?.width).toBe(96);
+    expect(collectionSize?.width).toBe(96);
     expect(optionsSize?.width).toBe(96);
 
     let titleBounds = title.view.getBounds();
     let newGameBounds = newGameButton.view.getBounds();
+    let collectionBounds = collectionButton.view.getBounds();
     let optionsBounds = optionsButton.view.getBounds();
 
     expect(newGameBounds.y / scale - titleBounds.maxY / scale).toBeCloseTo(24);
-    expect(optionsBounds.y / scale - newGameBounds.maxY / scale).toBeCloseTo(6);
+    expect(collectionBounds.y / scale - newGameBounds.maxY / scale).toBeCloseTo(6);
+    expect(optionsBounds.y / scale - collectionBounds.maxY / scale).toBeCloseTo(6);
   });
 
   test('the main menu has no panel', () => {
@@ -900,5 +947,101 @@ describe('main menu', () => {
     await game.showScreen(mainMenuScreen);
 
     expect(mainMenuScreen.ui.children).not.toContain(mainMenuScreen.contents.continueButton);
+  });
+
+  // The screen is 207 art pixels wide here, so a line of the text holds 29 characters, and the
+  // newest night's line wraps before its ending, keeping a space at the end of its first line.
+  test('Collection opens the window with the stories and the nights, newest first', async () => {
+    let window = await openCollection();
+    let parts = getStoriesParts(window);
+
+    expect(mainMenuScreen.ui.topOverlay).toBe(window.modal);
+    expect(readText(parts.title)).toBe('Collection');
+    expect(parts.actions.map(getLabel)).toEqual(['Reset']);
+    expect(readLeaves(parts.regularLeaf, parts.italicLeaf)).toBe(
+      "Stories  2 found\nThe regulars' bottle\nThe timetable\n\nNights  3\n27 Oct 2026  Seed 202610272 \nStayed\n  The timetable\n26 Oct 2026  Seed 7  Stranded\n25 Oct 2026  Seed 3",
+    );
+    expect(parts.back).toBeNull();
+    expect(parts.next).toBeNull();
+    expect(mainMenuScreen.ui.focused).toBeNull();
+
+    await press('Escape');
+    await waitForNoCollectionWindow();
+  });
+
+  test('the picture runs at half speed under the Collection window', async () => {
+    let {picture} = mainMenuScreen.contents;
+
+    await nextFrame();
+
+    expect(picture.speed).toBe(1);
+
+    await openCollection();
+    await nextFrame();
+
+    expect(picture.speed).toBe(0.5);
+
+    await press('Escape');
+    await waitForNoCollectionWindow();
+    await nextFrame();
+
+    expect(picture.speed).toBe(1);
+  });
+
+  test('Reset asks, then empties the window to None yet twice and takes Continue off the menu', async () => {
+    localStorage.setItem('foam:night', JSON.stringify(STORED_NIGHT));
+    await openOptions();
+    await closeWithEscape();
+
+    expect(mainMenuScreen.ui.children).toContain(mainMenuScreen.contents.continueButton);
+
+    let window = await openCollection();
+
+    mainMenuScreen.ui.focus(getStoriesParts(window).actions[0]!);
+    await press('Enter');
+
+    let confirm = mainMenuScreen.contents.confirmModal;
+
+    if (confirm === null) {
+      throw new Error('The confirmation did not open!');
+    }
+
+    let {line, title} = getConfirmParts(confirm);
+
+    expect(readText(title)).toBe('Reset');
+    expect(readText(line)).toBe(
+      'Everything the game\nkept goes: the\nstories, the nights,\nthe texts read and the\nsaved night.',
+    );
+    expect(describeFocus(mainMenuScreen.ui.focused)).toBe('Close');
+
+    mainMenuScreen.ui.focus(getConfirmParts(confirm).action);
+    await press('Enter');
+    await waitForNoConfirmation();
+
+    let parts = getStoriesParts(window);
+
+    expect(readLeaves(parts.regularLeaf, parts.italicLeaf)).toBe(
+      'Stories  0 found\nNone yet\n\nNights  0\nNone yet',
+    );
+    expect(localStorage.getItem('foam:stories')).toBeNull();
+    expect(localStorage.getItem('foam:nights')).toBeNull();
+    expect(localStorage.getItem('foam:textsRead')).toBeNull();
+    expect(localStorage.getItem('foam:night')).toBeNull();
+    expect(collection.titles).toEqual([]);
+    expect(nights.past).toEqual([]);
+    expect(mainMenuScreen.ui.topOverlay).toBe(window.modal);
+
+    await press('Escape');
+    await waitForNoCollectionWindow();
+    await nextFrame();
+
+    let {continueButton, newGameButton, title: menuTitle} = mainMenuScreen.contents;
+    let scale = game.pixelScale;
+
+    expect(mainMenuScreen.ui.children).not.toContain(continueButton);
+    expect(describeFocus(mainMenuScreen.ui.focused)).toBe('Collection');
+    expect(
+      newGameButton.view.getBounds().y / scale - menuTitle.view.getBounds().maxY / scale,
+    ).toBeCloseTo(24);
   });
 });
