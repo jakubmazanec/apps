@@ -1,8 +1,8 @@
 # Foam: direction
 
 Started: 2026-10-03. App: `apps/foam`. Status: the direction is agreed; phases 1 to 6 are built and
-reviewed, and phase 7 is being built: its first two specs are built and its third designed. This is
-a living document: it describes the current state and plan, and is kept correct as they change.
+reviewed, and phase 7 is built and waits for its review. This is a living document: it describes the
+current state and plan, and is kept correct as they change.
 
 ## What Foam is
 
@@ -317,8 +317,9 @@ plan, build and review, in this order:
    picked, with its seed and its versions; Continue in the main menu, and Quit to menu keeping the
    night at its last save; the record of past nights and the set of texts read; the Collection
    window with a Reset; and the default seed counting the nights started that day, so a same-day
-   replay is fresh while the first night of the day is everyone's. It is designed:
-   [spec](superpowers/specs/2026-10-27-saving-and-continue-design.md).
+   replay is fresh while the first night of the day is everyone's. It is built:
+   [spec](superpowers/specs/2026-10-27-saving-and-continue-design.md),
+   [plan](superpowers/plans/2026-10-27-saving-and-continue.md).
 
 ### After phase 8
 

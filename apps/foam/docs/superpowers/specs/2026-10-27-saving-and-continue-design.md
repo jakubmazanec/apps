@@ -1,7 +1,8 @@
 # Saving and Continue (Foam phase 7, spec 3 of 3): design
 
-Date: 2026-10-27. App: `apps/foam`. Status: designed; the implementation plan follows. It is the
-last of phase 7's three specs in the [direction document](../../direction.md). It builds on spec 2,
+Date: 2026-10-27. App: `apps/foam`. Status: implemented by
+[2026-10-27-saving-and-continue.md](../plans/2026-10-27-saving-and-continue.md). It is the last of
+phase 7's three specs in the [direction document](../../direction.md). It builds on spec 2,
 [versions](2026-10-26-versions-design.md), which is built before this one, and on spec 1,
 [the seed](2026-10-25-seed-design.md). It closes phase 7.
 
