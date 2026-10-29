@@ -1,8 +1,8 @@
 # Foam: direction
 
 Started: 2026-10-03. App: `apps/foam`. Status: the direction is agreed; phases 1 to 7 are built and
-reviewed, phase 8's first spec is built and its second is designed. This is a living document: it
-describes the current state and plan, and is kept correct as they change.
+reviewed, and phase 8's two specs are built. This is a living document: it describes the current
+state and plan, and is kept correct as they change.
 
 ## What Foam is
 
@@ -342,7 +342,8 @@ build and review, in this order:
    station hall at dawn; the invitation message that names it; a place's button that appears and
    goes by a condition on the night, which is how Jakub stands in the place at the hour; the three
    meetings, each a short scene of its own; and the story "The author", found at the first meeting.
-   It is designed: [spec](superpowers/specs/2026-10-28-author-design.md).
+   It is built: [spec](superpowers/specs/2026-10-28-author-design.md),
+   [plan](superpowers/plans/2026-10-28-author.md).
 
 ### After phase 8
 
