@@ -27,6 +27,7 @@ describe(listStandIns, () => {
       'rotorBar/street.ts',
       'rotorBar/location.ts',
       'phone/hello.ts',
+      'phone/invitation.ts',
       'phone/lastCall.ts',
       'journeys.ts',
       'nightEnd.ts',

@@ -6,6 +6,7 @@ import {five} from './five.js';
 import {four} from './four.js';
 import {hello} from './hello.js';
 import {hours} from './hours.js';
+import {invitation} from './invitation.js';
 import {lastCall} from './lastCall.js';
 import {realOne} from './realOne.js';
 import {sang} from './sang.js';
@@ -15,6 +16,7 @@ import {wrongNumber} from './wrongNumber.js';
 /** The phone's messages, in the order the night tries them. */
 export const messages: readonly Message[] = [
   hello,
+  invitation,
   hours,
   four,
   five,
