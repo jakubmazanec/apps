@@ -2,8 +2,8 @@ import {formatHourWords} from '../../core/hours.js';
 import {type Message} from '../../core/phone.js';
 import {standIn} from '../../core/prose.js';
 import {defineScript} from '../../core/script.js';
+import {AUTHOR} from '../author.js';
 import {getFriendEvening} from '../quest.js';
-import {SENDER} from './sender.js';
 
 // The text of this message is stand-in text: the author replaces standIn by prose when writing
 // the real text. Its limits: no word is longer than 16 characters (every word must fit a line on
@@ -12,7 +12,7 @@ import {SENDER} from './sender.js';
 // text too, written with standIn.
 export const hours: Message = {
   key: 'hours',
-  from: SENDER,
+  from: AUTHOR,
   // From 17:00, while the keys are still to get.
   arrives: (night) => {
     let hint = night.pick('hoursHint', {sent: 0.7, silent: 0.3});
@@ -23,7 +23,7 @@ export const hours: Message = {
     start: 'seen',
     nodes: {
       seen: {
-        speaker: SENDER,
+        speaker: AUTHOR,
         text: (night) => {
           let {early, late} = getFriendEvening(night);
 
@@ -35,7 +35,7 @@ export const hours: Message = {
         choices: [{text: 'Thanks'}, {text: 'Which room?', next: 'room'}],
       },
       room: {
-        speaker: SENDER,
+        speaker: AUTHOR,
         text: standIn`The back room, behind the bar. Nobody sits in the front if they can help it.`,
       },
     },

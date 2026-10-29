@@ -1,7 +1,7 @@
 import {type Message} from '../../core/phone.js';
 import {standIn} from '../../core/prose.js';
 import {type Choice, defineScript} from '../../core/script.js';
-import {SENDER} from './sender.js';
+import {AUTHOR} from '../author.js';
 
 // The text of this message is stand-in text: the author replaces standIn by prose when writing
 // the real text. Its limits: no word is longer than 16 characters (every word must fit a line on
@@ -17,13 +17,13 @@ const REPLIES: Array<Choice<'who'>> = [
 
 export const hello: Message = {
   key: 'hello',
-  from: SENDER,
+  from: AUTHOR,
   arrives: () => true,
   script: defineScript({
     start: (night) => night.pick('hello', HELLO_ODDS),
     nodes: {
       code: {
-        speaker: SENDER,
+        speaker: AUTHOR,
         text: (night) => standIn`
           Hi. I wrote tonight in a few lines of code, so if anything goes wrong, blame me.${
             night.collection.titles.length > 0 ? ' Back for another night? Good.' : ''
@@ -32,7 +32,7 @@ export const hello: Message = {
         choices: REPLIES,
       },
       guide: {
-        speaker: SENDER,
+        speaker: AUTHOR,
         text: (night) => standIn`
           Hi. Three things tonight: the keys from your friend, a bottle for the birthday and the
           train home in the morning.${
@@ -42,7 +42,7 @@ export const hello: Message = {
         choices: REPLIES,
       },
       tram: {
-        speaker: SENDER,
+        speaker: AUTHOR,
         text: (night) => standIn`
           Can't talk, I'm on the 4. Have a good one.${
             night.collection.titles.length > 0 ? ' Glad you came back.' : ''
@@ -51,7 +51,7 @@ export const hello: Message = {
         choices: REPLIES,
       },
       who: {
-        speaker: SENDER,
+        speaker: AUTHOR,
         text: (night) => {
           let version = night.pick('hello', HELLO_ODDS);
 

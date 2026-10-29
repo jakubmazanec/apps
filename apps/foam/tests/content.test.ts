@@ -1,6 +1,14 @@
 import {Dialogue} from 'tellurion';
 import {describe, expect, test} from 'vitest';
 
+import {
+  AUTHOR,
+  AUTHOR_STORY,
+  getSeat,
+  isAuthorIn,
+  type Seat,
+  SEATS,
+} from '../source/game/content/author.js';
 import locationData from '../source/game/content/data/locations.json';
 import map from '../source/game/content/data/map.json';
 import travel from '../source/game/content/data/travel.json';
@@ -36,6 +44,7 @@ import {type Message} from '../source/game/core/phone.js';
 import {type Place, type Spot} from '../source/game/core/place.js';
 import {asChoice, formatChoice} from '../source/game/core/script.js';
 import {todaySeed} from '../source/game/core/todaySeed.js';
+import {getLocation} from '../source/game/core/travel.js';
 
 const SCREENS = [
   {width: 480, height: 270},
@@ -48,6 +57,7 @@ const ARRIVALS = [
   ['malinovskehoNamesti', ['fight']],
   ['hlavniNadraziForecourt', ['phone']],
 ] as const;
+const SEAT_ENTRIES = Object.entries(SEATS) as Array<[Seat, (typeof SEATS)[Seat]]>;
 
 type Box = {left: number; top: number; width: number; height: number};
 
@@ -70,14 +80,18 @@ function getPlace(id: PlaceId): Place {
   return place;
 }
 
-function getSpotScript(place: Place, label: string): Spot['script'] {
+function getSpot(place: Place, label: string): Spot {
   let spot = place.spots.find((candidate) => candidate.label === label);
 
   if (spot === undefined) {
     throw new Error(`The place "${place.id}" has no spot "${label}"!`);
   }
 
-  return spot.script;
+  return spot;
+}
+
+function getSpotScript(place: Place, label: string): Spot['script'] {
+  return getSpot(place, label).script;
 }
 
 // A night of its own in the place, with the version of today and the dice pinned.
@@ -999,6 +1013,58 @@ describe('the game content', () => {
     expect(brick.night.money).toBe(150);
     expect(brick.dialogue.node).toBe(descriptionNodeOf('hlavniNadraziForecourt', 'brick'));
     expect(brick.night.stories).toEqual([]);
+  });
+
+  test('the author is Jakub, his story The author, and his three seats lie in their hours', () => {
+    expect(AUTHOR).toBe('Jakub');
+    expect(AUTHOR_STORY).toBe('The author');
+    expect(SEATS).toEqual({
+      shop: {place: 'whiskyShopRoom', hours: [1020, 1140]},
+      rotor: {place: 'rotorBarRoom', hours: [1260, 1380]},
+      hall: {place: 'hlavniNadraziHall', hours: [1860, 1920]},
+    });
+  });
+
+  test('getSeat picks each seat over the seeds 0 to 49', () => {
+    let seats = new Set(
+      Array.from({length: 50}, (_, seed) =>
+        getSeat(createNight({seed, place: 'train', minutes: 960, money: 350})),
+      ),
+    );
+
+    expect(seats).toEqual(new Set<Seat>(['hall', 'rotor', 'shop']));
+  });
+
+  test("isAuthorIn holds in the seat's place from its first minute to the minute before its end, and nowhere else", () => {
+    for (let [seat, {place, hours}] of SEAT_ENTRIES) {
+      let [from, to] = hours;
+      let at = (minutes: number, pick: Seat = seat): Night =>
+        createPinnedNight(place, minutes, {pick});
+
+      expect(isAuthorIn(at(from), place)).toBe(true);
+      expect(isAuthorIn(at(to - 1), place)).toBe(true);
+      expect(isAuthorIn(at(from - 1), place)).toBe(false);
+      expect(isAuthorIn(at(to), place)).toBe(false);
+
+      for (let other of SEAT_ENTRIES.filter(([otherSeat]) => otherSeat !== seat)) {
+        expect(isAuthorIn(at(from, other[0]), place)).toBe(false);
+        expect(isAuthorIn(at(from), other[1].place)).toBe(false);
+      }
+    }
+  });
+
+  test("every seat lies inside its location's hours", () => {
+    for (let {
+      place,
+      hours: [from, to],
+    } of Object.values(SEATS)) {
+      let location = getLocation(nightStart, place);
+      let hours = location === undefined ? undefined : nightStart.locationData[location.id]?.hours;
+
+      expect(location).toBeDefined();
+      expect(isOpenAt(hours, from)).toBe(true);
+      expect(isOpenAt(hours, to - 1)).toBe(true);
+    }
   });
 
   test('the messages carry the twelve keys in order, and Jakub sends every one', () => {

@@ -2,7 +2,7 @@ import {findStory} from '../../core/night.js';
 import {type Message} from '../../core/phone.js';
 import {standIn} from '../../core/prose.js';
 import {defineScript} from '../../core/script.js';
-import {SENDER} from './sender.js';
+import {AUTHOR} from '../author.js';
 
 // The text of this message is stand-in text: the author replaces standIn by prose when writing
 // the real text. Its limits: no word is longer than 16 characters (every word must fit a line on
@@ -13,7 +13,7 @@ const WRONG_NUMBER_STORY = standIn`The wrong number`;
 
 export const wrongNumber: Message = {
   key: 'wrongNumber',
-  from: SENDER,
+  from: AUTHOR,
   // From 18:40, on a night that sends it.
   arrives: (night) => {
     let version = night.pick('wrongNumber', {sent: 0.1, none: 0.9});
@@ -24,12 +24,12 @@ export const wrongNumber: Message = {
     start: 'crate',
     nodes: {
       crate: {
-        speaker: SENDER,
+        speaker: AUTHOR,
         text: standIn`Second crate's at the back door, knock twice. Sorry, wrong person.`,
         choices: [{text: 'Which back door?', next: 'backDoor'}, {text: 'Ignore it'}],
       },
       backDoor: {
-        speaker: SENDER,
+        speaker: AUTHOR,
         text: standIn`There is no back door, and there is no crate. Forget I wrote.`,
         onEnter: (night) => {
           findStory(night, WRONG_NUMBER_STORY);

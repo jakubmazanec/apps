@@ -2,7 +2,7 @@ import {findStory, getDrunkenness, hasMet} from '../../core/night.js';
 import {type Message} from '../../core/phone.js';
 import {standIn} from '../../core/prose.js';
 import {defineScript} from '../../core/script.js';
-import {SENDER} from './sender.js';
+import {AUTHOR} from '../author.js';
 
 // The text of this message is stand-in text: the author replaces standIn by prose when writing
 // the real text. Its limits: no word is longer than 16 characters (every word must fit a line on
@@ -13,11 +13,11 @@ const NOT_CARRIED_STORY = standIn`Not carried home`;
 
 export const five: Message = {
   key: 'five',
-  from: SENDER,
+  from: AUTHOR,
   arrives: (night) => hasMet(night, 'ignoredWater') && getDrunkenness(night) >= 5,
   script: defineScript({
     start: {
-      speaker: SENDER,
+      speaker: AUTHOR,
       text: standIn`I'm not carrying you home.`,
       onEnter: (night) => {
         findStory(night, NOT_CARRIED_STORY);

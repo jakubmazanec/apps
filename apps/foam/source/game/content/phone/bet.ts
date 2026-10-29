@@ -2,7 +2,7 @@ import {meet} from '../../core/night.js';
 import {type Message} from '../../core/phone.js';
 import {standIn} from '../../core/prose.js';
 import {defineScript} from '../../core/script.js';
-import {SENDER} from './sender.js';
+import {AUTHOR} from '../author.js';
 
 // The text of this message is stand-in text: the author replaces standIn by prose when writing
 // the real text. Its limits: no word is longer than 16 characters (every word must fit a line on
@@ -11,12 +11,12 @@ import {SENDER} from './sender.js';
 // text too, written with standIn.
 export const bet: Message = {
   key: 'bet',
-  from: SENDER,
+  from: AUTHOR,
   // From 20:10.
   arrives: (night) => night.minutes >= 1210,
   script: defineScript({
     start: {
-      speaker: SENDER,
+      speaker: AUTHOR,
       text: standIn`Fifty says there's a guitar in Rotor's corner tonight.`,
       choices: [
         {
