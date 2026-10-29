@@ -2,15 +2,16 @@ import {findStory, hasStory} from '../../../core/night.js';
 import {type Place} from '../../../core/place.js';
 import {standIn} from '../../../core/prose.js';
 import {defineScript} from '../../../core/script.js';
+import {AUTHOR, AUTHOR_STORY, isAuthorIn} from '../../author.js';
 import {barPicture} from '../../pictures/barPicture.js';
 import {BOTTLE_PRICE} from '../../quest.js';
 
 // The text of this place is stand-in text: the author replaces standIn by prose when writing
 // the real text. Its limits: no word is longer than 16 characters (every word must fit a line on
-// the narrowest screen), people have no names (places, streets and stops keep theirs), every node
-// sets `speaker`, a description is two or three sentences, a scene button one node of one or two,
-// and the `*` marks of italic come in pairs. A story's title is stand-in text too, written with
-// standIn.
+// the narrowest screen), people have no names (places, streets and stops keep theirs, and the
+// author's avatar Jakub is the one exception), every node sets `speaker`, a description is two or
+// three sentences, a scene button one node of one or two, and the `*` marks of italic come in
+// pairs. A story's title is stand-in text too, written with standIn.
 const PLACE_NAME = 'The Whisky Shop Brno';
 const SHORT_NAME = 'Whisky Shop';
 const TITLE = 'The Whisky Shop';
@@ -143,6 +144,40 @@ const door = defineScript({
     ],
   },
 });
+const jakub = defineScript({
+  start: 'notebook',
+  nodes: {
+    notebook: {
+      speaker: AUTHOR,
+      text: standIn`
+        A man with a notebook sits at the end of the counter. He says your name as if he had
+        written it down, and pushes a glass across.
+      `,
+      choices: [
+        {text: 'Take the dram', minutes: 15, drinks: 1, next: 'dram'},
+        {text: 'Ask which bits are real', next: 'real'},
+        {text: 'Leave him to it'},
+      ],
+      onEnter: (night) => {
+        findStory(night, AUTHOR_STORY);
+      },
+    },
+    dram: {
+      speaker: AUTHOR,
+      text: standIn`
+        He drinks with you and names the regulars who are real, tapping the notebook at each.
+        The others he has borrowed from other shops.
+      `,
+    },
+    real: {
+      speaker: AUTHOR,
+      text: standIn`
+        The shop, he says, and the smoke, and the chair by the counter. The shelves he tidied
+        up a little for the page.
+      `,
+    },
+  },
+});
 
 export const whiskyShopRoom: Place = {
   id: 'whiskyShopRoom',
@@ -156,5 +191,12 @@ export const whiskyShopRoom: Place = {
     {label: SHOPKEEPER, x: 0.14, y: 0.93, script: shopkeeper},
     {label: REGULARS, x: 0.7, y: 0.84, script: regulars},
     {label: DOOR, x: 0.91, y: 0.4, script: door},
+    {
+      label: AUTHOR,
+      x: 0.5,
+      y: 0.65,
+      script: jakub,
+      isVisible: (night) => isAuthorIn(night, 'whiskyShopRoom'),
+    },
   ],
 };

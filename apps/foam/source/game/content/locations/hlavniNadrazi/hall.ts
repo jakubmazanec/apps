@@ -3,15 +3,16 @@ import {findStory} from '../../../core/night.js';
 import {type Place} from '../../../core/place.js';
 import {standIn} from '../../../core/prose.js';
 import {defineScript} from '../../../core/script.js';
+import {AUTHOR, AUTHOR_STORY, isAuthorIn} from '../../author.js';
 import {standInPicture} from '../../pictures/standInPicture.js';
 import {TICKET_PRICE} from '../../quest.js';
 
 // The text of this place is stand-in text: the author replaces standIn by prose when writing
 // the real text. Its limits: no word is longer than 16 characters (every word must fit a line on
-// the narrowest screen), people have no names (places, streets and stops keep theirs), every node
-// sets `speaker`, a description is two or three sentences, a scene button one node of one or two,
-// and the `*` marks of italic come in pairs. A story's title is stand-in text too, written with
-// standIn.
+// the narrowest screen), people have no names (places, streets and stops keep theirs, and the
+// author's avatar Jakub is the one exception), every node sets `speaker`, a description is two or
+// three sentences, a scene button one node of one or two, and the `*` marks of italic come in
+// pairs. A story's title is stand-in text too, written with standIn.
 const PLACE_NAME = 'Brno hlavní nádraží';
 const SHORT_NAME = 'Hlavní nádraží';
 const BOARD = 'The board';
@@ -115,6 +116,26 @@ const benches = defineScript({
     },
   },
 });
+const jakub = defineScript({
+  start: 'bench',
+  nodes: {
+    bench: {
+      speaker: AUTHOR,
+      text: standIn`
+        A man sits on the bench under the board with a notebook on his knee and a ticket for the
+        08:04. He looks up as if he had been waiting for you.
+      `,
+      choices: [{text: 'Was any of it real?', next: 'real'}, {text: 'Say nothing'}],
+      onEnter: (night) => {
+        findStory(night, AUTHOR_STORY);
+      },
+    },
+    real: {
+      speaker: AUTHOR,
+      text: standIn`The places, every one. The friend is three people. The brick is mine.`,
+    },
+  },
+});
 
 export const hlavniNadraziHall: Place = {
   id: 'hlavniNadraziHall',
@@ -129,5 +150,12 @@ export const hlavniNadraziHall: Place = {
     {label: DOORS, x: 0.5, y: 0.8, script: doors},
     {label: MACHINE, x: 0.5, y: 0.12, script: machine},
     {label: BENCHES, x: 0.5, y: 0.95, script: benches},
+    {
+      label: AUTHOR,
+      x: 0.3,
+      y: 0.6,
+      script: jakub,
+      isVisible: (night) => isAuthorIn(night, 'hlavniNadraziHall'),
+    },
   ],
 };
