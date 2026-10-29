@@ -1,8 +1,10 @@
 import {afterAll, beforeAll, describe, expect, test, vitest} from 'vitest';
 
+import {nightStart} from '../source/game/content/nightStart.js';
 import {messages} from '../source/game/content/phone/index.js';
 import {type barPicture as barPictureValue} from '../source/game/content/pictures/barPicture.js';
 import {createNight} from '../source/game/core/night.js';
+import {type NightStart} from '../source/game/core/travel.js';
 import {
   bootGame,
   closeStory,
@@ -50,20 +52,27 @@ const QUIET_SEED = findSeed((seed) => {
 // one before it ended.
 describe('the phone', {timeout: 180_000}, () => {
   let harness: Harness;
+  let oldStart: Pick<NightStart, 'minutes' | 'money' | 'place' | 'seed'>;
 
   beforeAll(async () => {
     localStorage.clear();
+
+    let {minutes, money, place, seed} = nightStart;
+
+    oldStart = {minutes, money, place, seed};
     harness = await bootGame(960, 540);
   }, 60_000);
 
   afterAll(() => {
     harness.unmount();
+    Object.assign(nightStart, oldStart);
+    delete nightStart.drunkenness;
+    delete nightStart.quest;
     localStorage.clear();
   });
 
   test("a new night starts with the Phone button greyed out, and the description's close brings the hello with its toast, its chime and the count", async () => {
-    let {audio} = await import('../source/game/core/audio.js');
-    let play = vitest.spyOn(audio, 'play');
+    let play = vitest.spyOn((await import('../source/game/core/audio.js')).audio, 'play');
 
     try {
       await startNewGame(harness, QUIET_SEED);
@@ -82,8 +91,7 @@ describe('the phone', {timeout: 180_000}, () => {
 
       await closeStory(harness);
 
-      let toast = await waitForToast(harness);
-      let {text, title} = getToastParts(toast);
+      let {text, title} = getToastParts(await waitForToast(harness));
       let box = getBox(harness, contents.phoneButton);
 
       expect(readText(title)).toBe('A message');
