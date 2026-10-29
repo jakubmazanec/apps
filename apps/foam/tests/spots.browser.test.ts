@@ -243,7 +243,7 @@ describe('a spot with a condition', {timeout: 180_000}, () => {
     rebuilt = again;
   });
 
-  test('the window that runs past the hours hides the button when it closes, and a focus left on it is dropped', async () => {
+  test('the window that runs past the hours hides the button when it closes, and a focus left on it opens nothing', async () => {
     let {contents, ui} = harness.nightScreen;
 
     await closeStory(harness);

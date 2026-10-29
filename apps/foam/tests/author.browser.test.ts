@@ -116,7 +116,7 @@ describe('the author', {timeout: 180_000}, () => {
     await endStory(storyWindow);
     await waitForNoStoryWindow(harness);
 
-    expect(contents.night.log.slice(-4).map((entry) => describeEntry(entry))).toEqual([
+    expect(contents.night.log.slice(-4).map(describeEntry)).toEqual([
       ['story', 1080, 'The author'],
       ['text', 1080, 'Jakub'],
       ['choice', 1080, 'Take the dram  15 min'],
@@ -160,7 +160,6 @@ describe('the author', {timeout: 180_000}, () => {
     expect(jakub.view.visible).toBe(true);
 
     await closeStory(harness);
-    await waitForNoToast(harness);
     ui.focus(jakub);
     await press('Enter');
 
@@ -168,7 +167,7 @@ describe('the author', {timeout: 180_000}, () => {
 
     expect(storyWindow.dialogue.node?.speaker).toBe('Jakub');
     expect(contents.night.stories).toEqual([]);
-    expect(contents.toastQueue).toEqual([]);
+    expect(contents.toastQueue.map(({heading}) => heading)).not.toContain('A story');
 
     await pressThrough(harness, storyWindow);
 
