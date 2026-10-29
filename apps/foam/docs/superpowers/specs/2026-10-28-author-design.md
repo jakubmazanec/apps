@@ -1,8 +1,9 @@
 # The author (Foam phase 8, spec 2 of 2): design
 
-Date: 2026-10-28. App: `apps/foam`. Status: designed; its plan follows once spec 1 is built. It is
-the second of phase 8's two specs in the [direction document](../../direction.md). It builds on spec
-1, [the phone](2026-10-28-phone-design.md), which is designed.
+Date: 2026-10-28. App: `apps/foam`. Status: implemented by
+[2026-10-28-author.md](../plans/2026-10-28-author.md). It is the second of phase 8's two specs in
+the [direction document](../../direction.md). It builds on spec 1,
+[the phone](2026-10-28-phone-design.md), which is built.
 
 ## Background
 
