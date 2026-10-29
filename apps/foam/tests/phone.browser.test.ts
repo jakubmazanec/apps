@@ -4,17 +4,27 @@ import {nightStart} from '../source/game/content/nightStart.js';
 import {messages} from '../source/game/content/phone/index.js';
 import {type barPicture as barPictureValue} from '../source/game/content/pictures/barPicture.js';
 import {createNight} from '../source/game/core/night.js';
+import {type SavedNight} from '../source/game/core/save.js';
 import {type NightStart} from '../source/game/core/travel.js';
 import {
   bootGame,
   closeStory,
+  describeEntry,
   findSeed,
   getBox,
   getButtonLabel,
+  getStoryWindow,
   getToastParts,
+  getWindowButton,
+  getWindowParts,
   type Harness,
+  nextFrame,
+  openSpot,
+  press,
+  pressThrough,
   startFrom,
   startNewGame,
+  waitForNoStoryWindow,
   waitForNoToast,
   waitForToast,
 } from './nightScreenHelpers.js';
@@ -30,6 +40,11 @@ vitest.mock(import('../source/game/content/pictures/barPicture.js'), async () =>
 
   return {barPicture: PROOF_PICTURE as typeof barPictureValue};
 });
+
+// The night as the game saved it, read straight from the storage.
+function readSavedNight(): SavedNight {
+  return JSON.parse(localStorage.getItem('foam:night') ?? '') as SavedNight;
+}
 
 // The hint and the wrong number come by the seed, so this seed's night at 20:30 in Rotor's room
 // with 350 Kč gets the hello, the shop and the bet and nothing else.
@@ -130,5 +145,111 @@ describe('the phone', {timeout: 180_000}, () => {
     ]);
 
     await waitForNoToast(harness);
+  });
+
+  test('Phone opens the oldest message in a window titled by the sender, and a reply marks it read, saves it and logs it', async () => {
+    let {contents, ui} = harness.nightScreen;
+
+    ui.focus(contents.phoneButton);
+    await press('Enter');
+
+    let storyWindow = getStoryWindow(harness);
+    let {title} = getWindowParts(storyWindow);
+
+    expect(contents.reading).toBe('hello');
+    expect(storyWindow.dialogue.node?.speaker).toBe('Jakub');
+    expect(title === null ? null : readText(title)).toBe('Jakub');
+
+    await pressThrough(harness, storyWindow);
+
+    expect(getWindowParts(storyWindow).buttons.map(getButtonLabel)).toEqual([
+      'Hi',
+      'Who is this?',
+      'Mute',
+    ]);
+
+    ui.focus(getWindowButton(storyWindow, 2));
+    await press('Enter');
+    await waitForNoStoryWindow(harness);
+
+    expect(contents.reading).toBeNull();
+    expect(contents.night.phone).toEqual({unread: ['shop', 'bet'], read: ['hello']});
+    expect(getButtonLabel(contents.phoneButton)).toBe('Phone 2');
+    expect(readSavedNight().phone).toEqual({unread: ['shop', 'bet'], read: ['hello']});
+    expect(contents.night.log.slice(-2).map(describeEntry)).toEqual([
+      ['text', 1230, 'Jakub'],
+      ['choice', 1230, 'Mute'],
+    ]);
+    // Reading costs nothing.
+    expect(contents.night.minutes).toBe(1230);
+    expect(contents.night.money).toBe(350);
+  });
+
+  test('the next press opens the next message, whose reply marks the night', async () => {
+    let {contents, ui} = harness.nightScreen;
+
+    ui.focus(contents.phoneButton);
+    await press('Enter');
+
+    let storyWindow = getStoryWindow(harness);
+
+    expect(contents.reading).toBe('shop');
+
+    await pressThrough(harness, storyWindow);
+
+    expect(getWindowParts(storyWindow).buttons.map(getButtonLabel)).toEqual([
+      'Going',
+      'Skipping it',
+    ]);
+
+    ui.focus(getWindowButton(storyWindow, 1));
+    await press('Enter');
+    await waitForNoStoryWindow(harness);
+
+    expect(contents.night.events).toContain('skippedBottle');
+    expect(contents.night.phone).toEqual({unread: ['bet'], read: ['hello', 'shop']});
+    expect(getButtonLabel(contents.phoneButton)).toBe('Phone 1');
+  });
+
+  test('the Phone button activated while a window is open does nothing', async () => {
+    let {contents, ui} = harness.nightScreen;
+    let storyWindow = await openSpot(harness, 'The bar');
+
+    contents.phoneButton.activate();
+    await nextFrame();
+
+    expect(contents.reading).toBeNull();
+    expect(getStoryWindow(harness)).toBe(storyWindow);
+    expect(contents.night.phone.unread).toEqual(['bet']);
+
+    await pressThrough(harness, storyWindow);
+    // Not now ends the window.
+    ui.focus(getWindowButton(storyWindow, 2));
+    await press('Enter');
+    await waitForNoStoryWindow(harness);
+  });
+
+  test('reading the last message greys the button out again', async () => {
+    let {contents, ui} = harness.nightScreen;
+
+    ui.focus(contents.phoneButton);
+    await press('Enter');
+
+    let storyWindow = getStoryWindow(harness);
+
+    expect(contents.reading).toBe('bet');
+
+    await pressThrough(harness, storyWindow);
+
+    expect(getWindowParts(storyWindow).buttons.map(getButtonLabel)).toEqual(['Bet', 'No']);
+
+    ui.focus(getWindowButton(storyWindow, 1));
+    await press('Enter');
+    await waitForNoStoryWindow(harness);
+
+    expect(contents.night.phone).toEqual({unread: [], read: ['hello', 'shop', 'bet']});
+    expect(getButtonLabel(contents.phoneButton)).toBe('Phone');
+    expect(contents.phoneButton.isDisabled).toBe(true);
+    expect(contents.night.events).not.toContain('bet');
   });
 });

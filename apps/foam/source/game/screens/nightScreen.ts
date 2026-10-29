@@ -30,7 +30,12 @@ import {type Location, type LocationId} from '../core/location.js';
 import {logChoice} from '../core/log.js';
 import {createNight, formatStatus, type Night, restoreNight} from '../core/night.js';
 import {recordNight} from '../core/nights.js';
-import {getUnreadMessage, receiveMessages} from '../core/phone.js';
+import {
+  dropUnknownMessages,
+  getUnreadMessage,
+  readMessage,
+  receiveMessages,
+} from '../core/phone.js';
 import {type Place} from '../core/place.js';
 import {playFocusSound} from '../core/playFocusSound.js';
 import {clearSavedNight, type SavedNight, saveNight} from '../core/save.js';
@@ -385,6 +390,14 @@ function openStory(
       screen.contents.isPlaceChanging =
         getNextPlace(screen) !== undefined || isNightOver(screen.contents.night);
       fadeBackdrop(screen);
+
+      // A message counts as read when its window's text ends, where the night
+      // is saved, so a quit mid-window leaves it unread.
+      if (screen.contents.reading !== null) {
+        readMessage(screen.contents.night, screen.contents.reading);
+        screen.contents.reading = null;
+      }
+
       // The window calls it when its text has ended, so the last choice's
       // effects, the last node's entry effect and the last page's log line are
       // in the night, and the window's fade has not begun. A save that waited for
@@ -831,6 +844,7 @@ export const nightScreen = new GameScreen<NightScreenContents>({
     screen.contents.hasEnded = false;
     screen.contents.hasStoryClosed = false;
     screen.contents.lastTopOverlay = null;
+    screen.contents.reading = null;
     // A resumed night queues no toast for its finds.
     screen.contents.storiesHandled = night.stories.length;
     // None is showing: hiding the screen destroyed it.
@@ -846,6 +860,8 @@ export const nightScreen = new GameScreen<NightScreenContents>({
     screen.contents.isPlaceChanging = false;
 
     if (saved !== null) {
+      // A saved night may hold a key the content has dropped since.
+      dropUnknownMessages(night, messages);
       // With no place shown, actOnNight does the right thing for every state a
       // save can hold. A night that is over opens the end text over black: its
       // Morning lines were never saved, so the log doubles nothing, and when it
