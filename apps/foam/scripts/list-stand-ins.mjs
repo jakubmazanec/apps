@@ -1,8 +1,9 @@
 // Lists what is left to write: the stand-in texts and the written ones of every file in the
 // location folders under content/locations/ (each place and each location.ts), of each message's
-// file under content/phone/, of the journeys, of the end text and of the way out's flat
-// (core/createWayOut.ts), and the locations and journeys of the data that a script computed and
-// nobody has checked. Run it with `node scripts/list-stand-ins.mjs`.
+// file under content/phone/, of the journeys, of the end text, of the quest's titles, of the
+// author's title and of the way out's flat (core/createWayOut.ts), and the locations and journeys
+// of the data that a script computed and nobody has checked. Run it with
+// `node scripts/list-stand-ins.mjs`.
 import {readdir, readFile} from 'node:fs/promises';
 
 const contentDir = new URL('../source/game/content/', import.meta.url);
@@ -62,8 +63,8 @@ export async function listStandIns() {
     ...(await readLocationFiles()),
     ...(await Promise.all(
       (await readdir(phoneDir))
-        // The sender and the index hold no text, so nothing in them is left to write.
-        .filter((name) => name.endsWith('.ts') && name !== 'index.ts' && name !== 'sender.ts')
+        // The index holds no text, so nothing in it is left to write.
+        .filter((name) => name.endsWith('.ts') && name !== 'index.ts')
         .sort()
         .map(async (name) => ({
           name: `phone/${name}`,
@@ -73,6 +74,7 @@ export async function listStandIns() {
     {name: 'journeys.ts', source: await readFile(new URL('journeys.ts', contentDir), 'utf8')},
     {name: 'nightEnd.ts', source: await readFile(new URL('nightEnd.ts', contentDir), 'utf8')},
     {name: 'quest.ts', source: await readFile(new URL('quest.ts', contentDir), 'utf8')},
+    {name: 'author.ts', source: await readFile(new URL('author.ts', contentDir), 'utf8')},
     {
       name: 'core/createWayOut.ts',
       source: await readFile(new URL('../core/createWayOut.ts', contentDir), 'utf8'),

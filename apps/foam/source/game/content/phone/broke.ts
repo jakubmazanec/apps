@@ -1,7 +1,7 @@
 import {type Message} from '../../core/phone.js';
 import {standIn} from '../../core/prose.js';
 import {defineScript} from '../../core/script.js';
-import {SENDER} from './sender.js';
+import {AUTHOR} from '../author.js';
 
 // The text of this message is stand-in text: the author replaces standIn by prose when writing
 // the real text. Its limits: no word is longer than 16 characters (every word must fit a line on
@@ -10,7 +10,7 @@ import {SENDER} from './sender.js';
 // text too, written with standIn.
 export const broke: Message = {
   key: 'broke',
-  from: SENDER,
+  from: AUTHOR,
   // From 20:00, under 50 Kč, with neither the keys nor the ticket.
   arrives: (night) =>
     night.minutes >= 1200 && night.money < 50 && !night.quest.hasKeys && !night.quest.hasTicket,
@@ -18,7 +18,7 @@ export const broke: Message = {
     start: (night) => night.pick('brokeHelp', {pays: 0.8, dry: 0.2}),
     nodes: {
       pays: {
-        speaker: SENDER,
+        speaker: AUTHOR,
         text: standIn`Running on empty? I can get a hundred to you, but it takes half an hour.`,
         choices: [
           {
@@ -33,11 +33,11 @@ export const broke: Message = {
         ],
       },
       sent: {
-        speaker: SENDER,
+        speaker: AUTHOR,
         text: standIn`Sent. Don't spend it all on beer.`,
       },
       dry: {
-        speaker: SENDER,
+        speaker: AUTHOR,
         text: standIn`I'd help, but I'm skint too.`,
         choices: [{text: 'Figures'}],
       },

@@ -1,8 +1,8 @@
 import {type Message} from '../../core/phone.js';
 import {standIn} from '../../core/prose.js';
 import {defineScript} from '../../core/script.js';
+import {AUTHOR} from '../author.js';
 import {TICKET_PRICE} from '../quest.js';
-import {SENDER} from './sender.js';
 
 // The text of this message is stand-in text: the author replaces standIn by prose when writing
 // the real text. Its limits: no word is longer than 16 characters (every word must fit a line on
@@ -11,7 +11,7 @@ import {SENDER} from './sender.js';
 // text too, written with standIn.
 export const lastCall: Message = {
   key: 'lastCall',
-  from: SENDER,
+  from: AUTHOR,
   // From 07:00, with neither the keys nor the ticket, away from the station.
   arrives: (night) =>
     night.minutes >= 1860 &&
@@ -23,7 +23,7 @@ export const lastCall: Message = {
     start: (night) => (night.money >= TICKET_PRICE ? 'go' : 'stranded'),
     nodes: {
       go: {
-        speaker: SENDER,
+        speaker: AUTHOR,
         text: standIn`
           The morning train is the 08:04, and the ticket machine is twenty minutes from anywhere.
           Go now.
@@ -31,7 +31,7 @@ export const lastCall: Message = {
         choices: [{text: 'Going'}, {text: 'Let it leave'}],
       },
       stranded: {
-        speaker: SENDER,
+        speaker: AUTHOR,
         text: standIn`
           I was stranded here one Saturday in 2014, with no ticket and no money. It gets better
           after the first coffee.

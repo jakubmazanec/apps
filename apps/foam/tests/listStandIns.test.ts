@@ -19,7 +19,7 @@ describe(countTags, () => {
 });
 
 describe(listStandIns, () => {
-  test('lists the files of every location folder, the phone, the journeys, the end text and the data', async () => {
+  test('lists the files of every location folder, the phone, the journeys, the end text, the author and the data', async () => {
     let lines = (await listStandIns()).split('\n');
     let starts = [
       'train/train.ts',
@@ -31,6 +31,7 @@ describe(listStandIns, () => {
       'journeys.ts',
       'nightEnd.ts',
       'quest.ts',
+      'author.ts',
       'core/createWayOut.ts',
       'Locations not checked:',
     ];

@@ -2,7 +2,7 @@ import {getDrunkenness, meet} from '../../core/night.js';
 import {type Message} from '../../core/phone.js';
 import {standIn} from '../../core/prose.js';
 import {defineScript} from '../../core/script.js';
-import {SENDER} from './sender.js';
+import {AUTHOR} from '../author.js';
 
 // The text of this message is stand-in text: the author replaces standIn by prose when writing
 // the real text. Its limits: no word is longer than 16 characters (every word must fit a line on
@@ -11,13 +11,13 @@ import {SENDER} from './sender.js';
 // text too, written with standIn.
 export const four: Message = {
   key: 'four',
-  from: SENDER,
+  from: AUTHOR,
   arrives: (night) => getDrunkenness(night) >= 4,
   script: defineScript({
     start: 'water',
     nodes: {
       water: {
-        speaker: SENDER,
+        speaker: AUTHOR,
         text: standIn`Water. Now.`,
         choices: [
           {text: 'Water', minutes: 10, next: 'drank'},
@@ -31,11 +31,11 @@ export const four: Message = {
         ],
       },
       drank: {
-        speaker: SENDER,
+        speaker: AUTHOR,
         text: standIn`Good. The night is long, and so is the walk home.`,
       },
       shrug: {
-        speaker: SENDER,
+        speaker: AUTHOR,
         text: standIn`Suit yourself. I did say it.`,
       },
     },
