@@ -605,7 +605,8 @@ export function checkContent(content: Content): string[] {
   }
 
   // The pass's collection is one object for all its nights: they only read it. The events are
-  // copied into each night.
+  // copied into each night. A spot's condition runs on every check night of its place, a throw
+  // reported under isVisible, a pick in it run under every name.
   function checkScripts(collectionTitles: string[], met: string[]): void {
     let collection = {titles: collectionTitles};
 
@@ -614,6 +615,17 @@ export function checkContent(content: Content): string[] {
 
       for (let spot of place.spots) {
         checkScript(`${id}${SEPARATOR}${spot.label}`, spot.script, place, collection, met);
+
+        // The result is not read: a condition that never holds on a check night is no fault.
+        if (spot.isVisible !== undefined) {
+          for (let night of createCheckNights(id, collection, met)) {
+            tryWithRandom(
+              `${id}${SEPARATOR}${spot.label}${SEPARATOR}isVisible`,
+              night,
+              spot.isVisible,
+            );
+          }
+        }
       }
     }
 

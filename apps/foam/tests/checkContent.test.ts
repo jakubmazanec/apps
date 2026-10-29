@@ -288,6 +288,30 @@ describe(checkContent, {timeout: 60_000}, () => {
     expect(lines).toContain('zidenice › The door: y is -0.1');
   });
 
+  test("reports a spot's condition that throws, under the spot's path", () => {
+    let spots = [
+      {label: 'The door', x: 0.5, y: 0.5, script: oneNode('A door.'), isVisible: throwNoWay},
+    ];
+
+    expect(check({places: withZidenice({spots})})).toContain(
+      'zidenice › The door › isVisible: throws "No way."',
+    );
+  });
+
+  test("runs a spot's condition that picks from a table of three under every name, on every check night of its place", () => {
+    let isVisible = vitest.fn<(night: Night) => boolean>(
+      (night) => night.pick('seat', {a: 0.5, b: 0.3, c: 0.2}) === 'a',
+    );
+    let spots = [{label: 'The door', x: 0.5, y: 0.5, script: oneNode('A door.'), isVisible}];
+    let lines = check({places: withZidenice({spots})});
+
+    // The three names run on the 33 times, 3 levels and 16 quest states of zidenice's nights, in
+    // both passes, and in no other place's.
+    expect(isVisible).toHaveBeenCalledTimes(3 * 33 * 3 * 16 * 2);
+    expect(isVisible.mock.calls.every(([night]) => night.place === 'zidenice')).toBe(true);
+    expect(lines.filter((line) => line.startsWith('zidenice › The door'))).toEqual([]);
+  });
+
   test('reports a location without an entry, but not the train', () => {
     let lines = check({locationData: {zidenice: locationData.zidenice!}});
 
