@@ -125,8 +125,8 @@ export class ListWindow {
     });
     this.#layout = this.#layOut();
     // Nothing is focused on open. On the top placement the paddings centre the
-    // window between the top row and the bottom row, in the scene area, as the
-    // story window's view does.
+    // window between the top row and the screen's bottom row, in the scene area,
+    // as the story window's view does.
     this.modal = new Modal({
       theme: game.theme,
       children: [this.#panel],

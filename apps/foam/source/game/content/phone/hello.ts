@@ -34,7 +34,7 @@ export const hello: Message = {
       guide: {
         speaker: SENDER,
         text: (night) => standIn`
-          Hi. Three things tonight: the keys from your friend, a bottle for the birthday, and the
+          Hi. Three things tonight: the keys from your friend, a bottle for the birthday and the
           train home in the morning.${
             night.collection.titles.length > 0 ? ' You know the drill by now.' : ''
           }

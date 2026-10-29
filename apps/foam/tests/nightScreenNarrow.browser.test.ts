@@ -219,7 +219,7 @@ describe('night screen on a narrow screen', {timeout: 180_000}, () => {
     let storyWindow = getStoryWindow(harness);
 
     // Finish the text, take "Talk to him", and press through its text: the talk
-    // runs to two pages on this width now that the area is one row shorter.
+    // runs to two pages on this width beside its two choices.
     await press('Enter');
     nightScreen.ui.focus(getWindowButton(storyWindow, 0));
     await press('Enter');

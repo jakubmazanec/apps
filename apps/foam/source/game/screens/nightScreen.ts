@@ -706,12 +706,12 @@ function receiveArrivals(screen: NightScreen): void {
 // where they are, with no way out. A way out that a script chose opens the
 // travel window. A location that is closed with the player indoors closes on
 // them, after any window: a beer that ran past the hour, the description of a
-// room that a door led into too late. The order is the end, then a place the
-// night moved the player to, then a way out, then the closing. The end comes
-// first, so a travel that arrives after 08:00 never shows its destination,
-// and a closing never runs on the close that ends the night. A way out exists
-// only outdoors and a closing only indoors, so the last two never meet. It is
-// also called directly when a saved night is shown.
+// room that a door led into too late. The order is the end, then the arrivals,
+// then a place the night moved the player to, then a way out, then the
+// closing. The end comes first, so a travel that arrives after 08:00 never
+// shows its destination, and a closing never runs on the close that ends the
+// night. A way out exists only outdoors and a closing only indoors, so the last
+// two never meet. It is also called directly when a saved night is shown.
 function actOnNight(screen: NightScreen): void {
   let {hasEnded, night, place} = screen.contents;
 
