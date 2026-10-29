@@ -1,8 +1,8 @@
 # Foam: direction
 
 Started: 2026-10-03. App: `apps/foam`. Status: the direction is agreed; phases 1 to 7 are built and
-reviewed, and phase 8's two specs are designed. This is a living document: it describes the current
-state and plan, and is kept correct as they change.
+reviewed, phase 8's first spec is built and its second is designed. This is a living document: it
+describes the current state and plan, and is kept correct as they change.
 
 ## What Foam is
 
@@ -335,8 +335,9 @@ build and review, in this order:
    arrives when the night is looked at between windows, with a toast and a sound; reading in the
    story window; the checker over every message; and nine messages, among them an opening in
    versions, a hint on most nights, two that chain on a reply, a bet the seed settles, a wrong
-   number on one night in ten and a last call at dawn. It is designed:
-   [spec](superpowers/specs/2026-10-28-phone-design.md).
+   number on one night in ten and a last call at dawn. It is built:
+   [spec](superpowers/specs/2026-10-28-phone-design.md),
+   [plan](superpowers/plans/2026-10-28-phone.md).
 2. The author: the pick of where Jakub is tonight, The Whisky Shop early, Rotor's bar late or the
    station hall at dawn; the invitation message that names it; a place's button that appears and
    goes by a condition on the night, which is how Jakub stands in the place at the hour; the three

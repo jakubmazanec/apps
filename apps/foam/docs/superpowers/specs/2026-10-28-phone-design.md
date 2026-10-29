@@ -1,8 +1,9 @@
 # The phone (Foam phase 8, spec 1 of 2): design
 
-Date: 2026-10-28. App: `apps/foam`. Status: designed; the plan follows. It is the first of phase 8's
-two specs in the [direction document](../../direction.md). It builds on phase 7, which is built and
-reviewed. Spec 2, the author, follows.
+Date: 2026-10-28. App: `apps/foam`. Status: implemented by
+[2026-10-28-phone.md](../plans/2026-10-28-phone.md). It is the first of phase 8's two specs in the
+[direction document](../../direction.md). It builds on phase 7, which is built and reviewed. Spec 2,
+the author, follows.
 
 ## Background
 
