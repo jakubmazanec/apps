@@ -1078,7 +1078,9 @@ describe('night screen', {timeout: 180_000}, () => {
         quest: {hasBottle: false, bottleGiven: false, hasKeys: false, hasTicket: false},
         events: [],
         ending: null,
-        phone: {unread: [], read: []},
+        // The hello came with the description's close, and the hint and the wrong number come by
+        // the day's seed.
+        phone: {unread: expect.arrayContaining(['hello']) as unknown, read: []},
       });
       // The choice at the press, before its ten minutes; its text at 19:50.
       expect(nightScreen.contents.night.log.slice(-2)).toMatchObject([

@@ -488,4 +488,33 @@ describe('saving and continue', {timeout: 180_000}, () => {
 
     expect(mainMenuScreen.ui.children).not.toContain(mainMenuScreen.contents.continueButton);
   });
+
+  test('a night that is over receives nothing: the beer past 08:00 leaves the lists as they were', async () => {
+    let {contents} = harness.nightScreen;
+
+    useFixedWorld();
+    await startFrom(harness, `?place=${FIXED_BAR}&time=07:55&money=60&seed=7`);
+    await closeStory(harness);
+    await waitForToast(harness, 'Jakub');
+
+    // Seed 7's night sends the hint.
+    expect(contents.night.phone.unread).toEqual(['hello', 'hours', 'shop', 'bet', 'lastCall']);
+
+    // The beer takes the clock from 07:55 to 08:05, past the end.
+    let bartender = await openSpot(harness, 'The bartender');
+
+    // Enter finishes the text, the arrow focuses the beer, and Enter takes it.
+    await press('Enter');
+    await press('ArrowDown');
+    await press('Enter');
+    await endStory(bartender);
+    await waitForSpeaker(harness, 'Morning');
+
+    // Under 50 Kč after 20:00: broke's condition holds now, but the night is over.
+    expect(contents.night.money).toBe(15);
+    expect(contents.night.minutes).toBe(1925);
+    expect(contents.night.phone.unread).toEqual(['hello', 'hours', 'shop', 'bet', 'lastCall']);
+
+    await quitToMenu(harness);
+  });
 });

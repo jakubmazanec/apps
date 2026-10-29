@@ -935,8 +935,10 @@ export async function pickDestination(
 }
 
 // The screen shows a find's toast in an update after the night found it, so
-// the toast is awaited.
-export async function waitForToast({nightScreen}: Harness): Promise<Toast> {
+// the toast is awaited. With a title, it waits for the toast whose text is the
+// title: the phone's toasts, which every new night brings first, pass before
+// it, so the timeout is long.
+export async function waitForToast({nightScreen}: Harness, title?: string): Promise<Toast> {
   return vitest.waitFor(
     () => {
       let {toast} = nightScreen.contents;
@@ -945,9 +947,28 @@ export async function waitForToast({nightScreen}: Harness): Promise<Toast> {
         throw new Error('No toast is showing.');
       }
 
+      if (title !== undefined && readText(getToastParts(toast).text) !== title) {
+        throw new Error(`The toast is not the toast of "${title}".`);
+      }
+
       return toast;
     },
-    {timeout: 10_000},
+    {timeout: 20_000},
+  );
+}
+
+// Waits for every toast to have passed: none showing and none waiting. A toast
+// stays about three seconds, so a few of them take the long timeout.
+export async function waitForNoToast({nightScreen}: Harness): Promise<void> {
+  await vitest.waitFor(
+    () => {
+      let {toast, toastQueue} = nightScreen.contents;
+
+      if (toast !== null || toastQueue.length > 0) {
+        throw new Error('A toast is showing or waiting.');
+      }
+    },
+    {timeout: 20_000},
   );
 }
 

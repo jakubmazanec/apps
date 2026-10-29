@@ -29,6 +29,7 @@ import {
   useFixedWorld,
   waitForNoStoriesWindow,
   waitForNoStoryWindow,
+  waitForNoToast,
   waitForToast,
 } from './nightScreenHelpers.js';
 import {readText} from './readText.js';
@@ -126,7 +127,8 @@ describe('the toast of a story', {timeout: 180_000}, () => {
     await press('Enter');
     nightScreen.ui.focus(getWindowButton(storyWindow, 1));
     await press('Enter');
-    toast = await waitForToast(harness);
+    // The phone's toasts pass first.
+    toast = await waitForToast(harness, 'The shrug');
 
     let {text, title} = getToastParts(toast);
     let {night} = nightScreen.contents;
@@ -301,6 +303,9 @@ describe('the toast of a story', {timeout: 180_000}, () => {
 
     await startNewGame(harness);
     await closeStory(harness);
+    // The hello comes with the description's close, and its toast passes before the find that
+    // gives none.
+    await waitForNoToast(harness);
     storyWindow = await openSpot(harness, 'A patron');
     await press('Enter');
 
