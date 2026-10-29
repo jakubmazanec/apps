@@ -347,6 +347,12 @@ describe('night screen places', {timeout: 180_000}, () => {
       }
 
       expect(ui.children).toContain(button);
+
+      // A button hidden by its spot's condition has no box: the layout leaves a hidden view out.
+      if (!button.view.visible) {
+        continue;
+      }
+
       expect(getBox(harness, button)).toEqual({...position, ...size});
     }
 
