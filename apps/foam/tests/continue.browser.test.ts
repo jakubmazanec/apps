@@ -23,6 +23,7 @@ import {
   openSpot,
   pickDestination,
   press,
+  pressThrough,
   quitToMenu,
   startFrom,
   startNewGame,
@@ -516,5 +517,86 @@ describe('saving and continue', {timeout: 180_000}, () => {
     expect(contents.night.phone.unread).toEqual(['hello', 'hours', 'shop', 'bet', 'lastCall']);
 
     await quitToMenu(harness);
+  });
+
+  test("a quit over an open message's window leaves it unread, and a quit after it closed keeps the count with no toast", async () => {
+    let {contents, ui} = harness.nightScreen;
+
+    useFixedWorld();
+    await startNewGame(harness, 7);
+    await closeStory(harness);
+    await waitForToast(harness, 'Jakub');
+
+    expect(contents.night.phone.unread).toEqual(['hello', 'hours']);
+
+    ui.focus(contents.phoneButton);
+    await press('Enter');
+
+    expect(contents.reading).toBe('hello');
+
+    await quitToMenu(harness);
+    await continueNight(harness);
+
+    expect(contents.reading).toBeNull();
+
+    // The save held the lists empty, so both arrive again.
+    await waitForToast(harness, 'Jakub');
+
+    expect(contents.night.phone).toEqual({unread: ['hello', 'hours'], read: []});
+
+    await closeStory(harness);
+    ui.focus(contents.phoneButton);
+    await press('Enter');
+
+    let storyWindow = getStoryWindow(harness);
+
+    await pressThrough(harness, storyWindow);
+    // Mute ends the window.
+    ui.focus(getWindowButton(storyWindow, 2));
+    await press('Enter');
+    await waitForNoStoryWindow(harness);
+
+    expect(readSavedNight().phone).toEqual({unread: ['hours'], read: ['hello']});
+
+    await quitToMenu(harness);
+    await continueNight(harness);
+    await nextFrame();
+    await nextFrame();
+    await nextFrame();
+
+    expect(contents.toast).toBeNull();
+    expect(contents.toastQueue).toEqual([]);
+    expect(getButtonLabel(contents.phoneButton)).toBe('Phone 1');
+    expect(contents.night.phone).toEqual({unread: ['hours'], read: ['hello']});
+
+    await closeStory(harness);
+  });
+
+  test('a saved key the content lacks goes on Continue, with a warning, and the known keys stay', async () => {
+    let {contents} = harness.nightScreen;
+    let warn = vitest.spyOn(console, 'warn').mockImplementation(() => {});
+
+    try {
+      localStorage.setItem(
+        'foam:night',
+        JSON.stringify({...readSavedNight(), phone: {unread: ['gone'], read: ['hello', 'old']}}),
+      );
+      await quitToMenu(harness);
+      await continueNight(harness);
+
+      expect(warn.mock.calls).toEqual([
+        ['The phone drops the message "gone", which the content lacks.'],
+        ['The phone drops the message "old", which the content lacks.'],
+      ]);
+
+      // The hint arrives again: it was in neither list.
+      await waitForToast(harness, 'Jakub');
+
+      expect(contents.night.phone).toEqual({unread: ['hours'], read: ['hello']});
+
+      await closeStory(harness);
+    } finally {
+      warn.mockRestore();
+    }
   });
 });
