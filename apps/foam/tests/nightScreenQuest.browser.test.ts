@@ -178,7 +178,7 @@ describe('the quest', {timeout: 180_000}, () => {
     nightScreen.ui.focus(getWindowButton(storyWindow, 0));
     await press('Enter');
 
-    let toast = await waitForToast(harness);
+    let toast = await waitForToast(harness, 'The keys');
 
     expect(readText(getToastParts(toast).text)).toBe('The keys');
     expect(nightScreen.contents.night.quest.hasKeys).toBe(true);
@@ -343,7 +343,7 @@ describe('the quest', {timeout: 180_000}, () => {
     nightScreen.ui.focus(getWindowButton(storyWindow, 0));
     await press('Enter');
 
-    let toast = await waitForToast(harness);
+    let toast = await waitForToast(harness, 'The birthday');
 
     expect(readText(getToastParts(toast).text)).toBe('The birthday');
     expect(nightScreen.contents.night.quest.bottleGiven).toBe(true);

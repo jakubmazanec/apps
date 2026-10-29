@@ -17,6 +17,7 @@ export const assets = new GameAssets({
         'ui-error': ['ui-error.wav'],
         'menu-music': ['menu-music.wav'],
         blip: ['blip.wav'],
+        phone: ['phone.wav'],
       },
     },
   ],

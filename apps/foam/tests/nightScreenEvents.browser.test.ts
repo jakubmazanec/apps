@@ -109,7 +109,7 @@ describe('the events on arrival', {timeout: 180_000}, () => {
     nightScreen.ui.focus(getWindowButton(storyWindow, 0));
     await press('Enter');
 
-    let toast = await waitForToast(harness);
+    let toast = await waitForToast(harness, 'The wallet on the bench');
 
     expect(readText(getToastParts(toast).text)).toBe('The wallet on the bench');
     expect(readText(nightScreen.contents.statusText)).toBe(`18:00   ${350 + amount} Kč   0.0`);

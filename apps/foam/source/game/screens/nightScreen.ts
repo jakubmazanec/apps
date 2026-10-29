@@ -13,6 +13,8 @@ import {journeys} from '../content/journeys.js';
 import {nightEnd} from '../content/nightEnd.js';
 import {nightStart} from '../content/nightStart.js';
 import {messages} from '../content/phone/index.js';
+import {assets} from '../core/assets.js';
+import {audio} from '../core/audio.js';
 import {SEPARATOR} from '../core/contentPath.js';
 import {game} from '../core/game.js';
 import {
@@ -28,7 +30,7 @@ import {type Location, type LocationId} from '../core/location.js';
 import {logChoice} from '../core/log.js';
 import {createNight, formatStatus, type Night, restoreNight} from '../core/night.js';
 import {recordNight} from '../core/nights.js';
-import {getUnreadMessage} from '../core/phone.js';
+import {getUnreadMessage, receiveMessages} from '../core/phone.js';
 import {type Place} from '../core/place.js';
 import {playFocusSound} from '../core/playFocusSound.js';
 import {clearSavedNight, type SavedNight, saveNight} from '../core/save.js';
@@ -669,6 +671,20 @@ function closeLocation(screen: NightScreen, location: Location): void {
   openStory(screen, closing, `${id}${SEPARATOR}closing`);
 }
 
+// Moves the messages whose conditions hold now to the unread list, queues a
+// toast for each and plays the chime once if any arrived.
+function receiveArrivals(screen: NightScreen): void {
+  let arrived = receiveMessages(screen.contents.night, messages);
+
+  for (let {from} of arrived) {
+    screen.contents.toastQueue.push({heading: 'A message', title: from});
+  }
+
+  if (arrived.length > 0) {
+    audio.play(assets.sound('phone'), {bus: 'ui'});
+  }
+}
+
 // Looks at the night once a story window has closed. A night that is over
 // takes the place off the screen and opens the end text over black, and when
 // that has closed the log screen takes over; a way out the night still holds
@@ -705,6 +721,10 @@ function actOnNight(screen: NightScreen): void {
 
     return;
   }
+
+  // Right after the check that the night is over, before anything else: a
+  // night that is over receives nothing.
+  receiveArrivals(screen);
 
   if (place !== null && night.place === place.id) {
     if (night.leaving !== null) {
