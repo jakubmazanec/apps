@@ -30,7 +30,7 @@ import {
   GLYPH_WIDTH,
 } from '../source/game/core/getSceneArea.js';
 import {getSpotPosition} from '../source/game/core/getSpotPosition.js';
-import {isOpenAt} from '../source/game/core/hours.js';
+import {formatHourWords, isOpenAt} from '../source/game/core/hours.js';
 import {
   createNight,
   type Ending,
@@ -1067,9 +1067,10 @@ describe('the game content', () => {
     }
   });
 
-  test('the messages carry the twelve keys in order, and Jakub sends every one', () => {
+  test('the messages carry the thirteen keys in order, and Jakub sends every one', () => {
     expect(messages.map(({key}) => key)).toEqual([
       'hello',
+      'invitation',
       'hours',
       'four',
       'five',
@@ -1083,6 +1084,43 @@ describe('the game content', () => {
       'lastCall',
     ]);
     expect(new Set(messages.map(({from}) => from))).toEqual(new Set(['Jakub']));
+  });
+
+  test('the invitation comes at 16:30 on every night, and names the seat and its hours in words', () => {
+    expect(arrives('invitation', nightAt(990))).toBe(true);
+    expect(arrives('invitation', nightAt(989))).toBe(false);
+    expect(
+      arrives(
+        'invitation',
+        nightAt(990, {place: 'train', quest: {hasKeys: true, hasTicket: true}}),
+      ),
+    ).toBe(true);
+
+    for (let [seat, {hours}] of SEAT_ENTRIES) {
+      let [from, to] = hours;
+      let {dialogue} = openMessage('invitation', 990, {pick: seat});
+
+      expect(dialogue.node).toBe(messageNode('invitation', seat));
+
+      // The hall's hours end with the night, so its text names the start only.
+      for (let minutes of seat === 'hall' ? [from] : [from, to]) {
+        expect(dialogue.pageText).toContain(formatHourWords(minutes));
+      }
+
+      dialogue.advance();
+
+      expect(readChoices(dialogue)).toEqual(['Maybe', 'Why?']);
+    }
+
+    expect(takeChoice(openMessage('invitation', 990), 1).dialogue.node).toBe(
+      messageNode('invitation', 'why'),
+    );
+
+    let maybe = takeChoice(openMessage('invitation', 990), 0);
+
+    expect(maybe.dialogue.phase).toBe('ended');
+    expect(maybe.night.minutes).toBe(990);
+    expect(maybe.night.money).toBe(350);
   });
 
   test('the hello always arrives, in three versions that answer "Who is this?" by the same pick, and reads the collection', () => {

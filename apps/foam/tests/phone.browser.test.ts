@@ -47,7 +47,8 @@ function readSavedNight(): SavedNight {
 }
 
 // The hint and the wrong number come by the seed, so this seed's night at 20:30 in Rotor's room
-// with 350 Kč gets the hello, the shop and the bet and nothing else.
+// with 350 Kč gets the hello, the invitation (which comes on every night at 16:30), the shop and
+// the bet and nothing else.
 const QUIET_SEED = findSeed((seed) => {
   let night = createNight({seed, place: 'rotorBarRoom', minutes: 1230, money: 350});
 
@@ -55,7 +56,7 @@ const QUIET_SEED = findSeed((seed) => {
     messages
       .filter((message) => message.arrives(night))
       .map(({key}) => key)
-      .join(',') === 'hello,shop,bet'
+      .join(',') === 'hello,invitation,shop,bet'
   );
 });
 
@@ -125,7 +126,7 @@ describe('the phone', {timeout: 180_000}, () => {
     }
   });
 
-  test('a jump-in at 20:30 without the bottle brings three messages at once: the toasts follow one another and the button counts them', async () => {
+  test('a jump-in at 20:30 without the bottle brings four messages at once: the toasts follow one another and the button counts them', async () => {
     let {contents} = harness.nightScreen;
 
     await startFrom(harness, `?place=rotorBarRoom&time=20:30&money=350&seed=${QUIET_SEED}`);
@@ -137,9 +138,13 @@ describe('the phone', {timeout: 180_000}, () => {
     await closeStory(harness);
     await waitForToast(harness, 'Jakub');
 
-    expect(contents.night.phone).toEqual({unread: ['hello', 'shop', 'bet'], read: []});
-    expect(getButtonLabel(contents.phoneButton)).toBe('Phone 3');
+    expect(contents.night.phone).toEqual({
+      unread: ['hello', 'invitation', 'shop', 'bet'],
+      read: [],
+    });
+    expect(getButtonLabel(contents.phoneButton)).toBe('Phone 4');
     expect(contents.toastQueue).toEqual([
+      {heading: 'A message', title: 'Jakub'},
       {heading: 'A message', title: 'Jakub'},
       {heading: 'A message', title: 'Jakub'},
     ]);
@@ -173,9 +178,12 @@ describe('the phone', {timeout: 180_000}, () => {
     await waitForNoStoryWindow(harness);
 
     expect(contents.reading).toBeNull();
-    expect(contents.night.phone).toEqual({unread: ['shop', 'bet'], read: ['hello']});
-    expect(getButtonLabel(contents.phoneButton)).toBe('Phone 2');
-    expect(readSavedNight().phone).toEqual({unread: ['shop', 'bet'], read: ['hello']});
+    expect(contents.night.phone).toEqual({unread: ['invitation', 'shop', 'bet'], read: ['hello']});
+    expect(getButtonLabel(contents.phoneButton)).toBe('Phone 3');
+    expect(readSavedNight().phone).toEqual({
+      unread: ['invitation', 'shop', 'bet'],
+      read: ['hello'],
+    });
     expect(contents.night.log.slice(-2).map(describeEntry)).toEqual([
       ['text', 1230, 'Jakub'],
       ['choice', 1230, 'Mute'],
@@ -183,6 +191,30 @@ describe('the phone', {timeout: 180_000}, () => {
     // Reading costs nothing.
     expect(contents.night.minutes).toBe(1230);
     expect(contents.night.money).toBe(350);
+  });
+
+  test('the invitation says where Jakub is tonight, and Maybe closes it', async () => {
+    let {contents, ui} = harness.nightScreen;
+
+    ui.focus(contents.phoneButton);
+    await press('Enter');
+
+    expect(contents.reading).toBe('invitation');
+
+    let storyWindow = getStoryWindow(harness);
+
+    expect(storyWindow.dialogue.node?.speaker).toBe('Jakub');
+
+    await pressThrough(harness, storyWindow);
+
+    expect(getWindowParts(storyWindow).buttons.map(getButtonLabel)).toEqual(['Maybe', 'Why?']);
+
+    ui.focus(getWindowButton(storyWindow, 0));
+    await press('Enter');
+    await waitForNoStoryWindow(harness);
+
+    expect(contents.night.phone).toEqual({unread: ['shop', 'bet'], read: ['hello', 'invitation']});
+    expect(getButtonLabel(contents.phoneButton)).toBe('Phone 2');
   });
 
   test('the next press opens the next message, whose reply marks the night', async () => {
@@ -207,7 +239,7 @@ describe('the phone', {timeout: 180_000}, () => {
     await waitForNoStoryWindow(harness);
 
     expect(contents.night.events).toContain('skippedBottle');
-    expect(contents.night.phone).toEqual({unread: ['bet'], read: ['hello', 'shop']});
+    expect(contents.night.phone).toEqual({unread: ['bet'], read: ['hello', 'invitation', 'shop']});
     expect(getButtonLabel(contents.phoneButton)).toBe('Phone 1');
   });
 
@@ -247,7 +279,10 @@ describe('the phone', {timeout: 180_000}, () => {
     await press('Enter');
     await waitForNoStoryWindow(harness);
 
-    expect(contents.night.phone).toEqual({unread: [], read: ['hello', 'shop', 'bet']});
+    expect(contents.night.phone).toEqual({
+      unread: [],
+      read: ['hello', 'invitation', 'shop', 'bet'],
+    });
     expect(getButtonLabel(contents.phoneButton)).toBe('Phone');
     expect(contents.phoneButton.isDisabled).toBe(true);
     expect(contents.night.events).not.toContain('bet');

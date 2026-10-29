@@ -499,7 +499,14 @@ describe('saving and continue', {timeout: 180_000}, () => {
     await waitForToast(harness, 'Jakub');
 
     // Seed 7's night sends the hint.
-    expect(contents.night.phone.unread).toEqual(['hello', 'hours', 'shop', 'bet', 'lastCall']);
+    expect(contents.night.phone.unread).toEqual([
+      'hello',
+      'invitation',
+      'hours',
+      'shop',
+      'bet',
+      'lastCall',
+    ]);
 
     // The beer takes the clock from 07:55 to 08:05, past the end.
     let bartender = await openSpot(harness, 'The bartender');
@@ -514,7 +521,14 @@ describe('saving and continue', {timeout: 180_000}, () => {
     // Under 50 Kč after 20:00: broke's condition holds now, but the night is over.
     expect(contents.night.money).toBe(15);
     expect(contents.night.minutes).toBe(1925);
-    expect(contents.night.phone.unread).toEqual(['hello', 'hours', 'shop', 'bet', 'lastCall']);
+    expect(contents.night.phone.unread).toEqual([
+      'hello',
+      'invitation',
+      'hours',
+      'shop',
+      'bet',
+      'lastCall',
+    ]);
 
     await quitToMenu(harness);
   });
@@ -527,7 +541,7 @@ describe('saving and continue', {timeout: 180_000}, () => {
     await closeStory(harness);
     await waitForToast(harness, 'Jakub');
 
-    expect(contents.night.phone.unread).toEqual(['hello', 'hours']);
+    expect(contents.night.phone.unread).toEqual(['hello', 'invitation', 'hours']);
 
     ui.focus(contents.phoneButton);
     await press('Enter');
@@ -539,10 +553,10 @@ describe('saving and continue', {timeout: 180_000}, () => {
 
     expect(contents.reading).toBeNull();
 
-    // The save held the lists empty, so both arrive again.
+    // The save held the lists empty, so all three arrive again.
     await waitForToast(harness, 'Jakub');
 
-    expect(contents.night.phone).toEqual({unread: ['hello', 'hours'], read: []});
+    expect(contents.night.phone).toEqual({unread: ['hello', 'invitation', 'hours'], read: []});
 
     await closeStory(harness);
     ui.focus(contents.phoneButton);
@@ -556,7 +570,7 @@ describe('saving and continue', {timeout: 180_000}, () => {
     await press('Enter');
     await waitForNoStoryWindow(harness);
 
-    expect(readSavedNight().phone).toEqual({unread: ['hours'], read: ['hello']});
+    expect(readSavedNight().phone).toEqual({unread: ['invitation', 'hours'], read: ['hello']});
 
     await quitToMenu(harness);
     await continueNight(harness);
@@ -566,8 +580,8 @@ describe('saving and continue', {timeout: 180_000}, () => {
 
     expect(contents.toast).toBeNull();
     expect(contents.toastQueue).toEqual([]);
-    expect(getButtonLabel(contents.phoneButton)).toBe('Phone 1');
-    expect(contents.night.phone).toEqual({unread: ['hours'], read: ['hello']});
+    expect(getButtonLabel(contents.phoneButton)).toBe('Phone 2');
+    expect(contents.night.phone).toEqual({unread: ['invitation', 'hours'], read: ['hello']});
 
     await closeStory(harness);
   });
@@ -589,10 +603,10 @@ describe('saving and continue', {timeout: 180_000}, () => {
         ['The phone drops the message "old", which the content lacks.'],
       ]);
 
-      // The hint arrives again: it was in neither list.
+      // The invitation and the hint arrive again: they were in neither list.
       await waitForToast(harness, 'Jakub');
 
-      expect(contents.night.phone).toEqual({unread: ['hours'], read: ['hello']});
+      expect(contents.night.phone).toEqual({unread: ['invitation', 'hours'], read: ['hello']});
 
       await closeStory(harness);
     } finally {
