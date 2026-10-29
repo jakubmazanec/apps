@@ -1107,6 +1107,10 @@ describe('the game content', () => {
         expect(dialogue.pageText).toContain(formatHourWords(minutes));
       }
 
+      for (let minutes of seat === 'hall' ? [to] : []) {
+        expect(dialogue.pageText).not.toContain(formatHourWords(minutes));
+      }
+
       dialogue.advance();
 
       expect(readChoices(dialogue)).toEqual(['Maybe', 'Why?']);

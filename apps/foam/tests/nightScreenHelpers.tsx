@@ -937,9 +937,10 @@ export async function pickDestination(
 // The screen shows a find's toast in an update after the night found it, so
 // the toast is awaited. With a title, it waits for the toast whose text is the
 // title: the phone's toasts, which a new night brings first, pass before it.
-// Up to three pass: the hello on every night, the hint and the wrong number by
-// the day's seed. Each takes about 3.6 seconds and a loaded machine runs them
-// several times slower, so the timeout is long.
+// Several pass: the hello and the invitation on every night, the shop and the
+// bet after 20:30, the hint and the wrong number by the day's seed. Each takes
+// about 3.6 seconds and a loaded machine runs them several times slower, so the
+// timeout is long.
 export async function waitForToast({nightScreen}: Harness, title?: string): Promise<Toast> {
   return vitest.waitFor(
     () => {

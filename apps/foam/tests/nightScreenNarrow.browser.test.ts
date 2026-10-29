@@ -94,7 +94,8 @@ describe('night screen on a narrow screen', {timeout: 180_000}, () => {
     expect(getBox(harness, phoneButton)).toEqual({left: 100, top: 242, width: 42, height: 16});
     expect(ui.children.indexOf(phoneButton)).toBe(ui.children.indexOf(backdrop) - 1);
 
-    for (let button of spotButtons) {
+    // A button hidden by its spot's condition has no box: the layout leaves a hidden view out.
+    for (let button of spotButtons.filter(({view}) => view.visible)) {
       let box = getBox(harness, button);
 
       expect(ui.children.indexOf(phoneButton)).toBeGreaterThan(ui.children.indexOf(button));
