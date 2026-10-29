@@ -3,6 +3,7 @@ import {findStory, getDrunkenness, type Night} from '../../../core/night.js';
 import {type Place} from '../../../core/place.js';
 import {standIn} from '../../../core/prose.js';
 import {defineScript} from '../../../core/script.js';
+import {AUTHOR, AUTHOR_STORY, isAuthorIn} from '../../author.js';
 import {barPicture} from '../../pictures/barPicture.js';
 import {
   BIRTHDAY_STORY,
@@ -15,10 +16,10 @@ import {
 
 // The text of this place is stand-in text: the author replaces standIn by prose when writing
 // the real text. Its limits: no word is longer than 16 characters (every word must fit a line on
-// the narrowest screen), people have no names (places, streets and stops keep theirs), every node
-// sets `speaker`, a description is two or three sentences, a scene button one node of one or two,
-// and the `*` marks of italic come in pairs. A story's title is stand-in text too, written with
-// standIn.
+// the narrowest screen), people have no names (places, streets and stops keep theirs, and the
+// author's avatar Jakub is the one exception), every node sets `speaker`, a description is two or
+// three sentences, a scene button one node of one or two, and the `*` marks of italic come in
+// pairs. A story's title is stand-in text too, written with standIn.
 const PLACE_NAME = 'Rotor Bar';
 const BAR = 'The bar';
 const BACK_ROOM = 'The back room';
@@ -376,6 +377,45 @@ const door = defineScript({
     ],
   },
 });
+const jakub = defineScript({
+  start: 'asks',
+  nodes: {
+    asks: {
+      speaker: AUTHOR,
+      text: (night) =>
+        night.quest.hasKeys ?
+          night.quest.bottleGiven ?
+            standIn`
+              He asks how the night is going. You have the keys and the bottle is on the long
+              table, and he writes that down.
+            `
+          : standIn`
+              He asks how the night is going. You have the keys, but the bottle has not been
+              given yet, and he writes that down.
+            `
+        : night.quest.bottleGiven ?
+          standIn`
+            He asks how the night is going. The bottle is on the long table, but the keys are
+            still with your friend, and he writes that down.
+          `
+        : standIn`
+            He asks how the night is going. You have no keys and no bottle given, and he writes
+            that down.
+          `,
+      choices: [{text: 'Ask for a story', minutes: 10, next: 'story'}, {text: 'Say nothing'}],
+      onEnter: (night) => {
+        findStory(night, AUTHOR_STORY);
+      },
+    },
+    story: {
+      speaker: AUTHOR,
+      text: standIn`
+        He tells you about the night the bar flooded, and how the band played on, standing on
+        crates. That one is real, he says, and the water was up to the third step.
+      `,
+    },
+  },
+});
 
 export const rotorBarRoom: Place = {
   id: 'rotorBarRoom',
@@ -389,5 +429,12 @@ export const rotorBarRoom: Place = {
     {label: TABLE, x: 0.7, y: 0.84, script: table},
     {label: LONG_TABLE, x: 0.72, y: 0.62, script: longTable},
     {label: DOOR, x: 0.91, y: 0.4, script: door},
+    {
+      label: AUTHOR,
+      x: 0.5,
+      y: 0.75,
+      script: jakub,
+      isVisible: (night) => isAuthorIn(night, 'rotorBarRoom'),
+    },
   ],
 };

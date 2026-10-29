@@ -1123,6 +1123,94 @@ describe('the game content', () => {
     expect(maybe.night.money).toBe(350);
   });
 
+  test("the Jakub spot of each seat's place shows by the pick and the hours, and no other spot has a condition", () => {
+    for (let [seat, {place, hours}] of SEAT_ENTRIES) {
+      let [from, to] = hours;
+      let {isVisible} = getSpot(getPlace(place), 'Jakub');
+
+      expect(isVisible?.(createPinnedNight(place, from, {pick: seat}))).toBe(true);
+      expect(isVisible?.(createPinnedNight(place, to, {pick: seat}))).toBe(false);
+
+      for (let [other] of SEAT_ENTRIES.filter(([otherSeat]) => otherSeat !== seat)) {
+        expect(isVisible?.(createPinnedNight(place, from, {pick: other}))).toBe(false);
+      }
+    }
+
+    expect(
+      Object.values(places)
+        .flatMap((place) => place.spots)
+        .filter((spot) => spot.isVisible !== undefined)
+        .map((spot) => spot.label),
+    ).toEqual(['Jakub', 'Jakub', 'Jakub']);
+  });
+
+  test('each meeting opens on Jakub with its choices, and the first meeting finds the story', () => {
+    for (let [place, minutes, choices] of [
+      ['whiskyShopRoom', 1080, ['Take the dram', 'Ask which bits are real', 'Leave him to it']],
+      ['rotorBarRoom', 1320, ['Ask for a story', 'Say nothing']],
+      ['hlavniNadraziHall', 1860, ['Was any of it real?', 'Say nothing']],
+    ] as const) {
+      let {dialogue, night} = openSpot(place, 'Jakub', minutes);
+
+      expect(dialogue.node?.speaker).toBe('Jakub');
+      expect(night.stories).toEqual([{title: 'The author', minutes}]);
+
+      dialogue.advance();
+
+      expect(readChoices(dialogue)).toEqual(choices);
+    }
+
+    expect(
+      openSpot('rotorBarRoom', 'Jakub', 1320, {collection: {titles: ['The author']}}).night.stories,
+    ).toEqual([]);
+  });
+
+  test('the dram costs a quarter of an hour and a drink and no money', () => {
+    let opened = openSpot('whiskyShopRoom', 'Jakub', 1080);
+
+    opened.dialogue.advance();
+
+    expect(formatChoice(asChoice(opened.dialogue.visibleChoices[0]!), opened.night)).toBe(
+      'Take the dram  15 min',
+    );
+
+    let {dialogue, night} = takeChoice(openSpot('whiskyShopRoom', 'Jakub', 1080), 0);
+
+    expect(night.minutes).toBe(1095);
+    expect(night.money).toBe(350);
+    expect(getDrunkenness(night)).toBe(1);
+    expect(dialogue.node).toBe(nodeOf('whiskyShopRoom', 'Jakub', 'dram'));
+    expect(takeChoice(openSpot('whiskyShopRoom', 'Jakub', 1080), 1).dialogue.node).toBe(
+      nodeOf('whiskyShopRoom', 'Jakub', 'real'),
+    );
+    expect(takeChoice(openSpot('whiskyShopRoom', 'Jakub', 1080), 2).dialogue.phase).toBe('ended');
+  });
+
+  test("Rotor's Jakub reads the keys and the bottle, and his story costs ten minutes", () => {
+    expect(
+      new Set(
+        [{}, {hasKeys: true}, {bottleGiven: true}, {hasKeys: true, bottleGiven: true}].map(
+          (quest) => openSpot('rotorBarRoom', 'Jakub', 1320, {quest}).dialogue.pageText,
+        ),
+      ).size,
+    ).toBe(4);
+
+    let {dialogue, night} = takeChoice(openSpot('rotorBarRoom', 'Jakub', 1320), 0);
+
+    expect(night.minutes).toBe(1330);
+    expect(night.money).toBe(350);
+    expect(dialogue.node).toBe(nodeOf('rotorBarRoom', 'Jakub', 'story'));
+  });
+
+  test("the hall's Jakub says what was real", () => {
+    let {dialogue, night} = takeChoice(openSpot('hlavniNadraziHall', 'Jakub', 1860), 0);
+
+    expect(dialogue.node).toBe(nodeOf('hlavniNadraziHall', 'Jakub', 'real'));
+    expect(dialogue.pageText).toContain('three people');
+    expect(night.minutes).toBe(1860);
+    expect(night.money).toBe(350);
+  });
+
   test('the hello always arrives, in three versions that answer "Who is this?" by the same pick, and reads the collection', () => {
     expect(arrives('hello', nightAt(960))).toBe(true);
     expect(arrives('hello', nightAt(1919, {place: 'train'}))).toBe(true);
@@ -1355,7 +1443,7 @@ describe('the game content', () => {
     expect(readChoices(stranded)).toEqual(['Thanks']);
   });
 
-  test("the game's content has twenty-two stories", () => {
+  test("the game's content has twenty-three stories", () => {
     let {closing} = locations.rotorBar;
 
     if (closing === undefined) {
@@ -1382,6 +1470,7 @@ describe('the game content', () => {
       takeChoice(openSpot('rotorBarRoom', 'The long table', 1200, {quest: {hasBottle: true}}), 0),
       takeChoice(openSpot('hlavniNadraziForecourt', 'A stranger', 1100), 0),
       openSpot('hlavniNadraziHall', 'The hall', 1100),
+      openSpot('whiskyShopRoom', 'Jakub', 1080),
       takeChoice(openSpot('namestiRepubliky', 'The shelter', 1100), 0, 0.1),
       takeChoice(openDescription('namestiRepubliky', 1400, {pick: 'wallet'}), 0, 0.5),
       takeChoice(openDescription('namestiRepubliky', 1400, {pick: 'drunk'}), 0),
@@ -1402,6 +1491,7 @@ describe('the game content', () => {
         'A train not on the timetable',
         'Not carried home',
         'The argument in whispers',
+        'The author',
         'The birthday',
         'The fifty on the guitar',
         'The fight at the stop',
