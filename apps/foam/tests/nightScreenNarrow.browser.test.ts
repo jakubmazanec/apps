@@ -103,7 +103,8 @@ describe('night screen on a narrow screen', {timeout: 180_000}, () => {
   });
 
   test('every scene button lies inside the screen and under the top row', () => {
-    for (let button of harness.nightScreen.contents.spotButtons) {
+    // A button hidden by its spot's condition has no box: the layout leaves a hidden view out.
+    for (let button of harness.nightScreen.contents.spotButtons.filter(({view}) => view.visible)) {
       let box = getBox(harness, button);
 
       expect(box.left).toBeGreaterThanOrEqual(4);

@@ -2,7 +2,7 @@ import {defineDialogueScript} from 'tellurion';
 
 import {createWayOut} from '../source/game/core/createWayOut.js';
 import {getMapPosition} from '../source/game/core/getMapPoint.js';
-import {isOpenAt} from '../source/game/core/hours.js';
+import {isOpenAt, isWithin, type Span} from '../source/game/core/hours.js';
 import {type Location, type LocationId} from '../source/game/core/location.js';
 import {findStory, hasStory, type Night, type PlaceId} from '../source/game/core/night.js';
 import {type Place} from '../source/game/core/place.js';
@@ -67,6 +67,10 @@ const DOOR = 'The door';
 // collection holds the first does not offer the choice.
 const SHRUG_STORY = 'The shrug';
 const GLASS_STORY = 'The glass';
+// The regular sits at the end of the counter from 20:00 to 20:30, the one spot of the fixed
+// world with a condition on the night.
+const REGULAR = 'A regular';
+const REGULAR_HOURS: Span = [1200, 1230];
 const barDescription = defineDialogueScript<Night>()({
   start: {
     speaker: BAR_NAME,
@@ -218,6 +222,24 @@ const door = defineScript({
     },
   },
 });
+const regular = defineScript({
+  start: 'regular',
+  nodes: {
+    regular: {
+      speaker: REGULAR,
+      text:
+        'A man in a work coat sits on the stool at the end of the counter, his hands folded ' +
+        'around a small glass. He nods at the stool beside him.',
+      choices: [{text: 'Sit a while', minutes: 30, next: 'sat'}, {text: 'Leave him be'}],
+    },
+    sat: {
+      speaker: REGULAR,
+      text:
+        'He talks about the trams: which line runs late, which driver whistles and which stop ' +
+        'has the draught. The half hour goes by like that.',
+    },
+  },
+});
 const testBar: Place = {
   id: FIXED_BAR,
   name: BAR_NAME,
@@ -229,6 +251,13 @@ const testBar: Place = {
     {label: WOMEN, x: 0.75, y: 0.84, script: women},
     {label: PATRON, x: 0.14, y: 0.93, script: patron},
     {label: DOOR, x: 0.91, y: 0.4, script: door},
+    {
+      label: REGULAR,
+      x: 0.45,
+      y: 0.6,
+      script: regular,
+      isVisible: (night) => isWithin(night, REGULAR_HOURS),
+    },
   ],
 };
 // The street outside the bar, with the bar's door, open or locked by the bar's hours.

@@ -15,6 +15,13 @@ export type Spot = {
   y: number;
 
   script: RunnableDialogueScript<Night>;
+
+  /**
+   * Offered only while it holds: the night screen reads it when the place is shown and whenever
+   * it looks at the night, and hides or shows the button. Absent, the button always shows. It has
+   * no side effects: the checker runs it on thousands of nights.
+   */
+  isVisible?: (night: Night) => boolean;
 };
 
 export type Place = {

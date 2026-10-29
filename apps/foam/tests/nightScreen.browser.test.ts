@@ -79,6 +79,9 @@ const LAMP_PAGE =
 // stand just above their tables, and the test holds them there.
 const THINGS = new Map<string, Box>([
   ['A patron', {left: 20, top: 218, width: 98, height: 26}],
+  // The far end of the counter: the regular's centre at 480 × 270 is (216, 157), and its box
+  // overlaps the thing at 195 × 350 and at 146 × 262.
+  ['A regular', {left: 170, top: 130, width: 90, height: 50}],
   // The first lamp's light above the counter.
   ['The bartender', {left: 60, top: 110, width: 88, height: 77}],
   ['The door', {left: 418, top: 70, width: 40, height: 106}],
@@ -418,7 +421,8 @@ describe('night screen', {timeout: 180_000}, () => {
 
       expect(nightScreen.contents.spotButtons).toHaveLength(sampleBar.spots.length);
 
-      for (let button of nightScreen.contents.spotButtons) {
+      // A button hidden by its spot's condition has no box: the layout leaves a hidden view out.
+      for (let button of nightScreen.contents.spotButtons.filter(({view}) => view.visible)) {
         let box = getBox(harness, button);
 
         expect(box.left).toBeGreaterThanOrEqual(4);
@@ -433,7 +437,10 @@ describe('night screen', {timeout: 180_000}, () => {
     test('no two scene buttons overlap', async () => {
       await nextFrame();
 
-      let boxes = harness.nightScreen.contents.spotButtons.map((button) => getBox(harness, button));
+      // A button hidden by its spot's condition has no box: the layout leaves a hidden view out.
+      let boxes = harness.nightScreen.contents.spotButtons
+        .filter(({view}) => view.visible)
+        .map((button) => getBox(harness, button));
 
       expect(findOverlap(boxes)).toBeNull();
     });
@@ -441,7 +448,10 @@ describe('night screen', {timeout: 180_000}, () => {
     test('the centre of every scene button lies on its thing', async () => {
       await nextFrame();
 
-      for (let button of harness.nightScreen.contents.spotButtons) {
+      // A button hidden by its spot's condition has no box: the layout leaves a hidden view out.
+      for (let button of harness.nightScreen.contents.spotButtons.filter(
+        ({view}) => view.visible,
+      )) {
         let box = getBox(harness, button);
         let thing = getThing(getButtonLabel(button), 480, 270);
         let x = box.left + box.width / 2;

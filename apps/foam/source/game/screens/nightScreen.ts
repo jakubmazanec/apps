@@ -253,6 +253,21 @@ function handleStories(screen: NightScreen): void {
   }
 }
 
+// Hides and shows the place's buttons by their conditions on the night, in place: a hidden button
+// keeps its position, leaves the Tab order by itself, and comes back where it was. A button whose
+// spot has no condition always shows.
+function showSpots(screen: NightScreen): void {
+  let {night, place, spotButtons} = screen.contents;
+
+  for (let [index, spot] of (place?.spots ?? []).entries()) {
+    let button = spotButtons[index];
+
+    if (button !== undefined) {
+      button.view.visible = spot.isVisible?.(night) ?? true;
+    }
+  }
+}
+
 function layOut(screen: NightScreen): void {
   let {
     nextPlace,
@@ -484,7 +499,8 @@ function buildPlace(screen: NightScreen, place: Place): PlaceParts {
       openStory(screen, place.description, `${place.id}${SEPARATOR}description`);
     },
   });
-  // layOut() positions the scene buttons.
+  // layOut() positions the scene buttons, and showSpots() hides those whose condition does not
+  // hold; a place built ahead has every button visible until it is shown.
   let spotButtons = place.spots.map(
     (spot) =>
       new Button({
@@ -597,6 +613,7 @@ function showPlace(screen: NightScreen, place: Place): void {
   screen.contents.placeButton = placeButton;
   screen.contents.spotButtons = spotButtons;
   layOut(screen);
+  showSpots(screen);
   // Showing a place clears a way out that a script chose together with it.
   screen.contents.night.leaving = null;
   openStory(screen, place.description, `${place.id}${SEPARATOR}description`);
@@ -712,6 +729,8 @@ function receiveArrivals(screen: NightScreen): void {
 // shows its destination, and a closing never runs on the close that ends the
 // night. A way out exists only outdoors and a closing only indoors, so the last
 // two never meet. It is also called directly when a saved night is shown.
+// At every look the place's buttons with a condition are hidden or shown by the
+// night as it stands, after the arrivals and before the way out and the closing.
 function actOnNight(screen: NightScreen): void {
   let {hasEnded, night, place} = screen.contents;
 
@@ -740,6 +759,8 @@ function actOnNight(screen: NightScreen): void {
   receiveArrivals(screen);
 
   if (place !== null && night.place === place.id) {
+    showSpots(screen);
+
     if (night.leaving !== null) {
       openTravel(screen, getLocationOf(place).id, night.leaving);
       night.leaving = null;
