@@ -90,6 +90,9 @@ export type SceneArea = {
 
   width: number;
   height: number;
+
+  /** The whole screen's height: the top row, the area and the bottom row. */
+  screenHeight: number;
 };
 
 // The scene area is the screen between the top row and the bottom row. The top
@@ -107,6 +110,7 @@ export function getSceneArea(screenWidth: number, screenHeight: number): SceneAr
     bottom: BOTTOM_ROW_HEIGHT,
     width: screenWidth,
     height: screenHeight - top - BOTTOM_ROW_HEIGHT,
+    screenHeight,
   };
 }
 
