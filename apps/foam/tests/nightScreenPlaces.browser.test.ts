@@ -662,6 +662,34 @@ describe('night screen places', {timeout: 180_000}, () => {
       await endStory(storyWindow);
       await waitForPlace(harness, FIXED_PAVEMENT);
     });
+
+    // No spot of the fixed world does both, so the night is changed by hand while the description
+    // is open, as a script's onEnter would change it.
+    test('a window that runs past the closing and names an unknown place closes the bar on the player', async () => {
+      let {contents} = harness.nightScreen;
+      // The screen warns about the unknown place; the test reads every warning of its own, and
+      // the output stays clean.
+      let warn = vitest.spyOn(console, 'warn').mockImplementation(() => {});
+
+      try {
+        await restartAtMinute(FIXED_BAR, 1375);
+        contents.night.minutes = 1380;
+        contents.night.place = 'nowhere' as PlaceId;
+        await endStory(getStoryWindow(harness));
+
+        let closing = await waitForSpeaker(harness, 'Closing time');
+
+        expect(warn.mock.calls).toEqual([
+          [`No place "nowhere"; the night stays in "${FIXED_BAR}".`],
+        ]);
+        expect(contents.night.place).toBe(FIXED_PAVEMENT);
+
+        await endStory(closing);
+        await waitForPlace(harness, FIXED_PAVEMENT);
+      } finally {
+        warn.mockRestore();
+      }
+    });
   });
 
   // The ticker is stopped, and these tests run the frames themselves at 60 fps, so a 100 ms fade

@@ -1,14 +1,17 @@
 import {type Button} from 'tellurion';
 import {afterAll, beforeAll, describe, expect, test, vitest} from 'vitest';
 
+import {nightStart} from '../source/game/content/nightStart.js';
 import {type barPicture as barPictureValue} from '../source/game/content/pictures/barPicture.js';
 import {type LocationId} from '../source/game/core/location.js';
+import {type PlaceId} from '../source/game/core/night.js';
 import {
   FIXED_BAR,
   FIXED_BAR_LOCATION,
   FIXED_PAVEMENT,
   FIXED_SQUARE,
   FIXED_SQUARE_LOCATION,
+  fixedStart,
   getFixedPlace,
 } from './fixedWorld.js';
 import {
@@ -28,6 +31,7 @@ import {
   pickDestination,
   press,
   pressThrough,
+  restartAt,
   setViewport,
   startNewGame,
   tap,
@@ -282,5 +286,35 @@ describe('a spot with a condition', {timeout: 180_000}, () => {
     ui.focusNext();
 
     expect(describeFocus(ui.focused)).toBe('The bar');
+  });
+
+  // No spot of the fixed world does both, so the night is changed by hand while the description is
+  // open, as a script's onEnter would change it.
+  test('a window that runs past the hours and names an unknown place hides the button when it closes', async () => {
+    let {contents} = harness.nightScreen;
+    // The screen warns about the unknown place; the test reads every warning of its own, and the
+    // output stays clean.
+    let warn = vitest.spyOn(console, 'warn').mockImplementation(() => {});
+
+    nightStart.minutes = 1210;
+
+    try {
+      await restartAt(harness, FIXED_BAR);
+
+      let again = getSpotButton(harness, 'A regular');
+
+      expect(again.view.visible).toBe(true);
+
+      contents.night.minutes = 1232;
+      contents.night.place = 'nowhere' as PlaceId;
+      await closeStory(harness);
+      await waitForVisible(again, false);
+
+      expect(warn.mock.calls).toEqual([[`No place "nowhere"; the night stays in "${FIXED_BAR}".`]]);
+      expect(contents.night.place).toBe(FIXED_BAR);
+    } finally {
+      nightStart.minutes = fixedStart.minutes;
+      warn.mockRestore();
+    }
   });
 });
