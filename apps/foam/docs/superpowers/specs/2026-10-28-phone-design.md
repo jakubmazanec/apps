@@ -291,7 +291,7 @@ spec adds: `hello`, `hoursHint`, `brokeHelp`, `wrongNumber`.
 | `bet`         | 20:10 or later                                                                                                | Fifty says there's a guitar in Rotor's corner tonight. Replies: "Bet", which calls `meet(night, 'bet')`; "No".                                                                                                                                                                                                                       |
 | `betSettled`  | 22:05 or later and `bet` met                                                                                  | `start` reads `getCornerTable`: music, "Pay up", with "Here", `price: 50`, and "Skint", which costs nothing, each to a node; otherwise "Fine, you win", whose entry effect adds 50 Kč and finds the story `The fifty on the guitar`. Reply: "Cheers".                                                                                |
 | `wrongNumber` | 18:40 or later and `wrongNumber` picks `sent` from `{sent: 0.1, none: 0.9}`                                   | "Second crate's at the back door, knock twice. Sorry, wrong person." Replies: "Which back door?", a node whose entry effect finds the story `The wrong number`; "Ignore it".                                                                                                                                                         |
-| `realOne`     | One of five stories found tonight: twenty crowns, the fight, the guitarist, thrown out at three, the birthday | `start` returns the node of the first of the five in the night's list: for each, what in it really happened, in a sentence or two. Replies: "Really?", a node; "OK".                                                                                                                                                                 |
+| `realOne`     | One of five stories given tonight: twenty crowns, the fight, the guitarist, thrown out at three, the birthday | `start` returns the node of the first of the five in the night's events: for each, what in it really happened, in a sentence or two. Replies: "Really?", a node; "OK".                                                                                                                                                               |
 | `lastCall`    | 07:00 or later, no keys, no ticket, not in the hall or on Nádražní                                            | `start` returns `go` with the ticket's price in hand, the machine is twenty minutes from anywhere, or `stranded` without it, his own stranded Saturday in 2014. Replies on `go`: "Going", "Let it leave"; on `stranded`: "Thanks".                                                                                                   |
 
 The rules every message follows:
@@ -303,6 +303,9 @@ The rules every message follows:
   node to.
 - **A branch on the money is a `start` that returns a node id.** `lastCall` and `betSettled` follow
   it; `broke` reads the money in its condition only.
+- **A story given again is met.** `findStory` meets the title tonight even when the collection holds
+  it, so a condition that reacts to a story reads the events, not the night's finds, and a replay
+  hears it again.
 - **The five stories' titles are imported,** not retyped: the files that hold them export them.
   `getCornerTable` is exported from Rotor's room for the bet, with the table unchanged.
 
