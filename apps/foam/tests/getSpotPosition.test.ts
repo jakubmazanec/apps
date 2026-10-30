@@ -2,7 +2,7 @@ import {describe, expect, test} from 'vitest';
 
 import {getSpotPosition} from '../source/game/core/getSpotPosition.js';
 
-const area = {top: 24, bottom: 24, width: 480, height: 222};
+const area = {top: 24, bottom: 24, width: 480, height: 222, screenHeight: 270};
 const size = {width: 52, height: 16};
 
 describe(getSpotPosition, () => {

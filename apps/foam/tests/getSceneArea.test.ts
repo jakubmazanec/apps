@@ -16,16 +16,34 @@ import {createNight, formatStatus} from '../source/game/core/night.js';
 
 describe(getSceneArea, () => {
   test('a wide screen has a one-line top row', () => {
-    expect(getSceneArea(480, 270)).toEqual({top: 24, bottom: 24, width: 480, height: 222});
+    expect(getSceneArea(480, 270)).toEqual({
+      top: 24,
+      bottom: 24,
+      width: 480,
+      height: 222,
+      screenHeight: 270,
+    });
   });
 
   test('a narrow screen has a two-line top row', () => {
-    expect(getSceneArea(146, 262)).toEqual({top: 40, bottom: 24, width: 146, height: 198});
+    expect(getSceneArea(146, 262)).toEqual({
+      top: 40,
+      bottom: 24,
+      width: 146,
+      height: 198,
+      screenHeight: 262,
+    });
   });
 
   test('a screen exactly 292 wide has the one-line top row', () => {
     expect(getSceneArea(292, 270).top).toBe(24);
     expect(getSceneArea(291, 270).top).toBe(40);
+  });
+
+  test('the screen height is the top row, the area and the bottom row', () => {
+    for (let area of [getSceneArea(480, 270), getSceneArea(146, 262)]) {
+      expect(area.screenHeight).toBe(area.top + area.height + area.bottom);
+    }
   });
 });
 
