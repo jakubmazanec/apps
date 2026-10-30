@@ -632,9 +632,26 @@ export function checkContent(content: Content): string[] {
     }
   }
 
+  // Runs a condition on every check night of each of the places, a throw reported under the path, a
+  // pick in it run under every name. The result is not read: a condition that never holds on a
+  // check night is no fault.
+  function checkCondition(
+    where: string,
+    ids: string[],
+    condition: (night: Night) => boolean,
+    collection: Night['collection'],
+    met: string[],
+  ): void {
+    for (let id of ids) {
+      for (let night of createCheckNights(id, collection, met)) {
+        tryWithRandom(where, night, condition);
+      }
+    }
+  }
+
   // The pass's collection is one object for all its nights: they only read it. The events are
-  // copied into each night. A spot's condition runs on every check night of its place, a throw
-  // reported under isVisible, a pick in it run under every name.
+  // copied into each night. A spot's condition runs on the check nights of its place, a message's
+  // on those of every place.
   function checkScripts(collectionTitles: string[], met: string[]): void {
     let collection = {titles: collectionTitles};
 
@@ -644,15 +661,14 @@ export function checkContent(content: Content): string[] {
       for (let spot of place.spots) {
         checkScript(`${id}${SEPARATOR}${spot.label}`, spot.script, place, collection, met);
 
-        // The result is not read: a condition that never holds on a check night is no fault.
         if (spot.isVisible !== undefined) {
-          for (let night of createCheckNights(id, collection, met)) {
-            tryWithRandom(
-              `${id}${SEPARATOR}${spot.label}${SEPARATOR}isVisible`,
-              night,
-              spot.isVisible,
-            );
-          }
+          checkCondition(
+            `${id}${SEPARATOR}${spot.label}${SEPARATOR}isVisible`,
+            [id],
+            spot.isVisible,
+            collection,
+            met,
+          );
         }
       }
     }
@@ -674,12 +690,7 @@ export function checkContent(content: Content): string[] {
 
       checkScript(name, message.script, null, collection, met, message.from);
 
-      // The result is not read: a condition that never holds on a check night is no fault.
-      for (let id of placeIds) {
-        for (let night of createCheckNights(id, collection, met)) {
-          tryWithRandom(`${name}${SEPARATOR}arrives`, night, message.arrives);
-        }
-      }
+      checkCondition(`${name}${SEPARATOR}arrives`, placeIds, message.arrives, collection, met);
     }
   }
 

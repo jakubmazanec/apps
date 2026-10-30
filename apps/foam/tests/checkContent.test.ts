@@ -292,10 +292,12 @@ describe(checkContent, {timeout: 60_000}, () => {
     let spots = [
       {label: 'The door', x: 0.5, y: 0.5, script: oneNode('A door.'), isVisible: throwNoWay},
     ];
+    let lines = check({places: withZidenice({spots})});
 
-    expect(check({places: withZidenice({spots})})).toContain(
+    // Once, though it throws on every check night of both passes.
+    expect(lines.filter((line) => line.startsWith('zidenice › The door'))).toEqual([
       'zidenice › The door › isVisible: throws "No way."',
-    );
+    ]);
   });
 
   test("runs a spot's condition that picks from a table of three under every name, on every check night of its place", () => {
@@ -495,9 +497,12 @@ describe(checkContent, {timeout: 60_000}, () => {
   });
 
   test('reports a condition that throws', () => {
-    expect(check({messages: [message(oneNode('Hi.', 'Jakub'), throwNoWay)]})).toContain(
+    let lines = check({messages: [message(oneNode('Hi.', 'Jakub'), throwNoWay)]});
+
+    // Once, though it throws on every check night of every place in both passes.
+    expect(lines.filter((line) => line.startsWith('phone'))).toEqual([
       'phone › hello › arrives: throws "No way."',
-    );
+    ]);
   });
 
   test('runs a condition that picks under every name of its table, on every check night', () => {
