@@ -36,6 +36,10 @@ const CHECK_MONEY = 350;
 const CHECK_LEVELS = [0, 2, 5];
 // 0.00 to 0.99: every outcome an author can write by a threshold in hundredths comes up.
 const CHECK_ROLLS = Array.from({length: 100}, (_, index) => index / 100);
+// A random that returns each roll's value, made once: a next is followed on every roll of every
+// check night. A constant notes no read, so the next meets the hundred rolls and not six times as
+// many.
+const ROLL_RANDOMS: ReadonlyArray<Night['random']> = CHECK_ROLLS.map((value) => () => value);
 // For the numbers content draws directly, `night.random('walletMoney')`: every side of an equal
 // split into two to six is met, so a `start` that splits the number into three is followed into all
 // three. An unequal split is the author's to meet, as the levels. Versions are met by name through
@@ -192,6 +196,13 @@ export function checkContent(content: Content): string[] {
     pickIndex = 0;
 
     let results = [{night, result: call(night)}];
+
+    // Most functions neither read random nor pick, and have nothing more to run or report.
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- createRandom sets it
+    if (!randomRead && tables.length === 0) {
+      return results;
+    }
+
     // The keys the function picks on every run: a key first picked in a copy or a re-run lies in a
     // branch, so its other names never run.
     let topKeys = new Set(tables.map(({key}) => key));
@@ -272,8 +283,10 @@ export function checkContent(content: Content): string[] {
     }
 
     // The loop over the nights exists for a text that is a function; the marks and the words of a
-    // page are the same on every night, so a page already seen is not split again.
-    let seen = new Set<string>();
+    // page are the same on every night, so a page already seen at its index is not split again. The
+    // pages are kept by index, as a key that joined the index to the page would be built and hashed
+    // anew for every page of every night.
+    let seen: Array<Set<string>> = [];
 
     for (let {result} of nights.flatMap((night) =>
       typeof text === 'function' ? tryWithRandom(path, night, text) : [{night, result: text}],
@@ -281,13 +294,15 @@ export function checkContent(content: Content): string[] {
       let pages = typeof result === 'string' ? [result] : result;
 
       for (let [index, page] of pages.entries()) {
-        let key = `${index}:${page}`;
+        seen[index] ??= new Set();
 
-        if (seen.has(key)) {
+        let seenAtIndex = seen[index];
+
+        if (seenAtIndex.has(page)) {
           continue;
         }
 
-        seen.add(key);
+        seenAtIndex.add(page);
 
         let marks = page.split(MARK).length - 1;
 
@@ -345,6 +360,8 @@ export function checkContent(content: Content): string[] {
         checkNode(where, choice.next, nights, home);
       }
 
+      let nextPath = `${where}${SEPARATOR}next`;
+
       for (let night of nights) {
         for (let {night: source, result: chance} of typeof odds === 'function' ?
           withRandom(where, night, odds)
@@ -356,16 +373,15 @@ export function checkContent(content: Content): string[] {
           if (typeof choice.next === 'function') {
             if (chance === undefined) {
               source.roll = null;
-              follow(`${where}${SEPARATOR}next`, choice.next, source, home);
+              follow(nextPath, choice.next, source, home);
             } else {
-              // A constant notes no read, so the next meets the hundred rolls and not six times as
-              // many; the night's own random is put back for a function checked after the roll.
+              // The night's own random is put back for a function checked after the roll.
               let {random} = source;
 
-              for (let value of CHECK_ROLLS) {
-                source.random = () => value;
+              for (let rollRandom of ROLL_RANDOMS) {
+                source.random = rollRandom;
                 roll(source, chance);
-                follow(`${where}${SEPARATOR}next`, choice.next, source, home);
+                follow(nextPath, choice.next, source, home);
               }
 
               source.random = random;
@@ -474,6 +490,14 @@ export function checkContent(content: Content): string[] {
     nights: Night[],
     home: Place | null,
   ): void {
+    // The location of the home, which a way out by tram reads; looked up once, not on each night.
+    let location =
+      home === null ? undefined : (
+        Object.values(content.locations).find((candidate) =>
+          candidate.places.some((place) => place.id === home.id),
+        )
+      );
+
     for (let night of nights) {
       withRandom(where, night, (source) => {
         let fresh = createNight(
@@ -483,10 +507,10 @@ export function checkContent(content: Content): string[] {
             minutes: source.minutes,
             money: source.money,
             drunkenness: source.drunkenness.level,
-            // A copy, so that an effect that writes the quest never reaches its check night.
-            quest: {...source.quest},
-            // A copy, as the quest is, so that meeting an event never reaches its check night.
-            events: [...source.events],
+            // The night copies the quest and the events, so that an effect that writes the quest or
+            // meets an event never reaches its check night.
+            quest: source.quest,
+            events: source.events,
           },
           {titles: [...source.collection.titles]},
         );
@@ -509,7 +533,8 @@ export function checkContent(content: Content): string[] {
           checkTitle(where, title);
         }
 
-        for (let key of fresh.events) {
+        // The keys the night began with are the pass's, which the events hold already.
+        for (let key of fresh.events.slice(source.events.length)) {
           events.add(key);
         }
 
@@ -519,9 +544,6 @@ export function checkContent(content: Content): string[] {
 
         // A way out sets night.leaving: walk and taxi need the street, the tram a stop on it.
         let {way} = fresh.leaving;
-        let location = Object.values(content.locations).find((candidate) =>
-          candidate.places.some((place) => place.id === home.id),
-        );
 
         if (way !== 'tram' && !home.outdoors) {
           lines.add(`${where}: ${way} is offered indoors`);

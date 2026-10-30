@@ -986,6 +986,35 @@ describe(checkContent, {timeout: 60_000}, () => {
     );
   });
 
+  test('starts every script and condition on check nights with no roll, whatever a script before them rolled', () => {
+    let description = defineScript({
+      start: 'a',
+      nodes: {
+        a: {
+          speaker: 'Bench',
+          text: 'Hello.',
+          choices: [{text: 'Try', odds: 0.5, next: () => 'a'}, {text: 'Go'}],
+        },
+      },
+    });
+    let rolled = 0;
+    let read = (night: Night): boolean => {
+      if (night.roll !== null || night.rolls > 0) {
+        rolled += 1;
+      }
+
+      return true;
+    };
+    let script = defineDialogueScript<Night>()({
+      start: {speaker: 'Jakub', text: (night) => (read(night) ? 'A door.' : '')},
+    });
+    let spots = [{label: 'The door', x: 0.5, y: 0.5, script, isVisible: read}];
+
+    check({places: withZidenice({description, spots}), messages: [message(script, read)]});
+
+    expect(rolled).toBe(0);
+  });
+
   test('follows a start that picks one of three names into all three', () => {
     let description = defineScript({
       start: (night) => {
