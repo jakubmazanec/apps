@@ -287,4 +287,31 @@ describe('the phone', {timeout: 180_000}, () => {
     expect(contents.phoneButton.isDisabled).toBe(true);
     expect(contents.night.events).not.toContain('bet');
   });
+
+  test('an unread message whose condition no longer holds is taken back when the window closes, and the count follows', async () => {
+    let {contents, ui} = harness.nightScreen;
+
+    await startFrom(harness, `?place=rotorBarRoom&time=20:30&money=350&seed=${QUIET_SEED}`);
+    await closeStory(harness);
+    await waitForToast(harness, 'Jakub');
+
+    expect(contents.night.phone.unread).toEqual(['hello', 'invitation', 'shop', 'bet']);
+
+    let storyWindow = await openSpot(harness, 'The bar');
+
+    // As a scene that hands the player the bottle would: "Still no bottle?" is stale.
+    contents.night.quest.hasBottle = true;
+
+    await pressThrough(harness, storyWindow);
+    // Not now ends the window.
+    ui.focus(getWindowButton(storyWindow, 2));
+    await press('Enter');
+    await waitForNoStoryWindow(harness);
+    await nextFrame();
+
+    expect(contents.night.phone).toEqual({unread: ['hello', 'invitation', 'bet'], read: []});
+    expect(getButtonLabel(contents.phoneButton)).toBe('Phone 3');
+
+    await waitForNoToast(harness);
+  });
 });
