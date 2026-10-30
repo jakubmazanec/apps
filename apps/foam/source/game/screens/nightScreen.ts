@@ -31,6 +31,7 @@ import {logChoice} from '../core/log.js';
 import {createNight, formatStatus, type Night, restoreNight} from '../core/night.js';
 import {recordNight} from '../core/nights.js';
 import {
+  dropStaleMessages,
   dropUnknownMessages,
   getUnreadMessage,
   readMessage,
@@ -707,9 +708,12 @@ function closeLocation(screen: NightScreen, location: Location): void {
   openStory(screen, closing, `${id}${SEPARATOR}closing`);
 }
 
-// Moves the messages whose conditions hold now to the unread list, queues a
-// toast for each and plays the chime once if any arrived.
+// Takes back the unread messages whose conditions no longer hold, moves the
+// messages whose conditions hold now to the unread list, queues a toast for
+// each and plays the chime once if any arrived.
 function receiveArrivals(screen: NightScreen): void {
+  dropStaleMessages(screen.contents.night, messages);
+
   let arrived = receiveMessages(screen.contents.night, messages);
 
   for (let {from} of arrived) {

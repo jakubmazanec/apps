@@ -3,6 +3,7 @@ import {describe, expect, test, vitest} from 'vitest';
 
 import {createNight, type Night} from '../source/game/core/night.js';
 import {
+  dropStaleMessages,
   dropUnknownMessages,
   getUnreadMessage,
   type Message,
@@ -61,6 +62,39 @@ describe(receiveMessages, () => {
     receiveMessages(night, [a]);
 
     expect(arrives).not.toHaveBeenCalled();
+  });
+});
+
+describe(dropStaleMessages, () => {
+  test('takes every unread message whose condition no longer holds out of the unread list in place, and leaves the read ones', () => {
+    let money = vitest.fn<(night: Night) => boolean>((night) => night.money < 50);
+    let a = message('a', always);
+    let b = message('b', money);
+    let c = message('c', never);
+    let night = createNight(START);
+
+    night.money = 40;
+    night.phone.unread.push('a', 'b');
+    night.phone.read.push('c');
+
+    let {unread} = night.phone;
+
+    dropStaleMessages(night, [a, b, c]);
+
+    expect(night.phone).toEqual({unread: ['a', 'b'], read: ['c']});
+
+    night.money = 140;
+    dropStaleMessages(night, [a, b, c]);
+
+    expect(night.phone).toEqual({unread: ['a'], read: ['c']});
+    expect(unread).toEqual(['a']);
+    expect(money).toHaveBeenLastCalledWith(night);
+
+    // Taken back, it arrives again when its condition holds again.
+    night.money = 30;
+
+    expect(receiveMessages(night, [a, b, c])).toEqual([b]);
+    expect(unread).toEqual(['a', 'b']);
   });
 });
 

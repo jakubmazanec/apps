@@ -40,7 +40,8 @@ Three things shape this spec:
 3. **A message is content with a key, a sender, a condition and a script.** The condition is a
    function of the night: the clock, the place, the quest's flags, the stories, the events met, the
    level, the money, or a pick by the seed. It arrives once per night, the first time the condition
-   holds.
+   holds. An unread message whose condition no longer holds is taken back, quietly, and arrives
+   again if it holds again: "Still no bottle?" is not read once the bottle is given.
 4. **Chains go through the events the night has met.** A reply that matters calls `meet`, and a
    later message's condition reads `hasMet`. The night gets no field per chain.
 5. **The Phone button stands in a row at the bottom of the screen,** at its right end, as the Menu
@@ -246,10 +247,11 @@ toastQueue: Array<{heading: string; title: string}>;
   puts it back with them, after the scene buttons, so Tab reads the place button, Menu, the scene
   buttons and then Phone. `layOut` places it at `right: MARGIN, bottom: MARGIN`.
 - **Arrivals.** `actOnNight` receives the messages right after its check that the night is over,
-  before anything else it does: a night that is over receives nothing. For each message returned it
-  queues a toast with "A message" and the sender, and plays the chime once if any arrived.
-  `handleStories` keeps queuing a find's toast with "A story"; `showToast` takes the heading from
-  the queue.
+  before anything else it does: a night that is over receives nothing. First it takes back, through
+  `dropStaleMessages`, every unread message whose condition no longer holds, so no reply to advice
+  the night has left behind applies its effect; then for each message returned it queues a toast
+  with "A message" and the sender, and plays the chime once if any arrived. `handleStories` keeps
+  queuing a find's toast with "A story"; `showToast` takes the heading from the queue.
 - **The count.** `onUpdate` writes the count after the status line, through `setPhoneCount`, only
   when it has changed, as `writeStatus` does. A message read in the window changes it when the
   window's text ends.
@@ -357,7 +359,8 @@ Unit tests, in `tests/`:
   list once, in the list's order, skips one unread or read, and returns what arrived;
   `getUnreadMessage` gives the oldest and undefined with none; `readMessage` moves a key and ignores
   one not unread; `dropUnknownMessages` takes a key the content lacks out of both lists and leaves
-  the others.
+  the others; `dropStaleMessages` takes an unread message whose condition no longer holds out of the
+  unread list, and it arrives again when the condition holds again.
 - **`save.browser.test.ts`.** The schema keeps the lists and refuses a night without them.
 - **`getSceneArea.test.ts`.** The area's `bottom` and the height on a wide and on a narrow screen.
 - **`checkContent.test.ts`.** A message with a word over 16 characters is reported under
@@ -378,7 +381,8 @@ Browser tests, in `tests/`:
   pressing it opens a window titled "Jakub" with the hello and its three replies; "Mute" closes it,
   and the button is greyed out again. A jump-in at 20:30 without the bottle: two messages arrive
   with the first close, "Phone 2", and each press opens the oldest. The log shows the message and
-  the reply.
+  the reply. The shop unread when the bottle is in the bag is taken back when the window closes, and
+  the count follows.
 - **`continue.browser.test.ts`.** Quit over an open message's window, then Continue: the message is
   unread; quit after it closed: the count is kept and no toast shows.
 - **`storiesToast.browser.test.ts`.** The heading "A story" is kept.
