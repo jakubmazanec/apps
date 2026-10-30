@@ -469,6 +469,31 @@ describe(checkContent, {timeout: 60_000}, () => {
     expect(lines.filter((line) => line.includes('is not the sender'))).toEqual([]);
   });
 
+  test("holds a message's every node to the sender, through a next, a choice and a function", () => {
+    let someone = {speaker: 'Someone', text: 'Hi.'};
+    let start = defineScript({
+      start: {
+        speaker: 'Jakub',
+        text: 'Hi.',
+        choices: [
+          {text: 'Go', next: someone},
+          {text: 'Stay', next: () => someone},
+        ],
+        next: someone,
+      },
+    });
+    let lines = check({
+      messages: [message(start), {...message(defineScript({start: () => someone})), key: 'later'}],
+    }).filter((line) => line.includes('is not the sender'));
+
+    expect(lines.sort()).toEqual([
+      'phone › hello › start › "Go": the speaker "Someone" is not the sender "Jakub"',
+      'phone › hello › start › "Stay" › next: the speaker "Someone" is not the sender "Jakub"',
+      'phone › hello › start › next: the speaker "Someone" is not the sender "Jakub"',
+      'phone › later › start: the speaker "Someone" is not the sender "Jakub"',
+    ]);
+  });
+
   test('reports a condition that throws', () => {
     expect(check({messages: [message(oneNode('Hi.', 'Jakub'), throwNoWay)]})).toContain(
       'phone › hello › arrives: throws "No way."',

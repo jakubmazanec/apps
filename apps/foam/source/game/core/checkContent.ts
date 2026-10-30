@@ -126,9 +126,6 @@ export function checkContent(content: Content): string[] {
   let times = getCheckTimes(content.locationData);
   // The nodes of the script being checked, where follow looks up an id that a next returns.
   let nodes: NonNullable<RunnableDialogueScript<Night>['nodes']> = {};
-  // The sender of the message being checked, which every node's speaker must equal; null for any
-  // other script.
-  let sender: string | null = null;
   // Every title the effects gave: the second pass's collection holds them all.
   let titles = new Set<string>();
   // Every key the effects met: the second pass's nights have met them all.
@@ -261,7 +258,14 @@ export function checkContent(content: Content): string[] {
     }
   }
 
-  function checkNode(path: string, node: Node, nights: Night[], home: Place | null): void {
+  // The sender is the message's, which every node's speaker must equal; null for any other script.
+  function checkNode(
+    path: string,
+    node: Node,
+    nights: Night[],
+    home: Place | null,
+    sender: string | null,
+  ): void {
     let {text, speaker, next, onEnter} = node;
     let choices = (node.choices ?? []).map(asChoice);
     let words = new Set<string>();
@@ -357,7 +361,7 @@ export function checkContent(content: Content): string[] {
       }
 
       if (typeof choice.next === 'object') {
-        checkNode(where, choice.next, nights, home);
+        checkNode(where, choice.next, nights, home, sender);
       }
 
       let nextPath = `${where}${SEPARATOR}next`;
@@ -373,7 +377,7 @@ export function checkContent(content: Content): string[] {
           if (typeof choice.next === 'function') {
             if (chance === undefined) {
               source.roll = null;
-              follow(nextPath, choice.next, source, home);
+              follow(nextPath, choice.next, source, home, sender);
             } else {
               // The night's own random is put back for a function checked after the roll.
               let {random} = source;
@@ -381,7 +385,7 @@ export function checkContent(content: Content): string[] {
               for (let rollRandom of ROLL_RANDOMS) {
                 source.random = rollRandom;
                 roll(source, chance);
-                follow(nextPath, choice.next, source, home);
+                follow(nextPath, choice.next, source, home, sender);
               }
 
               source.random = random;
@@ -398,11 +402,11 @@ export function checkContent(content: Content): string[] {
     }
 
     if (typeof next === 'object') {
-      checkNode(`${path}${SEPARATOR}next`, next, nights, home);
+      checkNode(`${path}${SEPARATOR}next`, next, nights, home, sender);
     } else if (typeof next === 'function') {
       for (let night of nights) {
         night.roll = null;
-        follow(`${path}${SEPARATOR}next`, next, night, home);
+        follow(`${path}${SEPARATOR}next`, next, night, home, sender);
       }
     }
 
@@ -430,11 +434,12 @@ export function checkContent(content: Content): string[] {
     reference: (night: Night) => Node | string,
     night: Night,
     home: Place | null,
+    sender: string | null,
   ): void {
     for (let {night: source, result: target} of tryWithRandom(where, night, reference)) {
       // An id the script has is not checked again: the node is checked under its own key.
       if (typeof target === 'object') {
-        checkNode(where, target, [source], home);
+        checkNode(where, target, [source], home, sender);
       } else if (nodes[target] === undefined) {
         lines.add(`${where}: returns "${target}", which is not a node`);
       }
@@ -595,6 +600,7 @@ export function checkContent(content: Content): string[] {
     home: Place | null,
     collection: Night['collection'],
     met: string[],
+    sender: string | null = null,
   ): void {
     let {start} = script;
 
@@ -606,19 +612,19 @@ export function checkContent(content: Content): string[] {
 
       for (let [key, node] of Object.entries(nodes)) {
         if (node !== undefined) {
-          checkNode(`${name}${SEPARATOR}${key}`, node, nights, home);
+          checkNode(`${name}${SEPARATOR}${key}`, node, nights, home, sender);
         }
       }
 
       if (typeof start === 'object') {
-        checkNode(`${name}${SEPARATOR}start`, start, nights, home);
+        checkNode(`${name}${SEPARATOR}start`, start, nights, home, sender);
       } else if (typeof start === 'function') {
         let where = `${name}${SEPARATOR}start`;
 
         for (let night of nights) {
           for (let {night: source, result: node} of tryWithRandom(where, night, start)) {
             if (typeof node === 'object') {
-              checkNode(where, node, [source], home);
+              checkNode(where, node, [source], home, sender);
             }
           }
         }
@@ -666,9 +672,7 @@ export function checkContent(content: Content): string[] {
     for (let message of content.messages) {
       let name = `phone${SEPARATOR}${message.key}`;
 
-      sender = message.from;
-      checkScript(name, message.script, null, collection, met);
-      sender = null;
+      checkScript(name, message.script, null, collection, met, message.from);
 
       // The result is not read: a condition that never holds on a check night is no fault.
       for (let id of placeIds) {
