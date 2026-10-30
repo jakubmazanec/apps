@@ -298,26 +298,24 @@ function readCornerTableAt(minutes: number, pick = 'music'): string[] {
 }
 
 describe('the game content', () => {
-  // The checker runs every script on 33,600 nights, and the CI runners are several times slower
-  // than a dev machine and uneven among themselves: the slowest took it close to 50 seconds.
-  test.skipIf(process.env.CI)(
-    "the game's content has no problem",
-    () => {
-      expect(
-        checkContent({
-          locations,
-          places,
-          journeys,
-          locationData,
-          travel,
-          map,
-          end: nightEnd,
-          messages,
-        }),
-      ).toEqual([]);
-    },
-    120_000,
-  );
+  // The checker runs every script on 33,600 nights over its two passes: about 12 seconds on a dev
+  // machine, down from 20, and 18 with the coverage CI collects. The CI runners are slower and
+  // uneven among themselves, and the slowest took close to 50 seconds back at 20, so the timeout
+  // keeps a wide margin.
+  test("the game's content has no problem", () => {
+    expect(
+      checkContent({
+        locations,
+        places,
+        journeys,
+        locationData,
+        travel,
+        map,
+        end: nightEnd,
+        messages,
+      }),
+    ).toEqual([]);
+  }, 120_000);
 
   test("the end's start reads the flags: a ticket, then the keys, then stranded", () => {
     let both = openEnd({hasKeys: true, hasTicket: true});
