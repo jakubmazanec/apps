@@ -118,10 +118,17 @@ export const DRINKS_PER_HOUR = 1;
 
 const MINUTES_PER_HOUR = 60;
 
+// Each field of the start is taken by name, not with a rest: a rest copies the start, and the
+// checker makes millions of nights.
 export function createNight(
   {
     seed,
-    ...start
+    place,
+    minutes,
+    money,
+    drunkenness,
+    quest,
+    events,
   }: {
     seed: number;
     place: PlaceId;
@@ -157,26 +164,23 @@ export function createNight(
       // reports, has no last name.
       return names.at(-1)!;
     },
-    minutes: start.minutes,
+    minutes,
     // The count of steps is floored, so a step that does not divide the range never draws past max.
     money:
-      typeof start.money === 'number' ?
-        start.money
-      : start.money.min +
-        start.money.step *
-          Math.floor(
-            random('money') *
-              (Math.floor((start.money.max - start.money.min) / start.money.step) + 1),
-          ),
-    place: start.place,
+      typeof money === 'number' ? money : (
+        money.min +
+        money.step *
+          Math.floor(random('money') * (Math.floor((money.max - money.min) / money.step) + 1))
+      ),
+    place,
     leaving: null,
-    drunkenness: {level: start.drunkenness ?? 0, at: start.minutes},
+    drunkenness: {level: drunkenness ?? 0, at: minutes},
     roll: null,
     log: [],
     collection: collection ?? {titles: []},
     stories: [],
-    quest: {hasBottle: false, bottleGiven: false, hasKeys: false, hasTicket: false, ...start.quest},
-    events: [...(start.events ?? [])],
+    quest: {hasBottle: false, bottleGiven: false, hasKeys: false, hasTicket: false, ...quest},
+    events: [...(events ?? [])],
     ending: null,
     phone: {unread: [], read: []},
   };
