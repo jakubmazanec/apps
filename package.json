@@ -19,10 +19,13 @@
     "typecheck": "turbo run typecheck --no-daemon",
     "uninstall": "del-cli ./**/node_modules ./package-lock.json"
   },
+  "overrides": {
+    "pixi.js": "8.19.0"
+  },
   "devDependencies": {
     "@changesets/cli": "^2.31.1",
     "@jakubmazanec/carson": "^3.0.2",
-    "@jakubmazanec/carson-templates": "^9.0.0",
+    "@jakubmazanec/carson-templates": "9.1.0-unstable.d78a4437",
     "@jakubmazanec/changesets-changelog": "^2.0.16",
     "@types/node": "^24.13.3",
     "@types/semver": "^7.7.1",
@@ -43,7 +46,8 @@
     "npm": "^11.18.0"
   },
   "allowScripts": {
-    "esbuild@0.25.9": true,
-    "unrs-resolver@1.11.1": true
+    "unrs-resolver@1.11.1": true,
+    "@tailwindcss/oxide@4.1.12": true,
+    "esbuild@0.28.1": true
   }
 }

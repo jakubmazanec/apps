@@ -1,0 +1,21 @@
+{
+  "compilerOptions": {
+    "composite": false,
+    "erasableSyntaxOnly": true,
+    "exactOptionalPropertyTypes": true,
+    "forceConsistentCasingInFileNames": true,
+    "isolatedModules": true,
+    "lib": ["es2025"],
+    "module": "node16",
+    "moduleResolution": "node16",
+    "noEmit": true,
+    "noEmitOnError": true,
+    "noImplicitOverride": true,
+    "noImplicitReturns": true,
+    "noUncheckedIndexedAccess": true,
+    "skipLibCheck": true,
+    "target": "es2025",
+    "types": ["node"]
+  },
+  "include": ["./**/*"]
+}

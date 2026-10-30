@@ -51,6 +51,12 @@
 !apps/somewhere/source/**
 !apps/somewhere/tsconfig.json
 !apps/somewhere/vite.config.ts
+!packages/tellurion/.storybook/**
+!packages/tellurion/package.json
+!packages/tellurion/source/**
+!packages/tellurion/stories/**
+!packages/tellurion/tsconfig.json
+!packages/tellurion/vite.config.ts
 
 # we might also need .npmrc with token
 !.npmrc
