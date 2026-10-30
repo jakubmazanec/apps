@@ -97,7 +97,10 @@ export type Night = {
   /** What the night has done about its three threads; content writes it in effects. */
   quest: Quest;
 
-  /** The events the player has met tonight, by key. `meet` writes it and `hasMet` reads it. */
+  /**
+   * The events the player has met tonight, by key, and the title of every story the night gave,
+   * found or collected before. `meet` and `findStory` write it and `hasMet` reads it.
+   */
   events: string[];
 
   /** How the night ended: the Morning text's ending node writes it; null until then. */
@@ -219,11 +222,14 @@ export function readTitle(title: string[] | string): string {
 }
 
 /**
- * Records the story, once across all runs: a title already in the collection does nothing. The
- * title is a one-page text, as `standIn` writes it; a text of several pages throws.
+ * Records the story, once across all runs: a title already in the collection does nothing but meet
+ * the title tonight, which it does on a find too, so a condition reads a story the night gave
+ * again. The title is a one-page text, as `standIn` writes it; a text of several pages throws.
  */
 export function findStory(night: Night, title: string[] | string): void {
   let text = readTitle(title);
+
+  meet(night, text);
 
   if (night.collection.titles.includes(text)) {
     return;

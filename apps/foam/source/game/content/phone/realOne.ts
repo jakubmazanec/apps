@@ -34,12 +34,13 @@ function getStoryId(title: string): (typeof STORIES)[number]['id'] | undefined {
 export const realOne: Message = {
   key: 'realOne',
   from: AUTHOR,
-  arrives: (night) => night.stories.some(({title}) => getStoryId(title) !== undefined),
+  // The events hold every story the night gave, a collected one too, so a replay hears it again.
+  arrives: (night) => night.events.some((key) => getStoryId(key) !== undefined),
   script: defineScript({
-    // The night's stories are in the order found. A night with none of the five, as the check
+    // The events are in the order met. A night with none of the five, as the first pass's check
     // nights are, reads the crowns.
     start: (night) =>
-      night.stories.map(({title}) => getStoryId(title)).find((id) => id !== undefined) ?? 'crowns',
+      night.events.map((key) => getStoryId(key)).find((id) => id !== undefined) ?? 'crowns',
     nodes: {
       crowns: {
         speaker: AUTHOR,

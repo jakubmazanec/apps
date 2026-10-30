@@ -36,6 +36,18 @@ describe(findStory, () => {
     expect(night.log).toEqual([]);
   });
 
+  test('meets the title tonight, whether found now or collected before, once', () => {
+    let found = createNight(START);
+    let collected = createNight(START, {titles: [SONG]});
+
+    findStory(found, SONG);
+    findStory(found, SONG);
+    findStory(collected, SONG);
+
+    expect(found.events).toEqual([SONG]);
+    expect(collected.events).toEqual([SONG]);
+  });
+
   test('a title of several pages throws', () => {
     let night = createNight(START);
 

@@ -39,6 +39,7 @@ import {
   type Night,
   type PlaceId,
   type Quest,
+  readTitle,
 } from '../source/game/core/night.js';
 import {type Message} from '../source/game/core/phone.js';
 import {type Place, type Spot} from '../source/game/core/place.js';
@@ -1424,6 +1425,18 @@ describe('the game content', () => {
     expect(takeChoice(openMessageOn('realOne', both), 0).dialogue.node).toBe(
       messageNode('realOne', 'really'),
     );
+  });
+
+  test('the real one answers a story given again tonight, which an earlier night found', () => {
+    let night = nightAt(1400, {
+      collection: {titles: [readTitle(FIGHT_STORY), readTitle(CROWNS_STORY)]},
+    });
+
+    findStory(night, CROWNS_STORY);
+
+    expect(night.stories).toEqual([]);
+    expect(arrives('realOne', night)).toBe(true);
+    expect(openMessageOn('realOne', night).dialogue.node).toBe(messageNode('realOne', 'crowns'));
   });
 
   test("the last call comes from 07:00 away from the station, and reads the ticket's price", () => {
