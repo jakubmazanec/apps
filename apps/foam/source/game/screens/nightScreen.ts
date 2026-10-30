@@ -725,20 +725,21 @@ function receiveArrivals(screen: NightScreen): void {
   }
 }
 
-// Looks at the night once a story window has closed. A night that is over
-// takes the place off the screen and opens the end text over black, and when
-// that has closed the log screen takes over; a way out the night still holds
-// is ignored then. A script that moved the player shows the new place, and so
-// does the end of a journey; a place the night does not have leaves the player
-// where they are, with no way out. A way out that a script chose opens the
-// travel window. A location that is closed with the player indoors closes on
-// them, after any window: a beer that ran past the hour, the description of a
-// room that a door led into too late. The order is the end, then the arrivals,
-// then a place the night moved the player to, then a way out, then the
-// closing. The end comes first, so a travel that arrives after 08:00 never
-// shows its destination, and a closing never runs on the close that ends the
-// night. A way out exists only outdoors and a closing only indoors, so the last
-// two never meet. It is also called directly when a saved night is shown.
+// Looks at the night once a story window has closed. A night that is over takes
+// the place off the screen and opens the end text over black, and when that has
+// closed the log screen takes over; a way out the night still holds is ignored
+// then. A script that moved the player shows the new place, and so does the end
+// of a journey; a place the night does not have leaves the player where they
+// are, with no way out, and the night is looked at as if they had not moved. A
+// way out that a script chose opens the travel window. A location that is
+// closed with the player indoors closes on them, after any window: a beer that
+// ran past the hour, the description of a room that a door led into too late.
+// The order is the end, then the arrivals, then a place the night moved the
+// player to, then a way out, then the closing. The end comes first, so a travel
+// that arrives after 08:00 never shows its destination, and a closing never
+// runs on the close that ends the night. A way out exists only outdoors and a
+// closing only indoors, so the last two never meet. It is also called directly
+// when a saved night is shown.
 // At every look the place's buttons with a condition are hidden or shown by the
 // night as it stands, after the arrivals and before the way out and the closing.
 function actOnNight(screen: NightScreen): void {
@@ -768,6 +769,16 @@ function actOnNight(screen: NightScreen): void {
   // night that is over receives nothing.
   receiveArrivals(screen);
 
+  if (place !== null && night.place !== place.id && getNextPlace(screen) === undefined) {
+    // eslint-disable-next-line no-console -- the running game reports a script's unknown place
+    console.warn(`No place "${night.place}"; the night stays in "${place.id}".`);
+    // The script's move is dropped as a whole: a way out chosen with it would
+    // open the travel window at a later close that has nothing to do with it.
+    // The buttons and the closing still follow the clock the window moved.
+    night.place = place.id;
+    night.leaving = null;
+  }
+
   if (place !== null && night.place === place.id) {
     showSpots(screen);
 
@@ -787,21 +798,14 @@ function actOnNight(screen: NightScreen): void {
 
   let nextPlace = getNextPlace(screen);
 
-  if (nextPlace !== undefined) {
-    showPlace(screen, nextPlace);
-  } else if (place === null) {
+  if (nextPlace === undefined) {
     // Only a journey or a resume leaves no place shown, and both lead to a
     // place of nightStart, the saved one checked by its loader. The error screen
     // shows the impossible rather than a black screen with no way on.
     throw new Error(`The night is in "${night.place}", which is not a place!`);
-  } else {
-    // eslint-disable-next-line no-console -- the running game reports a script's unknown place
-    console.warn(`No place "${night.place}"; the night stays in "${place.id}".`);
-    // The script's move is dropped as a whole: a way out chosen with it would
-    // open the travel window at a later close that has nothing to do with it.
-    night.place = place.id;
-    night.leaving = null;
   }
+
+  showPlace(screen, nextPlace);
 }
 
 export const nightScreen = new GameScreen<NightScreenContents>({
