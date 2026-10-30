@@ -243,12 +243,18 @@ describe('a spot with a condition', {timeout: 180_000}, () => {
     rebuilt = again;
   });
 
-  test('the window that runs past the hours hides the button when it closes, and a focus left on it opens nothing', async () => {
+  test('the window that runs past the hours hides the button when it closes, and the focus left on it is dropped', async () => {
     let {contents, ui} = harness.nightScreen;
 
     await closeStory(harness);
 
-    let storyWindow = await openSpot(harness, 'A regular');
+    // A keyboard player: Tab reaches him and shows the ring.
+    expect(tabThrough(7).at(-1)).toBe('A regular');
+    expect(ui.isRingVisible).toBe(true);
+
+    await press('Enter');
+
+    let storyWindow = getStoryWindow(harness);
 
     await pressThrough(harness, storyWindow);
     ui.focus(getWindowButton(storyWindow, 0));
@@ -260,13 +266,14 @@ describe('a spot with a condition', {timeout: 180_000}, () => {
     await waitForNoStoryWindow(harness);
     await waitForVisible(rebuilt, false);
 
-    // The focus went back to the button that opened the window, which is hidden now.
-    expect(describeFocus(ui.focused)).toBe('A regular');
+    // The focus went back to the button that opened the window, and left it with the ring when the
+    // button hid.
+    expect(describeFocus(ui.focused)).toBe('nothing');
+    expect(ui.isRingVisible).toBe(false);
 
     await press('Enter');
 
     expect(contents.storyWindow).toBeNull();
-    expect(ui.focused).toBeNull();
 
     await tap(harness, {left: 183, top: 149, width: 66, height: 16});
 

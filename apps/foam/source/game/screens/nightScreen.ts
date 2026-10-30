@@ -255,7 +255,9 @@ function handleStories(screen: NightScreen): void {
 
 // Hides and shows the place's buttons by their conditions on the night, in place: a hidden button
 // keeps its position, leaves the Tab order by itself, and comes back where it was. A button whose
-// spot has no condition always shows.
+// spot has no condition always shows. A focus on a button that hides is dropped with the ring,
+// which would otherwise stay drawn for the hidden button, and the next Tab starts over. The focus
+// is on a scene button only while no overlay is open, so clearing it drops no window's focus scope.
 function showSpots(screen: NightScreen): void {
   let {night, place, spotButtons} = screen.contents;
 
@@ -264,6 +266,10 @@ function showSpots(screen: NightScreen): void {
 
     if (button !== undefined) {
       button.view.visible = spot.isVisible?.(night) ?? true;
+
+      if (!button.view.visible && screen.ui.focused === button) {
+        screen.ui.clearFocus();
+      }
     }
   }
 }
