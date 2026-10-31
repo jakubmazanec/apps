@@ -80,7 +80,7 @@ export class TextInput implements Focusable {
     let row = new LayoutContainer({});
 
     row.layout = {flexDirection: 'row', alignItems: 'center'};
-    row.eventMode = 'none'; // LayoutContainer makes itself an interactive hit target, that's unwanted here.
+    row.eventMode = 'none'; // LayoutContainer makes itself interactive, that's unwanted here.
 
     let valueText = new Text({text: value, layout: true, label: style});
     let placeholderText = new Text({
@@ -167,7 +167,7 @@ export class TextInput implements Focusable {
 
     this.view.addChild(row);
 
-    // We need to cancel the event, so focus isn¨t moved from the hidden <input> element.
+    // We need to cancel the event, so focus isn't moved from the hidden <input> element.
     this.view.on('pointerdown', (event) => {
       event.stopPropagation();
       event.preventDefault();
@@ -211,14 +211,9 @@ export class TextInput implements Focusable {
         return;
       }
 
-      // Ahead of the advance below, so a caret that moved this frame is lit for
-      // the frame it moved on rather than one later.
       this.#syncCaret();
 
       this.#runtime.blinkTick = (this.#runtime.blinkTick + ticker.deltaTime) % BLINK_PERIOD;
-
-      // A block covers the character it sits on, so it blinks hard on and off;
-      // fading would leave that character half-obscured for most of the cycle.
       this.#parts.caret.alpha = this.#runtime.blinkTick < BLINK_PERIOD / 2 ? 1 : 0;
     };
 
@@ -228,34 +223,29 @@ export class TextInput implements Focusable {
       pixi.Ticker.shared.remove(update);
     });
 
-    // #parts.valueText / #parts.placeholderText / #parts.caret are swapped in and out of
-    // #parts.row, so whichever is currently detached would leak under view.destroy({children}).
     this.#disposables.instance.defer(() => {
       this.#parts.row.removeChildren();
-      this.#parts.valueText.destroy();
-      this.#parts.placeholderText.destroy();
-      this.#parts.caret.destroy();
+      this.#parts.valueText.destroy(); // `#parts.valueText` can sometimes not be in `#parts.row.children`.
+      this.#parts.placeholderText.destroy(); // `#parts.placeholderText` can sometimes not be in `#parts.row.children`.
+      this.#parts.caret.destroy(); // `#parts.caret` can sometimes not be in `#parts.row.children`.
       this.view.destroy({children: true});
     });
 
-    // The caret is only in the row while editing, but it has to carry a layout
-    // before it first lands there: an unlaid-out sprite renders at the white
-    // texture's own size for a frame.
     this.#syncCaret();
-    this.#refresh();
+    this.#syncRow();
   }
 
-  /** TBD */
+  /** Is the text input disabled? */
   get isDisabled(): boolean {
     return this.#state === 'disabled';
   }
 
-  /** TBD */
+  /** Is the text input focusable? */
   get isFocusable(): boolean {
     return this.#state !== 'disabled';
   }
 
-  /** TBD */
+  /** Value. */
   get value(): string {
     return this.#runtime.value;
   }
@@ -266,13 +256,10 @@ export class TextInput implements Focusable {
     this.#parts.valueText.setText(this.#runtime.value);
     this.#parts.input.value = this.#runtime.value;
 
-    this.#refresh();
+    this.#syncRow();
   }
 
   /** Activates the text input: starts editing, or, while editing, submits and stops. */
-  // GameInput ignores every key while a text-entry element has DOM focus, which
-  // is what keeps arrows and Space as editing keys; the keys bound to activate
-  // and cancel land here through UiRoot like any other command.
   activate() {
     if (this.#state === 'disabled') {
       return;
@@ -326,41 +313,6 @@ export class TextInput implements Focusable {
     setLayerContainerBackground(this.view, this.#parts.backgrounds.normal);
   }
 
-  /** TBD */
-  #positionCaret(offset: number, width: number) {
-    this.#runtime.caretOffset = offset;
-    this.#runtime.caretWidth = width;
-
-    // Restart the blink lit. A caret that moved during the dark half would
-    // otherwise leave the user hunting for where it went — and since typing
-    // moves it too, this also keeps it solid while the user types.
-    this.#runtime.blinkTick = 0;
-
-    this.#parts.caret.layout = {
-      width,
-      height: this.#config.caretHeight,
-      // Out of the row's flow: an in-flow caret can only ever land after the
-      // whole value, and it would shove the text following it aside as the
-      // cursor moved through the string. `top` is left undefined so the row's
-      // alignItems still centers it vertically.
-      position: 'absolute',
-      left: offset,
-    };
-  }
-
-  /** TBD */
-  #refresh() {
-    this.#parts.row.removeChildren();
-
-    if (this.#runtime.isEditing) {
-      this.#parts.row.addChild(this.#parts.valueText.view, this.#parts.caret);
-    } else if (this.#runtime.value.length === 0) {
-      this.#parts.row.addChild(this.#parts.placeholderText.view);
-    } else {
-      this.#parts.row.addChild(this.#parts.valueText.view);
-    }
-  }
-
   /** Starts the edit: focuses the hidden input and shows the caret. */
   #startEditing() {
     if (this.#runtime.isEditing) {
@@ -369,9 +321,9 @@ export class TextInput implements Focusable {
 
     this.#runtime.isEditing = true;
 
-    // Clear the own-pointer flag the opening tap set, so the first outside tap
-    // is recognized as outside (nothing else clears it before the listener
-    // below exists).
+    // The tap that opened the editor set this flag in its pointerdown, before
+    // any listener existed to consume it. Reset it here, otherwise the first
+    // tap outside the field would be mistaken for an in-field tap and ignored.
     this.#runtime.isOwnPointerDown = false;
 
     // Everything that only matters during an edit is registered by the edit and
@@ -417,7 +369,7 @@ export class TextInput implements Focusable {
 
     this.#parts.input.focus({preventScroll: true});
 
-    this.#refresh();
+    this.#syncRow();
   }
 
   /** Ends the edit: blurs the hidden input and hides the caret. */
@@ -434,10 +386,10 @@ export class TextInput implements Focusable {
 
     this.#parts.input.blur();
 
-    this.#refresh();
+    this.#syncRow();
   }
 
-  /** TBD */
+  /** Syncs the caret with the hidden input's cursor: covers the character the cursor is on. */
   #syncCaret() {
     // The hidden input owns the cursor: arrow keys, Home/End, word jumps and IME
     // all move it without changing the value, so there is no event to hook —
@@ -452,7 +404,37 @@ export class TextInput implements Focusable {
     let width = measureTextWidth(this.#runtime.value[index] ?? ' ', this.#parts.valueText.style);
 
     if (offset !== this.#runtime.caretOffset || width !== this.#runtime.caretWidth) {
-      this.#positionCaret(offset, width);
+      this.#runtime.caretOffset = offset;
+      this.#runtime.caretWidth = width;
+
+      // Restart the blink lit. A caret that moved during the dark half would
+      // otherwise leave the user hunting for where it went — and since typing
+      // moves it too, this also keeps it solid while the user types.
+      this.#runtime.blinkTick = 0;
+
+      this.#parts.caret.layout = {
+        width,
+        height: this.#config.caretHeight,
+        // Out of the row's flow: an in-flow caret can only ever land after the
+        // whole value, and it would shove the text following it aside as the
+        // cursor moved through the string. `top` is left undefined so the row's
+        // alignItems still centers it vertically.
+        position: 'absolute',
+        left: offset,
+      };
+    }
+  }
+
+  /** Syncs the row: value and caret while editing, placeholder while empty, value otherwise. */
+  #syncRow() {
+    this.#parts.row.removeChildren();
+
+    if (this.#runtime.isEditing) {
+      this.#parts.row.addChild(this.#parts.valueText.view, this.#parts.caret);
+    } else if (this.#runtime.value.length === 0) {
+      this.#parts.row.addChild(this.#parts.placeholderText.view);
+    } else {
+      this.#parts.row.addChild(this.#parts.valueText.view);
     }
   }
 }

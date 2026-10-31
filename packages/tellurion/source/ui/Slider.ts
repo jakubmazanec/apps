@@ -184,12 +184,12 @@ export class Slider implements Focusable {
     this.#disposables.instance.defer(() => this.view.destroy({children: true}));
   }
 
-  /** TBD */
+  /** Is the slider disabled? */
   get isDisabled(): boolean {
     return this.#state === 'disabled';
   }
 
-  /** TBD */
+  /** Is the slider focusable? */
   get isFocusable(): boolean {
     return this.#state !== 'disabled';
   }
@@ -199,7 +199,7 @@ export class Slider implements Focusable {
     return this.#state;
   }
 
-  /** TBD */
+  /** Value. */
   get value(): number {
     return this.#runtime.value;
   }
@@ -215,7 +215,7 @@ export class Slider implements Focusable {
   /** Activates the slider; does nothing, use `increase` and `decrease`. */
   activate() {}
 
-  /** TBD */
+  /** Decreases the slider's value by one step; calls `onChange` handler. */
   decrease() {
     if (this.#state === 'disabled') {
       return;
@@ -257,7 +257,7 @@ export class Slider implements Focusable {
     setLayerContainerBackground(this.view, this.#parts.trackBackgrounds.normal);
   }
 
-  /** TBD */
+  /** Increases the slider's value by one step; calls `onChange` handler. */
   increase() {
     if (this.#state === 'disabled') {
       return;
