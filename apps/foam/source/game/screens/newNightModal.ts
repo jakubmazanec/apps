@@ -10,6 +10,7 @@ import {
 } from 'tellurion';
 
 import {game} from '../core/game.js';
+import {BUTTON_HEIGHT} from '../core/getSceneArea.js';
 import {getNextSeed} from '../core/nights.js';
 import {UI_FADE_DURATION} from '../core/theme.js';
 import {todaySeed} from '../core/todaySeed.js';
@@ -65,7 +66,7 @@ export function openNewNightModal({ui, scheduler, onClosed, onStart}: NewNightMo
       }
     },
     onSubmit: startNight,
-    layout: {flexGrow: 1, height: ROW_HEIGHT},
+    layout: {flexGrow: 1, height: BUTTON_HEIGHT},
   });
 
   function startNight(): void {
@@ -83,7 +84,7 @@ export function openNewNightModal({ui, scheduler, onClosed, onStart}: NewNightMo
           new Text({text: 'Seed', theme: game.theme, layout: {width: 36, height: ROW_HEIGHT}}),
           input,
         ],
-        layout: {gap: ROW_GAP, width: ROW_WIDTH, height: ROW_HEIGHT, alignItems: 'center'},
+        layout: {gap: ROW_GAP, width: ROW_WIDTH, height: BUTTON_HEIGHT, alignItems: 'center'},
       }),
     ],
     layout: {
