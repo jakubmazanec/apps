@@ -295,6 +295,7 @@ describe('TextInput', () => {
 
     let blurSpy = vitest.spyOn(element, 'blur');
     let {view} = input;
+    let nativeEvent = new Event('pointerdown');
 
     input.activate();
 
@@ -304,10 +305,11 @@ describe('TextInput', () => {
     // short-circuit outside the (zero-sized) scroll bounds.
     view.emit('pointerdown', {
       global: {x: -1000, y: -1000},
+      nativeEvent,
       stopPropagation() {},
       preventDefault() {},
     } as never);
-    globalThis.dispatchEvent(new Event('pointerdown'));
+    globalThis.dispatchEvent(nativeEvent);
 
     expect(blurSpy).not.toHaveBeenCalled();
   });
@@ -323,12 +325,13 @@ describe('TextInput', () => {
     let blurSpy = vitest.spyOn(element, 'blur');
     let {view} = input;
 
-    // The tap that opens the field sets #isOwnPointerDown via the view's
+    // The tap that opens the field stores its native event via the view's
     // federated pointerdown; editing then begins on pointerup. The window
-    // listener is only attached now, so #startEditing must clear that flag or the
+    // listener is only attached now, so it must match by event identity or the
     // next outside tap would be mistaken for the leftover opening tap.
     view.emit('pointerdown', {
       global: {x: -1000, y: -1000},
+      nativeEvent: new Event('pointerdown'),
       stopPropagation() {},
       preventDefault() {},
     } as never);

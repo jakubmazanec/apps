@@ -141,8 +141,8 @@ export class TextInput implements Focusable {
       blinkTick: 0,
       caretOffset: undefined,
       caretWidth: undefined,
+      pointerDownEvent: undefined,
       isEditing: false,
-      isOwnPointerDown: false,
       value,
     };
 
@@ -172,7 +172,7 @@ export class TextInput implements Focusable {
       event.stopPropagation();
       event.preventDefault();
 
-      this.#runtime.isOwnPointerDown = true;
+      this.#runtime.pointerDownEvent = event.nativeEvent;
     });
 
     this.view.on('pointerup', (event) => {
@@ -320,52 +320,35 @@ export class TextInput implements Focusable {
     }
 
     this.#runtime.isEditing = true;
-
-    // The tap that opened the editor set this flag in its pointerdown, before
-    // any listener existed to consume it. Reset it here, otherwise the first
-    // tap outside the field would be mistaken for an in-field tap and ignored.
-    this.#runtime.isOwnPointerDown = false;
-
-    // Everything that only matters during an edit is registered by the edit and
-    // torn down with it, so idle inputs hold no app-wide listeners. Closes the
-    // editor when a pointerdown lands outside this field, and when the input
-    // loses focus on its own (e.g. the soft keyboard is dismissed), so the
-    // field can be focused again afterwards. A tap on this field's own view
-    // sets #runtime.isOwnPointerDown first (the view's federated pointerdown runs
-    // before the window listener), so an in-field tap keeps the edit — and the
-    // soft keyboard — alive.
     this.#disposables.editing = new DisposableStack();
 
     // TODO: remove when linter config contains fix for this: https://github.com/sindresorhus/eslint-plugin-unicorn/issues/2088
     // eslint-disable-next-line unicorn/consistent-function-scoping -- false positive
-    let handleBlur = () => {
-      if (this.#runtime.isOwnPointerDown) {
-        this.#runtime.isOwnPointerDown = false;
-
-        return;
+    let handlePointerDown = (event: Event) => {
+      if (event !== this.#runtime.pointerDownEvent) {
+        this.#stopEditing();
       }
-
+    };
+    // eslint-disable-next-line unicorn/consistent-function-scoping -- false positive
+    let handleBlur = () => {
       this.#stopEditing();
     };
 
-    globalThis.addEventListener('pointerdown', handleBlur);
+    globalThis.addEventListener('pointerdown', handlePointerDown);
     this.#parts.input.addEventListener('blur', handleBlur);
     this.#disposables.editing.defer(() => {
-      globalThis.removeEventListener('pointerdown', handleBlur);
+      globalThis.removeEventListener('pointerdown', handlePointerDown);
       this.#parts.input.removeEventListener('blur', handleBlur);
     });
 
     this.#parts.input.value = this.#runtime.value;
 
+    let {left, top} = this.#config.container.getBoundingClientRect();
     let {x, y} = this.view.getGlobalPosition();
     let ratio = window.devicePixelRatio || 1;
-    // getGlobalPosition is in renderer (device) pixels relative to the canvas;
-    // the input is position: fixed (viewport-relative), so offset by the canvas
-    // container's viewport rect and convert device px -> CSS px.
-    let rect = this.#config.container.getBoundingClientRect();
 
-    this.#parts.input.style.left = `${rect.left + x / ratio}px`;
-    this.#parts.input.style.top = `${rect.top + y / ratio}px`;
+    this.#parts.input.style.left = `${left + x / ratio}px`;
+    this.#parts.input.style.top = `${top + y / ratio}px`;
 
     this.#parts.input.focus({preventScroll: true});
 
@@ -380,52 +363,36 @@ export class TextInput implements Focusable {
 
     this.#runtime.isEditing = false;
 
-    // Disposed before blur() below, so the blur it raises finds no listener.
     this.#disposables.editing?.dispose();
     this.#disposables.editing = null;
 
+    // Called after disposing, so the blur finds no listeners.
     this.#parts.input.blur();
 
     this.#syncRow();
   }
 
-  /** Syncs the caret with the hidden input's cursor: covers the character the cursor is on. */
+  /** Syncs the caret with the hidden input's cursor. */
   #syncCaret() {
-    // The hidden input owns the cursor: arrow keys, Home/End, word jumps and IME
-    // all move it without changing the value, so there is no event to hook —
-    // reading the selection back each frame is what catches every one of them.
     let index = this.#parts.input.selectionStart ?? this.#runtime.value.length;
     let offset = measureTextWidth(this.#runtime.value.slice(0, index), this.#parts.valueText.style);
-    // The font leaves a single 1 art px column between glyphs and its descenders
-    // fill the line box, so a bar caret has nowhere to sit without touching ink.
-    // The caret is a block over the character's cell instead, the way a
-    // terminal's is. Past the last character there is no cell to cover, so it
-    // falls back to a space's advance.
     let width = measureTextWidth(this.#runtime.value[index] ?? ' ', this.#parts.valueText.style);
 
     if (offset !== this.#runtime.caretOffset || width !== this.#runtime.caretWidth) {
       this.#runtime.caretOffset = offset;
       this.#runtime.caretWidth = width;
-
-      // Restart the blink lit. A caret that moved during the dark half would
-      // otherwise leave the user hunting for where it went — and since typing
-      // moves it too, this also keeps it solid while the user types.
       this.#runtime.blinkTick = 0;
 
       this.#parts.caret.layout = {
         width,
         height: this.#config.caretHeight,
-        // Out of the row's flow: an in-flow caret can only ever land after the
-        // whole value, and it would shove the text following it aside as the
-        // cursor moved through the string. `top` is left undefined so the row's
-        // alignItems still centers it vertically.
         position: 'absolute',
         left: offset,
       };
     }
   }
 
-  /** Syncs the row: value and caret while editing, placeholder while empty, value otherwise. */
+  /** Syncs the row. */
   #syncRow() {
     this.#parts.row.removeChildren();
 
