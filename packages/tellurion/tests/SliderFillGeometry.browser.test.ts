@@ -45,7 +45,7 @@ function render(value: number) {
   let fill = sprite(FILL_TEXTURE_SIZE, FILL_TEXTURE_SIZE);
   let slider = new Slider({
     backgrounds: {
-      track: sprite(TRACK_WIDTH, TRACK_HEIGHT),
+      normal: sprite(TRACK_WIDTH, TRACK_HEIGHT),
       fill,
       hovered: sprite(TRACK_WIDTH, TRACK_HEIGHT),
       disabled: sprite(TRACK_WIDTH, TRACK_HEIGHT),

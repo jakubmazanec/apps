@@ -133,19 +133,19 @@
         "bottom": 1
       }
     },
-    "slider-track": {
+    "slider-normal": {
       "x": 0,
       "y": 117,
       "width": 32,
       "height": 6
     },
-    "slider-track-hovered": {
+    "slider-hovered": {
       "x": 0,
       "y": 124,
       "width": 32,
       "height": 6
     },
-    "slider-track-disabled": {
+    "slider-disabled": {
       "x": 0,
       "y": 131,
       "width": 32,

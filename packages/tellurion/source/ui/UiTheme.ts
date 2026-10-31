@@ -28,7 +28,7 @@ export type UiTheme<Background> = {
     body: UiTextStyle;
     layout?: LayoutStyles;
   };
-  slider: {track: Background; fill: Background; hovered: Background; disabled: Background};
+  slider: {normal: Background; fill: Background; hovered: Background; disabled: Background};
   toggle: {
     unchecked: Background;
     checked: Background;
