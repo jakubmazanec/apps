@@ -40,6 +40,12 @@ export const theme: UiThemeDescription = {
     normal: ['ui', 'text-input-normal'],
     hovered: ['ui', 'text-input-hovered'],
     disabled: ['ui', 'text-input-disabled'],
+    layout: {
+      paddingTop: BUTTON_PADDING_Y,
+      paddingBottom: BUTTON_PADDING_Y,
+      paddingLeft: BUTTON_PADDING_X,
+      paddingRight: BUTTON_PADDING_X,
+    },
     body: {
       fontFamily: 'monogram',
       fontSize: 12,
