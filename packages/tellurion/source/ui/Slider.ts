@@ -52,35 +52,26 @@ export class Slider implements Focusable {
 
     // The track's size is part of the config, and it only exists once the
     // backgrounds are resolved, so this widget resolves them first.
-    let resolved = resolveThemeBackgrounds(
-      ['track', 'fill', 'hovered', 'disabled'],
-      theme?.slider,
-      backgrounds,
-    );
+    this.#parts = {
+      backgrounds: resolveThemeBackgrounds(
+        ['normal', 'fill', 'hovered', 'disabled'],
+        theme?.slider,
+        backgrounds,
+      ),
+    };
 
     this.#config = {
       min,
       max,
       step,
       theme,
-      trackWidth: resolved.track.width,
-      trackHeight: resolved.track.height,
-    };
-    this.#parts = {
-      fill: resolved.fill,
-      trackBackgrounds: {
-        normal: resolved.track,
-        hovered: resolved.hovered,
-        disabled: resolved.disabled,
-      },
+      trackWidth: this.#parts.backgrounds.normal.width,
+      trackHeight: this.#parts.backgrounds.normal.height,
     };
 
-    disposeDetachedBackgrounds(
-      this.#disposables.instance,
-      Object.values(this.#parts.trackBackgrounds),
-    );
+    disposeDetachedBackgrounds(this.#disposables.instance, Object.values(this.#parts.backgrounds));
 
-    this.view = new LayoutContainer({background: this.#parts.trackBackgrounds.normal});
+    this.view = new LayoutContainer({background: this.#parts.backgrounds.normal});
     this.view.layout = {width: this.#config.trackWidth, height: this.#config.trackHeight};
 
     attachInteraction(this.view, {
@@ -88,7 +79,7 @@ export class Slider implements Focusable {
       setState: (state) => {
         this.#state = state;
 
-        setLayerContainerBackground(this.view, this.#parts.trackBackgrounds[state]);
+        setLayerContainerBackground(this.view, this.#parts.backgrounds[state]);
       },
     });
 
@@ -101,14 +92,14 @@ export class Slider implements Focusable {
     // texture and composes the two multiplicatively — a 32 art-px fill would
     // render at 256. Positioning it directly (no yoga node) is the same shape
     // setLayerContainerBackground/LayoutContainer use for a view's background child.
-    this.#parts.fill.position.set(0, 0);
-    this.view.addChild(this.#parts.fill);
+    this.#parts.backgrounds.fill.position.set(0, 0);
+    this.view.addChild(this.#parts.backgrounds.fill);
 
     this.#runtime = {
       isDragging: false,
       value: snap(value, this.#config),
     };
-    this.#parts.fill.setSize(
+    this.#parts.backgrounds.fill.setSize(
       fillWidth(this.#config.trackWidth, this.#runtime.value, this.#config),
       this.#config.trackHeight,
     );
@@ -206,7 +197,7 @@ export class Slider implements Focusable {
 
   set value(value: number) {
     this.#runtime.value = snap(value, this.#config);
-    this.#parts.fill.setSize(
+    this.#parts.backgrounds.fill.setSize(
       fillWidth(this.#config.trackWidth, this.#runtime.value, this.#config),
       this.#config.trackHeight,
     );
@@ -241,7 +232,7 @@ export class Slider implements Focusable {
     this.view.eventMode = 'none';
     this.view.cursor = 'default';
 
-    setLayerContainerBackground(this.view, this.#parts.trackBackgrounds.disabled);
+    setLayerContainerBackground(this.view, this.#parts.backgrounds.disabled);
   }
 
   /** Enables the slider. */
@@ -254,7 +245,7 @@ export class Slider implements Focusable {
     this.view.eventMode = 'static';
     this.view.cursor = 'pointer';
 
-    setLayerContainerBackground(this.view, this.#parts.trackBackgrounds.normal);
+    setLayerContainerBackground(this.view, this.#parts.backgrounds.normal);
   }
 
   /** Increases the slider's value by one step; calls `onChange` handler. */

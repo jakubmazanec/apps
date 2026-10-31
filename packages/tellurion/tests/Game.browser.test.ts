@@ -33,10 +33,10 @@ const theme: UiThemeDescription = {
     },
   },
   slider: {
-    track: ['ui', 'slider-track'],
+    normal: ['ui', 'slider-normal'],
     fill: ['ui', 'slider-fill'],
-    hovered: ['ui', 'slider-track-hovered'],
-    disabled: ['ui', 'slider-track-disabled'],
+    hovered: ['ui', 'slider-hovered'],
+    disabled: ['ui', 'slider-disabled'],
   },
   toggle: {
     unchecked: ['ui', 'toggle-unchecked'],
@@ -87,9 +87,9 @@ const UI_FRAMES = [
   'text-input-normal',
   'text-input-hovered',
   'text-input-disabled',
-  'slider-track',
-  'slider-track-hovered',
-  'slider-track-disabled',
+  'slider-normal',
+  'slider-hovered',
+  'slider-disabled',
   'slider-fill',
   'focus-ring',
 ];

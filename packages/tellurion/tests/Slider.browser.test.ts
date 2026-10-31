@@ -21,7 +21,7 @@ function background(width = 10, height = 10): pixi.Container {
 // track and the fill still build the whole set.
 function backgrounds(trackWidth = 32, trackHeight = 6) {
   return {
-    track: background(trackWidth, trackHeight),
+    normal: background(trackWidth, trackHeight),
     fill: background(0, trackHeight),
     hovered: background(trackWidth, trackHeight),
     disabled: background(trackWidth, trackHeight),
@@ -356,7 +356,7 @@ describe('Slider theme', () => {
   test('takes its backgrounds from the theme', () => {
     let slider = new Slider({theme: createTestTheme()});
 
-    expect((slider.view.background as pixi.Container).label).toBe('slider-track');
+    expect((slider.view.background as pixi.Container).label).toBe('slider-normal');
     expect(slider.view.getChildByLabel('slider-fill', true)).not.toBeNull();
   });
 });

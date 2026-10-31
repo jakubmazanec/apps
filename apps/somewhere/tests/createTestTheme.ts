@@ -24,10 +24,10 @@ export function createTestTheme(): ResolvedUiTheme {
       body: {fontFamily: 'monogram', fontSize: 12, fill: 0xffffff},
     },
     slider: {
-      track: texture('slider-track'),
+      normal: texture('slider-normal'),
       fill: texture('slider-fill'),
-      hovered: texture('slider-track-hovered'),
-      disabled: texture('slider-track-disabled'),
+      hovered: texture('slider-hovered'),
+      disabled: texture('slider-disabled'),
     },
     toggle: {
       unchecked: texture('toggle-unchecked'),

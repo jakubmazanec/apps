@@ -361,15 +361,15 @@ let frames = [
     borders: BOX_BORDERS,
   },
   {
-    name: 'slider-track',
+    name: 'slider-normal',
     image: renderCells(buildSliderTrack({border: palette.border, body: palette.navy})),
   },
   {
-    name: 'slider-track-hovered',
+    name: 'slider-hovered',
     image: renderCells(buildSliderTrack({border: palette.borderBright, body: palette.navyBright})),
   },
   {
-    name: 'slider-track-disabled',
+    name: 'slider-disabled',
     image: renderCells(buildSliderTrack({border: palette.borderMuted, body: palette.navyMuted})),
   },
   {name: 'slider-fill', image: renderCells(buildSliderFill())},
