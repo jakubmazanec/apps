@@ -1,0 +1,12 @@
+import {describe, expect, test} from 'vitest';
+
+import {flags, resetFlags} from '../source/game/core/flags.js';
+
+describe('flags', () => {
+  test('resetFlags restores the defaults', () => {
+    flags.metMira = true;
+    resetFlags();
+
+    expect(flags.metMira).toBe(false);
+  });
+});

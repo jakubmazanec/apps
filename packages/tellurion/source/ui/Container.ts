@@ -1,0 +1,66 @@
+import * as pixi from 'pixi.js';
+
+import {type Disposables} from '../utilities/Disposables.js';
+import {type ContainerOptions} from './ContainerOptions.js';
+import {disposeChildren} from './internals/disposeChildren.js';
+import {resolveView} from './internals/resolveView.js';
+import {type UiChildComponent} from './UiChildComponent.js';
+import {type UiParentComponent} from './UiParentComponent.js';
+
+import '@pixi/layout';
+
+export class Container implements UiParentComponent {
+  /** Children. */
+  readonly children: UiChildComponent[] = [];
+
+  /** View. */
+  readonly view: pixi.Container = new pixi.Container();
+
+  /** Stacks to register disposers that cleanup resources when needed. */
+  readonly #disposables: Disposables<'instance'> = {instance: new DisposableStack()};
+
+  constructor({children, layout}: ContainerOptions) {
+    if (children !== undefined) {
+      this.addChild(...children);
+    }
+
+    this.view.layout = {
+      flexDirection: 'row',
+      alignItems: 'center',
+      ...(typeof layout === 'object' ? layout : undefined),
+    };
+
+    this.#disposables.instance.defer(() => this.view.destroy({children: true}));
+    disposeChildren(this.#disposables.instance, this.children);
+  }
+
+  /** Adds children to the container's view. */
+  addChild(...children: UiChildComponent[]): this {
+    for (let child of children) {
+      this.children.push(child);
+      this.view.addChild(resolveView(child));
+    }
+
+    return this;
+  }
+
+  /** Destroys the instance. */
+  destroy() {
+    this.#disposables.instance.dispose();
+  }
+
+  /** Removes children from the container's view. */
+  removeChild(...children: UiChildComponent[]): this {
+    for (let child of children) {
+      let index = this.children.indexOf(child);
+
+      if (index !== -1) {
+        this.children.splice(index, 1);
+      }
+
+      this.view.removeChild(resolveView(child));
+    }
+
+    return this;
+  }
+}

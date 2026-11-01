@@ -1,0 +1,36 @@
+{
+  "zidenice": {
+    "station": "Brno-Židenice",
+    "position": {"latitude": 49.20415, "longitude": 16.63611},
+    "computed": true
+  },
+  "hlavniNadrazi": {
+    "station": "Brno hlavní nádraží",
+    "tramStop": "Hlavní nádraží",
+    "position": {"latitude": 49.19067, "longitude": 16.61326},
+    "computed": true
+  },
+  "whiskyShop": {
+    "address": "Vranovská 110",
+    "hours": [[990, 1260]],
+    "position": {"latitude": 49.21186, "longitude": 16.63002},
+    "computed": true
+  },
+  "rotorBar": {
+    "address": "Dvořákova 12",
+    "osmName": "Rotor bar",
+    "position": {"latitude": 49.19593, "longitude": 16.61131},
+    "computed": true,
+    "hours": [[960, 1620]]
+  },
+  "namestiRepubliky": {
+    "tramStop": "Náměstí Republiky",
+    "position": {"latitude": 49.21097, "longitude": 16.63375},
+    "computed": true
+  },
+  "malinovskehoNamesti": {
+    "tramStop": "Malinovského náměstí",
+    "position": {"latitude": 49.19555, "longitude": 16.61374},
+    "computed": true
+  }
+}

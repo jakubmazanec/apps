@@ -28,4 +28,119 @@ export default [
       '.react-router/**',
     ],
   },
+  {
+    ignores: ['$/**', 'assets/**'],
+  },
+  {
+    rules: {
+      'unicorn/prefer-dom-node-remove': 'off',
+      '@typescript-eslint/no-redeclare': 'off',
+    },
+  },
+  {
+    files: ['**/*.{js,jsx,cjs,mjs,ts,tsx,cts,mts}'],
+    rules: {
+      '@stylistic/js/lines-around-comment': [
+        'error',
+        {
+          beforeBlockComment: true,
+          allowClassStart: true,
+          allowTypeStart: true,
+        },
+      ],
+      'perfectionist/sort-classes': [
+        'error',
+        {
+          type: 'alphabetical',
+          ignoreCase: false,
+          groups: [
+            'property',
+            'private-property',
+            'static-property',
+            'static-block',
+            'constructor',
+            'init-method',
+            'static-method',
+            ['get-method', 'set-method'],
+            ['method', 'function-property'],
+            ['private-method', 'private-function-property'],
+            'unknown',
+          ],
+          customGroups: [
+            {
+              groupName: 'init-method',
+              selector: 'method',
+              elementNamePattern: '^init$',
+            },
+          ],
+        },
+      ],
+      '@stylistic/js/padding-line-between-statements': [
+        'error',
+        {
+          blankLine: 'always',
+          prev: '*',
+          next: 'continue',
+        },
+        {
+          blankLine: 'always',
+          prev: '*',
+          next: 'break',
+        },
+        {
+          blankLine: 'always',
+          prev: '*',
+          next: 'return',
+        },
+        {
+          blankLine: 'always',
+          prev: 'import',
+          next: '*',
+        },
+        {
+          blankLine: 'any',
+          prev: 'import',
+          next: 'import',
+        },
+        {
+          blankLine: 'always',
+          prev: ['const', 'let', 'var'],
+          next: '*',
+        },
+        {
+          blankLine: 'always',
+          prev: '*',
+          next: ['const', 'let', 'var'],
+        },
+        {
+          blankLine: 'never',
+          prev: ['const', 'let', 'var'],
+          next: ['const', 'let', 'var'],
+        },
+        {
+          blankLine: 'always',
+          prev: 'if',
+          next: '*',
+        },
+        {
+          blankLine: 'always',
+          prev: '*',
+          next: 'if',
+        },
+        {
+          blankLine: 'always',
+          prev: 'if',
+          next: 'if',
+        },
+      ],
+    },
+  },
+  {
+    files: ['tools/**/*.ts'],
+    languageOptions: {
+      parserOptions: {
+        project: 'tools/tsconfig.json',
+      },
+    },
+  },
 ];
