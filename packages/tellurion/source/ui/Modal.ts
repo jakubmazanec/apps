@@ -16,7 +16,7 @@ import {type UiRoot} from './UiRoot.js';
 
 import '@pixi/layout';
 
-/** TBD */
+/** Modal component. */
 export class Modal implements UiOverlayComponent {
   /** Children. */
   readonly children: UiChildComponent[] = [];
@@ -82,7 +82,7 @@ export class Modal implements UiOverlayComponent {
     this.#parts.scrim.rect(0, 0, 1, 1).fill(scrimColor ?? theme?.modal.scrimColor ?? 0x000000);
     this.#parts.scrim.alpha = scrimAlpha ?? theme?.modal.scrimAlpha ?? 0.5;
     this.#parts.scrim.eventMode = 'static';
-    this.#parts.scrim.hitArea = {contains: () => true}; // Accept every point, so the scrim block interactino with object behind it immediatelly.
+    this.#parts.scrim.hitArea = {contains: () => true}; // Accept every point, so the scrim block interaction with object behind it immediately.
     this.#parts.scrim.layout = {
       position: 'absolute',
       left: 0,
