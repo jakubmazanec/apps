@@ -72,6 +72,22 @@ describe(Modal, () => {
     vitest.restoreAllMocks();
   });
 
+  test('keeps added children in a public children array and in its view', () => {
+    let first = panel([]);
+    let second = panel([]);
+    let modal = new Modal({children: [first]});
+
+    modal.addChild(second);
+
+    expect(modal.children).toEqual([first, second]);
+    expect(modal.view.children).toContain(second.view);
+
+    modal.removeChild(first);
+
+    expect(modal.children).toEqual([second]);
+    expect(modal.view.children).not.toContain(first.view);
+  });
+
   test('addOverlay adds the modal as the last UI child, below the focus ring', () => {
     let root = createRoot();
     let rootView = root.view as unknown as MockContainer;
