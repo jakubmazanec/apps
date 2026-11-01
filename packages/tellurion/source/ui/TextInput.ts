@@ -2,7 +2,7 @@ import {LayoutContainer} from '@pixi/layout/components';
 import * as pixi from 'pixi.js';
 
 import {type Disposables} from '../utilities/Disposables.js';
-import {type Focusable} from './Focusable.js';
+import {type FocusableUiComponent} from './FocusableUiComponent.js';
 import {attachInteraction} from './internals/attachInteraction.js';
 import {disposeDetachedBackgrounds} from './internals/disposeDetachedBackgrounds.js';
 import {measureTextWidth} from './internals/measureTextWidth.js';
@@ -20,7 +20,7 @@ import '@pixi/layout';
 // One full blink cycle in ticker frames: ~0.5 s lit, ~0.5 s dark at 60 fps.
 const BLINK_PERIOD = 60;
 
-export class TextInput implements Focusable {
+export class TextInput implements FocusableUiComponent {
   /** View. */
   readonly view: LayoutContainer;
 

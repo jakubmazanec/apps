@@ -4,7 +4,7 @@ import {createRoot} from 'react-dom/client';
 import {
   Button,
   Container,
-  type Focusable,
+  type FocusableUiComponent,
   type Game,
   type Modal,
   Panel,
@@ -398,7 +398,7 @@ export function getButtonLabel(button: Button): string {
 
 // Names the focused target, so a failed focus check prints a label and not a
 // whole Button.
-export function describeFocus(target: Focusable | null): string {
+export function describeFocus(target: FocusableUiComponent | null): string {
   if (target === null) {
     return 'nothing';
   }

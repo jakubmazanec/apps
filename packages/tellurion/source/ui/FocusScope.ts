@@ -1,7 +1,7 @@
-import {type Focusable} from './Focusable.js';
-import {type UiOverlayComponent} from './UiOverlayComponent.js';
+import {type FocusableUiComponent} from './FocusableUiComponent.js';
+import {type OverlayUiComponent} from './OverlayUiComponent.js';
 
 export type FocusScope = {
-  previousFocus: Focusable | null;
-  root: UiOverlayComponent;
+  previousFocus: FocusableUiComponent | null;
+  root: OverlayUiComponent;
 };

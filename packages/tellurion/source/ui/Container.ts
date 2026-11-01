@@ -1,17 +1,17 @@
 import * as pixi from 'pixi.js';
 
 import {type Disposables} from '../utilities/Disposables.js';
+import {type ChildUiComponent} from './ChildUiComponent.js';
 import {type ContainerOptions} from './ContainerOptions.js';
 import {disposeChildren} from './internals/disposeChildren.js';
 import {resolveView} from './internals/resolveView.js';
-import {type UiChildComponent} from './UiChildComponent.js';
-import {type UiParentComponent} from './UiParentComponent.js';
+import {type ParentUiComponent} from './ParentUiComponent.js';
 
 import '@pixi/layout';
 
-export class Container implements UiParentComponent {
+export class Container implements ParentUiComponent {
   /** Children. */
-  readonly children: UiChildComponent[] = [];
+  readonly children: ChildUiComponent[] = [];
 
   /** View. */
   readonly view: pixi.Container = new pixi.Container();
@@ -35,7 +35,7 @@ export class Container implements UiParentComponent {
   }
 
   /** Adds children to the container's view. */
-  addChild(...children: UiChildComponent[]): this {
+  addChild(...children: ChildUiComponent[]): this {
     for (let child of children) {
       this.children.push(child);
       this.view.addChild(resolveView(child));
@@ -50,7 +50,7 @@ export class Container implements UiParentComponent {
   }
 
   /** Removes children from the container's view. */
-  removeChild(...children: UiChildComponent[]): this {
+  removeChild(...children: ChildUiComponent[]): this {
     for (let child of children) {
       let index = this.children.indexOf(child);
 

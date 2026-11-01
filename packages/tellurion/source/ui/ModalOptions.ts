@@ -1,14 +1,14 @@
 import type * as pixi from 'pixi.js';
 
 import {type Scheduler} from '../scheduler/Scheduler.js';
-import {type Focusable} from './Focusable.js';
-import {type UiChildComponent} from './UiChildComponent.js';
+import {type ChildUiComponent} from './ChildUiComponent.js';
+import {type FocusableUiComponent} from './FocusableUiComponent.js';
 import {type UiComponentThemeOptions} from './UiTheme.js';
 
 export type ModalOptions = UiComponentThemeOptions<'modal'> & {
-  children?: UiChildComponent[] | undefined;
+  children?: ChildUiComponent[] | undefined;
   layout?: pixi.ContainerOptions['layout'] | undefined;
-  initialFocus?: Focusable | undefined;
+  initialFocus?: FocusableUiComponent | undefined;
   destroyOnClose?: boolean | undefined;
   onClosing?: (() => void) | undefined;
   onClosed?: (() => void) | undefined;

@@ -1,20 +1,20 @@
 import {LayoutContainer} from '@pixi/layout/components';
 
 import {type Disposables} from '../utilities/Disposables.js';
+import {type ChildUiComponent} from './ChildUiComponent.js';
 import {disposeChildren} from './internals/disposeChildren.js';
 import {resolveThemeBackgrounds} from './internals/resolveThemeBackgrounds.js';
 import {resolveView} from './internals/resolveView.js';
 import {type PanelConfig} from './PanelConfig.js';
 import {type PanelOptions} from './PanelOptions.js';
 import {type PanelParts} from './PanelParts.js';
-import {type UiChildComponent} from './UiChildComponent.js';
-import {type UiParentComponent} from './UiParentComponent.js';
+import {type ParentUiComponent} from './ParentUiComponent.js';
 
 import '@pixi/layout';
 
-export class Panel implements UiParentComponent {
+export class Panel implements ParentUiComponent {
   /** Children. */
-  readonly children: UiChildComponent[] = [];
+  readonly children: ChildUiComponent[] = [];
 
   /** View. */
   readonly view: LayoutContainer;
@@ -44,7 +44,7 @@ export class Panel implements UiParentComponent {
   }
 
   /** Adds children to the panel's view. */
-  addChild(...children: UiChildComponent[]): this {
+  addChild(...children: ChildUiComponent[]): this {
     for (let child of children) {
       this.children.push(child);
       this.view.addChild(resolveView(child));
@@ -59,7 +59,7 @@ export class Panel implements UiParentComponent {
   }
 
   /** Removes children from the panel's view. */
-  removeChild(...children: UiChildComponent[]): this {
+  removeChild(...children: ChildUiComponent[]): this {
     for (let child of children) {
       let index = this.children.indexOf(child);
 

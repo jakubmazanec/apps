@@ -1,11 +1,11 @@
 import * as pixi from 'pixi.js';
 
 import {Button} from '../ui/Button.js';
+import {type ChildUiComponent} from '../ui/ChildUiComponent.js';
 import {Container} from '../ui/Container.js';
+import {type OverlayUiComponent} from '../ui/OverlayUiComponent.js';
 import {Panel} from '../ui/Panel.js';
 import {Text} from '../ui/Text.js';
-import {type UiChildComponent} from '../ui/UiChildComponent.js';
-import {type UiOverlayComponent} from '../ui/UiOverlayComponent.js';
 import {type UiRoot} from '../ui/UiRoot.js';
 import {type ResolvedUiTheme} from '../ui/UiTheme.js';
 import {attachHitArea} from '../utilities/attachHitArea.js';
@@ -95,7 +95,7 @@ const CHOICE_PADDING = 1;
  * before the first character shows. The typewriter and the choices then only
  * fill boxes that already exist, so nothing moves or grows mid-node.
  */
-export class DialogueBox implements UiOverlayComponent {
+export class DialogueBox implements OverlayUiComponent {
   /** View. */
   readonly view: pixi.Container = new pixi.Container();
 
@@ -237,8 +237,8 @@ export class DialogueBox implements UiOverlayComponent {
     return this.#breaks;
   }
 
-  /** Focus discovery recurses through this (the UiParentComponent contract). */
-  get children(): UiChildComponent[] {
+  /** Focus discovery recurses through this (the ParentUiComponent contract). */
+  get children(): ChildUiComponent[] {
     return this.#choicesPanel === null ? [] : [this.#choicesPanel];
   }
 
@@ -250,7 +250,7 @@ export class DialogueBox implements UiOverlayComponent {
 
     let {focused} = this.#ui;
 
-    // eslint-disable-next-line unicorn/prefer-array-index-of -- indexOf narrows to Button; focused is any Focusable
+    // eslint-disable-next-line unicorn/prefer-array-index-of -- indexOf narrows to Button; focused is any FocusableUiComponent
     return focused === null ? -1 : this.#choiceButtons.findIndex((button) => button === focused);
   }
 
@@ -486,7 +486,7 @@ export class DialogueBox implements UiOverlayComponent {
     this.#choiceLabels = [];
     this.#choiceButtons = [];
 
-    let textChildren: UiChildComponent[] = [];
+    let textChildren: ChildUiComponent[] = [];
 
     if (this.#isCollapsed && node.speaker !== undefined) {
       textChildren.push(
@@ -529,7 +529,7 @@ export class DialogueBox implements UiOverlayComponent {
       this.#onAdvanceTap();
     });
 
-    let boxChildren: UiChildComponent[] = [];
+    let boxChildren: ChildUiComponent[] = [];
 
     if (!this.#isCollapsed) {
       let portrait = new pixi.Sprite({texture: node.portraitTexture!});
@@ -540,7 +540,7 @@ export class DialogueBox implements UiOverlayComponent {
         height: portraitSize,
       };
 
-      let portraitChildren: UiChildComponent[] = [portrait];
+      let portraitChildren: ChildUiComponent[] = [portrait];
 
       if (node.speaker !== undefined) {
         portraitChildren.push(

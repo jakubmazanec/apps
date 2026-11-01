@@ -5,7 +5,8 @@ import {type ButtonConfig} from './ButtonConfig.js';
 import {type ButtonOptions} from './ButtonOptions.js';
 import {type ButtonParts} from './ButtonParts.js';
 import {type ButtonState} from './ButtonState.js';
-import {type Focusable} from './Focusable.js';
+import {type ChildUiComponent} from './ChildUiComponent.js';
+import {type FocusableUiComponent} from './FocusableUiComponent.js';
 import {attachInteraction} from './internals/attachInteraction.js';
 import {disposeChildren} from './internals/disposeChildren.js';
 import {disposeDetachedBackgrounds} from './internals/disposeDetachedBackgrounds.js';
@@ -13,14 +14,13 @@ import {resolveThemeBackgrounds} from './internals/resolveThemeBackgrounds.js';
 import {resolveView} from './internals/resolveView.js';
 import {setLayerContainerBackground} from './internals/setLayerContainerBackground.js';
 import {setVerticalOffset} from './internals/setVerticalOffset.js';
-import {type UiChildComponent} from './UiChildComponent.js';
-import {type UiParentComponent} from './UiParentComponent.js';
+import {type ParentUiComponent} from './ParentUiComponent.js';
 
 import '@pixi/layout';
 
-export class Button implements Focusable, UiParentComponent {
+export class Button implements FocusableUiComponent, ParentUiComponent {
   /** Children. */
-  readonly children: UiChildComponent[] = [];
+  readonly children: ChildUiComponent[] = [];
 
   /** View. */
   readonly view: LayoutContainer;
@@ -165,7 +165,7 @@ export class Button implements Focusable, UiParentComponent {
   }
 
   /** Adds children to the button's view. */
-  addChild(...children: UiChildComponent[]): this {
+  addChild(...children: ChildUiComponent[]): this {
     for (let child of children) {
       this.children.push(child);
       this.view.addChild(resolveView(child));
@@ -218,7 +218,7 @@ export class Button implements Focusable, UiParentComponent {
   }
 
   /** Removes children from the button's view. */
-  removeChild(...children: UiChildComponent[]): this {
+  removeChild(...children: ChildUiComponent[]): this {
     for (let child of children) {
       let index = this.children.indexOf(child);
 

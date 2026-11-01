@@ -5,7 +5,7 @@ import {
   AudioMixer,
   Button,
   Container,
-  type Focusable,
+  type FocusableUiComponent,
   type Game,
   type GameScreen,
   type Modal,
@@ -111,7 +111,7 @@ async function press(code: string): Promise<void> {
 // Names the focused target, so a failed focus check prints a label and not a
 // whole Button. A copy of the one in nightScreenHelpers.tsx, which this file
 // does not import: their stylesheet import would change its canvas.
-function describeFocus(target: Focusable | null): string {
+function describeFocus(target: FocusableUiComponent | null): string {
   if (target === null) {
     return 'nothing';
   }

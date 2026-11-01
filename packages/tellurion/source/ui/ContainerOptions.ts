@@ -1,8 +1,8 @@
 import type * as pixi from 'pixi.js';
 
-import {type UiChildComponent} from './UiChildComponent.js';
+import {type ChildUiComponent} from './ChildUiComponent.js';
 
 export type ContainerOptions = {
-  children?: UiChildComponent[] | undefined;
+  children?: ChildUiComponent[] | undefined;
   layout?: pixi.ContainerOptions['layout'] | undefined;
 };

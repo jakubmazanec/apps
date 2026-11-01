@@ -1,10 +1,7 @@
-import {type Container} from 'pixi.js';
+import {type UiComponent} from './UiComponent.js';
 
 /** A component that can be focused. */
-export type Focusable = {
-  /** View. */
-  readonly view: Container;
-
+export type FocusableUiComponent = UiComponent & {
   /** Can the component be focused? E.g. disabled components aren't focusable. */
   readonly isFocusable: boolean;
 

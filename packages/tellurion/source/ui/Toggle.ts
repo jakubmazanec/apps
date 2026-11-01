@@ -1,7 +1,7 @@
 import {LayoutContainer} from '@pixi/layout/components';
 
 import {type Disposables} from '../utilities/Disposables.js';
-import {type Focusable} from './Focusable.js';
+import {type FocusableUiComponent} from './FocusableUiComponent.js';
 import {attachInteraction} from './internals/attachInteraction.js';
 import {disposeDetachedBackgrounds} from './internals/disposeDetachedBackgrounds.js';
 import {resolveThemeBackgrounds} from './internals/resolveThemeBackgrounds.js';
@@ -15,7 +15,7 @@ import {type ToggleState} from './ToggleState.js';
 
 import '@pixi/layout';
 
-export class Toggle implements Focusable {
+export class Toggle implements FocusableUiComponent {
   /** View. */
   readonly view: LayoutContainer;
 

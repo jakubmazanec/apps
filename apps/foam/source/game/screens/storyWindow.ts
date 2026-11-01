@@ -1,16 +1,16 @@
 import * as pixi from 'pixi.js';
 import {
   Button,
+  type ChildUiComponent,
   Container,
   Dialogue,
   type DialogueNode,
   easeOutQuad,
+  type OverlayUiComponent,
   Panel,
   type RunnableDialogueScript,
   type Scheduler,
   Text,
-  type UiChildComponent,
-  type UiOverlayComponent,
   type UiRoot,
   wrapText,
 } from 'tellurion';
@@ -95,8 +95,8 @@ function measureLabel(text: string): number {
  * `update` then brings the window in line with the runner. New choices fade
  * in and take a tap once fully shown.
  */
-export class StoryWindow implements UiOverlayComponent {
-  readonly children: UiChildComponent[];
+export class StoryWindow implements OverlayUiComponent {
+  readonly children: ChildUiComponent[];
   readonly dialogue: Dialogue<Night>;
   readonly view: pixi.Container = new pixi.Container();
 

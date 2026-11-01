@@ -1,8 +1,9 @@
 import * as pixi from 'pixi.js';
 
 import {type Disposables} from '../utilities/Disposables.js';
+import {type ChildUiComponent} from './ChildUiComponent.js';
 import {Fader} from './Fader.js';
-import {type Focusable} from './Focusable.js';
+import {type FocusableUiComponent} from './FocusableUiComponent.js';
 import {disposeChildren} from './internals/disposeChildren.js';
 import {resolveView} from './internals/resolveView.js';
 import {type ModalConfig} from './ModalConfig.js';
@@ -10,19 +11,18 @@ import {type ModalOptions} from './ModalOptions.js';
 import {type ModalParts} from './ModalParts.js';
 import {type ModalRuntime} from './ModalRuntime.js';
 import {type ModalState} from './ModalState.js';
-import {type UiChildComponent} from './UiChildComponent.js';
-import {type UiOverlayComponent} from './UiOverlayComponent.js';
+import {type OverlayUiComponent} from './OverlayUiComponent.js';
 import {type UiRoot} from './UiRoot.js';
 
 import '@pixi/layout';
 
 /** Modal component. */
-export class Modal implements UiOverlayComponent {
+export class Modal implements OverlayUiComponent {
   /** Children. */
-  readonly children: UiChildComponent[] = [];
+  readonly children: ChildUiComponent[] = [];
 
   /** A component that takes the initial focus. */
-  readonly initialFocus: Focusable | undefined;
+  readonly initialFocus: FocusableUiComponent | undefined;
 
   /** View. */
   readonly view: pixi.Container = new pixi.Container();
@@ -122,7 +122,7 @@ export class Modal implements UiOverlayComponent {
   }
 
   /** Adds children to the modal's view. */
-  addChild(...children: UiChildComponent[]): this {
+  addChild(...children: ChildUiComponent[]): this {
     for (let child of children) {
       this.children.push(child);
       this.view.addChild(resolveView(child));
@@ -211,7 +211,7 @@ export class Modal implements UiOverlayComponent {
   }
 
   /** Removes children from the modal's view. */
-  removeChild(...children: UiChildComponent[]): this {
+  removeChild(...children: ChildUiComponent[]): this {
     for (let child of children) {
       let index = this.children.indexOf(child);
 

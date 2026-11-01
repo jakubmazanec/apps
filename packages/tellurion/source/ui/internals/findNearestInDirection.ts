@@ -1,4 +1,4 @@
-import {type Focusable} from '../Focusable.js';
+import {type FocusableUiComponent} from '../FocusableUiComponent.js';
 import {type FocusDirection} from '../FocusDirection.js';
 
 // Spatial scoring: distance along the movement axis plus a weighted penalty
@@ -10,13 +10,13 @@ const PERPENDICULAR_PENALTY = 2;
 const OVERLAP_BONUS = 0.5;
 
 export function findNearestInDirection(
-  focusables: Focusable[],
-  current: Focusable,
+  focusables: FocusableUiComponent[],
+  current: FocusableUiComponent,
   direction: FocusDirection,
-): Focusable | null {
+): FocusableUiComponent | null {
   let source = current.view.getBounds();
   let horizontal = direction === 'left' || direction === 'right';
-  let best: Focusable | null = null;
+  let best: FocusableUiComponent | null = null;
   let bestScore = Infinity;
 
   for (let candidate of focusables) {

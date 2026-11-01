@@ -1,7 +1,8 @@
 import * as pixi from 'pixi.js';
 
 import {type Disposables} from '../utilities/Disposables.js';
-import {type Focusable} from './Focusable.js';
+import {type ChildUiComponent} from './ChildUiComponent.js';
+import {type FocusableUiComponent} from './FocusableUiComponent.js';
 import {type FocusDirection} from './FocusDirection.js';
 import {type FocusScope} from './FocusScope.js';
 import {collectFocusables} from './internals/collectFocusables.js';
@@ -9,18 +10,17 @@ import {disposeChildren} from './internals/disposeChildren.js';
 import {findNearestInDirection} from './internals/findNearestInDirection.js';
 import {findNearestTopLeft} from './internals/findNearestTopLeft.js';
 import {resolveView} from './internals/resolveView.js';
-import {type UiChildComponent} from './UiChildComponent.js';
+import {type OverlayUiComponent} from './OverlayUiComponent.js';
+import {type ParentUiComponent} from './ParentUiComponent.js';
 import {type UiFocusEvent} from './UiFocusEvent.js';
-import {type UiOverlayComponent} from './UiOverlayComponent.js';
-import {type UiParentComponent} from './UiParentComponent.js';
 import {type UiRootConfig} from './UiRootConfig.js';
 import {type UiRootOptions} from './UiRootOptions.js';
 import {type UiRootParts} from './UiRootParts.js';
 import {type UiRootRuntime} from './UiRootRuntime.js';
 
-export class UiRoot implements UiParentComponent {
+export class UiRoot implements ParentUiComponent {
   /** Children. */
-  readonly children: UiChildComponent[] = [];
+  readonly children: ChildUiComponent[] = [];
 
   /** View. */
   readonly view: pixi.Container = new pixi.Container();
@@ -60,7 +60,7 @@ export class UiRoot implements UiParentComponent {
     // Taps focus components without showing the ring; keyboard navigation resumes from last tapped
     // component.
     let handleTap = (event: pixi.FederatedPointerEvent) => {
-      let byView = new Map<pixi.Container, Focusable>();
+      let byView = new Map<pixi.Container, FocusableUiComponent>();
 
       for (let focusable of this.#focusables) {
         byView.set(focusable.view, focusable);
@@ -113,12 +113,12 @@ export class UiRoot implements UiParentComponent {
   }
 
   /** Focusable components in current scope. */
-  get #focusables(): Focusable[] {
+  get #focusables(): FocusableUiComponent[] {
     return collectFocusables(this.#runtime.scopes.at(-1)?.root ?? this);
   }
 
   /** Currently focused component. */
-  get focused(): Focusable | null {
+  get focused(): FocusableUiComponent | null {
     return this.#runtime.focused;
   }
 
@@ -128,7 +128,7 @@ export class UiRoot implements UiParentComponent {
   }
 
   /** The innermost attached overlay, which owns focus and the cancel command. */
-  get topOverlay(): UiOverlayComponent | null {
+  get topOverlay(): OverlayUiComponent | null {
     return this.#runtime.scopes.at(-1)?.root ?? null;
   }
 
@@ -148,7 +148,7 @@ export class UiRoot implements UiParentComponent {
   }
 
   /** Adds children to the UI root's view. */
-  addChild(...children: UiChildComponent[]): this {
+  addChild(...children: ChildUiComponent[]): this {
     for (let child of children) {
       this.children.push(child);
       this.view.addChildAt(resolveView(child), this.view.children.length - 1); // The focus ring must stay last child, to render above other children.
@@ -158,7 +158,7 @@ export class UiRoot implements UiParentComponent {
   }
 
   /** Attaches the overlay as the last UI child and gives it the focus scope. */
-  addOverlay(overlay: UiOverlayComponent): this {
+  addOverlay(overlay: OverlayUiComponent): this {
     if (this.children.includes(overlay)) {
       throw new Error('Overlay was already added to the UI root!');
     }
@@ -224,7 +224,7 @@ export class UiRoot implements UiParentComponent {
   }
 
   /** Sets component as focused without showing the focus ring. */
-  focus(component: Focusable) {
+  focus(component: FocusableUiComponent) {
     this.#runtime.focused = component;
   }
 
@@ -354,7 +354,7 @@ export class UiRoot implements UiParentComponent {
   }
 
   /** Removes children from the UI root's view. */
-  removeChild(...children: UiChildComponent[]): this {
+  removeChild(...children: ChildUiComponent[]): this {
     if (children.some((child) => this.#runtime.scopes.some((scope) => scope.root === child))) {
       throw new Error('Overlay must be removed with removeOverlay()!');
     }
@@ -377,7 +377,7 @@ export class UiRoot implements UiParentComponent {
   }
 
   /** Detaches the overlay and releases its focus scope. */
-  removeOverlay(overlay: UiOverlayComponent): this {
+  removeOverlay(overlay: OverlayUiComponent): this {
     if (!this.children.includes(overlay)) {
       throw new Error("Overlay wasn't found!");
     }

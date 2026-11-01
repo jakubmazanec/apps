@@ -4,8 +4,8 @@ import {Container, Graphics} from 'pixi.js';
 import {afterEach, beforeAll, describe, expect, test, vitest} from 'vitest';
 
 import {Scheduler} from '../source/scheduler/Scheduler.js';
+import {type ChildUiComponent} from '../source/ui/ChildUiComponent.js';
 import {Modal} from '../source/ui/Modal.js';
-import {type UiChildComponent} from '../source/ui/UiChildComponent.js';
 import {UiRoot} from '../source/ui/UiRoot.js';
 import {createTestTheme} from './createTestTheme.js';
 
@@ -49,7 +49,7 @@ function focusable() {
 }
 
 // A non-focusable container component (a Panel-like stub).
-function panel(children: UiChildComponent[]) {
+function panel(children: ChildUiComponent[]) {
   return {view: new Container(), children};
 }
 

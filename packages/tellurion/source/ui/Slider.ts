@@ -1,7 +1,7 @@
 import {LayoutContainer} from '@pixi/layout/components';
 
 import {type Disposables} from '../utilities/Disposables.js';
-import {type Focusable} from './Focusable.js';
+import {type FocusableUiComponent} from './FocusableUiComponent.js';
 import {attachInteraction} from './internals/attachInteraction.js';
 import {disposeDetachedBackgrounds} from './internals/disposeDetachedBackgrounds.js';
 import {resolveThemeBackgrounds} from './internals/resolveThemeBackgrounds.js';
@@ -16,7 +16,7 @@ import {type SliderState} from './SliderState.js';
 
 import '@pixi/layout';
 
-export class Slider implements Focusable {
+export class Slider implements FocusableUiComponent {
   /** View. */
   readonly view: LayoutContainer;
 
