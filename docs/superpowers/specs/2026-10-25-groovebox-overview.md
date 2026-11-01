@@ -1,7 +1,7 @@
 # Groovebox – overview
 
 Status: brainstorming. This document records what has been decided so far about the whole project.
-Each part gets its own design document when it is brainstormed in detail.
+Each part gets its own design documents when it is brainstormed in detail.
 
 ## Intent
 
@@ -45,7 +45,7 @@ physical layout and look of the device.
 
 ### Part 1 – Rust core and browser virtual device
 
-Designed first, in its own document. Decided so far:
+Designed first, in six subpart specs under a part 1 overview. Decided so far:
 
 - The core is compiled to WASM and runs in an AudioWorklet.
 - A thin browser shell around it shows the device's actual display pixels and on-screen controls,
@@ -59,7 +59,8 @@ Designed first, in its own document. Decided so far:
 - Sounds live in one pool shared by the whole project. A project holds several patterns; a pattern
   is what the four tracks currently contain. How patterns work is expected to change.
 - Every parameter of everything is reachable and settable on the device.
-- Full design: [part 1 design](./2026-10-26-groovebox-core-browser-design.md).
+- Subparts, decision register and open questions:
+  [part 1 overview](./2026-10-26-groovebox-core-browser-design.md).
 
 ### Part 2 – Companion features
 
