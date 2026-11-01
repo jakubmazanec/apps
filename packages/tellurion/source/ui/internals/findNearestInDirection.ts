@@ -31,7 +31,7 @@ export function findNearestInDirection(
       direction === 'right' ? dx
       : direction === 'left' ? -dx
       : direction === 'down' ? dy
-      : -dy; // Select appopriate delta based on the direction.
+      : -dy; // Select appropriate delta based on the direction.
 
     // Negative delta means candidate is behind and can't be focused.
     if (forward <= 0) {

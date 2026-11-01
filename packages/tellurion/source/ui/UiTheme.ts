@@ -28,7 +28,12 @@ export type UiTheme<Background> = {
     body: UiTextStyle;
     layout?: LayoutStyles;
   };
-  slider: {normal: Background; fill: Background; hovered: Background; disabled: Background};
+  slider: {
+    normal: Background;
+    fill: Background;
+    hovered: Background;
+    disabled: Background;
+  };
   toggle: {
     unchecked: Background;
     checked: Background;
@@ -58,7 +63,7 @@ export type UiTheme<Background> = {
 /** UI theme object used for the UI theme description. */
 export type UiThemeDescription = UiTheme<readonly [spriteset: string, frame: string]>;
 
-/** UI theme object used for the resolved UI theme; instead of desciptions, object has textures. */
+/** UI theme object used for the resolved UI theme; instead of descriptions, object has textures. */
 export type ResolvedUiTheme = UiTheme<pixi.Texture>;
 
 /** A helper type. */

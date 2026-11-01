@@ -10,10 +10,10 @@ export type UiOverlayComponent = UiParentComponent & {
   /** Attaches the overlay to an UI root. */
   attach?: (ui: UiRoot) => void;
 
-  /** Dissmisses the overlay. */
+  /** Dismisses the overlay. */
   close?: () => void;
 
-  /** Dettaches the overlay. */
+  /** Detaches the overlay. */
   detach?: () => void;
 
   /** A child component that takes the initial focus. */
