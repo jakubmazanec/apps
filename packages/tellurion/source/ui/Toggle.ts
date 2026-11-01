@@ -32,7 +32,7 @@ export class Toggle implements Focusable {
   readonly #parts: ToggleParts;
 
   /** Object for internal values that may change. */
-  readonly #runtime: ToggleRuntime; // basically a `value`
+  readonly #runtime: ToggleRuntime;
 
   /** State; which part of its life cycle the instance is currently in. */
   #state: ToggleState = 'normal';

@@ -94,10 +94,7 @@ export class Modal implements UiOverlayComponent {
     this.view.addChild(this.#parts.scrim);
 
     if (children !== undefined) {
-      for (let child of children) {
-        this.children.push(child);
-        this.view.addChild(resolveView(child));
-      }
+      this.addChild(...children);
     }
 
     // Modal is absolutely positioned so its layout is unaffected by its parents.
@@ -122,6 +119,16 @@ export class Modal implements UiOverlayComponent {
   /** State. */
   get state(): ModalState {
     return this.#state;
+  }
+
+  /** Adds children to the modal's view. */
+  addChild(...children: UiChildComponent[]): this {
+    for (let child of children) {
+      this.children.push(child);
+      this.view.addChild(resolveView(child));
+    }
+
+    return this;
   }
 
   /** @internal Called by `UiRoot`. */
@@ -201,5 +208,20 @@ export class Modal implements UiOverlayComponent {
 
     this.#runtime.ui = null;
     this.#state = 'closed';
+  }
+
+  /** Removes children from the modal's view. */
+  removeChild(...children: UiChildComponent[]): this {
+    for (let child of children) {
+      let index = this.children.indexOf(child);
+
+      if (index !== -1) {
+        this.children.splice(index, 1);
+      }
+
+      this.view.removeChild(resolveView(child));
+    }
+
+    return this;
   }
 }
