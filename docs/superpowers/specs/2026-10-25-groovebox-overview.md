@@ -47,7 +47,8 @@ physical layout and look of the device.
 
 Designed first, in six subpart specs under a part 1 overview. Decided so far:
 
-- The core is compiled to WASM and runs in an AudioWorklet.
+- The core is compiled to WASM; its audio part runs in an AudioWorklet and its control part in a
+  worker.
 - A thin browser shell around it shows the device's actual display pixels and on-screen controls,
   and feeds input back to the core. Computer keyboard, mouse, and USB MIDI controllers can drive the
   controls.
