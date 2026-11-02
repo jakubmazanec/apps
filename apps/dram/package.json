@@ -39,6 +39,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@e965/xlsx": "^0.20.3",
     "@gel/generate": "^0.6.4",
     "@jakubmazanec/eslint-config": "^5.0.0",
     "@react-router/dev": "^8.3.0",
@@ -61,7 +62,6 @@
     "typescript": "^6.0.3",
     "vite": "^8.1.5",
     "vitest": "^4.1.10",
-    "xlsx": "^0.18.5",
     "zod": "^4.4.3"
   },
   "packageManager": "npm@11.18.0",
