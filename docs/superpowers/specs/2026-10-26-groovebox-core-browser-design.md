@@ -38,7 +38,6 @@ controls do. What part 1 teaches then decides the physical layout and look (part
 - Song mode and pattern chaining **(decided)**.
 - Recording from a microphone or line input, and resampling **(decided)**. Both are required on the
   device and come in a later version; the first version uses samples loaded from files.
-- Effects **(my call)**.
 - Editing notes in the piano roll. The piano roll is shown; editing in it may come later **(my
   call)**. This clashes with the goal that every parameter is reachable; see Workflow B.
 - The companion features (part 2), hardware (part 3), and enclosure (part 4).
@@ -117,7 +116,8 @@ milestone **(decided)**. What each milestone contains is **(my call)**:
    the header and parameter strip, the panel drawn from data, mouse, keyboard and MIDI input.
 2. **Samples and the pool:** storage and file drop, the sample engine, the sound list and creating
    sounds, track selection, pad mappings, PADS mode.
-3. **A looping pattern:** transport and tempo, step entry, the STEP view, track level and mute.
+3. **A looping pattern:** transport and tempo, step entry, the STEP view, track level and mute,
+   track effects.
 4. **Play it in:** live recording, quantize, overdub, growing length, the ROLL view.
 5. **Keep it:** several patterns and switching between them, new, save and load.
 
@@ -184,25 +184,21 @@ Spec: [Foundation](./2026-11-02-groovebox-foundation-design.md). In short:
 
 ### 2. Sound
 
-- **Samples and synthesis are equal, first-class sound sources** **(decided)**.
-- **Sound:** a source – a sample player or a synth engine – followed by a shared voice chain
-  (filter, envelopes, level). Everything after the source is identical for both kinds **(my call;
-  follows the decided equality)**.
-- **One sample engine and one basic synth engine** **(decided)**.
-- **Sample engine** **(my call):** plays a loaded sample, with start, end, pitch, and level;
-  one-shot playback.
-- **Synth engine** **(my call):** a basic subtractive voice – oscillator with a choice of waveforms,
-  low-pass filter with resonance, and an amplitude envelope. The JD-Xi is the reference for the
-  sound character the project aims at over time **(decided)**.
-- Each track has its own level and mute **(my call)**.
-- **(open)** The filter and envelope appear twice: in the synth engine and in the shared voice
-  chain. Is the synth source only the oscillator?
-- **(open)** Voice allocation, polyphony, voice stealing, one sound cutting off another, and mono
-  sounds, within Foundation's budgets.
-- **(open)** Whether a one-shot sample stops when its note is released, and the base pitch a sample
-  plays at in KEYS mode.
-- **(open)** Mixing and output: mono or stereo, pan, master level, limiting.
-- **(open)** Which sample file formats are accepted.
+Spec: [Sound](./2026-11-03-groovebox-sound-design.md). In short:
+
+- **Samples and synthesis are equal, first-class sound sources** **(decided)**. Engines make only
+  the raw tone; one shared voice chain (filter, two envelopes, trigger mode, level and pan, tuning,
+  play mode, choke group) follows every engine **(decided)**.
+- The architecture is the final product's; part 1 builds a small part of it. Sounds are made of
+  layers (one in part 1); engines and effect types describe themselves **(decided)**.
+- Part 1's engines: virtual analog with supersaw, and a mono or stereo sample player **(decided)**.
+  The JD-Xi is the reference for the sound character the project aims at over time **(decided)**.
+- Poly or mono per sound, within what the engine allows; mono has legato and glide **(decided)**.
+- A fixed count of 32 voices, provisional **(decided)**.
+- Each track has 6 effect slots in series, any effect in any slot; part 1 has delay and reverb.
+  Muting lets tails ring out **(decided)**.
+- Per-track level and mute; master level and a soft clipper **(decided)**.
+- WAV import, converted once to 48 kHz and 16-bit with channels kept **(decided)**.
 
 ### 3. Workflow A: playing and sounds
 
