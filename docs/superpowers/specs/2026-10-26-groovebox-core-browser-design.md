@@ -68,8 +68,8 @@ controls do. What part 1 teaches then decides the physical layout and look (part
 In the order the specs are written **(decided)**:
 
 1. **Foundation.** Mostly the builder's decisions, approved by the owner. The interface between the
-   core and the browser and what runs where; the memory model and budgets; the display part and its
-   colour depth; the time base, sample rate and numerics; the parameter mechanism; the binding table
+   core and the browser and what runs where; the memory model and budgets; how the core produces its
+   screen; the time base, sample rate and numerics; the parameter mechanism; the binding table
    format and how the core loads it; the storage interface; budget measurement, drift tests and a
    bare-metal build check; the Rust toolchain inside this monorepo; the licence.
 2. **Sound.** The engines and the shared voice chain; the parameter list; polyphony and one sound
@@ -83,8 +83,9 @@ In the order the specs are written **(decided)**:
 5. **Project model and saving.** What a project contains and how its parts refer to each other; the
    note store; a versioned format that can be migrated; the storage layout; device settings kept
    separate from the project.
-6. **Look and panel.** The rendering stack, pixel font and palette; how each screen is drawn; panel
-   layout D as data; mouse, keyboard and MIDI input; dropping sample files in; development meters.
+6. **Look and panel.** The emulated resolution, colour format, pixel font and palette; how each
+   screen is drawn; panel layout D as data; mouse, keyboard and MIDI input; dropping sample files
+   in; development meters.
 
 Foundation comes first because it sets the limits the other specs work within. Sound comes before
 the workflow specs because its parameter count and sample pitch rules shape how parameters are
@@ -97,7 +98,7 @@ follows how things are used. Look comes last because it draws the screens the wo
 | --------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
 | Interface between core and browser; what runs where | Foundation                                                                                                  |
 | Memory model and budgets                            | Foundation; Project model places the note store in it                                                       |
-| Display part and colour depth                       | Foundation; Look picks the palette within it                                                                |
+| Screen resolution and colour format                 | Foundation: how the core draws; Look: the resolution, colour format and palette                             |
 | Time                                                | Foundation: the time base; Workflow B: grids and quantize                                                   |
 | Parameters                                          | Foundation: the mechanism; Sound: the list; Workflow A: how they are reached                                |
 | Bindings                                            | Foundation: format and loading; Workflows A and B: actions and default assignments; Look: panel layout data |
@@ -125,10 +126,10 @@ milestone **(decided)**. What each milestone contains is **(my call)**:
 1. **Everything that defines the device lives in the Rust core (chosen).** The core holds the sound
    engines, the sequencer, the screen rendering (into a 480×272 frame buffer, e.g. with
    `embedded-graphics`), and the handling of buttons, encoders, and pads including the remappable
-   bindings. A thin TypeScript shell runs the core in an AudioWorklet, blits the frame buffer to a
-   canvas, draws the panel, and forwards clicks, keyboard and MIDI input as abstract control events.
-   The browser version is then the device minus the hardware. The cost is that UI changes mean Rust
-   changes and a WASM rebuild.
+   bindings. A thin TypeScript shell runs the core's audio part in an AudioWorklet and its control
+   part in a worker, blits the frame buffer to a canvas, draws the panel, and forwards clicks,
+   keyboard and MIDI input as abstract control events. The browser version is then the device minus
+   the hardware. The cost is that UI changes mean Rust changes and a WASM rebuild.
 2. **Rust for sound and sequencing, TypeScript for screen and controls.** The fastest iteration, but
    the screen and control logic – the workflow itself – would have to be rewritten in Rust for the
    device, and the two would drift. Rejected because it works against the reason the virtual device
@@ -139,7 +140,7 @@ milestone **(decided)**. What each milestone contains is **(my call)**:
    code. Rejected.
 
 The owner picked approach 1 **(decided)**. To ease the slower iteration, panel layout, bindings, and
-colours are data the shell can reload without a rebuild **(my call)**.
+colours are data the shell can reload without a rebuild **(decided; see Foundation)**.
 
 Go was considered for the core and rejected: its garbage collector risks audio dropouts, and its
 WASM and microcontroller support (TinyGo) is a poor fit for real-time audio.
@@ -148,56 +149,39 @@ WASM and microcontroller support (TinyGo) is a poor fit for real-time audio.
 
 ### 1. Foundation
 
-- **Rust** **(decided)**. The core is `no_std` and does not allocate on the audio path, so it can
-  build for bare-metal firmware as well as for `wasm32`.
-- The core is compiled to WASM and runs in an AudioWorklet **(decided)**.
-- **Hardware-realistic budgets.** The reference target is an STM32H7-class microcontroller
-  (Cortex-M7 with a hardware FPU, around 1 MB of internal RAM, external SDRAM in the tens of MB –
-  the Daisy Seed is an example of this class). No board is chosen; the core must stay within what
-  such a chip can do in CPU time and memory **(my call)**.
+Spec: [Foundation](./2026-11-02-groovebox-foundation-design.md). In short:
+
+- **Rust** **(decided)**. The core is `no_std` and never allocates memory while running, so it can
+  build for bare-metal firmware as well as for WASM.
+- **No hardware is chosen** **(decided)**: not the processor, the board or the display. Numbers that
+  depend on hardware live in a budget profile, which replaces the earlier STM32H7 reference target.
+- **Chromium only**, and **bit-identical** output in every build, checked by drift tests
+  **(decided)**.
+- The core has an audio part and a control part linked by one-way queues. In the browser the audio
+  part runs in an AudioWorklet and the control part in a worker, on one shared WASM memory
+  **(decided)**.
 - **Memory generous enough to never worry about.** Note data must not impose a practical limit on
-  pattern length **(decided)**; samples are what size the memory.
-- The memory model leaves room for audio written at runtime, so recording can be added without
-  reworking it **(my call)**.
-- **The display is 4.3″, 480×272 pixels, 16:9** **(decided)**, and must match a real, purchasable
-  part **(decided)**. It is a common off-the-shelf panel; on the device it needs a microcontroller
-  with a display controller and a frame buffer in RAM (about 255 KB at 16-bit colour).
-- **Colour** **(my call)**.
+  pattern length **(decided)**; samples are what size the memory. Sample memory is RAM only for now,
+  16-bit, with a provisional budget of 64 MB per project; long recordings are decided with recording
+  and hardware **(decided)**.
+- **The display must match a real, purchasable part** **(decided)**. 4.3″, 480×272 is the current
+  idea and provisional, like all hardware **(decided)**.
+- 48 kHz, 1920 ticks per beat, tempo in hundredths of a BPM, whole-number conversion from ticks to
+  samples **(decided)**.
+- Screens draw through a drawing interface into the core's own buffer in the display's pixels
+  **(decided)**.
+- One master list of parameters with permanent IDs and whole-number values **(decided)**.
 - The core sees only abstract controls: button _n_ pressed or released, encoder _n_ turned by _d_,
-  pad _n_ hit with velocity _v_. Which action a control triggers is a binding table, not code
-  **(decided that controls are remappable; the mechanism is my call)**.
-- The core reads samples through an abstract storage layer. On the device that will be an SD card or
-  flash; in the browser it is browser storage **(my call)**.
+  pad _n_ hit with velocity _v_. Which action a control triggers is a binding table, not code. The
+  binding and colour tables are versioned JSON read by the core; the panel layout belongs to the
+  shell **(decided)**.
+- The core reaches storage through requests and replies **(decided)**.
 - **GPL-family licence** **(decided)**. The code is GPL-3.0-or-later; the hardware files (parts 3
   and 4) will be CERN-OHL-S-2.0, its hardware counterpart **(my call)**. Dependencies must be
   compatible with the GPL.
-- The project lives in this monorepo, which already licenses each project separately: the Rust core
-  as a crate and the browser shell as an app in the workspace **(my call)**. It can move to its own
+- The project lives in this monorepo: a Rust package from a new alpha Carson Rust template and a
+  Carson-generated browser app. Part 1 runs locally only **(decided)**. It can move to its own
   repository later, when firmware and hardware files join it.
-- **(open)** The crate structure. The project overview says the core lives in one crate; this was
-  left open here.
-- **(open)** The WASM interface between core and shell, and how control events, audio buffers and
-  the frame buffer cross between the main thread and the AudioWorklet.
-- **(open)** What runs where. Rendering 480×272 frames in the AudioWorklet may cause audio dropouts,
-  and storage may not be reachable from the worklet; on a microcontroller, audio usually runs in an
-  interrupt and the UI in the main loop. To be checked before deciding.
-- **(open)** The display part and its colour depth. 16-bit colour or an indexed palette changes the
-  frame buffer's share of internal RAM and shapes the pixel-art style.
-- **(open)** How "never worry about memory" holds with samples in tens of MB of SDRAM (streaming
-  from the card, visible limits, compression), and how much room recorded audio gets.
-- **(open)** The internal time resolution of notes, the sample rate, buffer sizes and numerics.
-- **(open)** The parameter mechanism: identity, range, unit, display, how an encoder turn feels, how
-  a change reaches the audio, and room for modulation targets later (the project overview puts
-  modulation in the shared chain).
-- **(open)** The binding table format, how a `no_std` core loads it at runtime, and where it is
-  saved: in the project, in device settings or in the build.
-- **(open)** Whether the reloadable "colours" are the panel's colours (shell) or the screen palette
-  (core).
-- **(open)** How CPU time and memory budgets are measured and enforced in the browser build.
-- **(open)** How to show that browser and device do not drift, for example by replaying event logs,
-  comparing audio and frames, and building for the microcontroller target in CI.
-- **(open)** How Cargo and the WASM build fit into the npm and turbo monorepo, and how the GPL crate
-  fits the repo's licensing.
 
 ### 2. Sound
 
@@ -245,7 +229,9 @@ WASM and microcontroller support (TinyGo) is a poor fit for real-time audio.
 - **(open)** How sounds are created, browsed, and assigned **(decided that this is still to be
   decided)**.
 - **(open)** The selection model, modes, navigation and the list of screens.
-- **(open)** How every parameter is reached with four encoders.
+- **(open)** How every parameter is reached with four encoders, and how encoders feel (fine, coarse,
+  accelerated).
+- **(open)** Whether control bindings are saved per project or as device settings.
 - **(open)** Controls for decided features that have none on the starting panel: the sound list,
   track level and mute, octave shift in KEYS mode, and new, save and load project.
 - **(open)** Velocity from inputs that have none (mouse, computer keyboard), and whether pad
@@ -331,7 +317,9 @@ leaning and is expected to change.
   the device's storage card **(my call)**.
 - Later the same tables are how people reprogram the device. Buttons with tiny displays are an idea
   for later; if they come, the core renders their labels the same way it renders the main screen.
-- **(open)** The rendering stack, the pixel font, and the palette within Foundation's colour depth.
+- **(open)** The resolution the browser emulates (provisionally 480×272), whether and how elements
+  are drawn chunky (uniformly or as mixels), the colour format and palette, the pixel font and the
+  exact drawing operations, with the frame buffer inside Foundation's working-memory budget.
 - **(open)** How each screen is drawn.
 - **(open)** The format of the panel layout data.
 - **(open)** How mouse, keyboard and MIDI input map to controls.
