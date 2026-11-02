@@ -69,9 +69,9 @@ In the order the specs are written **(decided)**:
 
 1. **Foundation.** Mostly the builder's decisions, approved by the owner. The interface between the
    core and the browser and what runs where; the memory model and budgets; how the core produces its
-   screen; the time base, sample rate and numerics; the parameter mechanism; the binding table
-   format and how the core loads it; the storage interface; budget measurement, drift tests and a
-   bare-metal build check; the Rust toolchain inside this monorepo; the licence.
+   screen; the time base, sample rate and numerics; the parameter mechanism; the storage interface;
+   budget measurement, drift tests and a bare-metal build check; the Rust toolchain inside this
+   monorepo; the licence.
 2. **Sound.** The engines and the shared voice chain; the parameter list; polyphony and one sound
    cutting off another; sample playback rules; mixing and output.
 3. **Workflow A: playing and sounds.** Selection, modes, navigation and the list of screens; how
@@ -84,8 +84,8 @@ In the order the specs are written **(decided)**:
    note store; a versioned format that can be migrated; the storage layout; device settings kept
    separate from the project.
 6. **Look and panel.** The emulated resolution, colour format, pixel font and palette; how each
-   screen is drawn; panel layout D as data; mouse, keyboard and MIDI input; dropping sample files
-   in; development meters.
+   screen is drawn; panel layout D; mouse, keyboard and MIDI input; dropping sample files in;
+   development meters.
 
 Foundation comes first because it sets the limits the other specs work within. Sound comes before
 the workflow specs because its parameter count and sample pitch rules shape how parameters are
@@ -94,19 +94,19 @@ follows how things are used. Look comes last because it draws the screens the wo
 
 ### Questions that span specs
 
-| Question                                            | Owner                                                                                                       |
-| --------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| Interface between core and browser; what runs where | Foundation                                                                                                  |
-| Memory model and budgets                            | Foundation; Project model places the note store in it                                                       |
-| Screen resolution and colour format                 | Foundation: how the core draws; Look: the resolution, colour format and palette                             |
-| Time                                                | Foundation: the time base; Workflow B: grids and quantize                                                   |
-| Parameters                                          | Foundation: the mechanism; Sound: the list; Workflow A: how they are reached                                |
-| Bindings                                            | Foundation: format and loading; Workflows A and B: actions and default assignments; Look: panel layout data |
-| Storage                                             | Foundation: the interface and its browser backend; Project model: the layout                                |
-| Projects, patterns, tracks, sounds                  | Workflows A and B: what they mean; Project model: how they are represented                                  |
-| Voices, polyphony, mixing                           | Sound, within Foundation's budgets                                                                          |
-| Screens                                             | Workflows A and B: which screens exist and what they show; Look: how they are drawn                         |
-| Velocity                                            | Workflow A: behaviour; Look: mapping input devices                                                          |
+| Question                                            | Owner                                                                               |
+| --------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| Interface between core and browser; what runs where | Foundation                                                                          |
+| Memory model and budgets                            | Foundation; Project model places the note store in it                               |
+| Screen resolution and colour format                 | Foundation: how the core draws; Look: the resolution, colour format and palette     |
+| Time                                                | Foundation: the time base; Workflow B: grids and quantize                           |
+| Parameters                                          | Foundation: the mechanism; Sound: the list; Workflow A: how they are reached        |
+| Bindings                                            | Workflows A and B: actions and bindings, in code; Look: the panel layout, in code   |
+| Storage                                             | Foundation: the interface and its browser backend; Project model: the layout        |
+| Projects, patterns, tracks, sounds                  | Workflows A and B: what they mean; Project model: how they are represented          |
+| Voices, polyphony, mixing                           | Sound, within Foundation's budgets                                                  |
+| Screens                                             | Workflows A and B: which screens exist and what they show; Look: how they are drawn |
+| Velocity                                            | Workflow A: behaviour; Look: mapping input devices                                  |
 
 ### Milestones
 
@@ -139,8 +139,8 @@ milestone **(decided)**. What each milestone contains is **(my call)**:
    features) become awkward, and the shell is the part that benefits most from being ordinary web
    code. Rejected.
 
-The owner picked approach 1 **(decided)**. To ease the slower iteration, panel layout, bindings, and
-colours are data the shell can reload without a rebuild **(decided; see Foundation)**.
+The owner picked approach 1 **(decided)**. Panel layout, bindings and colours are code, changed by
+editing code; experimenting means changing code, not data files **(decided; see Foundation)**.
 
 Go was considered for the core and rejected: its garbage collector risks audio dropouts, and its
 WASM and microcontroller support (TinyGo) is a poor fit for real-time audio.
@@ -172,9 +172,8 @@ Spec: [Foundation](./2026-11-02-groovebox-foundation-design.md). In short:
   **(decided)**.
 - One master list of parameters with permanent IDs and whole-number values **(decided)**.
 - The core sees only abstract controls: button _n_ pressed or released, encoder _n_ turned by _d_,
-  pad _n_ hit with velocity _v_. Which action a control triggers is a binding table, not code. The
-  binding and colour tables are versioned JSON read by the core; the panel layout belongs to the
-  shell **(decided)**.
+  pad _n_ hit with velocity _v_. Bindings connect controls to actions in one place in the code;
+  bindings, colours, encoder pages and the browser panel layout are all code **(decided)**.
 - The core reaches storage through requests and replies **(decided)**.
 - **GPL-family licence** **(decided)**. The code is GPL-3.0-or-later; the hardware files (parts 3
   and 4) will be CERN-OHL-S-2.0, its hardware counterpart **(my call)**. Dependencies must be
@@ -231,7 +230,6 @@ Spec: [Foundation](./2026-11-02-groovebox-foundation-design.md). In short:
 - **(open)** The selection model, modes, navigation and the list of screens.
 - **(open)** How every parameter is reached with four encoders, and how encoders feel (fine, coarse,
   accelerated).
-- **(open)** Whether control bindings are saved per project or as device settings.
 - **(open)** Controls for decided features that have none on the starting panel: the sound list,
   track level and mute, octave shift in KEYS mode, and new, save and load project.
 - **(open)** Velocity from inputs that have none (mouse, computer keyboard), and whether pad
@@ -308,20 +306,20 @@ leaning and is expected to change.
   - a row of 12 pads below that **(decided)**.
 - The function buttons and their labels are a starting point and are expected to change
   **(decided)**.
-- The panel layout in the browser – which controls exist and where – is data, so controls can be
-  added, moved, and rebound while experimenting **(decided)**.
-- The shell shows the core's frame buffer on a canvas **(decided)** and draws the panel from the
-  layout data, to scale **(my call)**.
+- The panel layout in the browser – which controls exist and where – is code, so controls are added,
+  moved, and rebound by changing code **(decided)**.
+- The shell shows the core's frame buffer on a canvas **(decided)** and draws the panel to scale
+  **(my call)**.
 - Mouse, computer keyboard, and USB MIDI controllers drive the controls **(decided)**.
 - Sample files dropped onto the shell go into browser storage, standing in for copying files onto
   the device's storage card **(my call)**.
-- Later the same tables are how people reprogram the device. Buttons with tiny displays are an idea
-  for later; if they come, the core renders their labels the same way it renders the main screen.
+- Buttons with tiny displays are an idea for later; if they come, the core renders their labels the
+  same way it renders the main screen.
+- **(open, later)** Whether people can remap controls on the device itself.
 - **(open)** The resolution the browser emulates (provisionally 480×272), whether and how elements
   are drawn chunky (uniformly or as mixels), the colour format and palette, the pixel font and the
   exact drawing operations, with the frame buffer inside Foundation's working-memory budget.
 - **(open)** How each screen is drawn.
-- **(open)** The format of the panel layout data.
 - **(open)** How mouse, keyboard and MIDI input map to controls.
 - **(open)** Development meters for CPU time and memory.
 
@@ -329,7 +327,7 @@ leaning and is expected to change.
 
 - **Control:** a button, encoder or pad, as the core sees it.
 - **Action:** what the core does when a control is used, such as starting playback.
-- **Binding:** an entry in the table that connects a control to an action.
+- **Binding:** the connection between a control and an action, defined in code.
 - **Sound:** a source followed by the shared voice chain. Sounds live in the pool.
 - **Source:** the sample player or synth engine at the front of a sound.
 - **Pool:** all sounds of a project.
