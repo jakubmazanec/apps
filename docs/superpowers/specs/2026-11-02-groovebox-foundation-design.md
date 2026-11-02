@@ -12,10 +12,10 @@ first").
 ## What Foundation decides
 
 Foundation sets the ground rules the other specs build on: how the core runs, how it uses memory,
-how it counts time, how parameters and settings tables work, how it draws its screen, how it reaches
-storage, how the browser and device builds are kept identical, and how the code sits in this repo.
-It does not decide the sound, the workflow, the project format or the look; those belong to the
-later specs, and "Assumptions about other specs" lists what Foundation expects from them.
+how it counts time, how parameters work, how it draws its screen, how it reaches storage, how the
+browser and device builds are kept identical, and how the code sits in this repo. It does not decide
+the sound, the workflow, the project format or the look; those belong to the later specs, and
+"Assumptions about other specs" lists what Foundation expects from them.
 
 **No hardware is chosen** (owner's rule): not the processor, the board or the display. Nothing in
 Foundation depends on a particular part. Where a number depends on hardware, it lives in the budget
@@ -37,7 +37,7 @@ profile (see "Memory and budgets") and changes when part 3 chooses hardware.
 | Numbers               | 32-bit floats for sound, whole numbers for time and the screen; rules that keep results identical                                                       |
 | Screen                | Screens draw through a small drawing interface; the core draws into its own buffer in the display's pixels; targets only present it (owner's choice)    |
 | Parameters            | One master list; whole-number values; permanent IDs                                                                                                     |
-| Settings tables       | Readable JSON files with a version, read by the core directly                                                                                           |
+| Bindings and layout   | Bindings, panel layout, colours and encoder pages are code                                                                                              |
 | Storage               | Requests and replies; the core never touches files                                                                                                      |
 | Testing               | Drift tests: recorded scenes and fingerprints, compared across builds                                                                                   |
 | Repo                  | A Rust package from a new alpha Carson Rust template, plus a Carson-generated app                                                                       |
@@ -264,25 +264,23 @@ Foundation decides the mechanism, not the list.
 Direct MIDI control of individual parameters comes after part 1; in part 1, MIDI controllers drive
 the panel's controls.
 
-## Settings tables
+## Bindings, panel layout, colours and pages
 
-These are the tables edited most while experimenting: the control binding table (which control does
-what), the browser panel's layout (which controls exist and where) and the screen colours.
+Experimenting means changing code, with AI agents making the edits, not editing data files
+**(owner's choice)**. Data is only what the product saves and loads: projects, sounds and samples.
+So these are all written in code:
 
-- They are readable JSON files in the repo, so they are easy to edit by hand.
-- The core reads the same JSON directly, with a Rust parser that needs no memory allocation. There
-  is no conversion step: the browser can reload an edited table without rebuilding the core, and a
-  device could read the same files from its storage card. Tables are small and rarely read, so the
-  parser's speed does not matter.
-- Every file carries a version number. Unknown fields are ignored and missing fields take defaults;
-  when a change cannot be handled that way, a small conversion step upgrades old files.
-- The panel layout belongs to the browser shell only; the core never sees it, because a physical
-  device has its controls fixed in hardware.
-- The control binding table and the colour table are core data, because a device needs them too.
+- the control bindings: which button, encoder or pad does what (Rust);
+- the browser panel's layout: which on-screen controls exist and where (TypeScript);
+- the screen colours (Rust);
+- the encoder pages: which parameter sits on which page and encoder (Rust).
 
-Rejected: a compact binary format converted from the JSON at build time. It is faster and smaller,
-but needs a conversion step and loses hand-editing on a device; neither advantage matters for small
-tables.
+The core still sees only abstract controls (button _n_, encoder _n_, pad _n_), and the bindings
+connect them to actions in one place, so moving or rebinding a control is a small code change.
+Whether users can remap controls on the device itself is a product question for later.
+
+Rejected: readable JSON tables that the core reads and the browser reloads without rebuilding. They
+need a parser, versioning and reloading for something that code changes already cover.
 
 ## Storage
 
@@ -382,9 +380,8 @@ Applied to the overview together with this spec:
 - **Sound:** defines the parameter list with the mechanism above; sets voice limits that fit the
   budget profile; decides which sample file formats are accepted; voices read samples through the
   block call; sets glide times per parameter.
-- **Workflow A:** defines the actions and their default bindings; decides whether bindings are saved
-  per project or as device settings; decides how encoders feel and which parameters sit on which
-  page.
+- **Workflow A:** defines the actions and the bindings, in code; decides how encoders feel and which
+  parameters sit on which page.
 - **Workflow B:** decides whether note values use the parameter mechanism; whether played timing is
   kept as an offset from the step or quantize is permanent; swing applied at playback or not;
   quantize grids expressed in ticks. Tempo changes are jumps, not ramps, unless Workflow B needs
