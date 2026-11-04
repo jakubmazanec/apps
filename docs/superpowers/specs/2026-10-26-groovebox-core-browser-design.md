@@ -40,6 +40,7 @@ controls do. What part 1 teaches then decides the physical layout and look (part
   device and come in a later version; the first version uses samples loaded from files.
 - Editing notes in the piano roll. The piano roll is shown; editing in it may come later **(my
   call)**. This clashes with the goal that every parameter is reachable; see Workflow B.
+- Typing names for sounds and projects. Names are automatic in part 1; see Workflow A.
 - The companion features (part 2), hardware (part 3), and enclosure (part 4).
 
 ## Anti-goals
@@ -119,7 +120,8 @@ milestone **(decided)**. What each milestone contains is **(my call)**:
 3. **A looping pattern:** transport and tempo, step entry, the STEP view, track level and mute,
    track effects.
 4. **Play it in:** live recording, quantize, overdub, growing length, the ROLL view.
-5. **Keep it:** several patterns and switching between them, new, save and load.
+5. **Keep it:** several patterns and switching between them, autosave, and NEW, OPEN and COPY of
+   projects.
 
 ## Architecture
 
@@ -202,34 +204,39 @@ Spec: [Sound](./2026-11-03-groovebox-sound-design.md). In short:
 
 ### 3. Workflow A: playing and sounds
 
+Spec: [Workflow A](./2026-11-03-groovebox-workflow-a-design.md). In short:
+
 - **Sounds live in one pool shared by the whole project** **(decided)**. Any track can play any
-  sound, including sounds other tracks use. A sound exists once: when the same sound is used on two
-  tracks, editing it on one changes it on both **(decided)**.
-- The device must be usable standalone, so creating a sound, choosing its source (sample or synth),
-  and picking a sample all happen in the core, on the device's own screens and controls – never in
-  the browser shell.
-- A sound list screen shows the pool; from it a sound can be added, its source type chosen, and a
-  sample picked from the samples in storage **(my call)**.
-- New projects start empty, with no bundled samples **(my call)**.
-- **Each track has its own pad mapping** **(decided)**: switching tracks changes which sounds the 12
-  pads play in PADS mode. Each pad points to a sound in the pool, so two tracks can put the same
-  sound on their pads.
-- **Pads** have two modes **(decided)**: in PADS mode each pad triggers a different sound of the
-  current track, like a drum kit; in KEYS mode the 12 pads are one chromatic octave of the selected
-  sound. Both modes write the same kind of notes.
-- **Encoders** control the four parameters shown in the strip at the bottom of the screen; what they
-  control depends on the selected sound and its source type **(my call)**.
-- A **header** with track, sound, pad mode, tempo, transport position, and a recording indicator,
-  and a **parameter strip** for the encoders **(my call)**.
-- **(open)** How sounds are created, browsed, and assigned **(decided that this is still to be
-  decided)**.
-- **(open)** The selection model, modes, navigation and the list of screens.
-- **(open)** How every parameter is reached with four encoders, and how encoders feel (fine, coarse,
-  accelerated).
-- **(open)** Controls for decided features that have none on the starting panel: the sound list,
-  track level and mute, octave shift in KEYS mode, and new, save and load project.
-- **(open)** Velocity from inputs that have none (mouse, computer keyboard), and whether pad
-  pressure belongs in notes. The project overview leaves velocity- or pressure-sensitive pads open.
+  sound; editing a shared sound changes it everywhere it is used **(decided)**.
+- Making, choosing and editing sounds happens in the core, on the device's own screens and controls,
+  never in the browser shell.
+- **Two routes, both shallow** **(decided)**: buttons for what you do while playing, screens for
+  everything. Every screen is two presses away with MENU + step; no menu diving.
+- **Selection** **(decided)**: T1–T4 select the track; hitting a pad in PADS mode selects its sound;
+  each track remembers its sound, pad mode and octave. KEYS mode plays the selected sound; to change
+  it, go back through PADS.
+- **Each track has its own pad mapping** **(decided)**. In PADS mode each pad plays a different
+  sound of the current track; in KEYS mode the 12 pads are one chromatic octave of the selected
+  sound, shifted with SHIFT + up or down **(decided)**. Both modes write the same kind of notes.
+- **Screens** **(decided)**: STEP, ROLL, SOUND, FX, MIX, POOL, PROJECT and SETTINGS. Each has a
+  header, a main area and a parameter strip; the four encoders always edit the strip, which under
+  STEP and ROLL shows the selected sound.
+- **The screen is the interface** **(decided)**: the arrows move a cursor over everything on the
+  screen, OK uses an item, CANCEL backs out and − and + change values at once. The encoders are
+  shortcuts for the strip: a turn changes an item, a press is OK on it. No value is ever confirmed.
+- **Pages and encoders** **(decided)**: PAGE + step picks a page on every screen. The encoders have
+  push switches and turn in fixed steps, 16 times finer with SHIFT.
+- **Sounds are made from the pad** **(decided)**: the PAD page's picker offers NEW SAMPLE, NEW SYNTH
+  and the pool; COPY gives a pad its own copy of a shared sound; ENGINE switches a sound between
+  sample and synth; names are automatic. The sample picker plays each highlighted sample. POOL is
+  for overview and housekeeping, and highlighting a sound there selects it. New projects start
+  empty.
+- **Effects** **(decided)**: a CHAIN page sets each slot's type and the order; one page per slot.
+- **Mix** **(decided)**: SHIFT + T1–T4 mutes; MIX holds the track levels and the master level; a
+  dedicated fifth encoder sets the output volume after the soft clipper, as a device setting.
+- **Projects** **(decided)**: autosave; NEW, OPEN, COPY and DELETE on PROJECT.
+- **Velocity** **(decided)**: one switch, from how the pads are hit or none. Notes store pressure
+  from part 1 **(decided)**.
 
 ### 4. Workflow B: sequencing and patterns
 
@@ -259,8 +266,8 @@ leaning and is expected to change.
 - **(open)** Editing notes. A note's pitch, velocity and length are parameters too, so the goal that
   every parameter is reachable clashes with piano-roll editing being a non-goal, and step entry
   cannot set them.
-- **(open)** The step resolution, going past 16 steps, the pitch, velocity and length of a note
-  entered by step, and what a step means in KEYS mode.
+- **(open)** The step resolution, going past 16 steps, the pitch, velocity, length and pressure of a
+  note entered by step, and what a step means in KEYS mode.
 - **(open)** Whether the STEP view's lanes are the track's 12 pad sounds or every sound its notes
   use, and what happens when they do not fit on the screen.
 - **(open)** When recording grows the pattern and when it wraps, notes held across the loop point,
@@ -269,14 +276,20 @@ leaning and is expected to change.
   mute, and tempo belong to a pattern or to the project; when a pattern switch takes effect.
 - **(open)** How quantize, overdub and tempo are operated from the panel, and controls for switching
   patterns, setting the length and turning quantize off.
-- **(open)** Undo, copying and clearing patterns, erasing notes while recording, swing: in this
-  version or non-goals.
+- **Copying bars, patterns and a pad's notes is in** **(decided)**. Workflow B designs the copy and
+  paste, gesture included.
+- **(open)** What STEP and ROLL show, how their cursor works, and what the arrows, − and +, the
+  plain step buttons and the SHIFT combinations Workflow A leaves free do there and on other
+  screens; whether screens 9–16 of the MENU are needed.
+- **(open)** How pressure is recorded and edited.
+- **(open)** Undo, clearing patterns, erasing notes while recording, swing: in this version or
+  non-goals.
 - **(open)** The experiments the owner wants to try.
 
 ### 5. Project model and saving
 
-- **Note:** a time, a length, a pitch, a velocity, and which sound it plays. Each note can play a
-  different sound **(decided)**.
+- **Note:** a time, a length, a pitch, a velocity, a pressure curve, and which sound it plays. Each
+  note can play a different sound **(decided)**.
 - **Track:** a lane of notes that can mix any sounds from the pool **(decided)**.
 - The companion app (part 2) uses the same project format as the device **(decided)**.
 - **(open)** How a project's parts refer to each other, and what happens when a sound in use is
@@ -284,7 +297,11 @@ leaning and is expected to change.
 - **(open)** The note store: no practical limit on length, no allocation on the audio path, notes
   inserted while the pattern loops, and which part of the core writes to it.
 - **(open)** A versioned project format and how old projects are migrated.
-- **(open)** The storage layout, and device settings kept separate from the project.
+- **Autosave** **(decided)**: the open project saves itself; projects have automatic names.
+- **(open)** The storage layout, and device settings kept separate from the project. The device
+  settings so far are the output volume and the VELOCITY switch.
+- **(open)** Whether each track's selected sound, pad mode and octave, and each screen's page, are
+  saved with the project.
 - **(open)** How projects are saved and loaded in the browser.
 
 ### 6. Look and panel
@@ -309,6 +326,8 @@ leaning and is expected to change.
 - Mouse, computer keyboard, and USB MIDI controllers drive the controls **(decided)**.
 - Sample files dropped onto the shell go into browser storage, standing in for copying files onto
   the device's storage card **(my call)**.
+- Workflow A adds controls to layout D: MENU, PAGE, OK, CANCEL, − and + buttons, push switches on
+  the four encoders and a fifth encoder for the output volume **(decided)**. Where they sit is open.
 - Buttons with tiny displays are an idea for later; if they come, the core renders their labels the
   same way it renders the main screen.
 - **(open, later)** Whether people can remap controls on the device itself.
@@ -316,7 +335,7 @@ leaning and is expected to change.
   are drawn chunky (uniformly or as mixels), the colour format and palette, the pixel font and the
   exact drawing operations, with the frame buffer inside Foundation's working-memory budget.
 - **(open)** How each screen is drawn.
-- **(open)** How mouse, keyboard and MIDI input map to controls.
+- **(open)** How mouse, keyboard and MIDI input map to controls, including velocity and aftertouch.
 - **(open)** Development meters for CPU time and memory.
 
 ## Glossary
@@ -327,10 +346,18 @@ leaning and is expected to change.
 - **Sound:** a source followed by the shared voice chain. Sounds live in the pool.
 - **Source:** the sample player or synth engine at the front of a sound.
 - **Pool:** all sounds of a project.
-- **Note:** a time, length, pitch, velocity and sound.
+- **Note:** a time, length, pitch, velocity, pressure curve and sound.
 - **Track:** a lane of notes; there are four.
 - **Pattern:** what the four tracks currently contain.
 - **Project:** the pool and several patterns.
 - **Pad mapping:** which sound each of the 12 pads plays in PADS mode; each track has its own.
 - **PADS mode:** each pad plays a different sound of the current track.
 - **KEYS mode:** the 12 pads are one chromatic octave of the selected sound.
+- **Screen:** what the display shows, one at a time: STEP, ROLL, SOUND, FX, MIX, POOL, PROJECT or
+  SETTINGS.
+- **Page:** a set of up to four parameters on a screen.
+- **Strip:** the bottom of the screen, showing the four parameters the encoders edit.
+- **Cursor:** what the arrows move over the items on a screen; OK uses the item under it.
+- **Picker:** a list opened from a parameter, closed once you pick.
+- **Selected sound:** the sound the encoders edit, the step buttons enter and KEYS mode plays.
+- **Output volume:** how loud the device plays, set by its own knob; a device setting.
