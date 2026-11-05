@@ -38,8 +38,10 @@ controls do. What part 1 teaches then decides the physical layout and look (part
 - Song mode and pattern chaining **(decided)**.
 - Recording from a microphone or line input, and resampling **(decided)**. Both are required on the
   device and come in a later version; the first version uses samples loaded from files.
-- Editing notes in the piano roll. The piano roll is shown; editing in it may come later **(my
-  call)**. This clashes with the goal that every parameter is reachable; see Workflow B.
+- The features Workflow B puts after the first version: per-track lengths, growing while recording,
+  swing, step extras, a choice of when a pattern switch happens, scales and chords, a changeable
+  grid, note repeat and the arpeggiator, automation, randomization, hidden notes, per-pattern time
+  signatures, editing pressure and more levels of undo **(decided)**.
 - Typing names for sounds and projects. Names are automatic in part 1; see Workflow A.
 - The companion features (part 2), hardware (part 3), and enclosure (part 4).
 
@@ -117,11 +119,13 @@ milestone **(decided)**. What each milestone contains is **(my call)**:
    the header and parameter strip, the panel drawn from data, mouse, keyboard and MIDI input.
 2. **Samples and the pool:** storage and file drop, the sample engine, the sound list and creating
    sounds, track selection, pad mappings, PADS mode.
-3. **A looping pattern:** transport and tempo, step entry, the STEP view, track level and mute,
-   track effects.
-4. **Play it in:** live recording, quantize, overdub, growing length, the ROLL view.
-5. **Keep it:** several patterns and switching between them, autosave, and NEW, OPEN and COPY of
-   projects.
+3. **A looping pattern:** transport, tempo and the metronome, time signatures and length, the
+   PATTERN screen's TIMING and BARS pages, step entry and the NOTE strip, the STEP view, track level
+   and mute, track effects.
+4. **Play it in:** live recording, quantize, overdub and the count-in, the ROLL view and the NOTE
+   panel, undo, erasing, clearing and copying.
+5. **Keep it:** several patterns and switching between them, the pattern list, autosave, and NEW,
+   OPEN and COPY of projects.
 
 ## Architecture
 
@@ -217,13 +221,16 @@ Spec: [Workflow A](./2026-11-03-groovebox-workflow-a-design.md). In short:
   it, go back through PADS.
 - **Each track has its own pad mapping** **(decided)**. In PADS mode each pad plays a different
   sound of the current track; in KEYS mode the 12 pads are one chromatic octave of the selected
-  sound, shifted with SHIFT + up or down **(decided)**. Both modes write the same kind of notes.
-- **Screens** **(decided)**: STEP, ROLL, SOUND, FX, MIX, POOL, PROJECT and SETTINGS. Each has a
-  header, a main area and a parameter strip; the four encoders always edit the strip, which under
-  STEP and ROLL shows the selected sound.
+  sound, shifted with PADS/KEYS + up or down, a binding Workflow B moved there **(decided)**. Both
+  modes write the same kind of notes.
+- **Screens** **(decided)**: STEP, ROLL, SOUND, FX, MIX, POOL, PROJECT and SETTINGS, plus Workflow
+  B's PATTERN. Each has a header, a main area and a parameter strip; the four encoders always edit
+  the strip, which under STEP and ROLL shows the selected sound.
 - **The screen is the interface** **(decided)**: the arrows move a cursor over everything on the
   screen, OK uses an item, CANCEL backs out and − and + change values at once. The encoders are
   shortcuts for the strip: a turn changes an item, a press is OK on it. No value is ever confirmed.
+  Workflow B makes the strip only the encoders' display: the cursor never goes there, and every
+  strip has a screen route.
 - **Pages and encoders** **(decided)**: PAGE + step picks a page on every screen. The encoders have
   push switches and turn in fixed steps, 16 times finer with SHIFT.
 - **Sounds are made from the pad** **(decided)**: the PAD page's picker offers NEW SAMPLE, NEW SYNTH
@@ -240,51 +247,41 @@ Spec: [Workflow A](./2026-11-03-groovebox-workflow-a-design.md). In short:
 
 ### 4. Workflow B: sequencing and patterns
 
-The owner is not yet sure how patterns should work; everything in this section is the current
-leaning and is expected to change.
+Spec: [Workflow B](./2026-11-05-groovebox-workflow-b-design.md). The owner is not yet sure how
+patterns should work, so everything here is a starting point and expected to change. In short:
 
 - **Four tracks** in the first version **(decided)**.
-- **A pattern is what the four tracks currently contain**, so all four tracks share one length
-  **(decided, provisional)**. Per-track lengths must stay possible to add later.
-- **A project holds several patterns** that can be switched **(decided)**. Song mode and chaining
-  come later and their details are undecided.
-- **Pattern length has no fixed limit** **(decided)**; it is bounded only by the generous note
-  memory. The length can always be set by hand, and it can also grow while recording live
+- **Version 1 has one shared length and a fixed loop** **(decided)**. The later features are listed
+  under the non-goals. Quantizing on playback, parameter locks and pad mappings per pattern are not
+  done **(decided)**.
+- **A pattern is its notes and its length;** the tempo, the time signature, the effects and the mix
+  belong to the project **(decided)**. Patterns are unlimited, and 1 to 16 always exist
+  **(decided)**. Pattern length has no fixed limit; it is bounded only by the generous note memory
   **(decided)**.
-- **Step sequencer:** the 16 step buttons enter and remove notes for the selected sound
+- **Time signatures** from 1 to 16 over 4 or 8, per project; lengths in whole bars; tempo in quarter
+  notes **(decided)**. Changing the signature or the length keeps each note's place in its bar and
+  deletes what no longer fits, after a question **(decided)**.
+- **The step buttons are always one bar** of sixteenths for the selected sound. Every bar starts on
+  button 1, and a long bar continues on a short second page **(decided)**.
+- **One GRID setting,** as on the EP-133, for step entry, quantize and later note repeat and the
+  arpeggiator; 1/16 in version 1 **(decided)**.
+- **Holding TEMPO** shows tempo, grid, swing and quantize, and a tap turns the metronome on or off
+  **(decided)**. 30 to 300 BPM, a metronome and a one-bar count-in **(decided)**.
+- **STEP and ROLL** are one scrolling view at a fixed scale, whose rows are sounds on STEP and
+  pitches on ROLL. The cursor is a cell; the step buttons show the cursor's bar and follow the music
+  while playing **(decided)**.
+- **Notes are entered** with the step buttons or with OK on a cell, removed with a tap or CANCEL,
+  and edited on the NOTE strip while a step is held or in the NOTE panel **(decided)**. Pressure is
+  recorded but not edited in version 1 **(decided)**.
+- **Recording:** REC drops in and out while playing and arms when stopped; overdub; quantize snaps
+  to the nearest grid position for good **(decided)**.
+- **One level of undo** with SHIFT + CANCEL. CANCEL held with a pad or a track button erases and
+  clears; a new COPY button copies bars, sounds' notes and tracks, and SHIFT + COPY pastes
   **(decided)**.
-- **Live recording with looping and overdub:** play the pads while the pattern loops, and the notes
-  are recorded into it **(decided)**.
-- **Quantize is on by default and can be turned off** **(decided)**. When on, recorded notes are
-  snapped to the grid as they are recorded.
-- **Both input methods write the same notes into the same pattern** **(my call)**.
-- **Tempo** is adjustable **(my call)**.
-- **STEP view:** the selected track's sounds as lanes, 16 steps each, with the playhead **(my call,
-  as in the mockup)**.
-- **ROLL view:** a piano roll – pitch against time – showing the track's notes coloured by sound
-  **(decided that the piano roll exists; layout my call)**.
-- **(open)** Editing notes. A note's pitch, velocity and length are parameters too, so the goal that
-  every parameter is reachable clashes with piano-roll editing being a non-goal, and step entry
-  cannot set them.
-- **(open)** The step resolution, going past 16 steps, the pitch, velocity, length and pressure of a
-  note entered by step, and what a step means in KEYS mode.
-- **(open)** Whether the STEP view's lanes are the track's 12 pad sounds or every sound its notes
-  use, and what happens when they do not fit on the screen.
-- **(open)** When recording grows the pattern and when it wraps, notes held across the loop point,
-  count-in, metronome.
-- **(open)** Whether tracks are the same across patterns; whether pad mappings, track level and
-  mute, and tempo belong to a pattern or to the project; when a pattern switch takes effect.
-- **(open)** How quantize, overdub and tempo are operated from the panel, and controls for switching
-  patterns, setting the length and turning quantize off.
-- **Copying bars, patterns and a pad's notes is in** **(decided)**. Workflow B designs the copy and
-  paste, gesture included.
-- **(open)** What STEP and ROLL show, how their cursor works, and what the arrows, − and +, the
-  plain step buttons and the SHIFT combinations Workflow A leaves free do there and on other
-  screens; whether screens 9–16 of the MENU are needed.
-- **(open)** How pressure is recorded and edited.
-- **(open)** Undo, clearing patterns, erasing notes while recording, swing: in this version or
-  non-goals.
-- **(open)** The experiments the owner wants to try.
+- **Patterns switch** with SHIFT + step at the end of the playing pattern. The PATTERN screen
+  (MENU + 9) holds the timing, the bars and the pattern list **(decided)**.
+- **The strip is never a cursor target,** and every strip has a screen route **(decided)**.
+- **A button that also does something when held acts when you let go** **(decided)**.
 
 ### 5. Project model and saving
 
@@ -298,10 +295,15 @@ leaning and is expected to change.
   inserted while the pattern loops, and which part of the core writes to it.
 - **(open)** A versioned project format and how old projects are migrated.
 - **Autosave** **(decided)**: the open project saves itself; projects have automatic names.
+- **Patterns** **(decided)**: unlimited, with 1 to 16 always present. Each holds its notes, its
+  length and whether it has ever been changed. The time signature is the project's but is read per
+  pattern. Notes are plain data, not parameters. See Workflow B.
+- **Undo** **(decided)**: one level, over note changes; the Project model sizes what it can hold.
 - **(open)** The storage layout, and device settings kept separate from the project. The device
-  settings so far are the output volume and the VELOCITY switch.
-- **(open)** Whether each track's selected sound, pad mode and octave, and each screen's page, are
-  saved with the project.
+  settings so far are the output volume, the VELOCITY switch, the metronome, its level and the
+  count-in.
+- **(open)** Whether each track's selected sound, pad mode and octave, each screen's page, the
+  cursor and view, following and the current pattern are saved with the project.
 - **(open)** How projects are saved and loaded in the browser.
 
 ### 6. Look and panel
@@ -327,7 +329,8 @@ leaning and is expected to change.
 - Sample files dropped onto the shell go into browser storage, standing in for copying files onto
   the device's storage card **(my call)**.
 - Workflow A adds controls to layout D: MENU, PAGE, OK, CANCEL, − and + buttons, push switches on
-  the four encoders and a fifth encoder for the output volume **(decided)**. Where they sit is open.
+  the four encoders and a fifth encoder for the output volume **(decided)**. Workflow B adds a COPY
+  button **(decided)**. Where they sit is open.
 - Buttons with tiny displays are an idea for later; if they come, the core renders their labels the
   same way it renders the main screen.
 - **(open, later)** Whether people can remap controls on the device itself.
@@ -348,16 +351,27 @@ leaning and is expected to change.
 - **Pool:** all sounds of a project.
 - **Note:** a time, length, pitch, velocity, pressure curve and sound.
 - **Track:** a lane of notes; there are four.
-- **Pattern:** what the four tracks currently contain.
-- **Project:** the pool and several patterns.
+- **Pattern:** the notes of the four tracks and a length.
+- **Project:** the pool, the patterns and everything they share, such as the tempo, the time
+  signature, the effects and the mix.
+- **Bar:** one bar of the project's time signature; a pattern is a whole number of bars.
+- **Grid:** where step-entered notes land and what recording snaps to; 1/16 in version 1.
 - **Pad mapping:** which sound each of the 12 pads plays in PADS mode; each track has its own.
 - **PADS mode:** each pad plays a different sound of the current track.
 - **KEYS mode:** the 12 pads are one chromatic octave of the selected sound.
-- **Screen:** what the display shows, one at a time: STEP, ROLL, SOUND, FX, MIX, POOL, PROJECT or
-  SETTINGS.
+- **Screen:** what the display shows, one at a time: STEP, ROLL, SOUND, FX, MIX, POOL, PROJECT,
+  SETTINGS or PATTERN.
 - **Page:** a set of up to four parameters on a screen.
-- **Strip:** the bottom of the screen, showing the four parameters the encoders edit.
+- **Strip:** the bottom of the screen, showing the four items the encoders edit; never a cursor
+  target.
 - **Cursor:** what the arrows move over the items on a screen; OK uses the item under it.
 - **Picker:** a list opened from a parameter, closed once you pick.
+- **Cell:** one row by one grid step on STEP or ROLL; what the cursor stands on there.
+- **NOTE strip:** the strip while a step is held, showing its notes' pitch, velocity, length and
+  position.
+- **NOTE panel:** the second level opened from a cell, listing the same four values for the arrows
+  and − and +.
+- **Clipboard:** the last copy: a bar, a sound's notes, a track or a pattern.
+- **Following:** the view moving along with the music while playing.
 - **Selected sound:** the sound the encoders edit, the step buttons enter and KEYS mode plays.
 - **Output volume:** how loud the device plays, set by its own knob; a device setting.
