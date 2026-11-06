@@ -43,6 +43,9 @@ controls do. What part 1 teaches then decides the physical layout and look (part
   grid, note repeat and the arpeggiator, automation, randomization, hidden notes, per-pattern time
   signatures, editing pressure and more levels of undo **(decided)**.
 - Typing names for sounds and projects. Names are automatic in part 1; see Workflow A.
+- Migrating old projects and sharing files between different versions. A format change in part 1 is
+  a clean break; projects in an old format can only be deleted **(decided)**. Both come with the
+  companion in part 2; see the Project model.
 - The companion features (part 2), hardware (part 3), and enclosure (part 4).
 
 ## Anti-goals
@@ -285,26 +288,37 @@ patterns should work, so everything here is a starting point and expected to cha
 
 ### 5. Project model and saving
 
-- **Note:** a time, a length, a pitch, a velocity, a pressure curve, and which sound it plays. Each
-  note can play a different sound **(decided)**.
-- **Track:** a lane of notes that can mix any sounds from the pool **(decided)**.
-- The companion app (part 2) uses the same project format as the device **(decided)**.
-- **(open)** How a project's parts refer to each other, and what happens when a sound in use is
-  deleted.
-- **(open)** The note store: no practical limit on length, no allocation on the audio path, notes
-  inserted while the pattern loops, and which part of the core writes to it.
-- **(open)** A versioned project format and how old projects are migrated.
-- **Autosave** **(decided)**: the open project saves itself; projects have automatic names.
-- **Patterns** **(decided)**: unlimited, with 1 to 16 always present. Each holds its notes, its
-  length and whether it has ever been changed. The time signature is the project's but is read per
-  pattern. Notes are plain data, not parameters. See Workflow B.
-- **Undo** **(decided)**: one level, over note changes; the Project model sizes what it can hold.
-- **(open)** The storage layout, and device settings kept separate from the project. The device
-  settings so far are the output volume, the VELOCITY switch, the metronome, its level and the
-  count-in.
-- **(open)** Whether each track's selected sound, pad mode and octave, each screen's page, the
-  cursor and view, following and the current pattern are saved with the project.
-- **(open)** How projects are saved and loaded in the browser.
+Spec: [Project model](./2026-11-06-groovebox-project-model-design.md). In short:
+
+- **Two memories:** storage keeps the files (the library, the projects, the settings); RAM is what
+  the engine plays from. Opening a project copies its samples from storage into RAM, within the 64
+  MB budget per project **(decided)**.
+- **Internal storage, nothing removable,** as on the EP-133: one sample library shared by every
+  project, the projects beside it **(decided)**. Samples get in now by dropping files on the shell;
+  projects out, backup and restore are the companion's job in part 2 **(decided)**. A SAMPLES screen
+  (MENU + 10) deletes library files after a question, like POOL and PROJECT **(decided)**.
+- **Deleting a sound in use** removes its pads and notes too, after a question that counts them; the
+  project never holds a note whose sound is gone **(decided)**. "Used" means on any pad of any track
+  or played by any note of any pattern.
+- **A project remembers where you were:** the current pattern, track and screen, each screen's page,
+  the cursor and view, following **(decided)**. Playback, the clipboard and undo are never saved.
+- **A missing sample** leaves its sound silent and marked MISSING; the project opens and plays, and
+  the sound is repaired from its own sample parameter **(decided)**.
+- **Sounds and patterns have numbers that are never reused;** pads, notes and the selected sound
+  refer to sounds by number; a note stores its bar and its place in the bar.
+- **The note store:** the screen side owns the notes in copy-on-write blocks of one fixed pool
+  (provisionally 8 MB, about 500,000 notes); the sound side plays published versions and switches at
+  a moment computed from the input's timestamp, recorded so replays match; pattern length costs
+  nothing. Undo and the clipboard keep hold of older versions; an undo budget triggers "CAN'T UNDO";
+  when memory runs out redo, then undo give way and then new notes are refused, never the clipboard.
+- **Files:** one binary chunk format with a version number and a checksum per chunk; a project is a
+  folder of small files saved all-or-nothing, pattern files first, with a previous copy of the
+  project and settings files. **No migrations in part 1** **(decided)**: an old-format project can
+  only be deleted; the library survives format changes.
+- **Sample files** are WAV with a private chunk holding the original name and a 128-bit fingerprint
+  of the audio.
+- **Autosave** runs 2 seconds after the last change and at least every 10 seconds while changes
+  continue, from a consistent snapshot **(decided)**.
 
 ### 6. Look and panel
 
@@ -326,8 +340,12 @@ patterns should work, so everything here is a starting point and expected to cha
 - The shell shows the core's frame buffer on a canvas **(decided)** and draws the panel to scale
   **(my call)**.
 - Mouse, computer keyboard, and USB MIDI controllers drive the controls **(decided)**.
-- Sample files dropped onto the shell go into browser storage, standing in for copying files onto
-  the device's storage card **(my call)**.
+- Sample files dropped onto the shell go into the device's storage, imitated by the browser's
+  private storage, standing in for the companion sending samples to the device **(decided; see the
+  Project model)**.
+- The Project model adds a SAMPLES screen, the MISSING, NO ROOM and OLD marks, the header messages
+  (UNDO LOST, FULL, NOT ENOUGH MEMORY, STORAGE FULL. NOT SAVED, RESTORED FROM LAST SAVE, PATTERN n
+  DAMAGED, PATTERN n MISSING) and a development meter for note memory **(decided)**.
 - Workflow A adds controls to layout D: MENU, PAGE, OK, CANCEL, − and + buttons, push switches on
   the four encoders and a fifth encoder for the output volume **(decided)**. Workflow B adds a COPY
   button **(decided)**. Where they sit is open.
@@ -360,7 +378,18 @@ patterns should work, so everything here is a starting point and expected to cha
 - **PADS mode:** each pad plays a different sound of the current track.
 - **KEYS mode:** the 12 pads are one chromatic octave of the selected sound.
 - **Screen:** what the display shows, one at a time: STEP, ROLL, SOUND, FX, MIX, POOL, PROJECT,
-  SETTINGS or PATTERN.
+  SETTINGS, PATTERN or SAMPLES.
+- **Storage:** the device's internal memory that keeps files when the power is off: the library, the
+  projects, the settings.
+- **RAM:** the memory the engine plays from; samples are copied into it when a project opens.
+- **Library:** every sample file on the device's storage, shared by all projects.
+- **Fingerprint:** a 128-bit value computed from a sample's audio, written into the file and into
+  the sounds that use it.
+- **Block:** a fixed half-kilobyte piece of note memory; notes, their index, pressure curves and
+  pattern records are all made of blocks.
+- **Version:** the state of one track's notes as the sound side plays it; an edit publishes a new
+  version from a given moment.
+- **SAMPLES screen:** the library by folder, with DELETE for a file.
 - **Page:** a set of up to four parameters on a screen.
 - **Strip:** the bottom of the screen, showing the four items the encoders edit; never a cursor
   target.
