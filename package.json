@@ -23,24 +23,24 @@
     "@changesets/cli": "^2.31.1",
     "@jakubmazanec/carson": "^3.0.6",
     "@jakubmazanec/carson-templates": "^9.2.0",
-    "@jakubmazanec/changesets-changelog": "^2.0.16",
-    "@types/node": "^24.13.3",
-    "@types/semver": "^7.7.1",
+    "@jakubmazanec/changesets-changelog": "^2.0.18",
+    "@types/node": "^24.19.2",
+    "@types/semver": "^7.8.0",
     "del-cli": "^7.0.0",
-    "execa": "^10.0.0",
+    "execa": "^10.2.1",
     "lodash": "^4.18.1",
     "patch-package": "^8.0.1",
-    "prettier": "^3.9.6",
+    "prettier": "^3.9.10",
     "prettier-plugin-packagejson": "^2.5.22",
     "semver": "^7.8.5",
-    "tsx": "^4.23.1",
+    "tsx": "^4.23.15",
     "turbo": "^2.5.6",
     "typescript": "^6.0.3"
   },
-  "packageManager": "npm@11.18.0",
+  "packageManager": "npm@11.21.1",
   "engines": {
-    "node": "^24.18.0",
-    "npm": "^11.18.0"
+    "node": "^24.22.1",
+    "npm": "^11.21.1"
   },
   "allowScripts": {
     "esbuild@0.25.9": true,
