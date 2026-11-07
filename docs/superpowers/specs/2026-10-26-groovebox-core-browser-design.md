@@ -119,7 +119,7 @@ The plans are written after all specs, ordered so that something is playable aft
 milestone **(decided)**. What each milestone contains is **(my call)**:
 
 1. **Make a sound:** a synth sound played on the pads in KEYS mode, the encoders on its parameters,
-   the header and parameter strip, the panel drawn from data, mouse, keyboard and MIDI input.
+   the header and parameter strip, the panel drawn from code, mouse, keyboard and MIDI input.
 2. **Samples and the pool:** storage and file drop, the sample engine, the sound list and creating
    sounds, track selection, pad mappings, PADS mode.
 3. **A looping pattern:** transport, tempo and the metronome, time signatures and length, the
@@ -322,42 +322,40 @@ Spec: [Project model](./2026-11-06-groovebox-project-model-design.md). In short:
 
 ### 6. Look and panel
 
-- **Pixel-art style**, drawn at native resolution with chunky pixel fonts, in the spirit of
-  early-90s MS-DOS games **(decided)**.
-- The starting panel is layout D from the
-  [panel mockup](https://claude.ai/artifact/MLmfiDi7HieYGJHYfRhqNM) **(decided)**: about 240 × 110
-  mm, with
-  - the 4.3″ display in the middle of the top row,
-  - a 4×4 block of function buttons to its left: T1–T4; STEP, ROLL, PADS/KEYS, SHIFT; REC, PLAY,
-    STOP, TEMPO; and four arrows,
-  - four endless encoders in a 2×2 block to its right,
-  - a row of 16 step buttons below,
-  - a row of 12 pads below that **(decided)**.
-- The function buttons and their labels are a starting point and are expected to change
+Spec: [Look and panel](./2026-11-07-groovebox-look-design.md). In short:
+
+- **The display is the 4.3″ 480×272 IPS panel** **(decided)**, confirmed against real parts from
+  many vendors in one 105.5 × 67.2 mm footprint; nothing is doubled, every element is drawn in the
+  display's own pixels. The frame buffer is 8-bit indexed with a 256-entry palette, 128 KB.
+- **The font is monogram** **(decided)**: 7 px capitals, monospaced 6 px, every Czech letter, CC0,
+  from this repo. Mixed case everywhere; full names, shortened with "…" only when they do not fit.
+- **Minimal and flat** **(decided)**: black, no bevels, no shading, lines only where they carry
+  meaning. Every element sized to its content, 1 px gaps, free space between elements, 3 px around
+  the capitals, 13 px text rows; a parameter item is name, value and a 2 px bar everywhere; the cursor is
+  an orange outline 1 px outside whatever it is on; the inverted orange block means only
+  "selected".
+- **Colour** **(decided)**: black, three greys, one orange accent, red for recording and errors;
+  twelve sound colours that belong to the sound, not the pad, used on ROLL.
+- **The header** is one row: where you are at the left, the transport at the right, the page named
+  after the screen; messages replace the transport group. Accepted for now, expected to change.
+- **STEP** at 8 px per sixteenth draws the pages of 16 the step buttons show; **ROLL** one 13 px
+  row per semitone **(decided)**. Pictures on SOUND are cheap and informative only.
+- **The panel is the owner's layout** **(decided)**, 321 × 128 mm: the volume encoder and the
+  transport row top left; the display in the middle; the four encoders in a row top right with
+  T1–T4, PADS/KEYS, ROLL, MENU, PAGE, COPY and SHIFT under them; the 16 step buttons over the 12
+  pads with the cursor cluster (−, ▲, +, OK over ◀, ▼, ▶, CANCEL) at their right end. **There is
+  no STEP button**: STEP is MENU + 1. Layout D is replaced.
+- **Lights are single colour, on or off** **(decided)**; dimming only if the hardware gives it for
+  free. Only pads, steps, T1–T4, REC, PLAY, TEMPO, ROLL and PADS/KEYS have lights.
+- **The browser shell** zooms the screen by whole monitor pixels only; mouse, computer keyboard and
+  USB MIDI map to the abstract controls, with velocity and aftertouch from MIDI; WAV files dropped
+  on the page go into the device's storage; development meters are a Dev page on SETTINGS
   **(decided)**.
-- The panel layout in the browser – which controls exist and where – is code, so controls are added,
-  moved, and rebound by changing code **(decided)**.
-- The shell shows the core's frame buffer on a canvas **(decided)** and draws the panel to scale
-  **(my call)**.
-- Mouse, computer keyboard, and USB MIDI controllers drive the controls **(decided)**.
-- Sample files dropped onto the shell go into the device's storage, imitated by the browser's
-  private storage, standing in for the companion sending samples to the device **(decided; see the
-  Project model)**.
-- The Project model adds a SAMPLES screen, the MISSING, NO ROOM and OLD marks, the header messages
-  (UNDO LOST, FULL, NOT ENOUGH MEMORY, STORAGE FULL. NOT SAVED, RESTORED FROM LAST SAVE, PATTERN n
-  DAMAGED, PATTERN n MISSING) and a development meter for note memory **(decided)**.
-- Workflow A adds controls to layout D: MENU, PAGE, OK, CANCEL, − and + buttons, push switches on
-  the four encoders and a fifth encoder for the output volume **(decided)**. Workflow B adds a COPY
-  button **(decided)**. Where they sit is open.
+- **The repo holds the spec and a folder of PNGs**, one per approved screen state, the first screen
+  gallery **(decided)**.
 - Buttons with tiny displays are an idea for later; if they come, the core renders their labels the
   same way it renders the main screen.
 - **(open, later)** Whether people can remap controls on the device itself.
-- **(open)** The resolution the browser emulates (provisionally 480×272), whether and how elements
-  are drawn chunky (uniformly or as mixels), the colour format and palette, the pixel font and the
-  exact drawing operations, with the frame buffer inside Foundation's working-memory budget.
-- **(open)** How each screen is drawn.
-- **(open)** How mouse, keyboard and MIDI input map to controls, including velocity and aftertouch.
-- **(open)** Development meters for CPU time and memory.
 
 ## Glossary
 
@@ -404,3 +402,6 @@ Spec: [Project model](./2026-11-06-groovebox-project-model-design.md). In short:
 - **Following:** the view moving along with the music while playing.
 - **Selected sound:** the sound the encoders edit, the step buttons enter and KEYS mode plays.
 - **Output volume:** how loud the device plays, set by its own knob; a device setting.
+- **Cursor outline:** the orange outline 1 px outside the item, cell, row or tile the cursor is on.
+- **Selected block:** the inverted orange block behind the selected sound's name on STEP.
+- **Dev page:** the page of SETTINGS with the development meters: CPU time, sample RAM, note memory.
