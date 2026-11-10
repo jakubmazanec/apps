@@ -313,11 +313,11 @@ identical. CPU cost is tracked by instruction counts in fixed scenes in the test
 (Foundation) and later measured on the hardware, not shown on the device in part 1.
 
 ![SOUND, Pad page](./2026-11-07-groovebox-look/sound-pad.png)
-![SOUND, Sample 1 page](./2026-11-07-groovebox-look/sound-sample-1.png)
-![SOUND, Filter 1 page](./2026-11-07-groovebox-look/sound-filter-1.png)
-![SOUND, Volume envelope 1 page](./2026-11-07-groovebox-look/sound-volume-envelope-1.png)
+![SOUND, Sample page](./2026-11-07-groovebox-look/sound-sample.png)
+![SOUND, Filter page](./2026-11-07-groovebox-look/sound-filter.png)
+![SOUND, Volume envelope page](./2026-11-07-groovebox-look/sound-volume-envelope.png)
 ![FX, Chain page](./2026-11-07-groovebox-look/fx-chain.png)
-![MIX](./2026-11-07-groovebox-look/mix-levels.png)
+![MIX](./2026-11-07-groovebox-look/mix.png)
 ![POOL](./2026-11-07-groovebox-look/pool.png)
 ![PROJECT](./2026-11-07-groovebox-look/project.png)
 ![PATTERN, Patterns page](./2026-11-07-groovebox-look/pattern-patterns.png)
@@ -403,15 +403,9 @@ The gallery (Foundation) shows every screen in fixed states. Its first states ar
 `2026-11-07-groovebox-look/`: STEP playing, stopped, queued in Keys mode, with a message, in 7/8
 and in 5/4; ROLL; SOUND's Pad, Sample, Filter and Volume envelope pages; FX Chain; MIX; POOL;
 PROJECT; PATTERN's Patterns page; SAMPLES; MENU held; PAGE held; the sound and sample pickers; a
-question; the NOTE panel; the NOTE strip; the timing strip; the palette; the font test. Thirteen of
-them predate the page rule and are to be redrawn before they serve as expected frames:
-`page-held.png`, `sound-sample-1.png`, `sound-filter-1.png`, `sound-volume-envelope-1.png`,
-`mix-levels.png`, `pool.png`, `project.png`, `pattern-patterns.png`, `samples.png`, `question.png`,
-`note-panel.png`, `sound-pad.png` and `fx-chain.png`. `pool.png`, `samples.png` and
-`picker-sample.png` also predate the library in RAM: their meters become the one library meter and
-the picker's "no room" row becomes an ordinary row. The first implementation of each screen is
-compared against its picture by eye, and the drift tests' expected frames are first recorded from
-the implementation that matches.
+question; the NOTE panel; the NOTE strip; the timing strip; the palette; the font test. The first
+implementation of each screen is compared against its picture by eye, and the drift tests' expected
+frames are first recorded from the implementation that matches.
 
 ## Testing
 
