@@ -31,7 +31,8 @@ controls do. What part 1 teaches then decides the physical layout and look (part
 - Fast iteration on the panel and the workflow: moving controls and rebinding them is cheap
   **(decided)**.
 - **Every parameter of everything is reachable and settable on the device** **(decided)**, even when
-  a faster way to change it also exists (such as a pattern growing while recording).
+  a faster way to change it also exists (such as a pattern growing while recording). The one
+  exception is a note's pressure, recorded but not edited until modulation arrives (Workflow B).
 
 ## Non-goals for this version
 
@@ -55,7 +56,8 @@ controls do. What part 1 teaches then decides the physical layout and look (part
 - **Features that need the browser.** The device must be fully usable standalone **(decided)**;
   nothing in the core may depend on the browser shell to work.
 - **Running out of memory.** A user must never have to worry about memory, even for very long songs
-  **(decided)**.
+  **(decided)**. The one limit a user meets is the size of the sample library, as on the EP-133: one
+  meter, and a refusal only at import **(decided)**.
 
 ## How part 1 is designed
 
@@ -65,7 +67,9 @@ controls do. What part 1 teaches then decides the physical layout and look (part
   written only after the last spec, and implementation follows all planning **(decided)**.
 - Each spec ends with a list of what it assumes about the other specs **(decided)**.
 - After the last spec, one pass checks all specs and this overview against each other before any
-  plan is written **(decided)**.
+  plan is written **(decided)**. That pass was done on 2026-11-10: its decisions are written into
+  the specs and this overview, and the points it left open are listed under "Open points for
+  planning" at the end of this overview.
 - Each spec is linked from its section of the register once it is written.
 
 ## Subparts
@@ -80,8 +84,8 @@ In the order the specs are written **(decided)**:
 2. **Sound.** The engines and the shared voice chain; the parameter list; polyphony and one sound
    cutting off another; sample playback rules; mixing and output.
 3. **Workflow A: playing and sounds.** Selection, modes, navigation and the list of screens; how
-   every parameter is reached with four encoders; the sound list and creating sounds; pad mappings;
-   velocity.
+   every parameter is reached on the screen and which ones the four encoders hold; the sound list
+   and creating sounds; pad mappings; velocity.
 4. **Workflow B: sequencing and patterns.** Transport and tempo; step entry and editing notes;
    recording rules; patterns and what belongs to a pattern or to the project; a list of experiments
    the owner wants to try.
@@ -89,7 +93,7 @@ In the order the specs are written **(decided)**:
    note store; a versioned format that can be migrated; the storage layout; device settings kept
    separate from the project.
 6. **Look and panel.** The emulated resolution, colour format, pixel font and palette; how each
-   screen is drawn; panel layout D; mouse, keyboard and MIDI input; dropping sample files in;
+   screen is drawn; the panel layout; mouse, keyboard and MIDI input; dropping sample files in;
    development meters.
 
 Foundation comes first because it sets the limits the other specs work within. Sound comes before
@@ -118,10 +122,12 @@ follows how things are used. Look comes last because it draws the screens the wo
 The plans are written after all specs, ordered so that something is playable after the first
 milestone **(decided)**. What each milestone contains is **(my call)**:
 
-1. **Make a sound:** a synth sound played on the pads in KEYS mode, the encoders on its parameters,
-   the header and parameter strip, the panel drawn from code, mouse, keyboard and MIDI input.
-2. **Samples and the pool:** storage and file drop, the sample engine, the sound list and creating
-   sounds, track selection, pad mappings, PADS mode.
+1. **Make a sound:** a synth sound played on the pads in KEYS mode, its pages with the cursor, the
+   encoders on the items they hold, the header and the strip, the panel drawn from code, mouse,
+   keyboard and MIDI input.
+2. **Samples and the pool:** storage and file drop, the library loaded into RAM at start-up, the
+   sample engine, the sample preview, the sound list and creating sounds, track selection, pad
+   mappings, PADS mode.
 3. **A looping pattern:** transport, tempo and the metronome, time signatures and length, the
    PATTERN screen's TIMING and BARS pages, step entry and the NOTE strip, the STEP view, track level
    and mute, track effects.
@@ -170,9 +176,10 @@ Spec: [Foundation](./2026-11-02-groovebox-foundation-design.md). In short:
   part runs in an AudioWorklet and the control part in a worker, on one shared WASM memory
   **(decided)**.
 - **Memory generous enough to never worry about.** Note data must not impose a practical limit on
-  pattern length **(decided)**; samples are what size the memory. Sample memory is RAM only for now,
-  16-bit, with a provisional budget of 64 MB per project; long recordings are decided with recording
-  and hardware **(decided)**.
+  pattern length **(decided)**; samples are what size the memory. The whole sample library lives in
+  RAM, as on the EP-133, with its copy on storage for power-off; samples are 16-bit, and the library
+  is capped by the sample RAM, provisionally 64 MB for the whole device; long recordings are decided
+  with recording and hardware **(decided)**.
 - **The display must match a real, purchasable part** **(decided)**. 4.3″, 480×272 is the current
   idea and provisional, like all hardware **(decided)**.
 - 48 kHz, 1920 ticks per beat, tempo in hundredths of a BPM, whole-number conversion from ticks to
@@ -181,8 +188,9 @@ Spec: [Foundation](./2026-11-02-groovebox-foundation-design.md). In short:
   **(decided)**.
 - One master list of parameters with permanent IDs and whole-number values **(decided)**.
 - The core sees only abstract controls: button _n_ pressed or released, encoder _n_ turned by _d_,
-  pad _n_ hit with velocity _v_. Bindings connect controls to actions in one place in the code;
-  bindings, colours, encoder pages and the browser panel layout are all code **(decided)**.
+  pad _n_ hit with velocity _v_, pad _n_ pressure _p_, pad _n_ released. Bindings connect controls
+  to actions in one place in the code; bindings, colours, pages with the items their encoders hold
+  and the browser panel layout are all code **(decided)**.
 - The core reaches storage through requests and replies **(decided)**.
 - **GPL-family licence** **(decided)**. The code is GPL-3.0-or-later; the hardware files (parts 3
   and 4) will be CERN-OHL-S-2.0, its hardware counterpart **(my call)**. Dependencies must be
@@ -205,8 +213,10 @@ Spec: [Sound](./2026-11-03-groovebox-sound-design.md). In short:
 - Poly or mono per sound, within what the engine allows; mono has legato and glide **(decided)**.
 - A fixed count of 32 voices, provisional **(decided)**.
 - Each track has 6 effect slots in series, any effect in any slot; part 1 has delay and reverb.
-  Muting lets tails ring out **(decided)**.
-- Per-track level and mute; master level and a soft clipper **(decided)**.
+  Muting silences only the pattern and lets tails ring out; pads and keys played by hand still
+  sound **(decided)**.
+- Per-track level and mute; master level, then the sample preview and the metronome click, a soft
+  clipper and the output volume **(decided)**.
 - WAV import, converted once to 48 kHz and 16-bit with channels kept **(decided)**.
 
 ### 3. Workflow A: playing and sounds
@@ -227,23 +237,32 @@ Spec: [Workflow A](./2026-11-03-groovebox-workflow-a-design.md). In short:
   sound, shifted with PADS/KEYS + up or down, a binding Workflow B moved there **(decided)**. Both
   modes write the same kind of notes.
 - **Screens** **(decided)**: STEP, ROLL, SOUND, FX, MIX, POOL, PROJECT and SETTINGS, plus Workflow
-  B's PATTERN. Each has a header, a main area and a parameter strip; the four encoders always edit
-  the strip, which under STEP and ROLL shows the selected sound.
+  B's PATTERN and the Project model's SAMPLES. ROLL keeps its own button; STEP has none and is
+  MENU + 1 (Look). Each screen has a header, a main area and a strip; the strip shows the items the
+  encoders hold, up to four, and nothing else, and under STEP and ROLL those are the selected
+  sound's.
 - **The screen is the interface** **(decided)**: the arrows move a cursor over everything on the
   screen, OK uses an item, CANCEL backs out and − and + change values at once. The encoders are
-  shortcuts for the strip: a turn changes an item, a press is OK on it. No value is ever confirmed.
-  Workflow B makes the strip only the encoders' display: the cursor never goes there, and every
-  strip has a screen route.
-- **Pages and encoders** **(decided)**: PAGE + step picks a page on every screen. The encoders have
-  push switches and turn in fixed steps, 16 times finer with SHIFT.
+  shortcuts for up to four items of the page, named in code: a turn changes an item, a press is OK
+  on it. In pickers and questions they do nothing. No value is ever confirmed. The strip is only the
+  encoders' display: the cursor never goes there, it is empty where the encoders hold nothing, and
+  every strip has a screen route.
+- **Pages and encoders** **(decided)**: a page is a group of related settings, of any number, and
+  scrolls when it does not fit the screen; pages group, they never paginate. PAGE + step picks a
+  page on every screen. Each page names in code which of its items the four encoders hold; an
+  encoder holds only an item that is on the page. The encoders have push switches and turn in fixed
+  steps, 16 times finer with SHIFT.
 - **Sounds are made from the pad** **(decided)**: the PAD page's picker offers NEW SAMPLE, NEW SYNTH
   and the pool; COPY gives a pad its own copy of a shared sound; ENGINE switches a sound between
   sample and synth; names are automatic. The sample picker plays each highlighted sample. POOL is
-  for overview and housekeeping, and highlighting a sound there selects it. New projects start
-  empty.
-- **Effects** **(decided)**: a CHAIN page sets each slot's type and the order; one page per slot.
-- **Mix** **(decided)**: SHIFT + T1–T4 mutes; MIX holds the track levels and the master level; a
-  dedicated fifth encoder sets the output volume after the soft clipper, as a device setting.
+  for overview and housekeeping, and highlighting a sound there selects it; its DELETE and REMOVE
+  UNUSED are reached through its list, since a list holds nothing for the encoders. New projects
+  start empty.
+- **Effects** **(decided)**: a CHAIN page sets each slot's type and the order; one page per slot,
+  holding all of its effect's settings.
+- **Mix** **(decided)**: SHIFT + T1–T4 mutes; MIX is one page with the four track levels, on the
+  encoders, and the master level; a dedicated fifth encoder sets the output volume after the soft
+  clipper, as a device setting.
 - **Projects** **(decided)**: autosave; NEW, OPEN, COPY and DELETE on PROJECT.
 - **Velocity** **(decided)**: one switch, from how the pads are hit or none. Notes store pressure
   from part 1 **(decided)**.
@@ -290,9 +309,11 @@ patterns should work, so everything here is a starting point and expected to cha
 
 Spec: [Project model](./2026-11-06-groovebox-project-model-design.md). In short:
 
-- **Two memories:** storage keeps the files (the library, the projects, the settings); RAM is what
-  the engine plays from. Opening a project copies its samples from storage into RAM, within the 64
-  MB budget per project **(decided)**.
+- **Two memories:** storage keeps the files (the library's copy, the projects, the settings); RAM is
+  what the engine plays from. At start-up the whole library is loaded from storage into RAM, so
+  opening a project loads nothing and picking a sample never loads; the library is capped by the
+  sample RAM, provisionally 64 MB, and import is the only place a file is refused for room
+  **(decided)**.
 - **Internal storage, nothing removable,** as on the EP-133: one sample library shared by every
   project, the projects beside it **(decided)**. Samples get in now by dropping files on the shell;
   projects out, backup and restore are the companion's job in part 2 **(decided)**. A SAMPLES screen
@@ -331,9 +352,9 @@ Spec: [Look and panel](./2026-11-07-groovebox-look-design.md). In short:
   from this repo. Mixed case everywhere; full names, shortened with "…" only when they do not fit.
 - **Minimal and flat** **(decided)**: black, no bevels, no shading, lines only where they carry
   meaning. Every element sized to its content, 1 px gaps, free space between elements, 3 px around
-  the capitals, 13 px text rows; a parameter item is name, value and a 2 px bar everywhere; the cursor is
-  an orange outline 1 px outside whatever it is on; the inverted orange block means only
-  "selected".
+  the capitals, 13 px text rows; a parameter item is name, value and a 2 px bar everywhere, with its
+  encoder's number on an item an encoder holds; the cursor is an orange outline 1 px outside
+  whatever it is on; the inverted orange block means only "selected".
 - **Colour** **(decided)**: black, three greys, one orange accent, red for recording and errors;
   twelve sound colours that belong to the sound, not the pad, used on ROLL.
 - **The header** is one row: where you are at the left, the transport at the right, the page named
@@ -349,8 +370,7 @@ Spec: [Look and panel](./2026-11-07-groovebox-look-design.md). In short:
   free. Only pads, steps, T1–T4, REC, PLAY, TEMPO, ROLL and PADS/KEYS have lights.
 - **The browser shell** zooms the screen by whole monitor pixels only; mouse, computer keyboard and
   USB MIDI map to the abstract controls, with velocity and aftertouch from MIDI; WAV files dropped
-  on the page go into the device's storage; development meters are a Dev page on SETTINGS
-  **(decided)**.
+  on the page go into the library; development meters are a Dev page on SETTINGS **(decided)**.
 - **The repo holds the spec and a folder of PNGs**, one per approved screen state, the first screen
   gallery **(decided)**.
 - Buttons with tiny displays are an idea for later; if they come, the core renders their labels the
@@ -377,10 +397,16 @@ Spec: [Look and panel](./2026-11-07-groovebox-look-design.md). In short:
 - **KEYS mode:** the 12 pads are one chromatic octave of the selected sound.
 - **Screen:** what the display shows, one at a time: STEP, ROLL, SOUND, FX, MIX, POOL, PROJECT,
   SETTINGS, PATTERN or SAMPLES.
-- **Storage:** the device's internal memory that keeps files when the power is off: the library, the
-  projects, the settings.
-- **RAM:** the memory the engine plays from; samples are copied into it when a project opens.
-- **Library:** every sample file on the device's storage, shared by all projects.
+- **Storage:** the device's internal memory that keeps files when the power is off: the library's
+  copy, the projects, the settings.
+- **RAM:** the memory the engine plays from; the whole library is loaded into it at start-up and
+  stays there.
+- **Library:** every sample on the device, shared by all projects; it lives in RAM, with a copy on
+  storage, and is capped by the sample RAM.
+- **Library meter:** how full the library is, one number shown on POOL, on SAMPLES and in the sample
+  picker.
+- **Preview player:** the one player beside the 32 voices that plays the highlighted sample of the
+  sample picker or the SAMPLES screen, from RAM, mixed after the tracks.
 - **Fingerprint:** a 128-bit value computed from a sample's audio, written into the file and into
   the sounds that use it.
 - **Block:** a fixed half-kilobyte piece of note memory; notes, their index, pressure curves and
@@ -388,11 +414,14 @@ Spec: [Look and panel](./2026-11-07-groovebox-look-design.md). In short:
 - **Version:** the state of one track's notes as the sound side plays it; an edit publishes a new
   version from a given moment.
 - **SAMPLES screen:** the library by folder, with DELETE for a file.
-- **Page:** a set of up to four parameters on a screen.
-- **Strip:** the bottom of the screen, showing the four items the encoders edit; never a cursor
-  target.
+- **Page:** a group of related settings on a screen, of any number; it scrolls when it does not fit.
+  Each page names which of its items the encoders hold.
+- **Strip:** the bottom of the screen, showing the items the encoders hold, up to four, and nothing
+  else; empty where they hold nothing; never a cursor target.
 - **Cursor:** what the arrows move over the items on a screen; OK uses the item under it.
-- **Picker:** a list opened from a parameter, closed once you pick.
+- **Picker:** a list opened from an item, moved through with the arrows and − and +, chosen from
+  with OK, closed once you pick; the encoders do nothing in it. While it is open the music carries
+  on, pads still play and buttons that lead elsewhere wait.
 - **Cell:** one row by one grid step on STEP or ROLL; what the cursor stands on there.
 - **NOTE strip:** the strip while a step is held, showing its notes' pitch, velocity, length and
   position.
@@ -404,4 +433,133 @@ Spec: [Look and panel](./2026-11-07-groovebox-look-design.md). In short:
 - **Output volume:** how loud the device plays, set by its own knob; a device setting.
 - **Cursor outline:** the orange outline 1 px outside the item, cell, row or tile the cursor is on.
 - **Selected block:** the inverted orange block behind the selected sound's name on STEP.
-- **Dev page:** the page of SETTINGS with the development meters: CPU time, sample RAM, note memory.
+- **Dev page:** the page of SETTINGS with the development meters: library and note memory.
+
+## Open points for planning
+
+The consistency pass of 2026-11-10 found the points below stated by no spec. None contradicts a
+spec. Each carries a proposed reading that is not yet approved; the plan that reaches a point
+settles it with the owner. One needs a real decision: the MIDI note mapping under "Browser shell".
+
+### On the device
+
+- **The first STOP and the preview.** With the sample picker open while the music plays, does STOP
+  end the preview? Proposed: no; a second STOP silences it.
+- **SHIFT + PLAY in a picker or question.** PLAY works there and "every other combination" waits;
+  SHIFT + PLAY is named in neither. Proposed: it waits.
+- **When a combination acts.** Steps, CANCEL and COPY act when let go; MENU, PAGE and SHIFT are in
+  neither list. Proposed: a combination acts when its second control goes down.
+- **Two hold buttons at once.** Such as CANCEL and COPY held, then a pad. Proposed: the one pressed
+  first counts; the other is ignored until both are let go.
+- **CANCEL or COPY held + a step button.** No meaning is given. Proposed: nothing happens and the
+  step's own tap does not fire.
+- **MENU or PAGE held with other controls.** Do the arrows, OK, − and +, the encoders and the pads
+  act on the covered screen? Proposed: pads, keys and transport work; the rest waits.
+- **MENU or PAGE held + a dark step.** A step with no screen or page; what PAGE held shows on MIX
+  (one page) and the lists (none). Proposed: the press does nothing; the display: none yet.
+- **SHIFT + arrows outside STEP and ROLL.** Unsaid for pages, lists, pickers and the NOTE panel.
+  Proposed: they do nothing, so the combination stays free.
+- **An encoder whose item is not on the screen.** Under STEP and ROLL, or with TEMPO or a step held,
+  the cursor cannot move to the item. Proposed: the value changes; the cursor stays.
+- **The CANCEL + pad question.** When it appears and what letting go of CANCEL does. Proposed: it
+  appears on the hit and waits for OK or a new tap of CANCEL; no notes, no question.
+- **Held − and +.** The repeat delay and rate are named for the arrows only. Proposed: − and + use
+  the same two constants.
+- **REC during the count-in.** What the light and the header dot do. Proposed: the light blinks and
+  the dot stays dim through the count-in; steady and red from the first beat.
+- **Blink speeds.** "Blinks slowly" and "blinking" have no rate: one speed or two, in time with the
+  tempo or not. Proposed: named constants counted in samples; the speeds: none yet.
+- **How long a header message stays.** Nothing says what clears it. Proposed: a progress message
+  stays while the work runs, any other until the next button press; none times out.
+- **The header on STEP and ROLL.** Does it name the SOUND page the strip shows? Proposed: no, the
+  screen's name alone.
+- **Pad tiles on the Pad page.** What a tile shows. Proposed: the pad's number only; faint when
+  empty, orange when selected, none orange for a sound selected on POOL.
+- **An empty pad selected.** How Look draws its Pad page; whether its lane is highlighted on STEP;
+  what OK does and where the view opens on ROLL. Proposed: none yet.
+- **DELETE for an unused sound.** What the question reads when no pad or note uses the sound.
+  Proposed: none yet.
+
+### Sound and settings
+
+- **Delay time on the strip.** How dotted and triplet values are written, their order in the list
+  and whether "1/1 (1/2)" fits a strip cell. Proposed: none yet.
+- **Starting values of a new sound.** No value is set. Proposed: in code, tuned by ear; a new sound
+  is heard at once and unfiltered.
+- **Sample start, end and loop points.** Their unit is unsaid. Proposed: sample frames of the
+  converted file; one click moves 1/128 of its length.
+- **Root note, transpose and fine tune.** No ranges. Proposed: 0 to 127; −48 to +48 semitones; −100
+  to +100 cents, for the second oscillator too.
+- **LENGTH limits.** What the pattern's picker lists; a note's shortest and longest. Proposed: 1, 2,
+  4, 8, 16, 32 and 64 bars; a note from one fine step (30 ticks) to the pattern's length.
+- **Counted or smooth.** Unmarked for velocity, cents, milliseconds and levels. Proposed: counted
+  where people count the unit; note PITCH and VELOCITY move one per click, with SHIFT too.
+- **Fine clicks.** A click size that does not divide by 16, and SHIFT on the volume encoder.
+  Proposed: divide, round down, never under 1; the volume encoder ignores SHIFT.
+- **Tuning a range in part 1.** New ID, new format version or just the number? Proposed: just the
+  number; the ID and version stay and saved values are held within the new range.
+
+### Saving and storage
+
+- **When `.prev` is made.** Renamed or copied, and at which point of a save. Proposed: the old file
+  is renamed to `.prev` just before the replace.
+- **A lost view file.** Some defaults are unnamed and a notice is unsaid. Proposed: it opens as a
+  new project does (pattern 1, first pages, bar 1, step 1), with no notice.
+- **The selected pad.** The project remembers each track's selected sound, not its pad: an empty
+  pad, or a sound on two pads, comes back undefined. Proposed: none yet.
+- **"View follows" remembered.** A project opens stopped and PLAY follows again, so the saved value
+  is never used. Proposed: drop it from the list.
+- **Storage reserve.** No size. Proposed: 1 MB.
+- **SWING in the project file.** Saved with the project but empty in version 1. Proposed: not
+  written until swing is built.
+- **Time signature.** Two numbers, but a saved value is one. Proposed: two entries, the beats (1 to
+  16) and the beat unit (4 or 8); still one item on screen.
+- **Pressure curves in a pattern file.** How a saved note points at its curve. Proposed: by the
+  curve's position in its chunk, counted from 0.
+- **Folder requests.** Foundation's list has no make folder, delete folder or copy. Proposed: a
+  replace makes its folder; one delete-folder request; COPY reads and replaces.
+- **A dropped file.** How the shell tells the core that a file waits in `tmp/`. Proposed: one
+  message from the platform with the file's name and folder.
+- **"A versioned format that can be migrated".** The subparts list still says so; migrations wait
+  for part 2. Proposed: "a versioned file format".
+
+### Inside the core
+
+- **Storage replies in the session log.** Unsaid whether replies are logged. Proposed: each reply is
+  an input at a sample position; a scene carries the replies it expects.
+- **Timers.** The autosave and view-file delays name no clock. Proposed: every delay counts samples
+  of the audio clock, as the hold and repeat times do.
+- **What the audio part reports.** Foundation lists the playhead and meters; no screen has a meter.
+  Proposed: the playhead, "message N applied at sample S", "sample let go" and the browser wake-up.
+- **Pad lights.** Reported by the audio part or worked out by the control part? Proposed: worked
+  out, from the control part's own transport model.
+- **Edit lead.** No number, and not in Foundation's spike list. Proposed: provisionally 1,024
+  samples, set just above the longest delay the spike measures.
+- **Numbers not yet set.** The version queue's size, the reserve for versions in flight and the
+  operation count. Proposed: none yet.
+- **Fixed table sizes.** How many sounds, library files, projects and queue entries; the message
+  when one is full. Proposed: none yet; each is a budget-profile entry.
+- **Effect memory and note pool.** Sound's "large memory class" is not one of Foundation's two
+  kinds. Proposed: both sit beside the sample RAM, each with its own budget number.
+- **Master-list entry.** With notes as plain data, do "step or note" and "can be locked per step"
+  stay as room for later? Proposed: none yet.
+
+### Browser shell
+
+- **MIDI note mapping and the octave.** Look's sentence reads three ways. Proposed: in Pads mode
+  every C is pad 1; in Keys mode a note plays its own pitch and the octave moves only the pads; the
+  core gains a note input. Or: the octave follows the note, or all octaves fold onto the pads.
+- **Touch.** Not mentioned. Proposed: not supported in part 1; a finger does only what the browser
+  passes on as a mouse click.
+- **Letting a pad go.** Only the hit is stated for the mouse and keys. Proposed: the pad is held
+  until the mouse button or key comes up; no pressure.
+- **Computer keys.** "Z to /" is ten keys for twelve pads, and "the rest on letters" does not fit.
+  Proposed: keys by position; pads in piano order (Z S X D C V G B H N J M); no encoder keys.
+- **Encoders by mouse.** No push, direction or pixel count. Proposed: a click without a drag is a
+  push; dragging up turns right; 8 pixels per click.
+- **Starting sound.** A browser is silent until the first click or key. Proposed: the panel shows
+  "Click to start" until then; MIDI is asked for at that moment.
+- **Losing focus.** A key or pad held while you switch windows sticks. Proposed: every held key, pad
+  and button is let go.
+- **MIDI knobs.** Which five controller numbers; how a 0 to 127 knob becomes clicks. Proposed: each
+  change of position is that many clicks; the numbers: none yet.

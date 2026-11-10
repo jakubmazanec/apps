@@ -23,26 +23,26 @@ profile (see "Memory and budgets") and changes when part 3 chooses hardware.
 
 ## Decisions at a glance
 
-| Topic                 | Decision                                                                                                                                                |
-| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Browsers              | Chromium only: Chrome and Edge (owner's choice)                                                                                                         |
-| Browser versus device | Bit-identical: the same input events give exactly the same audio samples, screen pixels and note timing in every build (owner's choice)                 |
-| How the core runs     | Two parts, an audio part with a hard deadline and a control part for everything else, linked by one-way queues                                          |
-| Browser build         | One WASM module instantiated twice on one shared memory; stable compiler with a threads-enabled WASM target, nightly route as fallback (owner's choice) |
-| Memory                | No allocation while running; fixed pools; working memory and sample memory kept apart                                                                   |
-| Sample memory         | RAM only for now, 16-bit, a budget per project; long recordings are decided with recording and hardware (owner's choice)                                |
-| Budgets               | A budget profile enforced by the browser build; provisional sample budget 64 MB per project (owner's choice)                                            |
-| Audio                 | 48 kHz; the core's own fixed schedule of 32 samples                                                                                                     |
-| Musical time          | 1920 ticks per beat (owner's choice); tempo in hundredths of a BPM; whole-number conversion to samples                                                  |
-| Numbers               | 32-bit floats for sound, whole numbers for time and the screen; rules that keep results identical                                                       |
-| Screen                | Screens draw through a small drawing interface; the core draws into its own buffer in the display's pixels; targets only present it (owner's choice)    |
-| Parameters            | One master list; whole-number values; permanent IDs                                                                                                     |
-| Bindings and layout   | Bindings, panel layout, colours and encoder pages are code                                                                                              |
-| Storage               | Requests and replies; the core never touches files                                                                                                      |
-| Testing               | Drift tests: recorded scenes and fingerprints, compared across builds                                                                                   |
-| Repo                  | A Rust package from a new alpha Carson Rust template, plus a Carson-generated app                                                                       |
-| Deployment            | Local only in part 1 (owner's choice)                                                                                                                   |
-| Licence               | GPL-3.0-or-later                                                                                                                                        |
+| Topic                 | Decision                                                                                                                                                                          |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Browsers              | Chromium only: Chrome and Edge (owner's choice)                                                                                                                                   |
+| Browser versus device | Bit-identical: the same input events give exactly the same audio samples, screen pixels and note timing in every build (owner's choice)                                           |
+| How the core runs     | Two parts, an audio part with a hard deadline and a control part for everything else, linked by one-way queues                                                                    |
+| Browser build         | One WASM module instantiated twice on one shared memory; stable compiler with a threads-enabled WASM target, nightly route as fallback (owner's choice)                           |
+| Memory                | No allocation while running; fixed pools; working memory and sample RAM kept apart                                                                                                |
+| Sample RAM            | The whole library in RAM, as on the EP-133, 16-bit, with its copy on storage; one budget for the device; long recordings are decided with recording and hardware (owner's choice) |
+| Budgets               | A budget profile enforced by the browser build; provisional sample RAM 64 MB for the whole library (owner's choice)                                                               |
+| Audio                 | 48 kHz; the core's own fixed schedule of 32 samples                                                                                                                               |
+| Musical time          | 1920 ticks per beat (owner's choice); tempo in hundredths of a BPM; whole-number conversion to samples                                                                            |
+| Numbers               | 32-bit floats for sound, whole numbers for time and the screen; rules that keep results identical                                                                                 |
+| Screen                | Screens draw through a small drawing interface; the core draws into its own buffer in the display's pixels; targets only present it (owner's choice)                              |
+| Parameters            | One master list; whole-number values; permanent IDs                                                                                                                               |
+| Bindings and layout   | Bindings, panel layout, colours and pages, with the items their encoders hold, are code                                                                                           |
+| Storage               | Requests and replies; the core never touches files                                                                                                                                |
+| Testing               | Drift tests: recorded scenes and fingerprints, compared across builds                                                                                                             |
+| Repo                  | A Rust package from a new alpha Carson Rust template, plus a Carson-generated app                                                                                                 |
+| Deployment            | Local only in part 1 (owner's choice)                                                                                                                                             |
+| Licence               | GPL-3.0-or-later                                                                                                                                                                  |
 
 ## How the core runs
 
@@ -54,9 +54,10 @@ The core has two parts, separated by deadline:
 - **Control part.** Everything else: control events, the workflow state, drawing the screen, loading
   samples, saving projects. Its deadline is soft: a screen update may slip a frame, audio may not.
 - **How they talk.** Only through lock-free one-way queues. Control to audio: notes played on pads,
-  parameter changes, edits. Audio to control: playhead position, meters, recorded notes. Large data
-  such as a loaded sample is handed over as memory the control part has finished filling; nothing is
-  shared while it is being written.
+  parameter changes, edits. Audio to control: playhead position and meters. Notes are recorded by
+  the control part, from each input's timestamp with the formula under "Musical time" (Project
+  model). Large data such as a loaded sample is handed over as memory the control part has finished
+  filling; nothing is shared while it is being written.
 
 Why: audio has to be ready every few milliseconds whatever else is happening, while drawing, loading
 and saving take varying time. Mixed together, audio drops out. In the browser the split is forced
@@ -82,6 +83,9 @@ anyway: the AudioWorklet cannot reach storage, and drawing the screen there is f
   switching only changes build settings. CI builds both, so the fallback stays ready.
 - Shared memory needs cross-origin isolation, so every page and every worker script is served with
   `Cross-Origin-Opener-Policy: same-origin` and `Cross-Origin-Embedder-Policy: require-corp`.
+- The audio part's wake-up, once per batch of audio, paces the control part: one step of the control
+  part handles every input stamped before that batch, so what it does depends only on the event log,
+  not on the browser's timing (Project model).
 
 ### On the device
 
@@ -104,35 +108,58 @@ called on time and its control part runs the rest of the time.
   voices, the note store, the frame buffer. The core library does not use Rust's allocation library
   at all, so an accidental allocation is a compile error.
 - Two kinds of memory are kept apart in the code: **working memory** (engine state, queues, the
-  frame buffer; small and needs to be fast) and **sample memory** (large, read in sequence by the
+  frame buffer; small and needs to be fast) and **sample RAM** (large, read in sequence by the
   voices). A device can then place them in different kinds of RAM without code changes.
 
-### Sample memory (owner's choice)
+### Sample RAM (owner's choice)
 
-- RAM only in the first version. Samples are stored as 16-bit and loaded when a project opens.
-- A budget per project, with a meter showing the time left, a "remove unused" command, a preview of
-  a sample's cost before it is loaded, and a clear refusal when it does not fit.
-- Projects refer to sample files on storage; they do not embed audio.
+- **The whole library lives in RAM, as on the EP-133.** Storage keeps its copy for power-off. At
+  start-up the core loads the entire library from storage into RAM, then opens the last project.
+  Samples are 16-bit.
+- **One budget for the device,** the sample RAM: the library can never be bigger than it. Import
+  refuses a file that does not fit, with a clear message; that is the only refusal for room. One
+  meter shows how full the library is, wherever samples are listed (Workflow A, Project model).
+- Opening a project loads nothing and picking a sample never loads; every sample is already in RAM.
+  Sample RAM changes only when the library changes: an import, or a delete on the SAMPLES screen.
+- Projects refer to samples in the library; they do not embed audio.
 - Voices read sample audio through one "give me the next block" call, so another source, such as
   streaming long recordings, can be plugged in later.
 - Whether long recordings later get more RAM or a simple streaming path is decided when recording
-  and hardware are designed.
+  and hardware are designed. Later, recording writes straight into the library in RAM, as on the
+  EP-133.
+- A library on storage bigger than the sample RAM can only follow a hardware change or a lowered
+  budget. Start-up then loads files in folder order until the RAM is full, leaves the rest unloaded
+  and marked on SAMPLES, and says so in one line (see the Project model, "Starting up").
+
+Rejected: **a budget per project, the first design.** The library sat on storage and could be far
+bigger than RAM; opening a project copied the samples its sounds used into RAM within 64 MB per
+project, with a cost preview before loading, a "no room" mark in the picker, a NO ROOM state for a
+loaded sound and a "remove unused" command that freed RAM. Replaced because it put a second limit
+and a second meter in the user's way, made opening a project a loading step with its own failures,
+and gave the picker a refusal; the EP-133 has one library, one limit and one place where it is met
+**(owner's choice)**.
 
 ### Budget profile
 
-- A small data file states the limits: working memory, sample memory and operation counts. The
-  browser build enforces it. Changing hardware later means changing the numbers, nothing else.
+- A small data file states the limits: working memory, sample RAM and operation counts. The browser
+  build enforces it. Changing hardware later means changing the numbers, nothing else.
 - **Memory** is checked exactly. Pool sizes are known at build time, so the build fails if they
-  exceed the profile, and loading a sample beyond the sample budget is refused.
+  exceed the profile, and importing a sample beyond the library's free space is refused.
 - **CPU** cannot be measured truthfully without hardware. The WASM build runs fixed test scenes in a
   WebAssembly runtime that counts executed instructions; the counts are the same on every machine
   and catch regressions. When hardware exists, running the same scenes on it turns the counts into
   real CPU percentages. Meanwhile the practical cap is the voice limit set by the Sound spec.
-- Lowering a limit later can make existing projects too big. That is acceptable while projects are
-  experiments.
-- The provisional sample budget is **64 MB per project**, about 5.6 minutes of stereo at 48 kHz and
-  16 bits (owner's choice). The working-memory limit follows from the pool sizes in the other specs
-  and the frame buffer in the Look spec.
+- Lowering a limit later can make the existing library or existing projects too big. That is
+  acceptable while projects are experiments; what start-up does with a library bigger than the
+  sample RAM is under "Sample RAM".
+- The provisional sample RAM is **64 MB for the whole library**, about 5.6 minutes of stereo or 11
+  minutes of mono at 48 kHz and 16 bits (owner's choice). The working-memory limit follows from the
+  pool sizes in the other specs and the frame buffer in the Look spec.
+- The profile also holds what the other specs set: the voice count (provisionally 32, plus the
+  preview player), the effect slots' memory (about 9 MB, outside the library's budget) and the
+  worst-case operation count recorded by a test scene (Sound); the note pool (provisionally 8 MB),
+  the undo budget (provisionally a quarter of the pool), the edit lead and the size of the version
+  queue (Project model); the frame buffer (8-bit indexed, 128 KB, 255 KB for two) (Look).
 
 ## Time, audio and numbers
 
@@ -201,17 +228,17 @@ identical in every build:
    its own. The browser may zoom the whole picture for comfort on a computer screen; that is
    presentation only.
 4. The buffer's size and colour format are settings per display, not built into the rest of the
-   core. The browser uses the provisional 480×272 until the Look spec says otherwise.
+   core. The Look spec sets 480×272 and 8-bit indexed colour: 128 KB per buffer, 255 KB for two.
 
 What a frame shows depends only on the core's state and the musical time, never on how many frames
 were drawn before, so tests can capture frames at fixed points.
 
-Left to the Look spec: the resolution the browser emulates; whether and how elements are drawn
-chunky, uniformly or as mixels per element; the colour format and palette (8-bit indexed with a
-256-colour palette is a strong candidate, because expanding it to any other format is a lossless
-table lookup); the fonts; the exact drawing operations. A hand-tuned pixel layout depends on the
-display's resolution, so moving to a display with a different resolution later means adjusting the
-screens; weighing that is the Look spec's job.
+Decided in the Look spec: nothing is doubled, every element is drawn in the display's own pixels;
+the buffer is 8-bit indexed with a 256-entry palette, because expanding it to any other format is a
+lossless table lookup; the font is monogram; the drawing operations are fills, lines, outlined
+rectangles and glyphs. A hand-tuned pixel layout depends on the display's resolution, so moving to a
+display with a different resolution later means adjusting the screens; weighing that is the Look
+spec's job.
 
 Later, in part 2, the companion app can mirror the screen by receiving the changed regions of the
 buffer, as Playdate Mirror and the Deluge do. Because screens draw through the interface, a command
@@ -242,11 +269,14 @@ Foundation decides the mechanism, not the list.
    - how the number becomes sound: straight, musical (each step up the knob is the same musical
      interval, as for pitch), decibels, a named list, or on/off;
    - how it is shown: Hz, dB, %, note name;
+   - for smooth values, the click size: how far one encoder click moves it, 128 clicks across the
+     range by default (Workflow A);
+   - for a named list, each choice's permanent key, apart from its label (Project model);
    - marks: can be modulated, glides, can be locked per step.
 2. **Values are whole numbers.** Smooth controls use 0 to 65,535, finer than anyone can hear, and
    high-resolution MIDI maps onto it exactly. Counts use their natural units: steps, semitones,
-   ticks, hundredths of a BPM. Lists save the choice's name ("saw"), not its position, so adding a
-   choice does not break old projects.
+   ticks, hundredths of a BPM. Lists save the choice's permanent key, not its position or its label,
+   so adding or renaming a choice does not break old projects.
 3. **An ID never changes meaning.** Renaming the label is free. Changing a range or meaning creates
    a new ID plus a small rule that converts old values. Saved files store "ID = number"; unknown IDs
    are skipped with a warning, and missing ones take their default.
@@ -257,9 +287,8 @@ Foundation decides the mechanism, not the list.
 5. **Ready for modulation, without building it now.** The saved number is the home position. All
    sound code reads parameters through one step that will later add modulation; for now it adds
    nothing. Modulation is never saved into the home value.
-6. **Steps and notes can use the same mechanism.** Whether velocity, length and micro-timing go on
-   the master list (as on Elektron devices) or stay plain note data (as on the Deluge) is Workflow
-   B's decision.
+6. **Steps and notes can use the same mechanism.** Workflow B decided that a note's values stay
+   plain note data (as on the Deluge) and do not go on the master list (as on Elektron devices).
 
 Direct MIDI control of individual parameters comes after part 1; in part 1, MIDI controllers drive
 the panel's controls.
@@ -273,45 +302,59 @@ So these are all written in code:
 - the control bindings: which button, encoder or pad does what (Rust);
 - the browser panel's layout: which on-screen controls exist and where (TypeScript);
 - the screen colours (Rust);
-- the encoder pages: which parameter sits on which page and encoder (Rust).
+- the pages: which settings make up each page, in what order, and which of them the four encoders
+  hold (Rust).
 
-The core still sees only abstract controls (button _n_, encoder _n_, pad _n_), and the bindings
-connect them to actions in one place, so moving or rebinding a control is a small code change.
-Whether users can remap controls on the device itself is a product question for later.
+The core still sees only abstract controls (button _n_ pressed or released, encoder _n_ turned by
+_d_, pad _n_ hit with velocity _v_, pad _n_ pressure _p_, pad _n_ released), and the bindings
+connect them to actions in one place, so moving or rebinding a control is a small code change. The
+encoders' push switches are buttons and the volume knob is a fifth encoder (Workflow A). The core
+itself tells a tap from a hold, from the sample positions of the press and the release, so the shell
+reports only presses and releases and replays match (Workflow B). Whether users can remap controls
+on the device itself is a product question for later.
 
 Rejected: readable JSON tables that the core reads and the browser reloads without rebuilding. They
 need a parser, versioning and reloading for something that code changes already cover.
 
 ## Storage
 
-- The core never touches files itself. It sends requests: "load file X into sample memory", "save
-  the project to file Y", "list folder Z". The platform does the work and replies when it is done.
-  The core keeps running meanwhile, so loading a sample freezes neither the screen nor the sound.
+- The core never touches files itself. It sends requests: "load file X into sample RAM", "read file
+  X", whole or in pieces, "read the header of file X", "replace file Y with these parts, all or
+  nothing", "delete X", "rename X", "list folder Z" and "how much storage is free". A replace either
+  swaps the finished file in or leaves the old one untouched; the Project model says where each
+  request is used. The platform does the work and replies when it is done. The core keeps running
+  meanwhile, so loading the library at start-up and importing a file freeze neither the screen nor
+  the sound.
 - The requests and replies are the same on every platform; only the code that carries them out
   differs.
 - In the browser, the worker carries out the requests using the site's private file storage (the
-  Origin Private File System), which can read straight into the shared sample memory
+  Origin Private File System), which can read straight into the sample RAM in the shared memory
   **(unverified)**.
 - The browser can clear that storage, for example when the disk is nearly full. The shell therefore
-  asks the browser to keep it permanently, and samples and projects can always be exported and
-  imported again.
-- Dropping files onto the browser shell copies them into that storage, standing in for copying files
-  onto a device's storage card.
-- A request can fail: a missing or broken file, or full storage. The core shows a clear message and
-  keeps running. The audio part never depends on a file being there; voices only play what is
-  already loaded.
+  asks the browser to keep it permanently, and that is the only safeguard in part 1: there is no
+  export or backup, they come with the companion in part 2 (Project model). Losing the storage would
+  lose the projects, which is accepted while they are experiments; the library can be dropped in
+  again from the original files **(owner's choice)**.
+- Dropping files onto the browser shell hands them to the core, which imports them into the library:
+  converted, written to storage and placed in RAM (Project model). It stands in for the companion
+  moving samples onto the device later.
+- A request can fail: a missing or broken file, full storage or a full library. The core shows a
+  clear message and keeps running. The audio part never depends on a file being there; voices only
+  play what is already in RAM.
 
 ## Testing and drift
 
 - **Ordinary tests.** The core's logic is tested with standard Rust tests on the computer.
 - **Drift tests.** A scene is a script of input events at exact sample positions: pad hits, encoder
-  turns, button presses, sample loads. The core plays the scene, and its audio and screen frames are
-  reduced to fingerprints that are compared with stored ones. The same scenes run in the Rust test
-  build and in the exact WASM file the browser uses, run outside the browser; later also in the
-  device build. All must give the same fingerprints. Screens are also saved as images, so a changed
-  fingerprint shows what changed.
+  turns, button presses, sample imports and the library loaded at start-up. The core plays the
+  scene, and its audio and screen frames are reduced to fingerprints that are compared with stored
+  ones. The same scenes run in the Rust test build and in the exact WASM file the browser uses, run
+  outside the browser; later also in the device build. All must give the same fingerprints. Screens
+  are also saved as images, so a changed fingerprint shows what changed.
 - **Playing becomes testing.** A session in the browser can be saved as an event log and turned into
-  a new scene, so a bug found while playing becomes a test.
+  a new scene, so a bug found while playing becomes a test. The log also holds the sample at which
+  the audio part applied each edit, so a replay applies late edits at the same sample as the live
+  session (Project model).
 - **Rule checks.** The core does not use Rust's allocation library, so an accidental allocation
   fails to compile. The core is also built for a target without Rust's standard library, which
   proves it never relies on one. Tests check that no "not a number" value reaches the output.
@@ -361,6 +404,8 @@ spike that checks them:
   loading order works, and the two stacks stay apart.
 - The AudioWorklet cannot reach storage or wait, and the worker can read files from the site's
   private file storage straight into shared memory.
+- How long loading a full 64 MB library from the site's private storage into shared memory takes at
+  start-up.
 - The isolation headers reach every page and worker script in the Carson-generated app's development
   server.
 - The browser's real audio latency on the owner's computer, which decides how live playing feels.
@@ -378,17 +423,19 @@ Applied to the overview together with this spec:
 ## Assumptions about other specs
 
 - **Sound:** defines the parameter list with the mechanism above; sets voice limits that fit the
-  budget profile; decides which sample file formats are accepted; voices read samples through the
-  block call; sets glide times per parameter.
-- **Workflow A:** defines the actions and the bindings, in code; decides how encoders feel and which
-  parameters sit on which page.
+  budget profile; decides which sample file formats are accepted; refuses an import that does not
+  fit the library's free space; voices and the preview player read samples through the block call;
+  sets glide times per parameter.
+- **Workflow A:** defines the actions and the bindings, in code; decides how encoders feel, what a
+  page is and which items of a page the encoders hold.
 - **Workflow B:** decides whether note values use the parameter mechanism; whether played timing is
   kept as an offset from the step or quantize is permanent; swing applied at playback or not;
   quantize grids expressed in ticks. Tempo changes are jumps, not ramps, unless Workflow B needs
   ramps.
 - **Project model:** defines the folder layout and the project file format; stores parameters as "ID
-  = number"; refers to sample files instead of embedding them; sizes the note store as a fixed pool
-  within the budget profile; applies the per-project sample budget.
+  = number"; refers to library samples instead of embedding them; sizes the note store as a fixed
+  pool within the budget profile; loads the library into RAM at start-up and keeps it within the
+  sample RAM.
 - **Look:** chooses the emulated resolution, chunkiness, colour format and palette, fonts and
   drawing operations; keeps the frame buffer within the working-memory budget.
 
@@ -412,7 +459,7 @@ Applied to the overview together with this spec:
 - **Numbers:** [Rust f32](https://doc.rust-lang.org/std/primitive.f32.html);
   [RFC 3514](https://github.com/rust-lang/rfcs/blob/master/text/3514-float-semantics.md);
   [WebAssembly nondeterminism](https://www.webassembly.org/docs/nondeterminism/).
-- **Sample memory:**
+- **Sample RAM:**
   [Digitakt II manual](https://www.elektron.se/wp-content/uploads/2026/10/Digitakt-2-User-Manual_ENG_OS1.17_260930.pdf);
   [Octatrack MKII manual](https://www.elektron.se/wp-content/uploads/2026/08/Octatrack-MKII-User-Manual_ENG_OS1.40C_260827.pdf);
   [Deluge firmware](https://github.com/SynthstromAudible/DelugeFirmware);

@@ -35,33 +35,46 @@ expects from the rest.
 
 Every device of this kind has two memories, and this spec always names them:
 
-- **Storage** keeps files when the power is off: the library, the projects, the settings. Big and
-  slow. In the browser it is the browser's private storage for the site.
-- **RAM** is what the sound engine reads while playing. Fast, and empty at power-on. In the browser
-  it is the program's memory.
+- **Storage** keeps files when the power is off: the library's copy (the library itself lives in
+  RAM), the projects, the settings. Big and slow. In the browser it is the browser's private storage
+  for the site.
+- **RAM** is what the sound engine reads while playing. Fast, empty at power-on and filled with the
+  library at start-up. In the browser it is the program's memory.
 
-Foundation decided that in part 1 samples play from RAM: opening a project copies the samples its
-sounds use from storage into RAM, within the 64 MB budget per project. The library on storage can be
-far bigger than that; the budget limits what one project can have loaded at once.
+Foundation decided that the whole library lives in RAM, as on the EP-133 **(owner's choice)**.
+Storage keeps the library's copy for power-off, beside the projects and the settings. At start-up
+the core loads the entire library into RAM, then opens the last project; from then on every sample
+is there, so opening a project loads nothing and picking a sample never loads. The library can never
+be bigger than the sample RAM, a budget-profile number, provisionally 64 MB for the whole device;
+import refuses a file that does not fit, and that is the only "no room". Sample RAM changes only
+when the library changes, by an import or a delete on the SAMPLES screen, both explicit.
+
+Rejected: **the per-project budget, the first design,** in which the library sat on storage, could
+be far bigger than RAM, and opening a project copied the samples its sounds used into RAM within 64
+MB per project. It needed a cost preview, a "no room" mark in the picker, a NO ROOM state for a
+sound and rules for freeing and refilling RAM while a project ran. Replaced for one limit, one meter
+and one place where it is met, as on the EP-133, and so that opening a project and picking a sample
+are instant and cannot fail for room **(owner's choice)**.
 
 ## Decisions at a glance
 
-| Topic                    | Decision                                                                                                                                 |
-| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| Deleting a used sound    | After a question that counts its pads and notes, the sound, its notes and its pads all go (owner's choice)                               |
-| What a project remembers | Where you were: current pattern, track and screen, each screen's page, the cursor and view, following (owner's choice)                   |
-| A missing sample         | The project opens; the sound keeps its settings, plays silence, is marked MISSING and is repaired from the sound (owner's choice)        |
-| Storage                  | Internal, nothing removable, as on the EP-133: one sample library shared by all projects, the projects beside it (owner's choice)        |
-| Moving things            | Samples in by dropping files on the shell now; projects out, backup and restore are the companion's job in part 2 (owner's choice)       |
-| Deleting samples         | A SAMPLES screen (MENU + 10) with DELETE after a question, like POOL and PROJECT (owner's choice)                                        |
-| Note store               | The screen side owns the notes in copy-on-write blocks; the sound side plays published versions and switches at a recorded moment        |
-| Note memory              | One pool of half-kilobyte blocks, provisionally 8 MB (about 500,000 notes); pattern length costs nothing                                 |
-| Undo                     | A kept-back version; an undo budget decides "too big"; a recording pass drops its undo first when memory runs out                        |
-| Clipboard                | Keeps hold of blocks, never copies; never taken away                                                                                     |
-| Files                    | One binary chunk format with a version number and a checksum per chunk; a project is a folder of small files                             |
-| Saving                   | All-or-nothing replace through the storage interface; pattern files first, then the project; a previous copy of the project and settings |
-| Versions                 | One format version; a file of another version is OLD and can only be deleted; no migrations in part 1                                    |
-| Sample files             | WAV at 48 kHz and 16 bits with a private chunk: original name and a 128-bit fingerprint of the audio                                     |
+| Topic                    | Decision                                                                                                                                                                                           |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Deleting a used sound    | After a question that counts its pads and notes, the sound, its notes and its pads all go (owner's choice)                                                                                         |
+| What a project remembers | Where you were: current pattern, track and screen, each screen's page, the cursor and view, following (owner's choice)                                                                             |
+| A missing sample         | The project opens; the sound keeps its settings, plays silence, is marked MISSING and is repaired from the sound (owner's choice)                                                                  |
+| Storage                  | Internal, nothing removable, as on the EP-133: the copy of one sample library shared by all projects, the projects beside it (owner's choice)                                                      |
+| Library in RAM           | The whole library is loaded into RAM at start-up and capped by the sample RAM, provisionally 64 MB; import is the only refusal; one library meter on POOL, SAMPLES and the picker (owner's choice) |
+| Moving things            | Samples in by dropping files on the shell now, into storage and RAM at once; projects out, backup and restore are the companion's job in part 2 (owner's choice)                                   |
+| Deleting samples         | A SAMPLES screen (MENU + 10) with DELETE after a question, like POOL and PROJECT; the one way sample RAM is freed (owner's choice)                                                                 |
+| Note store               | The screen side owns the notes in copy-on-write blocks; the sound side plays published versions and switches at a recorded moment                                                                  |
+| Note memory              | One pool of half-kilobyte blocks, provisionally 8 MB (about 500,000 notes); pattern length costs nothing                                                                                           |
+| Undo                     | A kept-back version; an undo budget decides "too big"; a recording pass drops its undo first when memory runs out                                                                                  |
+| Clipboard                | Keeps hold of blocks, never copies; never taken away when memory runs out; emptied when a sound whose notes it holds is deleted                                                                    |
+| Files                    | One binary chunk format with a version number and a checksum per chunk; a project is a folder of small files                                                                                       |
+| Saving                   | All-or-nothing replace through the storage interface; pattern files first, then the project; a previous copy of the project and settings                                                           |
+| Versions                 | One format version; a file of another version is OLD and can only be deleted; no migrations in part 1                                                                                              |
+| Sample files             | WAV at 48 kHz and 16 bits with a private chunk: original name and a 128-bit fingerprint of the audio                                                                                               |
 
 ## The project and its parts
 
@@ -79,8 +92,9 @@ addressed by layer and engine as Sound decided. A sample sound also carries whic
 plays: the file's path in the library plus the fingerprint of the file's audio (see "Sample files").
 
 **Pads, notes and the selected sound refer to sounds by number.** "Deleting a sound in use" means a
-number that appears anywhere always points at a sound that exists; a file that breaks this rule
-(hand-edited or damaged) has the stray notes dropped on opening, with a count shown.
+number that appears anywhere always points at a sound that exists, undo, redo and the clipboard
+included; a file that breaks this rule (hand-edited or damaged) has the stray notes dropped on
+opening, with a count shown.
 
 **Patterns** are shown by position, 1, 2, 3 and so on, since Workflow B renumbers the ones after a
 deleted pattern, and carry an internal number that never changes and is never reused, so a message
@@ -89,14 +103,15 @@ it has ever been changed (set once a length was chosen or a note added; CLEAR ke
 count and the notes of the four tracks.
 
 **A note:** its bar, its place in the bar in ticks, its length in ticks, its pitch (0 to 127, MIDI's
-range, with KEYS mode's C0 to C8 inside it), its velocity (0 to 127, what pads and MIDI deliver
-**(my call)**), its sound's number, and its pressure curve or none. A few spare bits are reserved
-for the features that come later (hidden notes, conditions, micro-timing), so adding them changes no
-note's size. Storing bar and place rather than a tick from the pattern's start is what Workflow B
-asks for hidden notes, and it means a signature change moves no note.
+range, with KEYS mode's C0 to B8 inside it; C4 is 60), its velocity (0 to 127, what pads and MIDI
+deliver **(my call)**), its sound's number, and its pressure curve or none. A few spare bits are
+reserved for the features that come later (hidden notes, conditions, micro-timing), so adding them
+changes no note's size. Storing bar and place rather than a tick from the pattern's start is what
+Workflow B asks for hidden notes, and it means a signature change moves no note.
 
 **Samples** belong to the library, never to a project. A project only points at them, and a copy of
-a project points at the same files.
+a project points at the same files. The library is in RAM whichever project is open, so a project
+has no sample cost of its own.
 
 **Used.** A sample is used by a project when any sound of that project plays it. A sound is used
 when it is on any pad of any track or played by any note of any pattern. This one definition serves
@@ -113,8 +128,12 @@ DELETE on a sound shows a question that counts every pad on every track and ever
 pattern that use it, such as "DELETE KICK? ON 2 PADS, 24 NOTES". OK removes all of it: the pads go
 empty and the notes are gone. The project therefore never contains a note whose sound does not
 exist, STEP never needs a lane for a sound that is gone, and nothing can play silence by mistake.
-The sample file stays in the library for other projects. Undo does not cover it; the question is the
-safeguard, as Workflow B decided for sounds.
+The sample file stays in the library for other projects. Deleting a sound also empties the undo and
+redo versions, and empties the clipboard when it holds any note of the sound, so neither an undo nor
+a paste can bring back a note of a sound that is gone; REMOVE UNUSED follows the same rule for the
+sounds it removes, which have no notes in any pattern but may still have some in undo or the
+clipboard **(owner's choice)**. Undo does not cover it, and undo and redo are emptied by it; the
+question is the safeguard, as Workflow B decided for sounds.
 
 Of the nine devices researched, none refuses to delete an in-use sound; the MPC lists the tracks
 that use a sample before asking, the Deluge guidebook says it "will not notify you", and all leave
@@ -142,7 +161,9 @@ which promises "everything will still be there, exactly as you left it":
 Reopen a project, or restart the browser, and you see what you left: the same screen, bar and sound
 under the encoders. A copied project carries it too. Never saved: playback (a project always opens
 stopped and disarmed), the clipboard, the undo step and any held button. Each remembered item names
-things by number and falls back to its default when its target is gone.
+things by number and falls back to its default when its target is gone. A new project has nothing
+remembered yet, at the first start too, and opens on the STEP screen with track 1 (T1) selected and
+pad 1 selected on every track.
 
 Which project was open last is a device setting, so starting up opens it (Workflow A).
 
@@ -153,8 +174,10 @@ plays silence. On opening, one line reports the total, such as "2 SAMPLES MISSIN
 sound is marked MISSING with the file's name, and so are its lane on STEP and its name in the
 header. The repair is what Workflow A already has: the sample parameter on the sound's engine page
 opens the sample picker, and choosing a file fixes the sound everywhere it is used. The reference is
-kept, so if the file comes back the sound works again. A sample that cannot be loaded because it
-would overflow the RAM budget is treated the same way, marked NO ROOM instead of MISSING.
+kept, so if the file comes back the sound works again. There is no other way for a sound to lack its
+sample: the whole library is in RAM, so a file that is in the library always plays. The one
+exception is a library bigger than the sample RAM after a hardware change or a lowered budget; the
+files start-up could not load count as missing until something is deleted (see "Starting up").
 
 Every device researched that points at files (Deluge, Digitakt II, M8, OP-XY) opens the project and
 plays silence; the Deluge keeps the broken reference and writes it back on save, and the M8 offers a
@@ -166,19 +189,26 @@ device does, and saying nothing, which makes the silence look like a broken soun
 **(owner's choice)**, in the shape of the EP-133: everything is inside the device, nothing is
 removable, the user never sees files.
 
-- **Internal storage** holds one sample library shared by every project, arranged in folders, with
-  the projects and the device settings beside it.
+- **Internal storage** holds the copy of the one sample library shared by every project, arranged in
+  folders, with the projects and the device settings beside it. The library is played from RAM,
+  where start-up loads all of it (see "Two memories").
 - **Samples get in now, in part 1:** drop WAV files or folders onto the browser shell and they land
-  in the library, converted on import as Sound decided. Later, recording adds samples on the device
-  alone, and the companion (part 2) moves samples to and from a computer, like the EP sample tool.
+  in the library, converted on import as Sound decided, written to storage and placed in RAM at
+  once. A file that does not fit the library's free space is refused with a message; the rest of the
+  drop still imports. Later, recording adds samples on the device alone, straight into the library
+  in RAM as on the EP-133, and the companion (part 2) moves samples to and from a computer, like the
+  EP sample tool.
 - **Projects out, backup and restore** over USB are the companion's job in part 2, like the EP
   sample tool's backup. The device itself never shows files to move.
 - **Deleting samples works like deleting everything else.** A SAMPLES screen (MENU + 10) lists the
   library the way the sample picker does: by folder, each file with its length and size, the
-  highlighted file playing once, with a meter of how full the storage is. OK on a file opens a
-  picker with DELETE; a question comes first, "DELETE KICK.WAV?", with "2 SOUNDS USE IT" added when
-  the open project uses the file. The strip has DELETE as a shortcut, as on POOL and PROJECT. Sounds
-  that used the file, in this or any other project, show as MISSING afterwards.
+  highlighted file playing once from RAM through Sound's preview player exactly as in the picker,
+  with the library meter: how full the library is, the same number as on POOL and in the picker. OK
+  on a file opens a picker with DELETE; a question comes first, "DELETE KICK.WAV?", with "2 SOUNDS
+  USE IT" added when the open project uses the file. Deleting frees the file's share of storage and
+  of sample RAM; it is the one way sample RAM is freed. SAMPLES is a list, so the encoders hold
+  nothing and the strip is empty, as on POOL and PROJECT; DELETE is reached only through the file's
+  picker. Sounds that used the file, in this or any other project, show as MISSING afterwards.
 - **In the browser,** how the device's storage is imitated is an implementation choice inside
   Foundation's storage interface: the browser's private storage for the site, which the shell asks
   to keep permanently. Nothing else about the browser shows through, and no browser feature shapes
@@ -342,7 +372,8 @@ version; then the undo version, with the question for a deliberate action and UN
 recording; then the action is refused: step entry and paste say NOT ENOUGH MEMORY, a paste being all
 or nothing; recording keeps the pad sounding but stores nothing and shows FULL for the rest of the
 pass; a pressure curve that does not fit is dropped before its note. **The clipboard is never taken
-away.** Length and signature changes only ever free memory.
+away** for memory; only deleting a sound whose notes it holds empties it (see "Deleting a sound in
+use"). Length and signature changes only ever free memory.
 
 ## The files and their format
 
@@ -394,7 +425,8 @@ view file waits 10 seconds and is also saved when you switch projects. Settings 
 rule, so the volume knob does not rewrite them per click.
 
 If storage is full, the old file is untouched and the screen says "STORAGE FULL. NOT SAVED";
-importing a sample checks the space first and keeps a reserve so a project file always fits.
+importing a sample checks the free space on storage and in the sample RAM first, and keeps a storage
+reserve so a project file always fits.
 
 ### Opening
 
@@ -409,7 +441,9 @@ The loader has a rule for everything it can meet:
 - notes whose sound is not in the pool are dropped with "N NOTES OF A MISSING SOUND DROPPED";
 - pattern files no record mentions are deleted;
 - the view file names things by number and falls back to defaults for anything that is gone;
-- a file with another format version is OLD: listed, deletable, not opened.
+- a file with another format version is OLD: listed, deletable, not opened;
+- a sound whose sample is not in the library is MISSING (see "A missing sample"); nothing is loaded
+  on opening, since the library is already in RAM.
 
 ### Chunks
 
@@ -457,15 +491,19 @@ number in the file header, which is reserved now.
 
 ## Projects and the library in use
 
-**Starting up** opens the project named in the settings, or a new empty one if there is none or it
-cannot be opened.
+**Starting up** empties `tmp/`, loads the whole library from storage into RAM, folder by folder,
+then opens the project named in the settings, or a new empty one if there is none or it cannot be
+opened. While the library loads the header says "LOADING LIBRARY"; the project opens once it is
+done, so a project never meets a half-loaded library **(owner's choice)**. A library bigger than the
+sample RAM, possible only after a hardware change or a lowered budget, is loaded in folder order as
+far as it fits; the rest stays on storage, unloaded and marked "not loaded" on SAMPLES, one line
+says "LIBRARY TOO BIG. 3 FILES NOT LOADED", and sounds that use those files are MISSING until
+something is deleted and the device restarts **(owner's choice)**.
 
-**Opening a project** reads its project, view and pattern files, then copies every sample its pool
-uses from storage into RAM, in pool order, while the screen is already usable; a sound plays as soon
-as its sample is in, since voices only ever play what is loaded (Foundation). A sample that is not
-there makes its sound MISSING, one that would overflow the 64 MB budget makes it NO ROOM, and one
-line reports the total. A project always opens stopped and disarmed, on the screen, page, bar and
-sound the view file names.
+**Opening a project** reads its project, view and pattern files and nothing else: every sample is
+already in RAM, so every sound plays at once. A sample that is not in the library makes its sound
+MISSING, and one line reports the total. A project always opens stopped and disarmed, on the screen,
+page, bar and sound the view file names.
 
 **Switching projects.** OPEN stops playback, lets the current project's autosave finish, then opens
 the other. NEW makes an empty project under the next number, in 4/4 at the default tempo. COPY
@@ -473,16 +511,25 @@ writes the highlighted project's files under the next number; the copy points at
 files, so it costs kilobytes, and you stay where you are. DELETE removes the folder after its
 question; the open project cannot be deleted (Workflow A).
 
-**The library.** A WAV dropped on the shell is placed in `tmp/`; the core converts it in pieces
-through the storage interface into `samples/`, in the folder it was dropped with, and the original
-is removed. The picker and the SAMPLES screen read each file's header when listing a folder, which
-gives the length, channels and RAM cost Workflow A shows. DELETE on the SAMPLES screen removes the
-file: sounds of the open project that use it turn MISSING at once, other projects find out when they
-are opened. REMOVE UNUSED on POOL removes sounds from the project and never touches a file.
+**The library.** A WAV dropped on the shell is placed in `tmp/`; the core checks that its converted
+size fits the library's free space, on storage and in the sample RAM, and refuses it with "LIBRARY
+FULL. KICK.WAV NOT IMPORTED" if it does not; otherwise it converts the file in pieces through the
+storage interface into `samples/`, in the folder it was dropped with, places the converted audio in
+RAM and removes the original. Files are tried in the dropped order, and a refused file does not stop
+the smaller ones after it. The library in RAM carries each file's length, channels and size, which
+the picker, POOL and the SAMPLES screen show; file headers are read only at start-up. DELETE on the
+SAMPLES screen removes the file from storage and from RAM: voices reading it fade out within one
+32-sample chunk first, as a taken voice does, and the preview player stops the same way; the file's
+RAM is reused only after the sound side reports, the handshake the note store uses **(owner's
+choice)**; sounds of the open project that use it turn MISSING at once, and other projects find out
+when they are opened. REMOVE UNUSED on POOL removes sounds from the project and never touches a file
+or sample RAM.
 
-**The RAM budget** counts the converted size of each distinct file the pool uses, once, however many
-sounds share it. POOL's meter and the picker show what is left, and a file that would not fit cannot
-be chosen, as Workflow A decided.
+**The library meter** is one number, how full the library is: the converted size of every file in
+the library against the sample RAM, such as "41.2 of 64 MB", where a MB is 1,000,000 bytes and the
+number shows one decimal **(owner's choice)**. POOL, the SAMPLES screen and the sample picker show
+the same meter, and it moves only on import and delete. Nothing in a project changes it, so a
+project has no sample cost of its own and nothing in a project can be refused for room.
 
 ## Testing
 
@@ -498,9 +545,12 @@ On top of the other specs' testing:
 - **Drift scenes:** autosave during recording; a project closed and reopened with its view intact; a
   1,000-bar sparse pattern and a dense bar; a paste of thousands of notes while playing; a clear
   with and without undo; a hit just before a grid line with quantize on; a signature change while
-  playing; a deleted sound with notes; a missing sample. Saved files are fingerprinted like audio.
-- **The screen gallery** shows the SAMPLES screen, the MISSING, NO ROOM and OLD marks, the delete
-  questions, the notices and the header messages.
+  playing; a deleted sound with notes; a deleted sound with notes in undo and in the clipboard; a
+  missing sample; an import refused by a full library; a start-up that loads the library and then
+  opens a project; a library file deleted while a voice plays it. Saved files are fingerprinted like
+  audio.
+- **The screen gallery** shows the SAMPLES screen, the MISSING and OLD marks, the library meter, the
+  delete questions, the notices and the header messages.
 
 ## Changes to the part 1 overview
 
@@ -508,30 +558,36 @@ Applied to the overview together with this spec:
 
 - The Project model part of the decision register points to this spec; its open questions are
   answered here.
-- The Look part gains the SAMPLES screen, the MISSING, NO ROOM and OLD marks, the header messages
-  and a development meter for note memory.
+- The Look part gains the SAMPLES screen, the MISSING and OLD marks, the library meter, the header
+  messages and a development meter for note memory.
 - The non-goals gain migrations and files shared between versions, until part 2.
 - The glossary gains storage, RAM, library, version, block, fingerprint and SAMPLES screen; sample
   memory becomes RAM.
 
 ## Changes to Workflow A
 
-Applied to Workflow A in the consistency pass:
+Applied to Workflow A in the consistency pass of 2026-11-10. Where a decision of that pass differs
+from a bullet below, the target spec's current text holds.
 
 - A **SAMPLES screen** at MENU + 10 lists the library by folder with each file's length and size and
-  a storage meter; the highlighted file plays once; OK opens a picker with DELETE, after a question
-  that names the file and, when the open project uses it, counts its sounds; the strip has DELETE.
+  the library meter; the highlighted file plays once through the preview player, as in the picker;
+  OK opens a picker with DELETE, after a question that names the file and, when the open project
+  uses it, counts its sounds; the strip is empty, as on POOL and PROJECT.
 - **POOL's DELETE** question counts pads and notes ("DELETE KICK? ON 2 PADS, 24 NOTES") and removes
   them with the sound. "Used" has one definition (see "The project and its parts").
-- **MISSING and NO ROOM** marks on POOL, on the STEP lane and in the header, with a one-line notice
-  on opening.
-- **The sample picker** lists lengths and sizes read from file headers.
+- **The MISSING mark** on POOL, on the STEP lane and in the header, with a one-line notice on
+  opening. (NO ROOM existed in the first design and is gone with the per-project budget.)
+- **The sample picker** lists lengths and sizes from the library in RAM and shows the library meter;
+  it never refuses a file.
 - **NEW and COPY** take the next project number; numbers are never reused.
-- **The sample budget** is RAM per project, and the spec says "RAM" where it said "sample memory".
+- **The library lives in RAM:** POOL's meter is the library meter, REMOVE UNUSED tidies the pool and
+  frees no RAM, and the spec says "library" and "RAM" where it said "sample memory" and "sample
+  budget".
 
 ## Changes to Workflow B
 
-Applied to Workflow B in the consistency pass:
+Applied to Workflow B in the consistency pass of 2026-11-10. Where a decision of that pass differs
+from a bullet below, the target spec's current text holds.
 
 - The header messages UNDO LOST, FULL and NOT ENOUGH MEMORY, and the trigger of the "CAN'T UNDO"
   question: the undo budget.
@@ -541,14 +597,17 @@ Applied to Workflow B in the consistency pass:
 - A note pressed in one pattern and released after a switch belongs to the first; STOP or REC off
   while a pad is held ends the note.
 - Patterns carry an internal number beside their position.
+- Deleting a sound empties undo and redo, and the clipboard when it holds the sound's notes.
 
 ## Changes to Foundation
 
-Applied to Foundation in the consistency pass:
+Applied to Foundation in the consistency pass of 2026-11-10. Where a decision of that pass differs
+from a bullet below, the target spec's current text holds.
 
 - **No removable card.** The device has internal storage; "storage card" becomes "the device's
   storage". The browser's storage stays the site's private storage with persistence requested.
-- **The two memories** are called storage and RAM; "sample memory" becomes "RAM".
+- **The two memories** are called storage and RAM; "sample memory" becomes "sample RAM", the whole
+  library lives in it, and the per-project budget becomes one library budget.
 - **"Recorded notes" leaves the sound-to-screen traffic:** the screen side records from timestamps
   with Foundation's formula.
 - **The storage interface** gains "replace file, all or nothing, in parts", a free-space check and
@@ -561,7 +620,8 @@ Applied to Foundation in the consistency pass:
 
 ## Changes to Sound
 
-Applied to Sound in the consistency pass:
+Applied to Sound in the consistency pass of 2026-11-10. Where a decision of that pass differs from a
+bullet below, the target spec's current text holds.
 
 - The converted WAV carries a private chunk (original name, fingerprint) before the audio data and a
   rescaled sampler chunk with inclusive loop ends; loop types other than forward are read as
@@ -572,14 +632,17 @@ Applied to Sound in the consistency pass:
 
 ## Assumptions about other specs
 
-- **Look:** draws the SAMPLES screen, the MISSING, NO ROOM and OLD marks, the notices and header
-  messages (UNDO LOST, FULL, NOT ENOUGH MEMORY, STORAGE FULL. NOT SAVED, RESTORED FROM LAST SAVE,
-  PATTERN n DAMAGED, PATTERN n MISSING), the delete questions, and a development meter for note
-  memory; the browser shell's file drop puts files into `tmp/` for the core to import.
+- **Look:** draws the SAMPLES screen, the MISSING and OLD marks, the library meter on POOL, SAMPLES
+  and the sample picker, the notices and header messages (UNDO LOST, FULL, NOT ENOUGH MEMORY,
+  STORAGE FULL. NOT SAVED, LIBRARY FULL. <file> NOT IMPORTED, LOADING LIBRARY, RESTORED FROM LAST
+  SAVE, PATTERN n DAMAGED, PATTERN n MISSING), the delete questions, and a development meter for
+  note memory; the browser shell's file drop puts files into `tmp/` for the core to import.
 - **Part 2 (companion):** transfer and backup over USB; the format's growth listed under "Later,
   with the companion"; the companion runs the same core to read and write files.
-- **Part 3 (hardware):** a file system with atomic rename and wear levelling; RAM for the note pool
-  beside the samples; the two-slot save as the fallback where atomic rename is missing.
+- **Part 3 (hardware):** a file system with atomic rename and wear levelling; RAM for the whole
+  library (the sample RAM, provisionally 64 MB) and for the note pool beside it; storage at least as
+  big as the library plus the projects; the two-slot save as the fallback where atomic rename is
+  missing.
 
 ## Research sources
 
