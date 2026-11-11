@@ -19,10 +19,14 @@
     "typecheck": "turbo run typecheck --no-daemon",
     "uninstall": "del-cli ./**/node_modules ./package-lock.json"
   },
+  "allowScripts": {
+    "esbuild": true,
+    "unrs-resolver": true
+  },
   "devDependencies": {
     "@changesets/cli": "^2.31.1",
-    "@jakubmazanec/carson": "^3.0.6",
-    "@jakubmazanec/carson-templates": "^9.2.0",
+    "@jakubmazanec/carson": "3.0.9-unstable.32d597bf0",
+    "@jakubmazanec/carson-templates": "10.0.0-unstable.32d597bf0",
     "@jakubmazanec/changesets-changelog": "^2.0.18",
     "@types/node": "^24.19.2",
     "@types/semver": "^7.8.0",
@@ -31,19 +35,15 @@
     "lodash": "^4.18.1",
     "patch-package": "^8.0.1",
     "prettier": "^3.9.10",
-    "prettier-plugin-packagejson": "^2.5.22",
+    "prettier-plugin-packagejson": "^3.0.0",
     "semver": "^7.8.5",
     "tsx": "^4.23.15",
     "turbo": "^2.5.6",
     "typescript": "^6.0.3"
   },
-  "packageManager": "npm@11.21.1",
+  "packageManager": "npm@12.0.0",
   "engines": {
     "node": "^24.22.2",
-    "npm": "^11.21.1"
-  },
-  "allowScripts": {
-    "unrs-resolver": true,
-    "esbuild": true
+    "npm": "^12.0.0"
   }
 }
