@@ -64,6 +64,7 @@ pub trait Canvas {
 
 /// An 8-bit indexed picture of `W` x `H` pixels. A target presents it by looking each index up
 /// in the palette.
+#[repr(transparent)]
 pub struct FrameBuffer<const W: usize, const H: usize> {
     rows: [[u8; W]; H],
 }

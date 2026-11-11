@@ -37,12 +37,13 @@ const _: () = assert!(
 // - The audio side owns `audio`, the consumer of `messages` and the producer of `reports`.
 // - `front` is the only handoff of screens between threads. Only the control side stores it, and
 //   it does so with Release after it has drawn the back screen, so a thread that loads `front`
-//   with Acquire sees every pixel of that screen. Nothing writes the front screen until the
-//   control side has flipped twice more.
+//   with Acquire sees every pixel of that screen. Nothing writes that screen until the control
+//   side's second redraw after the load; a redraw already running at the load counts as the first.
 // - Rust code reads the front screen only through `ControlSide::front_screen`, which borrows the
 //   control side and so keeps it from drawing. Other readers, such as the browser page, read it
-//   through `screen_pointer` and `front_pointer` and must finish before the control side has
-//   drawn twice more; a reader that is slower sees a torn picture.
+//   through `screen_pointer` and `front_pointer` and must finish copying the screen they loaded
+//   before the control side starts its second redraw after the load. In practice, copy it promptly,
+//   once per frame; a reader that is slower sees a torn picture.
 unsafe impl Sync for Device {}
 
 impl Device {

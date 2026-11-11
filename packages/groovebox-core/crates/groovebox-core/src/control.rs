@@ -53,7 +53,8 @@ impl Held {
 /// keeps the held pads and draws them.
 ///
 /// Nothing checks the inputs. They carry a pad below `PADS` and a velocity from 1 to 127, and they
-/// are queued in sample order, so the messages leave in nondecreasing `at` order.
+/// are queued in sample order, so for live play and for a complete replay log, the messages leave
+/// in nondecreasing `at` order.
 pub struct Control {
     inputs: Ring<Stamped, INPUT_QUEUE>,
     /// The (number, sample) records of a replay: the sample at which the audio part applied the
