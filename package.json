@@ -43,7 +43,7 @@
     "npm": "^11.18.0"
   },
   "allowScripts": {
-    "esbuild@0.25.9": true,
-    "unrs-resolver@1.11.1": true
+    "unrs-resolver": true,
+    "esbuild": true
   }
 }
