@@ -1,0 +1,8 @@
+groovebox-scene 1
+input 4800 pad-hit 0 127
+frame 9600
+input 12000 pad-hit 7 64
+input 14400 pad-release 0
+frame 19200
+input 24000 pad-release 7
+end 48000
