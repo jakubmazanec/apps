@@ -6,3 +6,6 @@ members = ["crates/*"]
 edition = "2024"
 license = "GPL-3.0-or-later"
 publish = false
+
+[profile.release]
+panic = "abort"
