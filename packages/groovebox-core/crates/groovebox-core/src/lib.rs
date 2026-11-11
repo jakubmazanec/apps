@@ -5,6 +5,12 @@
 extern crate std;
 
 pub mod audio;
+pub mod budget {
+    include!(concat!(env!("OUT_DIR"), "/budget.rs"));
+}
+pub mod control;
+#[cfg(not(feature = "loom"))]
+pub mod device;
 pub mod fingerprint;
 pub mod input;
 pub mod message;
