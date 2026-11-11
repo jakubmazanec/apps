@@ -16,4 +16,8 @@ describe(SessionLog, () => {
       'groovebox-scene 1\ninput 100 pad-hit 0 127\nstep 128\napplied 0 128\ninput 300 pad-release 0\nstep 384\nexpect-audio 512 0000000000000abc\nend 512\n',
     );
   });
+
+  test('writes a negative fingerprint as 64 unsigned bits', () => {
+    expect(new SessionLog().finish(512n, -1n)).toContain('expect-audio 512 ffffffffffffffff\n');
+  });
 });

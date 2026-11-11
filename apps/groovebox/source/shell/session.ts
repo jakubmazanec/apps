@@ -22,7 +22,7 @@ export class SessionLog {
   finish(position: bigint, fingerprint: bigint) {
     return `${[
       ...this.#lines,
-      `expect-audio ${position} ${fingerprint.toString(16).padStart(16, '0')}`,
+      `expect-audio ${position} ${BigInt.asUintN(64, fingerprint).toString(16).padStart(16, '0')}`,
       `end ${position}`,
     ].join('\n')}\n`;
   }

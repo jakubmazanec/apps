@@ -8,6 +8,7 @@ describe(fitScreen, () => {
     [{width: 1920, height: 1080}, 2, {scale: 7, cssWidth: 1680, cssHeight: 952, exact: true}],
     [{width: 1536, height: 864}, 1.25, {scale: 3, cssWidth: 1152, cssHeight: 652.8, exact: false}],
     [{width: 1280, height: 720}, 1.5, {scale: 3, cssWidth: 960, cssHeight: 544, exact: false}],
+    [{width: 1000, height: 1000}, 1, {scale: 2, cssWidth: 960, cssHeight: 544, exact: true}],
     [{width: 300, height: 200}, 1, {scale: 1, cssWidth: 480, cssHeight: 272, exact: true}],
   ])('%o at %d', (viewport, devicePixelRatio, expected) => {
     expect(fitScreen(viewport, devicePixelRatio)).toEqual(expected);
