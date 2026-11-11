@@ -48,6 +48,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "groovebox-browser"
+version = "0.0.0"
+dependencies = [
+ "groovebox-core",
+]
+
+[[package]]
 name = "groovebox-core"
 version = "0.0.0"
 dependencies = [

@@ -1,0 +1,17 @@
+[package]
+name = "groovebox-browser"
+version = "0.0.0"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+crate-type = ["cdylib"]
+test = false
+doctest = false
+
+[dependencies]
+groovebox-core = { path = "../groovebox-core" }
+
+[build-dependencies]
+groovebox-core = { path = "../groovebox-core" }

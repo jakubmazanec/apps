@@ -1,0 +1,19 @@
+# The memory sizes come from the browser crate's build.rs.
+[target.wasm32-wasip1-threads]
+rustflags = [
+  "-C", "link-arg=--import-memory",
+  "-C", "link-arg=--export-memory",
+  "-C", "link-arg=--shared-memory",
+  "-C", "link-arg=--export=__stack_pointer",
+  "-C", "link-arg=-zstack-size=262144",
+]
+
+[target.wasm32-unknown-unknown]
+rustflags = [
+  "-C", "target-feature=+atomics,+bulk-memory,+mutable-globals",
+  "-C", "link-arg=--import-memory",
+  "-C", "link-arg=--export-memory",
+  "-C", "link-arg=--shared-memory",
+  "-C", "link-arg=--export=__stack_pointer",
+  "-C", "link-arg=-zstack-size=262144",
+]

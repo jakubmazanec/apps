@@ -1,1 +1,10 @@
-{"template": "@jakubmazanec/carson-templates:projects/rust"}
+{
+  "template": "@jakubmazanec/carson-templates:projects/rust",
+  "overrides": {
+    "packageJson": {
+      "scripts": {
+        "toolchain": "node build.js --toolchains"
+      }
+    }
+  }
+}

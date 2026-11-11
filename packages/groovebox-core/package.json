@@ -12,12 +12,12 @@
   "author": "Jakub Mazanec <jakub@mazanec.dev>",
   "type": "module",
   "scripts": {
-    "build": "cargo build --release",
+    "build": "node build.js",
     "clean": "cargo clean && del-cli build",
     "format": "cargo fmt --all && prettier . --write --ignore-unknown",
     "lint": "cargo clippy --workspace --all-targets -- --deny warnings",
-    "test": "cargo test --workspace",
-    "toolchain": "rustup toolchain install"
+    "test": "node build.js && node build.js --fallback && node check-imports.mjs && cargo test --workspace --exclude groovebox-browser && cargo test -p groovebox-core --features loom --release --lib queue::model && cargo build -p groovebox-core --release --target thumbv7em-none-eabihf",
+    "toolchain": "node build.js --toolchains"
   },
   "devDependencies": {
     "del-cli": "^7.0.0",
