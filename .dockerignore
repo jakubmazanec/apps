@@ -30,6 +30,9 @@
 !apps/foam/source/**
 !apps/foam/tsconfig.json
 !apps/foam/vite.config.ts
+!apps/groovebox/package.json
+!apps/groovebox/source/**
+!apps/groovebox/tsconfig.json
 !apps/headwind/env.d.ts
 !apps/headwind/package.json
 !apps/headwind/public/**
@@ -51,6 +54,9 @@
 !apps/somewhere/source/**
 !apps/somewhere/tsconfig.json
 !apps/somewhere/vite.config.ts
+!packages/groovebox-core/package.json
+!packages/groovebox-core/source/**
+!packages/groovebox-core/tsconfig.json
 
 # we might also need .npmrc with token
 !.npmrc

@@ -26,9 +26,11 @@ RUN apt-get update -qq && apt-get install --no-install-recommends -y build-essen
 COPY --link package-lock.json package.json ./
 COPY --link apps/dram/package.json apps/dram/package.json
 COPY --link apps/foam/package.json apps/foam/package.json
+COPY --link apps/groovebox/package.json apps/groovebox/package.json
 COPY --link apps/headwind/package.json apps/headwind/package.json
 COPY --link apps/riffle/package.json apps/riffle/package.json
 COPY --link apps/somewhere/package.json apps/somewhere/package.json
+COPY --link packages/groovebox-core/package.json packages/groovebox-core/package.json
 RUN npm ci --include=dev --ignore-scripts
 
 # Copy the workspace
@@ -47,6 +49,8 @@ FROM base
 COPY package-lock.json package.json /workspace/
 COPY --from=build /workspace/apps/dram/build /workspace/apps/dram/build
 COPY --from=build /workspace/apps/dram/package.json /workspace/apps/dram/package.json
+COPY --from=build /workspace/apps/groovebox/package.json /workspace/apps/groovebox/package.json
+COPY --from=build /workspace/packages/groovebox-core/package.json /workspace/packages/groovebox-core/package.json
 
 # Install dependencies
 RUN npm ci --omit=dev --ignore-scripts && npm cache clean --force

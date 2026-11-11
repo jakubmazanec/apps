@@ -41,6 +41,21 @@ jobs:
 
       - uses: superfly/flyctl-actions/setup-flyctl@master
 
+      - name: Install the Rust toolchains of packages/groovebox-core
+        run: npm run toolchain --workspace=packages/groovebox-core
+
+      - uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+            packages/groovebox-core/target
+          key:
+            rust-${{ runner.os }}-groovebox-core-${{ hashFiles('packages/groovebox-core/Cargo.lock',
+            'packages/groovebox-core/rust-toolchain.toml') }}
+          restore-keys: rust-${{ runner.os }}-groovebox-core-
+
       - name: Install packages
         run: npm ci
 
@@ -213,6 +228,21 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
 
       - uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Install the Rust toolchains of packages/groovebox-core
+        run: npm run toolchain --workspace=packages/groovebox-core
+
+      - uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+            packages/groovebox-core/target
+          key:
+            rust-${{ runner.os }}-groovebox-core-${{ hashFiles('packages/groovebox-core/Cargo.lock',
+            'packages/groovebox-core/rust-toolchain.toml') }}
+          restore-keys: rust-${{ runner.os }}-groovebox-core-
 
       - name: Install packages
         run: npm ci

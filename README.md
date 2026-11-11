@@ -10,9 +10,11 @@
 
 - [dram](./apps/dram) – Whisky tasting notes app.
 - [foam](./apps/foam) – A resource management adventure game about single night in Brno.
+- [groovebox](./apps/groovebox) –
 - [headwind](./apps/headwind) – Age of Sail rogue-like deck-building game.
 - [riffle](./apps/riffle) – A rogue-like deck-building game with letters and words.
 - [somewhere](./apps/somewhere) – Location-based game.
+- [groovebox-core](./packages/groovebox-core) –
 
 <!-- projects -->
 

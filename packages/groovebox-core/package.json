@@ -1,0 +1,32 @@
+{
+  "name": "groovebox-core",
+  "version": "0.0.0",
+  "private": true,
+  "description": "",
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:jakubmazanec/apps.git",
+    "directory": "packages/groovebox-core"
+  },
+  "license": "GPL-3.0-or-later",
+  "author": "Jakub Mazanec <jakub@mazanec.dev>",
+  "type": "module",
+  "scripts": {
+    "build": "cargo build --release",
+    "clean": "cargo clean && del-cli build",
+    "format": "cargo fmt --all && prettier . --write --ignore-unknown",
+    "lint": "cargo clippy --workspace --all-targets -- --deny warnings",
+    "test": "cargo test --workspace",
+    "toolchain": "rustup toolchain install"
+  },
+  "devDependencies": {
+    "del-cli": "^7.0.0",
+    "prettier": "^3.9.10",
+    "prettier-plugin-packagejson": "^3.0.0"
+  },
+  "packageManager": "npm@12.0.0",
+  "engines": {
+    "node": "^24.22.2",
+    "npm": "^12.0.0"
+  }
+}

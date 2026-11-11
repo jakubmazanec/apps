@@ -1,0 +1,14 @@
+import {type MetaFunction} from 'react-router';
+
+export const meta: MetaFunction = () => [
+  {title: 'Hello, world!'},
+  {name: 'description', content: 'Hello world page.'},
+];
+
+export default function Index() {
+  return (
+    <div>
+      <h1>Hello, world!</h1>
+    </div>
+  );
+}
