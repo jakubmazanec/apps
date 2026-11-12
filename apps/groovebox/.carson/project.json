@@ -1,4 +1,14 @@
 {
   "template": "@jakubmazanec/carson-templates:projects/app",
-  "crossOriginIsolation": true
+  "crossOriginIsolation": true,
+  "overrides": {
+    "viteConfig": {
+      "server": {
+        "headers": {
+          "Cross-Origin-Opener-Policy": "same-origin",
+          "Cross-Origin-Embedder-Policy": "require-corp"
+        }
+      }
+    }
+  }
 }
