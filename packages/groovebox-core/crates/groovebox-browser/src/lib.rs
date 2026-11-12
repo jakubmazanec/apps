@@ -1,7 +1,7 @@
 //! The core for the browser: the statics of the device and plain exported functions, in one
 //! module that the page instantiates twice on one shared memory. The worker calls every export
 //! except `audio_render`; the AudioWorklet sets `__stack_pointer` to `audio_stack_top()` and calls
-//! only `audio_render`.
+//! only `audio_render` and `wake_pointer`, which just returns the address of a static.
 // The wasm builds are `no_std`. Host builds, which only `clippy` makes, use `std` and its panic
 // handler.
 #![cfg_attr(target_arch = "wasm32", no_std)]

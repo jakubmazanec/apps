@@ -51,7 +51,9 @@ export async function runShell({
   };
 
   let startOnGesture = () => {
-    void start();
+    if (navigator.userActivation.isActive) {
+      void start();
+    }
   };
 
   let sendKey = (event: KeyboardEvent) => {
@@ -96,6 +98,7 @@ export async function runShell({
 
   globalThis.addEventListener('resize', fit, {signal: listening.signal});
   globalThis.addEventListener('pointerdown', startOnGesture, {signal: listening.signal});
+  globalThis.addEventListener('pointerup', startOnGesture, {signal: listening.signal});
   globalThis.addEventListener('keydown', startOnGesture, {signal: listening.signal});
   globalThis.addEventListener('keydown', sendKey, {signal: listening.signal});
   globalThis.addEventListener('keyup', sendKey, {signal: listening.signal});

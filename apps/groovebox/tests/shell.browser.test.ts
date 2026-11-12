@@ -18,11 +18,12 @@ function mount() {
 }
 
 async function runMounted() {
-  let shell = await runShell(mount());
+  let elements = mount();
+  let shell = await runShell(elements);
 
   onTestFinished(shell.stop);
 
-  return shell;
+  return {...shell, ...elements};
 }
 
 function position({memory, addresses}: Core) {
@@ -76,6 +77,51 @@ describe(runShell, () => {
 
     await start();
 
+    expect(addModule).toHaveBeenCalledTimes(1);
+  });
+
+  test('a gesture starts audio only with user activation', async () => {
+    let addModule = vitest.spyOn(Worklet.prototype, 'addModule');
+    let activation = vitest
+      .spyOn(Navigator.prototype, 'userActivation', 'get')
+      .mockReturnValue({hasBeenActive: false, isActive: false});
+
+    onTestFinished(() => {
+      addModule.mockRestore();
+      activation.mockRestore();
+    });
+
+    let {status} = await runMounted();
+
+    await userEvent.click(document.body);
+
+    expect(addModule).toHaveBeenCalledTimes(0);
+    expect(status.textContent).toBe('Click to start');
+
+    activation.mockRestore();
+    await userEvent.click(document.body);
+
+    await expect.poll(() => status.textContent).toBe('');
+
+    expect(addModule).toHaveBeenCalledTimes(1);
+  });
+
+  test('a touch starts audio when it ends', async () => {
+    let addModule = vitest.spyOn(Worklet.prototype, 'addModule');
+    // A touch's pointerdown grants no activation; its pointerup does
+    let activation = vitest
+      .spyOn(Navigator.prototype, 'userActivation', 'get')
+      .mockReturnValueOnce({hasBeenActive: false, isActive: false});
+
+    onTestFinished(() => {
+      addModule.mockRestore();
+      activation.mockRestore();
+    });
+
+    await runMounted();
+    await userEvent.click(document.body);
+
+    expect(activation).toHaveBeenCalledTimes(2);
     expect(addModule).toHaveBeenCalledTimes(1);
   });
 });

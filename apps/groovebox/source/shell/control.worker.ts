@@ -76,12 +76,8 @@ globalThis.addEventListener(
       globalThis.postMessage({type: 'ready', addresses} satisfies WorkerReply);
 
       for (;;) {
-        let waiting = Atomics.waitAsync(wake, 0, Atomics.load(wake, 0));
-
-        if (waiting.async) {
-          await waiting.value;
-        }
-
+        // Loaded before `position`, so that a batch rendered after this load ends the wait at once
+        let woken = Atomics.load(wake, 0);
         let until = Atomics.load(position, 0);
 
         if (until !== stepped) {
@@ -95,6 +91,12 @@ globalThis.addEventListener(
           }
 
           stepped = until;
+        }
+
+        let waiting = Atomics.waitAsync(wake, 0, woken);
+
+        if (waiting.async) {
+          await waiting.value;
         }
       }
     });

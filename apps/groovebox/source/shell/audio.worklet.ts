@@ -26,6 +26,9 @@ registerProcessor(
     readonly #memory: WebAssembly.Memory;
     readonly #core: AudioExports;
     readonly #wake: Int32Array;
+    // The core's two output channels; the memory never grows and their address never changes
+    #left: Float32Array | undefined;
+    #right: Float32Array | undefined;
 
     constructor({
       processorOptions: {module, memory, stackTop},
@@ -42,8 +45,10 @@ registerProcessor(
     process(_: unknown, [[left, right]]: [[Float32Array, Float32Array]]) {
       let address = this.#core.audio_render(128);
 
-      left.set(new Float32Array(this.#memory.buffer, address, 128));
-      right.set(new Float32Array(this.#memory.buffer, address + 128 * 4, 128));
+      this.#left ??= new Float32Array(this.#memory.buffer, address, 128);
+      this.#right ??= new Float32Array(this.#memory.buffer, address + 128 * 4, 128);
+      left.set(this.#left);
+      right.set(this.#right);
       Atomics.add(this.#wake, 0, 1);
       Atomics.notify(this.#wake, 0);
 
