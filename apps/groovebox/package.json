@@ -2,7 +2,7 @@
   "name": "groovebox",
   "version": "0.0.0",
   "private": true,
-  "description": "",
+  "description": "The groovebox browser shell",
   "repository": {
     "type": "git",
     "url": "git@github.com:jakubmazanec/apps.git",

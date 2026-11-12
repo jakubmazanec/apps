@@ -3,6 +3,7 @@
 
 # groovebox
 
+The groovebox browser shell
 </div>
 <!-- header -->
 
@@ -24,5 +25,4 @@ If you want to contribute, see [CONTRIBUTING](./CONTRIBUTING.md) for details.
 
 ## License
 
-This app is licensed under the GNU Affero General Public License v3. See [LICENSE](./LICENSE.md) for
-details.
+This app is licensed under the GNU General Public License v3.0 or later (`GPL-3.0-or-later`).
