@@ -2,6 +2,7 @@ import {describe, expect, onTestFinished, test, vitest} from 'vitest';
 import {userEvent} from 'vitest/browser';
 
 import {type Core} from '../source/shell/boot.js';
+import {fitScreen} from '../source/shell/present.js';
 import {runShell} from '../source/shell/shell.js';
 
 function mount() {
@@ -36,6 +37,56 @@ function pixel({memory, addresses}: Core, x: number, y: number) {
   return new Uint8Array(memory.buffer)[
     (front === 0 ? addresses.screens[0] : addresses.screens[1]) + y * 480 + x
   ];
+}
+
+function stubDisplayScale(initialRatio: number) {
+  let ratio = initialRatio;
+  let watchers: Array<{query: string; target: EventTarget}> = [];
+  let devicePixelRatio = vitest
+    .spyOn(globalThis, 'devicePixelRatio', 'get')
+    .mockImplementation(() => ratio);
+  let matchMedia = vitest.spyOn(globalThis, 'matchMedia').mockImplementation((query) => {
+    let target = new EventTarget();
+
+    watchers.push({query, target});
+
+    return target as MediaQueryList;
+  });
+
+  onTestFinished(() => {
+    devicePixelRatio.mockRestore();
+    matchMedia.mockRestore();
+  });
+
+  // A real query fires only when the ratio it was armed for stops matching
+  return (nextRatio: number) => {
+    let armedQuery = `(resolution: ${ratio}dppx)`;
+
+    ratio = nextRatio;
+
+    for (let {query, target} of watchers) {
+      if (query === armedQuery) {
+        target.dispatchEvent(new Event('change'));
+      }
+    }
+  };
+}
+
+function shown({canvas, note}: {canvas: HTMLElement; note: HTMLElement}) {
+  return {width: canvas.style.width, height: canvas.style.height, note: note.textContent};
+}
+
+function fitted(ratio: number) {
+  let {cssWidth, cssHeight, exact} = fitScreen(
+    {width: globalThis.innerWidth, height: globalThis.innerHeight},
+    ratio,
+  );
+
+  return {
+    width: `${cssWidth}px`,
+    height: `${cssHeight}px`,
+    note: exact ? '' : 'This display scale cannot show the screen pixel-exactly.',
+  };
 }
 
 describe(runShell, () => {
@@ -123,5 +174,30 @@ describe(runShell, () => {
 
     expect(activation).toHaveBeenCalledTimes(2);
     expect(addModule).toHaveBeenCalledTimes(1);
+  });
+
+  test('the zoom is fitted again each time the display scale changes', async () => {
+    let changeRatio = stubDisplayScale(1);
+    let elements = await runMounted();
+
+    expect(shown(elements)).toEqual(fitted(1));
+
+    changeRatio(1.25);
+
+    expect(shown(elements)).toEqual(fitted(1.25));
+
+    changeRatio(2);
+
+    expect(shown(elements)).toEqual(fitted(2));
+  });
+
+  test('a display scale change after stop is ignored', async () => {
+    let changeRatio = stubDisplayScale(1);
+    let elements = await runMounted();
+
+    elements.stop();
+    changeRatio(1.25);
+
+    expect(shown(elements)).toEqual(fitted(1));
   });
 });

@@ -78,6 +78,18 @@ export async function runShell({
     note.textContent = exact ? '' : 'This display scale cannot show the screen pixel-exactly.';
   };
 
+  // The window sends no resize when only the display scale changes
+  let refitOnDisplayScaleChange = () => {
+    globalThis.matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`).addEventListener(
+      'change',
+      () => {
+        fit();
+        refitOnDisplayScaleChange();
+      },
+      {once: true, signal: listening.signal},
+    );
+  };
+
   let present = () => {
     pixels.set(
       new Uint8Array(
@@ -94,6 +106,7 @@ export async function runShell({
   status.textContent = 'Click to start';
   canvas.style.imageRendering = 'pixelated';
   fit();
+  refitOnDisplayScaleChange();
   frame = requestAnimationFrame(present);
 
   globalThis.addEventListener('resize', fit, {signal: listening.signal});
