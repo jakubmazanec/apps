@@ -9,11 +9,13 @@ import {startAudio} from './startAudio.js';
 
 export async function runShell({
   canvas,
+  controls,
   status,
   note,
   save,
 }: {
   canvas: HTMLCanvasElement;
+  controls: HTMLElement;
   status: HTMLElement;
   note: HTMLElement;
   save: HTMLButtonElement;
@@ -69,7 +71,13 @@ export async function runShell({
 
   let fit = () => {
     let {cssWidth, cssHeight, exact} = fitScreen(
-      {width: window.innerWidth, height: window.innerHeight},
+      {
+        width:
+          window.innerWidth -
+          controls.getBoundingClientRect().width -
+          Number.parseFloat(getComputedStyle(controls.parentElement as HTMLElement).columnGap),
+        height: window.innerHeight,
+      },
       window.devicePixelRatio,
     );
 

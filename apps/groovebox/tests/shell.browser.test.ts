@@ -1,21 +1,33 @@
 import {describe, expect, onTestFinished, test, vitest} from 'vitest';
-import {userEvent} from 'vitest/browser';
+import {page, userEvent} from 'vitest/browser';
 
 import {type Core} from '../source/shell/boot.js';
 import {fitScreen} from '../source/shell/present.js';
 import {runShell} from '../source/shell/shell.js';
 
+const CONTROLS_WIDTH = 192;
+const GAP = 16;
+
 function mount() {
+  let main = document.createElement('main');
   let canvas = document.createElement('canvas');
+  let controls = document.createElement('div');
   let status = document.createElement('p');
   let note = document.createElement('p');
   let save = document.createElement('button');
 
   canvas.width = 480;
   canvas.height = 272;
-  document.body.replaceChildren(canvas, status, note, save);
+  canvas.style.flexShrink = '0';
+  controls.style.width = `${CONTROLS_WIDTH}px`;
+  controls.style.flexShrink = '0';
+  controls.append(status, note, save);
+  Object.assign(main.style, {display: 'flex', alignItems: 'flex-start', gap: `${GAP}px`});
+  main.append(canvas, controls);
+  document.body.style.margin = '0';
+  document.body.replaceChildren(main);
 
-  return {canvas, status, note, save};
+  return {canvas, controls, status, note, save};
 }
 
 async function runMounted() {
@@ -78,7 +90,7 @@ function shown({canvas, note}: {canvas: HTMLElement; note: HTMLElement}) {
 
 function fitted(ratio: number) {
   let {cssWidth, cssHeight, exact} = fitScreen(
-    {width: globalThis.innerWidth, height: globalThis.innerHeight},
+    {width: globalThis.innerWidth - CONTROLS_WIDTH - GAP, height: globalThis.innerHeight},
     ratio,
   );
 
@@ -190,6 +202,32 @@ describe(runShell, () => {
 
     expect(shown(elements)).toEqual(fitted(2));
   });
+
+  test.each([
+    {width: 1536, height: 730, size: {width: '1152px', height: '652.8px'}},
+    {width: 1300, height: 900, size: {width: '768px', height: '435.2px'}},
+  ])(
+    'the screen sits beside the controls without scrolling in a $width x $height window',
+    async ({width, height, size}) => {
+      let original = {width: globalThis.innerWidth, height: globalThis.innerHeight};
+
+      onTestFinished(async () => page.viewport(original.width, original.height));
+      await page.viewport(width, height);
+      stubDisplayScale(1.25);
+
+      let {canvas, controls, note} = await runMounted();
+      let {scrollWidth, scrollHeight} = document.scrollingElement as Element;
+
+      expect(scrollWidth).toBeLessThanOrEqual(globalThis.innerWidth);
+      expect(scrollHeight).toBeLessThanOrEqual(globalThis.innerHeight);
+      expect(controls.getBoundingClientRect().right).toBeLessThanOrEqual(globalThis.innerWidth);
+      expect(canvas.getBoundingClientRect().right).toBeLessThanOrEqual(
+        controls.getBoundingClientRect().left,
+      );
+      expect(shown({canvas, note})).toEqual({...size, note: fitted(1.25).note});
+      expect(shown({canvas, note})).toEqual(fitted(1.25));
+    },
+  );
 
   test('a display scale change after stop is ignored', async () => {
     let changeRatio = stubDisplayScale(1);

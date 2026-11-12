@@ -8,6 +8,7 @@ export const meta: MetaFunction = () => [
 
 export default function Index() {
   let canvas = useRef<HTMLCanvasElement>(null);
+  let controls = useRef<HTMLDivElement>(null);
   let status = useRef<HTMLParagraphElement>(null);
   let note = useRef<HTMLParagraphElement>(null);
   let save = useRef<HTMLButtonElement>(null);
@@ -16,6 +17,7 @@ export default function Index() {
     let shell = import('../shell/shell.js').then(async ({runShell}) =>
       runShell({
         canvas: canvas.current as HTMLCanvasElement,
+        controls: controls.current as HTMLDivElement,
         status: status.current as HTMLParagraphElement,
         note: note.current as HTMLParagraphElement,
         save: save.current as HTMLButtonElement,
@@ -30,9 +32,9 @@ export default function Index() {
   }, []);
 
   return (
-    <main className="flex flex-wrap items-start gap-4">
-      <canvas ref={canvas} aria-label="Screen" height={272} width={480} />
-      <div className="flex flex-col gap-2">
+    <main className="flex items-start gap-4">
+      <canvas ref={canvas} aria-label="Screen" className="shrink-0" height={272} width={480} />
+      <div ref={controls} className="flex w-48 shrink-0 flex-col gap-2">
         <p ref={status} />
         <p ref={note} />
         <button ref={save} type="button">
