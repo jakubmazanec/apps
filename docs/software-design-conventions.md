@@ -1,0 +1,1 @@
+- minimize number of private fields and properties on classes
