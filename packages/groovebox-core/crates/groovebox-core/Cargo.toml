@@ -9,5 +9,8 @@ publish.workspace = true
 libm = "0.2"
 loom = { version = "0.7", optional = true }
 
+[build-dependencies]
+png = "0.18"
+
 [features]
 loom = ["dep:loom"]

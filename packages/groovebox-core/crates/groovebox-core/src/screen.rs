@@ -1,3 +1,5 @@
+use crate::font::Glyph;
+
 pub const WIDTH: usize = 480;
 pub const HEIGHT: usize = 272;
 
@@ -59,6 +61,32 @@ pub trait Canvas {
         self.hline(x, bottom, width, color);
         self.vline(x, y, height, color);
         self.vline(right, y, height, color);
+    }
+
+    /// Draws `glyph` with the top-left of its 6 x 12 cell at (`x`, `y`), one line for each run of
+    /// ink.
+    fn glyph(&mut self, x: i32, y: i32, glyph: &Glyph, color: Color) {
+        let left = x.saturating_add(i32::from(glyph.x));
+        let top = y.saturating_add(i32::from(glyph.y));
+        for (row, bits) in (0..).zip(glyph.rows.iter().take(usize::from(glyph.height))) {
+            let mut column = 0;
+            while column < 8 {
+                if bits & (0x80 >> column) == 0 {
+                    column += 1;
+                    continue;
+                }
+                let start = column;
+                while column < 8 && bits & (0x80 >> column) != 0 {
+                    column += 1;
+                }
+                self.hline(
+                    left.saturating_add_unsigned(start),
+                    top.saturating_add_unsigned(row),
+                    column - start,
+                    color,
+                );
+            }
+        }
     }
 }
 
@@ -318,6 +346,73 @@ mod tests {
         buffer.vline(2, 2, 0, INK);
 
         assert_eq!(picture(&buffer), ["........"; 8]);
+    }
+
+    fn glyph_of(x: i8, y: i8, width: u8, rows: &[u8]) -> Glyph {
+        let mut ink = [0; 12];
+        ink[..rows.len()].copy_from_slice(rows);
+        Glyph {
+            code: 0,
+            x,
+            y,
+            width,
+            height: rows.len() as u8,
+            rows: ink,
+        }
+    }
+
+    #[test]
+    fn glyph_fills_each_run_of_ink_from_its_offsets() {
+        let mut buffer = FrameBuffer::<10, 8>::new();
+
+        buffer.glyph(
+            2,
+            3,
+            &glyph_of(1, 1, 5, &[0b1101_1000, 0b0010_0000, 0b1111_1000]),
+            INK,
+        );
+
+        assert_eq!(
+            picture(&buffer),
+            [
+                "..........",
+                "..........",
+                "..........",
+                "..........",
+                "...##.##..",
+                ".....#....",
+                "...#####..",
+                "..........",
+            ]
+        );
+    }
+
+    #[test]
+    fn glyph_ink_in_all_eight_columns_is_one_run() {
+        let mut buffer = FrameBuffer::<10, 2>::new();
+
+        buffer.glyph(1, 0, &glyph_of(0, 1, 8, &[0xff]), INK);
+
+        assert_eq!(picture(&buffer), ["..........", ".########."]);
+    }
+
+    #[test]
+    fn glyph_is_clipped_at_the_edges_and_far_outside_it_draws_nothing() {
+        let mut buffer = FrameBuffer::<8, 8>::new();
+        let glyph = glyph_of(-1, 0, 3, &[0b1110_0000, 0b0100_0000]);
+
+        buffer.glyph(0, 7, &glyph, INK);
+        buffer.glyph(0, 0, &glyph, INK);
+        buffer.glyph(i32::MAX, i32::MAX, &glyph, INK);
+        buffer.glyph(i32::MIN, i32::MIN, &glyph, INK);
+
+        assert_eq!(
+            picture(&buffer),
+            [
+                "##......", "#.......", "........", "........", "........", "........", "........",
+                "##......",
+            ]
+        );
     }
 
     #[test]
