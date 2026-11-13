@@ -71,6 +71,17 @@ controls do. What part 1 teaches then decides the physical layout and look (part
   the specs and this overview, and the points it left open are listed under "Open points for
   planning" at the end of this overview.
 - Each spec is linked from its section of the register once it is written.
+- **Plans build in the final state (decided).** A plan builds everything it touches as the final
+  design has it and as the later plans expect it. Nothing temporary is built and nothing the final
+  version does not have; a part of the final design that needs a later feature comes with that
+  feature, such as a control whose action is bound when its feature is built. The app may be
+  unusable between plans.
+- **Open points are settled before a plan is written (decided).** Every point a plan reaches that no
+  spec fixes is put to the owner one question at a time, and the plan records the answers. A point
+  whose answer follows from a decided rule is not asked.
+- **Milestone 1 is planned in three plans (decided):** the foundation, then the screens and pads,
+  then Sound. The screens come first so that Sound's tests reach every sound and value through the
+  device's own controls.
 
 ## Subparts
 
@@ -213,8 +224,8 @@ Spec: [Sound](./2026-11-03-groovebox-sound-design.md). In short:
 - Poly or mono per sound, within what the engine allows; mono has legato and glide **(decided)**.
 - A fixed count of 32 voices, provisional **(decided)**.
 - Each track has 6 effect slots in series, any effect in any slot; part 1 has delay and reverb.
-  Muting silences only the pattern and lets tails ring out; pads and keys played by hand still
-  sound **(decided)**.
+  Muting silences only the pattern and lets tails ring out; pads and keys played by hand still sound
+  **(decided)**.
 - Per-track level and mute; master level, then the sample preview and the metronome click, a soft
   clipper and the output volume **(decided)**.
 - WAV import, converted once to 48 kHz and 16-bit with channels kept **(decided)**.
@@ -359,13 +370,13 @@ Spec: [Look and panel](./2026-11-07-groovebox-look-design.md). In short:
   twelve sound colours that belong to the sound, not the pad, used on ROLL.
 - **The header** is one row: where you are at the left, the transport at the right, the page named
   after the screen; messages replace the transport group. Accepted for now, expected to change.
-- **STEP** at 8 px per sixteenth draws the pages of 16 the step buttons show; **ROLL** one 13 px
-  row per semitone **(decided)**. Pictures on SOUND are cheap and informative only.
+- **STEP** at 8 px per sixteenth draws the pages of 16 the step buttons show; **ROLL** one 13 px row
+  per semitone **(decided)**. Pictures on SOUND are cheap and informative only.
 - **The panel is the owner's layout** **(decided)**, 321 × 128 mm: the volume encoder and the
   transport row top left; the display in the middle; the four encoders in a row top right with
   T1–T4, PADS/KEYS, ROLL, MENU, PAGE, COPY and SHIFT under them; the 16 step buttons over the 12
-  pads with the cursor cluster (−, ▲, +, OK over ◀, ▼, ▶, CANCEL) at their right end. **There is
-  no STEP button**: STEP is MENU + 1. Layout D is replaced.
+  pads with the cursor cluster (−, ▲, +, OK over ◀, ▼, ▶, CANCEL) at their right end. **There is no
+  STEP button**: STEP is MENU + 1. Layout D is replaced.
 - **Lights are single colour, on or off** **(decided)**; dimming only if the hardware gives it for
   free. Only pads, steps, T1–T4, REC, PLAY, TEMPO, ROLL and PADS/KEYS have lights.
 - **The browser shell** zooms the screen by whole monitor pixels only; mouse, computer keyboard and
@@ -512,8 +523,8 @@ settles it with the owner. One needs a real decision: the MIDI note mapping unde
 - **Storage reserve.** No size. Proposed: 1 MB.
 - **SWING in the project file.** Saved with the project but empty in version 1. Proposed: not
   written until swing is built.
-- **Time signature.** Two numbers, but a saved value is one. Proposed: two entries, the beats (1 to
-  16) and the beat unit (4 or 8); still one item on screen.
+- **Time signature.** Two numbers, but a saved value is one. Proposed: two entries, the beats (1
+  to 16) and the beat unit (4 or 8); still one item on screen.
 - **Pressure curves in a pattern file.** How a saved note points at its curve. Proposed: by the
   curve's position in its chunk, counted from 0.
 - **Folder requests.** Foundation's list has no make folder, delete folder or copy. Proposed: a
