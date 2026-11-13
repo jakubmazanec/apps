@@ -339,7 +339,8 @@ Spec: [Project model](./2026-11-06-groovebox-project-model-design.md). In short:
   project never holds a note whose sound is gone **(decided)**. "Used" means on any pad of any track
   or played by any note of any pattern.
 - **A project remembers where you were:** the current pattern, track and screen, each screen's page,
-  the cursor and view, following **(decided)**. Playback, the clipboard and undo are never saved.
+  the STEP and ROLL cursor and view, following **(decided)**. Playback, the clipboard, undo and the
+  cursor of each page are never saved.
 - **A missing sample** leaves its sound silent and marked MISSING; the project opens and plays, and
   the sound is repaired from its own sample parameter **(decided)**.
 - **Sounds and patterns have numbers that are never reused;** pads, notes and the selected sound

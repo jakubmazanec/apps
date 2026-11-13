@@ -61,7 +61,7 @@ are instant and cannot fail for room **(owner's choice)**.
 | Topic                    | Decision                                                                                                                                                                                           |
 | ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Deleting a used sound    | After a question that counts its pads and notes, the sound, its notes and its pads all go (owner's choice)                                                                                         |
-| What a project remembers | Where you were: current pattern, track and screen, each screen's page, the cursor and view, following (owner's choice)                                                                             |
+| What a project remembers | Where you were: current pattern, track and screen, each screen's page, the STEP and ROLL cursor and view, following (owner's choice)                                                               |
 | A missing sample         | The project opens; the sound keeps its settings, plays silence, is marked MISSING and is repaired from the sound (owner's choice)                                                                  |
 | Storage                  | Internal, nothing removable, as on the EP-133: the copy of one sample library shared by all projects, the projects beside it (owner's choice)                                                      |
 | Library in RAM           | The whole library is loaded into RAM at start-up and capped by the sample RAM, provisionally 64 MB; import is the only refusal; one library meter on POOL, SAMPLES and the picker (owner's choice) |
@@ -160,10 +160,11 @@ which promises "everything will still be there, exactly as you left it":
 
 Reopen a project, or restart the browser, and you see what you left: the same screen, bar and sound
 under the encoders. A copied project carries it too. Never saved: playback (a project always opens
-stopped and disarmed), the clipboard, the undo step and any held button. Each remembered item names
-things by number and falls back to its default when its target is gone. A new project has nothing
-remembered yet, at the first start too, and opens on the STEP screen with track 1 (T1) selected and
-pad 1 selected on every track.
+stopped and disarmed), the clipboard, the undo step, any held button and the cursor of each page,
+which Workflow A keeps only until the project closes. Each remembered item names things by number
+and falls back to its default when its target is gone. A new project has nothing remembered yet, at
+the first start too, and opens on the STEP screen with track 1 (T1) selected and pad 1 selected on
+every track.
 
 Which project was open last is a device setting, so starting up opens it (Workflow A).
 

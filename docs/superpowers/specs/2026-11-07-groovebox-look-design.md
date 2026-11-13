@@ -429,7 +429,7 @@ stamp. The core decides taps and holds; the shell never does.
   MIDI notes stay.
 - **One control, several sources.** The shell sends one press when the first source, a key or a
   pointer, takes a control and one release when the last lets go, so the core sees one physical
-  control.
+  control **(my call)**.
 - **Save picture (owner's choice).** A "Save picture" button beside "Save session" saves the shown
   frame through the core's palette at 4× (1,920 × 1,088) as `screen-<audio sample>.png`.
 - **Files.** Dropping WAV files or a folder onto the page hands them to the core, which imports them
@@ -438,7 +438,7 @@ stamp. The core decides taps and holds; the shell never does.
   named ("Kick.wav not imported: library full"), and a refused file does not stop the smaller ones
   after it **(owner's choice)**.
 - **What the shell never does:** draw anything of its own on the screen, decide a tap or a hold,
-  latch a modifier, or scale the screen by a fraction.
+  latch a modifier, or scale the screen by a fraction **(my call)**.
 
 ## The screen gallery and the drift frames
 
