@@ -157,7 +157,8 @@ and gave the picker a refusal; the EP-133 has one library, one limit and one pla
   pool sizes in the other specs and the frame buffer in the Look spec.
 - The profile also holds what the other specs set: the voice count (provisionally 32, plus the
   preview player), the effect slots' memory (about 9 MB, outside the library's budget) and the
-  worst-case operation count recorded by a test scene (Sound); the note pool (provisionally 8 MB),
+  worst-case operation count recorded by a test scene (Sound); the pool of sounds, 1,024 per project
+  and held in working memory (Workflow A) **(owner's choice)**; the note pool (provisionally 8 MB),
   the undo budget (provisionally a quarter of the pool), the edit lead and the size of the version
   queue (Project model); the frame buffer (8-bit indexed, 128 KB, 255 KB for two) (Look).
 
@@ -264,15 +265,19 @@ Foundation decides the mechanism, not the list.
    entry holds:
    - a permanent ID;
    - a name and a short name;
-   - where the value lives: device, project, pattern, track, sound, step or note;
+   - the scope, where the value lives: device, project, track or sound; pattern joins them with the
+     first value that belongs to a pattern. There is no step or note scope (see 6) **(owner's
+     choice)**;
    - the lowest, highest and default value;
-   - how the number becomes sound: straight, musical (each step up the knob is the same musical
-     interval, as for pitch), decibels, a named list, or on/off;
-   - how it is shown: Hz, dB, %, note name;
-   - for smooth values, the click size: how far one encoder click moves it, 128 clicks across the
-     range by default (Workflow A);
-   - for a named list, each choice's permanent key, apart from its label (Project model);
-   - marks: can be modulated, glides, can be locked per step.
+   - the curve, how the number becomes sound: straight, musical (each step up the knob is the same
+     musical interval, as for pitch), decibels, a named list, or on/off;
+   - the display unit, how it is shown: Hz, dB, %, note name;
+   - the click size: how far one encoder click moves a smooth value, 128 clicks across the range by
+     default (Workflow A); 0 for counted values;
+   - for a named list, the choices, each with its permanent key, apart from its label (Project
+     model);
+   - the glide time in samples; 0 means the value changes exactly at T (see 4);
+   - whether it can be modulated.
 2. **Values are whole numbers.** Smooth controls use 0 to 65,535, finer than anyone can hear, and
    high-resolution MIDI maps onto it exactly. Counts use their natural units: steps, semitones,
    ticks, hundredths of a BPM. Lists save the choice's permanent key, not its position or its label,
@@ -280,6 +285,12 @@ Foundation decides the mechanism, not the list.
 3. **An ID never changes meaning.** Renaming the label is free. Changing a range or meaning creates
    a new ID plus a small rule that converts old values. Saved files store "ID = number"; unknown IDs
    are skipped with a warning, and missing ones take their default.
+   - **The ID space (owner's choice).** An ID is a 16-bit whole number (`ParamId(u16)`) in one flat
+     space and is never reused. It lives in a block by what it belongs to: device 1–99 (Velocity is
+     1), project 100–199, track 200–299, the shared voice chain 1000–1999, one block of 1,000 per
+     engine from 2000 and one block of 1,000 per effect type from 10000.
+   - The sound, the layer, the track and the slot are never part of an ID. A build check keeps the
+     IDs unique and inside their blocks.
 4. **Getting a change to the sound.** The control part sends "set parameter P to N at sample T".
    Smooth parameters glide to the new value over a few milliseconds, set per parameter, so there are
    no clicks; the glide runs on the core's own 32-sample schedule. Lists and switches change exactly
@@ -287,8 +298,9 @@ Foundation decides the mechanism, not the list.
 5. **Ready for modulation, without building it now.** The saved number is the home position. All
    sound code reads parameters through one step that will later add modulation; for now it adds
    nothing. Modulation is never saved into the home value.
-6. **Steps and notes can use the same mechanism.** Workflow B decided that a note's values stay
-   plain note data (as on the Deluge) and do not go on the master list (as on Elektron devices).
+6. **Steps and notes stay outside the list.** Workflow B decided that a note's values stay plain
+   note data (as on the Deluge) and do not go on the master list (as on Elektron devices), so an
+   entry has no step or note scope and no lock per step.
 
 Direct MIDI control of individual parameters comes after part 1; in part 1, MIDI controllers drive
 the panel's controls.
@@ -312,6 +324,16 @@ encoders' push switches are buttons and the volume knob is a fifth encoder (Work
 itself tells a tap from a hold, from the sample positions of the press and the release, so the shell
 reports only presses and releases and replays match (Workflow B). Whether users can remap controls
 on the device itself is a product question for later.
+
+MIDI notes are abstract controls too: note _n_ on with velocity _v_, note _n_ off, note _n_ pressure
+_p_ and channel pressure _p_. The core maps them, not the shell, because the pad mode lives in the
+core **(owner's choice)**:
+
+- **PADS mode:** note _n_ hits pad _n_ mod 12. Each note is its own hit, and a pad is lit while any
+  of its notes is on.
+- **KEYS mode:** a note plays its own pitch, within C0 to B8 (MIDI 12 to 119); other notes are
+  ignored. The octave does not move, the note's pad lights when it is in the pads' octave and the
+  note counts as the last key played.
 
 Rejected: readable JSON tables that the core reads and the browser reloads without rebuilding. They
 need a parser, versioning and reloading for something that code changes already cover.

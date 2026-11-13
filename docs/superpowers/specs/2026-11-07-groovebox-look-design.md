@@ -9,13 +9,13 @@ control does, and [the Project model](./2026-11-06-groovebox-project-model-desig
 and messages the screens carry.
 
 **Nothing here is final.** The look was designed by drawing every screen pixel by pixel with the
-operations the core will have and changing it until the owner was satisfied; it will change again
-as the device is played. This spec records the starting point. Layout, bindings, colours and the
-panel are code, changed by editing code (Foundation).
+operations the core will have and changing it until the owner was satisfied; it will change again as
+the device is played. This spec records the starting point. Layout, bindings, colours and the panel
+are code, changed by editing code (Foundation).
 
 Every section of this spec was presented to the owner as a drawn screen and approved. Points where
-the owner chose between options or set a rule are marked **(owner's choice)**. Details settled
-while drawing, which the owner has not objected to, are marked **(my call)**. The pictures in
+the owner chose between options or set a rule are marked **(owner's choice)**. Details settled while
+drawing, which the owner has not objected to, are marked **(my call)**. The pictures in
 `2026-11-07-groovebox-look/` are the approved screens at the display's own 480 × 272 pixels; they
 are the first screen gallery and the first expected frames of the drift tests.
 
@@ -31,25 +31,25 @@ hardware.
 
 ## Decisions at a glance
 
-| Topic           | Decision                                                                                                                                                  |
-| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Display         | 4.3″ 480 × 272 IPS, a real part from many vendors in one footprint; nothing doubled (owner's choice)                                                       |
-| Frame buffer    | 8-bit indexed, a 256-entry palette expanded to the panel's 24-bit colour; 128 KB per buffer                                                               |
-| Font            | monogram, 7 px capitals, monospaced 6 px, every Czech letter, CC0 (owner's choice); mixed case; full names, shortened with "…" only when they do not fit   |
-| Look            | Minimal and flat: black, no bevels, no shading, lines only where they carry meaning (owner's choice)                                                       |
-| Spacing         | Every element sized to its content, 1 px gaps, free space between elements, 3 px around the capitals, text rows 13 px (owner's choice)                    |
-| Cursor          | An orange outline 1 px outside the item, everywhere; the inverted orange block means only "selected" (owner's choice)                                     |
-| Parameter item  | Name left, value right, a 2 px bar under them; the same in the strip, on a page and in a panel (owner's choice); on a page, an item an encoder holds carries the encoder's number |
-| Page            | Its items in one column at the left, as many as the page has, scrolling when they do not fit; the strip repeats the items the encoders hold              |
-| Colour          | Black, three greys, one orange accent, red for recording and errors; twelve sound colours that belong to the sound, not the pad (owner's choice)           |
-| Header          | One row: where you are at the left, the transport at the right, the page named after the screen; messages replace the transport group (accepted for now) |
-| STEP            | 8 px per sixteenth, pages of 16 as the step buttons show them, 13 px lanes top-aligned under the header (owner's choice)                                   |
-| ROLL            | One 13 px row per semitone, notes in their sound's colour, the selected sound bright by velocity, the others dim                                           |
-| Pictures        | Cheap and informative only: the pad grid, the waveform with its marks, envelope shapes, the filter curve (owner's choice)                                  |
-| Panel           | The owner's layout "L9", 321 × 128 mm: volume and transport top left, display in the middle, encoders and keys top right, steps and pads with the cursor cluster below; no STEP button (owner's choice) |
-| Lights          | Single colour, on or off; dimming only if the hardware gives it for free (owner's choice)                                                                  |
-| Meters          | A Dev page on SETTINGS with library and note memory; the library meter also on POOL, SAMPLES and the sample picker (owner's choice)                       |
-| In the repo     | This spec and a folder of PNGs, one per approved screen state (owner's choice)                                                                            |
+| Topic          | Decision                                                                                                                                                                                                |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Display        | 4.3″ 480 × 272 IPS, a real part from many vendors in one footprint; nothing doubled (owner's choice)                                                                                                    |
+| Frame buffer   | 8-bit indexed, a 256-entry palette expanded to the panel's 24-bit colour; 128 KB per buffer                                                                                                             |
+| Font           | monogram, 7 px capitals, monospaced 6 px, every Czech letter, CC0 (owner's choice); mixed case; full names, shortened with "…" only when they do not fit                                                |
+| Look           | Minimal and flat: black, no bevels, no shading, lines only where they carry meaning (owner's choice)                                                                                                    |
+| Spacing        | Every element sized to its content, 1 px gaps, free space between elements, 3 px around the capitals, text rows 13 px (owner's choice)                                                                  |
+| Cursor         | An orange outline 1 px outside the item, everywhere; the inverted orange block means only "selected" (owner's choice)                                                                                   |
+| Parameter item | Name left, value right, a 2 px bar under them; the same in the strip, on a page and in a panel (owner's choice); on a page, an item an encoder holds carries the encoder's number                       |
+| Page           | Its items in one column at the left, as many as the page has, scrolling when they do not fit; the strip repeats the items the encoders hold                                                             |
+| Colour         | Black, three greys, one orange accent, red for recording and errors; twelve sound colours that belong to the sound, not the pad (owner's choice)                                                        |
+| Header         | One row: where you are at the left, the transport at the right, the page named after the screen; messages replace the transport group (accepted for now)                                                |
+| STEP           | 8 px per sixteenth, pages of 16 as the step buttons show them, 13 px lanes top-aligned under the header (owner's choice)                                                                                |
+| ROLL           | One 13 px row per semitone, notes in their sound's colour, the selected sound bright by velocity, the others dim                                                                                        |
+| Pictures       | Cheap and informative only: the pad grid, the waveform with its marks, envelope shapes, the filter curve (owner's choice)                                                                               |
+| Panel          | The owner's layout "L9", 321 × 128 mm: volume and transport top left, display in the middle, encoders and keys top right, steps and pads with the cursor cluster below; no STEP button (owner's choice) |
+| Lights         | Single colour, on or off; dimming only if the hardware gives it for free (owner's choice)                                                                                                               |
+| Meters         | A Dev page on SETTINGS with library and note memory; the library meter also on POOL, SAMPLES and the sample picker (owner's choice)                                                                     |
+| In the repo    | This spec and a folder of PNGs, one per approved screen state (owner's choice)                                                                                                                          |
 
 ## The display
 
@@ -60,8 +60,8 @@ module, a pixel pitch of 0.198 mm, 24-bit colour in over a 40-pin ribbon. The cl
 phased out; its older TN parts were replaced by IPS parts in the same outline, and an 800 × 480 part
 in the same footprint exists as a later upgrade path. These panels have no memory of their own, so
 the processor streams every frame, which needs an LCD controller peripheral of the kind the STM32H7
-class has; that goes to part 3. The alternatives researched (4.3″ 800 × 480, 5″ 800 × 480, 3.5″
-480 × 320) were rejected because the font would come out at 0.9 to 1.2 mm instead of 1.4 mm.
+class has; that goes to part 3. The alternatives researched (4.3″ 800 × 480, 5″ 800 × 480, 3.5″ 480
+× 320) were rejected because the font would come out at 0.9 to 1.2 mm instead of 1.4 mm.
 
 **Nothing is doubled** **(owner's choice)**. Every element is drawn in the display's own pixels. The
 alternatives, doubling the font or doubling everything, were drawn and rejected: twelve lanes under
@@ -78,22 +78,22 @@ font at a position in a colour. Curves and waveforms are columns of 1-pixel fill
 
 **In the browser** the shell shows the buffer on a canvas and zooms it by a whole number of the
 monitor's device pixels, never by a fraction: on a desktop at 100% browser zoom and a 100% or 200%
-display scale every screen pixel is an exact block. On other scales, and on phones, a browser
-cannot show the picture pixel-exactly; the shell says so instead of pretending. For review away from
-such a screen, the shell exports a screen as a PNG enlarged by a whole number.
+display scale every screen pixel is an exact block. On other scales, and on phones, a browser cannot
+show the picture pixel-exactly; the shell says so instead of pretending. For review away from such a
+screen, the shell exports a screen as a PNG enlarged by a whole number.
 
 ## The font
 
 **(owner's choice)** **monogram**, the bitmap font the Foam and Somewhere apps in this repo already
 use (`apps/foam/build/client/monogram.fnt`), by datagoblin, CC0:
 
-| Property        | Value                                                                                  |
-| --------------- | -------------------------------------------------------------------------------------- |
-| Capitals        | 7 px (1.4 mm on the panel); x-height 5 px                                              |
-| Line            | 12 px including accents and descenders: capitals on rows 3–9, accented capitals 1–9, descenders to 11 |
-| Width           | Monospaced, 6 px per character, 80 characters across the screen; every glyph leaves its sixth column blank |
-| Glyphs          | 577, every Czech letter in both cases, the arrows ← ↑ → ↓, the triangles ▲ ▶ ▼ ◀, • and … |
-| Variants        | italic, outline and italic outline, also in the repo, unused in part 1                 |
+| Property | Value                                                                                                      |
+| -------- | ---------------------------------------------------------------------------------------------------------- |
+| Capitals | 7 px (1.4 mm on the panel); x-height 5 px                                                                  |
+| Line     | 12 px including accents and descenders: capitals on rows 3–9, accented capitals 1–9, descenders to 11      |
+| Width    | Monospaced, 6 px per character, 80 characters across the screen; every glyph leaves its sixth column blank |
+| Glyphs   | 577, every Czech letter in both cases, the arrows ← ↑ → ↓, the triangles ▲ ▶ ▼ ◀, • and …                  |
+| Variants | italic, outline and italic outline, also in the repo, unused in part 1                                     |
 
 Kerning is not used; monospacing gives aligned digits for free. px sans nouveaux (MIT, proportional,
 8 px capitals, also in the repo) was tried first and rejected as ugly.
@@ -103,9 +103,9 @@ Kerning is not used; monospacing gives aligned digits for free. px sans nouveaux
 writing convention, not a decision.
 
 **Full names** **(owner's choice)**, never abbreviations: Resonance, Envelope amount. A label that
-does not fit the space it has is shortened with "…": a long value keeps its label short ("Sam…"
-next to a long file name), and a sound name longer than 12 characters is shortened in the names
-column of STEP ("Žluťoučký k…") **(my call: 12)**.
+does not fit the space it has is shortened with "…": a long value keeps its label short ("Sam…" next
+to a long file name), and a sound name longer than 12 characters is shortened in the names column of
+STEP ("Žluťoučký k…") **(my call: 12)**.
 
 ## The rules every screen is drawn by
 
@@ -115,27 +115,27 @@ column of STEP ("Žluťoučký k…") **(my call: 12)**.
   meaning; outlines and lines only where they are needed and useful; everything readable at a
   glance.
 - **Spacing, in flexbox terms.** Every element is sized to its content; nothing grows; gaps and
-  margins are 1 px; free space goes between elements (`space-between`), never into them. The
-  screen has 1 px of padding.
-- **Text.** Space around text is measured from the capitals, not from the font's bounding box,
-  which would move with every accent and descender: 3 px above the capital line, 3 px below the
-  baseline, and 3 px left and right of the glyphs' own pixels (monogram's blank sixth column does
-  not count). A text row is therefore 13 px: 3 + 7 + 3. Accents reach 2 px above the capitals and
-  descenders 2 px below the baseline, so an Ž or a y comes within 1 px of the row's edge; the text
-  stays centred on the capitals whatever it contains.
+  margins are 1 px; free space goes between elements (`space-between`), never into them. The screen
+  has 1 px of padding.
+- **Text.** Space around text is measured from the capitals, not from the font's bounding box, which
+  would move with every accent and descender: 3 px above the capital line, 3 px below the baseline,
+  and 3 px left and right of the glyphs' own pixels (monogram's blank sixth column does not count).
+  A text row is therefore 13 px: 3 + 7 + 3. Accents reach 2 px above the capitals and descenders 2
+  px below the baseline, so an Ž or a y comes within 1 px of the row's edge; the text stays centred
+  on the capitals whatever it contains.
 - **A parameter item** looks the same everywhere: name at the left (dim), value at the right
   (bright), 3 px inside; under them, after 1 px, a 2 px bar across the item (a faint track, the
-  accent fill), then 1 px; 17 px tall. In the strip, on a screen's page and in the NOTE panel
-  alike. An empty item draws nothing. On a page, an item an encoder holds shows the encoder's
-  number before its name, dim, the way the MENU and PAGE tiles carry their numbers; items without
-  an encoder leave that column blank, so the names stay aligned **(owner's choice)**. The strip
-  needs no mark: its cells sit under the encoders.
-- **The cursor** is an orange outline 1 px outside whatever it is on: an item, a cell, a list row,
-  a picker row, a tile. It is the one "you are here" colour. Items and rows are 1 px apart, so the
+  accent fill), then 1 px; 17 px tall. In the strip, on a screen's page and in the NOTE panel alike.
+  An empty item draws nothing. On a page, an item an encoder holds shows the encoder's number before
+  its name, dim, the way the MENU and PAGE tiles carry their numbers; items without an encoder leave
+  that column blank, so the names stay aligned **(owner's choice)**. The strip needs no mark: its
+  cells sit under the encoders.
+- **The cursor** is an orange outline 1 px outside whatever it is on: an item, a cell, a list row, a
+  picker row, a tile. It is the one "you are here" colour. Items and rows are 1 px apart, so the
   outline uses the gap.
-- **A container whose content can carry the cursor** (an item list, the STEP lanes, the ROLL rows,
-  a picker) has 2 px of padding: 1 px of space and 1 px for the outline, so the outline never
-  touches the header's line or a box's border. Everything else keeps 1 px.
+- **A container whose content can carry the cursor** (an item list, the STEP lanes, the ROLL rows, a
+  picker) has 2 px of padding: 1 px of space and 1 px for the outline, so the outline never touches
+  the header's line or a box's border. Everything else keeps 1 px.
 - **Selected** is the inverted orange block with the text in black: the selected sound's name on
   STEP. It is the only use of the block; the cursor never inverts.
 - **Pictures** (grids of boxes, curves, waveforms) are graphics, not text: their area has 1 px
@@ -145,18 +145,18 @@ column of STEP ("Žluťoučký k…") **(my call: 12)**.
 
 **(owner's choice)** The palette, as indexed entries:
 
-| Role                   | Value                                            | Used for                                                        |
-| ---------------------- | ------------------------------------------------ | --------------------------------------------------------------- |
-| background             | `#000000`                                        | everything behind                                               |
-| text                   | `#e8e8e8`                                        | values, names, labels                                           |
-| dim                    | `#6e6e6e`                                        | parameter names, empty pads, copy lanes, sharps, empty patterns |
-| faint                  | `#1e1e1e`                                        | beat lines, lane separators, bar tracks, dark cells, empty tiles |
-| line                   | `#3c3c3c`                                        | bar lines, the lines under the header and above the strip, boxes |
-| shown-bar tint         | `#0e0e0e`                                        | the page the step buttons show                                  |
-| accent                 | `#ff7a2f`                                        | the cursor, the selected name, the screen name, bar fills        |
-| record                 | `#ff4a4a`                                        | recording, errors, a missing sample, an old-format project      |
-| note soft, mid, loud   | `#5c5c5c`, `#a0a0a0`, `#f2f2f2`                  | notes on STEP by velocity: below 60, 60 to 99, 100 and up       |
-| sound colours 1–12     | `#e0607a` `#d9a441` `#b6c94a` `#5ec36b` `#3fc9b0` `#4fb8e6` `#6f8cf2` `#a27ef0` `#d173d6` `#e8e0c8` `#9ab0c0` `#c9a07e` | notes on ROLL; twelve hues of similar lightness, none orange |
+| Role                 | Value                                                                                                                   | Used for                                                         |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| background           | `#000000`                                                                                                               | everything behind                                                |
+| text                 | `#e8e8e8`                                                                                                               | values, names, labels                                            |
+| dim                  | `#6e6e6e`                                                                                                               | parameter names, empty pads, copy lanes, sharps, empty patterns  |
+| faint                | `#1e1e1e`                                                                                                               | beat lines, lane separators, bar tracks, dark cells, empty tiles |
+| line                 | `#3c3c3c`                                                                                                               | bar lines, the lines under the header and above the strip, boxes |
+| shown-bar tint       | `#0e0e0e`                                                                                                               | the page the step buttons show                                   |
+| accent               | `#ff7a2f`                                                                                                               | the cursor, the selected name, the screen name, bar fills        |
+| record               | `#ff4a4a`                                                                                                               | recording, errors, a missing sample, an old-format project       |
+| note soft, mid, loud | `#5c5c5c`, `#a0a0a0`, `#f2f2f2`                                                                                         | notes on STEP by velocity: below 60, 60 to 99, 100 and up        |
+| sound colours 1–12   | `#e0607a` `#d9a441` `#b6c94a` `#5ec36b` `#3fc9b0` `#4fb8e6` `#6f8cf2` `#a27ef0` `#d173d6` `#e8e0c8` `#9ab0c0` `#c9a07e` | notes on ROLL; twelve hues of similar lightness, none orange     |
 
 **A sound's colour belongs to the sound, not the pad**: its pool number, cycling through the twelve,
 so Kick keeps its colour wherever it sits. On ROLL the selected sound's notes are its colour at
@@ -169,22 +169,28 @@ entries.
 
 ## The header
 
-One text row at the top of every screen, 13 px, with a 1 px line under it; 15 px in all. Accepted
-by the owner "for now", expected to change with testing.
+One text row at the top of every screen, 13 px, with a 1 px line under it; 15 px in all. Accepted by
+the owner "for now", expected to change with testing.
 
 - **Where you are**, at the left, items 6 px apart: the screen name in the accent (Step), the page
-  name after it where the screen has pages (Sound Filter), the track (T1), the sound (Snare; in
-  red when its sample is missing; while an empty pad is selected there is no sound to name, and
-  the pad's dim number stands in its place, as in STEP's names column **(my call)**), and the pad
-  mode (Pads, or Keys C4 with the octave).
-- **The transport**, pushed to the right edge, right to left: the pattern (P3; P3→4 while pattern
-  4 is queued), the bar the step buttons show over the pattern's length (2/4) with ▶1 for the bar
+  name after it where the screen has pages (Sound Filter), the track (T1), the sound (Snare; in red
+  when its sample is missing; while an empty pad is selected there is no sound to name, and the
+  pad's dim number stands in its place, as in STEP's names column **(my call)**), and the pad mode
+  (Pads, or Keys C4 with the octave). STEP and ROLL name the screen only, not the SOUND page their
+  strip shows.
+- **The transport**, pushed to the right edge, right to left: the pattern (P3; P3→4 while pattern 4
+  is queued), the bar the step buttons show over the pattern's length (2/4) with ▶1 for the bar
   playing, the tempo (120.0); then only while they apply: a record dot, dim while armed and red
   while recording; a small metronome icon while the metronome is on; "Mute 2 4" while tracks are
   muted.
 - **A message** replaces the transport group, in red for errors (Storage full. Not saved; Library
   full. Kick.wav not imported) and in the accent for notices (2 samples missing; Loading library),
-  until it is cleared.
+  until a later press of a button clears it **(owner's choice)**:
+  - The presses that clear it are the 22 function buttons, a step and an encoder push. The press
+    that caused the message does not count, and the clearing press still acts. Pads, MIDI notes,
+    turns and the volume do not clear it.
+  - A progress message stays while its work runs, then its result shows. A new message replaces the
+    shown one. Nothing times out.
 
 Rejected: every item spread evenly across the width (the groups get lost); a two-line header.
 
@@ -195,22 +201,21 @@ Rejected: every item spread evenly across the width (the groups get lost); a two
 
 ## The strip
 
-A 1 px line, then four cells of equal width (120, 120, 119, 119 px), each holding the parameter
-item its encoder holds, when it holds one: name at the left, value at the right, 3 px inside, the
-2 px bar under them; 19 px in all, at the bottom of every screen. An empty cell draws nothing, and
-where the encoders hold nothing (a list screen, a picker, a question) all four are empty; the line
-and the 19 px stay, so the main area never changes height **(owner's choice)**. The NOTE strip
-(Pitch, Velocity, Length, Position, with a range such as C3–E3 where the held notes differ) and
-the timing strip (Tempo, Grid, an empty cell for Swing, Quantize) are the same cells with other
-items.
+A 1 px line, then four cells of equal width (120, 120, 119, 119 px), each holding the parameter item
+its encoder holds, when it holds one: name at the left, value at the right, 3 px inside, the 2 px
+bar under them; 19 px in all, at the bottom of every screen. An empty cell draws nothing, and where
+the encoders hold nothing (a list screen, a picker, a question) all four are empty; the line and the
+19 px stay, so the main area never changes height **(owner's choice)**. The NOTE strip (Pitch,
+Velocity, Length, Position, with a range such as C3–E3 where the held notes differ) and the timing
+strip (Tempo, Grid, an empty cell for Swing, Quantize) are the same cells with other items.
 
 ![STEP while a step is held](./2026-11-07-groovebox-look/note-strip.png)
 ![STEP while TEMPO is held](./2026-11-07-groovebox-look/timing-strip.png)
 
 ## STEP
 
-**Scale** **(owner's choice)**: 8 px per sixteenth, so 3.5 pages of 16 are visible in 4/4. 12 and
-10 px were drawn and rejected.
+**Scale** **(owner's choice)**: 8 px per sixteenth, so 3.5 pages of 16 are visible in 4/4. 12 and 10
+px were drawn and rejected.
 
 **Lanes.** A compact list of 13 px rows with 1 px gaps (14 px pitch), top-aligned 2 px under the
 header's line; empty space below the lanes stays empty. The names column at the left: 3 px, the
@@ -219,10 +224,10 @@ around the word; an empty pad as its dim number; a copy lane dim ("= pad 1"); a 
 red. The grid is pushed to the right edge.
 
 **Pages of 16.** The screen draws the same pages the step buttons show: a bar shorter than 16
-sixteenths leaves dark cells after its end, a longer bar continues on a second page. 3/4 is 12
-cells and 4 dark; 7/8 is 14 and 2 dark; 5/4 is a full page, then 4 cells and 12 dark. Dark cells
-are filled faint. The page the step buttons show is tinted. Bar lines in the line grey, beat lines
-and page starts faint, faint separators between lanes, a brighter line above the extra lanes.
+sixteenths leaves dark cells after its end, a longer bar continues on a second page. 3/4 is 12 cells
+and 4 dark; 7/8 is 14 and 2 dark; 5/4 is a full page, then 4 cells and 12 dark. Dark cells are
+filled faint. The page the step buttons show is tinted. Bar lines in the line grey, beat lines and
+page starts faint, faint separators between lanes, a brighter line above the extra lanes.
 
 **Notes.** A light block 5 px wide in the 8 px cell, 1 px from the grid lines on both sides, 11 px
 tall in the 13 px row; three greys by velocity; a 2 px tail for the note's length; a chord's count
@@ -257,9 +262,9 @@ start as long as the note; drums sit on their root row.
 - **A picker** replaces the main area with a list of 13 px rows, the cursor an outline as
   everywhere, the strip empty since the encoders do nothing in a picker: the sound picker lists
   Empty, New sample, New synth, then the pool with each sound's engine, a missing sound in red; the
-  sample picker shows the folder and the library meter at the top (how full the library is, the
-  same number as on POOL and SAMPLES), then folders and files with length and size; every file can
-  be chosen.
+  sample picker shows the folder and the library meter at the top (how full the library is, the same
+  number as on POOL and SAMPLES), then folders and files with length and size; every file can be
+  chosen.
 - **A question** is a box with a 1 px outline in the middle of the main area: the question, its
   count, and what OK and Cancel do; the strip is empty while it is open.
 - **The NOTE panel** is a box over STEP with the cell's four values as parameter items, the cursor
@@ -276,14 +281,14 @@ start as long as the note; drums sit on their root row.
 
 **A page** is its items in one column at the left, 160 px wide with the cursor on one, as many as
 the page has, and a picture at the right where one helps; the strip repeats the items the encoders
-hold, which carry their encoder's number. Thirteen items fit under the header; a longer page
-scrolls like a picker: the cursor never leaves the screen, and the column moves one item when the
-cursor reaches its last fully visible item, while the picture stays put **(owner's choice)**. No
-part 1 page is longer than eight items. **Pictures are cheap and informative only**
-**(owner's choice)**: the Pad page shows the track's twelve pads as tiles with the selected pad in
-the accent; a sample page shows the waveform with the start and end marks; an envelope page shows
-the envelope's shape; a filter page shows the filter's curve with a faint line at the cutoff.
-Richer graphics come later.
+hold, which carry their encoder's number. Thirteen items fit under the header; a longer page scrolls
+like a picker: the cursor never leaves the screen, and the column moves one item when the cursor
+reaches its last fully visible item, while the picture stays put **(owner's choice)**. No part 1
+page is longer than eight items. **Pictures are cheap and informative only** **(owner's choice)**:
+the Pad page shows the track's twelve pads as tiles, each with the pad's number and its sound's
+name, an empty pad with its number only and the selected pad in the accent; a sample page shows the
+waveform with the start and end marks; an envelope page shows the envelope's shape; a filter page
+shows the filter's curve with a faint line at the cutoff. Richer graphics come later.
 
 - **SOUND**: the six pages Workflow A lists (Pad, the engine, Filter, Filter envelope, Volume
   envelope, Voice), each drawn this way, each a whole group: Filter is seven items, the sample
@@ -293,10 +298,11 @@ Richer graphics come later.
   pages with all of the effect's settings; an empty slot's page and strip are empty.
 - **MIX**: one page: the four track levels as items, a muted track named in red, then Master; the
   encoders hold the four track levels **(owner's choice)**.
-- **SETTINGS**: Velocity, Metronome, Metronome level, Count-in as items, all four on the encoders;
-  and a **Dev page** with library and note memory as items with bars, so the device itself has
-  them and the hardware later shows them in the same place; meters are not set, so the encoders
-  hold nothing there and the strip is empty **(owner's choice)**.
+- **SETTINGS**: a first page named **Playing** (header "Settings Playing", tile "1 Playing") with
+  Velocity, Metronome, Metronome level, Count-in as items, all four on the encoders **(owner's
+  choice)**; and a **Dev page** (tile "2 Dev") with library and note memory as items with bars, so
+  the device itself has them and the hardware later shows them in the same place; meters are not
+  set, so the encoders hold nothing there and the strip is empty **(owner's choice)**.
 - **POOL**: Remove unused first, then every sound with its engine, pads and its sample's size, a
   missing sound in red; the library meter as an item above the strip ("Library", "41.2 of 64 MB" and
   the 2 px bar), the same number as on SAMPLES and in the picker; the strip empty.
@@ -317,8 +323,7 @@ identical. CPU cost is tracked by instruction counts in fixed scenes in the test
 ![SOUND, Filter page](./2026-11-07-groovebox-look/sound-filter.png)
 ![SOUND, Volume envelope page](./2026-11-07-groovebox-look/sound-volume-envelope.png)
 ![FX, Chain page](./2026-11-07-groovebox-look/fx-chain.png)
-![MIX](./2026-11-07-groovebox-look/mix.png)
-![POOL](./2026-11-07-groovebox-look/pool.png)
+![MIX](./2026-11-07-groovebox-look/mix.png) ![POOL](./2026-11-07-groovebox-look/pool.png)
 ![PROJECT](./2026-11-07-groovebox-look/project.png)
 ![PATTERN, Patterns page](./2026-11-07-groovebox-look/pattern-patterns.png)
 ![SAMPLES](./2026-11-07-groovebox-look/samples.png)
@@ -334,8 +339,8 @@ the starting arrangement. 321 × 128 mm:
 - **Top right**: the four encoders in a row (25 mm pitch), which mirrors the strip's four cells;
   under them two rows of keys: T1, T2, T3, T4, PADS/KEYS; ROLL, MENU, PAGE, COPY, SHIFT.
 - **Bottom**: the 16 step buttons (15 mm pitch) over the 12 pads (20 mm pitch, 17 mm faces), with
-  the navigation cluster at their right end: −, ▲, +, OK over ◀, ▼, ▶, CANCEL (15 × 20 mm keys),
-  OK above CANCEL so that CANCEL + pad is a one-hand gesture for the right-hand pads.
+  the navigation cluster at their right end: −, ▲, +, OK over ◀, ▼, ▶, CANCEL (15 × 20 mm keys), OK
+  above CANCEL so that CANCEL + pad is a one-hand gesture for the right-hand pads.
 - **No STEP button**: STEP is MENU + 1 only. ROLL keeps its button. 22 function buttons, the four
   encoders with push switches, the volume encoder, 16 steps and 12 pads.
 
@@ -352,20 +357,22 @@ and OP-XY.
 
 **(owner's choice)** Single colour, on or off. Dimming is used only if the hardware gives it for
 free, so nothing may depend on it. The EP-133 lights only its pads and group keys and shows
-everything else on its display; this device does the same, lighting only what the screen cannot
-show while the eyes are on the hands.
+everything else on its display; this device does the same, lighting only what the screen cannot show
+while the eyes are on the hands.
 
-| Light             | On                                                                                                   |
-| ----------------- | ---------------------------------------------------------------------------------------------------- |
-| T1–T4             | the selected track; a muted track blinks slowly                                                      |
-| REC               | blinking while armed, lit while recording                                                            |
-| PLAY              | while playing                                                                                        |
-| TEMPO             | while the metronome is on                                                                            |
-| ROLL              | while ROLL is the screen                                                                             |
-| PADS/KEYS         | in Keys mode                                                                                         |
-| Step buttons      | where the selected sound has a note in the shown page; the step under the music flipped for its sixteenth; steps past a short bar's end off. SHIFT held: patterns 1–16, lit with notes, the playing one lit, the queued one blinking. MENU or PAGE held: the screens or pages that exist |
-| Pads              | the selected pad; a pad flashes while its sound plays, from a hit or the sequencer. Keys mode: pad 1 (C); a key flashes while it sounds. CANCEL or COPY held: the pads that would be erased or copied blink |
-| Everything else   | no light: STOP, SHIFT, MENU, PAGE, COPY, the arrows, OK, CANCEL, − and +                              |
+| Light           | On                                                                                                                                                                                                                                                                                       |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| T1–T4           | the selected track; a muted track blinks slowly                                                                                                                                                                                                                                          |
+| REC             | blinking while armed, lit while recording                                                                                                                                                                                                                                                |
+| PLAY            | while playing                                                                                                                                                                                                                                                                            |
+| TEMPO           | while the metronome is on                                                                                                                                                                                                                                                                |
+| ROLL            | while ROLL is the screen                                                                                                                                                                                                                                                                 |
+| PADS/KEYS       | in Keys mode                                                                                                                                                                                                                                                                             |
+| Step buttons    | where the selected sound has a note in the shown page; the step under the music flipped for its sixteenth; steps past a short bar's end off. SHIFT held: patterns 1–16, lit with notes, the playing one lit, the queued one blinking. MENU or PAGE held: the screens or pages that exist |
+| Pads            | the selected pad (pad 1, the C, in Keys mode); a pad is also lit while one of its notes is on: from a hit to its release and from a sequencer note's start to its end. CANCEL or COPY held: the pads that would be erased or copied blink                                                |
+| Everything else | no light: STOP, SHIFT, MENU, PAGE, COPY, the arrows, OK, CANCEL, − and +                                                                                                                                                                                                                 |
+
+A lit pad does not blink, and the control part works the pad lights out **(owner's choice)**.
 
 With dimming, pads with a sound are dim and the selected one bright, and the five black-key
 positions are dimmer in Keys mode.
@@ -373,22 +380,58 @@ positions are dimmer in Keys mode.
 ## The browser shell
 
 The shell shows the screen and the panel and turns input into the abstract controls Foundation
-defines: presses, releases, encoder turns and pad hits with the audio clock's time stamp. The core
-decides taps and holds; the shell never does. **(my call)** throughout:
+defines: presses, releases, encoder turns, pad hits and MIDI notes with the audio clock's time
+stamp. The core decides taps and holds; the shell never does.
 
-- **Mouse.** Clicking a drawn key presses it, releasing lets go, so holding the mouse button holds
-  the key. Clicking a pad hits it at full velocity. On an encoder, dragging up or down turns it one
-  click per few pixels, and the wheel one click per notch; no acceleration. A mouse cannot hold one
+- **The panel (owner's choice).** It is drawn in true proportions: one screen pixel is 0.198 mm, so
+  the panel is 1,622 × 647 screen pixels. The whole panel has one whole zoom, the largest that fits
+  the window; below zoom 1 the page scrolls.
+- **Starting sound (owner's choice).** A browser is silent until the first click or key, so the line
+  beside the screen says "Click to start" until then.
+- **Mouse (owner's choice).** Clicking a drawn key presses it, releasing lets go, so holding the
+  mouse button holds the key. A pad or a key on the panel is held from mouse down to mouse up,
+  wherever the pointer goes. A pad is hit at velocity 127 with no pressure. A mouse cannot hold one
   key and press another, so every two-key combination needs the keyboard for the held key.
-- **Computer keyboard.** The pads on Z to /, the steps on 1 to 8 and Q to I, the arrows on the
-  arrow keys, Enter for OK, Escape for CANCEL, − and + on their keys, Space for PLAY, the rest on
-  letters; all in code and expected to change. Key repeat is ignored, so a held key is one press.
-  Every combination works, since keys can be held together.
-- **USB MIDI.** Notes play the pads with the hit's velocity: one octave maps to the twelve pads,
-  and in Keys mode the note's octave shifts the pads. Channel aftertouch becomes the pressure of
-  every held pad, polyphonic aftertouch of its own pad. Four controller numbers turn the four
-  encoders, relative or absolute, converted to whole clicks; one more sets the volume. Nothing else
-  is mapped in part 1.
+- **Encoders by mouse (owner's choice).** The pointer is captured while the button is down. Each 4
+  CSS px up from the press point is one click right and each 4 px down one click left; there is no
+  acceleration. A release after less than 4 px and no click is a push: a press and a release at the
+  release's moment. The volume knob has no push. The wheel adds up: 100 px of pixel delta or 3 lines
+  is one click.
+- **Touch (owner's choice).** Pointer Events are tracked per `pointerId`, so each finger is its own
+  pointer, and the panel has `touch-action: none`. Nothing else is touch-specific.
+- **Computer keyboard (owner's choice).** Keys are mapped by position (`KeyboardEvent.code`), all in
+  code and expected to change:
+  - pads on Z S X D C V G B H N J M, from C to B, at velocity 127 with no pressure, held from key
+    down to key up;
+  - steps on 1–8 and Q–I;
+  - T1–T4 on O, P, `[` and `]`, and PADS/KEYS on `\`;
+  - ROLL on K, MENU on L, PAGE on `;`, COPY on `'` and SHIFT on either Shift key;
+  - PLAY on Space, REC on `,`, STOP on `.` and TEMPO on `/`;
+  - OK on Enter; CANCEL on Escape; − and + on the − and = keys and on the numpad's − and +; the
+    arrows on the arrow keys;
+  - no encoder keys. Free: A, F, 9, 0, the backtick and Tab.
+
+  A key with Ctrl, Alt or Meta held is ignored, and only mapped keys lose their browser default. Key
+  repeat is ignored, so a held key is one press. Every combination works, since keys can be held
+  together.
+
+- **USB MIDI (owner's choice).** Every input on every channel is used, including devices plugged in
+  later. Notes reach the core as notes with the hit's velocity, and the core maps them by the pad
+  mode (Foundation); a note-on with velocity 0 is a note-off. Channel aftertouch becomes the
+  pressure of every held pad, polyphonic aftertouch of its own pad. CC 20–23 turn encoders 1–4 and
+  CC 7 sets the volume. A constant per number in the shell sets whether it is absolute, the default,
+  or relative. Relative: 1–63 turn up and 65–127 turn down by 128 − value. Absolute: the difference
+  from the last value is that many clicks, and the first value only sets the reference. MIDI is
+  asked for at the "Click to start" gesture; if it is refused, the line beside the screen says "MIDI
+  not allowed". Nothing else is mapped in part 1.
+- **Losing focus (owner's choice).** On `blur` or when the page is hidden, the shell sends an
+  ordinary release for every control that a key or a pointer holds: a drag ends and sends no push.
+  MIDI notes stay.
+- **One control, several sources.** The shell sends one press when the first source, a key or a
+  pointer, takes a control and one release when the last lets go, so the core sees one physical
+  control.
+- **Save picture (owner's choice).** A "Save picture" button beside "Save session" saves the shown
+  frame through the core's palette at 4× (1,920 × 1,088) as `screen-<audio sample>.png`.
 - **Files.** Dropping WAV files or a folder onto the page hands them to the core, which imports them
   into the library as the Project model says; the header shows "Importing 3 files" and then the
   result: "3 files imported", or in red "2 files imported, 1 not: library full"; a single file is
@@ -400,10 +443,10 @@ decides taps and holds; the shell never does. **(my call)** throughout:
 ## The screen gallery and the drift frames
 
 The gallery (Foundation) shows every screen in fixed states. Its first states are the 27 screens in
-`2026-11-07-groovebox-look/`: STEP playing, stopped, queued in Keys mode, with a message, in 7/8
-and in 5/4; ROLL; SOUND's Pad, Sample, Filter and Volume envelope pages; FX Chain; MIX; POOL;
-PROJECT; PATTERN's Patterns page; SAMPLES; MENU held; PAGE held; the sound and sample pickers; a
-question; the NOTE panel; the NOTE strip; the timing strip; the palette; the font test. The first
+`2026-11-07-groovebox-look/`: STEP playing, stopped, queued in Keys mode, with a message, in 7/8 and
+in 5/4; ROLL; SOUND's Pad, Sample, Filter and Volume envelope pages; FX Chain; MIX; POOL; PROJECT;
+PATTERN's Patterns page; SAMPLES; MENU held; PAGE held; the sound and sample pickers; a question;
+the NOTE panel; the NOTE strip; the timing strip; the palette; the font test. The first
 implementation of each screen is compared against its picture by eye, and the drift tests' expected
 frames are first recorded from the implementation that matches.
 
@@ -411,12 +454,12 @@ frames are first recorded from the implementation that matches.
 
 On top of the other specs' testing:
 
-- **Ordinary tests**: the layout rules as pure functions (text rows 13 px, items 17 px, the cursor
-  1 px outside, 2 px container padding, 1 px elsewhere); shortening with "…"; the header's content
-  per state; the library meter showing the same number on POOL, SAMPLES and in the sample picker;
-  the strip's cells, empty on lists, in pickers and in questions; the encoder marks on a page; a
-  page's scrolling; STEP's page arithmetic in 4/4, 3/4, 7/8 and 5/4; ROLL's rows; the palette's
-  entries; the keyboard and MIDI maps; tap-and-hold forwarding.
+- **Ordinary tests**: the layout rules as pure functions (text rows 13 px, items 17 px, the cursor 1
+  px outside, 2 px container padding, 1 px elsewhere); shortening with "…"; the header's content per
+  state; the library meter showing the same number on POOL, SAMPLES and in the sample picker; the
+  strip's cells, empty on lists, in pickers and in questions; the encoder marks on a page; a page's
+  scrolling; STEP's page arithmetic in 4/4, 3/4, 7/8 and 5/4; ROLL's rows; the palette's entries;
+  the keyboard and MIDI maps; tap-and-hold forwarding.
 - **Drift scenes**: every gallery state captured as a frame.
 - **The gallery** itself, with the PNGs beside it.
 
@@ -439,8 +482,8 @@ below, the target spec's current text holds.
   glyphs; the colour palette is code, as decided.
 - **Workflow A**: STEP has no button and is MENU + 1; the header names the page after the screen;
   pickers show their highlight as the cursor outline; "Sound 4" style page numbers become page
-  names, and with pages as whole groups there is no "Filter 1" and "Filter 2", only Filter;
-  SETTINGS gains the Dev page.
+  names, and with pages as whole groups there is no "Filter 1" and "Filter 2", only Filter; SETTINGS
+  gains the Dev page.
 - **Workflow B**: "pressing STEP while on STEP follows again" becomes "pressing PLAY while playing
   follows again" **(owner's choice)**; the screen draws the pages of 16 exactly as the step buttons
   show them, confirmed; the header's layout as above.

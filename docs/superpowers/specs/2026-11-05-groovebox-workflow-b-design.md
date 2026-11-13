@@ -727,9 +727,12 @@ A new **COPY** button **(owner's choice)** makes 22 function buttons, since ther
 - Acting on release also makes holding work cleanly: holding an empty step and hitting pads or keys
   adds exactly what was hit, without the selected sound first.
 - **How long a press must last to count as a hold, the delay before a held arrow starts to repeat
-  and how fast it then repeats** are one fixed value each, tuned by hand during the build and kept
-  as named constants counted in samples of the audio clock, which stamps every press and release
-  (Foundation). No numbers are set now.
+  and how fast it then repeats** are one fixed value each, kept as named constants counted in
+  samples of the audio clock, which stamps every press and release (Foundation) **(owner's
+  choice)**: `HOLD` is 14,400 samples (300 ms), `REPEAT_DELAY` 19,200 (400 ms) and `REPEAT_EVERY`
+  2,400 (50 ms). They are tuned by hand during the build.
+  - The arrows and − and + share them.
+  - Each repeat reads SHIFT at its own moment.
 
 Rejected: every button acting when you let go. Transport and mutes would come late by however long
 the button is held, and holding could no longer repeat.

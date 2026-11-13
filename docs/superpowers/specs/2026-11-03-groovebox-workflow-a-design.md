@@ -162,6 +162,12 @@ Where the controls sit on the panel is the Look spec's job.
 - **The cursor.** Every screen has one. The arrows move it over everything on the screen:
   parameters, actions, effect slots and list entries. Holding an arrow repeats it; the core times
   the repeats, so replays match.
+- **How the cursor moves (owner's choice).** Up and down move it one item and stop at the ends. Left
+  and right do nothing on a page of one column and move along a row of tiles. In a picker, up, down,
+  − and + move one row, and left and right move one picker page of 16 rows, stopping at the ends.
+  SHIFT + the arrows do nothing outside STEP and ROLL.
+- **Each page remembers its cursor (owner's choice)** until the project closes; it is not saved. An
+  item that vanishes moves the cursor to the nearest item above it, where it stays.
 - **OK** uses the item under the cursor: it opens the item's picker, flips a switch, runs an action
   or chooses a list entry.
 - **CANCEL** backs out: it closes a picker, goes up a folder or answers "no" to a question. On STEP
@@ -250,11 +256,15 @@ TEMPO is held its timing strip; their screen routes are the NOTE panel and PATTE
 - **Turning moves in fixed steps (owner's choice).** Counted values (semitones, choke groups, named
   choices) move one unit per click. Smooth values move by the parameter's click size, a new field in
   Foundation's master-list entry: 128 clicks across the range by default, tuned by ear per
-  parameter. Values stop at the ends of their range and never wrap round.
-- **SHIFT + turn (owner's choice)** moves smooth values 16 times finer. Counted values still move
-  one unit.
+  parameter. A smooth entry's click size must divide by 16, which the core checks when it is built.
+  Values stop at the ends of their range and never wrap round.
+- **SHIFT + turn (owner's choice)** moves smooth values 16 times finer: a fine click is a sixteenth
+  of the click size. Counted values still move one unit. The volume encoder ignores SHIFT.
 - **Press is OK on the encoder's item (owner's choice).** It opens the item's picker, flips a switch
   or runs an action such as COPY. On a smooth parameter it does nothing.
+- **On STEP and ROLL the encoders act in full (owner's choice).** A turn changes the value and moves
+  the remembered cursor of SOUND's page to the item, and STEP's own cursor stays. A press is OK on
+  the item, so a picker opens over STEP's main area and COPY runs.
 - **− and +** move a value by the same steps as one click.
 - There is no acceleration, so the same turn always changes a value by the same amount, and nothing
   depends on how fast the encoder was turned.
@@ -308,8 +318,16 @@ edited another pad's sound.
 - **A pool sound** chosen in the picker goes on the pad as the same sound, shared with every other
   pad that uses it.
 - **EMPTY** clears the pad.
-- **Names are automatic (owner's choice):** a sample sound takes the file's name, synth sounds are
-  SYN 1, SYN 2 and so on, and a copy takes the next number (KICK 2). Typing names comes later.
+- **The pool holds 1,024 sounds per project (owner's choice),** in working memory (Foundation's
+  budget profile). When it is full, NEW SYNTH and COPY change nothing: the picker closes as on any
+  choice, no sound number is used up (Project model) and the header shows "Pool full" in red.
+- **Names are automatic (owner's choice).** A name is a base plus a number. The base of a synth is
+  "Syn"; the base of a sample is the file's name without ".wav"; a trailing space and digits count
+  as the number. A synth always carries a number (Syn 1), the first sound of a file none (Kick).
+  Every later sound of a base, a copy included, takes the highest number of that base in the pool,
+  plus one, and an unnumbered name counts as 1 (a copy of Kick is Kick 2). The base is shortened at
+  a character boundary so that the name fits 64 bytes. Nothing extra is stored. Typing names comes
+  later.
 
 ### Two ways to change what a pad plays
 
@@ -509,11 +527,32 @@ The starting bindings, written in code (Foundation) and expected to change:
 | REC, PLAY, STOP, TEMPO      | Workflow B's                                                                                                    |
 
 Workflow B uses SHIFT + left or right to jump a bar, SHIFT + CANCEL to undo, SHIFT + step to switch
-patterns and SHIFT + COPY to paste. SHIFT + OK, SHIFT + pad and SHIFT + encoder press stay free.
+patterns and SHIFT + COPY to paste. SHIFT + OK, SHIFT + pad and SHIFT + encoder press stay free:
+SHIFT + OK and SHIFT + an encoder press do nothing, and a pad hit with SHIFT held plays like any
+other, since pads always play (Workflow B).
 
 A button that also does something while held acts as a tap only when you let go, and only if the
 press was short and no other control was used meanwhile: CANCEL, COPY, TEMPO, PADS/KEYS and the step
 buttons (Workflow B).
+
+**When a combination acts (owner's choice).**
+
+- A combination acts when its second control goes down. That control's release does nothing.
+- Letting go of the modifier only ends it: MENU and PAGE hide their tiles, PADS/KEYS does not switch
+  the mode and SHIFT does nothing.
+- The combination repeats while the modifier stays down. An arrow under PADS/KEYS does not repeat.
+- PADS/KEYS + up or down in PADS mode does nothing, but still counts as another control used.
+
+**Other controls under MENU or PAGE (owner's choice).**
+
+- Steps switch to their screen or page. A dark step does nothing, and neither does its release.
+- Pads play and select. T1–T4, SHIFT + T1–T4, PLAY, STOP, REC, TEMPO and the volume act as usual.
+- The arrows, OK, CANCEL, − and +, encoders 1–4 (turn and push), ROLL, PADS/KEYS and COPY are
+  dropped, press and release alike.
+- Of MENU and PAGE the first one pressed counts; the other works only after its own release and a
+  new press.
+- A screen without pages shows 16 empty tiles under PAGE with no step lit, and every step does
+  nothing. A screen with one page shows one tile.
 
 While a picker or a question is open, only the arrows, OK, CANCEL, − and +, the pads, PLAY, STOP,
 REC, SHIFT + T1–T4 and the volume encoder do anything, and the pads do not select; see "Pickers and

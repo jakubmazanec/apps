@@ -135,10 +135,16 @@ milestone **(decided)**. What each milestone contains is **(my call)**:
 
 1. **Make a sound:** a synth sound played on the pads in KEYS mode, its pages with the cursor, the
    encoders on the items they hold, the header and the strip, the panel drawn from code, mouse,
-   keyboard and MIDI input.
-2. **Samples and the pool:** storage and file drop, the library loaded into RAM at start-up, the
-   sample engine, the sample preview, the sound list and creating sounds, track selection, pad
-   mappings, PADS mode.
+   keyboard and MIDI input. Three plans build it:
+   - the foundation;
+   - screens and pads: every control on the mouse, the keyboard and MIDI, the pool in memory,
+     creating and copying synth sounds from the PAD page, track selection, pad mappings, PADS and
+     KEYS modes, the octave and the screens STEP, SOUND and SETTINGS with MENU and PAGE;
+   - Sound: the synth engine, the shared voice chain and SOUND's pages with the encoders on their
+     items.
+2. **Samples and POOL:** storage and file drop, the library loaded into RAM at start-up, the sample
+   engine and the sample preview, NEW SAMPLE and the sample picker, the ENGINE item, POOL and
+   SAMPLES.
 3. **A looping pattern:** transport, tempo and the metronome, time signatures and length, the
    PATTERN screen's TIMING and BARS pages, step entry and the NOTE strip, the STEP view, track level
    and mute, track effects.
@@ -450,7 +456,7 @@ Spec: [Look and panel](./2026-11-07-groovebox-look-design.md). In short:
 
 The consistency pass of 2026-11-10 found the points below stated by no spec. None contradicts a
 spec. Each carries a proposed reading that is not yet approved; the plan that reaches a point
-settles it with the owner. One needs a real decision: the MIDI note mapping under "Browser shell".
+settles it with the owner.
 
 ### On the device
 
@@ -458,34 +464,16 @@ settles it with the owner. One needs a real decision: the MIDI note mapping unde
   end the preview? Proposed: no; a second STOP silences it.
 - **SHIFT + PLAY in a picker or question.** PLAY works there and "every other combination" waits;
   SHIFT + PLAY is named in neither. Proposed: it waits.
-- **When a combination acts.** Steps, CANCEL and COPY act when let go; MENU, PAGE and SHIFT are in
-  neither list. Proposed: a combination acts when its second control goes down.
-- **Two hold buttons at once.** Such as CANCEL and COPY held, then a pad. Proposed: the one pressed
-  first counts; the other is ignored until both are let go.
+- **Two hold buttons at once.** CANCEL and COPY held, then a pad. Proposed: the one pressed first
+  counts; the other is ignored until both are let go.
 - **CANCEL or COPY held + a step button.** No meaning is given. Proposed: nothing happens and the
   step's own tap does not fire.
-- **MENU or PAGE held with other controls.** Do the arrows, OK, − and +, the encoders and the pads
-  act on the covered screen? Proposed: pads, keys and transport work; the rest waits.
-- **MENU or PAGE held + a dark step.** A step with no screen or page; what PAGE held shows on MIX
-  (one page) and the lists (none). Proposed: the press does nothing; the display: none yet.
-- **SHIFT + arrows outside STEP and ROLL.** Unsaid for pages, lists, pickers and the NOTE panel.
-  Proposed: they do nothing, so the combination stays free.
-- **An encoder whose item is not on the screen.** Under STEP and ROLL, or with TEMPO or a step held,
-  the cursor cannot move to the item. Proposed: the value changes; the cursor stays.
 - **The CANCEL + pad question.** When it appears and what letting go of CANCEL does. Proposed: it
   appears on the hit and waits for OK or a new tap of CANCEL; no notes, no question.
-- **Held − and +.** The repeat delay and rate are named for the arrows only. Proposed: − and + use
-  the same two constants.
 - **REC during the count-in.** What the light and the header dot do. Proposed: the light blinks and
   the dot stays dim through the count-in; steady and red from the first beat.
 - **Blink speeds.** "Blinks slowly" and "blinking" have no rate: one speed or two, in time with the
   tempo or not. Proposed: named constants counted in samples; the speeds: none yet.
-- **How long a header message stays.** Nothing says what clears it. Proposed: a progress message
-  stays while the work runs, any other until the next button press; none times out.
-- **The header on STEP and ROLL.** Does it name the SOUND page the strip shows? Proposed: no, the
-  screen's name alone.
-- **Pad tiles on the Pad page.** What a tile shows. Proposed: the pad's number only; faint when
-  empty, orange when selected, none orange for a sound selected on POOL.
 - **An empty pad selected.** How Look draws its Pad page; whether its lane is highlighted on STEP;
   what OK does and where the view opens on ROLL. Proposed: none yet.
 - **DELETE for an unused sound.** What the question reads when no pad or note uses the sound.
@@ -505,8 +493,6 @@ settles it with the owner. One needs a real decision: the MIDI note mapping unde
   4, 8, 16, 32 and 64 bars; a note from one fine step (30 ticks) to the pattern's length.
 - **Counted or smooth.** Unmarked for velocity, cents, milliseconds and levels. Proposed: counted
   where people count the unit; note PITCH and VELOCITY move one per click, with SHIFT too.
-- **Fine clicks.** A click size that does not divide by 16, and SHIFT on the volume encoder.
-  Proposed: divide, round down, never under 1; the volume encoder ignores SHIFT.
 - **Tuning a range in part 1.** New ID, new format version or just the number? Proposed: just the
   number; the ID and version stay and saved values are held within the new range.
 
@@ -542,35 +528,11 @@ settles it with the owner. One needs a real decision: the MIDI note mapping unde
   of the audio clock, as the hold and repeat times do.
 - **What the audio part reports.** Foundation lists the playhead and meters; no screen has a meter.
   Proposed: the playhead, "message N applied at sample S", "sample let go" and the browser wake-up.
-- **Pad lights.** Reported by the audio part or worked out by the control part? Proposed: worked
-  out, from the control part's own transport model.
 - **Edit lead.** No number, and not in Foundation's spike list. Proposed: provisionally 1,024
   samples, set just above the longest delay the spike measures.
 - **Numbers not yet set.** The version queue's size, the reserve for versions in flight and the
   operation count. Proposed: none yet.
-- **Fixed table sizes.** How many sounds, library files, projects and queue entries; the message
-  when one is full. Proposed: none yet; each is a budget-profile entry.
+- **Fixed table sizes.** How many library files, projects and queue entries; the message when one is
+  full. Proposed: none yet; each is a budget-profile entry.
 - **Effect memory and note pool.** Sound's "large memory class" is not one of Foundation's two
   kinds. Proposed: both sit beside the sample RAM, each with its own budget number.
-- **Master-list entry.** With notes as plain data, do "step or note" and "can be locked per step"
-  stay as room for later? Proposed: none yet.
-
-### Browser shell
-
-- **MIDI note mapping and the octave.** Look's sentence reads three ways. Proposed: in Pads mode
-  every C is pad 1; in Keys mode a note plays its own pitch and the octave moves only the pads; the
-  core gains a note input. Or: the octave follows the note, or all octaves fold onto the pads.
-- **Touch.** Not mentioned. Proposed: not supported in part 1; a finger does only what the browser
-  passes on as a mouse click.
-- **Letting a pad go.** Only the hit is stated for the mouse and keys. Proposed: the pad is held
-  until the mouse button or key comes up; no pressure.
-- **Computer keys.** "Z to /" is ten keys for twelve pads, and "the rest on letters" does not fit.
-  Proposed: keys by position; pads in piano order (Z S X D C V G B H N J M); no encoder keys.
-- **Encoders by mouse.** No push, direction or pixel count. Proposed: a click without a drag is a
-  push; dragging up turns right; 8 pixels per click.
-- **Starting sound.** A browser is silent until the first click or key. Proposed: the panel shows
-  "Click to start" until then; MIDI is asked for at that moment.
-- **Losing focus.** A key or pad held while you switch windows sticks. Proposed: every held key, pad
-  and button is let go.
-- **MIDI knobs.** Which five controller numbers; how a 0 to 127 knob becomes clicks. Proposed: each
-  change of position is that many clicks; the numbers: none yet.
