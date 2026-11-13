@@ -79,30 +79,7 @@ mod tests {
     use super::*;
     use crate::palette::TEXT;
     use crate::screen::Screen;
-    use std::string::String;
-    use std::vec::Vec;
-
-    fn picture(
-        screen: &Screen,
-        columns: core::ops::RangeInclusive<usize>,
-        rows: core::ops::RangeInclusive<usize>,
-    ) -> Vec<String> {
-        rows.map(|y| {
-            columns
-                .clone()
-                .map(|x| if screen.pixel(x, y) == TEXT { '#' } else { '.' })
-                .collect()
-        })
-        .collect()
-    }
-
-    fn ink(screen: &Screen) -> usize {
-        screen
-            .pixels()
-            .iter()
-            .filter(|&&pixel| pixel == TEXT.0)
-            .count()
-    }
+    use crate::ui::test_pixels::{ink, picture};
 
     #[test]
     fn text_width_is_six_per_character_minus_one() {
@@ -119,13 +96,13 @@ mod tests {
         draw(&mut screen, 4, 1, "H", TEXT);
 
         assert_eq!(
-            picture(&screen, 3..=9, 3..=11),
+            picture(&screen, 3..=9, 3..=11, TEXT),
             [
                 ".......", ".#...#.", ".#...#.", ".#...#.", ".#####.", ".#...#.", ".#...#.",
                 ".#...#.", ".......",
             ]
         );
-        assert_eq!(ink(&screen), 17);
+        assert_eq!(ink(&screen, TEXT), 17);
     }
 
     #[test]
@@ -134,8 +111,8 @@ mod tests {
 
         draw(&mut screen, 0, 0, "HH", TEXT);
 
-        assert_eq!(picture(&screen, 0..=10, 4..=4), ["#...#.#...#"]);
-        assert_eq!(ink(&screen), 34);
+        assert_eq!(picture(&screen, 0..=10, 4..=4, TEXT), ["#...#.#...#"]);
+        assert_eq!(ink(&screen, TEXT), 34);
     }
 
     #[test]
@@ -144,7 +121,7 @@ mod tests {
 
         draw_right(&mut screen, 20, 0, "HH", TEXT);
 
-        assert_eq!(picture(&screen, 8..=21, 4..=4), ["..#...#.#...#."]);
+        assert_eq!(picture(&screen, 8..=21, 4..=4, TEXT), ["..#...#.#...#."]);
     }
 
     #[test]
@@ -219,6 +196,6 @@ mod tests {
         draw(&mut whole, 3, 2, "Kic…", TEXT);
 
         assert_eq!(fitted.pixels(), whole.pixels());
-        assert!(ink(&fitted) > 0);
+        assert!(ink(&fitted, TEXT) > 0);
     }
 }
