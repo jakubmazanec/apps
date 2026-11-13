@@ -17,6 +17,7 @@ pub mod input;
 pub mod label;
 pub mod message;
 pub mod palette;
+pub mod param;
 pub mod queue;
 pub mod ring;
 pub mod screen;
