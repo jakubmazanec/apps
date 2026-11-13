@@ -48,6 +48,8 @@ pub struct Entry {
     pub unit: Unit,
     /// How far one encoder click moves a smooth value; 0 for a counted value.
     pub click: u32,
+    /// The choices of a named list; empty for an entry that is not a list.
+    pub choices: &'static [Choice],
     /// The samples a change glides over; 0 means it changes exactly at T.
     pub glide: u32,
     pub modulated: bool,
@@ -56,7 +58,7 @@ pub struct Entry {
 pub const VELOCITY: Entry = Entry {
     id: ParamId(1),
     name: "Velocity",
-    short: "Vel",
+    short: "Velocity",
     scope: Scope::Device,
     low: 0,
     high: 1,
@@ -64,6 +66,7 @@ pub const VELOCITY: Entry = Entry {
     curve: Curve::Switch,
     unit: Unit::None,
     click: 0,
+    choices: &[],
     glide: 0,
     modulated: false,
 };
@@ -167,6 +170,7 @@ mod tests {
         curve: Curve::Switch,
         unit: Unit::None,
         click: 512,
+        choices: &[],
         glide: 0,
         modulated: false,
     };
