@@ -133,6 +133,50 @@ pub fn entry(id: ParamId) -> &'static Entry {
         .expect("every ID in use is on the master list")
 }
 
+/// Whether two scopes are the same. `PartialEq` cannot be used in a constant.
+const fn same(first: Scope, second: Scope) -> bool {
+    first as u8 == second as u8
+}
+
+/// How many entries lie in `scope`. A scope's values are kept in arrays of this length, in list
+/// order, so an entry added to the list gets its place without any other change.
+pub const fn count(entries: &[Entry], scope: Scope) -> usize {
+    let mut count = 0;
+    let mut index = 0;
+    while index < entries.len() {
+        if same(entries[index].scope, scope) {
+            count += 1;
+        }
+        index += 1;
+    }
+    count
+}
+
+/// The defaults of the entries in `scope`, in list order. `N` must be `count(entries, scope)`.
+pub const fn defaults<const N: usize>(entries: &[Entry], scope: Scope) -> [i32; N] {
+    let mut defaults = [0; N];
+    let mut filled = 0;
+    let mut index = 0;
+    while index < entries.len() {
+        if same(entries[index].scope, scope) {
+            defaults[filled] = entries[index].default;
+            filled += 1;
+        }
+        index += 1;
+    }
+    assert!(filled == N, "N is not the number of entries in the scope");
+    defaults
+}
+
+/// The place of the entry `id` among the entries in `scope`, in list order; none when the list
+/// has no such entry.
+pub fn position(entries: &[Entry], scope: Scope, id: ParamId) -> Option<usize> {
+    entries
+        .iter()
+        .filter(|entry| entry.scope == scope)
+        .position(|entry| entry.id == id)
+}
+
 /// The value after `clicks` encoder clicks (negative is down): a counted value moves 1 per click
 /// and a smooth one by its click, or a sixteenth of it when `fine`. It stops at the ends.
 pub fn moved(entry: &Entry, value: i32, clicks: i32, fine: bool) -> i32 {
@@ -187,6 +231,60 @@ mod tests {
         assert_eq!(VELOCITY.scope, Scope::Device);
         assert_eq!(VELOCITY.default, 1);
         assert_eq!(entry(ParamId(1)).name, "Velocity");
+    }
+
+    /// Entries of every scope, two of them in `Sound`, with defaults that tell them apart.
+    const MIXED: [Entry; 4] = [
+        VELOCITY,
+        Entry {
+            id: ParamId(1000),
+            default: 11,
+            high: 20,
+            scope: Scope::Sound,
+            ..VELOCITY
+        },
+        Entry {
+            id: ParamId(200),
+            default: 0,
+            scope: Scope::Track,
+            ..VELOCITY
+        },
+        Entry {
+            id: ParamId(1001),
+            default: 7,
+            high: 20,
+            scope: Scope::Sound,
+            ..VELOCITY
+        },
+    ];
+
+    #[test]
+    fn a_scope_counts_its_entries_and_lists_their_defaults_in_list_order() {
+        const SOUND: [i32; 2] = defaults(&MIXED, Scope::Sound);
+
+        assert_eq!(count(&MIXED, Scope::Sound), 2);
+        assert_eq!(count(&MIXED, Scope::Device), 1);
+        assert_eq!(count(&MIXED, Scope::Track), 1);
+        assert_eq!(count(&MIXED, Scope::Project), 0);
+        assert_eq!(SOUND, [11, 7]);
+        assert_eq!(defaults::<0>(&MIXED, Scope::Project), []);
+        assert_eq!(count(ENTRIES, Scope::Device), 1);
+        assert_eq!(defaults::<1>(ENTRIES, Scope::Device), [1]);
+    }
+
+    #[test]
+    #[should_panic(expected = "N is not the number of entries in the scope")]
+    fn defaults_refuse_a_length_that_is_not_the_count() {
+        let _ = defaults::<1>(&MIXED, Scope::Project);
+    }
+
+    #[test]
+    fn an_entry_is_found_by_its_place_in_its_scope() {
+        assert_eq!(position(&MIXED, Scope::Sound, ParamId(1000)), Some(0));
+        assert_eq!(position(&MIXED, Scope::Sound, ParamId(1001)), Some(1));
+        assert_eq!(position(&MIXED, Scope::Device, ParamId(1)), Some(0));
+        assert_eq!(position(&MIXED, Scope::Track, ParamId(1001)), None);
+        assert_eq!(position(&MIXED, Scope::Sound, ParamId(7)), None);
     }
 
     #[test]
