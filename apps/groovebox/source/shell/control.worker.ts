@@ -2,6 +2,7 @@
 import {drainPending} from './pending.js';
 import {
   type CoreAddresses,
+  coreArguments,
   type StampedInput,
   type WorkerReply,
   type WorkerRequest,
@@ -17,6 +18,7 @@ type ControlExports = {
   screen_pointer: (index: number) => number;
   front_pointer: () => number;
   palette_pointer: () => number;
+  lights_pointer: () => number;
   position_pointer: () => number;
   wake_pointer: () => number;
   audio_stack_top: () => number;
@@ -39,6 +41,7 @@ globalThis.addEventListener(
         front: core.front_pointer(),
         screens: [core.screen_pointer(0), core.screen_pointer(1)],
         palette: core.palette_pointer(),
+        lights: core.lights_pointer(),
       };
       let wake = new Int32Array(memory.buffer, addresses.wake, 1);
       let position = new BigUint64Array(memory.buffer, addresses.position, 1);
@@ -46,12 +49,7 @@ globalThis.addEventListener(
 
       let drain = () => {
         for (let stamped of drainPending(pending, ({sample, input}) => {
-          let returned = core.control_queue_input(
-            sample,
-            input.kind === 'pad-hit' ? 0 : 1,
-            input.pad,
-            input.kind === 'pad-hit' ? input.velocity : 0,
-          );
+          let returned = core.control_queue_input(sample, ...coreArguments(input));
 
           // The core returns 1 when it queued the input, 0 when its queue is full and 2 when it
           // does not know the input

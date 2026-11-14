@@ -1,3 +1,5 @@
+import {PANEL_PIXELS} from './panelLayout.js';
+
 const SCREEN_WIDTH = 480;
 const SCREEN_HEIGHT = 272;
 
@@ -32,6 +34,30 @@ export function fitScreen(
     scale,
     cssWidth: (SCREEN_WIDTH * scale) / devicePixelRatio,
     cssHeight: (SCREEN_HEIGHT * scale) / devicePixelRatio,
+    exact: Number.isInteger(devicePixelRatio),
+  };
+}
+
+// The whole panel at the largest whole zoom that fits the viewport, at least 1: one screen pixel is
+// `zoom` device pixels. Below zoom 1 the page scrolls
+export function fitPanel(
+  viewport: {width: number; height: number},
+  devicePixelRatio: number,
+): {zoom: number; cssWidth: number; cssHeight: number; exact: boolean} {
+  let zoom = Math.max(
+    1,
+    Math.floor(
+      Math.min(
+        (viewport.width * devicePixelRatio) / PANEL_PIXELS.width,
+        (viewport.height * devicePixelRatio) / PANEL_PIXELS.height,
+      ),
+    ),
+  );
+
+  return {
+    zoom,
+    cssWidth: (PANEL_PIXELS.width * zoom) / devicePixelRatio,
+    cssHeight: (PANEL_PIXELS.height * zoom) / devicePixelRatio,
     exact: Number.isInteger(devicePixelRatio),
   };
 }
