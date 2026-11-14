@@ -26,15 +26,9 @@ impl Project {
         }
     }
 
-    /// Puts `sound` on pad `pad` (0 to 11) of the current track, or empties the pad, and keeps the
-    /// selection rule of `Track`: the pad's sound becomes the selected one when the pad is the
-    /// selected pad.
+    /// `Track::put` on the current track.
     pub fn put(&mut self, pad: u8, sound: Option<SoundNumber>) {
-        let track = &mut self.tracks[usize::from(self.track)];
-        track.pads[usize::from(pad)] = sound;
-        if track.selected_pad == Some(pad) {
-            track.selected_sound = sound;
-        }
+        self.tracks[usize::from(self.track)].put(pad, sound);
     }
 
     /// How many pads hold `sound`, on every track.
@@ -109,48 +103,6 @@ mod tests {
         assert_eq!(track.pads[0], Some(sound));
         assert_eq!(track.selected_pad, Some(0));
         assert_eq!(track.selected_sound, Some(sound));
-    }
-
-    #[test]
-    fn putting_nothing_on_the_selected_pad_clears_the_selected_sound() {
-        let mut project = Project::new();
-        let sound = project.pool.new_synth().unwrap();
-        project.put(0, Some(sound));
-
-        project.put(0, None);
-
-        assert_eq!(project.tracks[0].pads[0], None);
-        assert_eq!(project.tracks[0].selected_sound, None);
-    }
-
-    #[test]
-    fn putting_a_sound_on_another_pad_keeps_the_selection() {
-        let mut project = Project::new();
-        let first = project.pool.new_synth().unwrap();
-        let second = project.pool.new_synth().unwrap();
-        project.put(0, Some(first));
-
-        project.put(7, Some(second));
-
-        let track = &project.tracks[0];
-        assert_eq!(track.pads[7], Some(second));
-        assert_eq!(track.selected_pad, Some(0));
-        assert_eq!(track.selected_sound, Some(first));
-    }
-
-    #[test]
-    fn putting_a_sound_without_a_selected_pad_leaves_the_selected_sound_alone() {
-        let mut project = Project::new();
-        let chosen = project.pool.new_synth().unwrap();
-        let put = project.pool.new_synth().unwrap();
-        // A sound selected somewhere other than a pad, as POOL will do.
-        project.tracks[0].selected_pad = None;
-        project.tracks[0].selected_sound = Some(chosen);
-
-        project.put(0, Some(put));
-
-        assert_eq!(project.tracks[0].pads[0], Some(put));
-        assert_eq!(project.tracks[0].selected_sound, Some(chosen));
     }
 
     #[test]
