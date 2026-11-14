@@ -99,7 +99,7 @@ impl Control {
         draw_header(
             canvas,
             left,
-            self.message.as_ref().map(|(text, color, _)| Piece {
+            self.message.as_ref().map(|(text, color)| Piece {
                 text: text.as_str(),
                 color: *color,
             }),

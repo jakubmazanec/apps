@@ -16,7 +16,7 @@ use crate::queue::Producer;
 use crate::ring::Ring;
 use crate::screen::Color;
 use crate::ui::tiles::{Tile, TileState};
-use buttons::{Buttons, Release};
+use buttons::{Buttons, REPEATING, Release};
 use notes::{Notes, Source};
 use pages::{ItemDef, ItemKind, MENU, PageDef, pages};
 use view::{Screen, View, menu_tiles, page_tiles};
@@ -43,9 +43,9 @@ pub struct Control {
     buttons: Buttons,
     notes: Notes,
     view: View,
-    /// The message on the right of the header, its colour and the sample it was shown at. A later
-    /// button press clears it (`press`).
-    message: Option<(Label<32>, Color, u64)>,
+    /// The message on the right of the header and its colour. A later button press clears it
+    /// (`press`).
+    message: Option<(Label<32>, Color)>,
 }
 
 impl Control {
@@ -193,7 +193,8 @@ impl Control {
             Input::ButtonRelease { button } => self.release(button, sample),
             Input::EncoderTurn { encoder, clicks } => {
                 self.buttons.used();
-                // Under MENU or PAGE a turn is dropped.
+                // Under MENU or PAGE a turn of encoders 1 to 4 is dropped. The volume acts as
+                // usual there, and has no action until the output volume comes with the voices.
                 if self.overlay().is_none()
                     && let Some(item) = self.reach(encoder)
                 {
@@ -277,11 +278,14 @@ impl Control {
     /// A combination acts when its second control goes down, and takes that press, so that it
     /// neither repeats nor acts when it is let go:
     ///
-    /// - Of MENU and PAGE the first one pressed counts, and the other is taken. While it is held,
-    ///   a step shows its screen or page, and a dark step does nothing. The arrows, OK, CANCEL, -
-    ///   and +, the encoder pushes, ROLL, PADS/KEYS and COPY are dropped, and so taken too.
-    /// - T1 to T4 select the track; with SHIFT held they do nothing until muting comes with the
-    ///   sequencer, and neither do OK and the encoder pushes.
+    /// - Of MENU and PAGE the first one pressed counts, and the other is taken. The one that counts
+    ///   takes the arrows, - and + that are held, so they stop repeating and act again only when
+    ///   pressed again. While it is held, a step shows its screen or page, and a dark step does
+    ///   nothing. The arrows, OK, CANCEL, - and +, the encoder pushes, ROLL, PADS/KEYS and COPY
+    ///   are dropped, and so taken too.
+    /// - T1 to T4 select the track. With SHIFT held they do nothing until muting comes with the
+    ///   sequencer.
+    /// - SHIFT + OK and SHIFT + an encoder push do nothing.
     /// - PADS/KEYS held + up or down moves the octave in KEYS mode, stopping at C0 and C8, and in
     ///   PADS mode does nothing.
     ///
@@ -296,6 +300,11 @@ impl Control {
         let overlay = self.overlay();
         match button {
             Button::Menu | Button::Page if overlay != Some(button) => self.buttons.take(button),
+            Button::Menu | Button::Page => {
+                for held in REPEATING {
+                    self.buttons.take(held);
+                }
+            }
             Button::Step(step) if overlay == Some(Button::Menu) => {
                 self.buttons.take(button);
                 if let Some(screen) = MENU[usize::from(step)] {
@@ -368,12 +377,10 @@ impl Control {
     /// An arrow, - or + at its press and at each of its repeats, which reads SHIFT anew. On a page
     /// up and down move the cursor one item, stopping at the ends, and - and + move the value
     /// under it by a click, a fine one while SHIFT is held. SHIFT + an arrow does nothing outside
-    /// STEP, left and right do nothing on a page of one column, and under MENU or PAGE none of
-    /// them does anything. STEP has no page, and its own arrows, - and + come with the sequencer.
+    /// STEP, and left and right do nothing on a page of one column. None of them gets here while
+    /// MENU or PAGE is held (`press`). STEP has no page, and its own arrows, - and + come with the
+    /// sequencer.
     fn nudge(&mut self, button: Button) {
-        if self.overlay().is_some() {
-            return;
-        }
         let screen = self.view.screen;
         let items = self.items(screen);
         let cursor = self.view.cursor(screen).item;

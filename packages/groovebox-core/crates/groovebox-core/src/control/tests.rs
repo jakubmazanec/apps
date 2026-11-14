@@ -1215,21 +1215,40 @@ fn shift_with_ok_or_an_encoder_push_does_nothing() {
 }
 
 #[test]
-fn a_repeat_while_menu_or_page_is_held_is_dropped() {
+fn menu_or_page_ends_the_repeats_of_held_arrows_minus_and_plus() {
     let queue = Queue::new();
     let mut rig = Rig::new(&queue);
     rig.menu(0, 7);
-    // - turns Velocity off at its press and at each repeat, and OK turns it on in between.
+    // - turns Velocity off at its press and OK on again. MENU takes the held down and -, so
+    // neither repeats once MENU is let go.
+    rig.press(1_000, Button::Down);
     rig.press(1_000, Button::Minus);
     rig.tap(2_000, Button::Ok);
-    rig.press(3_000, Button::Page);
-    rig.step(1_000 + REPEAT_DELAY + REPEAT_EVERY);
+    rig.tap(3_000, Button::Menu);
+    rig.step(100_000);
     assert_eq!(rig.velocity(), 1);
+    assert_eq!(rig.control.buttons.next_repeat(), None);
 
-    // Once PAGE is let go the repeats act again.
-    rig.let_go(30_000, Button::Page);
-    rig.step(1_000 + REPEAT_DELAY + 13 * REPEAT_EVERY);
+    // Their releases do nothing, and a new press acts again.
+    rig.let_go(100_000, Button::Down);
+    rig.let_go(100_000, Button::Minus);
+    rig.press(100_010, Button::Minus);
+    rig.step(100_020);
     assert_eq!(rig.velocity(), 0);
+    assert_eq!(
+        rig.control.buttons.next_repeat(),
+        Some((100_010 + REPEAT_DELAY, Button::Minus))
+    );
+    rig.let_go(100_020, Button::Minus);
+
+    // + turns it on at its press and OK off again. PAGE takes the held down and +.
+    rig.press(200_000, Button::Down);
+    rig.press(200_000, Button::Plus);
+    rig.tap(201_000, Button::Ok);
+    rig.tap(202_000, Button::Page);
+    rig.step(300_000);
+    assert_eq!(rig.velocity(), 0);
+    assert_eq!(rig.control.buttons.next_repeat(), None);
 }
 
 #[test]
@@ -1243,7 +1262,7 @@ fn a_message_stays_until_a_later_button_press() {
     rig.press(100, Button::Plus);
     rig.step(101);
     // The press at 100 shows a message, as New synth on a full pool does.
-    rig.control.message = Some((text, RECORD, 100));
+    rig.control.message = Some((text, RECORD));
 
     // Releases, a second press of a held button, pads, MIDI notes, turns and the volume keep it.
     rig.let_go(110, Button::Plus);

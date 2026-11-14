@@ -7,8 +7,8 @@ pub const REPEAT_DELAY: u64 = 19_200;
 /// The time between two repeats of a held arrow, - or +: 50 ms.
 pub const REPEAT_EVERY: u64 = 2_400;
 
-/// The buttons that repeat while they are held.
-const REPEATING: [Button; 6] = [
+/// The buttons that repeat while they are held: the arrows, - and +.
+pub const REPEATING: [Button; 6] = [
     Button::Up,
     Button::Down,
     Button::Left,
