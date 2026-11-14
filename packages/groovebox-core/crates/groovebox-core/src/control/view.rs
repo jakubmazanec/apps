@@ -1,6 +1,6 @@
 use super::pages::{MENU, PageDef};
 use crate::input::STEPS;
-use crate::ui::layout::PAGE_VISIBLE;
+use crate::ui::layout::{LIST_VISIBLE, PAGE_VISIBLE};
 use crate::ui::tiles::{Tile, TileState};
 
 /// The screens of the device that exist so far. A new project opens on STEP.
@@ -17,6 +17,9 @@ const SCREENS: usize = Screen::Settings as usize + 1;
 const PAGES: usize = STEPS as usize;
 
 impl Screen {
+    /// Every screen, in the order of their steps under MENU.
+    pub const ALL: [Self; SCREENS] = [Self::Step, Self::Sound, Self::Settings];
+
     /// The name the header starts with.
     pub fn name(self) -> &'static str {
         match self {
@@ -36,15 +39,16 @@ impl Screen {
     }
 }
 
-/// The cursor of a page: the item it is on and the first item the page's column shows.
+/// The cursor of a page or the highlight of a picker: the item or row it is on and the first one
+/// the page's column or the picker shows.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Cursor {
     pub item: usize,
     pub scroll: usize,
 }
 
-/// What the screen shows: the screen, the page each screen shows and the cursor of each page. They
-/// are kept while the control part lives and are not saved.
+/// What the screen shows: the screen, the page each screen shows, the cursor of each page and the
+/// sound picker while it is open. They are kept while the control part lives and are not saved.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct View {
     pub screen: Screen,
@@ -52,16 +56,19 @@ pub struct View {
     pages: [usize; SCREENS],
     /// The cursor of each page, by screen and page.
     cursors: [[Cursor; PAGES]; SCREENS],
+    /// The sound picker while it is open over the main area of `screen`, with its highlight.
+    pub picker: Option<Cursor>,
 }
 
 impl View {
-    /// STEP, where a new project opens, with every screen on its first page and every cursor on
-    /// the first item.
+    /// STEP, where a new project opens, with every screen on its first page, every cursor on the
+    /// first item and no picker open.
     pub const fn new() -> Self {
         Self {
             screen: Screen::Step,
             pages: [0; SCREENS],
             cursors: [[Cursor { item: 0, scroll: 0 }; PAGES]; SCREENS],
+            picker: None,
         }
     }
 
@@ -88,6 +95,30 @@ impl View {
             item,
             scroll: scrolled(item, cursor.scroll, PAGE_VISIBLE),
         };
+    }
+
+    /// Keeps the cursor of page `page` of `screen` on one of the page's `items` items: when it is
+    /// past the last one, as when the item under it vanished, it moves up to the last one and
+    /// stays there.
+    pub fn keep_cursor(&mut self, screen: Screen, page: usize, items: usize) {
+        let cursor = &mut self.cursors[screen as usize][page];
+        if cursor.item >= items {
+            let item = items.saturating_sub(1);
+            *cursor = Cursor {
+                item,
+                scroll: scrolled(item, cursor.scroll, PAGE_VISIBLE),
+            };
+        }
+    }
+
+    /// Highlights row `row` of the picker, opening it when it is closed, and scrolls it as far as
+    /// it must to keep the row on the screen.
+    pub fn highlight(&mut self, row: usize) {
+        let scroll = self.picker.map_or(0, |picker| picker.scroll);
+        self.picker = Some(Cursor {
+            item: row,
+            scroll: scrolled(row, scroll, LIST_VISIBLE),
+        });
     }
 }
 
@@ -147,7 +178,11 @@ mod tests {
 
     #[test]
     fn each_page_has_its_tile_and_the_current_one_is_marked() {
-        let page = |name| PageDef { name, items: &[] };
+        let page = |name| PageDef {
+            name,
+            items: &[],
+            picture: None,
+        };
         let tiles = page_tiles(&[page("Pad"), page("Sample"), page("Filter")], 1);
 
         assert_eq!(
@@ -171,7 +206,7 @@ mod tests {
     }
 
     #[test]
-    fn the_menu_tiles_show_step_and_settings() {
+    fn the_menu_tiles_show_step_sound_and_settings() {
         let tiles = menu_tiles(Screen::Settings);
 
         assert_eq!(
@@ -182,13 +217,20 @@ mod tests {
             }
         );
         assert_eq!(
+            tiles[2],
+            Tile {
+                name: Some("Sound"),
+                state: TileState::Exists
+            }
+        );
+        assert_eq!(
             tiles[7],
             Tile {
                 name: Some("Settings"),
                 state: TileState::Current
             }
         );
-        assert_eq!(tiles.iter().filter(|&&tile| tile == EMPTY).count(), 14);
+        assert_eq!(tiles.iter().filter(|&&tile| tile == EMPTY).count(), 13);
         assert_eq!(menu_tiles(Screen::Step)[0].state, TileState::Current);
     }
 

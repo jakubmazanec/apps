@@ -8,13 +8,16 @@ use crate::input::{Button, Input, PADS, Stamped};
 use crate::label::Label;
 use crate::lights::Lights;
 use crate::message::{MAX_MESSAGES_PER_EVENT, MESSAGE_QUEUE, Message, MessageKind};
+use crate::palette::RECORD;
 use crate::param::{self, Curve, VELOCITY};
 use crate::project::Project;
+use crate::project::pool::{PoolFull, Sound};
 use crate::project::settings::DeviceSettings;
 use crate::project::track::{MAX_OCTAVE, PadMode, Track};
 use crate::queue::Producer;
 use crate::ring::Ring;
 use crate::screen::Color;
+use crate::ui::layout::LIST_VISIBLE;
 use crate::ui::tiles::{Tile, TileState};
 use buttons::{Buttons, REPEATING, Release};
 use notes::{Notes, Source};
@@ -23,6 +26,19 @@ use view::{Screen, View, menu_tiles, page_tiles};
 
 pub const INPUT_QUEUE: usize = 64;
 pub const REPLAY_QUEUE: usize = 64;
+
+/// The sound picker's first row of a sound of the pool, after Empty and New synth.
+const FIRST_SOUND_ROW: usize = 2;
+
+/// What a row of the sound picker chooses.
+enum Entry<'a> {
+    /// Empties the pad.
+    Empty,
+    /// Puts a new synth on the pad.
+    NewSynth,
+    /// Puts this sound of the pool on the pad.
+    Sound(&'a Sound),
+}
 
 /// The control part: it turns stamped inputs into numbered messages for the audio part. It keeps
 /// the project, the device settings, the held buttons, the notes that are on, what the screen
@@ -84,6 +100,9 @@ impl Control {
     /// hold before it. An event is handled only while the message queue has room for
     /// `MAX_MESSAGES_PER_EVENT` messages. Otherwise the step stops before it and leaves it and
     /// every later event for a later step, which goes on exactly where this one stopped.
+    ///
+    /// After each event every page's cursor is kept on an item that the page shows: a cursor whose
+    /// item vanished moves to the nearest item above, where it stays when the item comes back.
     pub fn step(
         &mut self,
         until: u64,
@@ -107,6 +126,11 @@ impl Control {
                 self.buttons.repeated(button);
             } else {
                 break;
+            }
+            for screen in Screen::ALL {
+                for (page, def) in pages(screen, self.track()).iter().enumerate() {
+                    self.view.keep_cursor(screen, page, def.items.len());
+                }
             }
             redraw = true;
         }
@@ -193,9 +217,11 @@ impl Control {
             Input::ButtonRelease { button } => self.release(button, sample),
             Input::EncoderTurn { encoder, clicks } => {
                 self.buttons.used();
-                // Under MENU or PAGE a turn of encoders 1 to 4 is dropped. The volume acts as
-                // usual there, and has no action until the output volume comes with the voices.
+                // Under MENU or PAGE and while the picker is open a turn of encoders 1 to 4 is
+                // dropped. The volume acts as usual there, and has no action until the output
+                // volume comes with the voices.
                 if self.overlay().is_none()
+                    && self.view.picker.is_none()
                     && let Some(item) = self.reach(encoder)
                 {
                     self.change(item, i32::from(clicks));
@@ -208,10 +234,12 @@ impl Control {
         }
     }
 
-    /// A hit from `source`. In PADS mode it hits `pad`: it selects the pad and its sound and plays
-    /// that sound at C4, where a synth sounds unchanged. In KEYS mode it is the key of the pitch
-    /// `key`: that becomes the last key played, and it plays the selected sound at that pitch. With
-    /// no sound it plays nothing, and neither does a source that has a note on already.
+    /// A hit from `source`. In PADS mode it hits `pad`: it plays the pad's sound at C4, where a
+    /// synth sounds unchanged, and selects the pad and its sound unless the picker is open, as a
+    /// new selection would change the pad the picker is for. In KEYS mode it is the key of the
+    /// pitch `key`: that becomes the last key played, and it plays the selected sound at that
+    /// pitch. With no sound it plays nothing, and neither does a source that has a note on
+    /// already.
     fn hit(
         &mut self,
         source: Source,
@@ -221,18 +249,21 @@ impl Control {
         sample: u64,
         messages: &mut Producer<'_, Message, MESSAGE_QUEUE>,
     ) {
+        let picker = self.view.picker.is_some();
         let track = self.track_mut();
-        let (pad, pitch) = match track.mode {
+        let (pad, pitch, sound) = match track.mode {
             PadMode::Pads => {
-                track.select(pad);
-                (Some(pad), 60)
+                if !picker {
+                    track.select(pad);
+                }
+                (Some(pad), 60, track.pads[usize::from(pad)])
             }
             PadMode::Keys => {
                 track.last_key = Some(key);
-                (None, key)
+                (None, key, track.selected_sound)
             }
         };
-        let Some(sound) = track.selected_sound else {
+        let Some(sound) = sound else {
             return;
         };
         let track = self.project.track;
@@ -289,6 +320,12 @@ impl Control {
     /// - PADS/KEYS held + up or down moves the octave in KEYS mode, stopping at C0 and C8, and in
     ///   PADS mode does nothing.
     ///
+    /// While the sound picker is open the controls act on it. The arrows, - and + move its
+    /// highlight (`nudge`), OK chooses the highlighted row and closes it, and a tap of CANCEL
+    /// closes it (`release`). PLAY, STOP, REC and SHIFT + T1 to T4 act as usual. T1 to T4, MENU,
+    /// PAGE, ROLL, PADS/KEYS, TEMPO, COPY, the steps and the encoder pushes are dropped: they are
+    /// taken, so they act neither now nor when they are let go, and the picker stays open.
+    ///
     /// Otherwise the arrows, - and + nudge (`nudge`), OK uses the item under the cursor and an
     /// encoder push the item its encoder holds.
     fn press(&mut self, button: Button, sample: u64) {
@@ -298,7 +335,58 @@ impl Control {
         self.message = None;
         self.buttons.press(button, sample);
         let overlay = self.overlay();
+        let picker = self.view.picker.is_some();
         match button {
+            Button::T1 | Button::T2 | Button::T3 | Button::T4 | Button::Ok | Button::Push(_)
+                if self.buttons.is_held(Button::Shift) =>
+            {
+                self.buttons.take(button);
+            }
+            Button::Up
+            | Button::Down
+            | Button::Left
+            | Button::Right
+            | Button::Minus
+            | Button::Plus
+                if picker =>
+            {
+                self.nudge(button);
+            }
+            Button::Ok if let Some(highlight) = self.view.picker => {
+                self.view.picker = None;
+                let pad = self
+                    .track()
+                    .selected_pad
+                    .expect("the sound picker belongs to the selected pad");
+                let sound = match self.entry(highlight.item) {
+                    Entry::Empty => None,
+                    Entry::NewSynth => match self.project.pool.new_synth() {
+                        Ok(sound) => Some(sound),
+                        Err(PoolFull) => {
+                            self.pool_full();
+                            return;
+                        }
+                    },
+                    Entry::Sound(sound) => Some(sound.number),
+                };
+                self.project.put(pad, sound);
+            }
+            Button::T1
+            | Button::T2
+            | Button::T3
+            | Button::T4
+            | Button::PadsKeys
+            | Button::Roll
+            | Button::Menu
+            | Button::Page
+            | Button::Copy
+            | Button::Tempo
+            | Button::Step(_)
+            | Button::Push(_)
+                if picker =>
+            {
+                self.buttons.take(button);
+            }
             Button::Menu | Button::Page if overlay != Some(button) => self.buttons.take(button),
             Button::Menu | Button::Page => {
                 for held in REPEATING {
@@ -314,7 +402,7 @@ impl Control {
             Button::Step(step) if overlay == Some(Button::Page) => {
                 self.buttons.take(button);
                 let screen = self.view.screen.paged();
-                if usize::from(step) < pages(screen).len() {
+                if usize::from(step) < pages(screen, self.track()).len() {
                     self.view.show_page(screen, usize::from(step));
                 }
             }
@@ -331,11 +419,6 @@ impl Control {
             | Button::PadsKeys
             | Button::Copy
                 if overlay.is_some() =>
-            {
-                self.buttons.take(button);
-            }
-            Button::T1 | Button::T2 | Button::T3 | Button::T4 | Button::Ok | Button::Push(_)
-                if self.buttons.is_held(Button::Shift) =>
             {
                 self.buttons.take(button);
             }
@@ -374,17 +457,29 @@ impl Control {
         }
     }
 
-    /// An arrow, - or + at its press and at each of its repeats, which reads SHIFT anew. On a page
-    /// up and down move the cursor one item, stopping at the ends, and - and + move the value
-    /// under it by a click, a fine one while SHIFT is held. SHIFT + an arrow does nothing outside
-    /// STEP, and left and right do nothing on a page of one column. None of them gets here while
-    /// MENU or PAGE is held (`press`). STEP has no page, and its own arrows, - and + come with the
-    /// sequencer.
+    /// An arrow, - or + at its press and at each of its repeats, which reads SHIFT anew. In the
+    /// picker up, down, - and + move the highlight one row and left and right a picker page of 16
+    /// rows, stopping at the ends. On a page up and down move the cursor one item, stopping at the
+    /// ends, and - and + move the value under it by a click, a fine one while SHIFT is held.
+    /// SHIFT + an arrow does nothing outside STEP, and left and right do nothing on a page of one
+    /// column. None of them gets here while MENU or PAGE is held (`press`). STEP has no page, and
+    /// its own arrows, - and + come with the sequencer.
     fn nudge(&mut self, button: Button) {
+        let shift = self.buttons.is_held(Button::Shift);
+        if let Some(picker) = self.view.picker {
+            let (row, last) = (picker.item, self.picker_rows() - 1);
+            self.view.highlight(match (button, shift) {
+                (Button::Up, false) | (Button::Minus, _) => row.saturating_sub(1),
+                (Button::Down, false) | (Button::Plus, _) => (row + 1).min(last),
+                (Button::Left, false) => row.saturating_sub(LIST_VISIBLE),
+                (Button::Right, false) => (row + LIST_VISIBLE).min(last),
+                _ => return,
+            });
+            return;
+        }
         let screen = self.view.screen;
         let items = self.items(screen);
         let cursor = self.view.cursor(screen).item;
-        let shift = self.buttons.is_held(Button::Shift);
         match button {
             Button::Up if !shift => self.view.move_cursor(screen, cursor.saturating_sub(1)),
             Button::Down if !shift => self
@@ -399,16 +494,47 @@ impl Control {
         }
     }
 
-    /// OK on `item`: a switch flips.
+    /// OK on `item`: a switch flips. The pad's sound opens the sound picker on the pad's entry,
+    /// and Copy puts a copy of the pad's sound on the pad, unless the pool is full.
     fn use_item(&mut self, item: ItemDef) {
         match item.kind {
             ItemKind::Param(id) => match param::entry(id).curve {
                 Curve::Switch => self.settings.set(id, i32::from(self.settings.get(id) == 0)),
             },
+            ItemKind::PadSound => {
+                let row = match self.track().selected_sound {
+                    // Empty.
+                    None => 0,
+                    Some(sound) => {
+                        let index = self
+                            .project
+                            .pool
+                            .sounds()
+                            .binary_search_by_key(&sound, |in_pool| in_pool.number)
+                            .expect("a selected sound is in the pool");
+                        FIRST_SOUND_ROW + index
+                    }
+                };
+                self.view.highlight(row);
+            }
+            ItemKind::PadCopy => {
+                let track = self.track();
+                let pad = track
+                    .selected_pad
+                    .expect("the Pad page belongs to the selected pad");
+                let sound = track
+                    .selected_sound
+                    .expect("Copy is on the Pad page only while the pad has a sound");
+                match self.project.pool.copy(sound) {
+                    Ok(copy) => self.project.put(pad, Some(copy)),
+                    Err(PoolFull) => self.pool_full(),
+                }
+            }
         }
     }
 
-    /// Moves the value of `item` by `clicks` clicks, fine ones while SHIFT is held.
+    /// Moves the value of `item` by `clicks` clicks, fine ones while SHIFT is held. The Pad page's
+    /// items have no value to move, so a stray turn never changes what a pad plays.
     fn change(&mut self, item: ItemDef, clicks: i32) {
         match item.kind {
             ItemKind::Param(id) => self.settings.set(
@@ -420,19 +546,53 @@ impl Control {
                     self.buttons.is_held(Button::Shift),
                 ),
             ),
+            ItemKind::PadSound | ItemKind::PadCopy => {}
         }
     }
 
     /// The item that encoder `encoder` holds on the page the encoders use, with that page's
     /// cursor put on it; none when the encoder holds nothing there.
     fn reach(&mut self, encoder: u8) -> Option<ItemDef> {
-        let screen = self.view.screen.paged();
-        let items = self.items(screen);
+        let items = self.encoder_items();
         let item = items
             .iter()
             .position(|item| item.encoder == Some(encoder))?;
-        self.view.move_cursor(screen, item);
+        self.view.move_cursor(self.view.screen.paged(), item);
         Some(items[item])
+    }
+
+    /// The items of the page the encoders use, of which each encoder holds the one that names it.
+    /// A screen that uses SOUND's page, as STEP does, has none while the selected pad is empty.
+    fn encoder_items(&self) -> &'static [ItemDef] {
+        let screen = self.view.screen;
+        if screen.paged() != screen && self.track().selected_sound.is_none() {
+            &[]
+        } else {
+            self.items(screen.paged())
+        }
+    }
+
+    /// Row `row` of the sound picker: Empty, New synth, then the sounds of the pool in number
+    /// order.
+    fn entry(&self, row: usize) -> Entry<'_> {
+        match row {
+            0 => Entry::Empty,
+            1 => Entry::NewSynth,
+            _ => Entry::Sound(&self.project.pool.sounds()[row - FIRST_SOUND_ROW]),
+        }
+    }
+
+    /// How many rows the sound picker has.
+    fn picker_rows(&self) -> usize {
+        FIRST_SOUND_ROW + self.project.pool.sounds().len()
+    }
+
+    /// Shows "Pool full" in red: New synth or Copy made nothing, as the pool holds as many sounds
+    /// as it can.
+    fn pool_full(&mut self) {
+        let mut text = Label::new();
+        text.push_str("Pool full");
+        self.message = Some((text, RECORD));
     }
 
     /// MENU or PAGE while it is held and counts: the first of them pressed.
@@ -446,14 +606,14 @@ impl Control {
             Button::Menu => menu_tiles(self.view.screen),
             _ => {
                 let screen = self.view.screen.paged();
-                page_tiles(pages(screen), self.view.page(screen))
+                page_tiles(pages(screen, self.track()), self.view.page(screen))
             }
         })
     }
 
     /// The page `screen` shows; none on a screen without pages.
     fn page(&self, screen: Screen) -> Option<&'static PageDef> {
-        pages(screen).get(self.view.page(screen))
+        pages(screen, self.track()).get(self.view.page(screen))
     }
 
     /// The items of the page `screen` shows; none on a screen without pages.
@@ -461,14 +621,19 @@ impl Control {
         self.page(screen).map_or(&[], |page| page.items)
     }
 
-    /// A button goes up. A tap of PADS/KEYS switches the current track's pad mode.
+    /// A button goes up. A tap of PADS/KEYS switches the current track's pad mode, and a tap of
+    /// CANCEL closes the picker without choosing.
     fn release(&mut self, button: Button, sample: u64) {
-        if let (Button::PadsKeys, Release::Tap) = (button, self.buttons.release(button, sample)) {
-            let track = self.track_mut();
-            track.mode = match track.mode {
-                PadMode::Pads => PadMode::Keys,
-                PadMode::Keys => PadMode::Pads,
-            };
+        match (button, self.buttons.release(button, sample)) {
+            (Button::PadsKeys, Release::Tap) => {
+                let track = self.track_mut();
+                track.mode = match track.mode {
+                    PadMode::Pads => PadMode::Keys,
+                    PadMode::Keys => PadMode::Pads,
+                };
+            }
+            (Button::Cancel, Release::Tap) => self.view.picker = None,
+            _ => {}
         }
     }
 

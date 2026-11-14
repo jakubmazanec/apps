@@ -13,6 +13,8 @@ use crate::ui::test_pixels::{filled, outlined, span};
 use crate::ui::tiles::{Tile, TileState, draw_tiles};
 use std::vec::Vec;
 
+mod sound;
+
 struct Rig<'a> {
     control: Control,
     producer: Producer<'a, Message, MESSAGE_QUEUE>,
@@ -213,6 +215,31 @@ fn velocity(value: &str) -> ItemView<'_> {
     }
 }
 
+/// The Pad page's first item, the pad's sound, showing `value`.
+fn sound(value: &str) -> ItemView<'_> {
+    ItemView {
+        encoder: Some(1),
+        name: "Sound",
+        value,
+        bar: Bar::Track,
+    }
+}
+
+/// The Pad page's second item, Copy, showing `value`.
+fn copy(value: &str) -> ItemView<'_> {
+    ItemView {
+        encoder: Some(2),
+        name: "Copy",
+        value,
+        bar: Bar::Track,
+    }
+}
+
+/// STEP's header on T1 in PADS mode with `sound` selected.
+fn step_header(sound: &str) -> [(&str, Color); 4] {
+    [("Step", ACCENT), ("T1", TEXT), (sound, TEXT), ("Pads", DIM)]
+}
+
 /// SETTINGS' Playing page: Velocity at `value` under the cursor and in the strip's first cell.
 fn playing(value: &str) -> Screen {
     drawn(
@@ -275,22 +302,23 @@ fn a_hit_on_an_empty_pad_selects_it_and_sends_nothing() {
 fn pads_mode_plays_the_pads_sound_at_c4_and_selects_it() {
     let queue = Queue::new();
     let mut rig = Rig::new(&queue);
-    let sound = rig.synth_on(2);
+    let syn_1 = rig.synth_on(2);
     rig.hit(10, 2, 90);
 
     rig.step(128);
 
-    assert_eq!(rig.sent(), [message(0, 10, note_on(0, 0, sound, 60, 90))]);
+    assert_eq!(rig.sent(), [message(0, 10, note_on(0, 0, syn_1, 60, 90))]);
     assert_eq!(rig.track().selected_pad, Some(2));
-    assert_eq!(rig.track().selected_sound, Some(sound));
-    assert!(shows_step(
+    assert_eq!(rig.track().selected_sound, Some(syn_1));
+    // STEP's strip shows the items of SOUND's Pad page.
+    assert!(shows(
         &rig.control,
-        &[
-            ("Step", ACCENT),
-            ("T1", TEXT),
-            ("Syn 1", TEXT),
-            ("Pads", DIM)
-        ]
+        &drawn(
+            &step_header("Syn 1"),
+            None,
+            |_| {},
+            &[Some(sound("Syn 1")), Some(copy("on 1 pad")), None, None],
+        )
     ));
 }
 
@@ -948,7 +976,7 @@ fn menu_with_step_8_shows_settings_at_the_steps_press() {
         &rig.control,
         &tiles(&MENU_HEADER, &menu_tiles(view::Screen::Step))
     ));
-    assert_eq!(rig.lit(), [pad(0), step(0), step(7), track(0)]);
+    assert_eq!(rig.lit(), [pad(0), step(0), step(2), step(7), track(0)]);
 
     rig.step(101);
     assert_eq!(rig.control.view.screen, view::Screen::Settings);
@@ -956,7 +984,7 @@ fn menu_with_step_8_shows_settings_at_the_steps_press() {
         &rig.control,
         &tiles(&MENU_HEADER, &menu_tiles(view::Screen::Settings))
     ));
-    assert_eq!(rig.lit(), [pad(0), step(0), step(7), track(0)]);
+    assert_eq!(rig.lit(), [pad(0), step(0), step(2), step(7), track(0)]);
 
     rig.let_go(200, Button::Step(7));
     rig.let_go(300, Button::Menu);
@@ -1034,8 +1062,8 @@ fn the_first_of_menu_and_page_counts() {
     let queue = Queue::new();
     let mut rig = Rig::new(&queue);
 
-    // PAGE first: MENU is dropped, and step 8 is dark under PAGE on STEP, as SOUND has no pages
-    // yet. The header stays STEP's and no step is lit.
+    // PAGE first: MENU is dropped, and step 8 is dark under PAGE on STEP, which shows SOUND's one
+    // page. The header stays STEP's and only step 1 is lit.
     rig.press(0, Button::Page);
     rig.press(10, Button::Menu);
     rig.press(20, Button::Step(7));
@@ -1043,9 +1071,12 @@ fn the_first_of_menu_and_page_counts() {
     assert_eq!(rig.control.view.screen, view::Screen::Step);
     assert!(shows(
         &rig.control,
-        &tiles(&STEP_HEADER, &page_tiles(&[], 0))
+        &tiles(
+            &STEP_HEADER,
+            &page_tiles(pages(view::Screen::Sound, rig.track()), 0)
+        )
     ));
-    assert_eq!(rig.lit(), [pad(0), track(0)]);
+    assert_eq!(rig.lit(), [pad(0), step(0), track(0)]);
 
     // Letting go of PAGE leaves the MENU that is still held without effect.
     rig.let_go(30, Button::Step(7));
@@ -1127,7 +1158,7 @@ fn page_on_settings_shows_one_tile_and_lights_step_1() {
     rig.press(100, Button::Page);
     rig.step(101);
 
-    let shown = page_tiles(pages(view::Screen::Settings), 0);
+    let shown = page_tiles(pages(view::Screen::Settings, rig.track()), 0);
     assert_eq!(
         shown[0],
         Tile {
