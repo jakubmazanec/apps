@@ -1,3 +1,5 @@
+pub mod buttons;
+
 use crate::input::{Input, PADS, Stamped};
 use crate::message::{MESSAGE_QUEUE, Message, MessageKind};
 use crate::palette::{ACCENT, BACKGROUND, LINE};
