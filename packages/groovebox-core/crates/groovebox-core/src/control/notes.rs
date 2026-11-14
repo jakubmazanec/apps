@@ -68,9 +68,14 @@ impl Notes {
         self.slot(source).take().map(|note| note.id)
     }
 
-    /// Every note that is on.
-    pub fn on(&self) -> impl Iterator<Item = &Note> {
-        self.pads.iter().chain(&self.midi).flatten()
+    /// The pads whose own hit has a note on, held from the hit to its release.
+    pub fn held_pads(&self) -> impl Iterator<Item = u8> {
+        (0..PADS).filter(|&pad| self.pads[usize::from(pad)].is_some())
+    }
+
+    /// The notes of MIDI notes that are on.
+    pub fn midi(&self) -> impl Iterator<Item = &Note> {
+        self.midi.iter().flatten()
     }
 
     fn slot(&mut self, source: Source) -> &mut Option<Note> {
@@ -93,7 +98,13 @@ mod tests {
     use std::vec::Vec;
 
     fn ids(notes: &Notes) -> Vec<u32> {
-        notes.on().map(|note| note.id.0).collect()
+        notes
+            .pads
+            .iter()
+            .chain(&notes.midi)
+            .flatten()
+            .map(|note| note.id.0)
+            .collect()
     }
 
     #[test]
@@ -107,23 +118,15 @@ mod tests {
             Some(NoteId(1))
         );
 
-        let on: Vec<Note> = notes.on().copied().collect();
+        assert_eq!(notes.held_pads().collect::<Vec<_>>(), [3]);
         assert_eq!(
-            on,
-            [
-                Note {
-                    id: NoteId(0),
-                    track: 0,
-                    pad: Some(3),
-                    pitch: 60
-                },
-                Note {
-                    id: NoteId(1),
-                    track: 0,
-                    pad: Some(3),
-                    pitch: 60
-                },
-            ]
+            notes.midi().copied().collect::<Vec<_>>(),
+            [Note {
+                id: NoteId(1),
+                track: 0,
+                pad: Some(3),
+                pitch: 60
+            }]
         );
     }
 

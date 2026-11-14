@@ -139,25 +139,29 @@ impl Control {
 
     /// The lights as the state of the control part has them.
     ///
-    /// The pads show the current track. In PADS mode the selected pad is lit and so is every pad
-    /// with a note on that was hit as that pad. In KEYS mode pad 1, the C, is lit and so is every
-    /// pad whose pitch in the current octave has a note on. T1 to T4 light the current track and
-    /// PADS/KEYS lights in KEYS mode. While MENU or PAGE is held, the steps of the screens or pages
-    /// that exist light: the steps whose tiles are not empty.
+    /// A pad is lit from its own hit to its release, whatever changes meanwhile: the mode, the
+    /// octave or the track. Otherwise the pads show the current track. In PADS mode the selected
+    /// pad is lit and so is every pad a MIDI note on was hit as. In KEYS mode pad 1, the C, is lit
+    /// and so is every pad whose pitch in the current octave has a MIDI note on. T1 to T4 light the
+    /// current track and PADS/KEYS lights in KEYS mode. While MENU or PAGE is held, the steps of
+    /// the screens or pages that exist light: the steps whose tiles are not empty.
     pub fn lights(&self) -> Lights {
         let track = self.track();
-        let notes = self
+        let midi = self
             .notes
-            .on()
+            .midi()
             .filter(|note| note.track == self.project.track);
         let mut lights = Lights(0);
         lights.light(Lights::TRACK + u32::from(self.project.track));
+        for pad in self.notes.held_pads() {
+            lights.light(Lights::PAD + u32::from(pad));
+        }
         match track.mode {
             PadMode::Pads => {
                 for pad in track
                     .selected_pad
                     .into_iter()
-                    .chain(notes.filter_map(|note| note.pad))
+                    .chain(midi.filter_map(|note| note.pad))
                 {
                     lights.light(Lights::PAD + u32::from(pad));
                 }
@@ -166,7 +170,7 @@ impl Control {
                 lights.light(Lights::PADS_KEYS);
                 lights.light(Lights::PAD);
                 let c = track.key_pitch(0);
-                for note in notes.filter(|note| (c..c + PADS).contains(&note.pitch)) {
+                for note in midi.filter(|note| (c..c + PADS).contains(&note.pitch)) {
                     lights.light(Lights::PAD + u32::from(note.pitch - c));
                 }
             }

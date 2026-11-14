@@ -764,24 +764,54 @@ fn the_lights_follow_answer_9() {
     rig.hit(410, 3, 100);
     rig.step(512);
     assert_eq!(rig.lit(), [pad(0), pad(3), track(0), Lights::PADS_KEYS]);
+    // A pad stays lit from its hit to its release, also when the octave moves away from its key.
+    // A MIDI note lights the key that plays it in the shown octave.
     rig.press(600, Button::PadsKeys);
     rig.tap(610, Button::Up);
     rig.let_go(620, Button::PadsKeys);
     rig.step(640);
-    assert_eq!(rig.lit(), [pad(0), track(0), Lights::PADS_KEYS]);
-    rig.note_on(700, 75, 100);
-    rig.step(768);
     assert_eq!(rig.lit(), [pad(0), pad(3), track(0), Lights::PADS_KEYS]);
+    rig.note_on(700, 77, 100);
+    rig.step(768);
+    assert_eq!(
+        rig.lit(),
+        [pad(0), pad(3), pad(5), track(0), Lights::PADS_KEYS]
+    );
 
-    // Another track's notes light nothing.
+    // On another track the held pad stays lit, and the MIDI note of T1 lights nothing.
     rig.tap(800, Button::T2);
     rig.step(896);
-    assert_eq!(rig.lit(), [pad(0), track(1)]);
+    assert_eq!(rig.lit(), [pad(0), pad(3), track(1)]);
     rig.release(900, 3);
-    rig.note_off(910, 75);
+    rig.note_off(910, 77);
     rig.tap(920, Button::T1);
     rig.step(1_024);
     assert_eq!(rig.lit(), [pad(0), track(0), Lights::PADS_KEYS]);
+}
+
+#[test]
+fn a_held_pad_stays_lit_when_the_mode_switches() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    rig.synth_on(2);
+
+    // A pad hit in PADS mode stays lit in KEYS mode until it is let go.
+    rig.hit(100, 2, 100);
+    rig.tap(200, Button::PadsKeys);
+    rig.step(256);
+    assert_eq!(rig.lit(), [pad(0), pad(2), track(0), Lights::PADS_KEYS]);
+    rig.release(300, 2);
+    rig.step(384);
+    assert_eq!(rig.lit(), [pad(0), track(0), Lights::PADS_KEYS]);
+
+    // A key hit in KEYS mode stays lit in PADS mode until it is let go.
+    rig.hit(400, 4, 100);
+    rig.tap(500, Button::PadsKeys);
+    rig.step(512);
+    assert_eq!(rig.lit(), [pad(2), pad(4), track(0)]);
+    rig.release(600, 4);
+    rig.step(640);
+    assert_eq!(rig.lit(), [pad(2), track(0)]);
 }
 
 #[test]
