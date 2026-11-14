@@ -17,6 +17,7 @@ const FUNCTIONS = [
   'screen_pointer',
   'front_pointer',
   'palette_pointer',
+  'lights_pointer',
   'position_pointer',
   'wake_pointer',
   'audio_stack_top',
