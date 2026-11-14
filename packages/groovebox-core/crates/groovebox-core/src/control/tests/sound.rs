@@ -655,6 +655,54 @@ fn an_arrow_under_pads_keys_does_nothing_in_the_picker() {
 }
 
 #[test]
+fn an_arrow_under_pads_keys_pressed_in_the_picker_does_nothing() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    fill(&mut rig, 30);
+    rig.menu(0, 2);
+    rig.tap(10, Button::Ok);
+    rig.tap(20, Button::Plus);
+    let highlight = |rig: &Rig<'_>| rig.control.view.picker.map(|picker| picker.item);
+
+    // PADS/KEYS pressed with the picker open is dropped, yet it is still held: an arrow under it
+    // is taken at its press, does not repeat and stays taken once PADS/KEYS is let go.
+    rig.press(100, Button::PadsKeys);
+    for (sample, button) in [(110, Button::Up), (120, Button::Left), (130, Button::Right)] {
+        rig.tap(sample, button);
+    }
+    rig.press(200, Button::Down);
+    rig.let_go(300, Button::PadsKeys);
+    rig.step(200 + 3 * REPEAT_DELAY);
+    assert_eq!(highlight(&rig), Some(1));
+    assert_eq!(rig.control.buttons.next_repeat(), None);
+    assert_eq!(rig.track().mode, PadMode::Pads);
+}
+
+#[test]
+fn shift_with_an_arrow_does_nothing_in_the_picker_also_after_shift() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    fill(&mut rig, 30);
+    rig.menu(0, 2);
+    rig.tap(10, Button::Ok);
+    rig.tap(20, Button::Plus);
+    let highlight = |rig: &Rig<'_>| rig.control.view.picker.map(|picker| picker.item);
+
+    // SHIFT + down is taken at its press like SHIFT + +: letting go of SHIFT first does not wake
+    // the held down, which neither moves nor repeats until it is pressed again.
+    rig.press(100, Button::Shift);
+    rig.press(110, Button::Down);
+    rig.let_go(1_000, Button::Shift);
+    rig.step(110 + 3 * REPEAT_DELAY);
+    assert_eq!(highlight(&rig), Some(1));
+    assert_eq!(rig.control.buttons.next_repeat(), None);
+    rig.let_go(70_000, Button::Down);
+    rig.tap(70_100, Button::Down);
+    rig.step(70_200);
+    assert_eq!(highlight(&rig), Some(2));
+}
+
+#[test]
 fn held_down_moves_the_highlight_after_400_ms_every_50_ms() {
     let queue = Queue::new();
     let mut rig = Rig::new(&queue);

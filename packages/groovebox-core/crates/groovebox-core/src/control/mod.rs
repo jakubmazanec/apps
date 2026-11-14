@@ -327,8 +327,9 @@ impl Control {
     /// closes it (`release`). PLAY, STOP, REC and SHIFT + T1 to T4 act as usual. T1 to T4, MENU,
     /// PAGE, ROLL, PADS/KEYS, TEMPO, COPY, the steps and the encoder pushes are dropped: they are
     /// taken, so they act neither now nor when they are let go, and the picker stays open. Every
-    /// other combination does nothing there either: SHIFT + - or + and an arrow under PADS/KEYS
-    /// are taken at their press, so they neither move the highlight nor repeat.
+    /// other combination does nothing there either: an arrow, - or + pressed while SHIFT or
+    /// PADS/KEYS is held, even a PADS/KEYS dropped by the picker, is taken at its press, so it
+    /// neither moves the highlight nor repeats, also once SHIFT or PADS/KEYS is let go.
     ///
     /// Otherwise the arrows, - and + nudge (`nudge`), OK uses the item under the cursor and an
     /// encoder push the item its encoder holds.
@@ -347,10 +348,16 @@ impl Control {
             {
                 self.buttons.take(button);
             }
-            Button::Minus | Button::Plus if picker && self.buttons.is_held(Button::Shift) => {
-                self.buttons.take(button);
-            }
-            Button::Up | Button::Down | Button::Left | Button::Right if picker && pads_keys => {
+            Button::Up
+            | Button::Down
+            | Button::Left
+            | Button::Right
+            | Button::Minus
+            | Button::Plus
+                if picker
+                    && (self.buttons.is_held(Button::Shift)
+                        || self.buttons.is_held(Button::PadsKeys)) =>
+            {
                 self.buttons.take(button);
             }
             Button::Up
