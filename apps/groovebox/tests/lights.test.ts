@@ -1,7 +1,7 @@
 /* eslint-disable no-bitwise -- the lights are the bits of one word */
 import {describe, expect, test} from 'vitest';
 
-import {decodeLights} from '../source/shell/lights.js';
+import {decodeLights, loadLights} from '../source/shell/lights.js';
 
 function bits(...lit: number[]) {
   return lit.reduce((word, bit) => word | (1n << BigInt(bit)), 0n);
@@ -83,5 +83,12 @@ describe(decodeLights, () => {
         lights.tempo,
       ]),
     ).toStrictEqual([]);
+  });
+});
+
+describe(loadLights, () => {
+  test('the low word holds bits 0 to 31 and the high word the rest', () => {
+    expect(loadLights(new Uint32Array([0x1000_0001, 0b1_0001]))).toBe(bits(0, 28, 32, 36));
+    expect(loadLights(new Uint32Array([0xffff_ffff, 0]))).toBe(2n ** 32n - 1n);
   });
 });

@@ -5,7 +5,7 @@ import {bootCore, type Core} from './boot.js';
 import {Holders} from './holders.js';
 import {keyToInput} from './keyboard.js';
 import {dragClicks, isPush, wheelClicks} from './knob.js';
-import {decodeLights} from './lights.js';
+import {decodeLights, loadLights} from './lights.js';
 import {createMidiMapper} from './midi.js';
 import {buildPanel} from './panel.js';
 import {pictureBlob} from './picture.js';
@@ -75,7 +75,7 @@ export async function runShell({
   let position = new BigUint64Array(memory.buffer, addresses.position, 1);
   let front = new Uint32Array(memory.buffer, addresses.front, 1);
   let palette = new Uint8Array(memory.buffer, addresses.palette, 256 * 3);
-  let lightsWord = new BigUint64Array(memory.buffer, addresses.lights, 1);
+  let lightsWords = new Uint32Array(memory.buffer, addresses.lights, 2);
   let pixels = new Uint8Array(480 * 272);
   let image = new ImageData(480, 272);
   let listening = new AbortController();
@@ -364,7 +364,7 @@ export async function runShell({
     (panel.canvas.getContext('2d') as CanvasRenderingContext2D).putImageData(image, 0, 0);
 
     let {pads, steps, tracks, padsKeys, roll, rec, play, tempo} = decodeLights(
-      Atomics.load(lightsWord, 0),
+      loadLights(lightsWords),
     );
 
     for (let [control, lit] of [

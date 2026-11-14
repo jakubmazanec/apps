@@ -8,7 +8,7 @@ use crate::message::{MESSAGE_QUEUE, Message, REPORT_QUEUE, Report};
 use crate::queue::{Consumer, Producer, Queue};
 use crate::screen::Screen;
 use core::cell::UnsafeCell;
-use core::sync::atomic::{AtomicU32, AtomicU64, Ordering};
+use core::sync::atomic::{AtomicU32, Ordering};
 
 /// The whole core in one struct: both parts, both queues, two screens and the lights. A host puts
 /// it in a `static` and gives the control side to one thread and the audio side to another.
@@ -24,8 +24,10 @@ pub struct Device {
     screens: [UnsafeCell<Screen>; 2],
     /// The index of the screen to show, 0 or 1. Only the control side stores it.
     front: AtomicU32,
-    /// The bits of `Lights`, all off until the first step. Only the control side stores them.
-    lights: AtomicU64,
+    /// The bits of `Lights` in two words, bits 0 to 31 in the low one and the rest in the high
+    /// one, so that a target without 64-bit atomics holds them. All are off until the first step.
+    /// Only the control side stores them.
+    lights: [AtomicU32; 2],
 }
 
 const _: () = assert!(
@@ -47,7 +49,13 @@ const _: () = assert!(
 //   through `screen_pointer` and `front_pointer` and must finish copying the screen they loaded
 //   before the control side starts its second redraw after the load. In practice, copy it promptly,
 //   once per frame; a reader that is slower sees a torn picture.
-// - `lights` is a plain atomic word that only the control side stores, so any thread may load it.
+// - `lights` are two atomic words that only the control side stores, so any thread may load them.
+//   After every step the control side stores the high word, then the low word, each with Release.
+//   A reader loads the low word, then the high word, each with Acquire, so it gets the high word
+//   of the step whose low word it loaded or of a later one. A reader on another thread may thus
+//   pair one step's low word with a later step's high word for one read, while a step stores. The
+//   lights only show, and the next read is whole; a reader on the control side's own thread, such
+//   as the drift harness, reads between steps and always gets one step's lights.
 unsafe impl Sync for Device {}
 
 impl Device {
@@ -62,7 +70,7 @@ impl Device {
                 UnsafeCell::new(Screen::new()),
             ],
             front: AtomicU32::new(0),
-            lights: AtomicU64::new(0),
+            lights: [AtomicU32::new(0), AtomicU32::new(0)],
         }
     }
 
@@ -108,10 +116,11 @@ impl Device {
         &raw const self.front
     }
 
-    /// The lights after the latest step, the bits of `Lights`. A thread that loads them with
-    /// Acquire sees the state of that step.
-    pub fn lights_pointer(&self) -> *const AtomicU64 {
-        &raw const self.lights
+    /// The lights after the latest step, the bits of `Lights` in two words: this low word, bits 0
+    /// to 31, and the high word after it. A reader loads the low word, then the high word: see the
+    /// note on `Sync` for `Device`.
+    pub fn lights_pointer(&self) -> *const AtomicU32 {
+        self.lights.as_ptr()
     }
 }
 
@@ -150,9 +159,11 @@ impl ControlSide<'_> {
             self.control.draw(screen);
             self.device.front.store(back, Ordering::Release);
         }
-        self.device
-            .lights
-            .store(self.control.lights().0, Ordering::Release);
+        let lights = self.control.lights().0;
+        let [low, high] = &self.device.lights;
+        // The high word first: a reader loads the low word first.
+        high.store((lights >> 32) as u32, Ordering::Release);
+        low.store(lights as u32, Ordering::Release);
     }
 
     pub fn take_report(&mut self) -> Option<Report> {
@@ -283,32 +294,52 @@ mod tests {
         assert_ne!(DEVICE.screen_pointer(0), DEVICE.screen_pointer(1));
     }
 
+    /// The lights of the device as a reader on another thread loads them: the low word, then the
+    /// high word.
+    fn loaded(device: &Device) -> u64 {
+        // SAFETY: the pointer is valid for the two words for the life of the device.
+        let [low, high] = unsafe { &*device.lights_pointer().cast::<[AtomicU32; 2]>() };
+        let low = low.load(Ordering::Acquire);
+        u64::from(low) | u64::from(high.load(Ordering::Acquire)) << 32
+    }
+
     #[test]
-    fn the_lights_reach_the_lights_word_after_a_step() {
+    fn the_lights_reach_the_lights_words_after_a_step() {
         static DEVICE: Device = Device::new();
         // SAFETY: this test takes the only control side of its own device.
         let mut control = unsafe { DEVICE.control_side() };
-        // SAFETY: the pointer is valid for the life of the device.
-        let lights = unsafe { &*DEVICE.lights_pointer() };
-        assert_eq!(lights.load(Ordering::Acquire), 0);
+        assert_eq!(loaded(&DEVICE), 0);
 
         control.step(128);
-        assert_eq!(
-            lights.load(Ordering::Acquire),
-            1 << Lights::PAD | 1 << Lights::TRACK
-        );
+        assert_eq!(loaded(&DEVICE), 1 << Lights::PAD | 1 << Lights::TRACK);
 
         assert_eq!(control.queue_input(press(200, Button::T2)), Ok(()));
         control.step(256);
-        assert_eq!(
-            lights.load(Ordering::Acquire),
-            1 << Lights::PAD | 1 << (Lights::TRACK + 1)
-        );
+        assert_eq!(loaded(&DEVICE), 1 << Lights::PAD | 1 << (Lights::TRACK + 1));
 
         // A step that handles nothing stores them too.
-        lights.store(0, Ordering::Relaxed);
+        DEVICE.lights[0].store(0, Ordering::Relaxed);
         control.step(384);
-        assert_eq!(lights.load(Ordering::Acquire), control.control.lights().0);
+        assert_eq!(loaded(&DEVICE), control.control.lights().0);
+    }
+
+    #[test]
+    fn the_high_lights_are_in_the_second_word() {
+        static DEVICE: Device = Device::new();
+        // SAFETY: this test takes the only control side of its own device.
+        let mut control = unsafe { DEVICE.control_side() };
+        assert_eq!(control.queue_input(press(0, Button::PadsKeys)), Ok(()));
+        assert_eq!(control.queue_input(release(1, Button::PadsKeys)), Ok(()));
+
+        control.step(128);
+
+        let [low, high] = &DEVICE.lights;
+        assert_eq!(
+            low.load(Ordering::Acquire),
+            1 << Lights::PAD | 1 << Lights::TRACK
+        );
+        assert_eq!(high.load(Ordering::Acquire), 1 << (Lights::PADS_KEYS - 32));
+        assert_eq!(DEVICE.lights_pointer(), low as *const AtomicU32);
     }
 
     #[test]

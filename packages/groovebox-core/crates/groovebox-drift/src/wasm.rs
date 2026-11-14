@@ -120,9 +120,10 @@ impl Runner for WasmRunner {
 
     fn lights(&mut self) -> u64 {
         let pointer: u32 = self.call(self.control, "lights_pointer", ());
-        let mut lights = [0; 8];
-        self.read(pointer, &mut lights);
-        u64::from_le_bytes(lights)
+        let (mut low, mut high) = ([0; 4], [0; 4]);
+        self.read(pointer, &mut low);
+        self.read(pointer + 4, &mut high);
+        u64::from(u32::from_le_bytes(low)) | u64::from(u32::from_le_bytes(high)) << 32
     }
 
     fn render(&mut self, left: &mut [f32], right: &mut [f32]) {

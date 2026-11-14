@@ -2,7 +2,7 @@ use crate::runner::Runner;
 use groovebox_core::device::{ControlSide, Device};
 use groovebox_core::input::Stamped;
 use groovebox_core::message::Report;
-use std::sync::atomic::Ordering;
+use std::sync::atomic::{AtomicU32, Ordering};
 
 /// The core built for this machine.
 #[derive(Default)]
@@ -42,8 +42,11 @@ impl Runner for NativeRunner {
     }
 
     fn lights(&mut self) -> u64 {
-        // SAFETY: the pointer is valid for the life of the device, which this runner owns.
-        unsafe { &*self.device.lights_pointer() }.load(Ordering::Acquire)
+        // SAFETY: the pointer is valid for the two words for the life of the device, which this
+        // runner owns.
+        let [low, high] = unsafe { &*self.device.lights_pointer().cast::<[AtomicU32; 2]>() };
+        let low = low.load(Ordering::Acquire);
+        u64::from(low) | u64::from(high.load(Ordering::Acquire)) << 32
     }
 
     fn render(&mut self, left: &mut [f32], right: &mut [f32]) {

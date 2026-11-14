@@ -121,8 +121,9 @@ pub extern "C" fn front_pointer() -> u32 {
     DEVICE.front_pointer() as u32
 }
 
-/// The address of the `u64` that holds the lights after the latest `control_step`, one bit per
-/// light as `groovebox_core::lights::Lights` numbers them.
+/// The address of the two `u32`s that hold the lights after the latest `control_step`, one bit per
+/// light as `groovebox_core::lights::Lights` numbers them: bits 0 to 31 in this low word and the
+/// rest in the high word after it. Load the low word, then the high word.
 #[unsafe(no_mangle)]
 pub extern "C" fn lights_pointer() -> u32 {
     DEVICE.lights_pointer() as u32

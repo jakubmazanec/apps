@@ -15,7 +15,8 @@ pub trait Runner {
     /// It gives them once: a second call before the next step gives none.
     fn take_applied(&mut self) -> Vec<(u32, u64)>;
 
-    /// The lights word as the last step stored it, read through `lights_pointer`.
+    /// The lights as the last step stored them, read through `lights_pointer`: the low word, then
+    /// the high word.
     fn lights(&mut self) -> u64;
 
     /// Renders `left.len()` samples, a multiple of 32 and at most 128.
