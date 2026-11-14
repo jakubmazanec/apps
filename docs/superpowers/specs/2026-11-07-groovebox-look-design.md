@@ -372,7 +372,8 @@ while the eyes are on the hands.
 | Pads            | the selected pad (pad 1, the C, in Keys mode); a pad is also lit while one of its notes is on: from a hit to its release and from a sequencer note's start to its end. CANCEL or COPY held: the pads that would be erased or copied blink                                                |
 | Everything else | no light: STOP, SHIFT, MENU, PAGE, COPY, the arrows, OK, CANCEL, − and +                                                                                                                                                                                                                 |
 
-A lit pad does not blink, and the control part works the pad lights out **(owner's choice)**.
+A pad lit by its selection or by a note does not blink, and the control part works the pad lights
+out **(owner's choice)**.
 
 With dimming, pads with a sound are dim and the selected one bright, and the five black-key
 positions are dimmer in Keys mode.

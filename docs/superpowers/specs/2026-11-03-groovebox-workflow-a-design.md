@@ -262,9 +262,9 @@ TEMPO is held its timing strip; their screen routes are the NOTE panel and PATTE
   of the click size. Counted values still move one unit. The volume encoder ignores SHIFT.
 - **Press is OK on the encoder's item (owner's choice).** It opens the item's picker, flips a switch
   or runs an action such as COPY. On a smooth parameter it does nothing.
-- **On STEP and ROLL the encoders act in full (owner's choice).** A turn changes the value and moves
-  the remembered cursor of SOUND's page to the item, and STEP's own cursor stays. A press is OK on
-  the item, so a picker opens over STEP's main area and COPY runs.
+- **On STEP the encoders act in full (owner's choice).** A turn changes the value and moves the
+  remembered cursor of SOUND's page to the item, and STEP's own cursor stays. A press is OK on the
+  item, so a picker opens over STEP's main area and COPY runs.
 - **− and +** move a value by the same steps as one click.
 - There is no acceleration, so the same turn always changes a value by the same amount, and nothing
   depends on how fast the encoder was turned.

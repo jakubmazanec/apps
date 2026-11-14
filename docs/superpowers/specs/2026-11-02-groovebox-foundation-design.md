@@ -270,7 +270,7 @@ Foundation decides the mechanism, not the list.
      choice)**;
    - the lowest, highest and default value;
    - the curve, how the number becomes sound: straight, musical (each step up the knob is the same
-     musical interval, as for pitch), decibels, a named list, or on/off;
+     musical interval, as for pitch), decibels, a named list or on/off;
    - the display unit, how it is shown: Hz, dB, %, note name;
    - the click size: how far one encoder click moves a smooth value, 128 clicks across the range by
      default (Workflow A); 0 for counted values;

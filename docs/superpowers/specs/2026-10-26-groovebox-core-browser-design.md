@@ -205,9 +205,10 @@ Spec: [Foundation](./2026-11-02-groovebox-foundation-design.md). In short:
   **(decided)**.
 - One master list of parameters with permanent IDs and whole-number values **(decided)**.
 - The core sees only abstract controls: button _n_ pressed or released, encoder _n_ turned by _d_,
-  pad _n_ hit with velocity _v_, pad _n_ pressure _p_, pad _n_ released. Bindings connect controls
-  to actions in one place in the code; bindings, colours, pages with the items their encoders hold
-  and the browser panel layout are all code **(decided)**.
+  pad _n_ hit with velocity _v_, pad _n_ pressure _p_, pad _n_ released. MIDI notes are abstract
+  controls too: note _n_ on with velocity _v_, note _n_ off, note _n_ pressure _p_ and channel
+  pressure _p_. Bindings connect controls to actions in one place in the code; bindings, colours,
+  pages with the items their encoders hold and the browser panel layout are all code **(decided)**.
 - The core reaches storage through requests and replies **(decided)**.
 - **GPL-family licence** **(decided)**. The code is GPL-3.0-or-later; the hardware files (parts 3
   and 4) will be CERN-OHL-S-2.0, its hardware counterpart **(my call)**. Dependencies must be
@@ -469,16 +470,22 @@ settles it with the owner.
   counts; the other is ignored until both are let go.
 - **CANCEL or COPY held + a step button.** No meaning is given. Proposed: nothing happens and the
   step's own tap does not fire.
+- **An encoder whose item is not on the screen.** On ROLL, and on STEP while a step or TEMPO is held
+  (the NOTE and timing strips), the cursor cannot move to the item. On STEP's own strip the encoders
+  act in full (Workflow A). Proposed: the value changes; the cursor stays.
 - **The CANCEL + pad question.** When it appears and what letting go of CANCEL does. Proposed: it
   appears on the hit and waits for OK or a new tap of CANCEL; no notes, no question.
 - **REC during the count-in.** What the light and the header dot do. Proposed: the light blinks and
   the dot stays dim through the count-in; steady and red from the first beat.
 - **Blink speeds.** "Blinks slowly" and "blinking" have no rate: one speed or two, in time with the
   tempo or not. Proposed: named constants counted in samples; the speeds: none yet.
-- **An empty pad selected.** How Look draws its Pad page; whether its lane is highlighted on STEP;
-  what OK does and where the view opens on ROLL. Proposed: none yet.
+- **An empty pad selected.** Whether its lane is highlighted on STEP; what OK does and where the
+  view opens on ROLL. Proposed: none yet.
 - **DELETE for an unused sound.** What the question reads when no pad or note uses the sound.
   Proposed: none yet.
+- **NEW SAMPLE on a full pool.** When the pool is full, NEW SYNTH and COPY change nothing and the
+  header shows "Pool full" (Workflow A); NEW SAMPLE, which comes with Milestone 2, is not named.
+  Does the sample picker open, and what does choosing a sample do? Proposed: none yet.
 
 ### Sound and settings
 
