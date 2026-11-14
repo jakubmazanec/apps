@@ -1,0 +1,24 @@
+groovebox-scene 1
+# One input of each kind, spread over the scene.
+input 100 pad-hit 3 100
+step 128
+frame 128
+input 600 pad-pressure 3 64
+input 1000 press t1
+input 1400 release t1
+input 1800 turn encoder-2 5
+input 2200 turn volume -3
+step 2304
+input 2600 note-on 60 90
+input 3000 note-pressure 60 50
+input 3400 channel-pressure 40
+input 3800 note-off 60
+step 4096
+input 4300 press step-16
+input 4500 release step-16
+input 4700 press push-4
+input 4900 release push-4
+input 5200 pad-release 3
+step 5248
+frame 5248
+end 6144

@@ -10,7 +10,7 @@ import {SessionLog} from './session.js';
 
 /* eslint-disable @typescript-eslint/naming-convention, @typescript-eslint/max-params -- the core's exports */
 type ControlExports = {
-  control_queue_input: (sample: bigint, kind: number, pad: number, velocity: number) => number;
+  control_queue_input: (sample: bigint, kind: number, a: number, b: number) => number;
   control_step: (until: bigint) => number;
   control_applied_number: (index: number) => number;
   control_applied_sample: (index: number) => bigint;
@@ -45,16 +45,22 @@ globalThis.addEventListener(
       let stepped = 0n;
 
       let drain = () => {
-        for (let stamped of drainPending(
-          pending,
-          ({sample, input}) =>
-            core.control_queue_input(
-              sample,
-              input.kind === 'pad-hit' ? 0 : 1,
-              input.pad,
-              input.kind === 'pad-hit' ? input.velocity : 0,
-            ) === 1,
-        )) {
+        for (let stamped of drainPending(pending, ({sample, input}) => {
+          let returned = core.control_queue_input(
+            sample,
+            input.kind === 'pad-hit' ? 0 : 1,
+            input.pad,
+            input.kind === 'pad-hit' ? input.velocity : 0,
+          );
+
+          // The core returns 1 when it queued the input, 0 when its queue is full and 2 when it
+          // does not know the input
+          if (returned === 1) {
+            return 'queued';
+          }
+
+          return returned === 0 ? 'full' : 'dropped';
+        })) {
           log.input(stamped);
         }
       };

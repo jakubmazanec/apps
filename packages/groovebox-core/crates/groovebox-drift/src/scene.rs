@@ -1,5 +1,5 @@
 use groovebox_core::audio::MAX_BATCH;
-use groovebox_core::input::{Input, PADS, Stamped};
+use groovebox_core::input::{Button, ENCODERS, Input, PADS, Stamped};
 use std::any::type_name;
 use std::str::FromStr;
 
@@ -23,20 +23,110 @@ fn decimal<T: FromStr>(number: usize, word: &str) -> Result<T, String> {
     })
 }
 
-fn pad(number: usize, word: &str) -> Result<u8, String> {
-    let pad = decimal(number, word)?;
-    if pad < PADS {
-        Ok(pad)
+/// A decimal byte from `low` to `high`, called `name` in the error.
+fn byte(number: usize, name: &str, word: &str, low: u8, high: u8) -> Result<u8, String> {
+    let value = decimal(number, word)?;
+    if (low..=high).contains(&value) {
+        Ok(value)
     } else {
         Err(format!(
-            "line {number}: pad {pad} is not from 0 to {}",
-            PADS - 1
+            "line {number}: {name} {value} is not from {low} to {high}"
         ))
     }
 }
 
-/// Parses a scene file. Besides the shape of each line, it checks the header, the ranges of pads
-/// and velocities, that `end` comes once and last, that `expect-audio` is at the end and that
+fn pad(number: usize, word: &str) -> Result<u8, String> {
+    byte(number, "pad", word, 0, PADS - 1)
+}
+
+fn velocity(number: usize, word: &str) -> Result<u8, String> {
+    byte(number, "velocity", word, 1, 127)
+}
+
+fn pressure(number: usize, word: &str) -> Result<u8, String> {
+    byte(number, "pressure", word, 0, 127)
+}
+
+fn note(number: usize, word: &str) -> Result<u8, String> {
+    byte(number, "note", word, 0, 127)
+}
+
+/// The scene names of the function buttons, at the index of their code.
+const FUNCTION_NAMES: [&str; 22] = [
+    "t1",
+    "t2",
+    "t3",
+    "t4",
+    "pads-keys",
+    "roll",
+    "menu",
+    "page",
+    "copy",
+    "shift",
+    "rec",
+    "play",
+    "stop",
+    "tempo",
+    "up",
+    "down",
+    "left",
+    "right",
+    "ok",
+    "cancel",
+    "minus",
+    "plus",
+];
+
+const STEP_NAMES: [&str; 16] = [
+    "step-1", "step-2", "step-3", "step-4", "step-5", "step-6", "step-7", "step-8", "step-9",
+    "step-10", "step-11", "step-12", "step-13", "step-14", "step-15", "step-16",
+];
+
+const PUSH_NAMES: [&str; 4] = ["push-1", "push-2", "push-3", "push-4"];
+
+const ENCODER_NAMES: [&str; ENCODERS as usize] =
+    ["encoder-1", "encoder-2", "encoder-3", "encoder-4", "volume"];
+
+/// The name of a button in a scene. Panics for a step or a push that does not exist.
+pub fn button_name(button: Button) -> &'static str {
+    match button {
+        Button::Step(step) => STEP_NAMES[usize::from(step)],
+        Button::Push(push) => PUSH_NAMES[usize::from(push)],
+        function => FUNCTION_NAMES[usize::from(function.code())],
+    }
+}
+
+/// The button that a scene calls `name`.
+pub fn button_from_name(name: &str) -> Option<Button> {
+    (0..=u8::MAX)
+        .filter_map(Button::from_code)
+        .find(|&button| button_name(button) == name)
+}
+
+fn button(number: usize, word: &str) -> Result<Button, String> {
+    button_from_name(word).ok_or_else(|| format!("line {number}: `{word}` is not a button"))
+}
+
+fn encoder(number: usize, word: &str) -> Result<u8, String> {
+    ENCODER_NAMES
+        .iter()
+        .position(|&name| name == word)
+        .map(|encoder| encoder as u8)
+        .ok_or_else(|| format!("line {number}: `{word}` is not an encoder"))
+}
+
+fn clicks(number: usize, word: &str) -> Result<i8, String> {
+    let clicks: i32 = decimal(number, word)?;
+    match i8::try_from(clicks) {
+        Ok(clicks) if clicks != 0 && clicks != i8::MIN => Ok(clicks),
+        _ => Err(format!(
+            "line {number}: clicks {clicks} are not from -127 to 127, except 0"
+        )),
+    }
+}
+
+/// Parses a scene file. Besides the shape of each line, it checks the header, the ranges of the
+/// values of inputs, that `end` comes once and last, that `expect-audio` is at the end and that
 /// each frame follows a step. Errors name the line.
 pub fn parse(text: &str) -> Result<Vec<SceneLine>, String> {
     let mut items = text
@@ -59,25 +149,73 @@ pub fn parse(text: &str) -> Result<Vec<SceneLine>, String> {
             return Err(format!("line {number}: nothing may follow `end`"));
         }
         let line = match item.split_whitespace().collect::<Vec<_>>()[..] {
-            ["input", sample, "pad-hit", pad_word, velocity] => {
-                let velocity = decimal(number, velocity)?;
-                if !(1..=127).contains(&velocity) {
-                    return Err(format!(
-                        "line {number}: velocity {velocity} is not from 1 to 127"
-                    ));
-                }
-                SceneLine::Input(Stamped {
-                    sample: decimal(number, sample)?,
-                    input: Input::PadHit {
-                        pad: pad(number, pad_word)?,
-                        velocity,
-                    },
-                })
-            }
+            ["input", sample, "pad-hit", pad_word, velocity_word] => SceneLine::Input(Stamped {
+                sample: decimal(number, sample)?,
+                input: Input::PadHit {
+                    pad: pad(number, pad_word)?,
+                    velocity: velocity(number, velocity_word)?,
+                },
+            }),
             ["input", sample, "pad-release", pad_word] => SceneLine::Input(Stamped {
                 sample: decimal(number, sample)?,
                 input: Input::PadRelease {
                     pad: pad(number, pad_word)?,
+                },
+            }),
+            ["input", sample, "pad-pressure", pad_word, pressure_word] => {
+                SceneLine::Input(Stamped {
+                    sample: decimal(number, sample)?,
+                    input: Input::PadPressure {
+                        pad: pad(number, pad_word)?,
+                        pressure: pressure(number, pressure_word)?,
+                    },
+                })
+            }
+            ["input", sample, "press", name] => SceneLine::Input(Stamped {
+                sample: decimal(number, sample)?,
+                input: Input::ButtonPress {
+                    button: button(number, name)?,
+                },
+            }),
+            ["input", sample, "release", name] => SceneLine::Input(Stamped {
+                sample: decimal(number, sample)?,
+                input: Input::ButtonRelease {
+                    button: button(number, name)?,
+                },
+            }),
+            ["input", sample, "turn", name, clicks_word] => SceneLine::Input(Stamped {
+                sample: decimal(number, sample)?,
+                input: Input::EncoderTurn {
+                    encoder: encoder(number, name)?,
+                    clicks: clicks(number, clicks_word)?,
+                },
+            }),
+            ["input", sample, "note-on", note_word, velocity_word] => SceneLine::Input(Stamped {
+                sample: decimal(number, sample)?,
+                input: Input::NoteOn {
+                    note: note(number, note_word)?,
+                    velocity: velocity(number, velocity_word)?,
+                },
+            }),
+            ["input", sample, "note-off", note_word] => SceneLine::Input(Stamped {
+                sample: decimal(number, sample)?,
+                input: Input::NoteOff {
+                    note: note(number, note_word)?,
+                },
+            }),
+            ["input", sample, "note-pressure", note_word, pressure_word] => {
+                SceneLine::Input(Stamped {
+                    sample: decimal(number, sample)?,
+                    input: Input::NotePressure {
+                        note: note(number, note_word)?,
+                        pressure: pressure(number, pressure_word)?,
+                    },
+                })
+            }
+            ["input", sample, "channel-pressure", pressure_word] => SceneLine::Input(Stamped {
+                sample: decimal(number, sample)?,
+                input: Input::ChannelPressure {
+                    pressure: pressure(number, pressure_word)?,
                 },
             }),
             ["step", sample] => SceneLine::Step(decimal(number, sample)?),
@@ -150,6 +288,7 @@ pub fn parse(text: &str) -> Result<Vec<SceneLine>, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use groovebox_core::input::VOLUME;
 
     #[test]
     fn parses_every_line_kind() {
@@ -184,6 +323,122 @@ mod tests {
                 SceneLine::End(512),
             ])
         );
+    }
+
+    #[test]
+    fn every_input_line_parses() {
+        let input = |input| SceneLine::Input(Stamped { sample: 64, input });
+        for (line, expected) in [
+            (
+                "pad-hit 3 100",
+                Input::PadHit {
+                    pad: 3,
+                    velocity: 100,
+                },
+            ),
+            ("pad-release 3", Input::PadRelease { pad: 3 }),
+            (
+                "pad-pressure 11 0",
+                Input::PadPressure {
+                    pad: 11,
+                    pressure: 0,
+                },
+            ),
+            (
+                "press menu",
+                Input::ButtonPress {
+                    button: Button::Menu,
+                },
+            ),
+            (
+                "release step-16",
+                Input::ButtonRelease {
+                    button: Button::Step(15),
+                },
+            ),
+            (
+                "press push-1",
+                Input::ButtonPress {
+                    button: Button::Push(0),
+                },
+            ),
+            (
+                "turn encoder-4 -127",
+                Input::EncoderTurn {
+                    encoder: 3,
+                    clicks: -127,
+                },
+            ),
+            (
+                "turn volume 1",
+                Input::EncoderTurn {
+                    encoder: VOLUME,
+                    clicks: 1,
+                },
+            ),
+            (
+                "note-on 127 1",
+                Input::NoteOn {
+                    note: 127,
+                    velocity: 1,
+                },
+            ),
+            ("note-off 0", Input::NoteOff { note: 0 }),
+            (
+                "note-pressure 60 127",
+                Input::NotePressure {
+                    note: 60,
+                    pressure: 127,
+                },
+            ),
+            ("channel-pressure 0", Input::ChannelPressure { pressure: 0 }),
+        ] {
+            assert_eq!(
+                parse(&format!("groovebox-scene 1\ninput 64 {line}\nend 128")),
+                Ok(vec![input(expected), SceneLine::End(128)]),
+                "{line}"
+            );
+        }
+    }
+
+    #[test]
+    fn every_button_name_round_trips() {
+        for code in 0..=u8::MAX {
+            if let Some(button) = Button::from_code(code) {
+                assert_eq!(button_from_name(button_name(button)), Some(button));
+            }
+        }
+        assert_eq!(button_name(Button::PadsKeys), "pads-keys");
+        assert_eq!(button_name(Button::Step(0)), "step-1");
+        assert_eq!(button_name(Button::Push(3)), "push-4");
+        assert_eq!(button_from_name("step-17"), None);
+        assert_eq!(button_from_name("encoder-1"), None);
+    }
+
+    #[test]
+    fn bad_input_lines_name_their_line() {
+        for line in [
+            "press step-17",
+            "press push-5",
+            "press volume",
+            "turn encoder-1 0",
+            "turn encoder-5 1",
+            "turn volume 128",
+            "turn volume -128",
+            "pad-pressure 12 0",
+            "pad-pressure 0 128",
+            "note-on 128 1",
+            "note-on 0 0",
+            "note-on 0 128",
+            "note-off 128",
+            "note-pressure 128 0",
+            "note-pressure 0 128",
+            "channel-pressure 128",
+        ] {
+            let error =
+                parse(&format!("groovebox-scene 1\ninput 0 {line}\nend 128")).expect_err(line);
+            assert!(error.contains("line 2"), "{line}: {error}");
+        }
     }
 
     #[test]

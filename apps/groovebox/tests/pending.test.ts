@@ -18,12 +18,12 @@ describe(drainPending, () => {
 
     let queued = drainPending(pending, (stamped) => {
       if (accepted.length === 3) {
-        return false;
+        return 'full';
       }
 
       accepted.push(stamped);
 
-      return true;
+      return 'queued';
     });
 
     expect(queued).toEqual([first, second, third]);
@@ -39,11 +39,43 @@ describe(drainPending, () => {
     let queued = drainPending(pending, (stamped) => {
       offered.push(stamped);
 
-      return stamped !== fourth;
+      return stamped === fourth ? 'full' : 'queued';
     });
 
     expect(queued).toEqual([first, second, third]);
     expect(pending).toEqual([fourth, fifth]);
     expect(offered).toEqual([first, second, third, fourth]);
+  });
+
+  test('removes a dropped input without returning it and goes on with the next', () => {
+    let pending = fivePending();
+    let [first, second, third, fourth, fifth] = pending;
+    let offered: StampedInput[] = [];
+
+    let queued = drainPending(pending, (stamped) => {
+      offered.push(stamped);
+
+      return stamped === second || stamped === third ? 'dropped' : 'queued';
+    });
+
+    expect(queued).toEqual([first, fourth, fifth]);
+    expect(pending).toEqual([]);
+    expect(offered).toEqual([first, second, third, fourth, fifth]);
+  });
+
+  test('keeps the inputs behind a refusal that follow a dropped one', () => {
+    let pending = fivePending();
+    let [first, second, third, fourth, fifth] = pending;
+
+    let queued = drainPending(pending, (stamped) => {
+      if (stamped === first) {
+        return 'dropped';
+      }
+
+      return stamped === fourth ? 'full' : 'queued';
+    });
+
+    expect(queued).toEqual([second, third]);
+    expect(pending).toEqual([fourth, fifth]);
   });
 });

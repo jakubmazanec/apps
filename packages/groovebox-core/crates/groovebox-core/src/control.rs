@@ -52,9 +52,9 @@ impl Held {
 /// The control part: it turns stamped pad inputs into numbered messages for the audio part,
 /// keeps the held pads and draws them.
 ///
-/// Nothing checks the inputs. They carry a pad below `PADS` and a velocity from 1 to 127, and they
-/// are queued in sample order, so for live play and for a complete replay log, the messages leave
-/// in nondecreasing `at` order.
+/// The control part does not check the inputs. They carry a pad below `PADS` and a velocity from 1
+/// to 127, and they are queued in sample order, so for live play and for a complete replay log, the
+/// messages leave in nondecreasing `at` order.
 pub struct Control {
     inputs: Ring<Stamped, INPUT_QUEUE>,
     /// The (number, sample) records of a replay: the sample at which the audio part applied the
@@ -99,7 +99,7 @@ impl Control {
     /// becomes the most recent one with the new velocity. Releasing the sounding pad, which is the
     /// most recently hit one, sends `ToneOn` for the most recently hit pad that is still held, with
     /// that hit's velocity, or `ToneOff` when none is held. Releasing another pad sends nothing,
-    /// but the input is still handled.
+    /// but the input is still handled. Every other input is handled and sends nothing.
     pub fn step(
         &mut self,
         until: u64,
@@ -124,6 +124,7 @@ impl Control {
                         None => MessageKind::ToneOff,
                     })
                 }
+                _ => None,
             };
             if let Some(kind) = kind {
                 let number = self.next_number;
