@@ -340,7 +340,9 @@ the starting arrangement. 321 × 128 mm:
   under them two rows of keys: T1, T2, T3, T4, PADS/KEYS; ROLL, MENU, PAGE, COPY, SHIFT.
 - **Bottom**: the 16 step buttons (15 mm pitch) over the 12 pads (20 mm pitch, 17 mm faces), with
   the navigation cluster at their right end: −, ▲, +, OK over ◀, ▼, ▶, CANCEL (15 × 20 mm keys), OK
-  above CANCEL so that CANCEL + pad is a one-hand gesture for the right-hand pads.
+  above CANCEL so that CANCEL + pad is a one-hand gesture for the right-hand pads. The keys of the
+  browser's panel label the arrows ▲ ▼ ◄ ►, the four triangles text fonts carry together, since ◀
+  and ▶ come from the emoji block and fall back to another font **(owner's choice)**.
 - **No STEP button**: STEP is MENU + 1 only. ROLL keeps its button. 22 function buttons, the four
   encoders with push switches, the volume encoder, 16 steps and 12 pads.
 

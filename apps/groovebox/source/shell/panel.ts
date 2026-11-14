@@ -22,8 +22,6 @@ function style(css: (pixels: number) => string) {
       user-select: none;
       font-size: ${css(LABEL_SIZE)};
       line-height: 1;
-      /* ◀ and ▶ are also emoji: keep them text where a colour emoji font comes first */
-      font-variant-emoji: text;
     }
     .groovebox-panel > * {
       position: absolute;

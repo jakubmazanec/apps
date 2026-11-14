@@ -127,4 +127,12 @@ describe('the controls', () => {
     expect(CONTROLS.find(({control}) => control === 'pads-keys')?.label).toBe('PADS');
     expect(CONTROLS.find(({control}) => control === 'encoder-3')?.label).toBe('3');
   });
+
+  test('the arrows are the four triangles that fonts carry together', () => {
+    let labels = ['up', 'down', 'left', 'right'].map(
+      (name) => CONTROLS.find(({control}) => control === name)?.label,
+    );
+
+    expect(labels).toEqual(['▲', '▼', '◄', '►']);
+  });
 });

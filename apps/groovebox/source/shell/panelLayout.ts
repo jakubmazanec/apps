@@ -100,9 +100,9 @@ export const CONTROLS: readonly PanelControl[] = [
     ['ok', 'OK'],
   ]),
   ...keys({x: 253, y: 100}, {width: 12, height: 18}, [
-    ['left', '◀'],
+    ['left', '◄'],
     ['down', '▼'],
-    ['right', '▶'],
+    ['right', '►'],
     ['cancel', 'CANCEL'],
   ]),
   ...Array.from({length: 12}, (_, index): PanelControl => ({
