@@ -1,6 +1,6 @@
 use crate::runner::Runner;
 use groovebox_core::audio::MAX_BATCH;
-use groovebox_core::input::{Input, Stamped};
+use groovebox_core::input::Stamped;
 use groovebox_core::screen::{HEIGHT, WIDTH};
 use std::path::Path;
 use wasmtime::{
@@ -83,22 +83,11 @@ impl WasmRunner {
 
 impl Runner for WasmRunner {
     fn queue_input(&mut self, input: Stamped) -> bool {
-        let (kind, a, b): (u32, u8, u32) = match input.input {
-            Input::PadHit { pad, velocity } => (0, pad, velocity.into()),
-            Input::PadRelease { pad } => (1, pad, 0),
-            Input::PadPressure { pad, pressure } => (2, pad, pressure.into()),
-            Input::ButtonPress { button } => (3, button.code(), 0),
-            Input::ButtonRelease { button } => (4, button.code(), 0),
-            Input::EncoderTurn { encoder, clicks } => (5, encoder, i32::from(clicks) as u32),
-            Input::NoteOn { note, velocity } => (6, note, velocity.into()),
-            Input::NoteOff { note } => (7, note, 0),
-            Input::NotePressure { note, pressure } => (8, note, pressure.into()),
-            Input::ChannelPressure { pressure } => (9, pressure, 0),
-        };
+        let (kind, a, b) = input.input.to_wire();
         match self.call::<_, u32>(
             self.control,
             "control_queue_input",
-            (input.sample, kind, u32::from(a), b),
+            (input.sample, kind, a, b),
         ) {
             1 => true,
             0 => false,

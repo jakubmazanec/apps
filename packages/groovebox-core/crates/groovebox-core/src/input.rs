@@ -1,3 +1,5 @@
+use core::ops::{RangeBounds, RangeInclusive};
+
 pub const PADS: u8 = 12;
 pub const STEPS: u8 = 16;
 /// The four encoders with push switches, then the volume.
@@ -104,6 +106,14 @@ impl Button {
     }
 }
 
+const DATA: RangeInclusive<u8> = 0..=127;
+const VELOCITY: RangeInclusive<u8> = 1..=127;
+
+/// `value` as a byte, when it lies in `range`.
+fn within(value: u32, range: impl RangeBounds<u8>) -> Option<u8> {
+    u8::try_from(value).ok().filter(|byte| range.contains(byte))
+}
+
 /// An input. The core takes its values as they are; the browser export and the scene parser keep
 /// them in range: pads below `PADS`, encoders below `ENCODERS`, `clicks` from -127 to 127 and not
 /// 0, notes and pressures from 0 to 127 and velocities from 1 to 127.
@@ -119,6 +129,73 @@ pub enum Input {
     NoteOff { note: u8 },
     NotePressure { note: u8, pressure: u8 },
     ChannelPressure { pressure: u8 },
+}
+
+impl Input {
+    /// The input that a kind and its two parameters stand for, or `None` for an unknown kind or a
+    /// value out of its range. This is the wire format of the browser export and the shell: the
+    /// "Inputs" table under "Shared formats" in the screens and pads plan lists the kinds and what
+    /// `a` and `b` hold. A kind ignores the parameter it does not name.
+    pub fn from_wire(kind: u32, a: u32, b: u32) -> Option<Self> {
+        Some(match kind {
+            0 => Self::PadHit {
+                pad: within(a, 0..PADS)?,
+                velocity: within(b, VELOCITY)?,
+            },
+            1 => Self::PadRelease {
+                pad: within(a, 0..PADS)?,
+            },
+            2 => Self::PadPressure {
+                pad: within(a, 0..PADS)?,
+                pressure: within(b, DATA)?,
+            },
+            3 => Self::ButtonPress {
+                button: Button::from_code(u8::try_from(a).ok()?)?,
+            },
+            4 => Self::ButtonRelease {
+                button: Button::from_code(u8::try_from(a).ok()?)?,
+            },
+            5 => Self::EncoderTurn {
+                encoder: within(a, 0..ENCODERS)?,
+                // The clicks arrive as the bits of an `i32`, from -127 to 127 and not 0.
+                clicks: i8::try_from(b as i32)
+                    .ok()
+                    .filter(|&clicks| clicks != 0 && clicks != i8::MIN)?,
+            },
+            6 => Self::NoteOn {
+                note: within(a, DATA)?,
+                velocity: within(b, VELOCITY)?,
+            },
+            7 => Self::NoteOff {
+                note: within(a, DATA)?,
+            },
+            8 => Self::NotePressure {
+                note: within(a, DATA)?,
+                pressure: within(b, DATA)?,
+            },
+            9 => Self::ChannelPressure {
+                pressure: within(a, DATA)?,
+            },
+            _ => return None,
+        })
+    }
+
+    /// The kind, `a` and `b` of this input on the wire: the inverse of `from_wire`, with 0 for the
+    /// parameter a kind does not name.
+    pub fn to_wire(self) -> (u32, u32, u32) {
+        match self {
+            Self::PadHit { pad, velocity } => (0, pad.into(), velocity.into()),
+            Self::PadRelease { pad } => (1, pad.into(), 0),
+            Self::PadPressure { pad, pressure } => (2, pad.into(), pressure.into()),
+            Self::ButtonPress { button } => (3, button.code().into(), 0),
+            Self::ButtonRelease { button } => (4, button.code().into(), 0),
+            Self::EncoderTurn { encoder, clicks } => (5, encoder.into(), i32::from(clicks) as u32),
+            Self::NoteOn { note, velocity } => (6, note.into(), velocity.into()),
+            Self::NoteOff { note } => (7, note.into(), 0),
+            Self::NotePressure { note, pressure } => (8, note.into(), pressure.into()),
+            Self::ChannelPressure { pressure } => (9, pressure.into(), 0),
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -161,6 +238,173 @@ mod tests {
         assert_eq!(Push(3).code(), 51);
         for code in [22, 31, 52, 255] {
             assert_eq!(Button::from_code(code), None);
+        }
+    }
+
+    #[test]
+    fn every_kind_round_trips_through_the_wire() {
+        use Button::*;
+        let inputs = [
+            Input::PadHit {
+                pad: 11,
+                velocity: 127,
+            },
+            Input::PadRelease { pad: 3 },
+            Input::PadPressure {
+                pad: 2,
+                pressure: 64,
+            },
+            Input::ButtonPress { button: Menu },
+            Input::ButtonRelease { button: Step(15) },
+            Input::EncoderTurn {
+                encoder: VOLUME,
+                clicks: -127,
+            },
+            Input::NoteOn {
+                note: 60,
+                velocity: 1,
+            },
+            Input::NoteOff { note: 127 },
+            Input::NotePressure {
+                note: 61,
+                pressure: 99,
+            },
+            Input::ChannelPressure { pressure: 0 },
+        ];
+
+        for (kind, input) in (0..).zip(inputs) {
+            let (wire_kind, a, b) = input.to_wire();
+
+            assert_eq!(wire_kind, kind, "{input:?}");
+            assert_eq!(Input::from_wire(wire_kind, a, b), Some(input), "{input:?}");
+        }
+    }
+
+    #[test]
+    fn the_wire_carries_the_parameters_in_the_order_of_the_table() {
+        let wire = |input: Input| input.to_wire();
+
+        assert_eq!(
+            wire(Input::PadHit {
+                pad: 5,
+                velocity: 90
+            }),
+            (0, 5, 90)
+        );
+        assert_eq!(
+            wire(Input::PadPressure {
+                pad: 6,
+                pressure: 70
+            }),
+            (2, 6, 70)
+        );
+        assert_eq!(
+            wire(Input::ButtonPress {
+                button: Button::Cancel
+            }),
+            (3, 19, 0)
+        );
+        assert_eq!(
+            wire(Input::ButtonRelease {
+                button: Button::Push(3)
+            }),
+            (4, 51, 0)
+        );
+        assert_eq!(
+            wire(Input::EncoderTurn {
+                encoder: 1,
+                clicks: -3
+            }),
+            (5, 1, -3_i32 as u32)
+        );
+        assert_eq!(
+            wire(Input::NoteOn {
+                note: 60,
+                velocity: 90
+            }),
+            (6, 60, 90)
+        );
+        assert_eq!(wire(Input::NoteOff { note: 60 }), (7, 60, 0));
+        assert_eq!(
+            wire(Input::NotePressure {
+                note: 61,
+                pressure: 99
+            }),
+            (8, 61, 99)
+        );
+        assert_eq!(wire(Input::ChannelPressure { pressure: 40 }), (9, 40, 0));
+    }
+
+    #[test]
+    fn the_wire_takes_the_edges_of_every_range() {
+        for (kind, a, b) in [
+            (0, 0, 1),
+            (0, 11, 127),
+            (1, 11, 0),
+            (2, 0, 0),
+            (2, 11, 127),
+            (3, 0, 0),
+            (3, 21, 0),
+            (3, 51, 0),
+            (4, 32, 0),
+            (4, 47, 0),
+            (5, 0, 1),
+            (5, 4, 127),
+            (5, 4, -127_i32 as u32),
+            (6, 0, 1),
+            (6, 127, 127),
+            (7, 127, 0),
+            (8, 0, 0),
+            (8, 127, 127),
+            (9, 0, 0),
+            (9, 127, 0),
+        ] {
+            assert!(Input::from_wire(kind, a, b).is_some(), "{kind} {a} {b}");
+        }
+    }
+
+    #[test]
+    fn the_wire_refuses_what_is_out_of_range() {
+        for (kind, a, b) in [
+            (10, 0, 0),
+            (u32::MAX, 0, 0),
+            (0, 12, 100),
+            (0, 256, 100),
+            (0, 0, 0),
+            (0, 0, 128),
+            (0, 0, 256),
+            (1, 12, 0),
+            (1, 256, 0),
+            (2, 12, 0),
+            (2, 256, 0),
+            (2, 0, 128),
+            (3, 22, 0),
+            (3, 31, 0),
+            (3, 52, 0),
+            (3, 256, 0),
+            (4, 22, 0),
+            (4, 31, 0),
+            (4, 52, 0),
+            (4, 256, 0),
+            (5, 5, 1),
+            (5, 256, 1),
+            (5, 0, 0),
+            (5, 0, 128),
+            (5, 0, -128_i32 as u32),
+            (5, 0, 1 << 31),
+            (6, 128, 1),
+            (6, 0, 0),
+            (6, 0, 128),
+            (6, 0, 256),
+            (7, 128, 0),
+            (7, 256, 0),
+            (8, 128, 0),
+            (8, 0, 128),
+            (8, 0, 256),
+            (9, 128, 0),
+            (9, 256, 0),
+        ] {
+            assert_eq!(Input::from_wire(kind, a, b), None, "{kind} {a} {b}");
         }
     }
 }

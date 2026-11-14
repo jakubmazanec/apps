@@ -6,12 +6,11 @@
 // handler.
 #![cfg_attr(target_arch = "wasm32", no_std)]
 
-use core::ops::{RangeBounds, RangeInclusive};
 use core::sync::atomic::{AtomicU32, AtomicU64, Ordering};
 use groovebox_core::audio::MAX_BATCH;
 use groovebox_core::device::{ControlSide, Device};
 use groovebox_core::fingerprint::Fingerprint;
-use groovebox_core::input::{Button, ENCODERS, Input, PADS, Stamped};
+use groovebox_core::input::{Input, Stamped};
 use groovebox_core::message::{REPORT_QUEUE, Report};
 use groovebox_core::palette;
 
@@ -57,69 +56,12 @@ fn control_side() -> ControlSide<'static> {
     unsafe { DEVICE.control_side() }
 }
 
-const DATA: RangeInclusive<u8> = 0..=127;
-const VELOCITY: RangeInclusive<u8> = 1..=127;
-
-/// `value` as a byte, when it lies in `range`.
-fn within(value: u32, range: impl RangeBounds<u8>) -> Option<u8> {
-    u8::try_from(value).ok().filter(|byte| range.contains(byte))
-}
-
-fn button(code: u32) -> Option<Button> {
-    Button::from_code(u8::try_from(code).ok()?)
-}
-
-/// The input that `kind`, `a` and `b` stand for, or `None` for an unknown kind or a value out of
-/// its range. A kind ignores the parameters it does not name.
-fn decode(kind: u32, a: u32, b: u32) -> Option<Input> {
-    Some(match kind {
-        0 => Input::PadHit {
-            pad: within(a, 0..PADS)?,
-            velocity: within(b, VELOCITY)?,
-        },
-        1 => Input::PadRelease {
-            pad: within(a, 0..PADS)?,
-        },
-        2 => Input::PadPressure {
-            pad: within(a, 0..PADS)?,
-            pressure: within(b, DATA)?,
-        },
-        3 => Input::ButtonPress { button: button(a)? },
-        4 => Input::ButtonRelease { button: button(a)? },
-        5 => Input::EncoderTurn {
-            encoder: within(a, 0..ENCODERS)?,
-            // The clicks arrive as the bits of an `i32`, from -127 to 127 and not 0.
-            clicks: i8::try_from(b as i32)
-                .ok()
-                .filter(|&clicks| clicks != 0 && clicks != i8::MIN)?,
-        },
-        6 => Input::NoteOn {
-            note: within(a, DATA)?,
-            velocity: within(b, VELOCITY)?,
-        },
-        7 => Input::NoteOff {
-            note: within(a, DATA)?,
-        },
-        8 => Input::NotePressure {
-            note: within(a, DATA)?,
-            pressure: within(b, DATA)?,
-        },
-        9 => Input::ChannelPressure {
-            pressure: within(a, DATA)?,
-        },
-        _ => return None,
-    })
-}
-
-/// Queues an input stamped with `sample`. `kind` is 0 for a pad hit, 1 for a pad release, 2 for pad
-/// pressure, 3 and 4 for a button press and release, 5 for an encoder turn, 6 and 7 for a MIDI note
-/// on and off, 8 for note pressure and 9 for channel pressure; "Inputs" under "Shared formats" in
-/// the screens and pads plan lists the values of `a` and `b` for each. Returns 1 when queued, 0
-/// when the queue is full and 2 for an unknown kind or a value out of its range, which queues
-/// nothing.
+/// Queues an input stamped with `sample`. `kind`, `a` and `b` are the wire format of
+/// `Input::from_wire`. Returns 1 when queued, 0 when the queue is full and 2 for an unknown kind or
+/// a value out of its range, which queues nothing.
 #[unsafe(no_mangle)]
 pub extern "C" fn control_queue_input(sample: u64, kind: u32, a: u32, b: u32) -> u32 {
-    let Some(input) = decode(kind, a, b) else {
+    let Some(input) = Input::from_wire(kind, a, b) else {
         return 2;
     };
     u32::from(
