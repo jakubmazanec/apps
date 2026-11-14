@@ -484,6 +484,34 @@ fn pads_keys_with_an_arrow_moves_the_octave_between_c0_and_c8() {
 }
 
 #[test]
+fn left_and_right_under_pads_keys_are_taken_and_still_count_as_used() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    rig.tap(0, Button::PadsKeys);
+
+    // Held left and right do nothing and do not repeat, also once PADS/KEYS is let go.
+    rig.press(100, Button::PadsKeys);
+    rig.press(110, Button::Left);
+    rig.press(120, Button::Right);
+    rig.let_go(1_000, Button::PadsKeys);
+    rig.step(120 + 3 * REPEAT_DELAY);
+    assert_eq!(rig.control.buttons.next_repeat(), None);
+    assert_eq!(rig.track().octave, 4);
+    assert_eq!(rig.track().mode, PadMode::Keys);
+    rig.let_go(70_000, Button::Left);
+    rig.let_go(70_000, Button::Right);
+
+    // A short PADS/KEYS with left or right tapped under it switches no mode.
+    for (sample, button) in [(80_000, Button::Left), (90_000, Button::Right)] {
+        rig.press(sample, Button::PadsKeys);
+        rig.tap(sample + 10, button);
+        rig.let_go(sample + 20, Button::PadsKeys);
+        rig.step(sample + 30);
+        assert_eq!(rig.track().mode, PadMode::Keys, "{button:?}");
+    }
+}
+
+#[test]
 fn each_track_keeps_its_mode_octave_and_selection() {
     let queue = Queue::new();
     let mut rig = Rig::new(&queue);

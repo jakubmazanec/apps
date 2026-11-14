@@ -318,13 +318,17 @@ impl Control {
     ///   sequencer.
     /// - SHIFT + OK and SHIFT + an encoder push do nothing.
     /// - PADS/KEYS held + up or down moves the octave in KEYS mode, stopping at C0 and C8, and in
-    ///   PADS mode does nothing.
+    ///   PADS mode does nothing. PADS/KEYS held + left or right does nothing. Each arrow under
+    ///   PADS/KEYS is taken, so it does not repeat, and like any press it still counts as another
+    ///   control used.
     ///
     /// While the sound picker is open the controls act on it. The arrows, - and + move its
     /// highlight (`nudge`), OK chooses the highlighted row and closes it, and a tap of CANCEL
     /// closes it (`release`). PLAY, STOP, REC and SHIFT + T1 to T4 act as usual. T1 to T4, MENU,
     /// PAGE, ROLL, PADS/KEYS, TEMPO, COPY, the steps and the encoder pushes are dropped: they are
-    /// taken, so they act neither now nor when they are let go, and the picker stays open.
+    /// taken, so they act neither now nor when they are let go, and the picker stays open. Every
+    /// other combination does nothing there either: SHIFT + - or + and an arrow under PADS/KEYS
+    /// are taken at their press, so they neither move the highlight nor repeat.
     ///
     /// Otherwise the arrows, - and + nudge (`nudge`), OK uses the item under the cursor and an
     /// encoder push the item its encoder holds.
@@ -336,10 +340,17 @@ impl Control {
         self.buttons.press(button, sample);
         let overlay = self.overlay();
         let picker = self.view.picker.is_some();
+        let pads_keys = self.buttons.first_held(&[Button::PadsKeys]).is_some();
         match button {
             Button::T1 | Button::T2 | Button::T3 | Button::T4 | Button::Ok | Button::Push(_)
                 if self.buttons.is_held(Button::Shift) =>
             {
+                self.buttons.take(button);
+            }
+            Button::Minus | Button::Plus if picker && self.buttons.is_held(Button::Shift) => {
+                self.buttons.take(button);
+            }
+            Button::Up | Button::Down | Button::Left | Button::Right if picker && pads_keys => {
                 self.buttons.take(button);
             }
             Button::Up
@@ -426,14 +437,15 @@ impl Control {
             Button::T2 => self.project.track = 1,
             Button::T3 => self.project.track = 2,
             Button::T4 => self.project.track = 3,
-            Button::Up | Button::Down if self.buttons.first_held(&[Button::PadsKeys]).is_some() => {
+            Button::Up | Button::Down | Button::Left | Button::Right if pads_keys => {
                 self.buttons.take(button);
                 let track = self.track_mut();
-                if track.mode == PadMode::Keys {
-                    track.octave = match button {
-                        Button::Up => (track.octave + 1).min(MAX_OCTAVE),
-                        _ => track.octave.saturating_sub(1),
-                    };
+                match (track.mode, button) {
+                    (PadMode::Keys, Button::Up) => {
+                        track.octave = (track.octave + 1).min(MAX_OCTAVE)
+                    }
+                    (PadMode::Keys, Button::Down) => track.octave = track.octave.saturating_sub(1),
+                    _ => {}
                 }
             }
             Button::Up
@@ -459,18 +471,19 @@ impl Control {
 
     /// An arrow, - or + at its press and at each of its repeats, which reads SHIFT anew. In the
     /// picker up, down, - and + move the highlight one row and left and right a picker page of 16
-    /// rows, stopping at the ends. On a page up and down move the cursor one item, stopping at the
-    /// ends, and - and + move the value under it by a click, a fine one while SHIFT is held.
-    /// SHIFT + an arrow does nothing outside STEP, and left and right do nothing on a page of one
-    /// column. None of them gets here while MENU or PAGE is held (`press`). STEP has no page, and
-    /// its own arrows, - and + come with the sequencer.
+    /// rows, stopping at the ends, and with SHIFT held none of them does anything. On a page up
+    /// and down move the cursor one item, stopping at the ends, and - and + move the value under
+    /// it by a click, a fine one while SHIFT is held. SHIFT + an arrow does nothing outside STEP,
+    /// and left and right do nothing on a page of one column. None of them gets here while MENU or
+    /// PAGE is held (`press`). STEP has no page, and its own arrows, - and + come with the
+    /// sequencer.
     fn nudge(&mut self, button: Button) {
         let shift = self.buttons.is_held(Button::Shift);
         if let Some(picker) = self.view.picker {
             let (row, last) = (picker.item, self.picker_rows() - 1);
             self.view.highlight(match (button, shift) {
-                (Button::Up, false) | (Button::Minus, _) => row.saturating_sub(1),
-                (Button::Down, false) | (Button::Plus, _) => (row + 1).min(last),
+                (Button::Up | Button::Minus, false) => row.saturating_sub(1),
+                (Button::Down | Button::Plus, false) => (row + 1).min(last),
                 (Button::Left, false) => row.saturating_sub(LIST_VISIBLE),
                 (Button::Right, false) => (row + LIST_VISIBLE).min(last),
                 _ => return,

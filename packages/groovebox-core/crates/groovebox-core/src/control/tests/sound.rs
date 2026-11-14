@@ -559,7 +559,7 @@ fn the_picker_keys_move_the_highlight_and_stop_at_the_ends() {
         ],
     );
 
-    // With SHIFT held the arrows do nothing, - and + still move a row and OK chooses nothing.
+    // With SHIFT held the arrows, - and + do nothing and OK chooses nothing.
     rig.press(300, Button::Shift);
     check(
         &mut rig,
@@ -568,12 +568,90 @@ fn the_picker_keys_move_the_highlight_and_stop_at_the_ends() {
             (320, Button::Down, 13),
             (330, Button::Left, 13),
             (340, Button::Right, 13),
-            (350, Button::Minus, 12),
+            (350, Button::Minus, 13),
             (360, Button::Plus, 13),
             (370, Button::Ok, 13),
         ],
     );
     assert_eq!(rig.track().pads[0], None);
+}
+
+#[test]
+fn shift_with_minus_or_plus_does_nothing_in_the_picker() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    fill(&mut rig, 30);
+    rig.menu(0, 2);
+    rig.tap(10, Button::Ok);
+    rig.tap(20, Button::Plus);
+    rig.tap(30, Button::Plus);
+    let highlight = |rig: &Rig<'_>| rig.control.view.picker.map(|picker| picker.item);
+
+    // SHIFT + - and SHIFT + + are taken at their press: they move nothing, do not repeat and do
+    // nothing once SHIFT is let go.
+    rig.press(100, Button::Shift);
+    rig.press(110, Button::Plus);
+    rig.press(120, Button::Minus);
+    rig.let_go(1_000, Button::Shift);
+    rig.step(120 + 3 * REPEAT_DELAY);
+    assert_eq!(highlight(&rig), Some(2));
+    assert_eq!(rig.control.buttons.next_repeat(), None);
+    rig.let_go(70_000, Button::Plus);
+    rig.let_go(70_000, Button::Minus);
+
+    // A + held on its own moves a row and repeats. Each repeat reads SHIFT anew, so the repeats
+    // while SHIFT is held do nothing and the first after it is let go moves a row.
+    rig.press(100_000, Button::Plus);
+    rig.press(110_000, Button::Shift);
+    rig.let_go(122_000, Button::Shift);
+    rig.step(100_001);
+    assert_eq!(highlight(&rig), Some(3));
+    rig.step(100_000 + REPEAT_DELAY + 2 * REPEAT_EVERY);
+    assert_eq!(highlight(&rig), Some(3));
+    rig.step(100_000 + REPEAT_DELAY + 2 * REPEAT_EVERY + 1);
+    assert_eq!(highlight(&rig), Some(4));
+}
+
+#[test]
+fn an_arrow_under_pads_keys_does_nothing_in_the_picker() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    fill(&mut rig, 30);
+    rig.control.project.put(0, Some(SoundNumber(20)));
+    rig.tap(0, Button::PadsKeys);
+    rig.menu(10, 2);
+    // PADS/KEYS is held from before OK opens the picker on Syn 20, row 21, where every arrow
+    // would move the highlight.
+    rig.press(20, Button::PadsKeys);
+    rig.tap(30, Button::Ok);
+    rig.step(40);
+    let open = picture(&rig.control);
+    assert_eq!(rig.control.view.picker.map(|picker| picker.item), Some(21));
+
+    // The arrows are taken at their press: in KEYS mode up and down leave the octave too, a held
+    // down does not repeat, and letting go of PADS/KEYS first leaves it taken.
+    for (sample, button) in [
+        (100, Button::Up),
+        (110, Button::Down),
+        (120, Button::Left),
+        (130, Button::Right),
+    ] {
+        rig.tap(sample, button);
+    }
+    rig.press(200, Button::Down);
+    rig.let_go(300, Button::PadsKeys);
+    rig.step(200 + 3 * REPEAT_DELAY);
+    assert_eq!(rig.control.view.picker.map(|picker| picker.item), Some(21));
+    assert_eq!(rig.control.buttons.next_repeat(), None);
+    assert_eq!(rig.track().octave, 4);
+    assert_eq!(rig.track().mode, PadMode::Keys);
+    assert!(shows(&rig.control, &open));
+
+    // A new press of down moves the highlight again.
+    rig.let_go(70_000, Button::Down);
+    rig.tap(70_100, Button::Down);
+    rig.step(70_200);
+    assert_eq!(rig.control.view.picker.map(|picker| picker.item), Some(22));
 }
 
 #[test]
@@ -622,13 +700,14 @@ fn picker_session(every: u64) -> Session {
     rig.control.project.put(3, Some(SoundNumber(4)));
     rig.menu(0, 2);
     rig.tap(100, Button::Ok);
-    // Down held moves the highlight 18 rows, and pad 4 and a MIDI note play meanwhile. Left goes
-    // back 16 rows and right held goes to the end, Syn 30, which OK chooses.
+    // Down held moves the highlight 18 rows, and pad 4 and a MIDI note play meanwhile, across the
+    // lights taken at 32,768. Left goes back 16 rows and right held goes to the end, Syn 30, which
+    // OK chooses.
     rig.press(1_000, Button::Down);
     rig.hit(30_000, 3, 100);
     rig.note_on(30_500, 15, 90);
-    rig.release(31_000, 3);
-    rig.note_off(31_500, 15);
+    rig.release(33_000, 3);
+    rig.note_off(33_500, 15);
     rig.let_go(60_000, Button::Down);
     rig.tap(61_000, Button::Left);
     rig.press(62_000, Button::Right);
@@ -661,6 +740,10 @@ fn the_result_does_not_depend_on_the_step_size() {
     assert_eq!(fine.lights, coarse.lights);
     assert_eq!(fine.pickers, coarse.pickers);
     assert!(fine.last.pixels() == coarse.last.pixels());
+    // The lights change in the session, so their comparison can fail: at 32,768 pad 4 is lit by
+    // its hit and by the MIDI note.
+    assert_eq!(coarse.lights[0], [pad(0), track(0)]);
+    assert_eq!(coarse.lights[7], [pad(0), pad(3), track(0)]);
 
     // And it is what the inputs ask for.
     let fourth = SoundNumber(4);
@@ -669,8 +752,8 @@ fn the_result_does_not_depend_on_the_step_size() {
         [
             message(0, 30_000, note_on(0, 0, fourth, 60, 100)),
             message(1, 30_500, note_on(1, 0, fourth, 60, 90)),
-            message(2, 31_000, note_off(0)),
-            message(3, 31_500, note_off(1)),
+            message(2, 33_000, note_off(0)),
+            message(3, 33_500, note_off(1)),
         ]
     );
     // By 57,344 down has moved the highlight 17 rows; by 61,440 it has moved 18 and left 16 back.
