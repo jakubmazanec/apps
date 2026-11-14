@@ -6,6 +6,9 @@ rustflags = [
   "-C", "link-arg=--shared-memory",
   "-C", "link-arg=--export=__stack_pointer",
   "-C", "link-arg=-zstack-size=262144",
+  # This route takes memcmp and its kin from wasi-libc; the fallback route gets them from
+  # compiler_builtins.
+  "-C", "link-arg=-lc",
 ]
 
 [target.wasm32-unknown-unknown]
