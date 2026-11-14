@@ -135,8 +135,10 @@ impl Buttons {
             .map(|press| press.button)
     }
 
-    /// The earliest repeat that is due and the button it belongs to; at one sample the lowest
-    /// button code goes first.
+    /// The earliest repeat that is scheduled and the button it belongs to; at one sample the lowest
+    /// button code goes first. It can lie after the sample the caller steps to, and the caller then
+    /// leaves it for a later step. The caller must call `repeated` for every repeat it reaches,
+    /// whether it acts on it or drops it, as until then this one stays the earliest.
     pub fn next_repeat(&self) -> Option<(u64, Button)> {
         self.presses
             .iter()
@@ -145,8 +147,8 @@ impl Buttons {
             .min_by_key(|&(sample, button)| (sample, button.code()))
     }
 
-    /// The repeat of this button was made: its next one is `REPEAT_EVERY` later. A button that is
-    /// not repeating is left alone.
+    /// The caller reached the repeat of this button, and acted on it or dropped it: its next one is
+    /// `REPEAT_EVERY` later. A button that is not repeating is left alone.
     pub fn repeated(&mut self, button: Button) {
         if let Some(Press {
             repeat: Some(sample),

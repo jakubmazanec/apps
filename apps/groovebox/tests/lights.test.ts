@@ -1,4 +1,4 @@
-/* eslint-disable no-bitwise -- the lights are the bits of one word */
+/* eslint-disable no-bitwise -- the lights are the bits of two words */
 import {describe, expect, test} from 'vitest';
 
 import {decodeLights, loadLights} from '../source/shell/lights.js';

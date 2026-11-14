@@ -34,6 +34,9 @@ pub fn split(name: &str) -> (&str, u32) {
 /// base the pool lacks starts at 1 when `numbered`, as a synth does ("Syn 1"), and as the bare
 /// base otherwise, as the first sound of a file does ("Kick"). The base is shortened at a character
 /// boundary so that the name fits.
+///
+/// `base` must be split already (`split`). A whole name such as "Take 2" counts as the base
+/// "Take 2", not "Take", so the next name can be "Take 2" again.
 pub fn next_name(pool: &Pool, base: &str, numbered: bool) -> Label<NAME_BYTES> {
     let highest = pool
         .sounds()

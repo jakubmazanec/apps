@@ -1,7 +1,8 @@
 # Font
 
 The screen's font is [monogram](https://datagoblin.itch.io/monogram) by datagoblin, released under
-CC0. Both files are copies of the ones in Foam's `public` directory, unchanged:
+CC0. Both files come unchanged from that itch.io page, and they are the ones first added to this
+repository in commit `517abc56`:
 
 - `monogram.fnt` describes the font in the BMFont text format: one `<char .../>` line for each of
   its 577 glyphs, with the glyph's place in the picture and its offsets.
