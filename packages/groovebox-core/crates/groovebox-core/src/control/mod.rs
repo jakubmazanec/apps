@@ -1,27 +1,32 @@
 pub mod buttons;
 mod draw;
 pub mod notes;
+pub mod pages;
 pub mod view;
 
 use crate::input::{Button, Input, PADS, Stamped};
+use crate::label::Label;
 use crate::lights::Lights;
 use crate::message::{MAX_MESSAGES_PER_EVENT, MESSAGE_QUEUE, Message, MessageKind};
-use crate::param::VELOCITY;
+use crate::param::{self, Curve, VELOCITY};
 use crate::project::Project;
 use crate::project::settings::DeviceSettings;
 use crate::project::track::{MAX_OCTAVE, PadMode, Track};
 use crate::queue::Producer;
 use crate::ring::Ring;
+use crate::screen::Color;
+use crate::ui::tiles::{Tile, TileState};
 use buttons::{Buttons, Release};
 use notes::{Notes, Source};
-use view::View;
+use pages::{ItemDef, ItemKind, MENU, PageDef, pages};
+use view::{Screen, View, menu_tiles, page_tiles};
 
 pub const INPUT_QUEUE: usize = 64;
 pub const REPLAY_QUEUE: usize = 64;
 
 /// The control part: it turns stamped inputs into numbered messages for the audio part. It keeps
-/// the project, the device settings, the held buttons, the notes that are on and what the screen
-/// shows, works out the lights and draws the picture.
+/// the project, the device settings, the held buttons, the notes that are on, what the screen
+/// shows and the header's message, works out the lights and draws the picture.
 ///
 /// The control part does not check the inputs: the browser export and the scene parser keep them
 /// in range (`Input`). They are queued in sample order, so for live play and for a complete replay
@@ -38,6 +43,9 @@ pub struct Control {
     buttons: Buttons,
     notes: Notes,
     view: View,
+    /// The message on the right of the header, its colour and the sample it was shown at. A later
+    /// button press clears it (`press`).
+    message: Option<(Label<32>, Color, u64)>,
 }
 
 impl Control {
@@ -52,6 +60,7 @@ impl Control {
             buttons: Buttons::new(),
             notes: Notes::new(),
             view: View::new(),
+            message: None,
         }
     }
 
@@ -93,7 +102,8 @@ impl Control {
                 self.inputs.pop();
                 self.input(stamped, messages);
             } else if let Some((_, button)) = repeat {
-                // Nothing on STEP acts on a held arrow, - or +, so the repeat is only counted.
+                // Each repeat makes the same move as the press.
+                self.nudge(button);
                 self.buttons.repeated(button);
             } else {
                 break;
@@ -108,7 +118,8 @@ impl Control {
     /// The pads show the current track. In PADS mode the selected pad is lit and so is every pad
     /// with a note on that was hit as that pad. In KEYS mode pad 1, the C, is lit and so is every
     /// pad whose pitch in the current octave has a note on. T1 to T4 light the current track and
-    /// PADS/KEYS lights in KEYS mode.
+    /// PADS/KEYS lights in KEYS mode. While MENU or PAGE is held, the steps of the screens or pages
+    /// that exist light: the steps whose tiles are not empty.
     pub fn lights(&self) -> Lights {
         let track = self.track();
         let notes = self
@@ -134,6 +145,11 @@ impl Control {
                 for note in notes.filter(|note| (c..c + PADS).contains(&note.pitch)) {
                     lights.light(Lights::PAD + u32::from(note.pitch - c));
                 }
+            }
+        }
+        for (step, tile) in self.tiles().iter().flatten().enumerate() {
+            if tile.state != TileState::Empty {
+                lights.light(Lights::STEP + step as u32);
             }
         }
         lights
@@ -175,7 +191,15 @@ impl Control {
             Input::NoteOff { note } => self.end(Source::Midi(note), sample, messages),
             Input::ButtonPress { button } => self.press(button, sample),
             Input::ButtonRelease { button } => self.release(button, sample),
-            Input::EncoderTurn { .. } => self.buttons.used(),
+            Input::EncoderTurn { encoder, clicks } => {
+                self.buttons.used();
+                // Under MENU or PAGE a turn is dropped.
+                if self.overlay().is_none()
+                    && let Some(item) = self.reach(encoder)
+                {
+                    self.change(item, i32::from(clicks));
+                }
+            }
             Input::NoteOn { .. }
             | Input::PadPressure { .. }
             | Input::NotePressure { .. }
@@ -247,19 +271,61 @@ impl Control {
     }
 
     /// A button goes down. A button that is held already does nothing, as one physical control
-    /// cannot go down twice.
+    /// cannot go down twice. Every other press clears the header's message before it acts, so a
+    /// message that its own action shows stays.
     ///
     /// A combination acts when its second control goes down, and takes that press, so that it
-    /// neither repeats nor acts when it is let go. T1 to T4 select the track; with SHIFT held they
-    /// do nothing until muting comes with the sequencer. PADS/KEYS held + up or down moves the
-    /// octave in KEYS mode, stopping at C0 and C8, and in PADS mode does nothing.
+    /// neither repeats nor acts when it is let go:
+    ///
+    /// - Of MENU and PAGE the first one pressed counts, and the other is taken. While it is held,
+    ///   a step shows its screen or page, and a dark step does nothing. The arrows, OK, CANCEL, -
+    ///   and +, the encoder pushes, ROLL, PADS/KEYS and COPY are dropped, and so taken too.
+    /// - T1 to T4 select the track; with SHIFT held they do nothing until muting comes with the
+    ///   sequencer, and neither do OK and the encoder pushes.
+    /// - PADS/KEYS held + up or down moves the octave in KEYS mode, stopping at C0 and C8, and in
+    ///   PADS mode does nothing.
+    ///
+    /// Otherwise the arrows, - and + nudge (`nudge`), OK uses the item under the cursor and an
+    /// encoder push the item its encoder holds.
     fn press(&mut self, button: Button, sample: u64) {
         if self.buttons.is_held(button) {
             return;
         }
+        self.message = None;
         self.buttons.press(button, sample);
+        let overlay = self.overlay();
         match button {
-            Button::T1 | Button::T2 | Button::T3 | Button::T4
+            Button::Menu | Button::Page if overlay != Some(button) => self.buttons.take(button),
+            Button::Step(step) if overlay == Some(Button::Menu) => {
+                self.buttons.take(button);
+                if let Some(screen) = MENU[usize::from(step)] {
+                    self.view.screen = screen;
+                }
+            }
+            Button::Step(step) if overlay == Some(Button::Page) => {
+                self.buttons.take(button);
+                let screen = self.view.screen.paged();
+                if usize::from(step) < pages(screen).len() {
+                    self.view.show_page(screen, usize::from(step));
+                }
+            }
+            Button::Up
+            | Button::Down
+            | Button::Left
+            | Button::Right
+            | Button::Ok
+            | Button::Cancel
+            | Button::Minus
+            | Button::Plus
+            | Button::Push(_)
+            | Button::Roll
+            | Button::PadsKeys
+            | Button::Copy
+                if overlay.is_some() =>
+            {
+                self.buttons.take(button);
+            }
+            Button::T1 | Button::T2 | Button::T3 | Button::T4 | Button::Ok | Button::Push(_)
                 if self.buttons.is_held(Button::Shift) =>
             {
                 self.buttons.take(button);
@@ -278,8 +344,114 @@ impl Control {
                     };
                 }
             }
+            Button::Up
+            | Button::Down
+            | Button::Left
+            | Button::Right
+            | Button::Minus
+            | Button::Plus => self.nudge(button),
+            Button::Ok => {
+                let screen = self.view.screen;
+                if let Some(&item) = self.items(screen).get(self.view.cursor(screen).item) {
+                    self.use_item(item);
+                }
+            }
+            Button::Push(encoder) => {
+                if let Some(item) = self.reach(encoder) {
+                    self.use_item(item);
+                }
+            }
             _ => {}
         }
+    }
+
+    /// An arrow, - or + at its press and at each of its repeats, which reads SHIFT anew. On a page
+    /// up and down move the cursor one item, stopping at the ends, and - and + move the value
+    /// under it by a click, a fine one while SHIFT is held. SHIFT + an arrow does nothing outside
+    /// STEP, left and right do nothing on a page of one column, and under MENU or PAGE none of
+    /// them does anything. STEP has no page, and its own arrows, - and + come with the sequencer.
+    fn nudge(&mut self, button: Button) {
+        if self.overlay().is_some() {
+            return;
+        }
+        let screen = self.view.screen;
+        let items = self.items(screen);
+        let cursor = self.view.cursor(screen).item;
+        let shift = self.buttons.is_held(Button::Shift);
+        match button {
+            Button::Up if !shift => self.view.move_cursor(screen, cursor.saturating_sub(1)),
+            Button::Down if !shift => self
+                .view
+                .move_cursor(screen, (cursor + 1).min(items.len().saturating_sub(1))),
+            Button::Minus | Button::Plus => {
+                if let Some(&item) = items.get(cursor) {
+                    self.change(item, if button == Button::Plus { 1 } else { -1 });
+                }
+            }
+            _ => {}
+        }
+    }
+
+    /// OK on `item`: a switch flips.
+    fn use_item(&mut self, item: ItemDef) {
+        match item.kind {
+            ItemKind::Param(id) => match param::entry(id).curve {
+                Curve::Switch => self.settings.set(id, i32::from(self.settings.get(id) == 0)),
+            },
+        }
+    }
+
+    /// Moves the value of `item` by `clicks` clicks, fine ones while SHIFT is held.
+    fn change(&mut self, item: ItemDef, clicks: i32) {
+        match item.kind {
+            ItemKind::Param(id) => self.settings.set(
+                id,
+                param::moved(
+                    param::entry(id),
+                    self.settings.get(id),
+                    clicks,
+                    self.buttons.is_held(Button::Shift),
+                ),
+            ),
+        }
+    }
+
+    /// The item that encoder `encoder` holds on the page the encoders use, with that page's
+    /// cursor put on it; none when the encoder holds nothing there.
+    fn reach(&mut self, encoder: u8) -> Option<ItemDef> {
+        let screen = self.view.screen.paged();
+        let items = self.items(screen);
+        let item = items
+            .iter()
+            .position(|item| item.encoder == Some(encoder))?;
+        self.view.move_cursor(screen, item);
+        Some(items[item])
+    }
+
+    /// MENU or PAGE while it is held and counts: the first of them pressed.
+    fn overlay(&self) -> Option<Button> {
+        self.buttons.first_held(&[Button::Menu, Button::Page])
+    }
+
+    /// The tiles of MENU or PAGE while it is held.
+    fn tiles(&self) -> Option<[Tile<'static>; 16]> {
+        Some(match self.overlay()? {
+            Button::Menu => menu_tiles(self.view.screen),
+            _ => {
+                let screen = self.view.screen.paged();
+                page_tiles(pages(screen), self.view.page(screen))
+            }
+        })
+    }
+
+    /// The page `screen` shows; none on a screen without pages.
+    fn page(&self, screen: Screen) -> Option<&'static PageDef> {
+        pages(screen).get(self.view.page(screen))
+    }
+
+    /// The items of the page `screen` shows; none on a screen without pages.
+    fn items(&self, screen: Screen) -> &'static [ItemDef] {
+        self.page(screen).map_or(&[], |page| page.items)
     }
 
     /// A button goes up. A tap of PADS/KEYS switches the current track's pad mode.

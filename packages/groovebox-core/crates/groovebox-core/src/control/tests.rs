@@ -1,12 +1,16 @@
 use super::buttons::{HOLD, REPEAT_DELAY, REPEAT_EVERY};
+use super::view::{menu_tiles, page_tiles};
 use super::*;
+use crate::input::VOLUME;
 use crate::message::NoteId;
-use crate::palette::{ACCENT, BACKGROUND, DIM, LINE, TEXT};
+use crate::palette::{ACCENT, BACKGROUND, DIM, FAINT, LINE, RECORD, TEXT};
 use crate::project::pool::SoundNumber;
 use crate::queue::{Consumer, Queue};
 use crate::screen::{Canvas, Color, HEIGHT, Rect, Screen, WIDTH};
 use crate::ui::frame::{Piece, draw_header, draw_strip};
-use crate::ui::test_pixels::{filled, span};
+use crate::ui::item::{Bar, ItemView, draw_cursor, draw_item};
+use crate::ui::test_pixels::{filled, outlined, span};
+use crate::ui::tiles::{Tile, TileState, draw_tiles};
 use std::vec::Vec;
 
 struct Rig<'a> {
@@ -62,6 +66,18 @@ impl<'a> Rig<'a> {
         self.queue(sample, Input::NoteOff { note });
     }
 
+    fn turn(&mut self, sample: u64, encoder: u8, clicks: i8) {
+        self.queue(sample, Input::EncoderTurn { encoder, clicks });
+    }
+
+    /// Holds MENU, taps step `step` (0 to 15) and lets go of MENU, from `sample` to 3 samples
+    /// later.
+    fn menu(&mut self, sample: u64, step: u8) {
+        self.press(sample, Button::Menu);
+        self.tap(sample + 1, Button::Step(step));
+        self.let_go(sample + 3, Button::Menu);
+    }
+
     fn step(&mut self, until: u64) -> bool {
         self.control.step(until, &mut self.producer)
     }
@@ -73,6 +89,10 @@ impl<'a> Rig<'a> {
 
     fn track(&self) -> &Track {
         &self.control.project.tracks[usize::from(self.control.project.track)]
+    }
+
+    fn velocity(&self) -> i32 {
+        self.control.settings.get(VELOCITY.id)
     }
 
     /// Makes a synth and puts it on `pad` of the current track.
@@ -128,23 +148,87 @@ fn track(track: u32) -> u32 {
     Lights::TRACK + track
 }
 
+fn step(step: u32) -> u32 {
+    Lights::STEP + step
+}
+
 fn picture(control: &Control) -> Screen {
     let mut screen = Screen::new();
     control.draw(&mut screen);
     screen
 }
 
-/// Whether the control part draws STEP with these header pieces over an empty main area and an
-/// empty strip.
-fn shows_step(control: &Control, pieces: &[(&str, Color)]) -> bool {
-    let pieces: Vec<Piece> = pieces
+/// The picture of these header pieces and message, what `main` draws and the strip with these
+/// cells.
+fn drawn(
+    header: &[(&str, Color)],
+    message: Option<(&str, Color)>,
+    main: impl FnOnce(&mut Screen),
+    strip: &[Option<ItemView>; 4],
+) -> Screen {
+    let pieces: Vec<Piece> = header
         .iter()
         .map(|&(text, color)| Piece { text, color })
         .collect();
-    let mut expected = Screen::new();
-    draw_header(&mut expected, &pieces, None);
-    draw_strip(&mut expected, &[None; 4]);
+    let mut screen = Screen::new();
+    draw_header(
+        &mut screen,
+        &pieces,
+        message.map(|(text, color)| Piece { text, color }),
+    );
+    main(&mut screen);
+    draw_strip(&mut screen, strip);
+    screen
+}
+
+/// Whether the control part draws `expected`.
+fn shows(control: &Control, expected: &Screen) -> bool {
     picture(control).pixels() == expected.pixels()
+}
+
+/// Whether the control part draws STEP with these header pieces over an empty main area and an
+/// empty strip.
+fn shows_step(control: &Control, pieces: &[(&str, Color)]) -> bool {
+    shows(control, &drawn(pieces, None, |_| {}, &[None; 4]))
+}
+
+/// The header of a new project on STEP, on SETTINGS and while MENU is held.
+const STEP_HEADER: [(&str, Color); 4] = [("Step", ACCENT), ("T1", TEXT), ("1", DIM), ("Pads", DIM)];
+const SETTINGS_HEADER: [(&str, Color); 5] = [
+    ("Settings", ACCENT),
+    ("Playing", TEXT),
+    ("T1", TEXT),
+    ("1", DIM),
+    ("Pads", DIM),
+];
+const MENU_HEADER: [(&str, Color); 4] = [("Menu", ACCENT), ("T1", TEXT), ("1", DIM), ("Pads", DIM)];
+
+/// Velocity as SETTINGS' Playing page and the strip show it.
+fn velocity(value: &str) -> ItemView<'_> {
+    ItemView {
+        encoder: Some(1),
+        name: "Velocity",
+        value,
+        bar: Bar::Track,
+    }
+}
+
+/// SETTINGS' Playing page: Velocity at `value` under the cursor and in the strip's first cell.
+fn playing(value: &str) -> Screen {
+    drawn(
+        &SETTINGS_HEADER,
+        None,
+        |screen| {
+            draw_item(screen, 2, 17, 160, &velocity(value), true);
+            draw_cursor(screen, 2, 17, 160, 17);
+        },
+        &[Some(velocity(value)), None, None, None],
+    )
+}
+
+/// The tiles of MENU or PAGE under this header, over an empty strip.
+fn tiles(header: &[(&str, Color)], tiles: &[Tile; 16]) -> Screen {
+    drawn(header, None, |screen| draw_tiles(screen, tiles), &[None; 4])
 }
 
 #[test]
@@ -850,4 +934,394 @@ fn a_frame_does_not_depend_on_what_the_canvas_held_before() {
     rig.control.draw(&mut used);
 
     assert_eq!(used.pixels(), picture(&rig.control).pixels());
+}
+
+#[test]
+fn menu_with_step_8_shows_settings_at_the_steps_press() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    rig.press(0, Button::Menu);
+    rig.press(100, Button::Step(7));
+
+    rig.step(100);
+    assert!(shows(
+        &rig.control,
+        &tiles(&MENU_HEADER, &menu_tiles(view::Screen::Step))
+    ));
+    assert_eq!(rig.lit(), [pad(0), step(0), step(7), track(0)]);
+
+    rig.step(101);
+    assert_eq!(rig.control.view.screen, view::Screen::Settings);
+    assert!(shows(
+        &rig.control,
+        &tiles(&MENU_HEADER, &menu_tiles(view::Screen::Settings))
+    ));
+    assert_eq!(rig.lit(), [pad(0), step(0), step(7), track(0)]);
+
+    rig.let_go(200, Button::Step(7));
+    rig.let_go(300, Button::Menu);
+    rig.step(301);
+    assert!(shows(&rig.control, &playing("On")));
+    assert_eq!(rig.lit(), [pad(0), track(0)]);
+}
+
+#[test]
+fn the_step_pressed_under_menu_does_nothing_when_let_go() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    rig.press(0, Button::Menu);
+    rig.press(100, Button::Step(7));
+    rig.let_go(200, Button::Menu);
+    rig.step(201);
+    // The step is still held, and its press was taken.
+    assert!(rig.control.buttons.is_held(Button::Step(7)));
+    assert_eq!(rig.control.buttons.first_held(&[Button::Step(7)]), None);
+    let before = picture(&rig.control);
+
+    rig.let_go(300, Button::Step(7));
+    assert!(rig.step(400));
+
+    assert!(!rig.control.buttons.is_held(Button::Step(7)));
+    assert_eq!(rig.control.view.screen, view::Screen::Settings);
+    assert!(shows(&rig.control, &before));
+    assert_eq!(rig.lit(), [pad(0), track(0)]);
+    assert_eq!(rig.sent(), []);
+}
+
+#[test]
+fn menu_let_go_alone_changes_nothing() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    rig.tap(0, Button::Menu);
+    rig.press(100, Button::Menu);
+    rig.let_go(100 + HOLD, Button::Menu);
+
+    rig.step(20_000);
+    assert_eq!(rig.control.view.screen, view::Screen::Step);
+    assert!(shows_step(&rig.control, &STEP_HEADER));
+    assert_eq!(rig.lit(), [pad(0), track(0)]);
+
+    rig.menu(20_000, 7);
+    rig.tap(20_100, Button::Menu);
+    rig.step(20_200);
+    assert!(shows(&rig.control, &playing("On")));
+}
+
+#[test]
+fn a_dark_step_under_menu_does_nothing() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    // Step 2 is ROLL's, which does not exist yet.
+    rig.press(0, Button::Menu);
+    rig.press(100, Button::Step(1));
+
+    rig.step(101);
+    assert_eq!(rig.control.view.screen, view::Screen::Step);
+    assert!(shows(
+        &rig.control,
+        &tiles(&MENU_HEADER, &menu_tiles(view::Screen::Step))
+    ));
+    assert_eq!(rig.control.buttons.first_held(&[Button::Step(1)]), None);
+
+    rig.let_go(200, Button::Step(1));
+    rig.let_go(300, Button::Menu);
+    rig.step(301);
+    assert!(shows_step(&rig.control, &STEP_HEADER));
+}
+
+#[test]
+fn the_first_of_menu_and_page_counts() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+
+    // PAGE first: MENU is dropped, and step 8 is dark under PAGE on STEP, as SOUND has no pages
+    // yet. The header stays STEP's and no step is lit.
+    rig.press(0, Button::Page);
+    rig.press(10, Button::Menu);
+    rig.press(20, Button::Step(7));
+    rig.step(21);
+    assert_eq!(rig.control.view.screen, view::Screen::Step);
+    assert!(shows(
+        &rig.control,
+        &tiles(&STEP_HEADER, &page_tiles(&[], 0))
+    ));
+    assert_eq!(rig.lit(), [pad(0), track(0)]);
+
+    // Letting go of PAGE leaves the MENU that is still held without effect.
+    rig.let_go(30, Button::Step(7));
+    rig.let_go(40, Button::Page);
+    rig.tap(50, Button::Step(7));
+    rig.step(60);
+    assert_eq!(rig.control.view.screen, view::Screen::Step);
+    assert!(shows_step(&rig.control, &STEP_HEADER));
+
+    // A new press of MENU counts, and PAGE pressed after it is dropped.
+    rig.let_go(70, Button::Menu);
+    rig.press(80, Button::Menu);
+    rig.press(90, Button::Page);
+    rig.press(100, Button::Step(7));
+    rig.step(101);
+    assert_eq!(rig.control.view.screen, view::Screen::Settings);
+    assert!(shows(
+        &rig.control,
+        &tiles(&MENU_HEADER, &menu_tiles(view::Screen::Settings))
+    ));
+
+    rig.let_go(110, Button::Step(7));
+    rig.let_go(120, Button::Menu);
+    rig.step(121);
+    assert!(shows(&rig.control, &playing("On")));
+}
+
+#[test]
+fn under_menu_pads_play_and_select_and_the_rest_is_dropped() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    let sound = rig.synth_on(2);
+    rig.menu(0, 7);
+    rig.press(100, Button::Menu);
+    rig.hit(110, 2, 100);
+    rig.release(120, 2);
+    rig.press(130, Button::Down);
+    rig.press(140, Button::Ok);
+    rig.press(150, Button::Minus);
+    rig.turn(160, 0, -1);
+    rig.tap(170, Button::Push(0));
+    rig.tap(180, Button::T2);
+
+    rig.step(200);
+    assert_eq!(
+        rig.sent(),
+        [
+            message(0, 110, note_on(0, 0, sound, 60, 100)),
+            message(1, 120, note_off(0)),
+        ]
+    );
+    assert_eq!(rig.control.project.tracks[0].selected_pad, Some(2));
+    // T1 to T4 act as usual.
+    assert_eq!(rig.control.project.track, 1);
+    assert_eq!(rig.velocity(), 1);
+
+    // After MENU is let go the dropped presses still neither act nor repeat.
+    rig.let_go(300, Button::Menu);
+    rig.let_go(400, Button::Ok);
+    let later = 150 + 3 * REPEAT_DELAY;
+    rig.step(later);
+    assert_eq!(rig.control.buttons.next_repeat(), None);
+    rig.let_go(later, Button::Down);
+    rig.let_go(later, Button::Minus);
+    rig.step(later + 20);
+    assert_eq!(rig.velocity(), 1);
+    assert_eq!(rig.control.view.screen, view::Screen::Settings);
+    assert_eq!(
+        rig.control.view.cursor(view::Screen::Settings),
+        view::Cursor { item: 0, scroll: 0 }
+    );
+}
+
+#[test]
+fn page_on_settings_shows_one_tile_and_lights_step_1() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    rig.menu(0, 7);
+    rig.press(100, Button::Page);
+    rig.step(101);
+
+    let shown = page_tiles(pages(view::Screen::Settings), 0);
+    assert_eq!(
+        shown[0],
+        Tile {
+            name: Some("Playing"),
+            state: TileState::Current
+        }
+    );
+    assert!(shown[1..].iter().all(|tile| tile.state == TileState::Empty));
+    // The header stays as it is.
+    assert!(shows(&rig.control, &tiles(&SETTINGS_HEADER, &shown)));
+    assert!(outlined(&picture(&rig.control), 1, 16, 118, 58, ACCENT));
+    assert_eq!(rig.lit(), [pad(0), step(0), track(0)]);
+
+    // Step 1 shows the page that is shown already, and step 2 is dark.
+    rig.tap(110, Button::Step(0));
+    rig.tap(120, Button::Step(1));
+    rig.step(130);
+    assert_eq!(rig.control.view.page(view::Screen::Settings), 0);
+    assert!(shows(&rig.control, &tiles(&SETTINGS_HEADER, &shown)));
+
+    rig.let_go(200, Button::Page);
+    rig.step(201);
+    assert!(shows(&rig.control, &playing("On")));
+    assert_eq!(rig.lit(), [pad(0), track(0)]);
+}
+
+#[test]
+fn velocity_flips_with_ok_and_moves_with_minus_plus_and_encoder_1() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    rig.menu(0, 7);
+    rig.step(10);
+    assert_eq!(rig.velocity(), 1);
+
+    rig.tap(100, Button::Ok);
+    rig.step(110);
+    assert_eq!(rig.velocity(), 0);
+    rig.tap(200, Button::Plus);
+    rig.step(210);
+    assert_eq!(rig.velocity(), 1);
+    rig.tap(300, Button::Plus);
+    rig.step(310);
+    assert_eq!(rig.velocity(), 1);
+    rig.turn(400, 0, -1);
+    rig.step(410);
+    assert_eq!(rig.velocity(), 0);
+    assert!(shows(&rig.control, &playing("Off")));
+
+    // CANCEL does nothing on a page, and neither does an encoder that holds no item.
+    rig.tap(500, Button::Cancel);
+    rig.turn(510, 1, 5);
+    rig.tap(520, Button::Push(3));
+    rig.turn(530, VOLUME, 5);
+    rig.step(540);
+    assert_eq!(rig.velocity(), 0);
+
+    // With SHIFT held a counted value still moves a whole click.
+    rig.press(600, Button::Shift);
+    rig.turn(610, 0, 1);
+    rig.step(620);
+    assert_eq!(rig.velocity(), 1);
+    rig.tap(620, Button::Minus);
+    rig.step(630);
+    assert_eq!(rig.velocity(), 0);
+}
+
+#[test]
+fn shift_with_ok_or_an_encoder_push_does_nothing() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    rig.menu(0, 7);
+    rig.press(100, Button::Shift);
+    rig.tap(110, Button::Ok);
+    rig.step(120);
+    assert_eq!(rig.velocity(), 1);
+    rig.tap(120, Button::Push(0));
+    rig.step(130);
+    assert_eq!(rig.velocity(), 1);
+
+    // Without SHIFT a push is OK on its encoder's item.
+    rig.let_go(200, Button::Shift);
+    rig.tap(210, Button::Push(0));
+    rig.step(220);
+    assert_eq!(rig.velocity(), 0);
+}
+
+#[test]
+fn a_repeat_while_menu_or_page_is_held_is_dropped() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    rig.menu(0, 7);
+    // - turns Velocity off at its press and at each repeat, and OK turns it on in between.
+    rig.press(1_000, Button::Minus);
+    rig.tap(2_000, Button::Ok);
+    rig.press(3_000, Button::Page);
+    rig.step(1_000 + REPEAT_DELAY + REPEAT_EVERY);
+    assert_eq!(rig.velocity(), 1);
+
+    // Once PAGE is let go the repeats act again.
+    rig.let_go(30_000, Button::Page);
+    rig.step(1_000 + REPEAT_DELAY + 13 * REPEAT_EVERY);
+    assert_eq!(rig.velocity(), 0);
+}
+
+#[test]
+fn a_message_stays_until_a_later_button_press() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    let mut text = Label::new();
+    text.push_str("Pool full");
+    rig.menu(0, 7);
+    rig.press(90, Button::Shift);
+    rig.press(100, Button::Plus);
+    rig.step(101);
+    // The press at 100 shows a message, as New synth on a full pool does.
+    rig.control.message = Some((text, RECORD, 100));
+
+    // Releases, a second press of a held button, pads, MIDI notes, turns and the volume keep it.
+    rig.let_go(110, Button::Plus);
+    rig.press(120, Button::Shift);
+    rig.let_go(130, Button::Shift);
+    rig.hit(140, 4, 100);
+    rig.release(150, 4);
+    rig.turn(160, 0, -1);
+    rig.note_on(170, 60, 100);
+    rig.note_off(180, 60);
+    rig.turn(190, VOLUME, 3);
+    rig.step(200);
+    assert_eq!(rig.velocity(), 0);
+    assert!(shows(
+        &rig.control,
+        &drawn(
+            &SETTINGS_HEADER,
+            Some(("Pool full", RECORD)),
+            |screen| {
+                draw_item(screen, 2, 17, 160, &velocity("Off"), true);
+                draw_cursor(screen, 2, 17, 160, 17);
+            },
+            &[Some(velocity("Off")), None, None, None],
+        )
+    ));
+
+    // A later press clears it and still acts.
+    rig.tap(200, Button::Ok);
+    rig.step(300);
+    assert_eq!(rig.control.message, None);
+    assert_eq!(rig.velocity(), 1);
+    assert!(shows(&rig.control, &playing("On")));
+}
+
+#[test]
+fn the_settings_page_matches_its_geometry() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    rig.menu(0, 7);
+    rig.step(10);
+    let screen = picture(&rig.control);
+
+    assert!(shows(&rig.control, &playing("On")));
+    // The header: "Settings" from x 4, then "Playing" and "T1", then the dim "1" and "Pads".
+    assert_eq!(span(&screen, 0..=479, 1..=13, ACCENT), Some((4, 50)));
+    assert_eq!(span(&screen, 0..=479, 1..=13, TEXT), Some((57, 114)));
+    assert_eq!(span(&screen, 0..=479, 1..=13, DIM), Some((121, 154)));
+    // Item 1 at (2, 17): the dim digit and name, the value ending 3 pixels inside, the faint
+    // track and the cursor 1 pixel outside.
+    assert_eq!(span(&screen, 2..=15, 17..=29, DIM), Some((5, 9)));
+    assert_eq!(span(&screen, 10..=100, 17..=29, DIM).map(|s| s.0), Some(16));
+    assert_eq!(span(&screen, 2..=161, 17..=29, TEXT), Some((148, 158)));
+    assert!(filled(&screen, 5..=158, 31..=32, FAINT));
+    assert!(outlined(&screen, 1, 16, 162, 19, ACCENT));
+    assert!(filled(&screen, 0..=479, 36..=252, BACKGROUND));
+    // Strip cell 1: the name from x 4, the value ending at 117 and the faint track under them.
+    assert_eq!(span(&screen, 1..=120, 258..=264, DIM).map(|s| s.0), Some(4));
+    assert_eq!(span(&screen, 1..=120, 258..=264, TEXT), Some((107, 117)));
+    assert!(filled(&screen, 4..=117, 269..=270, FAINT));
+    assert!(filled(&screen, 121..=478, 254..=271, BACKGROUND));
+}
+
+#[test]
+fn a_release_at_the_sample_of_a_repeat_comes_before_it() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    rig.menu(0, 7);
+    // - turns Velocity off at its press and at each repeat, and OK turns it on in between.
+    rig.press(1_000, Button::Minus);
+    rig.tap(2_000, Button::Ok);
+    rig.let_go(1_000 + REPEAT_DELAY, Button::Minus);
+    rig.step(50_000);
+    assert_eq!(rig.velocity(), 1);
+
+    // A sample later the repeat comes first.
+    rig.press(50_000, Button::Minus);
+    rig.tap(51_000, Button::Ok);
+    rig.let_go(50_000 + REPEAT_DELAY + 1, Button::Minus);
+    rig.step(100_000);
+    assert_eq!(rig.velocity(), 0);
 }
