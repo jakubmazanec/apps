@@ -264,7 +264,7 @@ Foundation decides the mechanism, not the list.
 1. **One master list.** Every adjustable value gets one entry in a list built into the core. An
    entry holds:
    - a permanent ID;
-   - a name and a short name;
+   - a name;
    - the scope, where the value lives: device, project, track or sound; pattern joins them with the
      first value that belongs to a pattern. There is no step or note scope (see 6) **(owner's
      choice)**;

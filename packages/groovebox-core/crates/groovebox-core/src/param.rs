@@ -39,7 +39,6 @@ pub struct Choice {
 pub struct Entry {
     pub id: ParamId,
     pub name: &'static str,
-    pub short: &'static str,
     pub scope: Scope,
     pub low: i32,
     pub high: i32,
@@ -58,7 +57,6 @@ pub struct Entry {
 pub const VELOCITY: Entry = Entry {
     id: ParamId(1),
     name: "Velocity",
-    short: "Velocity",
     scope: Scope::Device,
     low: 0,
     high: 1,
@@ -206,7 +204,6 @@ mod tests {
     const SMOOTH: Entry = Entry {
         id: ParamId(1000),
         name: "Smooth",
-        short: "Smo",
         scope: Scope::Sound,
         low: 0,
         high: 65_535,
