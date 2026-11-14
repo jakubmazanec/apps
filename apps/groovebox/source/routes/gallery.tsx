@@ -29,7 +29,8 @@ export default function Gallery() {
       <h1 className="text-xl">Screen gallery</h1>
       <p>
         On the left the frame from the core, on the right the picture Look approved, when there is
-        one.
+        one. Look&apos;s pictures also show other sounds, tracks and a transport group, so only the
+        parts both pictures show must match.
       </p>
       {STATES.map((state) => (
         <section key={state.frame} className="mt-6">

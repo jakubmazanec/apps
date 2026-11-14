@@ -2,8 +2,12 @@ import {useEffect, useRef} from 'react';
 import {type MetaFunction} from 'react-router';
 
 export const meta: MetaFunction = () => [
-  {title: 'Hello, world!'},
-  {name: 'description', content: 'Hello world page.'},
+  {title: 'Groovebox'},
+  {
+    name: 'description',
+    content:
+      'The groovebox panel with its screen, played with the mouse, the computer keyboard and MIDI.',
+  },
 ];
 
 export default function Index() {
