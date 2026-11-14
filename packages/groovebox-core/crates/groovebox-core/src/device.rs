@@ -8,13 +8,14 @@ use crate::message::{MESSAGE_QUEUE, Message, REPORT_QUEUE, Report};
 use crate::queue::{Consumer, Producer, Queue};
 use crate::screen::Screen;
 use core::cell::UnsafeCell;
-use core::sync::atomic::{AtomicU32, Ordering};
+use core::sync::atomic::{AtomicU32, AtomicU64, Ordering};
 
-/// The whole core in one struct: both parts, both queues and two screens. A host puts it in a
-/// `static` and gives the control side to one thread and the audio side to another.
+/// The whole core in one struct: both parts, both queues, two screens and the lights. A host puts
+/// it in a `static` and gives the control side to one thread and the audio side to another.
 ///
 /// The control side draws into the back screen and then makes it the front one by storing its
-/// index in `front`. A reader of the picture loads `front` and reads that screen.
+/// index in `front`. A reader of the picture loads `front` and reads that screen. After every step
+/// the control side also stores the lights in `lights`.
 pub struct Device {
     control: UnsafeCell<Control>,
     audio: UnsafeCell<Audio>,
@@ -23,6 +24,8 @@ pub struct Device {
     screens: [UnsafeCell<Screen>; 2],
     /// The index of the screen to show, 0 or 1. Only the control side stores it.
     front: AtomicU32,
+    /// The bits of `Lights`, all off until the first step. Only the control side stores them.
+    lights: AtomicU64,
 }
 
 const _: () = assert!(
@@ -30,8 +33,8 @@ const _: () = assert!(
     "the device is larger than the working memory in budget.toml"
 );
 
-// SAFETY: every part of the device belongs to exactly one side, except `front` and the front
-// screen, and `control_side` and `audio_side` promise that at most one of each side exists.
+// SAFETY: every part of the device belongs to exactly one side, except `front`, `lights` and the
+// front screen, and `control_side` and `audio_side` promise that at most one of each side exists.
 // - The control side owns `control`, the producer of `messages`, the consumer of `reports` and
 //   the back screen, which is `screens[1 - front]`.
 // - The audio side owns `audio`, the consumer of `messages` and the producer of `reports`.
@@ -44,6 +47,7 @@ const _: () = assert!(
 //   through `screen_pointer` and `front_pointer` and must finish copying the screen they loaded
 //   before the control side starts its second redraw after the load. In practice, copy it promptly,
 //   once per frame; a reader that is slower sees a torn picture.
+// - `lights` is a plain atomic word that only the control side stores, so any thread may load it.
 unsafe impl Sync for Device {}
 
 impl Device {
@@ -58,6 +62,7 @@ impl Device {
                 UnsafeCell::new(Screen::new()),
             ],
             front: AtomicU32::new(0),
+            lights: AtomicU64::new(0),
         }
     }
 
@@ -102,6 +107,12 @@ impl Device {
     pub fn front_pointer(&self) -> *const AtomicU32 {
         &raw const self.front
     }
+
+    /// The lights after the latest step, the bits of `Lights`. A thread that loads them with
+    /// Acquire sees the state of that step.
+    pub fn lights_pointer(&self) -> *const AtomicU64 {
+        &raw const self.lights
+    }
 }
 
 impl Default for Device {
@@ -126,8 +137,8 @@ impl ControlSide<'_> {
         self.control.replay_applied(number, sample)
     }
 
-    /// Handles the inputs stamped before `until`. When the picture changes, it draws it into the
-    /// back screen and makes that the front one.
+    /// Handles the events before `until`. When the picture changes, it draws it into the back
+    /// screen and makes that the front one. Then it stores the lights.
     pub fn step(&mut self, until: u64) {
         if self.control.step(until, &mut self.messages) {
             // Only this side stores `front`, so a relaxed load sees its last store.
@@ -139,6 +150,9 @@ impl ControlSide<'_> {
             self.control.draw(screen);
             self.device.front.store(back, Ordering::Release);
         }
+        self.device
+            .lights
+            .store(self.control.lights().0, Ordering::Release);
     }
 
     pub fn take_report(&mut self) -> Option<Report> {
@@ -176,17 +190,21 @@ impl AudioSide<'_> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::input::{Input, Stamped};
-    use crate::palette::{ACCENT, BACKGROUND, LINE};
+    use crate::control::REPLAY_QUEUE;
+    use crate::input::{Button, Input, Stamped};
+    use crate::lights::Lights;
+    use crate::message::{MessageKind, NoteId};
+    use crate::palette::{BACKGROUND, LINE};
+    use crate::project::pool::SoundNumber;
     use crate::screen::{HEIGHT, WIDTH};
 
-    fn hit(sample: u64, pad: u8) -> Stamped {
-        let input = Input::PadHit { pad, velocity: 100 };
+    fn press(sample: u64, button: Button) -> Stamped {
+        let input = Input::ButtonPress { button };
         Stamped { sample, input }
     }
 
-    fn release(sample: u64, pad: u8) -> Stamped {
-        let input = Input::PadRelease { pad };
+    fn release(sample: u64, button: Button) -> Stamped {
+        let input = Input::ButtonRelease { button };
         Stamped { sample, input }
     }
 
@@ -201,12 +219,13 @@ mod tests {
 
         assert_eq!(DEVICE.front.load(Ordering::Acquire), 1);
         let screen = control.front_screen();
-        assert_eq!(screen.pixel(0, 0), LINE);
-        assert_eq!(screen.pixel(WIDTH - 1, HEIGHT - 1), LINE);
-        assert_eq!(screen.pixel(1, 1), BACKGROUND);
+        // The header's line and the strip's.
+        assert_eq!(screen.pixel(0, 14), LINE);
+        assert_eq!(screen.pixel(WIDTH - 1, 253), LINE);
+        assert_eq!(screen.pixel(0, 0), BACKGROUND);
         // SAFETY: nothing writes the old front screen while the test reads it.
         let old = unsafe { &*DEVICE.screens[0].get() };
-        assert_eq!(old.pixel(0, 0), BACKGROUND);
+        assert_eq!(old.pixel(0, 14), BACKGROUND);
     }
 
     #[test]
@@ -227,18 +246,21 @@ mod tests {
         // SAFETY: this test takes the only control side of its own device.
         let mut control = unsafe { DEVICE.control_side() };
         control.step(1);
-        assert_eq!(control.queue_input(hit(1, 0)), Ok(()));
-        control.step(2);
-        assert_eq!(control.queue_input(release(2, 0)), Ok(()));
+        // KEYS mode draws the longer "Keys C4" into the screen that is drawn again last.
+        assert_eq!(control.queue_input(press(1, Button::PadsKeys)), Ok(()));
+        assert_eq!(control.queue_input(release(2, Button::PadsKeys)), Ok(()));
         control.step(3);
-        assert_eq!(control.queue_input(hit(3, 1)), Ok(()));
+        assert_eq!(control.queue_input(press(3, Button::PadsKeys)), Ok(()));
+        assert_eq!(control.queue_input(release(4, Button::PadsKeys)), Ok(()));
+        control.step(5);
+        assert_eq!(control.queue_input(press(5, Button::T2)), Ok(()));
 
-        control.step(4);
+        control.step(6);
 
         assert_eq!(DEVICE.front.load(Ordering::Acquire), 0);
-        let screen = control.front_screen();
-        assert_eq!(screen.pixel(36, 136), BACKGROUND);
-        assert_eq!(screen.pixel(36 + 37, 136), ACCENT);
+        let mut fresh = Screen::new();
+        control.control.draw(&mut fresh);
+        assert!(control.front_screen().pixels() == fresh.pixels());
     }
 
     #[test]
@@ -246,7 +268,6 @@ mod tests {
         static DEVICE: Device = Device::new();
         // SAFETY: this test takes the only control side of its own device.
         let mut control = unsafe { DEVICE.control_side() };
-        assert_eq!(control.queue_input(hit(0, 0)), Ok(()));
         control.step(128);
 
         // SAFETY: the pointer is valid for the life of the device.
@@ -263,12 +284,53 @@ mod tests {
     }
 
     #[test]
+    fn the_lights_reach_the_lights_word_after_a_step() {
+        static DEVICE: Device = Device::new();
+        // SAFETY: this test takes the only control side of its own device.
+        let mut control = unsafe { DEVICE.control_side() };
+        // SAFETY: the pointer is valid for the life of the device.
+        let lights = unsafe { &*DEVICE.lights_pointer() };
+        assert_eq!(lights.load(Ordering::Acquire), 0);
+
+        control.step(128);
+        assert_eq!(
+            lights.load(Ordering::Acquire),
+            1 << Lights::PAD | 1 << Lights::TRACK
+        );
+
+        assert_eq!(control.queue_input(press(200, Button::T2)), Ok(()));
+        control.step(256);
+        assert_eq!(
+            lights.load(Ordering::Acquire),
+            1 << Lights::PAD | 1 << (Lights::TRACK + 1)
+        );
+
+        // A step that handles nothing stores them too.
+        lights.store(0, Ordering::Relaxed);
+        control.step(384);
+        assert_eq!(lights.load(Ordering::Acquire), control.control.lights().0);
+    }
+
+    #[test]
     fn messages_reach_the_audio_part_and_reports_come_back() {
         static DEVICE: Device = Device::new();
         // SAFETY: this test takes the only control side and the only audio side of its own device.
         let (mut control, mut audio) = unsafe { (DEVICE.control_side(), DEVICE.audio_side()) };
-        assert_eq!(control.queue_input(hit(0, 0)), Ok(()));
-        control.step(128);
+        let kind = MessageKind::NoteOn {
+            note: NoteId(0),
+            track: 0,
+            sound: SoundNumber(1),
+            pitch: 60,
+            velocity: 100,
+        };
+        // The control part sends a message only for a pad with a sound, so the test sends one
+        // itself through the control side's end of the queue.
+        let message = Message {
+            number: 0,
+            at: 40,
+            kind,
+        };
+        assert_eq!(control.messages.push(message), Ok(()));
 
         audio.render(&mut [0.0; 128], &mut [0.0; 128]);
 
@@ -277,7 +339,7 @@ mod tests {
             control.take_report(),
             Some(Report::Applied {
                 number: 0,
-                sample: 0
+                sample: 64
             })
         );
         assert_eq!(control.take_report(), None);
@@ -286,20 +348,16 @@ mod tests {
     #[test]
     fn replay_records_reach_the_control_part() {
         static DEVICE: Device = Device::new();
-        // SAFETY: this test takes the only control side and the only audio side of its own device.
-        let (mut control, mut audio) = unsafe { (DEVICE.control_side(), DEVICE.audio_side()) };
-        assert_eq!(control.replay_applied(0, 64), Ok(()));
-        assert_eq!(control.queue_input(hit(0, 0)), Ok(()));
-        control.step(128);
+        // SAFETY: this test takes the only control side of its own device.
+        let mut control = unsafe { DEVICE.control_side() };
 
-        audio.render(&mut [0.0; 128], &mut [0.0; 128]);
+        for number in 0..REPLAY_QUEUE as u32 {
+            assert_eq!(control.replay_applied(number, 64), Ok(()));
+        }
 
         assert_eq!(
-            control.take_report(),
-            Some(Report::Applied {
-                number: 0,
-                sample: 64
-            })
+            control.replay_applied(REPLAY_QUEUE as u32, 64),
+            Err((REPLAY_QUEUE as u32, 64))
         );
     }
 }

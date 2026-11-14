@@ -15,6 +15,8 @@ pub struct WasmRunner {
     memory: SharedMemory,
     control: Instance,
     audio: Instance,
+    /// How many reports the last `control_step` stashed that `take_applied` has not read.
+    stashed: u32,
 }
 
 impl WasmRunner {
@@ -43,6 +45,7 @@ impl WasmRunner {
             memory,
             control,
             audio,
+            stashed: 0,
         };
         let top: i32 = runner.call(control, "audio_stack_top", ());
         audio
@@ -100,8 +103,26 @@ impl Runner for WasmRunner {
     }
 
     fn step(&mut self, until: u64) {
-        // The step stashes the applied reports for the page's session log; a replay ignores them.
-        self.call::<_, u32>(self.control, "control_step", until);
+        // The step stashes the reports it took, for the page's session log.
+        self.stashed = self.call(self.control, "control_step", until);
+    }
+
+    fn take_applied(&mut self) -> Vec<(u32, u64)> {
+        (0..std::mem::take(&mut self.stashed))
+            .map(|index| {
+                (
+                    self.call(self.control, "control_applied_number", index),
+                    self.call(self.control, "control_applied_sample", index),
+                )
+            })
+            .collect()
+    }
+
+    fn lights(&mut self) -> u64 {
+        let pointer: u32 = self.call(self.control, "lights_pointer", ());
+        let mut lights = [0; 8];
+        self.read(pointer, &mut lights);
+        u64::from_le_bytes(lights)
     }
 
     fn render(&mut self, left: &mut [f32], right: &mut [f32]) {

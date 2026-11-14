@@ -12,6 +12,10 @@ pub struct Outcome {
     pub audio: u64,
     /// Each captured frame as (sample, fingerprint, pixels), in the order of the steps.
     pub frames: Vec<(u64, u64, Vec<u8>)>,
+    /// The lights after the step of each captured frame as (sample, lights), in the same order.
+    pub lights: Vec<(u64, u64)>,
+    /// The (number, sample) of every report the steps took, in order.
+    pub applied: Vec<(u32, u64)>,
     /// False when a sample is not a number or infinite.
     pub finite: bool,
 }
@@ -26,6 +30,9 @@ struct Player<'a> {
     /// The samples of the frames not yet captured.
     wanted: Vec<u64>,
     frames: Vec<(u64, u64, Vec<u8>)>,
+    lights: Vec<(u64, u64)>,
+    /// The reports the steps took so far.
+    reports: Vec<(u32, u64)>,
 }
 
 impl Player<'_> {
@@ -68,12 +75,14 @@ impl Player<'_> {
             .is_some()
         {}
         self.runner.step(until);
+        self.reports.extend(self.runner.take_applied());
         if let Some(index) = self.wanted.iter().position(|&sample| sample == until) {
             self.wanted.swap_remove(index);
             let pixels = self.runner.front_screen();
             let mut fingerprint = Fingerprint::new();
             fingerprint.bytes(&pixels);
             self.frames.push((until, fingerprint.value(), pixels));
+            self.lights.push((until, self.runner.lights()));
         }
     }
 }
@@ -107,6 +116,8 @@ pub fn play(scene: &[SceneLine], runner: &mut dyn Runner) -> Outcome {
             })
             .collect(),
         frames: Vec::new(),
+        lights: Vec::new(),
+        reports: Vec::new(),
     };
     if scene.iter().any(|line| matches!(line, SceneLine::Step(_))) {
         for line in scene {
@@ -145,6 +156,8 @@ pub fn play(scene: &[SceneLine], runner: &mut dyn Runner) -> Outcome {
     Outcome {
         audio: player.audio.value(),
         frames: player.frames,
+        lights: player.lights,
+        applied: player.reports,
         finite: player.finite,
     }
 }
@@ -154,40 +167,43 @@ mod tests {
     use super::*;
     use crate::native::NativeRunner;
     use crate::scene::parse;
-    use groovebox_core::palette::{ACCENT, BACKGROUND};
-    use groovebox_core::screen::WIDTH;
+    use groovebox_core::lights::Lights;
 
     fn play_text(text: &str) -> Outcome {
         play(&parse(text).unwrap(), &mut NativeRunner::default())
     }
 
     #[test]
-    fn applied_records_steer_late_messages() {
-        let a =
-            play_text("groovebox-scene 1\ninput 100 pad-hit 0 127\nstep 128\nstep 1024\nend 2048");
-        let b = play_text(
-            "groovebox-scene 1\ninput 100 pad-hit 0 127\nstep 128\nstep 1024\napplied 0 1024\n\
-            end 2048",
-        );
-        let c =
-            play_text("groovebox-scene 1\nstep 128\ninput 100 pad-hit 0 127\nstep 1024\nend 2048");
-
-        assert_ne!(a.audio, b.audio);
-        assert_eq!(b.audio, c.audio);
-    }
-
-    #[test]
     fn an_input_logged_after_a_step_waits_for_the_next() {
         let outcome = play_text(
-            "groovebox-scene 1\nstep 128\nframe 128\ninput 100 pad-hit 0 127\nstep 640\n\
+            "groovebox-scene 1\nstep 128\nframe 128\ninput 100 pad-hit 5 127\nstep 640\n\
             frame 640\nend 1024",
         );
 
-        let pixels: Vec<(u64, u8)> = outcome
-            .frames
-            .iter()
-            .map(|(sample, _, pixels)| (*sample, pixels[136 * WIDTH + 36]))
-            .collect();
-        assert_eq!(pixels, [(128, BACKGROUND.0), (640, ACCENT.0)]);
+        let track = 1 << Lights::TRACK;
+        assert_eq!(
+            outcome.lights,
+            [
+                (128, 1 << Lights::PAD | track),
+                (640, 1 << (Lights::PAD + 5) | track)
+            ]
+        );
+    }
+
+    #[test]
+    fn the_lights_are_taken_after_the_step_of_each_frame() {
+        let outcome = play_text(
+            "groovebox-scene 1\ninput 100 press t2\nframe 128\ninput 200 press t3\nframe 384\n\
+            end 512",
+        );
+
+        let pad = 1 << Lights::PAD;
+        assert_eq!(
+            outcome.lights,
+            [
+                (128, pad | 1 << (Lights::TRACK + 1)),
+                (384, pad | 1 << (Lights::TRACK + 2))
+            ]
+        );
     }
 }

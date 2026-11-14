@@ -121,6 +121,13 @@ pub extern "C" fn front_pointer() -> u32 {
     DEVICE.front_pointer() as u32
 }
 
+/// The address of the `u64` that holds the lights after the latest `control_step`, one bit per
+/// light as `groovebox_core::lights::Lights` numbers them.
+#[unsafe(no_mangle)]
+pub extern "C" fn lights_pointer() -> u32 {
+    DEVICE.lights_pointer() as u32
+}
+
 /// The address of the 256 colours as red, green and blue bytes.
 #[unsafe(no_mangle)]
 pub extern "C" fn palette_pointer() -> u32 {

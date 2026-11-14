@@ -1,62 +1,31 @@
 pub mod buttons;
+mod draw;
+pub mod notes;
+pub mod view;
 
-use crate::input::{Input, PADS, Stamped};
-use crate::message::{MESSAGE_QUEUE, Message, MessageKind};
-use crate::palette::{ACCENT, BACKGROUND, LINE};
+use crate::input::{Button, Input, PADS, Stamped};
+use crate::lights::Lights;
+use crate::message::{MAX_MESSAGES_PER_EVENT, MESSAGE_QUEUE, Message, MessageKind};
+use crate::param::VELOCITY;
+use crate::project::Project;
+use crate::project::settings::DeviceSettings;
+use crate::project::track::{MAX_OCTAVE, PadMode, Track};
 use crate::queue::Producer;
 use crate::ring::Ring;
-use crate::screen::{Canvas, HEIGHT, Rect, WIDTH};
+use buttons::{Buttons, Release};
+use notes::{Notes, Source};
+use view::View;
 
 pub const INPUT_QUEUE: usize = 64;
 pub const REPLAY_QUEUE: usize = 64;
 
-/// The held pads as (pad, velocity) in the order of their latest hits, the latest last. A pad
-/// appears at most once.
-#[derive(Clone, Copy, PartialEq, Eq)]
-struct Held {
-    /// The slots from `len` on stay zero, so that two equal states compare equal.
-    hits: [(u8, u8); PADS as usize],
-    len: usize,
-}
-
-impl Held {
-    const fn new() -> Self {
-        Self {
-            hits: [(0, 0); PADS as usize],
-            len: 0,
-        }
-    }
-
-    fn hits(&self) -> &[(u8, u8)] {
-        &self.hits[..self.len]
-    }
-
-    /// The pad that sounds: the one hit last.
-    fn latest(&self) -> Option<(u8, u8)> {
-        self.hits().last().copied()
-    }
-
-    fn hit(&mut self, pad: u8, velocity: u8) {
-        self.release(pad);
-        self.hits[self.len] = (pad, velocity);
-        self.len += 1;
-    }
-
-    fn release(&mut self, pad: u8) {
-        if let Some(index) = self.hits().iter().position(|&(held, _)| held == pad) {
-            self.hits.copy_within(index + 1..self.len, index);
-            self.len -= 1;
-            self.hits[self.len] = (0, 0);
-        }
-    }
-}
-
-/// The control part: it turns stamped pad inputs into numbered messages for the audio part,
-/// keeps the held pads and draws them.
+/// The control part: it turns stamped inputs into numbered messages for the audio part. It keeps
+/// the project, the device settings, the held buttons, the notes that are on and what the screen
+/// shows, works out the lights and draws the picture.
 ///
-/// The control part does not check the inputs. They carry a pad below `PADS` and a velocity from 1
-/// to 127, and they are queued in sample order, so for live play and for a complete replay log, the
-/// messages leave in nondecreasing `at` order.
+/// The control part does not check the inputs: the browser export and the scene parser keep them
+/// in range (`Input`). They are queued in sample order, so for live play and for a complete replay
+/// log, the messages leave in nondecreasing `at` order.
 pub struct Control {
     inputs: Ring<Stamped, INPUT_QUEUE>,
     /// The (number, sample) records of a replay: the sample at which the audio part applied the
@@ -64,7 +33,11 @@ pub struct Control {
     replay: Ring<(u32, u64), REPLAY_QUEUE>,
     next_number: u32,
     started: bool,
-    held: Held,
+    project: Project,
+    settings: DeviceSettings,
+    buttons: Buttons,
+    notes: Notes,
+    view: View,
 }
 
 impl Control {
@@ -74,7 +47,11 @@ impl Control {
             replay: Ring::new(),
             next_number: 0,
             started: false,
-            held: Held::new(),
+            project: Project::new(),
+            settings: DeviceSettings::new(),
+            buttons: Buttons::new(),
+            notes: Notes::new(),
+            view: View::new(),
         }
     }
 
@@ -90,90 +67,264 @@ impl Control {
         self.replay.push((number, sample))
     }
 
-    /// Handles the queued inputs stamped before `until`, in order, and returns whether the screen
-    /// must be redrawn. That is the case on the first step and whenever the held pads change.
+    /// Handles the events before `until` in sample order, the queued inputs and the repeats of
+    /// held buttons, and returns whether the screen must be redrawn. That is the case on the first
+    /// step and whenever it handled an event.
     ///
-    /// An input is handled in full or not at all. When it needs to send a message and the queue is
-    /// full, the step stops before it, leaves it and every later input queued and leaves the held
-    /// pads as they were, so that a later step goes on exactly where this one stopped.
-    ///
-    /// A hit sends `ToneOn` for its pad. A pad that is already held counts as a new hit: it
-    /// becomes the most recent one with the new velocity. Releasing the sounding pad, which is the
-    /// most recently hit one, sends `ToneOn` for the most recently hit pad that is still held, with
-    /// that hit's velocity, or `ToneOff` when none is held. Releasing another pad sends nothing,
-    /// but the input is still handled. Every other input is handled and sends nothing.
+    /// On equal samples the input goes first, so a release at the sample of a repeat ends the
+    /// hold before it. An event is handled only while the message queue has room for
+    /// `MAX_MESSAGES_PER_EVENT` messages. Otherwise the step stops before it and leaves it and
+    /// every later event for a later step, which goes on exactly where this one stopped.
     pub fn step(
         &mut self,
         until: u64,
         messages: &mut Producer<'_, Message, MESSAGE_QUEUE>,
     ) -> bool {
         let mut redraw = !core::mem::replace(&mut self.started, true);
-        while let Some(stamped) = self.inputs.peek().filter(|stamped| stamped.sample < until) {
-            let mut held = self.held;
-            let kind = match stamped.input {
-                Input::PadHit { pad, velocity } => {
-                    held.hit(pad, velocity);
-                    Some(MessageKind::ToneOn { pad, velocity })
-                }
-                Input::PadRelease { pad } => {
-                    let was_sounding = held.latest().is_some_and(|(latest, _)| latest == pad);
-                    held.release(pad);
-                    was_sounding.then(|| match held.latest() {
-                        Some((next, velocity)) => MessageKind::ToneOn {
-                            pad: next,
-                            velocity,
-                        },
-                        None => MessageKind::ToneOff,
-                    })
-                }
-                _ => None,
-            };
-            if let Some(kind) = kind {
-                let number = self.next_number;
-                while self.replay.peek().is_some_and(|(head, _)| head < number) {
-                    self.replay.pop();
-                }
-                let record = self.replay.peek().filter(|&(head, _)| head == number);
-                let message = Message {
-                    number,
-                    at: record.map_or(stamped.sample, |(_, sample)| sample),
-                    kind,
-                };
-                if messages.push(message).is_err() {
-                    break;
-                }
-                if record.is_some() {
-                    self.replay.pop();
-                }
-                self.next_number += 1;
+        while messages.free() >= MAX_MESSAGES_PER_EVENT {
+            let repeat = self
+                .buttons
+                .next_repeat()
+                .filter(|&(sample, _)| sample < until);
+            let input = self.inputs.peek().filter(|stamped| {
+                stamped.sample < until && repeat.is_none_or(|(sample, _)| stamped.sample <= sample)
+            });
+            if let Some(stamped) = input {
+                self.inputs.pop();
+                self.input(stamped, messages);
+            } else if let Some((_, button)) = repeat {
+                // Nothing on STEP acts on a held arrow, - or +, so the repeat is only counted.
+                self.buttons.repeated(button);
+            } else {
+                break;
             }
-            redraw |= held != self.held;
-            self.held = held;
-            self.inputs.pop();
+            redraw = true;
         }
         redraw
     }
 
-    /// Draws the whole picture from the state of the control part alone, whatever the canvas held
-    /// before.
-    pub fn draw(&self, canvas: &mut impl Canvas) {
-        let screen = || Rect {
-            x: 0,
-            y: 0,
-            width: WIDTH as u32,
-            height: HEIGHT as u32,
-        };
-        canvas.fill_rect(screen(), BACKGROUND);
-        canvas.outline_rect(screen(), LINE);
-        for &(pad, _) in self.held.hits() {
-            let rect = Rect {
-                x: 20 + 37 * i32::from(pad),
-                y: 116,
-                width: 32,
-                height: 40,
-            };
-            canvas.fill_rect(rect, ACCENT);
+    /// The lights as the state of the control part has them.
+    ///
+    /// The pads show the current track. In PADS mode the selected pad is lit and so is every pad
+    /// with a note on that was hit as that pad. In KEYS mode pad 1, the C, is lit and so is every
+    /// pad whose pitch in the current octave has a note on. T1 to T4 light the current track and
+    /// PADS/KEYS lights in KEYS mode.
+    pub fn lights(&self) -> Lights {
+        let track = self.track();
+        let notes = self
+            .notes
+            .on()
+            .filter(|note| note.track == self.project.track);
+        let mut lights = Lights(0);
+        lights.light(Lights::TRACK + u32::from(self.project.track));
+        match track.mode {
+            PadMode::Pads => {
+                for pad in track
+                    .selected_pad
+                    .into_iter()
+                    .chain(notes.filter_map(|note| note.pad))
+                {
+                    lights.light(Lights::PAD + u32::from(pad));
+                }
+            }
+            PadMode::Keys => {
+                lights.light(Lights::PADS_KEYS);
+                lights.light(Lights::PAD);
+                let c = track.key_pitch(0);
+                for note in notes.filter(|note| (c..c + PADS).contains(&note.pitch)) {
+                    lights.light(Lights::PAD + u32::from(note.pitch - c));
+                }
+            }
         }
+        lights
+    }
+
+    /// Handles one input. Every input reaches its action here.
+    fn input(
+        &mut self,
+        Stamped { sample, input }: Stamped,
+        messages: &mut Producer<'_, Message, MESSAGE_QUEUE>,
+    ) {
+        match input {
+            Input::PadHit { pad, velocity } => {
+                self.buttons.used();
+                self.hit(
+                    Source::Pad(pad),
+                    pad,
+                    self.track().key_pitch(pad),
+                    velocity,
+                    sample,
+                    messages,
+                );
+            }
+            // A MIDI note is no control of the device, so it uses no held button. In KEYS mode it
+            // plays its own pitch from C0 to B8, the pitches the pads play, and others are ignored.
+            Input::NoteOn { note, velocity }
+                if self.track().mode == PadMode::Pads || (12..=119).contains(&note) =>
+            {
+                self.hit(
+                    Source::Midi(note),
+                    note % PADS,
+                    note,
+                    velocity,
+                    sample,
+                    messages,
+                );
+            }
+            Input::PadRelease { pad } => self.end(Source::Pad(pad), sample, messages),
+            Input::NoteOff { note } => self.end(Source::Midi(note), sample, messages),
+            Input::ButtonPress { button } => self.press(button, sample),
+            Input::ButtonRelease { button } => self.release(button, sample),
+            Input::EncoderTurn { .. } => self.buttons.used(),
+            Input::NoteOn { .. }
+            | Input::PadPressure { .. }
+            | Input::NotePressure { .. }
+            | Input::ChannelPressure { .. } => {}
+        }
+    }
+
+    /// A hit from `source`. In PADS mode it hits `pad`: it selects the pad and its sound and plays
+    /// that sound at C4, where a synth sounds unchanged. In KEYS mode it is the key of the pitch
+    /// `key`: that becomes the last key played, and it plays the selected sound at that pitch. With
+    /// no sound it plays nothing, and neither does a source that has a note on already.
+    fn hit(
+        &mut self,
+        source: Source,
+        pad: u8,
+        key: u8,
+        velocity: u8,
+        sample: u64,
+        messages: &mut Producer<'_, Message, MESSAGE_QUEUE>,
+    ) {
+        let track = self.track_mut();
+        let (pad, pitch) = match track.mode {
+            PadMode::Pads => {
+                track.select(pad);
+                (Some(pad), 60)
+            }
+            PadMode::Keys => {
+                track.last_key = Some(key);
+                (None, key)
+            }
+        };
+        let Some(sound) = track.selected_sound else {
+            return;
+        };
+        let track = self.project.track;
+        let Some(note) = self.notes.start(source, track, pad, pitch) else {
+            return;
+        };
+        // With VELOCITY off every note plays at full velocity.
+        let velocity = if self.settings.get(VELOCITY.id) == 0 {
+            127
+        } else {
+            velocity
+        };
+        self.send(
+            sample,
+            MessageKind::NoteOn {
+                note,
+                track,
+                sound,
+                pitch,
+                velocity,
+            },
+            messages,
+        );
+    }
+
+    /// A pad release or a MIDI note-off: it ends the note that the hit from `source` started,
+    /// whatever changed since.
+    fn end(
+        &mut self,
+        source: Source,
+        sample: u64,
+        messages: &mut Producer<'_, Message, MESSAGE_QUEUE>,
+    ) {
+        if let Some(note) = self.notes.end(source) {
+            self.send(sample, MessageKind::NoteOff { note }, messages);
+        }
+    }
+
+    /// A button goes down. A button that is held already does nothing, as one physical control
+    /// cannot go down twice.
+    ///
+    /// A combination acts when its second control goes down, and takes that press, so that it
+    /// neither repeats nor acts when it is let go. T1 to T4 select the track; with SHIFT held they
+    /// do nothing until muting comes with the sequencer. PADS/KEYS held + up or down moves the
+    /// octave in KEYS mode, stopping at C0 and C8, and in PADS mode does nothing.
+    fn press(&mut self, button: Button, sample: u64) {
+        if self.buttons.is_held(button) {
+            return;
+        }
+        self.buttons.press(button, sample);
+        match button {
+            Button::T1 | Button::T2 | Button::T3 | Button::T4
+                if self.buttons.is_held(Button::Shift) =>
+            {
+                self.buttons.take(button);
+            }
+            Button::T1 => self.project.track = 0,
+            Button::T2 => self.project.track = 1,
+            Button::T3 => self.project.track = 2,
+            Button::T4 => self.project.track = 3,
+            Button::Up | Button::Down if self.buttons.first_held(&[Button::PadsKeys]).is_some() => {
+                self.buttons.take(button);
+                let track = self.track_mut();
+                if track.mode == PadMode::Keys {
+                    track.octave = match button {
+                        Button::Up => (track.octave + 1).min(MAX_OCTAVE),
+                        _ => track.octave.saturating_sub(1),
+                    };
+                }
+            }
+            _ => {}
+        }
+    }
+
+    /// A button goes up. A tap of PADS/KEYS switches the current track's pad mode.
+    fn release(&mut self, button: Button, sample: u64) {
+        if let (Button::PadsKeys, Release::Tap) = (button, self.buttons.release(button, sample)) {
+            let track = self.track_mut();
+            track.mode = match track.mode {
+                PadMode::Pads => PadMode::Keys,
+                PadMode::Keys => PadMode::Pads,
+            };
+        }
+    }
+
+    /// Sends the next message, stamped with `sample` or with the sample of its replay record.
+    fn send(
+        &mut self,
+        sample: u64,
+        kind: MessageKind,
+        messages: &mut Producer<'_, Message, MESSAGE_QUEUE>,
+    ) {
+        let number = self.next_number;
+        while self.replay.peek().is_some_and(|(head, _)| head < number) {
+            self.replay.pop();
+        }
+        let record = self.replay.peek().filter(|&(head, _)| head == number);
+        if record.is_some() {
+            self.replay.pop();
+        }
+        messages
+            .push(Message {
+                number,
+                at: record.map_or(sample, |(_, sample)| sample),
+                kind,
+            })
+            .expect("the step leaves room for every message of an event");
+        self.next_number += 1;
+    }
+
+    /// The current track.
+    fn track(&self) -> &Track {
+        &self.project.tracks[usize::from(self.project.track)]
+    }
+
+    fn track_mut(&mut self) -> &mut Track {
+        &mut self.project.tracks[usize::from(self.project.track)]
     }
 }
 
@@ -185,11 +336,15 @@ impl Default for Control {
 
 #[cfg(all(test, not(feature = "loom")))]
 mod tests {
+    use super::buttons::{HOLD, REPEAT_DELAY, REPEAT_EVERY};
     use super::*;
-    use crate::message::MessageKind;
-    use crate::palette::{ACCENT, BACKGROUND, LINE};
+    use crate::message::NoteId;
+    use crate::palette::{ACCENT, BACKGROUND, DIM, LINE, TEXT};
+    use crate::project::pool::SoundNumber;
     use crate::queue::{Consumer, Queue};
     use crate::screen::{Canvas, Color, HEIGHT, Rect, Screen, WIDTH};
+    use crate::ui::frame::{Piece, draw_header, draw_strip};
+    use crate::ui::test_pixels::{filled, span};
     use std::vec::Vec;
 
     struct Rig<'a> {
@@ -211,14 +366,38 @@ mod tests {
             }
         }
 
-        fn hit(&mut self, sample: u64, pad: u8, velocity: u8) {
-            let input = Input::PadHit { pad, velocity };
+        fn queue(&mut self, sample: u64, input: Input) {
             assert_eq!(self.control.queue_input(Stamped { sample, input }), Ok(()));
         }
 
+        fn hit(&mut self, sample: u64, pad: u8, velocity: u8) {
+            self.queue(sample, Input::PadHit { pad, velocity });
+        }
+
         fn release(&mut self, sample: u64, pad: u8) {
-            let input = Input::PadRelease { pad };
-            assert_eq!(self.control.queue_input(Stamped { sample, input }), Ok(()));
+            self.queue(sample, Input::PadRelease { pad });
+        }
+
+        fn press(&mut self, sample: u64, button: Button) {
+            self.queue(sample, Input::ButtonPress { button });
+        }
+
+        fn let_go(&mut self, sample: u64, button: Button) {
+            self.queue(sample, Input::ButtonRelease { button });
+        }
+
+        /// A press and its release one sample later.
+        fn tap(&mut self, sample: u64, button: Button) {
+            self.press(sample, button);
+            self.let_go(sample + 1, button);
+        }
+
+        fn note_on(&mut self, sample: u64, note: u8, velocity: u8) {
+            self.queue(sample, Input::NoteOn { note, velocity });
+        }
+
+        fn note_off(&mut self, sample: u64, note: u8) {
+            self.queue(sample, Input::NoteOff { note });
         }
 
         fn step(&mut self, until: u64) -> bool {
@@ -230,25 +409,61 @@ mod tests {
             core::iter::from_fn(|| self.consumer.pop()).collect()
         }
 
-        /// Sends `MESSAGE_QUEUE` messages by hitting pad 1 and leaves them in the queue.
+        fn track(&self) -> &Track {
+            &self.control.project.tracks[usize::from(self.control.project.track)]
+        }
+
+        /// Makes a synth and puts it on `pad` of the current track.
+        fn synth_on(&mut self, pad: u8) -> SoundNumber {
+            let sound = self.control.project.pool.new_synth().unwrap();
+            self.control.project.put(pad, Some(sound));
+            sound
+        }
+
+        /// The bits of the lights that are on.
+        fn lit(&self) -> Vec<u32> {
+            let lights = self.control.lights().0;
+            (0..64).filter(|bit| lights & 1 << bit != 0).collect()
+        }
+
+        /// Sends `MESSAGE_QUEUE` messages by hitting and releasing pad 1, which must hold a sound,
+        /// and leaves them in the queue.
         fn fill_the_message_queue(&mut self) {
             for round in 0..MESSAGE_QUEUE / INPUT_QUEUE {
-                for index in 0..INPUT_QUEUE {
-                    self.hit((round * INPUT_QUEUE + index) as u64, 1, 100);
+                for pair in 0..INPUT_QUEUE / 2 {
+                    let sample = (round * INPUT_QUEUE + 2 * pair) as u64;
+                    self.hit(sample, 0, 100);
+                    self.release(sample + 1, 0);
                 }
                 self.step(u64::MAX);
             }
         }
     }
 
-    fn tone_on(number: u32, at: u64, pad: u8, velocity: u8) -> Message {
-        let kind = MessageKind::ToneOn { pad, velocity };
+    fn message(number: u32, at: u64, kind: MessageKind) -> Message {
         Message { number, at, kind }
     }
 
-    fn tone_off(number: u32, at: u64) -> Message {
-        let kind = MessageKind::ToneOff;
-        Message { number, at, kind }
+    fn note_on(note: u32, track: u8, sound: SoundNumber, pitch: u8, velocity: u8) -> MessageKind {
+        MessageKind::NoteOn {
+            note: NoteId(note),
+            track,
+            sound,
+            pitch,
+            velocity,
+        }
+    }
+
+    fn note_off(note: u32) -> MessageKind {
+        MessageKind::NoteOff { note: NoteId(note) }
+    }
+
+    fn pad(pad: u32) -> u32 {
+        Lights::PAD + pad
+    }
+
+    fn track(track: u32) -> u32 {
+        Lights::TRACK + track
     }
 
     fn picture(control: &Control) -> Screen {
@@ -257,157 +472,581 @@ mod tests {
         screen
     }
 
-    fn is_drawn(control: &Control, pad: u8) -> bool {
-        picture(control).pixel(36 + 37 * usize::from(pad), 136) == ACCENT
+    /// Whether the control part draws STEP with these header pieces over an empty main area and an
+    /// empty strip.
+    fn shows_step(control: &Control, pieces: &[(&str, Color)]) -> bool {
+        let pieces: Vec<Piece> = pieces
+            .iter()
+            .map(|&(text, color)| Piece { text, color })
+            .collect();
+        let mut expected = Screen::new();
+        draw_header(&mut expected, &pieces, None);
+        draw_strip(&mut expected, &[None; 4]);
+        picture(control).pixels() == expected.pixels()
     }
 
     #[test]
-    fn pad_hit_sends_tone_on_at_the_hit() {
+    fn a_new_project_draws_step_t1_pad_1_pads() {
         let queue = Queue::new();
         let mut rig = Rig::new(&queue);
-        rig.hit(100, 0, 127);
 
         rig.step(128);
 
-        assert_eq!(rig.sent(), [tone_on(0, 100, 0, 127)]);
+        assert!(shows_step(
+            &rig.control,
+            &[("Step", ACCENT), ("T1", TEXT), ("1", DIM), ("Pads", DIM)]
+        ));
+        let screen = picture(&rig.control);
+        // Each piece 6 pixels after the one before it, ink from x 4, on the capitals' rows 4 to 10.
+        assert_eq!(span(&screen, 0..=479, 4..=10, ACCENT), Some((4, 26)));
+        assert_eq!(span(&screen, 0..=479, 4..=10, TEXT), Some((33, 43)));
+        assert_eq!(span(&screen, 0..=479, 4..=10, DIM), Some((50, 83)));
+        assert!(filled(&screen, 0..=479, 14..=14, LINE));
+        assert!(filled(&screen, 0..=479, 15..=252, BACKGROUND));
+        assert!(filled(&screen, 0..=479, 253..=253, LINE));
+        assert!(filled(&screen, 0..=479, 254..=271, BACKGROUND));
     }
 
     #[test]
-    fn step_handles_only_inputs_stamped_before_until() {
+    fn a_hit_on_an_empty_pad_selects_it_and_sends_nothing() {
         let queue = Queue::new();
         let mut rig = Rig::new(&queue);
-        rig.hit(200, 0, 127);
+        rig.hit(10, 5, 100);
+        rig.release(20, 5);
 
         rig.step(128);
+
         assert_eq!(rig.sent(), []);
-        rig.step(200);
-        assert_eq!(rig.sent(), []);
+        assert_eq!(rig.track().selected_pad, Some(5));
+        assert_eq!(rig.track().selected_sound, None);
+        assert!(shows_step(
+            &rig.control,
+            &[("Step", ACCENT), ("T1", TEXT), ("6", DIM), ("Pads", DIM)]
+        ));
+    }
+
+    #[test]
+    fn pads_mode_plays_the_pads_sound_at_c4_and_selects_it() {
+        let queue = Queue::new();
+        let mut rig = Rig::new(&queue);
+        let sound = rig.synth_on(2);
+        rig.hit(10, 2, 90);
+
+        rig.step(128);
+
+        assert_eq!(rig.sent(), [message(0, 10, note_on(0, 0, sound, 60, 90))]);
+        assert_eq!(rig.track().selected_pad, Some(2));
+        assert_eq!(rig.track().selected_sound, Some(sound));
+        assert!(shows_step(
+            &rig.control,
+            &[
+                ("Step", ACCENT),
+                ("T1", TEXT),
+                ("Syn 1", TEXT),
+                ("Pads", DIM)
+            ]
+        ));
+    }
+
+    #[test]
+    fn keys_mode_plays_the_selected_sound_at_the_keys_pitch() {
+        let queue = Queue::new();
+        let mut rig = Rig::new(&queue);
+        let sound = rig.synth_on(0);
+        rig.tap(0, Button::PadsKeys);
+        rig.hit(10, 4, 100);
+        rig.release(20, 4);
+
+        rig.step(128);
+
+        assert_eq!(
+            rig.sent(),
+            [
+                message(0, 10, note_on(0, 0, sound, 64, 100)),
+                message(1, 20, note_off(0)),
+            ]
+        );
+        assert_eq!(rig.track().selected_pad, Some(0));
+
+        // T2 has no selected sound, so its keys play nothing.
+        rig.tap(200, Button::T2);
+        rig.tap(210, Button::PadsKeys);
+        rig.hit(220, 4, 100);
+        rig.release(230, 4);
         rig.step(256);
 
-        assert_eq!(rig.sent(), [tone_on(0, 200, 0, 127)]);
-    }
-
-    #[test]
-    fn release_of_an_earlier_pad_keeps_the_later_tone() {
-        let queue = Queue::new();
-        let mut rig = Rig::new(&queue);
-        rig.hit(0, 0, 100);
-        rig.hit(1, 7, 60);
-        rig.release(2, 0);
-
-        rig.step(128);
-        assert_eq!(rig.sent(), [tone_on(0, 0, 0, 100), tone_on(1, 1, 7, 60)]);
-
-        rig.release(130, 7);
-        rig.step(256);
-        assert_eq!(rig.sent(), [tone_off(2, 130)]);
-
-        let queue = Queue::new();
-        let mut rig = Rig::new(&queue);
-        rig.hit(0, 0, 100);
-        rig.hit(1, 7, 60);
-        rig.release(2, 7);
-
-        rig.step(128);
-        assert_eq!(
-            rig.sent(),
-            [
-                tone_on(0, 0, 0, 100),
-                tone_on(1, 1, 7, 60),
-                tone_on(2, 2, 0, 100),
-            ]
-        );
-    }
-
-    #[test]
-    fn releasing_pads_keeps_the_order_of_the_others() {
-        let queue = Queue::new();
-        let mut rig = Rig::new(&queue);
-        rig.hit(0, 1, 10);
-        rig.hit(1, 2, 20);
-        rig.hit(2, 3, 30);
-        rig.release(3, 2);
-        rig.release(4, 3);
-        rig.release(5, 1);
-
-        rig.step(128);
-
-        assert_eq!(
-            rig.sent(),
-            [
-                tone_on(0, 0, 1, 10),
-                tone_on(1, 1, 2, 20),
-                tone_on(2, 2, 3, 30),
-                tone_on(3, 4, 1, 10),
-                tone_off(4, 5),
-            ]
-        );
-    }
-
-    #[test]
-    fn hitting_a_held_pad_makes_it_the_latest_hit_with_the_new_velocity() {
-        let queue = Queue::new();
-        let mut rig = Rig::new(&queue);
-        rig.hit(0, 0, 100);
-        rig.hit(1, 7, 60);
-        rig.hit(2, 0, 50);
-        rig.release(3, 0);
-        rig.release(4, 7);
-
-        rig.step(128);
-
-        assert_eq!(
-            rig.sent(),
-            [
-                tone_on(0, 0, 0, 100),
-                tone_on(1, 1, 7, 60),
-                tone_on(2, 2, 0, 50),
-                tone_on(3, 3, 7, 60),
-                tone_off(4, 4),
-            ]
-        );
-    }
-
-    #[test]
-    fn releasing_a_pad_that_is_not_held_sends_nothing() {
-        let queue = Queue::new();
-        let mut rig = Rig::new(&queue);
-        rig.release(0, 4);
-
-        rig.step(128);
-
+        assert_eq!(rig.track().mode, PadMode::Keys);
         assert_eq!(rig.sent(), []);
     }
 
     #[test]
-    fn replay_record_sets_the_message_sample() {
+    fn a_release_ends_the_note_its_hit_started() {
         let queue = Queue::new();
         let mut rig = Rig::new(&queue);
+        let sound = rig.synth_on(0);
+        rig.tap(0, Button::PadsKeys);
+        rig.hit(10, 0, 100);
+        rig.press(20, Button::PadsKeys);
+        rig.tap(30, Button::Up);
+        rig.let_go(40, Button::PadsKeys);
+        rig.tap(50, Button::T2);
+        rig.tap(60, Button::PadsKeys);
+        rig.release(70, 0);
+
+        rig.step(128);
+
+        assert_eq!(
+            rig.sent(),
+            [
+                message(0, 10, note_on(0, 0, sound, 60, 100)),
+                message(1, 70, note_off(0)),
+            ]
+        );
+        assert_eq!(rig.control.project.tracks[0].octave, 5);
+        assert_eq!(rig.control.project.track, 1);
+        assert_eq!(rig.track().mode, PadMode::Keys);
+    }
+
+    #[test]
+    fn pads_keys_taps_switch_the_mode_and_long_presses_do_not() {
+        let queue = Queue::new();
+        let mut rig = Rig::new(&queue);
+
+        rig.press(0, Button::PadsKeys);
+        rig.let_go(HOLD - 1, Button::PadsKeys);
+        rig.step(HOLD);
+        assert_eq!(rig.track().mode, PadMode::Keys);
+        assert!(shows_step(
+            &rig.control,
+            &[("Step", ACCENT), ("T1", TEXT), ("1", DIM), ("Keys C4", DIM)]
+        ));
+
+        rig.press(20_000, Button::PadsKeys);
+        rig.let_go(20_000 + HOLD, Button::PadsKeys);
+        rig.step(40_000);
+        assert_eq!(rig.track().mode, PadMode::Keys);
+
+        rig.tap(40_000, Button::PadsKeys);
+        rig.step(40_064);
+        assert_eq!(rig.track().mode, PadMode::Pads);
+    }
+
+    #[test]
+    fn a_hit_or_a_turn_spoils_the_tap_and_a_midi_note_does_not() {
+        let queue = Queue::new();
+        let mut rig = Rig::new(&queue);
+
+        rig.press(0, Button::PadsKeys);
+        rig.hit(10, 3, 100);
+        rig.release(20, 3);
+        rig.let_go(30, Button::PadsKeys);
+        rig.press(40, Button::PadsKeys);
+        rig.queue(
+            50,
+            Input::EncoderTurn {
+                encoder: 1,
+                clicks: 1,
+            },
+        );
+        rig.let_go(60, Button::PadsKeys);
+        rig.step(128);
+        assert_eq!(rig.track().mode, PadMode::Pads);
+
+        rig.press(200, Button::PadsKeys);
+        rig.note_on(210, 61, 100);
+        rig.note_off(220, 61);
+        rig.let_go(230, Button::PadsKeys);
+        rig.step(256);
+        assert_eq!(rig.track().mode, PadMode::Keys);
+    }
+
+    #[test]
+    fn pads_keys_with_an_arrow_moves_the_octave_between_c0_and_c8() {
+        let queue = Queue::new();
+        let mut rig = Rig::new(&queue);
+        rig.tap(0, Button::PadsKeys);
+
+        rig.press(100, Button::PadsKeys);
+        for index in 0..5 {
+            rig.tap(200 + 10 * index, Button::Up);
+        }
+        rig.step(1_000);
+        assert_eq!(rig.track().octave, 8);
+        assert!(shows_step(
+            &rig.control,
+            &[("Step", ACCENT), ("T1", TEXT), ("1", DIM), ("Keys C8", DIM)]
+        ));
+        rig.let_go(1_000, Button::PadsKeys);
+        rig.step(1_024);
+        assert_eq!(rig.track().mode, PadMode::Keys);
+
+        // A held arrow is taken: it moves the octave once and does not repeat.
+        rig.press(2_000, Button::PadsKeys);
+        rig.press(2_010, Button::Down);
+        rig.step(2_010 + 3 * REPEAT_DELAY);
+        assert_eq!(rig.track().octave, 7);
+        assert_eq!(rig.control.buttons.next_repeat(), None);
+        rig.let_go(70_000, Button::Down);
+        for index in 0..8 {
+            rig.tap(70_010 + 10 * index, Button::Down);
+        }
+        rig.let_go(71_000, Button::PadsKeys);
+        rig.step(71_008);
+        assert_eq!(rig.track().octave, 0);
+        assert_eq!(rig.track().mode, PadMode::Keys);
+        assert!(shows_step(
+            &rig.control,
+            &[("Step", ACCENT), ("T1", TEXT), ("1", DIM), ("Keys C0", DIM)]
+        ));
+
+        // In PADS mode the arrow changes nothing, and letting go still switches nothing.
+        rig.tap(72_000, Button::PadsKeys);
+        rig.press(72_100, Button::PadsKeys);
+        rig.tap(72_200, Button::Up);
+        rig.let_go(72_300, Button::PadsKeys);
+        rig.step(72_320);
+        assert_eq!(rig.track().mode, PadMode::Pads);
+        assert_eq!(rig.track().octave, 0);
+    }
+
+    #[test]
+    fn each_track_keeps_its_mode_octave_and_selection() {
+        let queue = Queue::new();
+        let mut rig = Rig::new(&queue);
+        rig.hit(0, 3, 100);
+        rig.release(1, 3);
+        rig.tap(10, Button::PadsKeys);
+        rig.press(20, Button::PadsKeys);
+        rig.tap(30, Button::Up);
+        rig.let_go(40, Button::PadsKeys);
+        rig.tap(50, Button::T2);
+        rig.hit(60, 7, 100);
+        rig.release(61, 7);
+        rig.step(128);
+        assert!(shows_step(
+            &rig.control,
+            &[("Step", ACCENT), ("T2", TEXT), ("8", DIM), ("Pads", DIM)]
+        ));
+        assert_eq!(rig.lit(), [pad(7), track(1)]);
+
+        rig.tap(200, Button::T1);
+        rig.step(256);
+
+        assert_eq!(rig.track().selected_pad, Some(3));
+        assert_eq!(rig.track().mode, PadMode::Keys);
+        assert_eq!(rig.track().octave, 5);
+        assert!(shows_step(
+            &rig.control,
+            &[("Step", ACCENT), ("T1", TEXT), ("4", DIM), ("Keys C5", DIM)]
+        ));
+        assert_eq!(rig.lit(), [pad(0), track(0), Lights::PADS_KEYS]);
+        for (number, track) in rig.control.project.tracks.iter().enumerate().skip(2) {
+            assert_eq!(*track, Track::new(), "track {number}");
+        }
+    }
+
+    #[test]
+    fn shift_with_a_track_button_does_nothing() {
+        let queue = Queue::new();
+        let mut rig = Rig::new(&queue);
+        rig.press(0, Button::Shift);
+        rig.tap(10, Button::T3);
+        rig.let_go(20, Button::Shift);
+        rig.step(128);
+        assert_eq!(rig.control.project.track, 0);
+        assert_eq!(rig.lit(), [pad(0), track(0)]);
+
+        rig.tap(200, Button::T3);
+        rig.step(256);
+        assert_eq!(rig.control.project.track, 2);
+        assert_eq!(rig.lit(), [pad(0), track(2)]);
+    }
+
+    #[test]
+    fn a_second_press_of_a_held_button_does_nothing() {
+        let queue = Queue::new();
+        let mut rig = Rig::new(&queue);
+        rig.press(0, Button::Shift);
+        rig.press(10, Button::T2);
+        rig.let_go(20, Button::Shift);
+        rig.press(30, Button::T2);
+        rig.step(128);
+        assert_eq!(rig.control.project.track, 0);
+
+        rig.let_go(200, Button::T2);
+        rig.press(210, Button::T2);
+        rig.step(256);
+        assert_eq!(rig.control.project.track, 1);
+    }
+
+    #[test]
+    fn velocity_off_plays_every_hit_at_127() {
+        let queue = Queue::new();
+        let mut rig = Rig::new(&queue);
+        let sound = rig.synth_on(0);
+        rig.hit(0, 0, 40);
+        rig.release(10, 0);
+        rig.step(128);
+        rig.control.settings.set(VELOCITY.id, 0);
+        rig.hit(200, 0, 40);
+        rig.release(210, 0);
+        rig.note_on(220, 60, 1);
+
+        rig.step(256);
+
+        assert_eq!(
+            rig.sent(),
+            [
+                message(0, 0, note_on(0, 0, sound, 60, 40)),
+                message(1, 10, note_off(0)),
+                message(2, 200, note_on(1, 0, sound, 60, 127)),
+                message(3, 210, note_off(1)),
+                message(4, 220, note_on(2, 0, sound, 60, 127)),
+            ]
+        );
+    }
+
+    #[test]
+    fn midi_notes_fold_onto_pads_in_pads_mode() {
+        let queue = Queue::new();
+        let mut rig = Rig::new(&queue);
+        let sound = rig.synth_on(0);
+        rig.hit(0, 5, 100);
+        rig.release(1, 5);
+        rig.note_on(10, 48, 100);
+        rig.note_on(20, 60, 90);
+        rig.step(128);
+        assert_eq!(
+            rig.sent(),
+            [
+                message(0, 10, note_on(0, 0, sound, 60, 100)),
+                message(1, 20, note_on(1, 0, sound, 60, 90)),
+            ]
+        );
+        assert_eq!(rig.track().selected_pad, Some(0));
+
+        rig.hit(200, 5, 100);
+        rig.release(201, 5);
+        rig.step(256);
+        assert_eq!(rig.lit(), [pad(0), pad(5), track(0)]);
+
+        rig.note_off(300, 48);
+        rig.step(384);
+        assert_eq!(rig.sent(), [message(2, 300, note_off(0))]);
+        assert_eq!(rig.lit(), [pad(0), pad(5), track(0)]);
+
+        rig.note_off(400, 60);
+        rig.step(512);
+        assert_eq!(rig.sent(), [message(3, 400, note_off(1))]);
+        assert_eq!(rig.lit(), [pad(5), track(0)]);
+    }
+
+    #[test]
+    fn midi_notes_play_their_own_pitch_in_keys_mode() {
+        let queue = Queue::new();
+        let mut rig = Rig::new(&queue);
+        let sound = rig.synth_on(0);
+        rig.tap(0, Button::PadsKeys);
+        rig.note_on(10, 40, 100);
+        rig.step(128);
+        assert_eq!(rig.sent(), [message(0, 10, note_on(0, 0, sound, 40, 100))]);
+        assert_eq!(rig.lit(), [pad(0), track(0), Lights::PADS_KEYS]);
+        assert_eq!(rig.track().octave, 4);
+
+        rig.note_on(200, 11, 100);
+        rig.note_on(210, 120, 100);
+        rig.note_off(220, 11);
+        rig.note_off(230, 120);
+        rig.step(256);
+        assert_eq!(rig.sent(), []);
+
+        rig.note_on(300, 64, 80);
+        rig.step(384);
+        assert_eq!(rig.sent(), [message(1, 300, note_on(1, 0, sound, 64, 80))]);
+        assert_eq!(rig.lit(), [pad(0), pad(4), track(0), Lights::PADS_KEYS]);
+
+        rig.note_off(400, 40);
+        rig.note_off(410, 64);
+        rig.step(512);
+        assert_eq!(
+            rig.sent(),
+            [message(2, 400, note_off(0)), message(3, 410, note_off(1))]
+        );
+        assert_eq!(rig.lit(), [pad(0), track(0), Lights::PADS_KEYS]);
+        assert_eq!(rig.track().selected_pad, Some(0));
+    }
+
+    #[test]
+    fn a_source_with_a_note_on_starts_no_second_note() {
+        let queue = Queue::new();
+        let mut rig = Rig::new(&queue);
+        let sound = rig.synth_on(0);
+        rig.hit(0, 0, 100);
+        rig.hit(10, 3, 100);
+        rig.hit(20, 0, 90);
+        rig.note_on(30, 60, 100);
+        rig.note_on(40, 60, 70);
+        rig.step(128);
+        assert_eq!(
+            rig.sent(),
+            [
+                message(0, 0, note_on(0, 0, sound, 60, 100)),
+                message(1, 30, note_on(1, 0, sound, 60, 100)),
+            ]
+        );
+        // The second hit still selects.
+        assert_eq!(rig.track().selected_pad, Some(0));
+
+        rig.release(200, 0);
+        rig.note_off(210, 60);
+        rig.release(220, 0);
+        rig.note_off(230, 60);
+        rig.step(256);
+        assert_eq!(
+            rig.sent(),
+            [message(2, 200, note_off(0)), message(3, 210, note_off(1))]
+        );
+    }
+
+    #[test]
+    fn keys_hits_and_accepted_midi_notes_are_the_last_key_played() {
+        let queue = Queue::new();
+        let mut rig = Rig::new(&queue);
+        rig.hit(0, 4, 100);
+        rig.release(1, 4);
+        rig.note_on(10, 62, 100);
+        rig.note_off(11, 62);
+        rig.step(128);
+        assert_eq!(rig.track().last_key, None);
+
+        // A key plays nothing without a selected sound, and still counts.
+        rig.tap(200, Button::PadsKeys);
+        rig.hit(210, 4, 100);
+        rig.release(211, 4);
+        rig.step(256);
+        assert_eq!(rig.track().last_key, Some(64));
+
+        rig.note_on(300, 40, 100);
+        rig.note_off(301, 40);
+        rig.note_on(310, 11, 100);
+        rig.note_off(311, 11);
+        rig.note_on(320, 120, 100);
+        rig.note_off(321, 120);
+        rig.step(384);
+        assert_eq!(rig.track().last_key, Some(40));
+        assert_eq!(rig.control.project.tracks[1].last_key, None);
+    }
+
+    #[test]
+    fn the_lights_follow_answer_9() {
+        let queue = Queue::new();
+        let mut rig = Rig::new(&queue);
+        rig.synth_on(2);
+        rig.step(128);
+        assert_eq!(rig.lit(), [pad(0), track(0)]);
+
+        // PADS mode: the selected pad and the pads with a note on.
+        rig.hit(200, 2, 100);
+        rig.hit(210, 6, 100);
+        rig.step(256);
+        assert_eq!(rig.lit(), [pad(2), pad(6), track(0)]);
+        rig.release(300, 2);
+        rig.release(310, 6);
+        rig.hit(320, 2, 100);
+        rig.release(330, 2);
+        rig.step(384);
+        assert_eq!(rig.lit(), [pad(2), track(0)]);
+
+        // KEYS mode: pad 1 and the keys of the shown octave with a note on.
+        rig.tap(400, Button::PadsKeys);
+        rig.hit(410, 3, 100);
+        rig.step(512);
+        assert_eq!(rig.lit(), [pad(0), pad(3), track(0), Lights::PADS_KEYS]);
+        rig.press(600, Button::PadsKeys);
+        rig.tap(610, Button::Up);
+        rig.let_go(620, Button::PadsKeys);
+        rig.step(640);
+        assert_eq!(rig.lit(), [pad(0), track(0), Lights::PADS_KEYS]);
+        rig.note_on(700, 75, 100);
+        rig.step(768);
+        assert_eq!(rig.lit(), [pad(0), pad(3), track(0), Lights::PADS_KEYS]);
+
+        // Another track's notes light nothing.
+        rig.tap(800, Button::T2);
+        rig.step(896);
+        assert_eq!(rig.lit(), [pad(0), track(1)]);
+        rig.release(900, 3);
+        rig.note_off(910, 75);
+        rig.tap(920, Button::T1);
+        rig.step(1_024);
+        assert_eq!(rig.lit(), [pad(0), track(0), Lights::PADS_KEYS]);
+    }
+
+    #[test]
+    fn an_event_waits_while_the_message_queue_is_full() {
+        let queue = Queue::new();
+        let mut rig = Rig::new(&queue);
+        let sound = rig.synth_on(0);
+        rig.fill_the_message_queue();
+        rig.hit(1_000, 0, 80);
+        rig.tap(1_010, Button::T2);
+
+        assert!(!rig.step(u64::MAX));
+        assert_eq!(rig.lit(), [pad(0), track(0)]);
+
+        rig.consumer.pop();
+        assert!(rig.step(u64::MAX));
+        assert_eq!(rig.lit(), [pad(0), track(0)]);
+
+        rig.consumer.pop();
+        assert!(rig.step(u64::MAX));
+        assert_eq!(rig.lit(), [pad(0), track(1)]);
+        let sent = rig.sent();
+        assert_eq!(sent.len(), MESSAGE_QUEUE - 1);
+        assert_eq!(
+            sent.last(),
+            Some(&message(256, 1_000, note_on(128, 0, sound, 60, 80)))
+        );
+    }
+
+    #[test]
+    fn a_stalled_step_keeps_the_replay_record_of_the_message_it_waits_to_send() {
+        let queue = Queue::new();
+        let mut rig = Rig::new(&queue);
+        let sound = rig.synth_on(0);
+        rig.fill_the_message_queue();
+        assert_eq!(rig.control.replay_applied(256, 9_000), Ok(()));
+        rig.hit(1_000, 0, 90);
+
+        rig.step(u64::MAX);
+        rig.sent();
+        rig.step(u64::MAX);
+
+        assert_eq!(
+            rig.sent(),
+            [message(256, 9_000, note_on(128, 0, sound, 60, 90))]
+        );
+    }
+
+    #[test]
+    fn replay_records_still_set_the_message_sample() {
+        let queue = Queue::new();
+        let mut rig = Rig::new(&queue);
+        let sound = rig.synth_on(0);
         assert_eq!(rig.control.replay_applied(0, 512), Ok(()));
+        assert_eq!(rig.control.replay_applied(2, 900), Ok(()));
         rig.hit(100, 0, 127);
-
-        rig.step(128);
-
-        assert_eq!(rig.sent(), [tone_on(0, 512, 0, 127)]);
-    }
-
-    #[test]
-    fn replay_record_applies_only_to_its_own_message() {
-        let queue = Queue::new();
-        let mut rig = Rig::new(&queue);
-        assert_eq!(rig.control.replay_applied(1, 700), Ok(()));
-        rig.hit(100, 0, 127);
-        rig.hit(200, 1, 127);
-        rig.hit(300, 2, 127);
+        rig.release(200, 0);
+        rig.hit(300, 0, 127);
 
         rig.step(512);
 
         assert_eq!(
             rig.sent(),
             [
-                tone_on(0, 100, 0, 127),
-                tone_on(1, 700, 1, 127),
-                tone_on(2, 300, 2, 127),
+                message(0, 512, note_on(0, 0, sound, 60, 127)),
+                message(1, 200, note_off(0)),
+                message(2, 900, note_on(1, 0, sound, 60, 127)),
             ]
         );
     }
@@ -416,17 +1055,21 @@ mod tests {
     fn replay_record_of_a_message_already_sent_is_dropped() {
         let queue = Queue::new();
         let mut rig = Rig::new(&queue);
+        let sound = rig.synth_on(0);
         rig.hit(10, 0, 127);
         rig.step(128);
         assert_eq!(rig.control.replay_applied(0, 999), Ok(()));
         assert_eq!(rig.control.replay_applied(1, 700), Ok(()));
-        rig.hit(20, 1, 127);
+        rig.release(200, 0);
 
-        rig.step(128);
+        rig.step(256);
 
         assert_eq!(
             rig.sent(),
-            [tone_on(0, 10, 0, 127), tone_on(1, 700, 1, 127)]
+            [
+                message(0, 10, note_on(0, 0, sound, 60, 127)),
+                message(1, 700, note_off(0)),
+            ]
         );
     }
 
@@ -459,130 +1102,75 @@ mod tests {
 
         rig.step(u64::MAX);
 
-        let sent = rig.sent();
-        assert_eq!(sent.len(), INPUT_QUEUE);
-        for (index, message) in sent.iter().enumerate() {
-            let pad = (index % 12) as u8;
-            assert_eq!(*message, tone_on(index as u32, index as u64, pad, 100));
-        }
+        assert_eq!(
+            rig.track().selected_pad,
+            Some(((INPUT_QUEUE - 1) % 12) as u8)
+        );
         assert_eq!(rig.control.queue_input(refused), Ok(()));
     }
 
     #[test]
-    fn stops_taking_inputs_while_the_message_queue_is_full() {
+    fn step_handles_only_inputs_stamped_before_until() {
         let queue = Queue::new();
         let mut rig = Rig::new(&queue);
-        rig.fill_the_message_queue();
-        for index in 0..INPUT_QUEUE as u64 {
-            rig.hit(256 + index, 2, 90);
-        }
+        let sound = rig.synth_on(0);
+        rig.hit(200, 0, 127);
 
-        rig.step(u64::MAX);
-
-        let refused = Stamped {
-            sample: 320,
-            input: Input::PadRelease { pad: 2 },
-        };
-        assert_eq!(rig.control.queue_input(refused), Err(refused));
-        let sent = rig.sent();
-        assert_eq!(sent.len(), MESSAGE_QUEUE);
-        assert_eq!(sent.last(), Some(&tone_on(255, 255, 1, 100)));
-
-        rig.step(u64::MAX);
-
-        let sent = rig.sent();
-        assert_eq!(sent.len(), INPUT_QUEUE);
-        for (index, message) in sent.iter().enumerate() {
-            let expected = tone_on(256 + index as u32, 256 + index as u64, 2, 90);
-            assert_eq!(*message, expected);
-        }
-    }
-
-    #[test]
-    fn a_stalled_step_leaves_the_held_pads_as_they_were() {
-        let queue = Queue::new();
-        let mut rig = Rig::new(&queue);
-        rig.fill_the_message_queue();
-        rig.hit(300, 5, 80);
-        rig.release(301, 5);
-
-        assert!(!rig.step(u64::MAX));
-        assert!(is_drawn(&rig.control, 1));
-        assert!(!is_drawn(&rig.control, 5));
-
-        rig.consumer.pop();
-        assert!(rig.step(u64::MAX));
-        assert!(is_drawn(&rig.control, 1));
-        assert!(is_drawn(&rig.control, 5));
-
-        rig.consumer.pop();
-        assert!(rig.step(u64::MAX));
-        assert!(is_drawn(&rig.control, 1));
-        assert!(!is_drawn(&rig.control, 5));
-
-        let sent = rig.sent();
-        assert_eq!(sent.len(), MESSAGE_QUEUE);
-        assert_eq!(sent[MESSAGE_QUEUE - 2], tone_on(256, 300, 5, 80));
-        assert_eq!(sent[MESSAGE_QUEUE - 1], tone_on(257, 301, 1, 100));
-    }
-
-    #[test]
-    fn a_stalled_step_keeps_the_replay_record_of_the_message_it_waits_to_send() {
-        let queue = Queue::new();
-        let mut rig = Rig::new(&queue);
-        rig.fill_the_message_queue();
-        assert_eq!(rig.control.replay_applied(256, 9000), Ok(()));
-        rig.hit(300, 2, 90);
-
-        rig.step(u64::MAX);
-        rig.sent();
-        rig.step(u64::MAX);
-
-        assert_eq!(rig.sent(), [tone_on(256, 9000, 2, 90)]);
-    }
-
-    #[test]
-    fn test_picture() {
-        let queue = Queue::new();
-        let mut rig = Rig::new(&queue);
-        rig.hit(0, 0, 100);
-        rig.step(1);
-
-        let screen = picture(&rig.control);
-
-        assert_eq!(screen.pixel(0, 0), LINE);
-        assert_eq!(screen.pixel(WIDTH - 1, HEIGHT - 1), LINE);
-        assert_eq!(screen.pixel(1, 1), BACKGROUND);
-        assert_eq!(screen.pixel(36, 136), ACCENT);
-        assert_eq!(screen.pixel(36 + 37, 136), BACKGROUND);
-        for (x, y) in [(20, 116), (51, 116), (20, 155), (51, 155)] {
-            assert_eq!(screen.pixel(x, y), ACCENT);
-        }
-        for (x, y) in [(19, 136), (52, 136), (36, 115), (36, 156)] {
-            assert_eq!(screen.pixel(x, y), BACKGROUND);
-        }
-    }
-
-    #[test]
-    fn every_held_pad_is_drawn_at_its_own_place() {
-        let queue = Queue::new();
-        let mut rig = Rig::new(&queue);
-        for pad in [3, 11, 0] {
-            rig.hit(0, pad, 100);
-        }
-        rig.release(1, 3);
         rig.step(128);
+        assert_eq!(rig.sent(), []);
+        rig.step(200);
+        assert_eq!(rig.sent(), []);
+        rig.step(256);
 
-        assert!(is_drawn(&rig.control, 0));
-        assert!(!is_drawn(&rig.control, 3));
-        assert!(is_drawn(&rig.control, 11));
-        assert!(!is_drawn(&rig.control, 10));
+        assert_eq!(rig.sent(), [message(0, 200, note_on(0, 0, sound, 60, 127))]);
+    }
+
+    #[test]
+    fn held_arrows_repeat_at_their_own_samples_and_do_nothing_on_step() {
+        let queue = Queue::new();
+        let mut rig = Rig::new(&queue);
+        rig.step(128);
+        rig.press(1_000, Button::Up);
+
+        assert!(rig.step(50_000));
+
+        // The repeats at 20_200, 22_600 and so on up to 49_000 were made.
+        let next = 1_000 + REPEAT_DELAY + 13 * REPEAT_EVERY;
+        assert_eq!(rig.control.buttons.next_repeat(), Some((next, Button::Up)));
+        assert_eq!(rig.sent(), []);
+        assert!(shows_step(
+            &rig.control,
+            &[("Step", ACCENT), ("T1", TEXT), ("1", DIM), ("Pads", DIM)]
+        ));
+        assert!(!rig.step(next));
+        assert!(rig.step(next + 1));
+        rig.let_go(next + REPEAT_EVERY, Button::Up);
+        rig.step(next + 3 * REPEAT_EVERY);
+        assert_eq!(rig.control.buttons.next_repeat(), None);
+    }
+
+    #[test]
+    fn step_redraws_on_the_first_step_and_after_an_event() {
+        let queue = Queue::new();
+        let mut rig = Rig::new(&queue);
+
+        assert!(rig.step(128));
+        assert!(!rig.step(128));
+
+        rig.release(130, 3);
+        assert!(rig.step(256));
+        assert!(!rig.step(256));
+
+        rig.queue(300, Input::ChannelPressure { pressure: 40 });
+        assert!(rig.step(384));
+        assert!(!rig.step(512));
     }
 
     #[test]
     fn a_frame_does_not_depend_on_what_the_canvas_held_before() {
         let queue = Queue::new();
         let mut rig = Rig::new(&queue);
+        rig.synth_on(4);
         rig.hit(0, 4, 100);
         rig.step(1);
         let mut used = Screen::new();
@@ -600,25 +1188,5 @@ mod tests {
         rig.control.draw(&mut used);
 
         assert_eq!(used.pixels(), picture(&rig.control).pixels());
-    }
-
-    #[test]
-    fn redraw_only_when_held_pads_change() {
-        let queue = Queue::new();
-        let mut rig = Rig::new(&queue);
-
-        assert!(rig.step(128));
-        assert!(!rig.step(128));
-
-        rig.hit(10, 0, 100);
-        assert!(rig.step(128));
-        assert!(!rig.step(128));
-
-        rig.release(20, 3);
-        assert!(!rig.step(128));
-
-        rig.release(30, 0);
-        assert!(rig.step(128));
-        assert!(!rig.step(128));
     }
 }

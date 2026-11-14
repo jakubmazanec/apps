@@ -25,10 +25,15 @@ pub struct Track {
     pub mode: PadMode,
     /// 0 to `MAX_OCTAVE`.
     pub octave: u8,
+    /// The pitch of the last key played in KEYS mode, by a pad or by a MIDI note that KEYS mode
+    /// plays, whether or not a sound played it. A step entered in KEYS mode gets it, or the C of
+    /// the current octave while it is `None`, before any key has been played.
+    pub last_key: Option<u8>,
 }
 
 impl Track {
-    /// A track with empty pads, pad 1 selected, PADS mode and octave 4.
+    /// A track with empty pads, pad 1 selected, PADS mode and octave 4, on which no key has been
+    /// played.
     pub const fn new() -> Self {
         Self {
             pads: [None; 12],
@@ -36,6 +41,7 @@ impl Track {
             selected_sound: None,
             mode: PadMode::Pads,
             octave: 4,
+            last_key: None,
         }
     }
 
@@ -79,6 +85,7 @@ mod tests {
         assert_eq!(track.selected_sound, None);
         assert_eq!(track.mode, PadMode::Pads);
         assert_eq!(track.octave, 4);
+        assert_eq!(track.last_key, None);
         assert_eq!(Track::default(), track);
     }
 

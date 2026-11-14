@@ -1,11 +1,15 @@
 use crate::runner::Runner;
 use groovebox_core::device::{ControlSide, Device};
 use groovebox_core::input::Stamped;
+use groovebox_core::message::Report;
+use std::sync::atomic::Ordering;
 
 /// The core built for this machine.
 #[derive(Default)]
 pub struct NativeRunner {
     device: Box<Device>,
+    /// The reports that the last step took, as the browser export stashes them.
+    applied: Vec<(u32, u64)>,
 }
 
 impl NativeRunner {
@@ -26,7 +30,20 @@ impl Runner for NativeRunner {
     }
 
     fn step(&mut self, until: u64) {
-        self.control().step(until);
+        let mut control = self.control();
+        control.step(until);
+        self.applied = std::iter::from_fn(|| control.take_report())
+            .map(|Report::Applied { number, sample }| (number, sample))
+            .collect();
+    }
+
+    fn take_applied(&mut self) -> Vec<(u32, u64)> {
+        std::mem::take(&mut self.applied)
+    }
+
+    fn lights(&mut self) -> u64 {
+        // SAFETY: the pointer is valid for the life of the device, which this runner owns.
+        unsafe { &*self.device.lights_pointer() }.load(Ordering::Acquire)
     }
 
     fn render(&mut self, left: &mut [f32], right: &mut [f32]) {

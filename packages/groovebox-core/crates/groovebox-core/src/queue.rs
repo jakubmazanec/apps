@@ -124,6 +124,14 @@ impl<T: Copy, const N: usize> Producer<'_, T, N> {
             .store(head.wrapping_add(1), Ordering::Release);
         Ok(())
     }
+
+    /// How many pushes would succeed now. The consumer only ever makes room, so they still succeed
+    /// when it pops meanwhile.
+    pub fn free(&self) -> usize {
+        let head = self.queue.head.load(Ordering::Relaxed);
+        let tail = self.queue.tail.load(Ordering::Acquire);
+        N - head.wrapping_sub(tail) as usize
+    }
 }
 
 pub struct Consumer<'a, T: Copy, const N: usize> {
@@ -177,6 +185,36 @@ mod tests {
             assert_eq!(consumer.pop(), Some(item));
         }
         assert_eq!(consumer.pop(), None);
+    }
+
+    #[test]
+    fn free_counts_the_pushes_that_would_succeed() {
+        let queue = Queue::<u32, 4>::new();
+        let (mut producer, mut consumer) = split(&queue);
+        assert_eq!(producer.free(), 4);
+
+        for item in 0..3 {
+            assert_eq!(producer.push(item), Ok(()));
+        }
+        assert_eq!(producer.free(), 1);
+        assert_eq!(producer.push(3), Ok(()));
+        assert_eq!(producer.free(), 0);
+        assert_eq!(producer.push(4), Err(4));
+
+        assert_eq!(consumer.pop(), Some(0));
+        assert_eq!(producer.free(), 1);
+    }
+
+    #[test]
+    fn free_counts_across_the_wrap_of_the_indices() {
+        let queue = Queue::<u32, 4>::new();
+        queue.head.store(u32::MAX, Ordering::Relaxed);
+        queue.tail.store(u32::MAX - 1, Ordering::Relaxed);
+        let (mut producer, _) = split(&queue);
+        assert_eq!(producer.free(), 3);
+
+        assert_eq!(producer.push(0), Ok(()));
+        assert_eq!(producer.free(), 2);
     }
 
     #[test]
