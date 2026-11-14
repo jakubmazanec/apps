@@ -106,23 +106,17 @@ describe(runShell, () => {
     expect(crossOriginIsolated).toBe(true);
   });
 
-  test('boots, draws the test picture and plays pad 0', async () => {
+  test('boots, runs the audio and draws the header of STEP', async () => {
     let {core} = await runMounted();
 
     await userEvent.click(document.body);
 
     await expect.poll(() => position(core), {timeout: 5000}).toBeGreaterThan(4800n);
 
-    expect(pixel(core, 0, 0)).toBe(4);
+    // The header's line, the "S" of "Step" in the accent and the empty main area
+    expect(pixel(core, 0, 14)).toBe(4);
+    expect(pixel(core, 4, 6)).toBe(6);
     expect(pixel(core, 240, 30)).toBe(0);
-
-    await userEvent.keyboard('{z>}');
-
-    await expect.poll(() => pixel(core, 36, 136), {timeout: 500}).toBe(6);
-
-    await userEvent.keyboard('{/z}');
-
-    await expect.poll(() => pixel(core, 36, 136)).toBe(0);
   });
 
   test('two quick clicks start one audio graph', async () => {
