@@ -2,6 +2,11 @@ import {describe, expect, test} from 'vitest';
 
 import {dragClicks, isPush, PIXELS_PER_CLICK, wheelClicks} from '../source/shell/knob.js';
 
+// A wheel event of `deltaY` in `deltaMode` (pixels by default), with no `deltaX` and SHIFT up
+function vertical(deltaY: number, deltaMode = 0) {
+  return {deltaMode, deltaX: 0, deltaY, shiftKey: false};
+}
+
 describe(dragClicks, () => {
   test('4 px per click, up is positive', () => {
     expect(PIXELS_PER_CLICK).toBe(4);
@@ -26,9 +31,9 @@ describe(dragClicks, () => {
 
 describe(wheelClicks, () => {
   test('the wheel adds up 100 px per click', () => {
-    let first = wheelClicks(0, {deltaY: -40, deltaMode: 0});
-    let second = wheelClicks(first.rest, {deltaY: -40, deltaMode: 0});
-    let third = wheelClicks(second.rest, {deltaY: -40, deltaMode: 0});
+    let first = wheelClicks(0, vertical(-40));
+    let second = wheelClicks(first.rest, vertical(-40));
+    let third = wheelClicks(second.rest, vertical(-40));
 
     expect([first, second, third]).toStrictEqual([
       {clicks: 0, rest: -40},
@@ -38,24 +43,24 @@ describe(wheelClicks, () => {
   });
 
   test('down is negative', () => {
-    expect(wheelClicks(0, {deltaY: 100, deltaMode: 0})).toStrictEqual({clicks: -1, rest: 0});
-    expect(wheelClicks(60, {deltaY: 60, deltaMode: 0})).toStrictEqual({clicks: -1, rest: 20});
+    expect(wheelClicks(0, vertical(100))).toStrictEqual({clicks: -1, rest: 0});
+    expect(wheelClicks(60, vertical(60))).toStrictEqual({clicks: -1, rest: 20});
   });
 
   test('a turn the other way first cancels the rest', () => {
-    expect(wheelClicks(-80, {deltaY: 30, deltaMode: 0})).toStrictEqual({clicks: 0, rest: -50});
+    expect(wheelClicks(-80, vertical(30))).toStrictEqual({clicks: 0, rest: -50});
   });
 
   test('3 lines are one click', () => {
-    expect(wheelClicks(0, {deltaY: -3, deltaMode: 1})).toStrictEqual({clicks: 1, rest: 0});
-    expect(wheelClicks(0, {deltaY: 3, deltaMode: 1})).toStrictEqual({clicks: -1, rest: 0});
-    expect(wheelClicks(0, {deltaY: 6, deltaMode: 1})).toStrictEqual({clicks: -2, rest: 0});
+    expect(wheelClicks(0, vertical(-3, 1))).toStrictEqual({clicks: 1, rest: 0});
+    expect(wheelClicks(0, vertical(3, 1))).toStrictEqual({clicks: -1, rest: 0});
+    expect(wheelClicks(0, vertical(6, 1))).toStrictEqual({clicks: -2, rest: 0});
 
     let rest = 0;
     let clicks = 0;
 
     for (let line = 0; line < 3; line++) {
-      ({clicks, rest} = wheelClicks(rest, {deltaY: 1, deltaMode: 1}));
+      ({clicks, rest} = wheelClicks(rest, vertical(1, 1)));
     }
 
     expect(clicks).toBe(-1);
@@ -63,7 +68,38 @@ describe(wheelClicks, () => {
   });
 
   test('a page delta moves nothing', () => {
-    expect(wheelClicks(-40, {deltaY: 1, deltaMode: 2})).toStrictEqual({clicks: 0, rest: -40});
+    expect(wheelClicks(-40, vertical(1, 2))).toStrictEqual({clicks: 0, rest: -40});
+  });
+
+  test('with SHIFT held a delta only in deltaX turns the knob, down still negative', () => {
+    expect(wheelClicks(0, {deltaX: 100, deltaY: 0, deltaMode: 0, shiftKey: true})).toStrictEqual({
+      clicks: -1,
+      rest: 0,
+    });
+    expect(wheelClicks(-40, {deltaX: -60, deltaY: 0, deltaMode: 0, shiftKey: true})).toStrictEqual({
+      clicks: 1,
+      rest: 0,
+    });
+    expect(wheelClicks(0, {deltaX: -3, deltaY: 0, deltaMode: 1, shiftKey: true})).toStrictEqual({
+      clicks: 1,
+      rest: 0,
+    });
+  });
+
+  test('with SHIFT held a delta in deltaY still counts and deltaX is ignored', () => {
+    expect(wheelClicks(0, {deltaX: 0, deltaY: -100, deltaMode: 0, shiftKey: true})).toStrictEqual({
+      clicks: 1,
+      rest: 0,
+    });
+    expect(wheelClicks(0, {deltaX: 300, deltaY: -100, deltaMode: 0, shiftKey: true})).toStrictEqual(
+      {clicks: 1, rest: 0},
+    );
+  });
+
+  test('without SHIFT a delta only in deltaX moves nothing', () => {
+    expect(wheelClicks(-40, {deltaX: 100, deltaY: 0, deltaMode: 0, shiftKey: false})).toStrictEqual(
+      {clicks: 0, rest: -40},
+    );
   });
 });
 

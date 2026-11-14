@@ -23,17 +23,21 @@ export function dragClicks(startY: number, y: number) {
 // Adds a wheel event to `rest`, what the earlier events left over, in px of `deltaY`, which is
 // positive for down. Returns the whole clicks and the new rest. 100 px or 3 lines make a click and
 // down is negative, as in a drag. The clicks can be more than 127, as in a drag. A page delta
-// moves nothing, since the owner's rule names only pixels and lines
+// moves nothing, since the owner's rule names only pixels and lines. Chrome turns SHIFT + wheel
+// into a horizontal scroll, with the delta in `deltaX` and `deltaY` 0, so with SHIFT held and
+// `deltaY` 0 the `deltaX` counts in its place, in the same direction: SHIFT + turn is a fine turn.
+// Without SHIFT a `deltaX` moves nothing
 export function wheelClicks(
   rest: number,
-  event: Pick<WheelEvent, 'deltaMode' | 'deltaY'>,
+  event: Pick<WheelEvent, 'deltaMode' | 'deltaX' | 'deltaY' | 'shiftKey'>,
 ): {clicks: number; rest: number} {
+  let deltaY = event.shiftKey && event.deltaY === 0 ? event.deltaX : event.deltaY;
   let delta: number;
 
   if (event.deltaMode === DOM_DELTA_PIXEL) {
-    delta = event.deltaY;
+    delta = deltaY;
   } else if (event.deltaMode === DOM_DELTA_LINE) {
-    delta = (event.deltaY * WHEEL_PIXELS_PER_CLICK) / WHEEL_LINES_PER_CLICK;
+    delta = (deltaY * WHEEL_PIXELS_PER_CLICK) / WHEEL_LINES_PER_CLICK;
   } else {
     return {clicks: 0, rest};
   }

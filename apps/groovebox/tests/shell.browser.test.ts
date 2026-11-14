@@ -166,6 +166,17 @@ async function mouse(
   });
 }
 
+// The pointer that `mouse` moves
+const MOUSE_POINTER = 1;
+
+// A pointer event of the mouse's pointer that the browser did not send, for what real mouse input
+// cannot make: a cancel, a lost capture or a press whose release went missing
+function pointerEvent(type: string, target: Element) {
+  target.dispatchEvent(
+    new PointerEvent(type, {pointerId: MOUSE_POINTER, button: 0, bubbles: true, cancelable: true}),
+  );
+}
+
 // The inputs the shell sends to the control worker from now on
 function watchInputs({core}: {core: Core}) {
   let postMessage = vitest.spyOn(core.worker, 'postMessage');
@@ -581,6 +592,66 @@ describe(runShell, () => {
       {kind: 'pad-hit', pad: 0, velocity: 127},
       {kind: 'pad-release', pad: 0},
     ]);
+  });
+
+  test.each(['pointercancel', 'lostpointercapture'])(
+    '%s lets go of a held pad and drops a knob without a push',
+    async (type) => {
+      let shell = await runStarted();
+      let inputs = watchInputs(shell);
+      let pad = [
+        {kind: 'pad-hit', pad: 0, velocity: 127},
+        {kind: 'pad-release', pad: 0},
+      ];
+
+      await mouse('mouseMoved', centre(control('pad-0')));
+      await mouse('mousePressed', centre(control('pad-0')));
+      pointerEvent(type, shell.panel);
+
+      expect(inputsOf(inputs())).toEqual(pad);
+
+      // The release that may still come does nothing
+      await mouse('mouseReleased', centre(control('pad-0')));
+
+      expect(inputsOf(inputs())).toEqual(pad);
+
+      await mouse('mouseMoved', centre(control('encoder-1')));
+      await mouse('mousePressed', centre(control('encoder-1')));
+      pointerEvent(type, shell.panel);
+      await mouse('mouseReleased', centre(control('encoder-1')));
+
+      expect(inputsOf(inputs())).toEqual(pad);
+    },
+  );
+
+  test.each([
+    {
+      first: 'pad-0',
+      sent: [
+        {kind: 'pad-hit', pad: 0, velocity: 127},
+        {kind: 'pad-release', pad: 0},
+        {kind: 'pad-hit', pad: 2, velocity: 127},
+        {kind: 'pad-release', pad: 2},
+      ],
+    },
+    {
+      first: 'encoder-1',
+      sent: [
+        {kind: 'pad-hit', pad: 2, velocity: 127},
+        {kind: 'pad-release', pad: 2},
+      ],
+    },
+  ])('a second press of one pointer lets go of $first first', async ({first, sent}) => {
+    let shell = await runStarted();
+    let inputs = watchInputs(shell);
+
+    await mouse('mouseMoved', centre(control(first)));
+    await mouse('mousePressed', centre(control(first)));
+    // The release went missing, and the pointer goes down again on pad 3
+    pointerEvent('pointerdown', control('pad-2'));
+    await mouse('mouseReleased', centre(control(first)));
+
+    expect(inputsOf(inputs())).toEqual(sent);
   });
 
   test('only mapped keys lose their browser default, repeats too', async () => {

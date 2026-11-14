@@ -227,9 +227,38 @@ export async function runShell({
     }
   };
 
+  // A pointer comes up, is cancelled, loses its capture or goes down again. What it held is let
+  // go, and a knob that came up before it moved 4 px or turned is pushed: a press and a release at
+  // the release's sample. The volume knob has no push. After a pointerup the pointer holds
+  // nothing, so the lost capture that follows it changes nothing
+  let end = (event: PointerEvent) => {
+    let pointer = pointers.get(event.pointerId);
+
+    pointers.delete(event.pointerId);
+
+    if (pointer && !('encoder' in pointer)) {
+      letGo(pointer.control, `pointer:${event.pointerId}`);
+    } else if (
+      pointer &&
+      event.type === 'pointerup' &&
+      pointer.encoder !== VOLUME &&
+      isPush(pointer.farthest, pointer.clicks)
+    ) {
+      let sample = Atomics.load(position, 0);
+      let button = `push-${pointer.encoder + 1}` as ButtonName;
+
+      send({kind: 'press', button}, sample);
+      send({kind: 'release', button}, sample);
+    }
+  };
+
   // Each pointer is its own holder, so every finger holds or turns its own control (answer 15).
-  // The panel captures the pointer, so a key or a pad is held wherever the pointer goes
+  // The panel captures the pointer, so a key or a pad is held wherever the pointer goes. A pointer
+  // that goes down while it still holds or turns a control lost its pointerup: it lets go of that
+  // control first, and a knob it turned is dropped without a push
   let press = (event: PointerEvent) => {
+    end(event);
+
     let control = controlAt(event);
 
     if (!context || control === undefined || event.button !== 0) {
@@ -270,29 +299,6 @@ export async function runShell({
         send({kind: 'turn', encoder: pointer.encoder, clicks: clicks - pointer.clicks});
         pointer.clicks = clicks;
       }
-    }
-  };
-
-  // A pointer comes up or is cancelled. A knob that came up before it moved 4 px or turned is
-  // pushed: a press and a release at the release's sample. The volume knob has no push
-  let end = (event: PointerEvent) => {
-    let pointer = pointers.get(event.pointerId);
-
-    pointers.delete(event.pointerId);
-
-    if (pointer && !('encoder' in pointer)) {
-      letGo(pointer.control, `pointer:${event.pointerId}`);
-    } else if (
-      pointer &&
-      event.type === 'pointerup' &&
-      pointer.encoder !== VOLUME &&
-      isPush(pointer.farthest, pointer.clicks)
-    ) {
-      let sample = Atomics.load(position, 0);
-      let button = `push-${pointer.encoder + 1}` as ButtonName;
-
-      send({kind: 'press', button}, sample);
-      send({kind: 'release', button}, sample);
     }
   };
 
@@ -413,6 +419,7 @@ export async function runShell({
     {signal: listening.signal},
   );
   container.addEventListener('pointercancel', end, {signal: listening.signal});
+  container.addEventListener('lostpointercapture', end, {signal: listening.signal});
   container.addEventListener('wheel', wheel, {passive: false, signal: listening.signal});
   saveSession.addEventListener(
     'click',
