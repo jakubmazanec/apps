@@ -1,0 +1,34 @@
+groovebox-scene 1
+# Syn 1 on pad 1 through the panel: MENU + step 3, then OK, down and OK in the sound picker.
+input 3200 press menu
+input 4800 press step-3
+input 6400 release step-3
+input 8000 release menu
+input 9600 press ok
+input 11200 release ok
+input 12800 press down
+input 14400 release down
+input 16000 press ok
+input 17600 release ok
+# PADS mode: note n hits pad n mod 12. Notes 60, 72 and 120 are three notes on pad 1, each its
+# own hit, as only KEYS mode keeps to C0 to B8.
+input 22400 note-on 60 100
+input 24000 note-on 72 90
+input 25600 note-on 120 80
+input 27200 note-off 60
+input 28800 note-off 120
+input 30400 note-off 72
+# A tap of PADS/KEYS switches T1 to KEYS mode.
+input 33600 press pads-keys
+input 35200 release pads-keys
+# KEYS mode: notes 64 and 76 play their own pitches, and 11 and 120 lie outside C0 to B8 and are
+# ignored with their note-offs.
+input 38400 note-on 64 100
+input 40000 note-on 76 100
+input 41600 note-on 11 100
+input 43200 note-on 120 100
+input 44800 note-off 11
+input 46400 note-off 120
+input 48000 note-off 76
+input 49600 note-off 64
+end 54400

@@ -1,0 +1,53 @@
+groovebox-scene 1
+# From an empty project, MENU + step 3 shows SOUND's Pad page for the empty pad 1.
+input 3200 press menu
+input 4800 press step-3
+input 6400 release step-3
+input 8000 release menu
+frame 9600
+# OK on Sound opens the sound picker on Empty.
+input 12800 press ok
+input 14400 release ok
+frame 16000
+# Down to New synth and OK: Syn 1 on pad 1.
+input 19200 press down
+input 20800 release down
+input 22400 press ok
+input 24000 release ok
+frame 25600
+# Push 2 gives pad 1 its own copy, Syn 2.
+input 28800 press push-2
+input 30400 release push-2
+# PADS mode: the hit on the empty pad 2 selects it and plays nothing; pad 1 plays Syn 2 and is
+# selected again.
+input 33600 pad-hit 1 100
+input 35200 pad-release 1
+input 36800 pad-hit 0 100
+input 38400 pad-release 0
+# A tap of PADS/KEYS switches T1 to KEYS mode, and PADS/KEYS + up twice moves it from C4 to C6.
+input 41600 press pads-keys
+input 43200 release pads-keys
+input 46400 press pads-keys
+input 48000 press up
+input 49600 release up
+input 51200 press up
+input 52800 release up
+input 54400 release pads-keys
+# KEYS mode: pads 1 and 5 play Syn 2 at C6 and E6.
+input 57600 pad-hit 0 90
+input 59200 pad-hit 4 70
+input 60800 pad-release 4
+input 62400 pad-release 0
+# T2 shows track 2: its pads are empty and it is in PADS mode.
+input 65600 press t2
+input 67200 release t2
+frame 70400
+# Back on T1, MENU + step 1 shows STEP, whose strip holds the Pad page's items for Syn 2.
+input 72000 press t1
+input 73600 release t1
+input 76800 press menu
+input 78400 press step-1
+input 80000 release step-1
+input 81600 release menu
+frame 83200
+end 86400

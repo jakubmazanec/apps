@@ -1,4 +1,20 @@
 groovebox-scene 1
+# Syn 1 on pad 1 through the panel: MENU + step 3, then OK, down and OK in the sound picker. A tap
+# of PADS/KEYS then makes the pads keys that play Syn 1.
+input 0 press menu
+input 8 press step-3
+input 16 release step-3
+input 24 release menu
+input 32 press ok
+input 40 release ok
+input 48 press down
+input 56 release down
+input 64 press ok
+input 72 release ok
+input 80 press pads-keys
+input 88 release pads-keys
+# The records apply the first two notes later than the steps after their hits: messages 0 and 1
+# at 1024 and 1536.
 input 100 pad-hit 0 127
 step 128
 applied 0 1024

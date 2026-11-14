@@ -173,6 +173,30 @@ mod tests {
         play(&parse(text).unwrap(), &mut NativeRunner::default())
     }
 
+    /// The start of a scene that makes Syn 1 on pad 1 through the panel: MENU + step 3, then OK,
+    /// down and OK in the sound picker.
+    const SYN_1: &str = "groovebox-scene 1\ninput 0 press menu\ninput 8 press step-3\n\
+        input 16 release step-3\ninput 24 release menu\ninput 32 press ok\ninput 40 release ok\n\
+        input 48 press down\ninput 56 release down\ninput 64 press ok\ninput 72 release ok\n";
+
+    #[test]
+    fn applied_records_steer_late_messages() {
+        let a = play_text(&format!(
+            "{SYN_1}input 100 pad-hit 0 127\nstep 128\nstep 1024\nstep 2048\nend 2048"
+        ));
+        let b = play_text(&format!(
+            "{SYN_1}input 100 pad-hit 0 127\nstep 128\nstep 1024\napplied 0 1024\nstep 2048\n\
+            end 2048"
+        ));
+        let c = play_text(&format!(
+            "{SYN_1}step 128\ninput 100 pad-hit 0 127\nstep 1024\nstep 2048\nend 2048"
+        ));
+
+        assert_eq!(a.applied, [(0, 128)]);
+        assert_eq!(b.applied, [(0, 1024)]);
+        assert_eq!(c.applied, b.applied);
+    }
+
     #[test]
     fn an_input_logged_after_a_step_waits_for_the_next() {
         let outcome = play_text(

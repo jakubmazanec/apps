@@ -1,0 +1,18 @@
+groovebox-scene 1
+# MENU held over STEP: the tiles of the screens, Step current.
+input 3200 press menu
+frame 6400
+# Step 8 under MENU shows SETTINGS.
+input 9600 press step-8
+input 11200 release step-8
+input 12800 release menu
+# PAGE held on SETTINGS: the tile of its one page, Playing, current.
+input 16000 press page
+frame 19200
+input 22400 release page
+# Encoder 1 turns Velocity off, and OK flips it back on.
+input 25600 turn encoder-1 -1
+input 28800 press ok
+input 30400 release ok
+frame 32000
+end 35200
