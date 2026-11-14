@@ -679,6 +679,56 @@ fn an_arrow_under_pads_keys_pressed_in_the_picker_does_nothing() {
 }
 
 #[test]
+fn opening_the_picker_ends_a_held_arrow() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    fill(&mut rig, 30);
+    rig.menu(0, 2);
+    let highlight = |rig: &Rig<'_>| rig.control.view.picker.map(|picker| picker.item);
+
+    // Down is held on the Pad page when OK opens the picker on Empty: it does not repeat into the
+    // picker, which stays on the pad's entry until down is pressed again.
+    rig.press(100, Button::Down);
+    rig.tap(200, Button::Ok);
+    rig.step(100 + 3 * REPEAT_DELAY);
+    assert_eq!(highlight(&rig), Some(0));
+    assert_eq!(rig.control.buttons.next_repeat(), None);
+    rig.let_go(70_000, Button::Down);
+    rig.tap(70_100, Button::Down);
+    rig.step(70_200);
+    assert_eq!(highlight(&rig), Some(1));
+}
+
+#[test]
+fn closing_the_picker_ends_a_held_arrow() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    fill(&mut rig, 30);
+    rig.control.project.put(0, Some(SoundNumber(20)));
+    rig.menu(0, 2);
+
+    // Down held through the OK that chooses does not move the Pad page's cursor afterwards.
+    rig.tap(100, Button::Ok);
+    rig.press(200, Button::Down);
+    rig.tap(300, Button::Ok);
+    rig.step(200 + 3 * REPEAT_DELAY);
+    assert_eq!(rig.control.view.picker, None);
+    assert_eq!(rig.track().pads[0], Some(SoundNumber(21)));
+    assert_eq!(sound_cursor(&rig), 0);
+    assert_eq!(rig.control.buttons.next_repeat(), None);
+    rig.let_go(70_000, Button::Down);
+
+    // Nor through the tap of CANCEL that closes the picker without choosing.
+    rig.tap(70_100, Button::Ok);
+    rig.press(70_200, Button::Down);
+    rig.tap(70_300, Button::Cancel);
+    rig.step(70_200 + 3 * REPEAT_DELAY);
+    assert_eq!(rig.control.view.picker, None);
+    assert_eq!(sound_cursor(&rig), 0);
+    assert_eq!(rig.control.buttons.next_repeat(), None);
+}
+
+#[test]
 fn shift_with_an_arrow_does_nothing_in_the_picker_also_after_shift() {
     let queue = Queue::new();
     let mut rig = Rig::new(&queue);

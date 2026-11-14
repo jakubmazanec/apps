@@ -329,7 +329,9 @@ impl Control {
     /// taken, so they act neither now nor when they are let go, and the picker stays open. Every
     /// other combination does nothing there either: an arrow, - or + pressed while SHIFT or
     /// PADS/KEYS is held, even a PADS/KEYS dropped by the picker, is taken at its press, so it
-    /// neither moves the highlight nor repeats, also once SHIFT or PADS/KEYS is let go.
+    /// neither moves the highlight nor repeats, also once SHIFT or PADS/KEYS is let go. Opening
+    /// and closing the picker take the arrows, - and + that are held, as a counted MENU or PAGE
+    /// does (`end_held_repeats`).
     ///
     /// Otherwise the arrows, - and + nudge (`nudge`), OK uses the item under the cursor and an
     /// encoder push the item its encoder holds.
@@ -372,6 +374,7 @@ impl Control {
             }
             Button::Ok if let Some(highlight) = self.view.picker => {
                 self.view.picker = None;
+                self.end_held_repeats();
                 let pad = self
                     .track()
                     .selected_pad
@@ -406,11 +409,7 @@ impl Control {
                 self.buttons.take(button);
             }
             Button::Menu | Button::Page if overlay != Some(button) => self.buttons.take(button),
-            Button::Menu | Button::Page => {
-                for held in REPEATING {
-                    self.buttons.take(held);
-                }
-            }
+            Button::Menu | Button::Page => self.end_held_repeats(),
             Button::Step(step) if overlay == Some(Button::Menu) => {
                 self.buttons.take(button);
                 if let Some(screen) = MENU[usize::from(step)] {
@@ -536,6 +535,7 @@ impl Control {
                     }
                 };
                 self.view.highlight(row);
+                self.end_held_repeats();
             }
             ItemKind::PadCopy => {
                 let track = self.track();
@@ -652,8 +652,20 @@ impl Control {
                     PadMode::Keys => PadMode::Pads,
                 };
             }
-            (Button::Cancel, Release::Tap) => self.view.picker = None,
+            (Button::Cancel, Release::Tap) if self.view.picker.is_some() => {
+                self.view.picker = None;
+                self.end_held_repeats();
+            }
             _ => {}
+        }
+    }
+
+    /// Takes every held arrow, - and +, so they stop repeating and act again only after a new
+    /// press. Their repeats would otherwise carry on into what changed under them: the tiles of a
+    /// counted MENU or PAGE, and the sound picker as it opens or closes.
+    fn end_held_repeats(&mut self) {
+        for held in REPEATING {
+            self.buttons.take(held);
         }
     }
 
