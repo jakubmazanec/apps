@@ -2,8 +2,9 @@ use super::buttons::{HOLD, REPEAT_DELAY, REPEAT_EVERY};
 use super::view::{menu_tiles, page_tiles};
 use super::*;
 use crate::input::VOLUME;
-use crate::message::NoteId;
+use crate::message::{NoteId, Target};
 use crate::palette::{ACCENT, BACKGROUND, DIM, FAINT, LINE, RECORD, TEXT};
+use crate::param::{CUTOFF, OUTPUT_VOLUME};
 use crate::project::pool::SoundNumber;
 use crate::queue::{Consumer, Queue};
 use crate::screen::{Canvas, Color, HEIGHT, Rect, Screen, WIDTH};
@@ -1432,4 +1433,156 @@ fn a_release_at_the_sample_of_a_repeat_comes_before_it() {
     rig.let_go(50_000 + REPEAT_DELAY + 1, Button::Minus);
     rig.step(100_000);
     assert_eq!(rig.velocity(), 0);
+}
+
+#[test]
+fn new_synth_and_copy_tell_the_audio_part() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    rig.menu(0, 2);
+    rig.tap(10, Button::Ok);
+    rig.tap(20, Button::Down);
+    rig.tap(30, Button::Ok);
+    rig.step(40);
+    assert_eq!(
+        rig.sent(),
+        [message(
+            0,
+            30,
+            MessageKind::NewSound {
+                sound: SoundNumber(1)
+            }
+        )]
+    );
+
+    // Copy on the Pad page.
+    rig.tap(50, Button::Down);
+    rig.tap(60, Button::Ok);
+    rig.step(70);
+    assert_eq!(
+        rig.sent(),
+        [message(
+            1,
+            60,
+            MessageKind::CopySound {
+                sound: SoundNumber(2),
+                of: SoundNumber(1)
+            }
+        )]
+    );
+
+    // A full pool refuses both New synth and Copy, and sends nothing.
+    for _ in 2..1_024 {
+        rig.control.project.pool.new_synth().unwrap();
+    }
+    rig.tap(80, Button::Ok);
+    rig.tap(90, Button::Up);
+    rig.tap(100, Button::Ok);
+    rig.tap(110, Button::Up);
+    rig.tap(120, Button::Up);
+    rig.tap(130, Button::Ok);
+    rig.step(140);
+    assert_eq!(rig.control.project.pool.sounds().len(), 1_024);
+    assert_eq!(rig.control.message.map(|(_, color)| color), Some(RECORD));
+    assert_eq!(rig.sent(), []);
+}
+
+#[test]
+fn a_turn_changes_the_selected_sound_and_sends_its_value() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    let sound = rig.synth_on(0);
+    let item = ItemDef {
+        kind: ItemKind::Param(CUTOFF.id),
+        encoder: None,
+    };
+
+    rig.control.change(item, -10, 4_800, &mut rig.producer);
+
+    assert_eq!(
+        rig.control
+            .project
+            .pool
+            .get(sound)
+            .unwrap()
+            .value(CUTOFF.id),
+        60_415
+    );
+    assert_eq!(
+        rig.sent(),
+        [message(
+            0,
+            4_800,
+            MessageKind::SetParam {
+                target: Target::Sound(sound),
+                id: CUTOFF.id,
+                value: 60_415
+            }
+        )]
+    );
+}
+
+#[test]
+fn a_value_at_its_end_sends_nothing() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    let sound = rig.synth_on(0);
+    let item = ItemDef {
+        kind: ItemKind::Param(CUTOFF.id),
+        encoder: None,
+    };
+
+    rig.control.change(item, 1, 100, &mut rig.producer);
+
+    assert_eq!(
+        rig.control
+            .project
+            .pool
+            .get(sound)
+            .unwrap()
+            .value(CUTOFF.id),
+        65_535
+    );
+    assert_eq!(rig.sent(), []);
+}
+
+fn volume(value: i32) -> MessageKind {
+    MessageKind::SetParam {
+        target: Target::Device,
+        id: OUTPUT_VOLUME.id,
+        value,
+    }
+}
+
+#[test]
+fn the_volume_encoder_sets_the_output_volume_everywhere() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    rig.menu(0, 2);
+    // With SHIFT held the click stays whole.
+    rig.press(10, Button::Shift);
+    rig.turn(20, VOLUME, -3);
+    rig.let_go(30, Button::Shift);
+    // Under MENU.
+    rig.press(40, Button::Menu);
+    rig.turn(50, VOLUME, -3);
+    rig.let_go(60, Button::Menu);
+    // With the sound picker open.
+    rig.tap(70, Button::Ok);
+    rig.turn(80, VOLUME, -3);
+    rig.step(100);
+
+    assert!(rig.control.view.picker.is_some());
+    assert_eq!(
+        rig.sent(),
+        [
+            message(0, 20, volume(45_875 - 1_536)),
+            message(1, 50, volume(45_875 - 2 * 1_536)),
+            message(2, 80, volume(45_875 - 3 * 1_536)),
+        ]
+    );
+    assert_eq!(
+        rig.control.settings.get(OUTPUT_VOLUME.id),
+        45_875 - 3 * 1_536
+    );
 }

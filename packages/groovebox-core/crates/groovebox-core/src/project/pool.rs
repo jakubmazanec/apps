@@ -1,7 +1,7 @@
 use super::name;
 use crate::budget;
 use crate::label::Label;
-use crate::param::{self, ENTRIES, Scope};
+use crate::param::{self, ENTRIES, ParamId, Scope};
 
 /// The most bytes of a sound's name.
 pub const NAME_BYTES: usize = 64;
@@ -10,7 +10,7 @@ pub const NAME_BYTES: usize = 64;
 pub const SOUND_VALUES: usize = param::count(ENTRIES, Scope::Sound);
 
 /// What a new sound holds: every entry's default.
-const SOUND_DEFAULTS: [i32; SOUND_VALUES] = param::defaults(ENTRIES, Scope::Sound);
+pub const SOUND_DEFAULTS: [i32; SOUND_VALUES] = param::defaults(ENTRIES, Scope::Sound);
 
 /// A sound's number: from 1 and never reused while the project lives, so a number anywhere only
 /// ever meant one sound.
@@ -33,6 +33,26 @@ pub struct Sound {
 }
 
 impl Sound {
+    /// The place of the `Sound` entry `id` among a sound's values.
+    ///
+    /// # Panics
+    ///
+    /// When `id` is not a `Sound` entry: an ID comes from the master list.
+    pub fn place(id: ParamId) -> usize {
+        param::position(ENTRIES, Scope::Sound, id).expect("every ID in use is a sound entry")
+    }
+
+    /// The value of the `Sound` entry `id`.
+    pub fn value(&self, id: ParamId) -> i32 {
+        self.values[Self::place(id)]
+    }
+
+    /// Stores the value, stopping it at the entry's lowest or highest value.
+    pub fn set(&mut self, id: ParamId, value: i32) {
+        let entry = param::entry(id);
+        self.values[Self::place(id)] = value.clamp(entry.low, entry.high);
+    }
+
     /// What the pool's places hold before a sound is made in them.
     const UNUSED: Self = Self {
         number: SoundNumber(0),
@@ -101,17 +121,26 @@ impl Pool {
 
     /// The sound with this number, found by a search over the numbers.
     pub fn get(&self, number: SoundNumber) -> Option<&Sound> {
-        let index = self
-            .sounds()
-            .binary_search_by_key(&number, |sound| sound.number)
-            .ok()?;
+        Some(&self.sounds[self.find(number)?])
+    }
 
-        Some(&self.sounds[index])
+    /// The sound with this number, to change.
+    pub fn get_mut(&mut self, number: SoundNumber) -> Option<&mut Sound> {
+        let index = self.find(number)?;
+
+        Some(&mut self.sounds[index])
     }
 
     /// The sounds in number order.
     pub fn sounds(&self) -> &[Sound] {
         &self.sounds[..self.length]
+    }
+
+    /// The place of the sound with this number among the sounds.
+    fn find(&self, number: SoundNumber) -> Option<usize> {
+        self.sounds()
+            .binary_search_by_key(&number, |sound| sound.number)
+            .ok()
     }
 
     /// The number the next sound takes. Running out of numbers refuses like a full pool; the last
@@ -157,6 +186,7 @@ impl Default for Pool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::param::{CUTOFF, LP_24, MODE};
 
     #[test]
     fn numbers_are_never_reused() {
@@ -213,6 +243,22 @@ mod tests {
 
         assert_eq!(pool.get(second).unwrap().name.as_str(), "Kick 2");
         assert_eq!(pool.get(third).unwrap().name.as_str(), "Kick 3");
+    }
+
+    #[test]
+    fn a_sound_holds_the_value_set_within_its_entry_range() {
+        let mut pool = Pool::new();
+        let number = pool.new_synth().unwrap();
+        let sound = pool.get_mut(number).unwrap();
+
+        sound.set(CUTOFF.id, 100);
+        assert_eq!(sound.value(CUTOFF.id), 100);
+        sound.set(CUTOFF.id, 70_000);
+        assert_eq!(sound.value(CUTOFF.id), 65_535);
+        sound.set(CUTOFF.id, -1);
+        assert_eq!(sound.value(CUTOFF.id), 0);
+        assert_eq!(sound.value(MODE.id), LP_24);
+        assert!(pool.get_mut(SoundNumber(2)).is_none());
     }
 
     #[test]

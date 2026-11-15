@@ -184,7 +184,7 @@ impl Control {
         let (name, value, bar) = match item.kind {
             ItemKind::Param(id) => {
                 let entry = param::entry(id);
-                param::format(entry, self.settings.get(id), value);
+                param::format(entry, self.value(id), value);
                 (entry.name, value.as_str(), Bar::Track)
             }
             ItemKind::PadSound => (

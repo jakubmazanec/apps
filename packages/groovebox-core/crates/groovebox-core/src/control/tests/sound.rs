@@ -246,14 +246,15 @@ fn a_pool_sound_is_shared_and_copy_counts_its_pads() {
     ));
 
     // Pad 2 plays Syn 2, and pad 1 keeps Syn 1, now on 1 pad.
+    rig.sent();
     rig.hit(200, 1, 100);
     rig.hit(210, 0, 100);
     rig.step(220);
     assert_eq!(
         rig.sent(),
         [
-            message(0, 200, note_on(0, 0, SoundNumber(2), 60, 100)),
-            message(1, 210, note_on(1, 0, SoundNumber(1), 60, 100)),
+            message(2, 200, note_on(0, 0, SoundNumber(2), 60, 100)),
+            message(3, 210, note_on(1, 0, SoundNumber(1), 60, 100)),
         ]
     );
     assert!(shows(

@@ -1,3 +1,4 @@
+use crate::param::ParamId;
 use crate::project::pool::SoundNumber;
 
 pub const MESSAGE_QUEUE: usize = 256;
@@ -20,6 +21,13 @@ pub struct Message {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct NoteId(pub u32);
 
+/// What a changed value belongs to. Milestone 3 adds the project, a track and a slot.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Target {
+    Device,
+    Sound(SoundNumber),
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum MessageKind {
     /// A note of `sound` starts on track `track` (0 to 3) at the MIDI note `pitch`, with a
@@ -33,6 +41,21 @@ pub enum MessageKind {
     },
     NoteOff {
         note: NoteId,
+    },
+    /// The entry `id` of `target` now holds `value`.
+    SetParam {
+        target: Target,
+        id: ParamId,
+        value: i32,
+    },
+    /// A sound with every default was made.
+    NewSound {
+        sound: SoundNumber,
+    },
+    /// `sound` was made with the values of `of`.
+    CopySound {
+        sound: SoundNumber,
+        of: SoundNumber,
     },
 }
 

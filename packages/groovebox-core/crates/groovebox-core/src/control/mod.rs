@@ -4,12 +4,12 @@ pub mod notes;
 pub mod pages;
 pub mod view;
 
-use crate::input::{Button, Input, PADS, Stamped};
+use crate::input::{Button, Input, PADS, Stamped, VOLUME};
 use crate::label::Label;
 use crate::lights::Lights;
-use crate::message::{MAX_MESSAGES_PER_EVENT, MESSAGE_QUEUE, Message, MessageKind};
+use crate::message::{MAX_MESSAGES_PER_EVENT, MESSAGE_QUEUE, Message, MessageKind, Target};
 use crate::palette::RECORD;
-use crate::param::{self, Curve, VELOCITY};
+use crate::param::{self, Curve, OUTPUT_VOLUME, ParamId, Scope, VELOCITY};
 use crate::project::Project;
 use crate::project::pool::{PoolFull, Sound};
 use crate::project::settings::DeviceSettings;
@@ -120,9 +120,9 @@ impl Control {
             if let Some(stamped) = input {
                 self.inputs.pop();
                 self.input(stamped, messages);
-            } else if let Some((_, button)) = repeat {
+            } else if let Some((sample, button)) = repeat {
                 // Each repeat makes the same move as the press.
-                self.nudge(button);
+                self.nudge(button, sample, messages);
                 self.buttons.repeated(button);
             } else {
                 break;
@@ -217,18 +217,19 @@ impl Control {
             }
             Input::PadRelease { pad } => self.end(Source::Pad(pad), sample, messages),
             Input::NoteOff { note } => self.end(Source::Midi(note), sample, messages),
-            Input::ButtonPress { button } => self.press(button, sample),
+            Input::ButtonPress { button } => self.press(button, sample, messages),
             Input::ButtonRelease { button } => self.release(button, sample),
             Input::EncoderTurn { encoder, clicks } => {
                 self.buttons.used();
                 // Under MENU or PAGE and while the picker is open a turn of encoders 1 to 4 is
-                // dropped. The volume acts as usual there, and has no action until the output
-                // volume comes with the voices.
-                if self.overlay().is_none()
+                // dropped. The volume acts as usual there, and SHIFT does not make its click fine.
+                if encoder == VOLUME {
+                    self.turn(OUTPUT_VOLUME.id, i32::from(clicks), false, sample, messages);
+                } else if self.overlay().is_none()
                     && self.view.picker.is_none()
                     && let Some(item) = self.reach(encoder)
                 {
-                    self.change(item, i32::from(clicks));
+                    self.change(item, i32::from(clicks), sample, messages);
                 }
             }
             Input::NoteOn { .. }
@@ -339,7 +340,12 @@ impl Control {
     ///
     /// Otherwise the arrows, - and + nudge (`nudge`), OK uses the item under the cursor and an
     /// encoder push the item its encoder holds.
-    fn press(&mut self, button: Button, sample: u64) {
+    fn press(
+        &mut self,
+        button: Button,
+        sample: u64,
+        messages: &mut Producer<'_, Message, MESSAGE_QUEUE>,
+    ) {
         if self.buttons.is_held(button) {
             return;
         }
@@ -374,7 +380,7 @@ impl Control {
             | Button::Plus
                 if picker =>
             {
-                self.nudge(button);
+                self.nudge(button, sample, messages);
             }
             Button::Ok if let Some(highlight) = self.view.picker => {
                 self.view.picker = None;
@@ -386,7 +392,10 @@ impl Control {
                 let sound = match self.entry(highlight.item) {
                     Entry::Empty => None,
                     Entry::NewSynth => match self.project.pool.new_synth() {
-                        Ok(sound) => Some(sound),
+                        Ok(sound) => {
+                            self.send(sample, MessageKind::NewSound { sound }, messages);
+                            Some(sound)
+                        }
                         Err(PoolFull) => {
                             self.pool_full();
                             return;
@@ -463,16 +472,16 @@ impl Control {
             | Button::Left
             | Button::Right
             | Button::Minus
-            | Button::Plus => self.nudge(button),
+            | Button::Plus => self.nudge(button, sample, messages),
             Button::Ok => {
                 let screen = self.view.screen;
                 if let Some(&item) = self.items(screen).get(self.view.cursor(screen).item) {
-                    self.use_item(item);
+                    self.use_item(item, sample, messages);
                 }
             }
             Button::Push(encoder) => {
                 if let Some(item) = self.reach(encoder) {
-                    self.use_item(item);
+                    self.use_item(item, sample, messages);
                 }
             }
             _ => {}
@@ -487,7 +496,12 @@ impl Control {
     /// and left and right do nothing on a page of one column. None of them gets here while MENU or
     /// PAGE is held (`press`). STEP has no page, and its own arrows, - and + come with the
     /// sequencer.
-    fn nudge(&mut self, button: Button) {
+    fn nudge(
+        &mut self,
+        button: Button,
+        sample: u64,
+        messages: &mut Producer<'_, Message, MESSAGE_QUEUE>,
+    ) {
         let shift = self.buttons.is_held(Button::Shift);
         if let Some(picker) = self.view.picker {
             let (row, last) = (picker.item, self.picker_rows() - 1);
@@ -510,7 +524,12 @@ impl Control {
                 .move_cursor(screen, (cursor + 1).min(items.len().saturating_sub(1))),
             Button::Minus | Button::Plus => {
                 if let Some(&item) = items.get(cursor) {
-                    self.change(item, if button == Button::Plus { 1 } else { -1 });
+                    self.change(
+                        item,
+                        if button == Button::Plus { 1 } else { -1 },
+                        sample,
+                        messages,
+                    );
                 }
             }
             _ => {}
@@ -519,11 +538,16 @@ impl Control {
 
     /// OK on `item`: a switch flips. The pad's sound opens the sound picker on the pad's entry,
     /// and Copy puts a copy of the pad's sound on the pad, unless the pool is full.
-    fn use_item(&mut self, item: ItemDef) {
+    fn use_item(
+        &mut self,
+        item: ItemDef,
+        sample: u64,
+        messages: &mut Producer<'_, Message, MESSAGE_QUEUE>,
+    ) {
         match item.kind {
             ItemKind::Param(id) => {
                 if param::entry(id).curve == Curve::Switch {
-                    self.settings.set(id, i32::from(self.settings.get(id) == 0));
+                    self.set(id, i32::from(self.value(id) == 0), sample, messages);
                 }
             }
             ItemKind::PadSound => {
@@ -552,7 +576,17 @@ impl Control {
                     .selected_sound
                     .expect("Copy is on the Pad page only while the pad has a sound");
                 match self.project.pool.copy(sound) {
-                    Ok(copy) => self.project.put(pad, Some(copy)),
+                    Ok(copy) => {
+                        self.send(
+                            sample,
+                            MessageKind::CopySound {
+                                sound: copy,
+                                of: sound,
+                            },
+                            messages,
+                        );
+                        self.project.put(pad, Some(copy));
+                    }
                     Err(PoolFull) => self.pool_full(),
                 }
             }
@@ -561,19 +595,92 @@ impl Control {
 
     /// Moves the value of `item` by `clicks` clicks, fine ones while SHIFT is held. The Pad page's
     /// items have no value to move, so a stray turn never changes what a pad plays.
-    fn change(&mut self, item: ItemDef, clicks: i32) {
+    fn change(
+        &mut self,
+        item: ItemDef,
+        clicks: i32,
+        sample: u64,
+        messages: &mut Producer<'_, Message, MESSAGE_QUEUE>,
+    ) {
         match item.kind {
-            ItemKind::Param(id) => self.settings.set(
+            ItemKind::Param(id) => self.turn(
                 id,
-                param::moved(
-                    param::entry(id),
-                    self.settings.get(id),
-                    clicks,
-                    self.buttons.is_held(Button::Shift),
-                ),
+                clicks,
+                self.buttons.is_held(Button::Shift),
+                sample,
+                messages,
             ),
             ItemKind::PadSound | ItemKind::PadCopy => {}
         }
+    }
+
+    /// Moves the value of the entry `id` by `clicks` clicks, fine ones when `fine`.
+    fn turn(
+        &mut self,
+        id: ParamId,
+        clicks: i32,
+        fine: bool,
+        sample: u64,
+        messages: &mut Producer<'_, Message, MESSAGE_QUEUE>,
+    ) {
+        let value = param::moved(param::entry(id), self.value(id), clicks, fine);
+        self.set(id, value, sample, messages);
+    }
+
+    /// What holds the value of the entry `id`: the device, or the selected sound of the current
+    /// track.
+    fn target(&self, id: ParamId) -> Target {
+        match param::entry(id).scope {
+            Scope::Device => Target::Device,
+            Scope::Sound => Target::Sound(
+                self.track()
+                    .selected_sound
+                    .expect("a sound's value is on a page only while the pad has a sound"),
+            ),
+            Scope::Project | Scope::Track => unreachable!("no page shows a project or track value"),
+        }
+    }
+
+    /// The value of the entry `id`, read where its scope keeps it.
+    fn value(&self, id: ParamId) -> i32 {
+        match self.target(id) {
+            Target::Device => self.settings.get(id),
+            Target::Sound(sound) => self
+                .project
+                .pool
+                .get(sound)
+                .expect("a selected sound is in the pool")
+                .value(id),
+        }
+    }
+
+    /// Stores `value` for the entry `id` and tells the audio part, unless the entry holds it
+    /// already.
+    fn set(
+        &mut self,
+        id: ParamId,
+        value: i32,
+        sample: u64,
+        messages: &mut Producer<'_, Message, MESSAGE_QUEUE>,
+    ) {
+        if value == self.value(id) {
+            return;
+        }
+        let target = self.target(id);
+        match target {
+            Target::Device => self.settings.set(id, value),
+            Target::Sound(sound) => self
+                .project
+                .pool
+                .get_mut(sound)
+                .expect("a selected sound is in the pool")
+                .set(id, value),
+        }
+        self.send(
+            sample,
+            MessageKind::SetParam { target, id, value },
+            messages,
+        );
     }
 
     /// The item that encoder `encoder` holds on the page the encoders use, with that page's
