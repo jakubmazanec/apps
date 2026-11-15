@@ -301,10 +301,11 @@ from here **(owner's choice)**. Its items, held by encoders 1 to 3:
   still on encoder 3.
 - **An empty pad (owner's choice).** While the selected pad is empty there is no selected sound.
   SOUND shows only the PAD page, and the page only item 1, which reads EMPTY; OK on it opens the
-  sound picker as above. COPY and ENGINE are not shown, and encoders 2 and 3 hold nothing. SOUND's
-  other five pages are empty and so are their strips, like the page of an empty effect slot. Until
-  the pad has a sound, the step buttons are dark and do nothing, the strip under STEP and ROLL is
-  empty and KEYS mode plays nothing.
+  sound picker as above. COPY and ENGINE are not shown, and encoders 2 and 3 hold nothing. PAGE
+  shows one tile. Each screen still remembers its page: once a pad with a sound is selected, SOUND
+  shows the remembered page again, so a stray hit on an empty pad never loses the page. Until the
+  pad has a sound, the step buttons are dark and do nothing, the strip under STEP and ROLL is empty
+  and KEYS mode plays nothing.
 
 Rejected: keeping the previously selected sound under the encoders and the step buttons while an
 empty pad is selected. The PAD page would show one pad while the rest of SOUND and the step buttons

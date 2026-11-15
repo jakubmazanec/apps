@@ -105,7 +105,10 @@ writing convention, not a decision.
 **Full names** **(owner's choice)**, never abbreviations: Resonance, Envelope amount. A label that
 does not fit the space it has is shortened with "…": a long value keeps its label short ("Sam…" next
 to a long file name), and a sound name longer than 12 characters is shortened in the names column of
-STEP ("Žluťoučký k…") **(my call: 12)**.
+STEP ("Žluťoučký k…") **(my call: 12)**. The owner wants text that does not fit to scroll in place
+instead, its box never changing **(owner's choice)**. Scrolling text gets its own small plan, right
+after Sound, and is designed then, starting from the EP-133; until it is built, text is shortened
+with "…".
 
 ## The rules every screen is drawn by
 

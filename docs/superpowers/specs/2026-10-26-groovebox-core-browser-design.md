@@ -81,7 +81,9 @@ controls do. What part 1 teaches then decides the physical layout and look (part
   whose answer follows from a decided rule is not asked.
 - **Milestone 1 is planned in three plans (decided):** the foundation, then the screens and pads,
   then Sound. The screens come first so that Sound's tests reach every sound and value through the
-  device's own controls.
+  device's own controls. A small plan for scrolling text follows Sound **(decided)**: text that does
+  not fit scrolls in place, its box never changing. It is designed then, starting from the EP-133;
+  until it is built, text is shortened with "…" (Look).
 
 ## Subparts
 
@@ -491,16 +493,13 @@ settles it with the owner.
 
 - **Delay time on the strip.** How dotted and triplet values are written, their order in the list
   and whether "1/1 (1/2)" fits a strip cell. Proposed: none yet.
-- **Starting values of a new sound.** No value is set. Proposed: in code, tuned by ear; a new sound
-  is heard at once and unfiltered.
 - **Sample start, end and loop points.** Their unit is unsaid. Proposed: sample frames of the
   converted file; one click moves 1/128 of its length.
-- **Root note, transpose and fine tune.** No ranges. Proposed: 0 to 127; −48 to +48 semitones; −100
-  to +100 cents, for the second oscillator too.
+- **Root note.** No range. Proposed: 0 to 127.
 - **LENGTH limits.** What the pattern's picker lists; a note's shortest and longest. Proposed: 1, 2,
   4, 8, 16, 32 and 64 bars; a note from one fine step (30 ticks) to the pattern's length.
-- **Counted or smooth.** Unmarked for velocity, cents, milliseconds and levels. Proposed: counted
-  where people count the unit; note PITCH and VELOCITY move one per click, with SHIFT too.
+- **Counted or smooth.** Unmarked for note pitch and velocity. Proposed: note PITCH and VELOCITY
+  move one per click, with SHIFT too.
 - **Tuning a range in part 1.** New ID, new format version or just the number? Proposed: just the
   number; the ID and version stay and saved values are held within the new range.
 
@@ -538,8 +537,8 @@ settles it with the owner.
   Proposed: the playhead, "message N applied at sample S", "sample let go" and the browser wake-up.
 - **Edit lead.** No number, and not in Foundation's spike list. Proposed: provisionally 1,024
   samples, set just above the longest delay the spike measures.
-- **Numbers not yet set.** The version queue's size, the reserve for versions in flight and the
-  operation count. Proposed: none yet.
+- **Numbers not yet set.** The version queue's size and the reserve for versions in flight.
+  Proposed: none yet.
 - **Fixed table sizes.** How many library files, projects and queue entries; the message when one is
   full. Proposed: none yet; each is a budget-profile entry.
 - **Effect memory and note pool.** Sound's "large memory class" is not one of Foundation's two

@@ -105,16 +105,22 @@ Covers the JD-Xi digital part's oscillator choices, and in mono with the sub osc
 part.
 
 - **Main oscillator wave:** saw, pulse, triangle, sine or supersaw. A supersaw is 7 slightly detuned
-  saws; their starting positions come from the voice's seed.
+  saws; their starting positions come from the note's seed.
 - **Shape:** pulse width for the pulse, detune for the supersaw; no effect on the other waves.
 - **Second oscillator:** the same wave as the first, with its own level, interval (−24 to +24
-  semitones) and fine tune (cents).
+  semitones) and fine tune (−50 to +50 cents). Its entries are named Oscillator 2 level, Oscillator
+  2 interval and Oscillator 2 fine tune, in full words; a name that does not fit is shortened with
+  "…" as Look says, until scrolling text replaces that.
 - **Sub oscillator:** a square wave one octave below, with a level.
 - **Noise level.**
 - **Spread:** stereo width. At zero the voice is mono; above zero it is stereo, with the supersaw's
   saws or the two oscillators spread apart.
 - **Clean high notes:** saw and pulse are generated band-limited (PolyBLEP), so high notes do not
   turn harsh.
+- **Each hit:** the saw, pulse, triangle and sine waves, the sub oscillator and the second
+  oscillator start every note at phase 0, so a sound hits the same way each time. The supersaw's
+  seven saws and the noise start from a seed taken from the note, so they vary from hit to hit. A
+  replay is identical either way.
 - **Play modes:** poly by default; mono and legato allowed. Gate trigger by default.
 - **Starting page,** one for the whole engine: wave, shape, spread, sub level, noise level, second
   oscillator level, interval, fine tune. The encoders hold wave, shape, spread and sub level
@@ -174,9 +180,16 @@ Every layer of every note runs through this chain after its engine, the same for
    - Engines that shape their own volume keep the volume envelope fully open until they report
      "finished".
 5. **Level and pan;** for stereo voices pan works as balance.
-6. **Tuning:** transpose in semitones and fine tune in cents, for every sound.
+6. **Tuning:** transpose from −48 to +48 semitones and fine tune from −50 to +50 cents, as on the
+   JD-Xi, for every sound. Each moves one unit per click, and SHIFT changes nothing on them.
 7. **Play mode:** poly, mono, or mono with legato; a glide time; glide always or only between
    overlapping notes. Each engine declares which modes it allows.
+   - Mono and legato sound the newest held key. Letting go of it goes back to the newest key still
+     held; letting go of the last held key starts the release.
+   - In mono every change of key, the return included, restarts the envelopes. In legato they keep
+     running and only the pitch moves.
+   - Glide works in mono and legato only. In poly the glide time and the glide choice stay on the
+     page, keep their values and do nothing.
 8. **Choke group:** none, or 1 to 8. A new note in a group fades out the other sounds of the same
    group, like a closed hi-hat cutting an open one. Choking works within a track, since a track's
    pad mapping is the equivalent of a kit.
@@ -194,15 +207,29 @@ PAD page comes before them and they keep this order:
   group, transpose, fine tune; the encoders hold play mode, glide time, glide always or only between
   overlapping notes and trigger mode **(owner's choice)**.
 
+**Starting sound,** what NEW SYNTH puts on a pad, written in code and expected to change: a plain
+open saw. The wave is saw and the filter is open: low-pass 24 dB, cutoff 100%, resonance 0%,
+envelope amount +0 and key follow 0%. The volume starts at once, holds full while a key is held and
+fades out over about 100 ms once it is let go; level 80%. The voice is poly with a gate trigger, a
+glide time of 0 ms, no choke group and no transpose. Sub level, noise level, spread and the second
+oscillator's level are 0. Every number is a constant tuned by ear.
+
 ## Voices
 
 - **A fixed count of 32 voices** (owner's choice), provisional and recorded in the budget profile.
   Every voice slot exists from the start.
 - When all voices are busy, a voice is taken in this order: finished voices, then the oldest
   released voice, then the oldest voice of the same sound, then the oldest voice overall.
-- A taken voice fades out within one 32-sample chunk, never with a hard cut.
-- A mono sound uses one voice; each layer of a note takes one voice.
+- A taken voice fades out within one 32-sample chunk, never with a hard cut. The new note starts at
+  its own chunk, never later; the taken voice's last chunk is mixed in that same chunk, with a
+  straight fade to zero.
+- A choked voice fades out as a taken voice does, in the chunk of the note that chokes it. Only
+  other sounds of the group on the same track are choked.
+- A mono sound uses one voice for each track that plays it, and that voice feeds the track; each
+  layer of a note takes one voice.
 - Every choice follows from the input events alone, so it is bit-identical everywhere.
+- **A note's seed:** the audio part counts every note it starts; the count, mixed by a fixed 32-bit
+  hash, is the note's seed.
 - **No cost-based admission** (owner's choice). Instead, a test measures the worst case: all 32
   voices in the most expensive mode (stereo supersaw) plus every effect slot holding the most
   expensive effect. That cost goes into the budget profile, so when hardware is chosen it shows
