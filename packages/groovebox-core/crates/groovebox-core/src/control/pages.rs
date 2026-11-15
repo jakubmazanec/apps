@@ -36,6 +36,15 @@ pub struct ItemDef {
 pub enum Picture {
     /// The current track's 12 pads, each with its sound's name.
     Pads,
+    /// The filter's response at its mode, cutoff and resonance, with a faint line at the cutoff.
+    FilterCurve,
+    /// The shape of an envelope, from its four entries.
+    Envelope {
+        attack: ParamId,
+        decay: ParamId,
+        sustain: ParamId,
+        release: ParamId,
+    },
 }
 
 /// A page of a screen: its name, its items from the top and its picture, where one helps.
@@ -105,7 +114,7 @@ const FILTER: PageDef = PageDef {
         item(FILTER_VELOCITY, None),
         item(FILTER_TYPE, None),
     ],
-    picture: None,
+    picture: Some(Picture::FilterCurve),
 };
 const FILTER_ENVELOPE: PageDef = PageDef {
     name: "Filter envelope",
@@ -115,7 +124,12 @@ const FILTER_ENVELOPE: PageDef = PageDef {
         item(FILTER_SUSTAIN, Some(2)),
         item(FILTER_RELEASE, Some(3)),
     ],
-    picture: None,
+    picture: Some(Picture::Envelope {
+        attack: FILTER_ATTACK.id,
+        decay: FILTER_DECAY.id,
+        sustain: FILTER_SUSTAIN.id,
+        release: FILTER_RELEASE.id,
+    }),
 };
 const VOLUME_ENVELOPE: PageDef = PageDef {
     name: "Volume envelope",
@@ -128,7 +142,12 @@ const VOLUME_ENVELOPE: PageDef = PageDef {
         item(LEVEL, None),
         item(PAN, None),
     ],
-    picture: None,
+    picture: Some(Picture::Envelope {
+        attack: ATTACK.id,
+        decay: DECAY.id,
+        sustain: SUSTAIN.id,
+        release: RELEASE.id,
+    }),
 };
 const VOICE: PageDef = PageDef {
     name: "Voice",

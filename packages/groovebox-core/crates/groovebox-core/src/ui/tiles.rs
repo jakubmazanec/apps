@@ -3,9 +3,9 @@ use crate::{
     screen::Canvas,
     ui::{
         layout::{
-            PAD_TILE_COLUMNS, PAD_TILE_NAME_Y, PAD_TILE_PITCH, PAD_TILE_SIZE, PAD_TILE_X,
-            PAD_TILE_Y, TEXT_INSET, TILE_COLUMNS, TILE_HEIGHT, TILE_NAME_X, TILE_PITCH_X,
-            TILE_PITCH_Y, TILE_WIDTH, TILE_X, TILE_Y, rect,
+            PAD_TILE_COLUMNS, PAD_TILE_NAME_Y, PAD_TILE_PITCH, PAD_TILE_SIZE, PICTURE, TEXT_INSET,
+            TILE_COLUMNS, TILE_HEIGHT, TILE_NAME_X, TILE_PITCH_X, TILE_PITCH_Y, TILE_WIDTH, TILE_X,
+            TILE_Y, rect,
         },
         text,
     },
@@ -77,8 +77,8 @@ pub struct PadTile<'a> {
 /// shortened.
 pub fn draw_pad_tiles(canvas: &mut impl Canvas, pads: &[PadTile; 12]) {
     for (index, pad) in pads.iter().enumerate() {
-        let x = PAD_TILE_X + PAD_TILE_PITCH * (index % PAD_TILE_COLUMNS) as i32;
-        let y = PAD_TILE_Y + PAD_TILE_PITCH * (index / PAD_TILE_COLUMNS) as i32;
+        let x = PICTURE.0 + PAD_TILE_PITCH * (index % PAD_TILE_COLUMNS) as i32;
+        let y = PICTURE.1 + PAD_TILE_PITCH * (index / PAD_TILE_COLUMNS) as i32;
         let (outline, number_color, name_color) = match (pad.selected, pad.name) {
             (true, _) => (ACCENT, ACCENT, ACCENT),
             (false, Some(_)) => (LINE, DIM, TEXT),

@@ -2,19 +2,28 @@ use super::pages::{ItemDef, ItemKind, Picture};
 use super::{Control, Entry};
 use crate::input::Button;
 use crate::label::Label;
-use crate::palette::{ACCENT, BACKGROUND, DIM, TEXT};
-use crate::param::{self, Curve};
+use crate::palette::{ACCENT, BACKGROUND, DIM, FAINT, TEXT};
+use crate::param::{self, BP, CUTOFF, Curve, HP, LP_12, LP_24, MODE, ParamId, RESONANCE};
 use crate::project::pool::{Engine, SoundNumber};
 use crate::project::track::PadMode;
 use crate::screen::{Canvas, HEIGHT, WIDTH};
 use crate::ui::frame::{Piece, draw_header, draw_strip};
 use crate::ui::item::{Bar, ItemView, draw_cursor, draw_item};
 use crate::ui::layout::{
-    ITEM_HEIGHT, ITEM_PITCH, LIST_VISIBLE, PAGE_FIRST, PAGE_VISIBLE, PAGE_WIDTH, PAGE_X, rect,
+    ITEM_HEIGHT, ITEM_PITCH, LIST_VISIBLE, PAGE_FIRST, PAGE_VISIBLE, PAGE_WIDTH, PAGE_X, PICTURE,
+    rect,
 };
 use crate::ui::list::{Row, draw_rows};
+use crate::ui::plot::draw_line;
 use crate::ui::tiles::{PadTile, draw_pad_tiles, draw_tiles};
 use core::fmt::Write;
+
+/// Where a curve or a shape runs: from the picture area's first column across `SPAN` more columns,
+/// and from `TOP_ROW` across `ROWS` more rows, 1 pixel inside the area at the top and the bottom.
+const SPAN: i32 = PICTURE.2 - 1;
+const TOP_ROW: i32 = PICTURE.1 + 1;
+const BOTTOM_ROW: i32 = PICTURE.1 + PICTURE.3 - 2;
+const ROWS: i32 = BOTTOM_ROW - TOP_ROW;
 
 impl Control {
     /// Draws the whole picture from the state of the control part alone, whatever the canvas held
@@ -159,14 +168,81 @@ impl Control {
                     draw_cursor(canvas, PAGE_X, y, PAGE_WIDTH, ITEM_HEIGHT);
                 }
             }
-            if self.page(screen).and_then(|page| page.picture) == Some(Picture::Pads) {
-                draw_pad_tiles(
+            match self.page(screen).and_then(|page| page.picture) {
+                Some(Picture::Pads) => draw_pad_tiles(
                     canvas,
                     &core::array::from_fn(|pad| PadTile {
                         name: track.pads[pad].map(|sound| self.name(sound)),
                         selected: track.selected_pad.map(usize::from) == Some(pad),
                     }),
-                );
+                ),
+                Some(Picture::FilterCurve) => {
+                    let mode = self.value(MODE.id);
+                    let cutoff = param::real(&CUTOFF, self.value(CUTOFF.id));
+                    // The filter damps by 2 without resonance and by 0.02 at full resonance.
+                    let q = 1.0 / (2.0 - 1.98 * param::real(&RESONANCE, self.value(RESONANCE.id)));
+                    canvas.vline(
+                        PICTURE.0
+                            + libm::roundf(libm::log10f(cutoff / 20.0) / 3.0 * SPAN as f32) as i32,
+                        TOP_ROW,
+                        ROWS as u32 + 1,
+                        FAINT,
+                    );
+                    let curve: [_; PICTURE.2 as usize] = core::array::from_fn(|column| {
+                        let r = 20.0 * libm::powf(1_000.0, column as f32 / SPAN as f32) / cutoff;
+                        let low_pass =
+                            1.0 / libm::sqrtf((1.0 - r * r) * (1.0 - r * r) + r * r / (q * q));
+                        let gain = match mode {
+                            LP_12 => low_pass,
+                            LP_24 => low_pass * low_pass,
+                            HP => r * r * low_pass,
+                            BP => r / q * low_pass,
+                            _ => unreachable!("a filter mode is one of the four"),
+                        };
+                        // +12 dB lies on the top row and -48 dB on the bottom row.
+                        let row = TOP_ROW as f32
+                            + (12.0 - 20.0 * libm::log10f(gain)) / 60.0 * ROWS as f32;
+                        (
+                            PICTURE.0 + column as i32,
+                            libm::roundf(row).clamp(TOP_ROW as f32, BOTTOM_ROW as f32) as i32,
+                        )
+                    });
+                    draw_line(canvas, &curve, TEXT);
+                }
+                Some(Picture::Envelope {
+                    attack,
+                    decay,
+                    sustain,
+                    release,
+                }) => {
+                    let share = |id: ParamId| self.value(id) as f32 / 65_535.0;
+                    // The attack, the decay and the release each take up to a quarter of the width,
+                    // and the hold takes a quarter.
+                    let column = |quarters: f32| {
+                        PICTURE.0 + libm::roundf(quarters * SPAN as f32 / 4.0) as i32
+                    };
+                    let peak = share(attack);
+                    let hold = peak + share(decay);
+                    let release_start = hold + 1.0;
+                    let level = BOTTOM_ROW
+                        - libm::roundf(
+                            param::real(param::entry(sustain), self.value(sustain)) * ROWS as f32,
+                        ) as i32;
+                    canvas.hline(PICTURE.0, BOTTOM_ROW, PICTURE.2 as u32, FAINT);
+                    canvas.vline(column(release_start), TOP_ROW, ROWS as u32 + 1, FAINT);
+                    draw_line(
+                        canvas,
+                        &[
+                            (PICTURE.0, BOTTOM_ROW),
+                            (column(peak), TOP_ROW),
+                            (column(hold), level),
+                            (column(release_start), level),
+                            (column(release_start + share(release)), BOTTOM_ROW),
+                        ],
+                        TEXT,
+                    );
+                }
+                None => {}
             }
             for ((encoder, cell), value) in (0..).zip(&mut cells).zip(&mut values) {
                 *cell = self

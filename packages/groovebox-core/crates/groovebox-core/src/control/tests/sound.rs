@@ -3,8 +3,8 @@
 use super::*;
 use crate::param::{
     ATTACK, CHOKE_GROUP, CUTOFF, DECAY, ENVELOPE_AMOUNT, FILTER_ATTACK, FILTER_DECAY,
-    FILTER_RELEASE, FILTER_SUSTAIN, FILTER_TYPE, FILTER_VELOCITY, FINE_TUNE, GLIDE, GLIDE_TIME,
-    KEY_FOLLOW, LEVEL, MODE, NOISE_LEVEL, OSCILLATOR_2_FINE_TUNE, OSCILLATOR_2_INTERVAL,
+    FILTER_RELEASE, FILTER_SUSTAIN, FILTER_TYPE, FILTER_VELOCITY, FINE_TUNE, GLIDE, GLIDE_TIME, HP,
+    KEY_FOLLOW, LEVEL, LP_12, MODE, NOISE_LEVEL, OSCILLATOR_2_FINE_TUNE, OSCILLATOR_2_INTERVAL,
     OSCILLATOR_2_LEVEL, PAN, PLAY_MODE, PULSE, RELEASE, RESONANCE, SHAPE, SPREAD, SUB_LEVEL,
     SUPERSAW, SUSTAIN, TRANSPOSE, TRIGGER, VOLUME_VELOCITY, WAVE,
 };
@@ -1581,4 +1581,86 @@ fn the_strip_on_step_follows_sounds_shown_page() {
         &[("Step", ACCENT), ("T1", TEXT), ("2", DIM), ("Pads", DIM)]
     ));
     assert_eq!(rig.control.view.page(view::Screen::Sound), 4);
+}
+
+/// What SOUND shows on its page `page`, counted from the Pad page as 0 (step `page` under PAGE),
+/// for a synth on pad 1 with the entries `values` set.
+fn sound_page(page: u8, values: &[(ParamId, i32)]) -> Screen {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    let sound = rig.synth_on(0);
+    for &(id, value) in values {
+        rig.control
+            .project
+            .pool
+            .get_mut(sound)
+            .unwrap()
+            .set(id, value);
+    }
+    rig.menu(0, 2);
+    rig.page(10, page);
+    rig.step(20);
+    picture(&rig.control)
+}
+
+/// The first row of column `x` in the picture area that holds the shape in the text colour.
+fn shape_row(screen: &Screen, x: usize) -> usize {
+    (16..=251)
+        .find(|&y| screen.pixel(x, y) == TEXT)
+        .expect("the shape crosses the column")
+}
+
+#[test]
+fn the_filter_curve_marks_the_cutoff_with_a_faint_line() {
+    let screen = sound_page(2, &[(CUTOFF.id, 32_768)]);
+
+    // At column 164 + round(0.5 × 314), from the top row to the bottom row, under the curve.
+    assert!(filled(&screen, 321..=321, 130..=240, FAINT));
+    assert!(filled(&screen, 320..=320, 130..=240, BACKGROUND));
+    // Nothing lies outside the picture area, which is x 164 to 478 and y 16 to 251.
+    assert!(filled(&screen, 163..=163, 15..=252, BACKGROUND));
+    assert!(filled(&screen, 479..=479, 15..=252, BACKGROUND));
+    assert!(filled(&screen, 164..=478, 15..=15, BACKGROUND));
+    assert!(filled(&screen, 164..=478, 252..=252, BACKGROUND));
+}
+
+#[test]
+fn low_pass_is_level_below_the_cutoff_and_falls_above_it() {
+    let screen = sound_page(2, &[(MODE.id, LP_12), (CUTOFF.id, 16_384)]);
+
+    assert!(shape_row(&screen, 170) < shape_row(&screen, 470));
+}
+
+#[test]
+fn high_pass_rises_toward_the_cutoff() {
+    let screen = sound_page(2, &[(MODE.id, HP), (CUTOFF.id, 49_151)]);
+
+    assert!(shape_row(&screen, 170) > shape_row(&screen, 470));
+}
+
+#[test]
+fn the_envelope_holds_at_the_sustain_level() {
+    let screen = sound_page(4, &[(SUSTAIN.id, 39_321)]);
+
+    // The hold lies between the decay's end at column 188 and the release's start at column 267.
+    assert!(filled(&screen, 190..=265, 110..=110, TEXT));
+    assert!(filled(&screen, 190..=265, 109..=109, BACKGROUND));
+}
+
+#[test]
+fn the_envelope_marks_the_release_and_the_bottom_with_faint_lines() {
+    let screen = sound_page(4, &[(SUSTAIN.id, 39_321)]);
+
+    assert!(filled(&screen, 267..=267, 130..=249, FAINT));
+    assert!(filled(&screen, 190..=265, 250..=250, FAINT));
+    assert!(filled(&screen, 163..=163, 15..=252, BACKGROUND));
+    assert!(filled(&screen, 479..=479, 15..=252, BACKGROUND));
+    assert!(filled(&screen, 164..=478, 252..=252, BACKGROUND));
+}
+
+#[test]
+fn a_zero_attack_rises_straight_up() {
+    let screen = sound_page(4, &[(ATTACK.id, 0)]);
+
+    assert!(filled(&screen, 164..=164, 17..=250, TEXT));
 }

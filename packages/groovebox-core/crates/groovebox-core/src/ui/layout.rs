@@ -55,10 +55,11 @@ pub const PAGE_FIRST: i32 = 17;
 pub const ITEM_PITCH: i32 = 18;
 pub const PAGE_VISIBLE: usize = 13;
 
-/// The pad tiles of the Pad page: the top-left of the first, a tile's width and height, the
+/// A page's picture area at the right of its items, as (x, y, width, height).
+pub const PICTURE: (i32, i32, i32, i32) = (164, 16, 315, 236);
+
+/// The pad tiles of the Pad page, which fill the picture area: a tile's width and height, the
 /// distance from one to the next, the tiles in a row and the row of a name below the tile's top.
-pub const PAD_TILE_X: i32 = 164;
-pub const PAD_TILE_Y: i32 = 16;
 pub const PAD_TILE_SIZE: i32 = 78;
 pub const PAD_TILE_PITCH: i32 = 79;
 pub const PAD_TILE_COLUMNS: usize = 4;
@@ -106,8 +107,16 @@ mod tests {
 
     #[test]
     fn the_tiles_lie_in_the_main_area() {
-        assert!(last_row(PAD_TILE_Y, PAD_TILE_PITCH, PAD_TILE_SIZE, 3) <= MAIN_BOTTOM);
+        assert!(last_row(PICTURE.1, PAD_TILE_PITCH, PAD_TILE_SIZE, 3) <= MAIN_BOTTOM);
         assert!(last_row(TILE_Y, TILE_PITCH_Y, TILE_HEIGHT, 4) <= MAIN_BOTTOM);
+    }
+
+    #[test]
+    fn the_pad_tiles_fill_the_picture_area() {
+        let across = PAD_TILE_PITCH * (PAD_TILE_COLUMNS as i32 - 1) + PAD_TILE_SIZE;
+        let down = PAD_TILE_PITCH * 2 + PAD_TILE_SIZE;
+
+        assert_eq!((PICTURE.2, PICTURE.3), (across, down));
     }
 
     #[test]
