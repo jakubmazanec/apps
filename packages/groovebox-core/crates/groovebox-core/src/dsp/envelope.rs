@@ -12,6 +12,8 @@ enum Stage {
 pub struct Envelope {
     level: f32,
     stage: Stage,
+    /// The sustain the last `next` was given: a decay towards 0 ends the note as a release does.
+    sustain: f32,
     /// The time the cached `fall` is for: it takes a power, too dear to find per sample.
     fall_time: u32,
     /// How much of the distance to its target the level keeps each sample.
@@ -23,6 +25,7 @@ impl Envelope {
         Self {
             level: 0.0,
             stage: Stage::Release,
+            sustain: 0.0,
             fall_time: 0,
             fall: 0.0,
         }
@@ -38,13 +41,20 @@ impl Envelope {
         self.stage = Stage::Release;
     }
 
-    /// Whether a release has fallen below 1/10,000. A new envelope is done.
+    /// Whether the level has fallen below 1/10,000 on its way to 0: in the release, or in the decay
+    /// when the sustain it was last given is 0. A new envelope is done.
     pub fn is_done(&self) -> bool {
-        self.stage == Stage::Release && self.level < 0.0001
+        let falling_to_zero = match self.stage {
+            Stage::Attack => false,
+            Stage::Decay => self.sustain == 0.0,
+            Stage::Release => true,
+        };
+        falling_to_zero && self.level < 0.0001
     }
 
     /// The next level. The times are in samples; a time of 0 jumps at once.
     pub fn next(&mut self, attack: u32, decay: u32, sustain: f32, release: u32) -> f32 {
+        self.sustain = sustain;
         match self.stage {
             Stage::Attack => {
                 self.level += 1.0 / attack as f32;
@@ -109,6 +119,21 @@ mod tests {
         // Exactly 1/10,000 is reached at sample 6,400, so the first sample below it is 6,401; the
         // floats may land on either side of it, or one sample later.
         assert!((6_400..=6_402).contains(&done.unwrap()), "{done:?}");
+    }
+
+    #[test]
+    fn a_decay_to_zero_ends_the_note_without_a_release() {
+        let mut envelope = Envelope::new();
+        envelope.start();
+        let mut done = || {
+            envelope.next(480, 4_800, 0.0, 4_800);
+            envelope.is_done()
+        };
+
+        assert!((0..480).all(|_| !done()));
+        // The decay falls as a release does: 6,400 samples to 1/10,000 of its start.
+        let ended = (1..=10_000).find(|_| done());
+        assert!((6_400..=6_402).contains(&ended.unwrap()), "{ended:?}");
     }
 
     #[test]
