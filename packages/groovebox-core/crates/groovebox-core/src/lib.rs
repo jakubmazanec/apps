@@ -11,6 +11,7 @@ pub mod budget {
 pub mod control;
 #[cfg(not(feature = "loom"))]
 pub mod device;
+pub mod dsp;
 pub mod fingerprint;
 pub mod font;
 pub mod input;
