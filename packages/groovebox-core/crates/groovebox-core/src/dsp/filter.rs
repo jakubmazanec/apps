@@ -63,6 +63,12 @@ impl Filter {
         self.a3 = g * self.a2;
     }
 
+    /// The cutoff the filter is tuned to, found back from its coefficients.
+    #[cfg(test)]
+    pub fn cutoff(&self) -> f32 {
+        libm::atanf(self.a2 / self.a1) * SAMPLE_RATE as f32 / PI
+    }
+
     /// Filters one sample. The band-pass is scaled by the damping so that it peaks at 0 dB at the
     /// cutoff whatever the resonance, as the Filter page draws it.
     pub fn process(&mut self, mode: Mode, x: f32) -> f32 {
