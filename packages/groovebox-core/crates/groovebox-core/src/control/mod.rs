@@ -22,7 +22,7 @@ use crate::ui::tiles::{Tile, TileState};
 use buttons::{Buttons, REPEATING, Release};
 use notes::{Notes, Source};
 use pages::{ItemDef, ItemKind, MENU, PageDef, pages};
-use view::{Screen, View, menu_tiles, page_tiles};
+use view::{Cursor, Screen, View, menu_tiles, page_tiles};
 
 pub const INPUT_QUEUE: usize = 64;
 pub const REPLAY_QUEUE: usize = 64;
@@ -475,7 +475,7 @@ impl Control {
             | Button::Plus => self.nudge(button, sample, messages),
             Button::Ok => {
                 let screen = self.view.screen;
-                if let Some(&item) = self.items(screen).get(self.view.cursor(screen).item) {
+                if let Some(&item) = self.items(screen).get(self.cursor(screen).item) {
                     self.use_item(item, sample, messages);
                 }
             }
@@ -516,12 +516,12 @@ impl Control {
         }
         let screen = self.view.screen;
         let items = self.items(screen);
-        let cursor = self.view.cursor(screen).item;
+        let cursor = self.cursor(screen).item;
         match button {
-            Button::Up if !shift => self.view.move_cursor(screen, cursor.saturating_sub(1)),
-            Button::Down if !shift => self
-                .view
-                .move_cursor(screen, (cursor + 1).min(items.len().saturating_sub(1))),
+            Button::Up if !shift => self.move_cursor(screen, cursor.saturating_sub(1)),
+            Button::Down if !shift => {
+                self.move_cursor(screen, (cursor + 1).min(items.len().saturating_sub(1)))
+            }
             Button::Minus | Button::Plus => {
                 if let Some(&item) = items.get(cursor) {
                     self.change(
@@ -690,7 +690,7 @@ impl Control {
         let item = items
             .iter()
             .position(|item| item.encoder == Some(encoder))?;
-        self.view.move_cursor(self.view.screen.paged(), item);
+        self.move_cursor(self.view.screen.paged(), item);
         Some(items[item])
     }
 
@@ -739,14 +739,36 @@ impl Control {
             Button::Menu => menu_tiles(self.view.screen),
             _ => {
                 let screen = self.view.screen.paged();
-                page_tiles(pages(screen, self.track()), self.view.page(screen))
+                page_tiles(pages(screen, self.track()), self.shown_page(screen))
             }
         })
     }
 
     /// The page `screen` shows; none on a screen without pages.
     fn page(&self, screen: Screen) -> Option<&'static PageDef> {
-        pages(screen, self.track()).get(self.view.page(screen))
+        pages(screen, self.track()).get(self.shown_page(screen))
+    }
+
+    /// The page `screen` shows: the page it remembers while the screen has that page, else the
+    /// first. SOUND has only its Pad page while the selected pad is empty, and shows the page it
+    /// remembers again once a pad with a sound is selected.
+    fn shown_page(&self, screen: Screen) -> usize {
+        let remembered = self.view.page(screen);
+        if remembered < pages(screen, self.track()).len() {
+            remembered
+        } else {
+            0
+        }
+    }
+
+    /// The cursor of the page `screen` shows.
+    fn cursor(&self, screen: Screen) -> Cursor {
+        self.view.cursor(screen, self.shown_page(screen))
+    }
+
+    /// Puts the cursor of the page `screen` shows on item `item`.
+    fn move_cursor(&mut self, screen: Screen, item: usize) {
+        self.view.move_cursor(screen, self.shown_page(screen), item);
     }
 
     /// The items of the page `screen` shows; none on a screen without pages.

@@ -81,6 +81,14 @@ impl<'a> Rig<'a> {
         self.let_go(sample + 3, Button::Menu);
     }
 
+    /// Holds PAGE, taps step `step` (0 to 15) and lets go of PAGE, from `sample` to 3 samples
+    /// later.
+    fn page(&mut self, sample: u64, step: u8) {
+        self.press(sample, Button::Page);
+        self.tap(sample + 1, Button::Step(step));
+        self.let_go(sample + 3, Button::Page);
+    }
+
     fn step(&mut self, until: u64) -> bool {
         self.control.step(until, &mut self.producer)
     }
@@ -1204,7 +1212,7 @@ fn under_menu_pads_play_and_select_and_the_rest_is_dropped() {
     assert_eq!(rig.velocity(), 1);
     assert_eq!(rig.control.view.screen, view::Screen::Settings);
     assert_eq!(
-        rig.control.view.cursor(view::Screen::Settings),
+        rig.control.cursor(view::Screen::Settings),
         view::Cursor { item: 0, scroll: 0 }
     );
 }

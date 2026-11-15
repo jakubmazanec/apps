@@ -23,6 +23,15 @@ pub enum Engine {
     Synth,
 }
 
+impl Engine {
+    /// The name of the page SOUND shows for the engine's own entries.
+    pub const fn page_name(self) -> &'static str {
+        match self {
+            Self::Synth => "Synth",
+        }
+    }
+}
+
 /// A sound: its number, its automatic name, its engine and the values of its entries.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Sound {

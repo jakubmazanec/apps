@@ -1,6 +1,13 @@
 use super::view::Screen;
 use crate::input::STEPS;
-use crate::param::{ParamId, VELOCITY};
+use crate::param::{
+    ATTACK, CHOKE_GROUP, CUTOFF, DECAY, ENVELOPE_AMOUNT, Entry, FILTER_ATTACK, FILTER_DECAY,
+    FILTER_RELEASE, FILTER_SUSTAIN, FILTER_TYPE, FILTER_VELOCITY, FINE_TUNE, GLIDE, GLIDE_TIME,
+    KEY_FOLLOW, LEVEL, MODE, NOISE_LEVEL, OSCILLATOR_2_FINE_TUNE, OSCILLATOR_2_INTERVAL,
+    OSCILLATOR_2_LEVEL, PAN, PLAY_MODE, ParamId, RELEASE, RESONANCE, SHAPE, SPREAD, SUB_LEVEL,
+    SUSTAIN, TRANSPOSE, TRIGGER, VELOCITY, VOLUME_VELOCITY, WAVE,
+};
+use crate::project::pool::Engine;
 use crate::project::track::Track;
 
 /// What an item of a page is.
@@ -59,20 +66,95 @@ const PAD_COPY: ItemDef = ItemDef {
     encoder: Some(1),
 };
 
+/// The value `entry` as an item, on encoder `encoder` where it has one.
+const fn item(entry: Entry, encoder: Option<u8>) -> ItemDef {
+    ItemDef {
+        kind: ItemKind::Param(entry.id),
+        encoder,
+    }
+}
+
+/// The Pad page while the selected pad has a sound.
+const PAD: PageDef = PageDef {
+    name: "Pad",
+    items: &[PAD_SOUND, PAD_COPY],
+    picture: Some(Picture::Pads),
+};
+const SYNTH: PageDef = PageDef {
+    name: Engine::Synth.page_name(),
+    items: &[
+        item(WAVE, Some(0)),
+        item(SHAPE, Some(1)),
+        item(SPREAD, Some(2)),
+        item(SUB_LEVEL, Some(3)),
+        item(NOISE_LEVEL, None),
+        item(OSCILLATOR_2_LEVEL, None),
+        item(OSCILLATOR_2_INTERVAL, None),
+        item(OSCILLATOR_2_FINE_TUNE, None),
+    ],
+    picture: None,
+};
+const FILTER: PageDef = PageDef {
+    name: "Filter",
+    items: &[
+        item(MODE, Some(0)),
+        item(CUTOFF, Some(1)),
+        item(RESONANCE, Some(2)),
+        item(ENVELOPE_AMOUNT, Some(3)),
+        item(KEY_FOLLOW, None),
+        item(FILTER_VELOCITY, None),
+        item(FILTER_TYPE, None),
+    ],
+    picture: None,
+};
+const FILTER_ENVELOPE: PageDef = PageDef {
+    name: "Filter envelope",
+    items: &[
+        item(FILTER_ATTACK, Some(0)),
+        item(FILTER_DECAY, Some(1)),
+        item(FILTER_SUSTAIN, Some(2)),
+        item(FILTER_RELEASE, Some(3)),
+    ],
+    picture: None,
+};
+const VOLUME_ENVELOPE: PageDef = PageDef {
+    name: "Volume envelope",
+    items: &[
+        item(ATTACK, Some(0)),
+        item(DECAY, Some(1)),
+        item(SUSTAIN, Some(2)),
+        item(RELEASE, Some(3)),
+        item(VOLUME_VELOCITY, None),
+        item(LEVEL, None),
+        item(PAN, None),
+    ],
+    picture: None,
+};
+const VOICE: PageDef = PageDef {
+    name: "Voice",
+    items: &[
+        item(PLAY_MODE, Some(0)),
+        item(GLIDE_TIME, Some(1)),
+        item(GLIDE, Some(2)),
+        item(TRIGGER, Some(3)),
+        item(CHOKE_GROUP, None),
+        item(TRANSPOSE, None),
+        item(FINE_TUNE, None),
+    ],
+    picture: None,
+};
+
 /// The pages of `screen` in the order of their steps under PAGE, while `track` is the current
 /// track. STEP has none of its own: PAGE there acts on SOUND's pages.
 ///
-/// SOUND's Pad page works on the track's selected pad. While that pad is empty there is no sound
-/// to copy, and the page shows only its Sound item.
+/// SOUND works on the track's selected pad: its Pad page, then the pages of the sound's engine and
+/// its voice. While that pad is empty there is no sound to copy or to shape, and SOUND has only
+/// the Pad page with its Sound item.
 pub fn pages(screen: Screen, track: &Track) -> &'static [PageDef] {
     match screen {
         Screen::Step => &[],
         Screen::Sound => match track.selected_sound {
-            Some(_) => &[PageDef {
-                name: "Pad",
-                items: &[PAD_SOUND, PAD_COPY],
-                picture: Some(Picture::Pads),
-            }],
+            Some(_) => &[PAD, SYNTH, FILTER, FILTER_ENVELOPE, VOLUME_ENVELOPE, VOICE],
             None => &[PageDef {
                 name: "Pad",
                 items: &[PAD_SOUND],

@@ -3,7 +3,7 @@ use super::{Control, Entry};
 use crate::input::Button;
 use crate::label::Label;
 use crate::palette::{ACCENT, BACKGROUND, DIM, TEXT};
-use crate::param;
+use crate::param::{self, Curve};
 use crate::project::pool::{Engine, SoundNumber};
 use crate::project::track::PadMode;
 use crate::screen::{Canvas, HEIGHT, WIDTH};
@@ -137,7 +137,7 @@ impl Control {
                 Some(picker.item - picker.scroll),
             );
         } else {
-            let cursor = self.view.cursor(screen);
+            let cursor = self.cursor(screen);
             for (row, (index, item)) in (0..).zip(
                 self.items(screen)
                     .iter()
@@ -184,8 +184,9 @@ impl Control {
         let (name, value, bar) = match item.kind {
             ItemKind::Param(id) => {
                 let entry = param::entry(id);
-                param::format(entry, self.value(id), value);
-                (entry.name, value.as_str(), Bar::Track)
+                let current = self.value(id);
+                param::format(entry, current, value);
+                (entry.name, value.as_str(), bar(entry, current))
             }
             ItemKind::PadSound => (
                 "Sound",
@@ -221,5 +222,17 @@ impl Control {
             .expect("a sound on a pad is in the pool")
             .name
             .as_str()
+    }
+}
+
+/// The bar under `entry`'s item at `value`. A switch or a list shows the track only; every other
+/// value fills the bar by its place in its range.
+fn bar(entry: &param::Entry, value: i32) -> Bar {
+    match entry.curve {
+        Curve::Switch | Curve::List => Bar::Track,
+        _ => Bar::Fill(
+            (i64::from(value - entry.low) * i64::from(u16::MAX) / i64::from(entry.high - entry.low))
+                as u16,
+        ),
     }
 }

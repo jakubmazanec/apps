@@ -72,7 +72,8 @@ impl View {
         }
     }
 
-    /// The page `screen` shows, counted from 0.
+    /// The page `screen` remembers, counted from 0. It is not shown while the screen has fewer
+    /// pages (`Control::shown_page`).
     pub fn page(&self, screen: Screen) -> usize {
         self.pages[screen as usize]
     }
@@ -82,15 +83,15 @@ impl View {
         self.pages[screen as usize] = page;
     }
 
-    /// The cursor of the page `screen` shows.
-    pub fn cursor(&self, screen: Screen) -> Cursor {
-        self.cursors[screen as usize][self.page(screen)]
+    /// The cursor of page `page` of `screen`.
+    pub fn cursor(&self, screen: Screen, page: usize) -> Cursor {
+        self.cursors[screen as usize][page]
     }
 
-    /// Puts the cursor of the page `screen` shows on item `item`, and scrolls the page's column as
+    /// Puts the cursor of page `page` of `screen` on item `item`, and scrolls the page's column as
     /// far as it must to keep the item on the screen.
-    pub fn move_cursor(&mut self, screen: Screen, item: usize) {
-        let cursor = &mut self.cursors[screen as usize][self.pages[screen as usize]];
+    pub fn move_cursor(&mut self, screen: Screen, page: usize, item: usize) {
+        let cursor = &mut self.cursors[screen as usize][page];
         *cursor = Cursor {
             item,
             scroll: scrolled(item, cursor.scroll, PAGE_VISIBLE),
@@ -257,9 +258,9 @@ mod tests {
         let mut view = View::new();
         let top = Cursor { item: 0, scroll: 0 };
 
-        view.move_cursor(Screen::Settings, 14);
+        view.move_cursor(Screen::Settings, 0, 14);
         assert_eq!(
-            view.cursor(Screen::Settings),
+            view.cursor(Screen::Settings, 0),
             Cursor {
                 item: 14,
                 scroll: 2
@@ -267,18 +268,18 @@ mod tests {
         );
         view.show_page(Screen::Settings, 1);
         assert_eq!(view.page(Screen::Settings), 1);
-        assert_eq!(view.cursor(Screen::Settings), top);
-        view.move_cursor(Screen::Settings, 3);
+        assert_eq!(view.cursor(Screen::Settings, 1), top);
+        view.move_cursor(Screen::Settings, 1, 3);
         view.show_page(Screen::Settings, 0);
 
         assert_eq!(
-            view.cursor(Screen::Settings),
+            view.cursor(Screen::Settings, 0),
             Cursor {
                 item: 14,
                 scroll: 2
             }
         );
         assert_eq!(view.page(Screen::Sound), 0);
-        assert_eq!(view.cursor(Screen::Sound), top);
+        assert_eq!(view.cursor(Screen::Sound, 0), top);
     }
 }

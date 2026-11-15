@@ -1,8 +1,17 @@
-//! SOUND's Pad page and the sound picker.
+//! SOUND's pages and the sound picker.
 
 use super::*;
+use crate::param::{
+    ATTACK, CHOKE_GROUP, CUTOFF, DECAY, ENVELOPE_AMOUNT, FILTER_ATTACK, FILTER_DECAY,
+    FILTER_RELEASE, FILTER_SUSTAIN, FILTER_TYPE, FILTER_VELOCITY, FINE_TUNE, GLIDE, GLIDE_TIME,
+    KEY_FOLLOW, LEVEL, MODE, NOISE_LEVEL, OSCILLATOR_2_FINE_TUNE, OSCILLATOR_2_INTERVAL,
+    OSCILLATOR_2_LEVEL, PAN, PLAY_MODE, PULSE, RELEASE, RESONANCE, SHAPE, SPREAD, SUB_LEVEL,
+    SUPERSAW, SUSTAIN, TRANSPOSE, TRIGGER, VOLUME_VELOCITY, WAVE,
+};
+use crate::ui::layout::HEADER_LINE;
 use crate::ui::list::{Row, draw_rows};
 use crate::ui::tiles::{PadTile, draw_pad_tiles};
+use core::ops::RangeInclusive;
 use std::format;
 use std::string::String;
 use view::Cursor;
@@ -109,7 +118,7 @@ fn fill(rig: &mut Rig<'_>, count: usize) {
 }
 
 fn sound_cursor(rig: &Rig<'_>) -> usize {
-    rig.control.view.cursor(view::Screen::Sound).item
+    rig.control.cursor(view::Screen::Sound).item
 }
 
 #[test]
@@ -1129,4 +1138,447 @@ fn the_pad_page_and_picker_match_their_geometry() {
     assert!(filled(&screen, 0..=479, 59..=252, BACKGROUND));
     assert!(filled(&screen, 0..=479, 253..=253, LINE));
     assert!(filled(&screen, 0..=479, 254..=271, BACKGROUND));
+}
+
+/// Whether the control part draws these header pieces, whatever it draws below them.
+fn shows_header(control: &Control, header: &[(&str, Color)]) -> bool {
+    same(
+        &picture(control),
+        &drawn(header, None, |_| {}, &[None; 4]),
+        0..=WIDTH - 1,
+        0..=HEADER_LINE as usize,
+    )
+}
+
+/// Whether `shown` and `expected` have the same pixels in `columns` and `rows`.
+fn same(
+    shown: &Screen,
+    expected: &Screen,
+    columns: RangeInclusive<usize>,
+    rows: RangeInclusive<usize>,
+) -> bool {
+    rows.into_iter().all(|y| {
+        columns
+            .clone()
+            .all(|x| shown.pixel(x, y) == expected.pixel(x, y))
+    })
+}
+
+/// SOUND's header on T1 in PADS mode, on the page `page`, with the sound as the header shows it.
+fn page_header<'a>(page: &'a str, sound: (&'a str, Color)) -> [(&'a str, Color); 5] {
+    [
+        ("Sound", ACCENT),
+        (page, TEXT),
+        ("T1", TEXT),
+        sound,
+        ("Pads", DIM),
+    ]
+}
+
+/// The message that sets the entry `id` of `sound` to `value`.
+fn set_param(sound: SoundNumber, id: ParamId, value: i32) -> MessageKind {
+    MessageKind::SetParam {
+        target: Target::Sound(sound),
+        id,
+        value,
+    }
+}
+
+#[test]
+fn sound_has_six_pages_while_the_pad_has_a_synth() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    rig.synth_on(0);
+    rig.menu(0, 2);
+    rig.press(10, Button::Page);
+    rig.step(11);
+
+    let names = [
+        "Pad",
+        "Synth",
+        "Filter",
+        "Filter envelope",
+        "Volume envelope",
+        "Voice",
+    ];
+    let shown: [Tile; 16] = core::array::from_fn(|at| Tile {
+        name: names.get(at).copied(),
+        state: match at {
+            0 => TileState::Current,
+            1..=5 => TileState::Exists,
+            _ => TileState::Empty,
+        },
+    });
+    assert!(shows(
+        &rig.control,
+        &tiles(&page_header("Pad", ("Syn 1", TEXT)), &shown)
+    ));
+    assert_eq!(
+        rig.lit(),
+        [
+            pad(0),
+            step(0),
+            step(1),
+            step(2),
+            step(3),
+            step(4),
+            step(5),
+            track(0)
+        ]
+    );
+}
+
+#[test]
+fn each_page_holds_its_items_on_the_encoders() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    rig.synth_on(0);
+    rig.menu(0, 2);
+    let pages: [(&str, &[(&str, ParamId)]); 5] = [
+        (
+            "Synth",
+            &[
+                ("Wave", WAVE.id),
+                ("Shape", SHAPE.id),
+                ("Spread", SPREAD.id),
+                ("Sub level", SUB_LEVEL.id),
+                ("Noise level", NOISE_LEVEL.id),
+                ("Oscillator 2 level", OSCILLATOR_2_LEVEL.id),
+                ("Oscillator 2 interval", OSCILLATOR_2_INTERVAL.id),
+                ("Oscillator 2 fine tune", OSCILLATOR_2_FINE_TUNE.id),
+            ],
+        ),
+        (
+            "Filter",
+            &[
+                ("Mode", MODE.id),
+                ("Cutoff", CUTOFF.id),
+                ("Resonance", RESONANCE.id),
+                ("Envelope amount", ENVELOPE_AMOUNT.id),
+                ("Key follow", KEY_FOLLOW.id),
+                ("Velocity amount", FILTER_VELOCITY.id),
+                ("Type", FILTER_TYPE.id),
+            ],
+        ),
+        (
+            "Filter envelope",
+            &[
+                ("Attack", FILTER_ATTACK.id),
+                ("Decay", FILTER_DECAY.id),
+                ("Sustain", FILTER_SUSTAIN.id),
+                ("Release", FILTER_RELEASE.id),
+            ],
+        ),
+        (
+            "Volume envelope",
+            &[
+                ("Attack", ATTACK.id),
+                ("Decay", DECAY.id),
+                ("Sustain", SUSTAIN.id),
+                ("Release", RELEASE.id),
+                ("Velocity amount", VOLUME_VELOCITY.id),
+                ("Level", LEVEL.id),
+                ("Pan", PAN.id),
+            ],
+        ),
+        (
+            "Voice",
+            &[
+                ("Play mode", PLAY_MODE.id),
+                ("Glide time", GLIDE_TIME.id),
+                ("Glide", GLIDE.id),
+                ("Trigger", TRIGGER.id),
+                ("Choke group", CHOKE_GROUP.id),
+                ("Transpose", TRANSPOSE.id),
+                ("Fine tune", FINE_TUNE.id),
+            ],
+        ),
+    ];
+
+    for (index, (page, items)) in (0..).zip(pages) {
+        rig.page(100 * (index + 1), index as u8 + 1);
+        rig.step(100 * (index + 1) + 10);
+
+        let held = rig.control.items(view::Screen::Sound);
+        let expected: Vec<ItemDef> = items
+            .iter()
+            .enumerate()
+            .map(|(place, &(_, id))| ItemDef {
+                kind: ItemKind::Param(id),
+                encoder: (place < 4).then_some(place as u8),
+            })
+            .collect();
+        assert_eq!(held, expected, "{page}");
+        for (item, (name, _)) in held.iter().zip(items) {
+            let ItemKind::Param(id) = item.kind else {
+                panic!("{page}: {item:?}");
+            };
+            assert_eq!(param::entry(id).name, *name, "{page}");
+        }
+        assert!(
+            shows_header(&rig.control, &page_header(page, ("Syn 1", TEXT))),
+            "{page}"
+        );
+    }
+}
+
+#[test]
+fn an_empty_pad_shows_only_the_pad_page_and_a_sound_brings_the_page_back() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    rig.synth_on(0);
+    rig.menu(0, 2);
+    rig.page(10, 2);
+
+    // A stray hit on the empty pad 2: only the Pad page, with its one item.
+    rig.hit(100, 1, 100);
+    rig.release(110, 1);
+    rig.step(120);
+    assert!(shows(
+        &rig.control,
+        &pad_page(
+            &page_header("Pad", ("2", DIM)),
+            None,
+            &[sound("Empty")],
+            0,
+            names(&[(0, "Syn 1")]),
+            1,
+        )
+    ));
+    let one: [Tile; 16] = core::array::from_fn(|at| Tile {
+        name: (at == 0).then_some("Pad"),
+        state: if at == 0 {
+            TileState::Current
+        } else {
+            TileState::Empty
+        },
+    });
+    rig.press(130, Button::Page);
+    rig.step(131);
+    assert!(shows(
+        &rig.control,
+        &tiles(&page_header("Pad", ("2", DIM)), &one)
+    ));
+    assert_eq!(rig.lit(), [pad(1), step(0), track(0)]);
+
+    // PAGE + step 3 shows no page, and the remembered one stays.
+    rig.tap(140, Button::Step(2));
+    rig.let_go(150, Button::Page);
+    rig.step(160);
+    assert_eq!(rig.control.view.page(view::Screen::Sound), 2);
+    assert!(shows_header(&rig.control, &page_header("Pad", ("2", DIM))));
+
+    // Hit pad 1: its Filter page is back.
+    rig.hit(200, 0, 100);
+    rig.release(210, 0);
+    rig.step(220);
+    assert!(shows_header(
+        &rig.control,
+        &page_header("Filter", ("Syn 1", TEXT))
+    ));
+    assert_eq!(rig.control.items(view::Screen::Sound).len(), 7);
+}
+
+#[test]
+fn lists_step_with_turns_and_minus_plus_and_ok_does_nothing_on_them() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    let syn_1 = rig.synth_on(0);
+    rig.menu(0, 2);
+    rig.page(10, 1);
+    let wave = |rig: &Rig<'_>| rig.control.value(WAVE.id);
+    rig.step(20);
+    assert_eq!(wave(&rig), 0);
+
+    rig.turn(30, 0, 1);
+    rig.step(40);
+    assert_eq!(wave(&rig), PULSE);
+    rig.turn(50, 0, 10);
+    rig.step(60);
+    assert_eq!(wave(&rig), SUPERSAW);
+    rig.sent();
+
+    // OK and a push of encoder 1 change nothing and open nothing, and - and + move the list.
+    rig.tap(100, Button::Ok);
+    rig.tap(110, Button::Push(0));
+    rig.step(120);
+    assert_eq!(wave(&rig), SUPERSAW);
+    assert_eq!(rig.control.view.picker, None);
+    assert_eq!(rig.control.view.screen, view::Screen::Sound);
+    assert_eq!(rig.sent(), []);
+    rig.tap(200, Button::Minus);
+    rig.step(210);
+    assert_eq!(wave(&rig), 3);
+    rig.tap(220, Button::Plus);
+    rig.step(230);
+    assert_eq!(wave(&rig), SUPERSAW);
+    assert_eq!(
+        rig.sent(),
+        [
+            message(2, 200, set_param(syn_1, WAVE.id, 3)),
+            message(3, 220, set_param(syn_1, WAVE.id, SUPERSAW)),
+        ]
+    );
+}
+
+#[test]
+fn counts_ignore_shift_and_smooth_values_go_finer() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    rig.synth_on(0);
+    rig.menu(0, 2);
+
+    // Voice: the cursor down to Transpose, then SHIFT + plus moves it one semitone.
+    rig.page(10, 5);
+    for at in 0..5 {
+        rig.tap(100 + 10 * at, Button::Down);
+    }
+    rig.press(200, Button::Shift);
+    rig.tap(210, Button::Plus);
+    rig.let_go(220, Button::Shift);
+    rig.step(230);
+    assert_eq!(rig.control.value(TRANSPOSE.id), 1);
+    let mut value = Label::new();
+    param::format(&TRANSPOSE, rig.control.value(TRANSPOSE.id), &mut value);
+    assert_eq!(value.as_str(), "+1");
+
+    // Filter: SHIFT + encoder 2 down a fine click.
+    rig.page(300, 2);
+    rig.press(310, Button::Shift);
+    rig.turn(320, 1, -1);
+    rig.let_go(330, Button::Shift);
+    rig.step(340);
+    assert_eq!(rig.control.value(CUTOFF.id), 65_503);
+}
+
+#[test]
+fn the_filter_page_matches_its_geometry() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    rig.synth_on(0);
+    rig.menu(0, 2);
+    rig.page(10, 2);
+    rig.step(20);
+    let screen = picture(&rig.control);
+
+    assert!(shows_header(
+        &rig.control,
+        &page_header("Filter", ("Syn 1", TEXT))
+    ));
+    // Item 1, Mode, shows its list with the faint track only.
+    assert_eq!(span(&screen, 2..=161, 17..=29, TEXT), Some((130, 158)));
+    assert!(filled(&screen, 5..=158, 31..=32, FAINT));
+    // Item 2 at (2, 35): the digit, the value and the full accent bar.
+    assert_eq!(span(&screen, 2..=15, 35..=47, DIM), Some((5, 9)));
+    assert_eq!(span(&screen, 2..=161, 35..=47, TEXT), Some((136, 158)));
+    assert!(filled(&screen, 5..=158, 49..=50, ACCENT));
+    let mut cutoff = Screen::new();
+    draw_item(
+        &mut cutoff,
+        2,
+        35,
+        160,
+        &ItemView {
+            encoder: Some(2),
+            name: "Cutoff",
+            value: "100%",
+            bar: Bar::Fill(65_535),
+        },
+        true,
+    );
+    assert!(same(&screen, &cutoff, 2..=161, 35..=51));
+
+    let cell = |encoder, name, value, bar| {
+        Some(ItemView {
+            encoder: Some(encoder),
+            name,
+            value,
+            bar,
+        })
+    };
+    let strip = drawn(
+        &[],
+        None,
+        |_| {},
+        &[
+            cell(1, "Mode", "LP 24", Bar::Track),
+            cell(2, "Cutoff", "100%", Bar::Fill(65_535)),
+            cell(3, "Resonance", "0%", Bar::Fill(0)),
+            cell(4, "Envelope amount", "+0", Bar::Fill(32_768)),
+        ],
+    );
+    assert!(same(&screen, &strip, 0..=WIDTH - 1, 253..=HEIGHT - 1));
+}
+
+#[test]
+fn oscillator_2_names_give_way_to_their_values() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    rig.synth_on(0);
+    rig.menu(0, 2);
+    rig.page(10, 1);
+    rig.step(20);
+    let screen = picture(&rig.control);
+
+    // Item 8 at y 143 shows its whole value, "+0", and its name shortened to the room that is left:
+    // 20 characters and "…", which the rule that shortens names gives for "Oscillator 2 fine tune"
+    // beside "+0".
+    assert_eq!(span(&screen, 2..=161, 143..=155, TEXT), Some((148, 158)));
+    let mut expected = Screen::new();
+    draw_item(
+        &mut expected,
+        2,
+        143,
+        160,
+        &ItemView {
+            encoder: None,
+            name: "Oscillator 2 fine tu…",
+            value: "+0",
+            bar: Bar::Fill(32_767),
+        },
+        true,
+    );
+    assert!(same(&screen, &expected, 2..=161, 143..=159));
+}
+
+#[test]
+fn the_strip_on_step_follows_sounds_shown_page() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    rig.synth_on(0);
+    rig.page(10, 4);
+    rig.step(20);
+
+    let cell = |encoder, name, value, bar| {
+        Some(ItemView {
+            encoder: Some(encoder),
+            name,
+            value,
+            bar,
+        })
+    };
+    assert!(shows(
+        &rig.control,
+        &drawn(
+            &step_header("Syn 1"),
+            None,
+            |_| {},
+            &[
+                cell(1, "Attack", "0 ms", Bar::Fill(0)),
+                cell(2, "Decay", "300 ms", Bar::Fill(20_363)),
+                cell(3, "Sustain", "100%", Bar::Fill(65_535)),
+                cell(4, "Release", "100 ms", Bar::Fill(14_117)),
+            ],
+        )
+    ));
+
+    // With an empty pad selected the strip is empty, and the page is remembered.
+    rig.hit(100, 1, 100);
+    rig.release(110, 1);
+    rig.step(120);
+    assert!(shows_step(
+        &rig.control,
+        &[("Step", ACCENT), ("T1", TEXT), ("2", DIM), ("Pads", DIM)]
+    ));
+    assert_eq!(rig.control.view.page(view::Screen::Sound), 4);
 }
