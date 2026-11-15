@@ -88,8 +88,13 @@ impl Synth {
         } else {
             (1, 0.0, SOURCE)
         };
+        // Spread widens without moving the sound: the supersaw's saws lie symmetrically with
+        // oscillator 2 in the middle, and otherwise oscillators 1 and 2 lie apart as far as
+        // oscillator 2 is loud, so a silent one leaves oscillator 1 in the middle.
+        let second_level = real(&OSCILLATOR_2_LEVEL);
+        let apart = if supersaw { 0.0 } else { spread * second_level };
         let saws = PLACES.map(|place| {
-            let (left, right) = placed(gain, if supersaw { place } else { -1.0 } * spread);
+            let (left, right) = placed(gain, if supersaw { place * spread } else { -apart });
             (
                 increment(frequency * libm::exp2f(place * detune / 12.0)),
                 left,
@@ -104,7 +109,7 @@ impl Synth {
                         / 12.0,
                 ),
         );
-        let (second_left, second_right) = placed(SOURCE * real(&OSCILLATOR_2_LEVEL), spread);
+        let (second_left, second_right) = placed(SOURCE * second_level, apart);
         let sub = increment(frequency / 2.0);
         let (sub_level, noise_level) = (SOURCE * real(&SUB_LEVEL), SOURCE * real(&NOISE_LEVEL));
 

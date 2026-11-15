@@ -6,9 +6,9 @@ use crate::dsp::flush;
 use crate::message::NoteId;
 use crate::param::{
     self, ATTACK, CUTOFF, DECAY, ENVELOPE_AMOUNT, Entry, FILTER_ATTACK, FILTER_DECAY,
-    FILTER_RELEASE, FILTER_SUSTAIN, FILTER_VELOCITY, FINE_TUNE, GATE, GLIDE_TIME, HP, KEY_FOLLOW,
-    LEVEL, LP_12, LP_24, MODE, ONE_SHOT, PAN, ParamId, RELEASE, RESONANCE, SPREAD, SUSTAIN,
-    TRANSPOSE, TRIGGER, VOLUME_VELOCITY,
+    FILTER_RELEASE, FILTER_SUSTAIN, FILTER_VELOCITY, FINE_TUNE, GLIDE_TIME, HP, KEY_FOLLOW, LEVEL,
+    LP_12, LP_24, MODE, ONE_SHOT, PAN, ParamId, RELEASE, RESONANCE, SPREAD, SUSTAIN, TRANSPOSE,
+    TRIGGER, VOLUME_VELOCITY,
 };
 use crate::project::pool::{SOUND_VALUES, Sound, SoundNumber};
 
@@ -16,9 +16,9 @@ use crate::project::pool::{SOUND_VALUES, Sound, SoundNumber};
 pub enum State {
     /// Free for a new note.
     Idle,
-    /// Its key is held, or it is a one-shot that has not ended.
+    /// Its key is held.
     Held,
-    /// Its key was let go and it plays its release.
+    /// Its key was let go: a Gate note plays its release, a One-shot note the rest of its decay.
     Released,
 }
 
@@ -145,7 +145,8 @@ impl Voice {
     }
 
     /// Moves a mono voice to another note. With `glide` the pitch moves there in a line over Glide
-    /// time; with `restart` both envelopes start again from where they are.
+    /// time. With `restart` both envelopes start again from where they are and the new velocity
+    /// counts; without it, as in Legato, only the pitch moves.
     pub fn change(&mut self, note: NoteId, pitch: u8, velocity: u8, restart: bool, glide: bool) {
         self.bend_chunks = if glide {
             (param::real(&GLIDE_TIME, self.values.read(GLIDE_TIME.id)) * SAMPLE_RATE as f32
@@ -160,21 +161,18 @@ impl Voice {
         };
         self.note = note;
         self.pitch = pitch;
-        self.velocity = velocity;
         self.state = State::Held;
         if restart {
+            self.velocity = velocity;
             self.filter_envelope.start();
             self.volume_envelope.start();
         }
     }
 
-    /// Lets go of the key: a Gate note starts its release, a One-shot note plays on.
+    /// Lets go of the key. From the chunk it renders next, a Gate note plays its release; a
+    /// One-shot note plays on to the end of its decay, or releases once Trigger turns to Gate.
     pub fn release(&mut self) {
-        if self.values.read(TRIGGER.id) == GATE {
-            self.state = State::Released;
-            self.filter_envelope.release();
-            self.volume_envelope.release();
-        }
+        self.state = State::Released;
     }
 
     /// Glides the value of `id` to `value` over the entry's glide in whole chunks, landing exactly
@@ -209,6 +207,12 @@ impl Voice {
         // One-shot counts the sustain as 0, so the note always ends.
         let one_shot = read(TRIGGER.id) == ONE_SHOT;
         let sustain = |entry: &Entry| if one_shot { 0.0 } else { real(entry) };
+        // A let-go note releases whenever its trigger reads Gate, so a One-shot turned to Gate
+        // after its key is up still ends; releasing an envelope that already does changes nothing.
+        if self.state == State::Released && !one_shot {
+            self.filter_envelope.release();
+            self.volume_envelope.release();
+        }
 
         let semitones = self.pitch as f32
             + self.bend
@@ -305,8 +309,8 @@ impl Default for Voice {
 mod tests {
     use super::*;
     use crate::param::{
-        CUTOFF, FINE_TUNE, ONE_SHOT, OSCILLATOR_2_INTERVAL, OSCILLATOR_2_LEVEL, SINE, SPREAD,
-        SUSTAIN, TRANSPOSE, TRIGGER, VOLUME_VELOCITY, WAVE,
+        CUTOFF, FINE_TUNE, GATE, ONE_SHOT, OSCILLATOR_2_INTERVAL, OSCILLATOR_2_LEVEL, SINE, SPREAD,
+        SUPERSAW, SUSTAIN, TRANSPOSE, TRIGGER, VOLUME_VELOCITY, WAVE,
     };
     use crate::project::pool::SOUND_DEFAULTS;
     use std::vec::Vec;
@@ -426,8 +430,16 @@ mod tests {
         let [left, right] = play(&mut voice, 8);
         assert_eq!(bits(&left), bits(&right));
 
-        let [left, right] = play(&mut note(&sound(&[(&SPREAD, 32_768)]), 60, 127, 1), 8);
+        let supersaw = sound(&[(&WAVE, SUPERSAW), (&SPREAD, 32_768)]);
+        let [left, right] = play(&mut note(&supersaw, 60, 127, 1), 8);
         assert_ne!(bits(&left), bits(&right));
+    }
+
+    #[test]
+    fn spread_leaves_a_lone_oscillator_1_in_the_middle() {
+        let [left, right] = play(&mut note(&sound(&[(&SPREAD, 65_535)]), 60, 127, 1), 8);
+
+        assert_eq!(peak(&left), peak(&right));
     }
 
     #[test]
@@ -458,12 +470,48 @@ mod tests {
         assert_eq!(play(&mut released, 1), play(&mut held, 1));
 
         released.release();
-        assert_eq!(released.state(), State::Held);
+        assert_eq!(released.state(), State::Released);
         // The decay of 300 ms counts the sustain as 0 and falls below 1/10,000 after 400 ms.
         assert_eq!(play(&mut released, 450), play(&mut held, 450));
-        assert_eq!(released.state(), State::Held);
+        assert_eq!(released.state(), State::Released);
         assert_eq!(play(&mut released, 300), play(&mut held, 300));
         assert_eq!(released.state(), State::Idle);
+    }
+
+    #[test]
+    fn a_let_go_one_shot_turned_to_gate_ends_by_its_release() {
+        let mut voice = note(
+            &sound(&[(&TRIGGER, ONE_SHOT), (&SUSTAIN, 65_535)]),
+            60,
+            127,
+            1,
+        );
+        play(&mut voice, 10);
+        voice.release();
+        play(&mut voice, 10);
+
+        voice.set(TRIGGER.id, GATE);
+
+        // Its decay alone would end it 19,200 samples after the start.
+        let idle = (1..=9_600 / CHUNK).find(|_| {
+            play(&mut voice, 1);
+            voice.state() == State::Idle
+        });
+        assert!(idle.is_some(), "still sounding 9,600 samples after Gate");
+    }
+
+    #[test]
+    fn a_change_without_restart_keeps_the_velocity() {
+        let mut voice = note(&sound(&[(&VOLUME_VELOCITY, 65_535)]), 60, 127, 1);
+        let before = peak(&play(&mut voice, 20)[0]);
+
+        voice.change(NoteId(1), 60, 30, false, false);
+
+        let after = peak(&play(&mut voice, 20)[0]);
+        assert!(
+            libm::fabsf(after / before - 1.0) < 0.02,
+            "{before} then {after}"
+        );
     }
 
     #[test]
