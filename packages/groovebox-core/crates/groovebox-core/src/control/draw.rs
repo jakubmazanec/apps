@@ -3,7 +3,7 @@ use super::{Control, Entry};
 use crate::input::Button;
 use crate::label::Label;
 use crate::palette::{ACCENT, BACKGROUND, DIM, TEXT};
-use crate::param::{self, Curve};
+use crate::param;
 use crate::project::pool::{Engine, SoundNumber};
 use crate::project::track::PadMode;
 use crate::screen::{Canvas, HEIGHT, WIDTH};
@@ -185,13 +185,7 @@ impl Control {
             ItemKind::Param(id) => {
                 let entry = param::entry(id);
                 param::format(entry, self.settings.get(id), value);
-                (
-                    entry.name,
-                    value.as_str(),
-                    match entry.curve {
-                        Curve::Switch => Bar::Track,
-                    },
-                )
+                (entry.name, value.as_str(), Bar::Track)
             }
             ItemKind::PadSound => (
                 "Sound",

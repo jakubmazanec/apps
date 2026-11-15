@@ -521,9 +521,11 @@ impl Control {
     /// and Copy puts a copy of the pad's sound on the pad, unless the pool is full.
     fn use_item(&mut self, item: ItemDef) {
         match item.kind {
-            ItemKind::Param(id) => match param::entry(id).curve {
-                Curve::Switch => self.settings.set(id, i32::from(self.settings.get(id) == 0)),
-            },
+            ItemKind::Param(id) => {
+                if param::entry(id).curve == Curve::Switch {
+                    self.settings.set(id, i32::from(self.settings.get(id) == 0));
+                }
+            }
             ItemKind::PadSound => {
                 let row = match self.track().selected_sound {
                     // Empty.
