@@ -4,7 +4,7 @@ const PCM: u16 = 1;
 const FLOAT: u16 = 3;
 const EXTENSIBLE: u16 = 0xFFFE;
 const MIN_RATE: u32 = 1_000;
-const MAX_RATE: u32 = 384_000;
+pub(super) const MAX_RATE: u32 = 384_000;
 /// The converted file's rate, written into its `fmt ` chunk.
 const RATE: u32 = 48_000;
 /// The nanoseconds between two samples at 48 kHz, rounded, for the `smpl` chunk.
