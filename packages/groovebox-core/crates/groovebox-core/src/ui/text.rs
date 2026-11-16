@@ -74,8 +74,10 @@ pub fn draw_fitted(canvas: &mut impl Canvas, x: i32, row: i32, fitted: Fitted, c
     }
 }
 
-/// Samples a scrolling text holds still at its start each round.
-pub const SCROLL_PAUSE: u64 = 48_000;
+/// Samples a scrolling text holds still at its start each round, about a second. It is a whole
+/// number of pixels' time, so the text moves on the redraws `Control::step` asks for each pixel's
+/// time.
+pub const SCROLL_PAUSE: u64 = 30 * SCROLL_PIXEL;
 /// Samples per pixel a scrolling text moves.
 pub const SCROLL_PIXEL: u64 = 1_600;
 /// Pixels between a scrolling text's last letter and its first letter coming round.
