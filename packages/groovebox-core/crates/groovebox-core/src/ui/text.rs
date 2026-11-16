@@ -1,6 +1,6 @@
 use crate::{
     font::{ADVANCE, glyph},
-    screen::{Canvas, Color},
+    screen::{Canvas, Color, Rect},
 };
 
 /// The width in pixels of `text`: 6 per character, except that the last one's blank column does
@@ -74,10 +74,73 @@ pub fn draw_fitted(canvas: &mut impl Canvas, x: i32, row: i32, fitted: Fitted, c
     }
 }
 
+/// Samples a scrolling text holds still at its start each round.
+pub const SCROLL_PAUSE: u64 = 48_000;
+/// Samples per pixel a scrolling text moves.
+pub const SCROLL_PIXEL: u64 = 1_600;
+/// Pixels between a scrolling text's last letter and its first letter coming round.
+pub const SCROLL_GAP: i32 = 18;
+
+/// Draws `text` with its first cell at (`x`, `row`) in the `room` pixels from `x`: whole when it
+/// fits; otherwise shortened with "…" when `scroll` is `None`, or, when it is `Some(elapsed)`,
+/// `elapsed` samples after the cursor landed on it, scrolled and cut at the room's edges. Returns
+/// whether it scrolls.
+pub fn draw_in(
+    canvas: &mut impl Canvas,
+    x: i32,
+    row: i32,
+    room: i32,
+    text: &str,
+    scroll: Option<u64>,
+    color: Color,
+) -> bool {
+    let Some(elapsed) = scroll.filter(|_| width(text) > room) else {
+        draw_fitted(canvas, x, row, fit(text, room), color);
+        return false;
+    };
+    // The loop is the text and the gap; each round holds still for the pause, then moves through it.
+    let period = width(text) + SCROLL_GAP;
+    let offset = ((elapsed % (SCROLL_PAUSE + period as u64 * SCROLL_PIXEL))
+        .saturating_sub(SCROLL_PAUSE)
+        / SCROLL_PIXEL) as i32;
+    let mut clip = Clip {
+        canvas,
+        left: x,
+        right: x.saturating_add(room),
+    };
+    draw(&mut clip, x - offset, row, text, color);
+    draw(&mut clip, x - offset + period, row, text, color);
+    true
+}
+
+/// A canvas that passes on only the part of each rectangle in columns `left` to `right - 1`.
+struct Clip<'a, C> {
+    canvas: &'a mut C,
+    left: i32,
+    right: i32,
+}
+
+impl<C: Canvas> Canvas for Clip<'_, C> {
+    fn fill_rect(&mut self, rect: Rect, color: Color) {
+        let start = rect.x.max(self.left);
+        let end = rect.x.saturating_add_unsigned(rect.width).min(self.right);
+        if start < end {
+            self.canvas.fill_rect(
+                Rect {
+                    x: start,
+                    width: end.abs_diff(start),
+                    ..rect
+                },
+                color,
+            );
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::palette::TEXT;
+    use crate::palette::{BACKGROUND, TEXT};
     use crate::screen::Screen;
     use crate::ui::test_pixels::{ink, picture};
 
@@ -197,5 +260,91 @@ mod tests {
 
         assert_eq!(fitted.pixels(), whole.pixels());
         assert!(ink(&fitted, TEXT) > 0);
+    }
+
+    /// "Kicks" scrolled `offset` pixels into its 47 px loop in the 23 px room from column 10.
+    fn scrolled_by(offset: i32) -> Screen {
+        let mut screen = Screen::new();
+        draw(&mut screen, 10 - offset, 0, "Kicks", TEXT);
+        draw(&mut screen, 10 - offset + 47, 0, "Kicks", TEXT);
+        screen.fill_rect(
+            Rect {
+                x: 0,
+                y: 0,
+                width: 10,
+                height: 13,
+            },
+            BACKGROUND,
+        );
+        screen.fill_rect(
+            Rect {
+                x: 33,
+                y: 0,
+                width: 447,
+                height: 13,
+            },
+            BACKGROUND,
+        );
+        screen
+    }
+
+    fn drawn_in(text: &str, scroll: Option<u64>) -> (bool, Screen) {
+        let mut screen = Screen::new();
+        let scrolls = draw_in(&mut screen, 10, 0, 23, text, scroll, TEXT);
+        (scrolls, screen)
+    }
+
+    #[test]
+    fn a_text_that_fits_is_drawn_whole_and_never_moves() {
+        let mut whole = Screen::new();
+        draw(&mut whole, 10, 0, "Kick", TEXT);
+
+        for scroll in [Some(SCROLL_PAUSE + 5 * SCROLL_PIXEL), None] {
+            let (scrolls, screen) = drawn_in("Kick", scroll);
+
+            assert!(!scrolls);
+            assert_eq!(screen.pixels(), whole.pixels());
+        }
+    }
+
+    #[test]
+    fn a_text_not_under_the_cursor_is_shortened() {
+        let mut shortened = Screen::new();
+        draw_fitted(&mut shortened, 10, 0, fit("Kicks", 23), TEXT);
+
+        let (scrolls, screen) = drawn_in("Kicks", None);
+
+        assert!(!scrolls);
+        assert_eq!(screen.pixels(), shortened.pixels());
+    }
+
+    #[test]
+    fn a_scrolling_text_holds_still_at_its_start_for_the_pause() {
+        for elapsed in [0, SCROLL_PAUSE + SCROLL_PIXEL - 1] {
+            let (scrolls, screen) = drawn_in("Kicks", Some(elapsed));
+
+            assert!(scrolls);
+            assert_eq!(screen.pixels(), scrolled_by(0).pixels());
+        }
+    }
+
+    #[test]
+    fn then_it_moves_a_pixel_each_pixel_time() {
+        let (_, screen) = drawn_in("Kicks", Some(SCROLL_PAUSE + 5 * SCROLL_PIXEL));
+
+        assert_eq!(screen.pixels(), scrolled_by(5).pixels());
+    }
+
+    #[test]
+    fn after_its_end_and_the_gap_it_comes_round_and_pauses_again() {
+        for (elapsed, offset) in [
+            (SCROLL_PAUSE + 41 * SCROLL_PIXEL, 41),
+            (SCROLL_PAUSE + 47 * SCROLL_PIXEL, 0),
+            (2 * SCROLL_PAUSE + 48 * SCROLL_PIXEL, 1),
+        ] {
+            let (_, screen) = drawn_in("Kicks", Some(elapsed));
+
+            assert_eq!(screen.pixels(), scrolled_by(offset).pixels());
+        }
     }
 }
