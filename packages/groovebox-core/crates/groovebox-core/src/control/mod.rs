@@ -17,6 +17,7 @@ use crate::project::track::{MAX_OCTAVE, PadMode, Track};
 use crate::queue::Producer;
 use crate::ring::Ring;
 use crate::screen::Color;
+use crate::storage::{Reply, Request};
 use crate::ui::layout::LIST_VISIBLE;
 use crate::ui::text::SCROLL_PIXEL;
 use crate::ui::tiles::{Tile, TileState};
@@ -28,6 +29,9 @@ use view::{Cursor, Screen, View, menu_tiles, page_tiles};
 
 pub const INPUT_QUEUE: usize = 64;
 pub const REPLAY_QUEUE: usize = 64;
+pub const REPLY_QUEUE: usize = 8;
+/// The most messages whose reports the control part waits for at a time.
+const AWAITED: usize = 4;
 
 /// The sound picker's first row of a sound of the pool, after Empty and New synth.
 const FIRST_SOUND_ROW: usize = 2;
@@ -40,6 +44,15 @@ enum Entry<'a> {
     NewSynth,
     /// Puts this sound of the pool on the pad.
     Sound(&'a Sound),
+}
+
+/// An event of `step`, in this order on equal samples.
+enum Event {
+    Reply(Reply),
+    /// The report of an awaited message, with that message's number.
+    Heard(u32),
+    Input(Stamped),
+    Repeat(Button),
 }
 
 /// What the text that scrolls depends on: when any of it changes, the cursor has landed on
@@ -71,6 +84,19 @@ pub struct Control {
     /// message with that number in the recorded session.
     replay: Ring<(u32, u64), REPLAY_QUEUE>,
     next_number: u32,
+    /// The storage request to send once the one out has its reply.
+    request: Option<Request>,
+    /// The number of the next storage request.
+    next_request: u32,
+    /// The number of the storage request that is out, until `step` handles its reply.
+    out: Option<u32>,
+    /// The (sample, reply) replies of the storage, in sample order.
+    replies: Ring<(u64, Reply), REPLY_QUEUE>,
+    /// The numbers of the messages sent whose reports the control part waits for, each until
+    /// `step` handles its report.
+    awaited: [Option<u32>; AWAITED],
+    /// The (number, sample) reports of awaited messages, each an event at its sample.
+    heard: Ring<(u32, u64), AWAITED>,
     started: bool,
     project: Project,
     settings: DeviceSettings,
@@ -97,6 +123,12 @@ impl Control {
             inputs: Ring::new(),
             replay: Ring::new(),
             next_number: 0,
+            request: None,
+            next_request: 0,
+            out: None,
+            replies: Ring::new(),
+            awaited: [None; AWAITED],
+            heard: Ring::new(),
             started: false,
             project: Project::new(),
             settings: DeviceSettings::new(),
@@ -123,15 +155,48 @@ impl Control {
         self.replay.push((number, sample))
     }
 
-    /// Handles the events before `until` in sample order, the queued inputs and the repeats of
-    /// held buttons, and returns whether the screen must be redrawn. That is the case on the first
-    /// step, whenever it handled an event and, while a text scrolls, whenever a pixel's time has
-    /// passed since the step before.
+    /// Gives the storage request to send, with its number, once. Requests are numbered from 0, and
+    /// the next comes only after `step` has handled the reply to the one before.
+    pub fn take_request(&mut self) -> Option<(u32, Request)> {
+        if self.out.is_some() {
+            return None;
+        }
+        let request = self.request.take()?;
+        let number = self.next_request;
+        self.next_request += 1;
+        self.out = Some(number);
+        Some((number, request))
+    }
+
+    /// Queues the storage's reply, stamped with the sample at which it came. Gives it back when
+    /// the queue is full.
+    pub fn queue_reply(&mut self, sample: u64, reply: Reply) -> Result<(), Reply> {
+        self.replies
+            .push((sample, reply))
+            .map_err(|(_, reply)| reply)
+    }
+
+    /// Hears that the audio part applied the message with this number at `sample`. The report of
+    /// a message the control part waits for becomes an event at that sample; others are dropped.
+    pub fn applied(&mut self, number: u32, sample: u64) {
+        if self.awaited.contains(&Some(number)) {
+            self.heard
+                .push((number, sample))
+                .expect("every heard report holds its message's slot in `awaited`");
+        }
+    }
+
+    /// Handles the events before `until` in sample order, the storage's replies, the reports of
+    /// awaited messages, the queued inputs and the repeats of held buttons, and returns whether
+    /// the screen must be redrawn. That is the case on the first step, whenever it handled an
+    /// event and, while a text scrolls, whenever a pixel's time has passed since the step before.
     ///
-    /// On equal samples the input goes first, so a release at the sample of a repeat ends the
-    /// hold before it. An event is handled only while the message queue has room for
-    /// `MAX_MESSAGES_PER_EVENT` messages. Otherwise the step stops before it and leaves it and
-    /// every later event for a later step, which goes on exactly where this one stopped.
+    /// On equal samples a reply goes first, then a report, then an input and then a repeat, so a
+    /// release at the sample of a repeat ends the hold before it. A reply ends the wait for its
+    /// request; one to another request does nothing. An event is handled only while the message
+    /// queue has room for `MAX_MESSAGES_PER_EVENT` messages. Otherwise the step stops before it
+    /// and leaves it and every later event for a later step, which goes on exactly where this one
+    /// stopped.
     ///
     /// After each event every page's cursor is kept on an item that the page shows: a cursor whose
     /// item vanished moves to the nearest item above, where it stays when the item comes back. When
@@ -144,25 +209,50 @@ impl Control {
     ) -> bool {
         let mut redraw = !core::mem::replace(&mut self.started, true);
         while messages.free() >= MAX_MESSAGES_PER_EVENT {
-            let repeat = self
-                .buttons
-                .next_repeat()
-                .filter(|&(sample, _)| sample < until);
-            let input = self.inputs.peek().filter(|stamped| {
-                stamped.sample < until && repeat.is_none_or(|(sample, _)| stamped.sample <= sample)
-            });
-            let sample = if let Some(stamped) = input {
-                self.inputs.pop();
-                self.input(stamped, messages);
-                stamped.sample
-            } else if let Some((sample, button)) = repeat {
-                // Each repeat makes the same move as the press.
-                self.nudge(button, sample, messages);
-                self.buttons.repeated(button);
-                sample
-            } else {
+            let events = [
+                self.replies
+                    .peek()
+                    .map(|(sample, reply)| (sample, Event::Reply(reply))),
+                self.heard
+                    .peek()
+                    .map(|(number, sample)| (sample, Event::Heard(number))),
+                self.inputs
+                    .peek()
+                    .map(|stamped| (stamped.sample, Event::Input(stamped))),
+                self.buttons
+                    .next_repeat()
+                    .map(|(sample, button)| (sample, Event::Repeat(button))),
+            ];
+            // Of equal samples `min_by_key` keeps the first.
+            let Some((sample, event)) = events
+                .into_iter()
+                .flatten()
+                .filter(|&(sample, _)| sample < until)
+                .min_by_key(|&(sample, _)| sample)
+            else {
                 break;
             };
+            match event {
+                Event::Reply(reply) => {
+                    self.replies.pop();
+                    self.out.take_if(|&mut out| out == reply.number);
+                }
+                Event::Heard(number) => {
+                    self.heard.pop();
+                    self.awaited = self
+                        .awaited
+                        .map(|slot| slot.filter(|&awaited| awaited != number));
+                }
+                Event::Input(stamped) => {
+                    self.inputs.pop();
+                    self.input(stamped, messages);
+                }
+                Event::Repeat(button) => {
+                    // Each repeat makes the same move as the press.
+                    self.nudge(button, sample, messages);
+                    self.buttons.repeated(button);
+                }
+            }
             for screen in Screen::ALL {
                 for (page, def) in pages(screen, self.track()).iter().enumerate() {
                     self.view.keep_cursor(screen, page, def.items.len());
@@ -861,7 +951,8 @@ impl Control {
         }
     }
 
-    /// Sends the next message, stamped with `sample` or with the sample of its replay record.
+    /// Sends the next message, stamped with `sample` or with the sample of its replay record. The
+    /// control part waits for the report of a `UseTable`.
     fn send(
         &mut self,
         sample: u64,
@@ -883,6 +974,14 @@ impl Control {
                 kind,
             })
             .expect("the step leaves room for every message of an event");
+        if matches!(kind, MessageKind::UseTable { .. }) {
+            *self
+                .awaited
+                .iter_mut()
+                .find(|slot| slot.is_none())
+                .expect("the control part waits for at most `AWAITED` messages at a time") =
+                Some(number);
+        }
         self.next_number += 1;
     }
 

@@ -6,14 +6,16 @@ use crate::control::Control;
 use crate::input::Stamped;
 use crate::message::{MESSAGE_QUEUE, Message, REPORT_QUEUE, Report};
 use crate::queue::{Consumer, Producer, Queue};
+use crate::ring::Ring;
 use crate::sample_ram::{Reader, SampleRam, Tables};
 use crate::screen::Screen;
+use crate::storage::{Reply, Request};
 use core::cell::UnsafeCell;
 use core::sync::atomic::{AtomicU32, Ordering};
 
-/// The whole core in one struct: both parts, both queues, two screens, the lights and the block
-/// tables. A host puts it in a `static`, keeps a `SampleRam` beside it and gives the control side
-/// to one thread and the audio side to another, each with that sample RAM.
+/// The whole core in one struct: both parts, both queues, two screens, the lights, the block tables
+/// and the I/O buffer. A host puts it in a `static`, keeps a `SampleRam` beside it and gives the
+/// control side to one thread and the audio side to another, each with that sample RAM.
 ///
 /// The control side draws into the back screen and then makes it the front one by storing its
 /// index in `front`. A reader of the picture loads `front` and reads that screen. After every step
@@ -31,6 +33,10 @@ pub struct Device {
     /// Only the control side stores them.
     lights: [AtomicU32; 2],
     tables: Tables,
+    /// The reports that steps took off `reports`, until `take_report` gives them to the host.
+    taken: UnsafeCell<Ring<Report, REPORT_QUEUE>>,
+    /// Storage requests read data into it and write data from it.
+    io: UnsafeCell<[u8; budget::IO_BUFFER]>,
 }
 
 const _: () = assert!(
@@ -38,11 +44,11 @@ const _: () = assert!(
     "the device is larger than the working memory in budget.toml"
 );
 
-// SAFETY: every part of the device belongs to exactly one side, except `front`, `lights`, `tables`
-// and the front screen, and `control_side` and `audio_side` promise that at most one of each side
-// exists.
-// - The control side owns `control`, the producer of `messages`, the consumer of `reports` and
-//   the back screen, which is `screens[1 - front]`.
+// SAFETY: every part of the device belongs to exactly one side, except `front`, `lights`, `tables`,
+// `io` and the front screen, and `control_side` and `audio_side` promise that at most one of each
+// side exists.
+// - The control side owns `control`, the producer of `messages`, the consumer of `reports`, `taken`
+//   and the back screen, which is `screens[1 - front]`.
 // - The audio side owns `audio`, the consumer of `messages` and the producer of `reports`.
 // - `front` is the only handoff of screens between threads. Only the control side stores it, and
 //   it does so with Release after it has drawn the back screen, so a thread that loads `front`
@@ -72,6 +78,11 @@ const _: () = assert!(
 //   entries that the audio side reads stay put while it reads them. The control side's `Listing`
 //   keeps to this as long as its caller keeps the order that its unsafe `forget` and `applied`
 //   and the docs of `add` and `Listed::Packed` set out.
+// - `io` belongs to the control side while one exists: a host written in Rust carries out a
+//   request through `ControlSide::io`, which borrows the control side. The browser writes it
+//   through `io_pointer` while it carries out a request, between control steps, when no control
+//   side exists. The control part touches it only while no request is out, so neither meets the
+//   other's data half written.
 unsafe impl Sync for Device {}
 
 impl Device {
@@ -88,6 +99,8 @@ impl Device {
             front: AtomicU32::new(0),
             lights: [AtomicU32::new(0), AtomicU32::new(0)],
             tables: Tables::new(),
+            taken: UnsafeCell::new(Ring::new()),
+            io: UnsafeCell::new([0; budget::IO_BUFFER]),
         }
     }
 
@@ -96,13 +109,17 @@ impl Device {
     /// At most one control side may exist at a time, on any thread.
     pub unsafe fn control_side<'a>(&'a self, ram: &'a SampleRam) -> ControlSide<'a> {
         // SAFETY: the caller promises that this is the only control side, so it is the only user
-        // of `control`, of the producer of `messages` and of the consumer of `reports`.
+        // of `control`, of the producer of `messages`, of the consumer of `reports` and of
+        // `taken`. Nothing else touches `io` while a control side exists: see the note on `Sync`
+        // for `Device`.
         unsafe {
             ControlSide {
                 device: self,
                 control: &mut *self.control.get(),
                 messages: self.messages.producer(),
                 reports: self.reports.consumer(),
+                taken: &mut *self.taken.get(),
+                io: &mut *self.io.get(),
                 ram,
             }
         }
@@ -142,6 +159,13 @@ impl Device {
     pub fn lights_pointer(&self) -> *const AtomicU32 {
         self.lights.as_ptr()
     }
+
+    /// The first byte of the I/O buffer, which holds `IO_BUFFER` bytes. Only the platform that
+    /// carries out the request that is out writes it, while no control side exists: see the note
+    /// on `Sync` for `Device`.
+    pub fn io_pointer(&self) -> *mut u8 {
+        self.io.get().cast::<u8>()
+    }
 }
 
 impl Default for Device {
@@ -155,6 +179,8 @@ pub struct ControlSide<'a> {
     control: &'a mut Control,
     messages: Producer<'a, Message, MESSAGE_QUEUE>,
     reports: Consumer<'a, Report, REPORT_QUEUE>,
+    taken: &'a mut Ring<Report, REPORT_QUEUE>,
+    io: &'a mut [u8; budget::IO_BUFFER],
     #[expect(
         dead_code,
         reason = "the control part has no file to write into its blocks yet"
@@ -171,9 +197,30 @@ impl ControlSide<'_> {
         self.control.replay_applied(number, sample)
     }
 
-    /// Handles the events before `until`. When the picture changes, it draws it into the back
-    /// screen and makes that the front one. Then it stores the lights.
+    pub fn take_request(&mut self) -> Option<(u32, Request)> {
+        self.control.take_request()
+    }
+
+    pub fn queue_reply(&mut self, sample: u64, reply: Reply) -> Result<(), Reply> {
+        self.control.queue_reply(sample, reply)
+    }
+
+    /// The I/O buffer, through which the platform carries out the request that is out.
+    pub fn io(&mut self) -> &mut [u8] {
+        self.io
+    }
+
+    /// Takes every report off the report queue and gives each to the control part, and later to
+    /// the host through `take_report`. Then it handles the events before `until`. When the picture
+    /// changes, it draws it into the back screen and makes that the front one. Then it stores the
+    /// lights.
     pub fn step(&mut self, until: u64) {
+        while let Some(report) = self.reports.pop() {
+            let Report::Applied { number, sample } = report;
+            self.control.applied(number, sample);
+            // A host that leaves reports untaken loses the newest, as a full report queue does.
+            let _ = self.taken.push(report);
+        }
         if self.control.step(until, &mut self.messages) {
             // Only this side stores `front`, so a relaxed load sees its last store.
             let back = 1 - self.device.front.load(Ordering::Relaxed);
@@ -191,8 +238,9 @@ impl ControlSide<'_> {
         low.store(lights as u32, Ordering::Release);
     }
 
+    /// The next report that a step took off the report queue.
     pub fn take_report(&mut self) -> Option<Report> {
-        self.reports.pop()
+        self.taken.pop()
     }
 
     pub fn front_screen(&self) -> &Screen {
@@ -417,6 +465,7 @@ mod tests {
         assert_eq!(control.messages.push(message), Ok(()));
 
         audio.render(&mut [0.0; 128], &mut [0.0; 128]);
+        control.step(128);
 
         assert_eq!(audio.position(), 128);
         assert_eq!(
@@ -481,6 +530,7 @@ mod tests {
         let reader = unsafe { audio.reader() };
         assert_eq!(reader.slice(FileId(1)), 0);
         assert_eq!(reader.frame(0, false, 4 * 1_024), (7, 7));
+        control.step(96);
         assert_eq!(
             control.take_report(),
             Some(Report::Applied {
@@ -488,6 +538,22 @@ mod tests {
                 sample: 64
             })
         );
+    }
+
+    #[test]
+    fn the_io_pointer_reaches_the_io_buffer() {
+        static DEVICE: Device = Device::new();
+        let ram = SampleRam::boxed();
+        // SAFETY: this test takes the only control side of its own device.
+        let mut control = unsafe { DEVICE.control_side(&ram) };
+        assert_eq!(control.io().len(), budget::IO_BUFFER);
+        control.io()[budget::IO_BUFFER - 1] = 7;
+
+        // SAFETY: the pointer is valid for `IO_BUFFER` bytes, and the control side does not touch
+        // them while the test reads.
+        let io = unsafe { core::slice::from_raw_parts(DEVICE.io_pointer(), budget::IO_BUFFER) };
+
+        assert_eq!(io[budget::IO_BUFFER - 1], 7);
     }
 
     #[test]

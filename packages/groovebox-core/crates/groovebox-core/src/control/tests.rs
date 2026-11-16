@@ -8,6 +8,7 @@ use crate::param::{CUTOFF, OUTPUT_VOLUME};
 use crate::project::pool::SoundNumber;
 use crate::queue::{Consumer, Queue};
 use crate::screen::{Canvas, Color, HEIGHT, Rect, Screen, WIDTH};
+use crate::storage::Status;
 use crate::ui::frame::{Piece, draw_header, draw_strip};
 use crate::ui::item::{Bar, ItemView, draw_cursor, draw_item};
 use crate::ui::test_pixels::{filled, outlined, span};
@@ -1613,4 +1614,78 @@ fn the_volume_encoder_sets_the_output_volume_everywhere() {
         rig.control.settings.get(OUTPUT_VOLUME.id),
         45_875 - 3 * 1_536
     );
+}
+
+/// A reply to request `number` with nothing to report.
+fn done(number: u32) -> Reply {
+    Reply {
+        number,
+        status: Status::Done,
+        value: 0,
+    }
+}
+
+#[test]
+fn a_request_is_given_once_and_the_next_waits_for_its_reply() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    rig.control.request = Some(Request::Free);
+
+    assert_eq!(rig.control.take_request(), Some((0, Request::Free)));
+    assert_eq!(rig.control.take_request(), None);
+
+    rig.control.request = Some(Request::Commit);
+    assert_eq!(rig.control.take_request(), None);
+    // A reply to another request changes nothing.
+    assert_eq!(rig.control.queue_reply(100, done(1)), Ok(()));
+    assert_eq!(rig.control.queue_reply(200, done(0)), Ok(()));
+    rig.step(200);
+    assert_eq!(rig.control.take_request(), None);
+    rig.step(201);
+    assert_eq!(rig.control.take_request(), Some((1, Request::Commit)));
+    assert_eq!(rig.control.take_request(), None);
+}
+
+#[test]
+fn a_reply_goes_before_an_input_of_the_same_sample() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    let sound = rig.synth_on(0);
+    rig.control.request = Some(Request::Free);
+    assert_eq!(rig.control.take_request(), Some((0, Request::Free)));
+    rig.control.request = Some(Request::Commit);
+    rig.fill_the_message_queue();
+    // Room for the hit's message only: an event after the hit waits.
+    rig.consumer.pop();
+    rig.hit(1_000, 0, 80);
+    assert_eq!(rig.control.queue_reply(1_000, done(0)), Ok(()));
+
+    rig.step(u64::MAX);
+
+    assert_eq!(rig.control.take_request(), Some((1, Request::Commit)));
+    assert_eq!(
+        rig.sent().last(),
+        Some(&message(256, 1_000, note_on(128, 0, sound, 60, 80)))
+    );
+}
+
+#[test]
+fn the_control_part_hears_when_its_awaited_message_applied() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    rig.synth_on(0);
+    rig.hit(10, 0, 100);
+    rig.step(64);
+    rig.control
+        .send(64, MessageKind::UseTable { version: 1 }, &mut rig.producer);
+    assert!(rig.control.awaited.contains(&Some(1)));
+
+    // The hit's report is not awaited, so it is no event at 32.
+    rig.control.applied(0, 32);
+    rig.control.applied(1, 96);
+    assert!(!rig.step(96));
+    assert!(rig.control.awaited.contains(&Some(1)));
+
+    assert!(rig.step(97));
+    assert!(!rig.control.awaited.contains(&Some(1)));
 }

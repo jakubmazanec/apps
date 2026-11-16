@@ -19,6 +19,8 @@ pub mod input;
 pub mod label;
 pub mod library;
 pub mod lights;
+#[cfg(any(test, feature = "harness"))]
+pub mod memory_storage;
 pub mod message;
 pub mod palette;
 pub mod param;
@@ -27,4 +29,5 @@ pub mod queue;
 pub mod ring;
 pub mod sample_ram;
 pub mod screen;
+pub mod storage;
 pub mod ui;
