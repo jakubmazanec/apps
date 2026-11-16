@@ -82,9 +82,10 @@ pub const SCROLL_PIXEL: u64 = 1_600;
 pub const SCROLL_GAP: i32 = 18;
 
 /// Draws `text` with its first cell at (`x`, `row`) in the `room` pixels from `x`: whole when it
-/// fits; otherwise shortened with "…" when `scroll` is `None`, or, when it is `Some(elapsed)`,
-/// `elapsed` samples after the cursor landed on it, scrolled and cut at the room's edges. Returns
-/// whether it scrolls.
+/// fits; otherwise shortened with "…" (`fit`) when `scroll` is `None`, or, when it is
+/// `Some(elapsed)`, `elapsed` samples after the cursor landed on it, scrolled and cut at the room's
+/// edges. A text with no room for even the "…" is not drawn and does not scroll. Returns whether it
+/// scrolls.
 pub fn draw_in(
     canvas: &mut impl Canvas,
     x: i32,
@@ -94,8 +95,10 @@ pub fn draw_in(
     scroll: Option<u64>,
     color: Color,
 ) -> bool {
-    let Some(elapsed) = scroll.filter(|_| width(text) > room) else {
-        draw_fitted(canvas, x, row, fit(text, room), color);
+    // Only a text that would be shortened scrolls: one with no room for even the "…" shows nothing.
+    let fitted = fit(text, room);
+    let Some(elapsed) = scroll.filter(|_| fitted.ellipsis) else {
+        draw_fitted(canvas, x, row, fitted, color);
         return false;
     };
     // The loop is the text and the gap; each round holds still for the pause, then moves through it.
@@ -304,6 +307,26 @@ mod tests {
 
             assert!(!scrolls);
             assert_eq!(screen.pixels(), whole.pixels());
+        }
+    }
+
+    #[test]
+    fn a_text_without_room_for_the_ellipsis_neither_shows_nor_scrolls() {
+        for room in [-30, 0, 4] {
+            let mut screen = Screen::new();
+
+            let scrolls = draw_in(
+                &mut screen,
+                10,
+                0,
+                room,
+                "Kicks",
+                Some(SCROLL_PAUSE + 5 * SCROLL_PIXEL),
+                TEXT,
+            );
+
+            assert!(!scrolls, "room {room}");
+            assert_eq!(ink(&screen, TEXT), 0, "room {room}");
         }
     }
 
