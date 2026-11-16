@@ -24,11 +24,40 @@ pub enum State {
 
 /// A value that glides in whole chunks to the value it was last set to.
 #[derive(Clone, Copy)]
-struct Glide {
-    value: i32,
+pub(super) struct Glide {
+    pub(super) value: i32,
     target: i32,
     /// The chunks left until `value` lands on `target`.
     chunks: u32,
+}
+
+impl Glide {
+    pub(super) const fn at(value: i32) -> Self {
+        Self {
+            value,
+            target: value,
+            chunks: 0,
+        }
+    }
+
+    /// Glides to `value` over `samples` in whole chunks, landing exactly on it; 0 samples set it at
+    /// once.
+    pub(super) fn set(&mut self, value: i32, samples: u32) {
+        let chunks = samples.div_ceil(CHUNK as u32);
+        *self = Self {
+            value: if chunks == 0 { value } else { self.value },
+            target: value,
+            chunks,
+        };
+    }
+
+    /// Moves `value` one chunk along.
+    pub(super) fn step(&mut self) {
+        if self.chunks > 0 {
+            self.value += (self.target - self.value) / self.chunks as i32;
+            self.chunks -= 1;
+        }
+    }
 }
 
 /// A note's own copy of its sound's values, in the sound's order.
@@ -77,13 +106,7 @@ impl Voice {
             bend: 0.0,
             bend_chunks: 0,
             stereo: false,
-            values: Values(
-                [Glide {
-                    value: 0,
-                    target: 0,
-                    chunks: 0,
-                }; SOUND_VALUES],
-            ),
+            values: Values([Glide::at(0); SOUND_VALUES]),
             synth: Synth::new(),
             filters: [Filter::new(), Filter::new()],
             filter_envelope: Envelope::new(),
@@ -123,11 +146,7 @@ impl Voice {
         seed: u32,
         values: &[i32; SOUND_VALUES],
     ) {
-        let values = Values(values.map(|value| Glide {
-            value,
-            target: value,
-            chunks: 0,
-        }));
+        let values = Values(values.map(Glide::at));
         *self = Self {
             state: State::Held,
             note,
@@ -178,13 +197,7 @@ impl Voice {
     /// Glides the value of `id` to `value` over the entry's glide in whole chunks, landing exactly
     /// on it; a glide of 0 sets it at once.
     pub fn set(&mut self, id: ParamId, value: i32) {
-        let chunks = param::entry(id).glide.div_ceil(CHUNK as u32);
-        let glide = &mut self.values.0[Sound::place(id)];
-        *glide = Glide {
-            value: if chunks == 0 { value } else { glide.value },
-            target: value,
-            chunks,
-        };
+        self.values.0[Sound::place(id)].set(value, param::entry(id).glide);
     }
 
     /// Adds one chunk of the note to `out`. The pitch, the filter's tuning and the gain are found
@@ -192,10 +205,7 @@ impl Voice {
     /// one-shot note.
     pub fn render(&mut self, out: &mut [[f32; CHUNK]; 2]) {
         for glide in &mut self.values.0 {
-            if glide.chunks > 0 {
-                glide.value += (glide.target - glide.value) / glide.chunks as i32;
-                glide.chunks -= 1;
-            }
+            glide.step();
         }
         if self.bend_chunks > 0 {
             self.bend = flush(self.bend - self.bend / self.bend_chunks as f32);
@@ -234,9 +244,10 @@ impl Voice {
             sustain(&FILTER_SUSTAIN),
             samples(&FILTER_RELEASE),
         );
-        let envelope = (0..CHUNK).fold(0.0, |_, _| {
-            self.filter_envelope.next(attack, decay, level, release)
-        });
+        let mut envelope = 0.0;
+        for _ in 0..CHUNK {
+            envelope = self.filter_envelope.next(attack, decay, level, release);
+        }
         let cutoff = real(&CUTOFF)
             * libm::exp2f(
                 8.0 * real(&ENVELOPE_AMOUNT) * envelope

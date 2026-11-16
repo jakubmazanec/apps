@@ -175,9 +175,8 @@ pub fn pages(screen: Screen, track: &Track) -> &'static [PageDef] {
         Screen::Sound => match track.selected_sound {
             Some(_) => &[PAD, SYNTH, FILTER, FILTER_ENVELOPE, VOLUME_ENVELOPE, VOICE],
             None => &[PageDef {
-                name: "Pad",
                 items: &[PAD_SOUND],
-                picture: Some(Picture::Pads),
+                ..PAD
             }],
         },
         Screen::Settings => &[PageDef {

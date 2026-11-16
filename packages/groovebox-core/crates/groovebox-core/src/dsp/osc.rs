@@ -51,8 +51,8 @@ impl Oscillator {
                 } else {
                     falling
                 };
-                let level = if phase < width { 1.0 } else { -1.0 };
-                level + blep(phase, increment) - blep(falling, increment)
+                (if phase < width { 1.0 } else { -1.0 }) + blep(phase, increment)
+                    - blep(falling, increment)
             }
             Wave::Triangle => {
                 let shifted = phase + 0.25;

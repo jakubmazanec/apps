@@ -54,9 +54,10 @@ impl Voices {
 
     /// Plays a note. A note of a choke group first fades the voices of the group's other sounds on
     /// its track into `fades`. A Mono or Legato note then moves its sound's voice on the track to
-    /// it, if that voice is not idle: Mono restarts the envelopes, Legato only when no key of it
-    /// was held. Otherwise the note starts a voice: a finished one, or else the oldest released
-    /// voice, the oldest voice of its sound or the oldest voice, which fades into `fades` first.
+    /// it, if that voice is not idle: Mono restarts the envelopes, Legato only when the voice's own
+    /// key is not held any more. Otherwise the note starts a voice: a finished one, or else the
+    /// oldest released voice, the oldest voice of its sound or the oldest voice, which fades into
+    /// `fades` first.
     ///
     /// # Panics
     ///
@@ -93,13 +94,11 @@ impl Voices {
         }
 
         let mode = read(&PLAY_MODE);
-        let playing = self.voices.iter().position(|voice| {
-            mode != POLY
-                && voice.state() != State::Idle
-                && voice.sound() == sound
-                && voice.track() == track
-        });
-        if let Some(index) = playing {
+        if mode != POLY
+            && let Some(index) = self.voices.iter().position(|voice| {
+                voice.state() != State::Idle && voice.sound() == sound && voice.track() == track
+            })
+        {
             // The voice's own key, not the held list: after a change from Poly a key may be held
             // by another voice.
             let held = self.voices[index].state() == State::Held;
@@ -151,7 +150,7 @@ impl Voices {
 
     /// Lets go of a note's key. Only a voice that still plays the note changes: a Poly note
     /// releases, and a Mono or Legato voice goes back to the newest key of its sound still held on
-    /// its track, or releases when there is none.
+    /// its track that no other voice plays, or releases when there is none.
     pub fn note_off(&mut self, note: NoteId, sounds: &Sounds) {
         if let Some(place) = self.held[..self.length]
             .iter()
@@ -168,24 +167,25 @@ impl Voices {
         let voice = &self.voices[index];
         let values = sounds.values(voice.sound());
         let read = |entry: &Entry| values[Sound::place(entry.id)];
+        let mode = read(&PLAY_MODE);
         // After a change from Poly another voice may already play a held key.
-        let back = self.held[..self.length].iter().rev().find(|key| {
-            read(&PLAY_MODE) != POLY
-                && key.sound == voice.sound()
-                && key.track == voice.track()
-                && !self.voices.iter().any(|other| plays(other, key.note))
-        });
-        let voice = &mut self.voices[index];
-        match back {
+        if mode != POLY
+            && let Some(key) = self.held[..self.length].iter().rev().find(|key| {
+                key.sound == voice.sound()
+                    && key.track == voice.track()
+                    && !self.voices.iter().any(|other| plays(other, key.note))
+            })
+        {
             // A return always overlaps, so it glides whenever Glide time is above 0.
-            Some(key) => voice.change(
+            self.voices[index].change(
                 key.note,
                 key.pitch,
                 key.velocity,
-                read(&PLAY_MODE) == MONO,
+                mode == MONO,
                 read(&GLIDE_TIME) > 0,
-            ),
-            None => voice.release(),
+            );
+        } else {
+            self.voices[index].release();
         }
     }
 
@@ -449,6 +449,15 @@ mod tests {
             rig.on(1, 0, 1, 64);
 
             assert_eq!(peak(&rig.play(5)) > 0.01, restarts, "play mode {mode}");
+
+            // Letting go of the second key returns to the first, which is held: the same again.
+            assert!(peak(&rig.play(40)[39 * CHUNK..]) < 0.000_01);
+            rig.off(1);
+            assert_eq!(
+                peak(&rig.play(5)) > 0.01,
+                restarts,
+                "play mode {mode} on a return"
+            );
         }
 
         // With no key held, Legato restarts them too.

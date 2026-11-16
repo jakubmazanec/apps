@@ -4,6 +4,7 @@ use crate::param::{self, OUTPUT_VOLUME};
 use crate::project::pool::SOUND_DEFAULTS;
 use crate::queue::{Consumer, Producer};
 use sounds::Sounds;
+use voice::Glide;
 use voices::Voices;
 
 pub mod sounds;
@@ -21,10 +22,8 @@ pub struct Audio {
     position: u64,
     sounds: Sounds,
     voices: Voices,
-    /// The output volume's value, where it glides to, and the chunks it takes to get there.
-    volume: i32,
-    volume_target: i32,
-    volume_chunks: u32,
+    /// The output volume's value, where it glides to and the chunks it takes to get there.
+    volume: Glide,
 }
 
 impl Audio {
@@ -33,9 +32,7 @@ impl Audio {
             position: 0,
             sounds: Sounds::new(),
             voices: Voices::new(),
-            volume: OUTPUT_VOLUME.default,
-            volume_target: OUTPUT_VOLUME.default,
-            volume_chunks: 0,
+            volume: Glide::at(OUTPUT_VOLUME.default),
         }
     }
 
@@ -83,10 +80,7 @@ impl Audio {
                         target: Target::Device,
                         id,
                         value,
-                    } if id == OUTPUT_VOLUME.id => {
-                        self.volume_target = value;
-                        self.volume_chunks = OUTPUT_VOLUME.glide.div_ceil(CHUNK as u32);
-                    }
+                    } if id == OUTPUT_VOLUME.id => self.volume.set(value, OUTPUT_VOLUME.glide),
                     MessageKind::NoteOn {
                         note,
                         track,
@@ -115,12 +109,9 @@ impl Audio {
 
             let mut mix = [[0.0; CHUNK]; 2];
             self.voices.render(&mut mix);
-            let before = param::real(&OUTPUT_VOLUME, self.volume);
-            if self.volume_chunks > 0 {
-                self.volume += (self.volume_target - self.volume) / self.volume_chunks as i32;
-                self.volume_chunks -= 1;
-            }
-            let after = param::real(&OUTPUT_VOLUME, self.volume);
+            let before = param::real(&OUTPUT_VOLUME, self.volume.value);
+            self.volume.step();
+            let after = param::real(&OUTPUT_VOLUME, self.volume.value);
             for n in 0..CHUNK {
                 let gain = before + (after - before) * (n + 1) as f32 / CHUNK as f32;
                 left[n] = soft_clip(mix[0][n] + fades[0][n]) * gain;

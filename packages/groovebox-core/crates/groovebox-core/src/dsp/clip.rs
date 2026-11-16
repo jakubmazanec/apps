@@ -1,5 +1,6 @@
 /// Leaves a signal within ±0.5 as it is and bends a louder one towards ±1 along a tanh, so it
-/// never reaches 1 and the slope stays continuous at ±0.5.
+/// reaches exactly 1 for a very loud signal and never goes above it, and the slope stays
+/// continuous at ±0.5.
 pub fn soft_clip(x: f32) -> f32 {
     let size = libm::fabsf(x);
     if size <= 0.5 {

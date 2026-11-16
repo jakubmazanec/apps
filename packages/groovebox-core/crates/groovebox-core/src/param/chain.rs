@@ -1,5 +1,5 @@
 //! The entries of the voice chain every sound has, whatever makes its sound: the filter, the two
-//! envelopes, the level and pan, and how notes play.
+//! envelopes, the level, the pan and how notes play.
 
 use super::{
     COUNT_SOUND, Curve, Entry, LIST_SOUND, ParamId, SMOOTH_SOUND, TIME_SOUND, Unit, choice,

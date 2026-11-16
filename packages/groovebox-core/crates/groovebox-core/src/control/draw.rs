@@ -204,7 +204,7 @@ impl Control {
                             + (12.0 - 20.0 * libm::log10f(gain)) / 60.0 * ROWS as f32;
                         (
                             PICTURE.0 + column as i32,
-                            libm::roundf(row).clamp(TOP_ROW as f32, BOTTOM_ROW as f32) as i32,
+                            (libm::roundf(row) as i32).clamp(TOP_ROW, BOTTOM_ROW),
                         )
                     });
                     draw_line(canvas, &curve, TEXT);

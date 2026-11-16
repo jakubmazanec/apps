@@ -44,12 +44,12 @@ impl Envelope {
     /// Whether the level has fallen below 1/10,000 on its way to 0: in the release, or in the decay
     /// when the sustain it was last given is 0. A new envelope is done.
     pub fn is_done(&self) -> bool {
-        let falling_to_zero = match self.stage {
-            Stage::Attack => false,
-            Stage::Decay => self.sustain == 0.0,
-            Stage::Release => true,
-        };
-        falling_to_zero && self.level < 0.0001
+        self.level < 0.0001
+            && match self.stage {
+                Stage::Attack => false,
+                Stage::Decay => self.sustain == 0.0,
+                Stage::Release => true,
+            }
     }
 
     /// The next level. The times are in samples; a time of 0 jumps at once.
@@ -63,10 +63,7 @@ impl Envelope {
                     self.stage = Stage::Decay;
                 }
             }
-            Stage::Decay => {
-                let fall = self.fall(decay);
-                self.level = sustain + (self.level - sustain) * fall;
-            }
+            Stage::Decay => self.level = sustain + (self.level - sustain) * self.fall(decay),
             Stage::Release => self.level *= self.fall(release),
         }
         self.level = flush(self.level);

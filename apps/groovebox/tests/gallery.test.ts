@@ -24,7 +24,7 @@ describe('the gallery', () => {
     let shown = new Set(STATES.map((state) => state.frame));
     let left = (await readdir(SCENES, {recursive: true})).filter(
       (path) =>
-        ['menu-and-pages/', 'new-synth/', 'picker-while-playing/'].some((scene) =>
+        ['menu-and-pages/', 'new-synth/', 'picker-while-playing/', 'synth-pages/'].some((scene) =>
           path.startsWith(scene),
         ) && !shown.has(path),
     );
