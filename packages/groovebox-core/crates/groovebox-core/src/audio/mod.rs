@@ -6,6 +6,7 @@ use sounds::Sounds;
 pub mod sounds;
 pub mod synth;
 pub mod voice;
+pub mod voices;
 
 pub const SAMPLE_RATE: u32 = 48_000;
 /// The core renders on its own fixed schedule of this many samples, whatever the host's batch
