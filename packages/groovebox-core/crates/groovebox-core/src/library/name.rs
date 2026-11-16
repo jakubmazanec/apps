@@ -41,13 +41,17 @@ fn is_kept(c: char) -> bool {
 }
 
 /// The kept characters of `text` in at most `room` bytes: the rest is cut at a character boundary.
-/// Spaces come singly and never lead or trail, so removed characters leave no gaps.
+/// Spaces come singly and never lead or trail, so removed characters leave no gaps, and dots never
+/// lead, so a name is never "." or ".." and never hidden.
 fn reduce<const N: usize>(text: &str, room: usize) -> Label<N> {
     let mut name = Label::new();
     let mut space = false;
     for c in text.chars().filter(|&c| is_kept(c)) {
         if c == ' ' {
             space = true;
+            continue;
+        }
+        if c == '.' && name.as_str().is_empty() {
             continue;
         }
         let gap = if space && !name.as_str().is_empty() {
@@ -68,18 +72,33 @@ fn reduce<const N: usize>(text: &str, room: usize) -> Label<N> {
     name
 }
 
-/// `original`, which ends in ".wav" in any case once trimmed, as a file name of the library: the
-/// ending stays as it was written.
+/// `name` as its stem and its ending, which is ".wav" in any case and stays as it was written. A
+/// name without that ending is all stem and gets ".wav".
+fn split_extension(name: &str) -> (&str, &str) {
+    match name
+        .len()
+        .checked_sub(EXTENSION.len())
+        .and_then(|at| name.split_at_checked(at))
+    {
+        Some((stem, extension)) if extension.eq_ignore_ascii_case(EXTENSION) => (stem, extension),
+        _ => (name, EXTENSION),
+    }
+}
+
+/// `original` as a file name of the library.
 pub fn file_name(original: &str) -> Label<FILE_BYTES> {
-    let original = original.trim();
-    let (stem, extension) = original.split_at(original.len() - EXTENSION.len());
+    let (stem, extension) = split_extension(original.trim());
     let mut name = reduce(stem, FILE_BYTES - EXTENSION.len());
     name.push_str(extension);
     name
 }
 
+/// `original` as a folder name of the library. Windows drops the dots that end a name, so they go.
 pub fn folder_name(original: &str) -> Label<FOLDER_BYTES> {
-    reduce(original, FOLDER_BYTES)
+    let name = reduce::<FOLDER_BYTES>(original, FOLDER_BYTES);
+    let mut folder = Label::new();
+    folder.push_str(name.as_str().trim_end_matches(['.', ' ']));
+    folder
 }
 
 /// Names that differ only in case are the same.
@@ -91,7 +110,7 @@ pub fn same(a: &str, b: &str) -> bool {
 
 /// `name` with "-`number`" before its ".wav", its base cut at a character boundary to fit.
 pub fn numbered(name: &str, number: u32) -> Label<FILE_BYTES> {
-    let (base, extension) = name.split_at(name.len() - EXTENSION.len());
+    let (base, extension) = split_extension(name);
     let suffix = written::<11>(format_args!("-{number}"));
     let room = FILE_BYTES - EXTENSION.len() - suffix.as_str().len();
     written(format_args!(
@@ -184,6 +203,42 @@ mod tests {
         assert_eq!(file_name(".wav").as_str(), "sample.wav");
         assert_eq!(folder_name("Drums & Bass!").as_str(), "Drums Bass");
         assert_eq!(folder_name("漢字").as_str(), "sample");
+    }
+
+    #[test]
+    fn a_name_that_does_not_end_in_dot_wav_gets_it() {
+        assert_eq!(file_name("").as_str(), "sample.wav");
+        assert_eq!(file_name("abc").as_str(), "abc.wav");
+        assert_eq!(file_name("漢字").as_str(), "sample.wav");
+        assert!(file_name("kick.waΩ").as_str().ends_with(".wav"));
+        assert_eq!(file_name("kick.mp3").as_str(), "kick.mp3.wav");
+        assert_eq!(numbered("abc", 2).as_str(), "abc-2.wav");
+        assert_eq!(numbered("漢字", 2).as_str(), "漢字-2.wav");
+        assert_eq!(numbered("kick.waΩ", 2).as_str(), "kick.waΩ-2.wav");
+        assert_eq!(numbered("", 2).as_str(), "-2.wav");
+    }
+
+    #[test]
+    fn a_name_is_never_a_dot_or_hidden() {
+        assert_eq!(file_name("..wav").as_str(), "sample.wav");
+        assert_eq!(file_name(".hidden.wav").as_str(), "hidden.wav");
+        assert_eq!(file_name(" . ..a.wav").as_str(), "a.wav");
+        assert_eq!(folder_name("..").as_str(), "sample");
+        assert_eq!(folder_name(".").as_str(), "sample");
+        assert_eq!(folder_name(". .").as_str(), "sample");
+        assert_eq!(folder_name(".hidden").as_str(), "hidden");
+    }
+
+    #[test]
+    fn a_folder_name_does_not_end_in_a_dot() {
+        assert_eq!(folder_name("drums.").as_str(), "drums");
+        assert_eq!(folder_name("drums . .").as_str(), "drums");
+        assert_eq!(folder_name("drums.#").as_str(), "drums");
+        assert_eq!(folder_name("v1.2").as_str(), "v1.2");
+        assert_eq!(
+            folder_name(&("a".repeat(31) + ".b")).as_str(),
+            "a".repeat(31)
+        );
     }
 
     #[test]
