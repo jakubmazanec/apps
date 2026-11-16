@@ -321,13 +321,23 @@ mod tests {
 
         let scrolls = draw_tiles(&mut screen, &tiles, MOVED);
         text::draw(&mut name, 140, 19, "Filter envelope…", TEXT);
+        // The name's room is 95 pixels, from x 21 to the 3 pixels inside the tile.
+        text::draw_in(
+            &mut name,
+            21,
+            19,
+            95,
+            "Filter envelope 2",
+            Some(MOVED),
+            ACCENT,
+        );
 
         assert!(scrolls);
         let (first, last) = span(&screen, 20..=117, 17..=72, ACCENT).unwrap();
         assert!(first >= 21 && last <= 115, "{first} to {last}");
-        assert_ne!(
-            picture(&screen, 21..=115, 17..=72, ACCENT),
-            picture(&name, 21..=115, 17..=72, ACCENT)
+        assert_eq!(
+            picture(&screen, 20..=117, 17..=72, ACCENT),
+            picture(&name, 20..=117, 17..=72, ACCENT)
         );
         assert_eq!(
             picture(&screen, 139..=236, 17..=72, TEXT),
@@ -352,10 +362,24 @@ mod tests {
 
         let scrolls = draw_pad_tiles(&mut screen, &pads, MOVED);
         text::draw(&mut name, 246, 33, "Hat open ta…", TEXT);
+        // The name's room is 72 pixels, from x 167 to the 3 pixels inside the tile.
+        text::draw_in(
+            &mut name,
+            167,
+            33,
+            72,
+            "Hat open take3",
+            Some(MOVED),
+            ACCENT,
+        );
 
         assert!(scrolls);
         let (first, last) = span(&screen, 165..=240, 33..=92, ACCENT).unwrap();
         assert!(first >= 167 && last <= 238, "{first} to {last}");
+        assert_eq!(
+            picture(&screen, 165..=240, 33..=92, ACCENT),
+            picture(&name, 165..=240, 33..=92, ACCENT)
+        );
         assert_eq!(
             picture(&screen, 244..=319, 33..=92, TEXT),
             picture(&name, 244..=319, 33..=92, TEXT)
