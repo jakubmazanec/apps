@@ -1,0 +1,93 @@
+groovebox-scene 1
+# Syn 1 on pad 1 through the panel: MENU + step 3, then OK, down and OK in the sound picker.
+input 3200 press menu
+input 4800 press step-3
+input 6400 release step-3
+input 8000 release menu
+input 9600 press ok
+input 11200 release ok
+input 12800 press down
+input 14400 release down
+input 16000 press ok
+input 17600 release ok
+# PAGE + step 2: the Synth page.
+input 19200 press page
+input 20800 press step-2
+input 22400 release step-2
+input 24000 release page
+frame 25600
+# PAGE + step 3: the Filter page, set as Look's picture shows it, with fine clicks under SHIFT where
+# they bring a bar to the length Look drew. Down four times to Key follow and + held for 64 moves:
+# 50%. Down to Velocity amount and + held for 39 moves: 30%.
+input 27200 press page
+input 28800 press step-3
+input 30400 release step-3
+input 32000 release page
+input 33600 press down
+input 35200 release down
+input 36800 press down
+input 38400 release down
+input 40000 press down
+input 41600 release down
+input 43200 press down
+input 44800 release down
+input 48000 press plus
+input 217600 release plus
+input 219200 press down
+input 220800 release down
+input 222400 press plus
+input 332000 release plus
+# Resonance 12%, Envelope amount +40 and Cutoff 64%, which puts the cursor on Cutoff.
+input 334400 turn encoder-3 15
+input 336000 turn encoder-4 25
+input 337600 press shift
+input 339200 turn encoder-4 13
+input 340800 release shift
+input 342400 turn encoder-2 -46
+input 344000 press shift
+input 345600 turn encoder-2 5
+input 347200 release shift
+frame 348800
+# PAGE + step 4: the Filter envelope page.
+input 350400 press page
+input 352000 press step-4
+input 353600 release step-4
+input 355200 release page
+frame 358400
+# PAGE + step 5: the Volume envelope page, set as Look's picture shows it: Attack 12 ms, Decay
+# 340 ms, Release 799 ms, as near 800 ms as the clicks reach, then Sustain 60%, which puts the
+# cursor on Sustain. Each takes fine clicks under SHIFT.
+input 360000 press page
+input 361600 press step-5
+input 363200 release step-5
+input 364800 release page
+input 366400 turn encoder-1 13
+input 368000 press shift
+input 369600 turn encoder-1 8
+input 371200 release shift
+input 372800 turn encoder-2 1
+input 374400 press shift
+input 376000 turn encoder-2 11
+input 377600 release shift
+input 379200 turn encoder-4 27
+input 380800 press shift
+input 382400 turn encoder-4 9
+input 384000 release shift
+input 385600 turn encoder-3 -51
+input 387200 press shift
+input 388800 turn encoder-3 1
+input 390400 release shift
+frame 393600
+# PAGE + step 6: the Voice page.
+input 395200 press page
+input 396800 press step-6
+input 398400 release step-6
+input 400000 release page
+frame 403200
+# PAGE held on SOUND after PAGE + step 3: the tiles of SOUND's six pages, Filter current.
+input 404800 press page
+input 406400 press step-3
+input 408000 release step-3
+frame 409600
+input 411200 release page
+end 412800

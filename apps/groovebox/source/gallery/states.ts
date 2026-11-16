@@ -44,6 +44,24 @@ export const STATES: ReadonlyArray<{title: string; frame: string; approved?: str
     frame: 'picker-while-playing/frame-40960.png',
     approved: 'picker-sound.png',
   },
+  {title: 'SOUND Synth page', frame: 'synth-pages/frame-25600.png'},
+  {
+    title: 'SOUND Filter page with the cursor on Cutoff',
+    frame: 'synth-pages/frame-348800.png',
+    approved: 'sound-filter.png',
+  },
+  {title: 'SOUND Filter envelope page', frame: 'synth-pages/frame-358400.png'},
+  {
+    title: 'SOUND Volume envelope page with the cursor on Sustain',
+    frame: 'synth-pages/frame-393600.png',
+    approved: 'sound-volume-envelope.png',
+  },
+  {title: 'SOUND Voice page', frame: 'synth-pages/frame-403200.png'},
+  {
+    title: 'PAGE held on SOUND',
+    frame: 'synth-pages/frame-409600.png',
+    approved: 'page-held.png',
+  },
   {title: 'Every glyph of the font', frame: 'gallery/font.png', approved: 'font.png'},
   {
     title: 'Every named colour of the palette',

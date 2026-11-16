@@ -1,0 +1,114 @@
+groovebox-scene 1
+# Syn 1 on pad 1 through the panel: MENU + step 3, then OK, down and OK in the sound picker. A tap
+# of PADS/KEYS then makes the pads keys that play Syn 1.
+input 3200 press menu
+input 4800 press step-3
+input 6400 release step-3
+input 8000 release menu
+input 9600 press ok
+input 11200 release ok
+input 12800 press down
+input 14400 release down
+input 16000 press ok
+input 17600 release ok
+input 19200 press pads-keys
+input 20800 release pads-keys
+# PAGE + step 3: the Filter page. Cutoff 50% and Resonance 25%.
+input 22400 press page
+input 24000 press step-3
+input 25600 release step-3
+input 27200 release page
+input 28800 turn encoder-2 -64
+input 30400 turn encoder-3 32
+# The four modes on one held note: LP 24, LP 12, HP, BP and LP 24 again.
+input 33600 note-on 48 100
+input 45600 turn encoder-1 -1
+input 57600 turn encoder-1 2
+input 69600 turn encoder-1 1
+input 81600 turn encoder-1 -2
+input 93600 note-off 48
+# A cutoff sweep on a held note: down to 25%, up to 75% and back to 50%.
+input 100800 note-on 48 100
+input 103200 turn encoder-2 -8
+input 105600 turn encoder-2 -8
+input 108000 turn encoder-2 -8
+input 110400 turn encoder-2 -8
+input 112800 turn encoder-2 8
+input 115200 turn encoder-2 8
+input 117600 turn encoder-2 8
+input 120000 turn encoder-2 8
+input 122400 turn encoder-2 8
+input 124800 turn encoder-2 8
+input 127200 turn encoder-2 8
+input 129600 turn encoder-2 8
+input 132000 turn encoder-2 -8
+input 134400 turn encoder-2 -8
+input 136800 turn encoder-2 -8
+input 139200 turn encoder-2 -8
+input 144000 note-off 48
+# Resonance up to 100% on a held note and back to 25%.
+input 148800 note-on 48 100
+input 151200 turn encoder-3 16
+input 153600 turn encoder-3 16
+input 156000 turn encoder-3 16
+input 158400 turn encoder-3 16
+input 160800 turn encoder-3 16
+input 163200 turn encoder-3 16
+input 168000 turn encoder-3 -16
+input 170400 turn encoder-3 -16
+input 172800 turn encoder-3 -16
+input 175200 turn encoder-3 -16
+input 177600 turn encoder-3 -16
+input 180000 turn encoder-3 -16
+input 184800 note-off 48
+# Cutoff 25% and Envelope amount +100. PAGE + step 4: the Filter envelope page, Decay longer. A
+# note opens the filter as the envelope decays.
+input 189600 turn encoder-2 -32
+input 191200 turn encoder-4 64
+input 192800 press page
+input 194400 press step-4
+input 196000 release step-4
+input 197600 release page
+input 199200 turn encoder-2 16
+input 204000 note-on 48 100
+input 240000 note-off 48
+# PAGE + step 3: Envelope amount −100 from Cutoff 75%, which the envelope closes.
+input 249600 press page
+input 251200 press step-3
+input 252800 release step-3
+input 254400 release page
+input 256000 turn encoder-4 -127
+input 257600 turn encoder-4 -1
+input 259200 turn encoder-2 64
+input 264000 note-on 48 100
+input 300000 note-off 48
+# Envelope amount +0 and Cutoff 25% again. Down three times to Key follow and + held for 64
+# moves: 50%. Then notes across the keys: C1, C3, C5 and C7.
+input 307200 turn encoder-4 64
+input 308800 turn encoder-2 -64
+input 310400 press down
+input 312000 release down
+input 313600 press down
+input 315200 release down
+input 316800 press down
+input 318400 release down
+input 320000 press plus
+input 489600 release plus
+input 494400 note-on 24 100
+input 506400 note-off 24
+input 508800 note-on 48 100
+input 520800 note-off 48
+input 523200 note-on 72 100
+input 535200 note-off 72
+input 537600 note-on 96 100
+input 549600 note-off 96
+# Down to Velocity amount and + held for 64 moves: 50%. A note at velocity 30, then at 127.
+input 552000 press down
+input 553600 release down
+input 555200 press plus
+input 724800 release plus
+input 729600 note-on 48 30
+input 741600 note-off 48
+input 744000 note-on 48 127
+input 756000 note-off 48
+end 768000

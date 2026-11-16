@@ -13,14 +13,14 @@ input 64 press ok
 input 72 release ok
 input 80 press pads-keys
 input 88 release pads-keys
-# The records apply the first two notes later than the steps after their hits: messages 0 and 1
-# at 1024 and 1536.
+# The records apply the first two notes later than the steps after their hits: messages 1 and 2
+# at 1024 and 1536, after New synth's message 0.
 input 100 pad-hit 0 127
 step 128
-applied 0 1024
+applied 1 1024
 input 700 pad-hit 7 64
 step 1024
-applied 1 1536
+applied 2 1536
 step 1536
 frame 1536
 input 2000 pad-release 7

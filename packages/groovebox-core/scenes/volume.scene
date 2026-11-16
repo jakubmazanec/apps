@@ -1,0 +1,94 @@
+groovebox-scene 1
+# Syn 1 on pad 1 through the panel: MENU + step 3, then OK, down and OK in the sound picker.
+input 3200 press menu
+input 4800 press step-3
+input 6400 release step-3
+input 8000 release menu
+input 9600 press ok
+input 11200 release ok
+input 12800 press down
+input 14400 release down
+input 16000 press ok
+input 17600 release ok
+# A tap of PADS/KEYS makes the pads keys that play Syn 1.
+input 19200 press pads-keys
+input 20800 release pads-keys
+# The volume knob turned down 40 clicks and up 60 on a held note.
+input 24000 note-on 60 100
+input 28800 turn volume -10
+input 33600 turn volume -10
+input 38400 turn volume -10
+input 43200 turn volume -10
+input 48000 turn volume 10
+input 52800 turn volume 10
+input 57600 turn volume 10
+input 62400 turn volume 10
+input 67200 turn volume 10
+input 72000 turn volume 10
+input 76800 note-off 60
+# 32 loud MIDI notes at once drive the soft clipper.
+input 86400 note-on 36 127
+input 86400 note-on 37 127
+input 86400 note-on 38 127
+input 86400 note-on 39 127
+input 86400 note-on 40 127
+input 86400 note-on 41 127
+input 86400 note-on 42 127
+input 86400 note-on 43 127
+input 86400 note-on 44 127
+input 86400 note-on 45 127
+input 86400 note-on 46 127
+input 86400 note-on 47 127
+input 86400 note-on 48 127
+input 86400 note-on 49 127
+input 86400 note-on 50 127
+input 86400 note-on 51 127
+input 86400 note-on 52 127
+input 86400 note-on 53 127
+input 86400 note-on 54 127
+input 86400 note-on 55 127
+input 86400 note-on 56 127
+input 86400 note-on 57 127
+input 86400 note-on 58 127
+input 86400 note-on 59 127
+input 86400 note-on 60 127
+input 86400 note-on 61 127
+input 86400 note-on 62 127
+input 86400 note-on 63 127
+input 86400 note-on 64 127
+input 86400 note-on 65 127
+input 86400 note-on 66 127
+input 86400 note-on 67 127
+input 110400 note-off 36
+input 110400 note-off 37
+input 110400 note-off 38
+input 110400 note-off 39
+input 110400 note-off 40
+input 110400 note-off 41
+input 110400 note-off 42
+input 110400 note-off 43
+input 110400 note-off 44
+input 110400 note-off 45
+input 110400 note-off 46
+input 110400 note-off 47
+input 110400 note-off 48
+input 110400 note-off 49
+input 110400 note-off 50
+input 110400 note-off 51
+input 110400 note-off 52
+input 110400 note-off 53
+input 110400 note-off 54
+input 110400 note-off 55
+input 110400 note-off 56
+input 110400 note-off 57
+input 110400 note-off 58
+input 110400 note-off 59
+input 110400 note-off 60
+input 110400 note-off 61
+input 110400 note-off 62
+input 110400 note-off 63
+input 110400 note-off 64
+input 110400 note-off 65
+input 110400 note-off 66
+input 110400 note-off 67
+end 124800

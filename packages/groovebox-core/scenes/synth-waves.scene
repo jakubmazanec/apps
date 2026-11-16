@@ -1,0 +1,76 @@
+groovebox-scene 1
+# Syn 1 on pad 1 through the panel: MENU + step 3, then OK, down and OK in the sound picker. A tap
+# of PADS/KEYS then makes the pads keys that play Syn 1.
+input 3200 press menu
+input 4800 press step-3
+input 6400 release step-3
+input 8000 release menu
+input 9600 press ok
+input 11200 release ok
+input 12800 press down
+input 14400 release down
+input 16000 press ok
+input 17600 release ok
+input 19200 press pads-keys
+input 20800 release pads-keys
+# PAGE + step 2: the Synth page. Each wave in turn holds a MIDI note for half a second: Saw, Pulse,
+# Triangle, Sine and Supersaw.
+input 22400 press page
+input 24000 press step-2
+input 25600 release step-2
+input 27200 release page
+input 28800 note-on 48 100
+input 52800 note-off 48
+input 57600 turn encoder-1 1
+input 60000 note-on 48 100
+input 84000 note-off 48
+input 88800 turn encoder-1 1
+input 91200 note-on 48 100
+input 115200 note-off 48
+input 120000 turn encoder-1 1
+input 122400 note-on 48 100
+input 146400 note-off 48
+input 151200 turn encoder-1 1
+input 153600 note-on 48 100
+input 177600 note-off 48
+# Spread 25% makes the next note stereo. While it holds: Shape down to 25% and up to 75%, back to
+# 50%; Spread up to 75%; Sub level up to 50%.
+input 182400 turn encoder-3 32
+input 187200 note-on 48 100
+input 192000 turn encoder-2 -16
+input 196800 turn encoder-2 -16
+input 201600 turn encoder-2 16
+input 206400 turn encoder-2 16
+input 211200 turn encoder-2 16
+input 216000 turn encoder-2 16
+input 220800 turn encoder-2 -16
+input 225600 turn encoder-2 -16
+input 230400 turn encoder-3 16
+input 235200 turn encoder-3 16
+input 240000 turn encoder-3 16
+input 244800 turn encoder-3 16
+input 249600 turn encoder-4 16
+input 254400 turn encoder-4 16
+input 259200 turn encoder-4 16
+input 264000 turn encoder-4 16
+# Down to Noise level and + held for 32 moves: 25%. Down to Oscillator 2 level and + held for 48
+# moves: 38%. Down to Oscillator 2 interval and + held for 7 moves: +7. Down to Oscillator 2 fine
+# tune and + held for 10 moves: +10.
+input 268800 press down
+input 270400 release down
+input 272000 press plus
+input 364800 release plus
+input 369600 press down
+input 371200 release down
+input 372800 press plus
+input 504000 release plus
+input 508800 press down
+input 510400 release down
+input 512000 press plus
+input 544800 release plus
+input 549600 press down
+input 551200 release down
+input 552800 press plus
+input 592800 release plus
+input 609600 note-off 48
+end 624000

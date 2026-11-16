@@ -185,15 +185,16 @@ mod tests {
             "{SYN_1}input 100 pad-hit 0 127\nstep 128\nstep 1024\nstep 2048\nend 2048"
         ));
         let b = play_text(&format!(
-            "{SYN_1}input 100 pad-hit 0 127\nstep 128\nstep 1024\napplied 0 1024\nstep 2048\n\
+            "{SYN_1}input 100 pad-hit 0 127\nstep 128\nstep 1024\napplied 1 1024\nstep 2048\n\
             end 2048"
         ));
         let c = play_text(&format!(
             "{SYN_1}step 128\ninput 100 pad-hit 0 127\nstep 1024\nstep 2048\nend 2048"
         ));
 
-        assert_eq!(a.applied, [(0, 128)]);
-        assert_eq!(b.applied, [(0, 1024)]);
+        // Message 0 is New synth's, message 1 the hit's.
+        assert_eq!(a.applied, [(0, 128), (1, 128)]);
+        assert_eq!(b.applied, [(0, 128), (1, 1024)]);
         assert_eq!(c.applied, b.applied);
     }
 

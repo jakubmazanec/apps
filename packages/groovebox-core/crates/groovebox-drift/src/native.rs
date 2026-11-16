@@ -5,11 +5,29 @@ use groovebox_core::message::Report;
 use std::sync::atomic::{AtomicU32, Ordering};
 
 /// The core built for this machine.
-#[derive(Default)]
 pub struct NativeRunner {
     device: Box<Device>,
     /// The reports that the last step took, as the browser export stashes them.
     applied: Vec<(u32, u64)>,
+}
+
+impl Default for NativeRunner {
+    /// A fresh device, copied straight onto the heap: a debug build of `Device::new()` builds it on
+    /// the stack, and its copies there overflow a test thread's 2 MiB.
+    fn default() -> Self {
+        static FRESH: Device = Device::new();
+        let mut device = Box::<Device>::new_uninit();
+        // SAFETY: no side of `FRESH` is ever taken, so it keeps the bytes of a new device, which
+        // holds no pointers and owns nothing: a copy of them is a new device too.
+        let device = unsafe {
+            device.as_mut_ptr().copy_from_nonoverlapping(&FRESH, 1);
+            device.assume_init()
+        };
+        Self {
+            device,
+            applied: Vec::new(),
+        }
+    }
 }
 
 impl NativeRunner {

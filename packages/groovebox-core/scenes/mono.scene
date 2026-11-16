@@ -1,0 +1,65 @@
+groovebox-scene 1
+# Syn 1 on pad 1 through the panel: MENU + step 3, then OK, down and OK in the sound picker.
+input 3200 press menu
+input 4800 press step-3
+input 6400 release step-3
+input 8000 release menu
+input 9600 press ok
+input 11200 release ok
+input 12800 press down
+input 14400 release down
+input 16000 press ok
+input 17600 release ok
+# A tap of PADS/KEYS makes the pads keys that play Syn 1.
+input 19200 press pads-keys
+input 20800 release pads-keys
+# PAGE + step 6: the Voice page. Play mode Mono.
+input 22400 press page
+input 24000 press step-6
+input 25600 release step-6
+input 27200 release page
+input 28800 turn encoder-1 1
+# Overlapping MIDI notes: C4, E4 and G4 each take the voice and restart the envelopes. Letting go of
+# G4 goes back to E4, still held, and letting go of E4 back to C4.
+input 33600 note-on 60 100
+input 43200 note-on 64 100
+input 52800 note-on 67 100
+input 62400 note-off 67
+input 72000 note-off 64
+input 81600 note-off 60
+# Play mode Legato: the same notes move only the pitch.
+input 91200 turn encoder-1 1
+input 96000 note-on 60 100
+input 105600 note-on 64 100
+input 115200 note-on 67 100
+input 124800 note-off 67
+input 134400 note-off 64
+input 144000 note-off 60
+# Glide time 196 ms with Glide Always: overlapping notes glide, and so does a note that follows a
+# released one while it still sounds.
+input 153600 turn encoder-2 59
+input 158400 note-on 60 100
+input 168000 note-on 67 100
+input 177600 note-off 67
+input 187200 note-off 60
+input 196800 note-on 60 100
+input 206400 note-off 60
+input 207360 note-on 67 100
+input 216000 note-off 67
+# Glide Overlapping: only the overlapping notes glide.
+input 225600 turn encoder-3 1
+input 230400 note-on 60 100
+input 240000 note-on 67 100
+input 249600 note-off 67
+input 259200 note-off 60
+input 268800 note-on 60 100
+input 278400 note-off 60
+input 279360 note-on 67 100
+input 288000 note-off 67
+# Play mode Poly: overlapping notes take a voice each, and nothing glides.
+input 297600 turn encoder-1 -2
+input 302400 note-on 60 100
+input 312000 note-on 67 100
+input 321600 note-off 67
+input 331200 note-off 60
+end 345600

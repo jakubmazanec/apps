@@ -9,7 +9,8 @@ use wasmtime::{
 
 /// A `.wasm` file of the browser crate, instantiated as the page does it: a control instance,
 /// then an audio instance with its own stack, on one shared memory. Every call happens on this
-/// thread, one at a time.
+/// thread, one at a time. It counts the operations of each render in `wasmtime` fuel: most
+/// instructions take one unit.
 pub struct WasmRunner {
     store: Store<()>,
     memory: SharedMemory,
@@ -17,12 +18,17 @@ pub struct WasmRunner {
     audio: Instance,
     /// How many reports the last `control_step` stashed that `take_applied` has not read.
     stashed: u32,
+    /// The most fuel one `audio_render` call has used.
+    busiest: u64,
 }
 
 impl WasmRunner {
     pub fn new(path: &Path) -> Self {
         let mut config = Config::new();
-        config.wasm_threads(true).shared_memory(true);
+        config
+            .wasm_threads(true)
+            .shared_memory(true)
+            .consume_fuel(true);
         let engine = Engine::new(&config).expect("the engine takes shared memories");
         let module = Module::from_file(&engine, path)
             .unwrap_or_else(|error| panic!("{}: {error:?}", path.display()));
@@ -35,6 +41,7 @@ impl WasmRunner {
         )
         .expect("the memory is shared");
         let mut store = Store::new(&engine, ());
+        store.set_fuel(u64::MAX).expect("the engine consumes fuel");
         let mut instantiate = || {
             Instance::new(&mut store, &module, &[memory.clone().into()])
                 .expect("the module instantiates")
@@ -46,6 +53,7 @@ impl WasmRunner {
             control,
             audio,
             stashed: 0,
+            busiest: 0,
         };
         let top: i32 = runner.call(control, "audio_stack_top", ());
         audio
@@ -59,6 +67,16 @@ impl WasmRunner {
     /// The module's own fingerprint of everything it rendered.
     pub fn audio_fingerprint(&mut self) -> u64 {
         self.call(self.control, "audio_fingerprint", ())
+    }
+
+    /// The most operations one render has taken so far: the fuel of its `audio_render` call.
+    pub fn busiest_render(&self) -> u64 {
+        self.busiest
+    }
+
+    /// The fuel left in the store.
+    fn fuel(&self) -> u64 {
+        self.store.get_fuel().expect("the engine consumes fuel")
     }
 
     fn call<Params: WasmParams, Results: WasmResults>(
@@ -127,7 +145,9 @@ impl Runner for WasmRunner {
     }
 
     fn render(&mut self, left: &mut [f32], right: &mut [f32]) {
+        let before = self.fuel();
         let address: u32 = self.call(self.audio, "audio_render", left.len() as u32);
+        self.busiest = self.busiest.max(before - self.fuel());
         for (channel, address) in [(left, address), (right, address + (MAX_BATCH * 4) as u32)] {
             let mut bytes = vec![0; channel.len() * 4];
             self.read(address, &mut bytes);

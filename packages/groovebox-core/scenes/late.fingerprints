@@ -1,8 +1,9 @@
-audio 80a69197c1fb9325
+audio f8133fa6b3954991
 frame 1536 c7df656822cd315c
 frame 4096 c7df656822cd315c
 lights 1536 0000000110000081
 lights 4096 0000000110000001
-applied 0 1024
-applied 1 1536
-applied 2 4096
+applied 0 128
+applied 1 1024
+applied 2 1536
+applied 3 4096
