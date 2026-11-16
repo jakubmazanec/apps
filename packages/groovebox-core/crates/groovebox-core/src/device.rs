@@ -69,7 +69,9 @@ const _: () = assert!(
 // - `tables` are atomics, so either side may touch any entry. The control side writes an entry or
 //   a directory slot only where the audio side does not read: after the last slice of the table
 //   that the audio side uses, or in the other table once the latest `UseTable` has applied. So the
-//   entries that the audio side reads stay put while it reads them.
+//   entries that the audio side reads stay put while it reads them. The control side's `Listing`
+//   keeps to this as long as its caller keeps the order that its unsafe `forget` and `applied`
+//   and the docs of `add` and `Listed::Packed` set out.
 unsafe impl Sync for Device {}
 
 impl Device {
@@ -222,7 +224,11 @@ impl<'a> AudioSide<'a> {
     }
 
     /// Reads the files' blocks through the table that the audio part uses.
-    pub fn reader(&self) -> &Reader<'a> {
+    ///
+    /// # Safety
+    ///
+    /// The caller reads through it only the frames that `Tables::readers` allows.
+    pub unsafe fn reader(&self) -> &Reader<'a> {
         &self.readers[usize::from(self.audio.table())]
     }
 }
@@ -446,7 +452,8 @@ mod tests {
         // rest, so they are packed into table 1, file 1 from entry 0.
         add(0, 1);
         add(1, 10);
-        listing.forget(FileId(0));
+        // SAFETY: the audio side was never told about file 0.
+        unsafe { listing.forget(FileId(0)) };
         blocks.give_back(0);
         let listed = listing.add(
             &DEVICE.tables,
@@ -464,12 +471,14 @@ mod tests {
         assert_eq!(control.messages.push(message), Ok(()));
 
         audio.render(&mut [0.0; 64], &mut [0.0; 64]);
-        let reader = audio.reader();
+        // SAFETY: the test reads a frame of file 1, which the control side no longer writes.
+        let reader = unsafe { audio.reader() };
         assert_eq!(reader.slice(FileId(1)), 1);
         assert_eq!(reader.frame(1, false, 4 * 1_024), (7, 7));
 
         audio.render(&mut [0.0; 32], &mut [0.0; 32]);
-        let reader = audio.reader();
+        // SAFETY: as above.
+        let reader = unsafe { audio.reader() };
         assert_eq!(reader.slice(FileId(1)), 0);
         assert_eq!(reader.frame(0, false, 4 * 1_024), (7, 7));
         assert_eq!(

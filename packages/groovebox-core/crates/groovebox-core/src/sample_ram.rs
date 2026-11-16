@@ -66,20 +66,25 @@ impl SampleRam {
         reason = "both sides share the sample RAM and each writes only its own blocks"
     )]
     pub unsafe fn bytes(&self, offset: u32, length: u32) -> &mut [u8] {
+        // SAFETY: the span lies in the sample RAM, and the caller promises that nothing else
+        // touches it meanwhile.
+        unsafe { &mut *self.span(offset, length) }
+    }
+
+    /// The `length` bytes from `offset`.
+    ///
+    /// # Panics
+    ///
+    /// When the bytes reach past the sample RAM.
+    fn span(&self, offset: u32, length: u32) -> *mut [u8] {
         assert!(
             offset
                 .checked_add(length)
                 .is_some_and(|end| end as usize <= budget::SAMPLE_RAM),
             "bytes {offset} to {offset} + {length} reach past the sample RAM"
         );
-        // SAFETY: the bytes lie in the sample RAM, and the caller promises that nothing else
-        // touches them meanwhile.
-        unsafe {
-            core::slice::from_raw_parts_mut(
-                self.0.get().cast::<u8>().add(offset as usize),
-                length as usize,
-            )
-        }
+        let start = self.0.get().cast::<u8>().wrapping_add(offset as usize);
+        core::ptr::slice_from_raw_parts_mut(start, length as usize)
     }
 }
 
@@ -102,7 +107,7 @@ impl Blocks {
     }
 
     /// The lowest `count` free blocks, each taken as the iterator gives it, or `None` when fewer
-    /// are free.
+    /// are free: the sample RAM has no room for them.
     pub fn take(&mut self, count: usize) -> Option<impl ExactSizeIterator<Item = u32>> {
         let mut block = 0;
         (self.free() >= count).then(move || {
@@ -171,9 +176,9 @@ impl Tables {
     ///
     /// # Safety
     ///
-    /// The readers may read only the slices of files that the control side told the audio side
-    /// about and has not yet heard it let go of: only those blocks are the audio side's (see
-    /// `SampleRam::bytes`).
+    /// The readers may read only the frames of files that the control side told the audio side
+    /// about and has not yet heard it let go of, each within its file's length: only those
+    /// blocks are the audio side's (see `SampleRam::bytes`).
     pub unsafe fn readers<'a>(&'a self, ram: &'a SampleRam) -> [Reader<'a>; 2] {
         self.0.each_ref().map(|table| Reader { table, ram })
     }
@@ -190,9 +195,11 @@ impl Default for Tables {
 pub enum Listed {
     /// It listed them after the last slice of the table the audio part reads.
     Appended,
-    /// It wrote every other file's slice, packed, and then this one into the other table. The
-    /// caller sends `UseTable { version }` and calls `applied` once its applied report has come
-    /// back.
+    /// It wrote every other file's slice, packed, and then this one into the other table, where
+    /// the slices differ from those of the table the audio part reads. So the caller sends
+    /// `UseTable { version }` at once, before any other message: every message after it names
+    /// slices of the table that the audio part then reads. It calls `applied` once that
+    /// message's applied report has come back.
     Packed { version: u8 },
 }
 
@@ -216,14 +223,29 @@ impl Listing {
         }
     }
 
-    /// Lists `blocks` as the slice of `file`, which is not listed. Writes nothing, takes no block
-    /// and gives `None` while the audio part may read either table.
+    /// Lists `blocks` as the slice of `file`, which must not be listed: the audio part may still
+    /// read a listed file's slice. After `Listed::Appended` a message may name `file` at once;
+    /// `Listed::Packed` says what comes first.
+    ///
+    /// It gives `None`, writing nothing and taking no block, while the audio part may read either
+    /// table: the caller tries again after `applied`. Room is not its to refuse: blocks from
+    /// `Blocks` always fit once packed, and `Blocks::take` gives `None` when too few are free.
+    ///
+    /// # Panics
+    ///
+    /// When `file` is listed.
     pub fn add(
         &mut self,
         tables: &Tables,
         file: FileId,
         blocks: impl ExactSizeIterator<Item = u32>,
     ) -> Option<Listed> {
+        assert_eq!(
+            self.lengths[usize::from(file.0)],
+            0,
+            "file {} is listed",
+            file.0
+        );
         if self.switching {
             return None;
         }
@@ -267,19 +289,29 @@ impl Listing {
         Some(listed)
     }
 
-    /// Unlists `file` once the audio part let go of it, when its blocks go back: its entries may
-    /// then be written again.
-    pub fn forget(&mut self, file: FileId) {
+    /// Unlists `file`, whose blocks go back to `Blocks` at the same time: its entries may then be
+    /// written again.
+    ///
+    /// # Safety
+    ///
+    /// The audio part has let go of `file`: the applied report of the message that told it to has
+    /// come back, so it reads none of the file's entries and blocks any more.
+    pub unsafe fn forget(&mut self, file: FileId) {
         self.lengths[usize::from(file.0)] = 0;
     }
 
-    /// The `UseTable` that `add` asked for has applied: the audio part reads only the table it
-    /// named, so the other may be written again.
-    pub fn applied(&mut self) {
+    /// Lets `add` write the tables again after a `Listed::Packed`.
+    ///
+    /// # Safety
+    ///
+    /// The applied report of the `UseTable` that the latest `Listed::Packed` asked for has come
+    /// back: the audio part reads only the table it named, so the other may be written again.
+    pub unsafe fn applied(&mut self) {
         self.switching = false;
     }
 
-    /// Where the slice of `file` starts in the table that every message sent from now on reads.
+    /// Where the slice of `file` starts in the table that every message sent from now on reads,
+    /// once the `UseTable` that a `Listed::Packed` asks for has been sent.
     pub fn slice(&self, tables: &Tables, file: FileId) -> u32 {
         tables.0[usize::from(self.table)].slice(usize::from(file.0))
     }
@@ -304,15 +336,16 @@ impl Reader<'_> {
     }
 
     /// The left and right samples of `frame` of the file whose slice starts at `slice`; a mono
-    /// file gives its sample twice.
+    /// file gives its sample twice. `Tables::readers` says which frames it may read.
     pub fn frame(&self, slice: u32, stereo: bool, frame: u32) -> (i16, i16) {
         let channels = 1 + u32::from(stereo);
         let per_block = frames_per_block(channels);
         let block =
             self.table.entries[(slice + frame / per_block) as usize].load(Ordering::Relaxed);
         let offset = block * BLOCK as u32 + frame % per_block * 2 * channels;
-        // SAFETY: whoever made this reader promised that it reads only the audio side's blocks.
-        let bytes = unsafe { self.ram.bytes(offset, 2 * channels) };
+        // SAFETY: whoever made this reader promised that it reads only the audio side's blocks,
+        // which nothing writes meanwhile; a shared slice may overlap another reader's.
+        let bytes = unsafe { &*self.ram.span(offset, 2 * channels) };
         let sample = |at: usize| i16::from_le_bytes([bytes[at], bytes[at + 1]]);
         (sample(0), sample(bytes.len() - 2))
     }
@@ -400,6 +433,18 @@ mod tests {
         }
     }
 
+    #[test]
+    #[should_panic(expected = "file 3 is listed")]
+    fn a_listed_file_is_not_listed_again() {
+        let (tables, mut listing) = (Box::new(Tables::new()), Listing::new());
+        assert_eq!(
+            listing.add(&tables, FileId(3), [0].into_iter()),
+            Some(Listed::Appended)
+        );
+
+        listing.add(&tables, FileId(3), [1].into_iter());
+    }
+
     fn add(
         listing: &mut Listing,
         tables: &Tables,
@@ -437,7 +482,8 @@ mod tests {
             assert_eq!(listed, Some(Listed::Appended));
         }
         // The audio part let go of file 1.
-        listing.forget(FileId(1));
+        // SAFETY: the test plays the audio part, which reads nothing.
+        unsafe { listing.forget(FileId(1)) };
         (20_000..20_100).for_each(|block| blocks.give_back(block));
         // SAFETY: the readers read only the files the test listed.
         let [old, new] = unsafe { tables.readers(&ram) };
@@ -470,7 +516,8 @@ mod tests {
         // Neither table is written, nor a block taken, until the `UseTable` applied.
         assert_eq!(add(&mut listing, &tables, &mut blocks, 4, 50), None);
         assert_eq!(blocks.free(), 50);
-        listing.applied();
+        // SAFETY: the test plays the audio part, which now reads only table 1.
+        unsafe { listing.applied() };
         let listed = add(&mut listing, &tables, &mut blocks, 4, 50);
         assert_eq!(listed, Some(Listed::Appended));
         assert_eq!(new.slice(FileId(4)), 31_200);
