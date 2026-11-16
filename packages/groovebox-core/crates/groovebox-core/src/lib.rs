@@ -5,6 +5,7 @@
 extern crate std;
 
 pub mod audio;
+pub mod blake3;
 pub mod budget {
     include!(concat!(env!("OUT_DIR"), "/budget.rs"));
 }
