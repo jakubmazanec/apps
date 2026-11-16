@@ -502,6 +502,22 @@ mod tests {
     }
 
     #[test]
+    fn a_value_change_reaches_a_held_note() {
+        let (messages, reports) = (Queue::new(), Queue::new());
+        let mut rig = Rig::new(&messages, &reports);
+        rig.send(0, 0, new_sound(1));
+        rig.send(1, 0, note_on(0));
+        assert!(!is_silent(&rig.render(256)[256 - CHUNK..]));
+
+        rig.send(2, 256, set_sound(1, &LEVEL, 0));
+        // The level glides over 128 samples and reaches 0 in the fourth chunk.
+        let gliding = rig.render(4 * CHUNK);
+
+        assert!(!is_silent(&gliding[2 * CHUNK..3 * CHUNK]));
+        assert!(gliding[3 * CHUNK..].iter().all(|&x| x == 0.0));
+    }
+
+    #[test]
     fn a_choked_voice_fades_out_in_the_chunk_of_the_note_that_chokes_it() {
         let (messages, reports) = (Queue::new(), Queue::new());
         let mut rig = Rig::new(&messages, &reports);
