@@ -41,7 +41,13 @@ impl MemoryStorage {
 
     /// Carries out `request` as `Request` says, with `io` as the I/O buffer, and replies with
     /// number 0 for the caller to set. A commit that would pass the size is `Full`.
-    pub fn carry_out(&mut self, request: &Request, io: &mut [u8], ram: &SampleRam) -> Reply {
+    ///
+    /// # Safety
+    ///
+    /// For a `Load` and an `Append` from `SampleRam`, nothing else touches the request's bytes of
+    /// `ram` meanwhile: they are blocks of the caller's control side that the audio part was never
+    /// told about (see `SampleRam::bytes`).
+    pub unsafe fn carry_out(&mut self, request: &Request, io: &mut [u8], ram: &SampleRam) -> Reply {
         let (status, value) = match *request {
             Request::List { folder, from } => self.list(&folder, from, io),
             Request::Read { file, at, length } => match self.part(&file, at, length) {
@@ -58,9 +64,7 @@ impl MemoryStorage {
                 into,
             } => match self.part(&file, at, length) {
                 Some(part) => {
-                    // SAFETY: the harness carries out requests between control steps, and the
-                    // control part loads only into blocks it took and has not told the audio part
-                    // about, so nothing else touches them.
+                    // SAFETY: the caller promises that nothing else touches these bytes meanwhile.
                     unsafe { ram.bytes(into, part.len() as u32) }.copy_from_slice(part);
                     (Status::Done, part.len() as u64)
                 }
@@ -79,9 +83,8 @@ impl MemoryStorage {
                 Some((_, bytes)) => {
                     bytes.extend_from_slice(match from {
                         Memory::Io => &io[offset as usize..][..length as usize],
-                        // SAFETY: the harness carries out requests between control steps, and the
-                        // control part appends only blocks it wrote and has not told the audio
-                        // part about, so nothing else touches them.
+                        // SAFETY: the caller promises that nothing else touches these bytes
+                        // meanwhile.
                         Memory::SampleRam => unsafe { ram.bytes(offset, length) },
                     });
                     (Status::Done, 0)
@@ -218,7 +221,9 @@ mod tests {
         let mut io = [0xFF; 16];
         let mut list = |from| {
             let folder = path("samples");
-            let reply = storage.carry_out(&Request::List { folder, from }, &mut io, &ram);
+            // SAFETY: a List touches no sample RAM.
+            let reply =
+                unsafe { storage.carry_out(&Request::List { folder, from }, &mut io, &ram) };
             (reply, io)
         };
 
@@ -234,8 +239,9 @@ mod tests {
         assert_eq!(records[..10], *b"\x05b.wav\x03\0\0\0");
         assert_eq!(list(3).0, reply(Status::Done, 0));
         let folder = path("loops");
+        // SAFETY: as above.
         assert_eq!(
-            storage.carry_out(&Request::List { folder, from: 0 }, &mut io, &ram),
+            unsafe { storage.carry_out(&Request::List { folder, from: 0 }, &mut io, &ram) },
             reply(Status::Missing, 0)
         );
     }
@@ -247,7 +253,10 @@ mod tests {
         let kick = path("samples/drums/808/kick.wav");
         storage.put("samples/drums/808/kick.wav", vec![1, 2]);
         storage.put("samples/hat.wav", vec![9]);
-        let mut carry_out = |request, io: &mut [u8; 8]| storage.carry_out(&request, io, &ram);
+        let mut carry_out = |request, io: &mut [u8; 8]| {
+            // SAFETY: the test's own sample RAM, which nothing else touches meanwhile.
+            unsafe { storage.carry_out(&request, io, &ram) }
+        };
 
         assert_eq!(
             carry_out(Request::Commit, &mut io),
@@ -313,8 +322,9 @@ mod tests {
             at: 0,
             length: 8,
         };
+        // SAFETY: a Read touches no sample RAM.
         assert_eq!(
-            storage.carry_out(&read, &mut io, &ram),
+            unsafe { storage.carry_out(&read, &mut io, &ram) },
             reply(Status::Missing, 0)
         );
     }
@@ -328,7 +338,8 @@ mod tests {
         storage.put("tmp/2/snare.wav", vec![4]);
         let delete = |storage: &mut MemoryStorage, text| {
             let request = Request::Delete { path: path(text) };
-            storage.carry_out(&request, &mut [], &ram).status
+            // SAFETY: a Delete touches no sample RAM.
+            unsafe { storage.carry_out(&request, &mut [], &ram) }.status
         };
 
         assert_eq!(
@@ -362,7 +373,8 @@ mod tests {
         storage.put("samples/a.wav", vec![0; 4]);
         storage.put("samples/b.wav", vec![0; 2]);
         let mut io = [0; 9];
-        let mut carry_out = |request| storage.carry_out(&request, &mut io, &ram);
+        // SAFETY: none of these requests touches the sample RAM.
+        let mut carry_out = |request| unsafe { storage.carry_out(&request, &mut io, &ram) };
         assert_eq!(carry_out(Request::Free), reply(Status::Done, 4));
         let file = path("samples/a.wav");
         let mut replace = |length| {
