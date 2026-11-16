@@ -355,12 +355,20 @@ mod tests {
             velocity: 100,
         };
         // The control part sends a message only for a pad with a sound, so the test sends one
-        // itself through the control side's end of the queue.
-        let message = Message {
+        // itself through the control side's end of the queue, after the sound it plays.
+        let new_sound = Message {
             number: 0,
+            at: 0,
+            kind: MessageKind::NewSound {
+                sound: SoundNumber(1),
+            },
+        };
+        let message = Message {
+            number: 1,
             at: 40,
             kind,
         };
+        assert_eq!(control.messages.push(new_sound), Ok(()));
         assert_eq!(control.messages.push(message), Ok(()));
 
         audio.render(&mut [0.0; 128], &mut [0.0; 128]);
@@ -370,6 +378,13 @@ mod tests {
             control.take_report(),
             Some(Report::Applied {
                 number: 0,
+                sample: 0
+            })
+        );
+        assert_eq!(
+            control.take_report(),
+            Some(Report::Applied {
+                number: 1,
                 sample: 64
             })
         );
