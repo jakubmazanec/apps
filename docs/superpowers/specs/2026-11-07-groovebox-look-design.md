@@ -35,7 +35,7 @@ hardware.
 | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Display        | 4.3″ 480 × 272 IPS, a real part from many vendors in one footprint; nothing doubled (owner's choice)                                                                                                    |
 | Frame buffer   | 8-bit indexed, a 256-entry palette expanded to the panel's 24-bit colour; 128 KB per buffer                                                                                                             |
-| Font           | monogram, 7 px capitals, monospaced 6 px, every Czech letter, CC0 (owner's choice); mixed case; full names, shortened with "…" only when they do not fit                                                |
+| Font           | monogram, 7 px capitals, monospaced 6 px, every Czech letter, CC0 (owner's choice); mixed case; full names; a name that does not fit scrolls under the cursor and is shortened with "…" elsewhere       |
 | Look           | Minimal and flat: black, no bevels, no shading, lines only where they carry meaning (owner's choice)                                                                                                    |
 | Spacing        | Every element sized to its content, 1 px gaps, free space between elements, 3 px around the capitals, text rows 13 px (owner's choice)                                                                  |
 | Cursor         | An orange outline 1 px outside the item, everywhere; the inverted orange block means only "selected" (owner's choice)                                                                                   |
@@ -102,13 +102,26 @@ Kerning is not used; monospacing gives aligned digits for free. px sans nouveaux
 Říkanka), labels like Cutoff, screen names like Step. The capitals of the earlier specs were a
 writing convention, not a decision.
 
-**Full names** **(owner's choice)**, never abbreviations: Resonance, Envelope amount. A label that
-does not fit the space it has is shortened with "…": a long value keeps its label short ("Sam…" next
-to a long file name), and a sound name longer than 12 characters is shortened in the names column of
-STEP ("Žluťoučký k…") **(my call: 12)**. The owner wants text that does not fit to scroll in place
-instead, its box never changing **(owner's choice)**. Scrolling text gets its own small plan, right
-after Sound, and is designed then, starting from the EP-133; until it is built, text is shortened
-with "…".
+**Full names** **(owner's choice)**, never abbreviations: Resonance, Envelope amount. A text that
+does not fit the space it has scrolls in place while the cursor is on it, its box never changing
+**(owner's choice, 2026-11-16)**:
+
+- **What scrolls:** only the text under the cursor: the item, picker row or tile it is on, the
+  current tile while MENU or PAGE is held, and the selected pad's tile on the Pad page. The EP-133
+  too scrolls only one name, that of the pad you hold. The strip is never a cursor target, so it
+  never scrolls.
+- **How:** in a loop, as on the EP-133. The text shows from its first letter and holds still for
+  about a second, then glides left a pixel at a time; after its last letter come a gap and its first
+  letter again, which holds still once more at the start. It is cut at the edges of its box,
+  mid-letter where it falls, with no "…".
+- **When:** it starts when the cursor lands on the text and starts again whenever the cursor lands
+  on something new. Turning a value, playing and the music do not restart it.
+- **Numbers (my call, tuned by eye):** the pause 1 s, 30 pixels a second, the gap 18 pixels (three
+  letters), counted on the device's sample clock, so a replay scrolls the same.
+
+Every other text that does not fit is shortened with "…": a long value keeps its label short ("Sam…"
+next to a long file name), and a sound name longer than 12 characters is shortened in the names
+column of STEP ("Žluťoučký k…") **(my call: 12)**.
 
 ## The rules every screen is drawn by
 
@@ -462,11 +475,12 @@ frames are first recorded from the implementation that matches.
 On top of the other specs' testing:
 
 - **Ordinary tests**: the layout rules as pure functions (text rows 13 px, items 17 px, the cursor 1
-  px outside, 2 px container padding, 1 px elsewhere); shortening with "…"; the header's content per
-  state; the library meter showing the same number on POOL, SAMPLES and in the sample picker; the
-  strip's cells, empty on lists, in pickers and in questions; the encoder marks on a page; a page's
-  scrolling; STEP's page arithmetic in 4/4, 3/4, 7/8 and 5/4; ROLL's rows; the palette's entries;
-  the keyboard and MIDI maps; tap-and-hold forwarding.
+  px outside, 2 px container padding, 1 px elsewhere); shortening with "…"; scrolling text: only
+  under the cursor, the pause, a pixel at a time, the loop and its gap, the cut at the box's edges;
+  the header's content per state; the library meter showing the same number on POOL, SAMPLES and in
+  the sample picker; the strip's cells, empty on lists, in pickers and in questions; the encoder
+  marks on a page; a page's scrolling; STEP's page arithmetic in 4/4, 3/4, 7/8 and 5/4; ROLL's rows;
+  the palette's entries; the keyboard and MIDI maps; tap-and-hold forwarding.
 - **Drift scenes**: every gallery state captured as a frame.
 - **The gallery** itself, with the PNGs beside it.
 

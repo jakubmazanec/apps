@@ -82,8 +82,8 @@ controls do. What part 1 teaches then decides the physical layout and look (part
 - **Milestone 1 is planned in three plans (decided):** the foundation, then the screens and pads,
   then Sound. The screens come first so that Sound's tests reach every sound and value through the
   device's own controls. A small plan for scrolling text follows Sound **(decided)**: text that does
-  not fit scrolls in place, its box never changing. It is designed then, starting from the EP-133;
-  until it is built, text is shortened with "…" (Look).
+  not fit scrolls in place, its box never changing. It was designed on 2026-11-16, starting from the
+  EP-133; Look, "The font", holds the design.
 
 ## Subparts
 

@@ -109,8 +109,8 @@ part.
 - **Shape:** pulse width for the pulse, detune for the supersaw; no effect on the other waves.
 - **Second oscillator:** the same wave as the first, with its own level, interval (−24 to +24
   semitones) and fine tune (−50 to +50 cents). Its entries are named Oscillator 2 level, Oscillator
-  2 interval and Oscillator 2 fine tune, in full words; a name that does not fit is shortened with
-  "…" as Look says, until scrolling text replaces that.
+  2 interval and Oscillator 2 fine tune, in full words; a name that does not fit scrolls under the
+  cursor and is shortened with "…" elsewhere, as Look says.
 - **Sub oscillator:** a square wave one octave below, with a level.
 - **Noise level.**
 - **Spread:** stereo width. At zero the voice is mono; above zero it is stereo, with the supersaw's
