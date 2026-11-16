@@ -1,7 +1,7 @@
 #![no_std]
 #![deny(unsafe_code)]
 
-#[cfg(any(test, feature = "loom"))]
+#[cfg(any(test, feature = "loom", feature = "harness"))]
 extern crate std;
 
 pub mod audio;
@@ -17,6 +17,7 @@ pub mod fingerprint;
 pub mod font;
 pub mod input;
 pub mod label;
+pub mod library;
 pub mod lights;
 pub mod message;
 pub mod palette;
