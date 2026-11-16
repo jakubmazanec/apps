@@ -57,6 +57,10 @@ pub enum MessageKind {
         sound: SoundNumber,
         of: SoundNumber,
     },
+    /// From this chunk on the audio part reads blocks through block table `version`, 0 or 1.
+    UseTable {
+        version: u8,
+    },
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

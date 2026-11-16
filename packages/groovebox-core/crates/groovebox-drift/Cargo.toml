@@ -6,6 +6,6 @@ license.workspace = true
 publish.workspace = true
 
 [dependencies]
-groovebox-core = { path = "../groovebox-core" }
+groovebox-core = { path = "../groovebox-core", features = ["harness"] }
 png = "0.18"
 wasmtime = { version = "50.0.1", default-features = false, features = ["runtime", "cranelift", "threads", "std"] }

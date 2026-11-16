@@ -13,6 +13,7 @@ use groovebox_core::fingerprint::Fingerprint;
 use groovebox_core::input::{Input, Stamped};
 use groovebox_core::message::{REPORT_QUEUE, Report};
 use groovebox_core::palette;
+use groovebox_core::sample_ram::SampleRam;
 
 #[cfg(target_arch = "wasm32")]
 #[panic_handler]
@@ -28,6 +29,7 @@ struct Stack {
 }
 
 static DEVICE: Device = Device::new();
+static SAMPLE_RAM: SampleRam = SampleRam::new();
 /// The sample at which the next `audio_render` starts. Only the audio side stores it.
 static POSITION: AtomicU64 = AtomicU64::new(0);
 /// Counts the batches rendered. Only the page uses it: the AudioWorklet adds to it and wakes the
@@ -53,7 +55,7 @@ static mut AUDIO_STACK: Stack = Stack {
 fn control_side() -> ControlSide<'static> {
     // SAFETY: only the worker calls the exports that use this, one at a time, and each of them
     // drops its side before it returns, so at most one control side exists.
-    unsafe { DEVICE.control_side() }
+    unsafe { DEVICE.control_side(&SAMPLE_RAM) }
 }
 
 /// Queues an input stamped with `sample`. `kind`, `a` and `b` are the wire format of
@@ -170,8 +172,12 @@ pub extern "C" fn audio_fingerprint() -> u64 {
 pub extern "C" fn audio_render(frames: u32) -> u32 {
     // SAFETY: only the AudioWorklet calls this, one call at a time, so at most one audio side
     // exists; and only this call touches the output, which the worklet reads after it returns.
-    let (mut audio, [left, right]) =
-        unsafe { (DEVICE.audio_side(), (&raw mut OUTPUT).as_mut_unchecked()) };
+    let (mut audio, [left, right]) = unsafe {
+        (
+            DEVICE.audio_side(&SAMPLE_RAM),
+            (&raw mut OUTPUT).as_mut_unchecked(),
+        )
+    };
     let (left, right) = (&mut left[..frames as usize], &mut right[..frames as usize]);
     audio.render(left, right);
     // Only this side stores the fingerprint, so a relaxed load sees its last store.

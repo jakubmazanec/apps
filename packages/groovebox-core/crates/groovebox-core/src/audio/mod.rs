@@ -24,6 +24,8 @@ pub struct Audio {
     voices: Voices,
     /// The output volume's value, where it glides to and the chunks it takes to get there.
     volume: Glide,
+    /// The block table it reads blocks through, 0 or 1.
+    table: u8,
 }
 
 impl Audio {
@@ -33,12 +35,18 @@ impl Audio {
             sounds: Sounds::new(),
             voices: Voices::new(),
             volume: Glide::at(OUTPUT_VOLUME.default),
+            table: 0,
         }
     }
 
     /// The sample at which the next `render` starts.
     pub fn position(&self) -> u64 {
         self.position
+    }
+
+    /// The block table it reads blocks through, 0 or 1.
+    pub fn table(&self) -> u8 {
+        self.table
     }
 
     /// Renders `left.len()` samples, which must be a multiple of `CHUNK`. At each chunk start it
@@ -97,6 +105,7 @@ impl Audio {
                         &mut fades,
                     ),
                     MessageKind::NoteOff { note } => self.voices.note_off(note, &self.sounds),
+                    MessageKind::UseTable { version } => self.table = version,
                     // Another device value is not the audio part's.
                     MessageKind::SetParam { .. } => {}
                 }

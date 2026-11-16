@@ -6,12 +6,14 @@ use crate::control::Control;
 use crate::input::Stamped;
 use crate::message::{MESSAGE_QUEUE, Message, REPORT_QUEUE, Report};
 use crate::queue::{Consumer, Producer, Queue};
+use crate::sample_ram::{Reader, SampleRam, Tables};
 use crate::screen::Screen;
 use core::cell::UnsafeCell;
 use core::sync::atomic::{AtomicU32, Ordering};
 
-/// The whole core in one struct: both parts, both queues, two screens and the lights. A host puts
-/// it in a `static` and gives the control side to one thread and the audio side to another.
+/// The whole core in one struct: both parts, both queues, two screens, the lights and the block
+/// tables. A host puts it in a `static`, keeps a `SampleRam` beside it and gives the control side
+/// to one thread and the audio side to another, each with that sample RAM.
 ///
 /// The control side draws into the back screen and then makes it the front one by storing its
 /// index in `front`. A reader of the picture loads `front` and reads that screen. After every step
@@ -28,6 +30,7 @@ pub struct Device {
     /// one, so that a target without 64-bit atomics holds them. All are off until the first step.
     /// Only the control side stores them.
     lights: [AtomicU32; 2],
+    tables: Tables,
 }
 
 const _: () = assert!(
@@ -35,8 +38,9 @@ const _: () = assert!(
     "the device is larger than the working memory in budget.toml"
 );
 
-// SAFETY: every part of the device belongs to exactly one side, except `front`, `lights` and the
-// front screen, and `control_side` and `audio_side` promise that at most one of each side exists.
+// SAFETY: every part of the device belongs to exactly one side, except `front`, `lights`, `tables`
+// and the front screen, and `control_side` and `audio_side` promise that at most one of each side
+// exists.
 // - The control side owns `control`, the producer of `messages`, the consumer of `reports` and
 //   the back screen, which is `screens[1 - front]`.
 // - The audio side owns `audio`, the consumer of `messages` and the producer of `reports`.
@@ -56,6 +60,16 @@ const _: () = assert!(
 //   pair one step's low word with a later step's high word for one read, while a step stores. The
 //   lights only show, and the next read is whole; a reader on the control side's own thread, such
 //   as the drift harness, reads between steps and always gets one step's lights.
+// - The sample RAM beside the device is split by blocks. The control side owns every block it took
+//   and has not yet told the audio side about in a message. The audio side reads, and never
+//   writes, the blocks of each file it was told about, until its report that it let go of the file
+//   reaches the control side; only then does the control side give those blocks back. The queues
+//   hand the blocks over: the Release of a push and the Acquire of its pop order every byte
+//   written before it.
+// - `tables` are atomics, so either side may touch any entry. The control side writes an entry or
+//   a directory slot only where the audio side does not read: after the last slice of the table
+//   that the audio side uses, or in the other table once the latest `UseTable` has applied. So the
+//   entries that the audio side reads stay put while it reads them.
 unsafe impl Sync for Device {}
 
 impl Device {
@@ -71,13 +85,14 @@ impl Device {
             ],
             front: AtomicU32::new(0),
             lights: [AtomicU32::new(0), AtomicU32::new(0)],
+            tables: Tables::new(),
         }
     }
 
     /// # Safety
     ///
     /// At most one control side may exist at a time, on any thread.
-    pub unsafe fn control_side(&self) -> ControlSide<'_> {
+    pub unsafe fn control_side<'a>(&'a self, ram: &'a SampleRam) -> ControlSide<'a> {
         // SAFETY: the caller promises that this is the only control side, so it is the only user
         // of `control`, of the producer of `messages` and of the consumer of `reports`.
         unsafe {
@@ -86,6 +101,7 @@ impl Device {
                 control: &mut *self.control.get(),
                 messages: self.messages.producer(),
                 reports: self.reports.consumer(),
+                ram,
             }
         }
     }
@@ -93,14 +109,16 @@ impl Device {
     /// # Safety
     ///
     /// At most one audio side may exist at a time, on any thread.
-    pub unsafe fn audio_side(&self) -> AudioSide<'_> {
+    pub unsafe fn audio_side<'a>(&'a self, ram: &'a SampleRam) -> AudioSide<'a> {
         // SAFETY: the caller promises that this is the only audio side, so it is the only user of
-        // `audio`, of the consumer of `messages` and of the producer of `reports`.
+        // `audio`, of the consumer of `messages` and of the producer of `reports`. The audio part
+        // reads only the files it was told about: see the note on `Sync` for `Device`.
         unsafe {
             AudioSide {
                 audio: &mut *self.audio.get(),
                 messages: self.messages.consumer(),
                 reports: self.reports.producer(),
+                readers: self.tables.readers(ram),
             }
         }
     }
@@ -135,6 +153,11 @@ pub struct ControlSide<'a> {
     control: &'a mut Control,
     messages: Producer<'a, Message, MESSAGE_QUEUE>,
     reports: Consumer<'a, Report, REPORT_QUEUE>,
+    #[expect(
+        dead_code,
+        reason = "the control part has no file to write into its blocks yet"
+    )]
+    ram: &'a SampleRam,
 }
 
 impl ControlSide<'_> {
@@ -183,9 +206,10 @@ pub struct AudioSide<'a> {
     audio: &'a mut Audio,
     messages: Consumer<'a, Message, MESSAGE_QUEUE>,
     reports: Producer<'a, Report, REPORT_QUEUE>,
+    readers: [Reader<'a>; 2],
 }
 
-impl AudioSide<'_> {
+impl<'a> AudioSide<'a> {
     /// Renders `left.len()` samples: see `Audio::render`.
     pub fn render(&mut self, left: &mut [f32], right: &mut [f32]) {
         self.audio
@@ -196,6 +220,11 @@ impl AudioSide<'_> {
     pub fn position(&self) -> u64 {
         self.audio.position()
     }
+
+    /// Reads the files' blocks through the table that the audio part uses.
+    pub fn reader(&self) -> &Reader<'a> {
+        &self.readers[usize::from(self.audio.table())]
+    }
 }
 
 #[cfg(test)]
@@ -203,10 +232,12 @@ mod tests {
     use super::*;
     use crate::control::REPLAY_QUEUE;
     use crate::input::{Button, Input, Stamped};
+    use crate::library::FileId;
     use crate::lights::Lights;
     use crate::message::{MessageKind, NoteId};
     use crate::palette::{BACKGROUND, LINE};
     use crate::project::pool::SoundNumber;
+    use crate::sample_ram::{BLOCK, BLOCKS, Blocks, Listed, Listing};
     use crate::screen::{HEIGHT, WIDTH};
 
     fn press(sample: u64, button: Button) -> Stamped {
@@ -222,8 +253,9 @@ mod tests {
     #[test]
     fn step_draws_into_the_back_screen_and_flips() {
         static DEVICE: Device = Device::new();
+        let ram = SampleRam::boxed();
         // SAFETY: this test takes the only control side of its own device.
-        let mut control = unsafe { DEVICE.control_side() };
+        let mut control = unsafe { DEVICE.control_side(&ram) };
         assert_eq!(DEVICE.front.load(Ordering::Acquire), 0);
 
         control.step(128);
@@ -242,8 +274,9 @@ mod tests {
     #[test]
     fn a_step_without_a_change_does_not_flip() {
         static DEVICE: Device = Device::new();
+        let ram = SampleRam::boxed();
         // SAFETY: this test takes the only control side of its own device.
-        let mut control = unsafe { DEVICE.control_side() };
+        let mut control = unsafe { DEVICE.control_side(&ram) };
         control.step(128);
 
         control.step(256);
@@ -254,8 +287,9 @@ mod tests {
     #[test]
     fn the_front_screen_shows_only_the_current_state() {
         static DEVICE: Device = Device::new();
+        let ram = SampleRam::boxed();
         // SAFETY: this test takes the only control side of its own device.
-        let mut control = unsafe { DEVICE.control_side() };
+        let mut control = unsafe { DEVICE.control_side(&ram) };
         control.step(1);
         // KEYS mode draws the longer "Keys C4" into the screen that is drawn again last.
         assert_eq!(control.queue_input(press(1, Button::PadsKeys)), Ok(()));
@@ -277,8 +311,9 @@ mod tests {
     #[test]
     fn the_pointers_reach_the_front_flag_and_the_pixels() {
         static DEVICE: Device = Device::new();
+        let ram = SampleRam::boxed();
         // SAFETY: this test takes the only control side of its own device.
-        let mut control = unsafe { DEVICE.control_side() };
+        let mut control = unsafe { DEVICE.control_side(&ram) };
         control.step(128);
 
         // SAFETY: the pointer is valid for the life of the device.
@@ -306,8 +341,9 @@ mod tests {
     #[test]
     fn the_lights_reach_the_lights_words_after_a_step() {
         static DEVICE: Device = Device::new();
+        let ram = SampleRam::boxed();
         // SAFETY: this test takes the only control side of its own device.
-        let mut control = unsafe { DEVICE.control_side() };
+        let mut control = unsafe { DEVICE.control_side(&ram) };
         assert_eq!(loaded(&DEVICE), 0);
 
         control.step(128);
@@ -326,8 +362,9 @@ mod tests {
     #[test]
     fn the_high_lights_are_in_the_second_word() {
         static DEVICE: Device = Device::new();
+        let ram = SampleRam::boxed();
         // SAFETY: this test takes the only control side of its own device.
-        let mut control = unsafe { DEVICE.control_side() };
+        let mut control = unsafe { DEVICE.control_side(&ram) };
         assert_eq!(control.queue_input(press(0, Button::PadsKeys)), Ok(()));
         assert_eq!(control.queue_input(release(1, Button::PadsKeys)), Ok(()));
 
@@ -345,8 +382,10 @@ mod tests {
     #[test]
     fn messages_reach_the_audio_part_and_reports_come_back() {
         static DEVICE: Device = Device::new();
+        let ram = SampleRam::boxed();
         // SAFETY: this test takes the only control side and the only audio side of its own device.
-        let (mut control, mut audio) = unsafe { (DEVICE.control_side(), DEVICE.audio_side()) };
+        let (mut control, mut audio) =
+            unsafe { (DEVICE.control_side(&ram), DEVICE.audio_side(&ram)) };
         let kind = MessageKind::NoteOn {
             note: NoteId(0),
             track: 0,
@@ -392,10 +431,73 @@ mod tests {
     }
 
     #[test]
+    fn the_audio_part_switches_tables_at_the_chunk_of_use_table() {
+        static DEVICE: Device = Device::new();
+        let ram = SampleRam::boxed();
+        // SAFETY: this test takes the only control side and the only audio side of its own device.
+        let (mut control, mut audio) =
+            unsafe { (DEVICE.control_side(&ram), DEVICE.audio_side(&ram)) };
+        let (mut listing, mut blocks) = (Listing::new(), Blocks::new());
+        let mut add = |file, count| {
+            let taken = blocks.take(count).expect("enough blocks are free");
+            listing.add(&DEVICE.tables, FileId(file), taken)
+        };
+        // File 1 takes blocks 1 to 10 at entry 1 of table 0. Once file 0 has gone, file 2 fills the
+        // rest, so they are packed into table 1, file 1 from entry 0.
+        add(0, 1);
+        add(1, 10);
+        listing.forget(FileId(0));
+        blocks.give_back(0);
+        let listed = listing.add(
+            &DEVICE.tables,
+            FileId(2),
+            blocks.take(BLOCKS - 10).expect("the rest is free"),
+        );
+        assert_eq!(listed, Some(Listed::Packed { version: 1 }));
+        // SAFETY: block 5, file 1's fifth, is the test's own: no side reads it yet.
+        unsafe { ram.bytes(5 * BLOCK as u32, 2) }.copy_from_slice(&7i16.to_le_bytes());
+        let message = Message {
+            number: 0,
+            at: 40,
+            kind: MessageKind::UseTable { version: 1 },
+        };
+        assert_eq!(control.messages.push(message), Ok(()));
+
+        audio.render(&mut [0.0; 64], &mut [0.0; 64]);
+        let reader = audio.reader();
+        assert_eq!(reader.slice(FileId(1)), 1);
+        assert_eq!(reader.frame(1, false, 4 * 1_024), (7, 7));
+
+        audio.render(&mut [0.0; 32], &mut [0.0; 32]);
+        let reader = audio.reader();
+        assert_eq!(reader.slice(FileId(1)), 0);
+        assert_eq!(reader.frame(0, false, 4 * 1_024), (7, 7));
+        assert_eq!(
+            control.take_report(),
+            Some(Report::Applied {
+                number: 0,
+                sample: 64
+            })
+        );
+    }
+
+    #[test]
+    fn the_device_fits_the_working_memory() {
+        let size = core::mem::size_of::<Device>();
+
+        std::println!(
+            "the device takes {size} of {} bytes",
+            budget::WORKING_MEMORY
+        );
+        assert!(size <= budget::WORKING_MEMORY);
+    }
+
+    #[test]
     fn replay_records_reach_the_control_part() {
         static DEVICE: Device = Device::new();
+        let ram = SampleRam::boxed();
         // SAFETY: this test takes the only control side of its own device.
-        let mut control = unsafe { DEVICE.control_side() };
+        let mut control = unsafe { DEVICE.control_side(&ram) };
 
         for number in 0..REPLAY_QUEUE as u32 {
             assert_eq!(control.replay_applied(number, 64), Ok(()));

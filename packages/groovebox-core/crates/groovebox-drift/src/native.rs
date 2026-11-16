@@ -2,11 +2,13 @@ use crate::runner::Runner;
 use groovebox_core::device::{ControlSide, Device};
 use groovebox_core::input::Stamped;
 use groovebox_core::message::Report;
+use groovebox_core::sample_ram::SampleRam;
 use std::sync::atomic::{AtomicU32, Ordering};
 
 /// The core built for this machine.
 pub struct NativeRunner {
     device: Box<Device>,
+    ram: Box<SampleRam>,
     /// The reports that the last step took, as the browser export stashes them.
     applied: Vec<(u32, u64)>,
 }
@@ -25,6 +27,7 @@ impl Default for NativeRunner {
         };
         Self {
             device,
+            ram: SampleRam::boxed(),
             applied: Vec::new(),
         }
     }
@@ -34,7 +37,7 @@ impl NativeRunner {
     fn control(&mut self) -> ControlSide<'_> {
         // SAFETY: the side borrows this runner mutably, so no other side of its device exists
         // while it lives.
-        unsafe { self.device.control_side() }
+        unsafe { self.device.control_side(&self.ram) }
     }
 }
 
@@ -70,7 +73,7 @@ impl Runner for NativeRunner {
     fn render(&mut self, left: &mut [f32], right: &mut [f32]) {
         // SAFETY: the side lives only for this call, which borrows this runner mutably, so no
         // other side of its device exists while it lives.
-        unsafe { self.device.audio_side() }.render(left, right);
+        unsafe { self.device.audio_side(&self.ram) }.render(left, right);
     }
 
     fn front_screen(&mut self) -> Vec<u8> {

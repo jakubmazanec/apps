@@ -25,5 +25,6 @@ pub mod param;
 pub mod project;
 pub mod queue;
 pub mod ring;
+pub mod sample_ram;
 pub mod screen;
 pub mod ui;
