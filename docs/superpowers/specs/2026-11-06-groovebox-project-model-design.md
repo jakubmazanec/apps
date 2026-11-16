@@ -201,6 +201,14 @@ removable, the user never sees files.
   EP sample tool.
 - **Projects out, backup and restore** over USB are the companion's job in part 2, like the EP
   sample tool's backup. The device itself never shows files to move.
+- **The library is arranged in folders (owner's choice).** A dropped folder keeps its name and its
+  subfolders; loose dropped files sit at the top level. Folders are listed first, then files, each A
+  to Z ignoring case; an accented letter sorts with its plain letter, so déšť.wav comes between
+  clap.wav and hat-closed.wav; a new import lands in its place by name. Inside a folder a dim line
+  names the folder and the first row is "..": OK on it goes up, and so does CANCEL; at the top level
+  both are left out. Writing a file makes the folders on its path, and deleting a file removes the
+  folders it leaves empty, so a folder whose last file is deleted vanishes from the list and you
+  land in the folder above, on the nearest row above where it was.
 - **Deleting samples works like deleting everything else.** A SAMPLES screen (MENU + 10) lists the
   library the way the sample picker does: by folder, each file with its length and size, the
   highlighted file playing once from RAM through Sound's preview player exactly as in the picker,
@@ -427,7 +435,9 @@ rule, so the volume knob does not rewrite them per click.
 
 If storage is full, the old file is untouched and the screen says "STORAGE FULL. NOT SAVED";
 importing a sample checks the free space on storage and in the sample RAM first, and keeps a storage
-reserve so a project file always fits.
+reserve of 9 MB, the note memory (8 MB) plus 1 MB, so that a project with every note slot used can
+always be saved **(owner's choice)**. An import that would reach into the reserve is refused with
+"kick.wav not imported: storage full".
 
 ### Opening
 
@@ -473,10 +483,13 @@ forward) and one private chunk of our own before the audio data: the original fi
 fingerprint of the converted audio, BLAKE3 cut to 128 bits with the channel count in front **(my
 call)**, computed once at import and written into the sound that uses it too. In part 1 the
 fingerprint only recognises a re-dropped file: identical audio reuses the existing file, different
-audio under the same name gets a "-2". Names are reduced on import to letters, digits, space, dash,
-underscore and dot, trimmed and capped, so they survive Windows, FAT and the browser alike; two
-names differing only in case collide. The root note and loop points in the file are the defaults a
-new sound takes; the sound's own values live in the project.
+audio under the same name gets a "-2". Names are trimmed and reduced on import to the letters the
+font draws, digits, space, dash, underscore and dot, so they survive Windows, FAT and the browser
+alike. A file name keeps ".wav" and is cut at a character boundary to 64 bytes, a folder name to 32;
+a name with nothing left before ".wav" becomes "sample.wav". A path has at most four folder levels:
+deeper files go into the fourth, so a path fits in 255 bytes. Two names differing only in case
+collide. The root note and loop points in the file are the defaults a new sound takes; the sound's
+own values live in the project.
 
 ### Later, with the companion
 
@@ -496,10 +509,13 @@ number in the file header, which is reserved now.
 then opens the project named in the settings, or a new empty one if there is none or it cannot be
 opened. While the library loads the header says "LOADING LIBRARY"; the project opens once it is
 done, so a project never meets a half-loaded library **(owner's choice)**. A library bigger than the
-sample RAM, possible only after a hardware change or a lowered budget, is loaded in folder order as
-far as it fits; the rest stays on storage, unloaded and marked "not loaded" on SAMPLES, one line
-says "LIBRARY TOO BIG. 3 FILES NOT LOADED", and sounds that use those files are MISSING until
-something is deleted and the device restarts **(owner's choice)**.
+sample RAM, possible only after a hardware change or a lowered budget, is loaded in the order
+SAMPLES lists it as far as it fits; the rest stays on storage, unloaded and marked "not loaded" on
+SAMPLES, one line says in red "Library too big. 3 files not loaded", and sounds that use those files
+are MISSING until something is deleted and the device restarts **(owner's choice)**. A file whose
+header is not this device's (damaged or foreign) is not loaded either; when the RAM did not run out,
+the line counts it as "1 file not loaded". Both kinds are listed in red as "not loaded" and can be
+deleted.
 
 **Opening a project** reads its project, view and pattern files and nothing else: every sample is
 already in RAM, so every sound plays at once. A sample that is not in the library makes its sound
@@ -512,16 +528,27 @@ writes the highlighted project's files under the next number; the copy points at
 files, so it costs kilobytes, and you stay where you are. DELETE removes the folder after its
 question; the open project cannot be deleted (Workflow A).
 
-**The library.** A WAV dropped on the shell is placed in `tmp/`; the core checks that its converted
-size fits the library's free space, on storage and in the sample RAM, and refuses it with "LIBRARY
-FULL. KICK.WAV NOT IMPORTED" if it does not; otherwise it converts the file in pieces through the
-storage interface into `samples/`, in the folder it was dropped with, places the converted audio in
-RAM and removes the original. Files are tried in the dropped order, and a refused file does not stop
-the smaller ones after it. The library in RAM carries each file's length, channels and size, which
-the picker, POOL and the SAMPLES screen show; file headers are read only at start-up. DELETE on the
-SAMPLES screen removes the file from storage and from RAM: voices reading it fade out within one
-32-sample chunk first, as a taken voice does, and the preview player stops the same way; the file's
-RAM is reused only after the sound side reports, the handshake the note store uses **(owner's
+**The library.** A drop on the shell reaches the core as one message **(owner's choice)**. The
+browser copies all of the drop's .wav files into `tmp/`, numbered in the order dropped, and then
+sends one input, such as "3 files dropped". Only names ending in .wav count, in any case; the rest
+are skipped and not mentioned. A drop that arrives during an import joins it, and the header counts
+the joined files ("Importing 5 files"). The core takes the files in the dropped order and checks
+each one in this order **(owner's choice)**: whether it can be read (a header and a format the
+device converts), whether the library has room (the converted file fits the free sample RAM and the
+library stays within 4,096 files and 1,024 folders) and whether storage has room (the converted size
+fits the free space less the 9 MB reserve). A file that fails a check is refused with the first
+reason that applies, "kick.wav not imported: can't be read", "kick.wav not imported: library full"
+or "kick.wav not imported: storage full", and does not stop the ones after it. Otherwise it converts
+the file in pieces through the storage interface into `samples/`, in the folder it was dropped with,
+places the converted audio in RAM and removes the original. A name that is already in the library is
+the same name whatever the case: the same audio (by its fingerprint) under it writes nothing and
+counts as imported, and other audio takes "-2", then "-3", before ".wav".
+
+The library in RAM carries each file's length, channels and size, which the picker, POOL and the
+SAMPLES screen show; file headers are read only at start-up. DELETE on the SAMPLES screen removes
+the file from storage and from RAM: voices reading it fade out within one 32-sample chunk first, as
+a taken voice does, and the preview player stops the same way; the file's RAM is reused, and the
+meter drops, only after the sound side reports, the handshake the note store uses **(owner's
 choice)**; sounds of the open project that use it turn MISSING at once, and other projects find out
 when they are opened. REMOVE UNUSED on POOL removes sounds from the project and never touches a file
 or sample RAM.
@@ -635,7 +662,7 @@ bullet below, the target spec's current text holds.
 
 - **Look:** draws the SAMPLES screen, the MISSING and OLD marks, the library meter on POOL, SAMPLES
   and the sample picker, the notices and header messages (UNDO LOST, FULL, NOT ENOUGH MEMORY,
-  STORAGE FULL. NOT SAVED, LIBRARY FULL. <file> NOT IMPORTED, LOADING LIBRARY, RESTORED FROM LAST
+  STORAGE FULL. NOT SAVED, "<file> not imported: library full", LOADING LIBRARY, RESTORED FROM LAST
   SAVE, PATTERN n DAMAGED, PATTERN n MISSING), the delete questions, and a development meter for
   note memory; the browser shell's file drop puts files into `tmp/` for the core to import.
 - **Part 2 (companion):** transfer and backup over USB; the format's growth listed under "Later,

@@ -128,8 +128,9 @@ called on time and its control part runs the rest of the time.
   and hardware are designed. Later, recording writes straight into the library in RAM, as on the
   EP-133.
 - A library on storage bigger than the sample RAM can only follow a hardware change or a lowered
-  budget. Start-up then loads files in folder order until the RAM is full, leaves the rest unloaded
-  and marked on SAMPLES, and says so in one line (see the Project model, "Starting up").
+  budget. Start-up then loads files in the order SAMPLES lists them until the RAM is full, leaves
+  the rest unloaded and marked on SAMPLES, and says so in one line (see the Project model, "Starting
+  up").
 
 Rejected: **a budget per project, the first design.** The library sat on storage and could be far
 bigger than RAM; opening a project copied the samples its sounds used into RAM within 64 MB per
@@ -154,7 +155,13 @@ and gave the picker a refusal; the EP-133 has one library, one limit and one pla
   sample RAM is under "Sample RAM".
 - The provisional sample RAM is **64 MB for the whole library**, about 5.6 minutes of stereo or 11
   minutes of mono at 48 kHz and 16 bits (owner's choice). The working-memory limit follows from the
-  pool sizes in the other specs and the frame buffer in the Look spec.
+  pool sizes in the other specs, the frame buffer in the Look spec and the list of the library's
+  files; it is 2 MB **(owner's choice)**.
+- **The library's tables and the storage reserve (owner's choice).** The library holds at most 4,096
+  files in at most 1,024 folders, so with real samples the meter is the limit you meet. Storage
+  keeps a reserve of 9 MB, the note pool's 8 MB plus 1 MB, so that a project with every note slot
+  used can always be saved. An import that reaches any of these limits is refused (Sound, Project
+  model).
 - The profile also holds what the other specs set: the voice count (provisionally 32, plus the
   preview player), the effect slots' memory (about 9 MB, outside the library's budget) and the
   worst-case operation count recorded by a test scene (Sound); the pool of sounds, 1,024 per project
@@ -347,6 +354,10 @@ need a parser, versioning and reloading for something that code changes already 
   request is used. The platform does the work and replies when it is done. The core keeps running
   meanwhile, so loading the library at start-up and importing a file freeze neither the screen nor
   the sound.
+- **Folders (owner's choice).** Writing a file makes the folders on its path. Deleting a file also
+  removes the folders it leaves empty, never `samples` or `tmp`, so a folder with no files left
+  vanishes. Deleting a folder removes it with everything in it, which is how start-up empties
+  `tmp/`. There is no request to copy; copying a project comes with Milestone 5.
 - The requests and replies are the same on every platform; only the code that carries them out
   differs.
 - In the browser, the worker carries out the requests using the site's private file storage (the
@@ -376,7 +387,11 @@ need a parser, versioning and reloading for something that code changes already 
 - **Playing becomes testing.** A session in the browser can be saved as an event log and turned into
   a new scene, so a bug found while playing becomes a test. The log also holds the sample at which
   the audio part applied each edit, so a replay applies late edits at the same sample as the live
-  session (Project model).
+  session (Project model). It also holds a copy of every file the device read during the session
+  (the library at start-up and each dropped file) and the sample at which each storage reply
+  arrived, so a session replays on its own, without the storage it was recorded on **(owner's
+  choice)**. Such session files can be big, which is accepted. A scene written by hand makes its
+  files with a line that generates them, such as a sine tone.
 - **Rule checks.** The core does not use Rust's allocation library, so an accidental allocation
   fails to compile. The core is also built for a target without Rust's standard library, which
   proves it never relies on one. Tests check that no "not a number" value reaches the output.

@@ -84,6 +84,10 @@ controls do. What part 1 teaches then decides the physical layout and look (part
   device's own controls. A small plan for scrolling text follows Sound **(decided)**: text that does
   not fit scrolls in place, its box never changing. It was designed on 2026-11-16, starting from the
   EP-133; Look, "The font", holds the design.
+- **Milestone 2 is planned in three plans (decided):** storage, import and the SAMPLES screen with
+  its preview and delete; then sample sounds, which are the sample engine, the Sample page, NEW
+  SAMPLE, the sample picker, the ENGINE item and what deleting a sample does to its sounds; then
+  POOL.
 
 ## Subparts
 
@@ -513,33 +517,30 @@ settles it with the owner.
   pad, or a sound on two pads, comes back undefined. Proposed: none yet.
 - **"View follows" remembered.** A project opens stopped and PLAY follows again, so the saved value
   is never used. Proposed: drop it from the list.
-- **Storage reserve.** No size. Proposed: 1 MB.
 - **SWING in the project file.** Saved with the project but empty in version 1. Proposed: not
   written until swing is built.
 - **Time signature.** Two numbers, but a saved value is one. Proposed: two entries, the beats (1
   to 16) and the beat unit (4 or 8); still one item on screen.
 - **Pressure curves in a pattern file.** How a saved note points at its curve. Proposed: by the
   curve's position in its chunk, counted from 0.
-- **Folder requests.** Foundation's list has no make folder, delete folder or copy. Proposed: a
-  replace makes its folder; one delete-folder request; COPY reads and replaces.
-- **A dropped file.** How the shell tells the core that a file waits in `tmp/`. Proposed: one
-  message from the platform with the file's name and folder.
+- **Folder requests.** Foundation's list has no copy. Proposed: COPY reads and replaces; settled in
+  the plan for Milestone 5.
 - **"A versioned format that can be migrated".** The subparts list still says so; migrations wait
   for part 2. Proposed: "a versioned file format".
 
 ### Inside the core
 
-- **Storage replies in the session log.** Unsaid whether replies are logged. Proposed: each reply is
-  an input at a sample position; a scene carries the replies it expects.
 - **Timers.** The autosave and view-file delays name no clock. Proposed: every delay counts samples
   of the audio clock, as the hold and repeat times do.
 - **What the audio part reports.** Foundation lists the playhead and meters; no screen has a meter.
-  Proposed: the playhead, "message N applied at sample S", "sample let go" and the browser wake-up.
+  Proposed: the playhead and the browser wake-up. The report that a message was applied at a sample
+  is settled: it is the "sample let go" that frees a deleted file's RAM (Project model).
 - **Edit lead.** No number, and not in Foundation's spike list. Proposed: provisionally 1,024
   samples, set just above the longest delay the spike measures.
 - **Numbers not yet set.** The version queue's size and the reserve for versions in flight.
   Proposed: none yet.
-- **Fixed table sizes.** How many library files, projects and queue entries; the message when one is
-  full. Proposed: none yet; each is a budget-profile entry.
+- **Fixed table sizes.** How many projects and queue entries; the message when one is full.
+  Proposed: none yet; each is a budget-profile entry. The library's 4,096 files and 1,024 folders
+  are settled (Foundation).
 - **Effect memory and note pool.** Sound's "large memory class" is not one of Foundation's two
   kinds. Proposed: both sit beside the sample RAM, each with its own budget number.

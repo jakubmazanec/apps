@@ -41,7 +41,7 @@ parts, its analog mono synth and its drum part.
 | Part 1 effects     | Delay and reverb; delay times from 1/32 to a whole note, and one longer than 2 seconds plays as the longest note value that fits (owner's choice)                                                                        |
 | Muting             | Silences only the notes the pattern plays; pads and keys played by hand still sound; tails ring out (owner's choice)                                                                                                     |
 | Master             | Master level; the sample preview and the metronome click join; a soft clipper; the output volume after it; a compressor comes later (owner's choice)                                                                     |
-| Sample import      | WAV, converted once to 48 kHz and 16-bit, channels kept, into the library in RAM and on storage; refused only when the library is full                                                                                   |
+| Sample import      | WAV, converted once to 48 kHz and 16-bit, channels kept, into the library in RAM and on storage; refused only at import, when the library or storage is full or the file cannot be read                                  |
 
 ## Signal path
 
@@ -240,8 +240,12 @@ oscillator's level are 0. Every number is a constant tuned by ear.
   master"). The level is not a setting: it starts at the level a sample sound plays at with default
   settings, so a preview sounds like the pad will, and is tuned by ear **(owner's choice)**. It is
   never one of the track voices, so previewing takes nothing from the music and nothing from the
-  music can steal it. Moving the highlight stops it and starts the new file's; a folder row plays
-  nothing; OK, CANCEL and STOP while stopped silence it; it works while the music plays.
+  music can steal it. It plays when the arrows or − and + move the highlight onto a file, and it
+  stops when the highlight leaves the file: onto another file, which starts that file's; onto a
+  folder row, which plays nothing. Nothing else starts it: not opening the list; not coming back to
+  it from the picker with DELETE or from a question; not a delete that moves the cursor. OK, CANCEL,
+  STOP while stopped and leaving the SAMPLES screen fade it out within one 32-sample chunk; holding
+  MENU or PAGE without choosing a screen does not. It works while the music plays.
 - **STOP pressed while stopped silences everything in one step (owner's choice):** every sounding
   note fades out within one 32-sample chunk, as a taken voice does, instead of playing its release,
   the preview stops and every effect slot's memory on all tracks is cleared, applied by the audio
@@ -346,7 +350,8 @@ and others, each one more type that any slot can hold.
 ## Sample import
 
 - **Accepted:** WAV files at 16, 24 or 32 bits (integer or floating point), any sample rate, mono or
-  stereo. AIFF can come later.
+  stereo. AIFF can come later. Only names ending in .wav, in any case, count: the other files of a
+  drop are skipped and not mentioned **(owner's choice)**.
 - **Converted once, when imported,** by the core, so a device imports exactly the same way:
   - high-quality conversion to 48 kHz;
   - mono or stereo kept as in the file;
@@ -368,10 +373,14 @@ and others, each one more type that any slot can hold.
   different audio gets a new name. The Project model has the rules.
 - **Length and size.** Import gives each file a length and a size, which the sample picker, POOL and
   the SAMPLES screen show (Workflow A, Project model).
-- **Import is the only place a sample is refused for room.** A file whose converted size does not
-  fit the library's free space, on storage or in the sample RAM alike, is refused with a clear
-  message, such as "LIBRARY FULL. KICK.WAV NOT IMPORTED"; the other files of a dropped folder still
-  import. The picker never refuses a sample, since everything in the library is already in RAM.
+- **Import is the only place a sample is refused.** A file is refused with a clear message in three
+  cases **(owner's choice)**: the device cannot read it (8-bit, compressed, more than two channels
+  or damaged), "kick.wav not imported: can't be read"; the library is full, whether in the sample
+  RAM, in files or in folders, "kick.wav not imported: library full"; or storage is full, since the
+  converted file would reach into the storage reserve, "kick.wav not imported: storage full". Over
+  several files the header counts them and lists each reason once, "5 files imported, 3 not: library
+  full, can't be read" (Look). The other files of a dropped folder still import. The picker never
+  refuses a sample, since everything in the library is already in RAM.
 
 ## Parameters
 

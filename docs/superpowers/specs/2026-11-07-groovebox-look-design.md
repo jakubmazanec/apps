@@ -199,8 +199,8 @@ the owner "for now", expected to change with testing.
   playing, the tempo (120.0); then only while they apply: a record dot, dim while armed and red
   while recording; a small metronome icon while the metronome is on; "Mute 2 4" while tracks are
   muted.
-- **A message** replaces the transport group, in red for errors (Storage full. Not saved; Library
-  full. Kick.wav not imported) and in the accent for notices (2 samples missing; Loading library),
+- **A message** replaces the transport group, in red for errors (Storage full. Not saved; kick.wav
+  not imported: library full) and in the accent for notices (2 samples missing; Loading library),
   until a later press of a button clears it **(owner's choice)**:
   - The presses that clear it are the 22 function buttons, a step and an encoder push. The press
     that caused the message does not count, and the clearing press still acts. Pads, MIDI notes,
@@ -326,8 +326,12 @@ shows the filter's curve with a faint line at the cutoff. Richer graphics come l
   "old format" in red; the strip empty.
 - **PATTERN**: Timing and Bars as pages; the Patterns page lists New, then every pattern with its
   bars and note count, playing and queued marked, empty ones dim; the strip empty.
-- **SAMPLES**: the library by folder with length and size; the library meter as an item above the
-  strip; the strip empty.
+- **SAMPLES**: the library by folder, in the sample picker's order, with a folder as its name and
+  "/" and a file as its stored name with ".wav", its length and size dim at the right; a file
+  start-up could not load in red with "not loaded". Inside a folder a dim line names the folder and
+  the first row is "..", as in the picture of the sample picker; at the top level both are left out.
+  The library meter is an item above the strip ("Library", "41.2 of 64 MB" and the 2 px bar, full
+  width), never a cursor target; the strip empty.
 
 Rejected: a CPU meter on the Dev page **(owner's choice)**; a measured time comes from a clock
 outside the core and differs per machine and per run, so a frame showing it could never be
@@ -453,10 +457,14 @@ stamp. The core decides taps and holds; the shell never does.
 - **Save picture (owner's choice).** A "Save picture" button beside "Save session" saves the shown
   frame through the core's palette at 4× (1,920 × 1,088) as `screen-<audio sample>.png`.
 - **Files.** Dropping WAV files or a folder onto the page hands them to the core, which imports them
-  into the library as the Project model says; the header shows "Importing 3 files" and then the
-  result: "3 files imported", or in red "2 files imported, 1 not: library full"; a single file is
-  named ("Kick.wav not imported: library full"), and a refused file does not stop the smaller ones
-  after it **(owner's choice)**.
+  into the library as the Project model says; the header shows "Importing 3 files", or "Importing
+  kick.wav" for one, in the accent while it runs, and presses do not clear it. A drop that arrives
+  meanwhile joins it ("Importing 5 files"). Then the result: "3 files imported" or "kick.wav
+  imported" in the accent, or in red "2 files imported, 1 not: library full" or "kick.wav not
+  imported: library full". The reasons are library full, storage full and can't be read, each listed
+  once in that order: "5 files imported, 3 not: library full, can't be read". A name too long for
+  the header is shortened with "…" so that the rest of the message shows. A refused file does not
+  stop the ones after it **(owner's choice)**.
 - **What the shell never does:** draw anything of its own on the screen, decide a tap or a hold,
   latch a modifier, or scale the screen by a fraction **(my call)**.
 

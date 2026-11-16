@@ -356,14 +356,24 @@ All pickers work the same way:
 ### The sample picker
 
 - Lists the library by folder, each file with its length and its size, and shows the library meter
-  at the top: how full the library is, the same number as on POOL and SAMPLES.
+  at the top: how full the library is, the same number as on POOL and SAMPLES. SAMPLES lists the
+  library the same way, and the rules below hold on both.
+- **Order (owner's choice).** Folders first, then files, each A to Z ignoring case; an accented
+  letter sorts with its plain letter, so déšť.wav comes between clap.wav and hat-closed.wav. A new
+  import lands in its place by name.
+- **Inside a folder (owner's choice)** a dim line names the folder, and the first row is "..": OK on
+  it goes up, and so does CANCEL. At the top level the folder line and ".." are left out.
 - Every file can be chosen. The whole library is in RAM (Foundation), so picking loads nothing and
   nothing is ever "no room" here; the only refusal is at import (Sound).
 - **The highlighted sample plays once (owner's choice),** from RAM through Sound's preview player
   beside the 32 voices: dry, at a fixed level, after the tracks and before the soft clipper, so it
-  never takes a voice from the music. Moving the highlight stops it and starts the new file's; a
-  folder row plays nothing; OK or CANCEL stops it; STOP while stopped silences it too (Workflow B).
-  Previewing while the music plays is allowed.
+  never takes a voice from the music. It plays only when the arrows or − and + move the highlight
+  onto a file. Moving the highlight stops the preview playing, and onto a file the new file's
+  starts; a folder row and ".." play nothing. Nothing else starts it: not opening the list; not
+  coming back to it from the picker with DELETE or from a question; not a delete that moves the
+  cursor. OK or CANCEL stops it; STOP while stopped silences it too (Workflow B). Leaving SAMPLES
+  fades a preview still playing out, as OK and CANCEL do; holding MENU or PAGE without choosing a
+  screen does not stop it. Previewing while the music plays is allowed.
 - The sample engine's sample parameter opens the same picker.
 
 Rejected: a memory cost per file, the time left in a budget and a "no room" mark, the first design.
