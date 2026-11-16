@@ -18,8 +18,10 @@ use crate::queue::Producer;
 use crate::ring::Ring;
 use crate::screen::Color;
 use crate::ui::layout::LIST_VISIBLE;
+use crate::ui::text::SCROLL_PIXEL;
 use crate::ui::tiles::{Tile, TileState};
 use buttons::{Buttons, REPEATING, Release};
+use core::cell::Cell;
 use notes::{Notes, Source};
 use pages::{ItemDef, ItemKind, MENU, PageDef, pages};
 use view::{Cursor, Screen, View, menu_tiles, page_tiles};
@@ -85,6 +87,8 @@ pub struct Control {
     landed: u64,
     /// What the cursor was on after the latest event; none before the first.
     focus: Option<Focus>,
+    /// Whether a text scrolled in the latest picture (`draw`).
+    scrolling: Cell<bool>,
 }
 
 impl Control {
@@ -103,6 +107,7 @@ impl Control {
             now: 0,
             landed: 0,
             focus: None,
+            scrolling: Cell::new(false),
         }
     }
 
@@ -120,7 +125,8 @@ impl Control {
 
     /// Handles the events before `until` in sample order, the queued inputs and the repeats of
     /// held buttons, and returns whether the screen must be redrawn. That is the case on the first
-    /// step and whenever it handled an event.
+    /// step, whenever it handled an event and, while a text scrolls, whenever a pixel's time has
+    /// passed since the step before.
     ///
     /// On equal samples the input goes first, so a release at the sample of a repeat ends the
     /// hold before it. An event is handled only while the message queue has room for
@@ -180,6 +186,10 @@ impl Control {
             }
             redraw = true;
         }
+        // shortcut: a scrolling text also redraws each pixel time during its pause, an identical
+        // picture; compare offsets if the hardware's redraw cost matters.
+        let pixels = |sample: u64| sample.saturating_sub(self.landed) / SCROLL_PIXEL;
+        redraw |= self.scrolling.get() && pixels(until) != pixels(self.now);
         self.now = until;
         redraw
     }

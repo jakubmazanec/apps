@@ -117,8 +117,9 @@ impl Control {
         let elapsed = self.now - self.landed;
         let mut values = [Label::new(); 4];
         let mut cells = [None; 4];
+        let mut scrolls = false;
         if let Some(tiles) = self.tiles() {
-            draw_tiles(canvas, &tiles, elapsed);
+            scrolls = draw_tiles(canvas, &tiles, elapsed);
         } else if let Some(picker) = self.view.picker {
             let shown = picker.scroll..self.picker_rows().min(picker.scroll + LIST_VISIBLE);
             let mut rows = [Row {
@@ -143,7 +144,7 @@ impl Control {
                     },
                 };
             }
-            draw_rows(
+            scrolls = draw_rows(
                 canvas,
                 &rows[..shown.len()],
                 0,
@@ -161,7 +162,7 @@ impl Control {
             ) {
                 let y = PAGE_FIRST + ITEM_PITCH * row;
                 let mut value = Label::new();
-                draw_item(
+                scrolls |= draw_item(
                     canvas,
                     PAGE_X,
                     y,
@@ -176,7 +177,7 @@ impl Control {
             }
             match self.page(screen).and_then(|page| page.picture) {
                 Some(Picture::Pads) => {
-                    draw_pad_tiles(
+                    scrolls |= draw_pad_tiles(
                         canvas,
                         &core::array::from_fn(|pad| PadTile {
                             name: track.pads[pad].map(|sound| self.name(sound)),
@@ -262,6 +263,7 @@ impl Control {
             }
         }
         draw_strip(canvas, &cells);
+        self.scrolling.set(scrolls);
     }
 
     /// What `item` shows, with its value written into `value` where it is not a name.

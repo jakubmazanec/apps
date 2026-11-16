@@ -1689,6 +1689,26 @@ fn a_value_change_keeps_the_name_moving_within_its_new_room() {
 }
 
 #[test]
+fn a_scrolling_name_redraws_once_per_pixel_it_moves() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    on_fine_tune(&mut rig);
+    rig.step(32 + SCROLL_PAUSE);
+    picture(&rig.control);
+
+    let mut redraws = 0;
+    for k in 1..=125 {
+        if rig.step(32 + SCROLL_PAUSE + 128 * k) {
+            redraws += 1;
+            picture(&rig.control);
+        }
+    }
+
+    // 125 steps of 128 samples are 16,000 samples: 10 pixels' time.
+    assert_eq!(redraws, 10);
+}
+
+#[test]
 fn the_strip_on_step_follows_sounds_shown_page() {
     let queue = Queue::new();
     let mut rig = Rig::new(&queue);

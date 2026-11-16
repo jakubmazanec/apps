@@ -1015,6 +1015,19 @@ fn step_redraws_on_the_first_step_and_after_an_event() {
 }
 
 #[test]
+fn nothing_redraws_on_time_alone_when_nothing_scrolls() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+
+    assert!(rig.step(128));
+    picture(&rig.control);
+
+    for until in (256..=200_064).step_by(128) {
+        assert!(!rig.step(until), "step to {until}");
+    }
+}
+
+#[test]
 fn a_frame_does_not_depend_on_what_the_canvas_held_before() {
     let queue = Queue::new();
     let mut rig = Rig::new(&queue);
