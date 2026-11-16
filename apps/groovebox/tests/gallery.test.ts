@@ -1,4 +1,4 @@
-import {readdir} from 'node:fs/promises';
+import {access, readdir} from 'node:fs/promises';
 import {describe, expect, test} from 'vitest';
 
 import {STATES} from '../source/gallery/states.js';
@@ -8,26 +8,34 @@ const LOOK = new URL('../../../docs/superpowers/specs/2026-11-07-groovebox-look/
 
 describe('the gallery', () => {
   test('every gallery state points at files that exist', async () => {
-    let frames = new Set(await readdir(SCENES, {recursive: true}));
     let approved = new Set(await readdir(LOOK));
-    let missing = STATES.flatMap((state) => [
-      ...(frames.has(state.frame) ? [] : [`scenes/${state.frame}`]),
-      ...(state.approved === undefined || approved.has(state.approved) ?
-        []
-      : [`look/${state.approved}`]),
-    ]);
+    let missing = (
+      await Promise.all(
+        STATES.map(async (state) => [
+          ...(await access(new URL(state.frame, SCENES))
+            .then(() => [])
+            .catch(() => [`scenes/${state.frame}`])),
+          ...(state.approved === undefined || approved.has(state.approved) ?
+            []
+          : [`look/${state.approved}`]),
+        ]),
+      )
+    ).flat();
 
     expect(missing).toStrictEqual([]);
   });
 
   test('every frame of the panel scenes is shown', async () => {
     let shown = new Set(STATES.map((state) => state.frame));
-    let left = (await readdir(SCENES, {recursive: true})).filter(
-      (path) =>
-        ['menu-and-pages/', 'new-synth/', 'picker-while-playing/', 'synth-pages/'].some((scene) =>
-          path.startsWith(scene),
-        ) && !shown.has(path),
-    );
+    let left = (
+      await Promise.all(
+        ['menu-and-pages/', 'new-synth/', 'picker-while-playing/', 'synth-pages/'].map(
+          async (scene) => (await readdir(new URL(scene, SCENES))).map((name) => `${scene}${name}`),
+        ),
+      )
+    )
+      .flat()
+      .filter((frame) => !shown.has(frame));
 
     expect(left).toStrictEqual([]);
   });
