@@ -30,9 +30,10 @@ pub struct ItemView<'a> {
 
 /// Draws `item` in the 17 pixel high box at (`x`, `y`) of `width` pixels. The name is at the left
 /// and dim, the value at the right and bright, and the bar is under them. A name that does not fit
-/// is shortened to leave the whole value and 6 pixels between them. When `numbered`, as on a page,
-/// the name comes after the encoder's dim digit, or after the blank where an item without an
-/// encoder would have one.
+/// is shortened to leave the whole value and 6 pixels between them, or scrolls in that room with
+/// `scroll` (`text::draw_in`). When `numbered`, as on a page, the name comes after the encoder's dim
+/// digit, or after the blank where an item without an encoder would have one. Returns whether the
+/// name scrolls.
 pub fn draw_item(
     canvas: &mut impl Canvas,
     x: i32,
@@ -40,7 +41,8 @@ pub fn draw_item(
     width: i32,
     item: &ItemView,
     numbered: bool,
-) {
+    scroll: Option<u64>,
+) -> bool {
     let left = x + TEXT_INSET;
     let right = x + width - 1 - TEXT_INSET;
     let name = if numbered { left + DIGIT_COLUMN } else { left };
@@ -53,14 +55,13 @@ pub fn draw_item(
     }
     text::draw_right(canvas, right, y, item.value, TEXT);
     // The name has the room up to 6 pixels before the value.
-    text::draw_fitted(
+    let scrolls = text::draw_in(
         canvas,
         name,
         y,
-        text::fit(
-            item.name,
-            right - text::width(item.value) + 1 - PIECE_GAP - name,
-        ),
+        right - text::width(item.value) + 1 - PIECE_GAP - name,
+        item.name,
+        scroll,
         DIM,
     );
 
@@ -77,6 +78,7 @@ pub fn draw_item(
             ACCENT,
         );
     }
+    scrolls
 }
 
 /// Draws the cursor on the box at (`x`, `y`) of `width` by `height` pixels: an accent outline 1
@@ -90,7 +92,7 @@ mod tests {
     use super::*;
     use crate::palette::{ACCENT, BACKGROUND, DIM, FAINT, TEXT};
     use crate::screen::Screen;
-    use crate::ui::test_pixels::{filled, ink, outlined, picture, span};
+    use crate::ui::test_pixels::{MOVED, filled, ink, outlined, picture, span};
     use crate::ui::text;
 
     fn item<'a>(name: &'a str, value: &'a str, bar: Bar) -> ItemView<'a> {
@@ -118,6 +120,7 @@ mod tests {
                 bar: Bar::Track,
             },
             true,
+            None,
         );
 
         // The bar: a faint track two pixels thick, one pixel below the text row and one above the
@@ -151,6 +154,7 @@ mod tests {
             160,
             &item("Key follow", "50%", Bar::Track),
             true,
+            None,
         );
 
         assert_eq!(span(&screen, 2..=161, 89..=101, DIM), Some((16, 74)));
@@ -171,6 +175,7 @@ mod tests {
                 ..item("Mode", "LP 24", Bar::Track)
             },
             false,
+            None,
         );
         draw_item(
             &mut screen,
@@ -179,6 +184,7 @@ mod tests {
             120,
             &item("Cutoff", "64%", Bar::Track),
             false,
+            None,
         );
 
         assert_eq!(span(&screen, 1..=120, 258..=264, DIM), Some((4, 26)));
@@ -209,6 +215,7 @@ mod tests {
                 120,
                 &item("Cutoff", "64%", Bar::Fill(share)),
                 false,
+                None,
             );
 
             assert_eq!(ink(&screen, ACCENT), 2 * pixels, "share {share}");
@@ -231,6 +238,7 @@ mod tests {
             119,
             &item("Sample", "Hat open take3", Bar::Track),
             false,
+            None,
         );
         text::draw(&mut name, 244, 255, "Sam…", DIM);
 
@@ -253,6 +261,7 @@ mod tests {
             120,
             &item("Sample", "snare-room.wav", Bar::Track),
             false,
+            None,
         );
 
         // "Samp…" would end at x 32, 2 pixels short of the 6 the value needs.
@@ -272,6 +281,7 @@ mod tests {
             119,
             &item("Envelope amount", "+40", Bar::Track),
             false,
+            None,
         );
 
         assert_eq!(span(&screen, 360..=478, 258..=264, DIM), Some((363, 451)));
@@ -289,9 +299,76 @@ mod tests {
             40,
             &item("Resonance", "Very long value", Bar::Track),
             false,
+            None,
         );
 
         assert_eq!(ink(&screen, DIM), 0);
+    }
+
+    fn fine_tune(scroll: Option<u64>) -> (bool, Screen) {
+        let mut screen = Screen::new();
+        let scrolls = draw_item(
+            &mut screen,
+            2,
+            143,
+            160,
+            &item("Oscillator 2 fine tune", "+0", Bar::Fill(32_767)),
+            true,
+            scroll,
+        );
+        (scrolls, screen)
+    }
+
+    #[test]
+    fn the_name_under_the_cursor_scrolls_and_the_value_stays() {
+        let (scrolls, moved) = fine_tune(Some(MOVED));
+        let (still, shortened) = fine_tune(None);
+        let mut expected = Screen::new();
+        draw_item(
+            &mut expected,
+            2,
+            143,
+            160,
+            &item("Oscillator 2 fine tu…", "+0", Bar::Fill(32_767)),
+            true,
+            None,
+        );
+
+        assert!(scrolls);
+        assert_eq!(
+            picture(&moved, 148..=158, 143..=159, TEXT),
+            picture(&shortened, 148..=158, 143..=159, TEXT)
+        );
+        let (first, last) = span(&moved, 2..=161, 143..=155, DIM).unwrap();
+        assert!(first >= 16 && last <= 141, "{first} to {last}");
+        assert_ne!(
+            picture(&moved, 16..=141, 143..=155, DIM),
+            picture(&shortened, 16..=141, 143..=155, DIM)
+        );
+        assert!(!still);
+        assert_eq!(shortened.pixels(), expected.pixels());
+    }
+
+    #[test]
+    fn a_name_that_fits_does_not_scroll() {
+        let draw = |scroll| {
+            let mut screen = Screen::new();
+            let scrolls = draw_item(
+                &mut screen,
+                2,
+                17,
+                160,
+                &item("Cutoff", "64%", Bar::Track),
+                true,
+                scroll,
+            );
+            (scrolls, screen)
+        };
+        let (scrolls, moved) = draw(Some(MOVED));
+        let (_, still) = draw(None);
+
+        assert!(!scrolls);
+        assert_eq!(moved.pixels(), still.pixels());
     }
 
     #[test]

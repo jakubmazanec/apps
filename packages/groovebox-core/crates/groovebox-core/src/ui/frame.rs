@@ -37,7 +37,7 @@ pub fn draw_strip(canvas: &mut impl Canvas, cells: &[Option<ItemView>; 4]) {
     canvas.hline(0, STRIP_LINE, WIDTH as u32, LINE);
     for (cell, &(x, width)) in cells.iter().zip(&STRIP_CELLS) {
         if let Some(item) = cell {
-            draw_item(canvas, x, STRIP_ITEM, width, item, false);
+            draw_item(canvas, x, STRIP_ITEM, width, item, false, None);
         }
     }
 }

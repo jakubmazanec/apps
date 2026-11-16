@@ -11,7 +11,7 @@ use crate::message::{MAX_MESSAGES_PER_EVENT, MESSAGE_QUEUE, Message, MessageKind
 use crate::palette::RECORD;
 use crate::param::{self, Curve, OUTPUT_VOLUME, ParamId, Scope, VELOCITY};
 use crate::project::Project;
-use crate::project::pool::{PoolFull, Sound};
+use crate::project::pool::{PoolFull, Sound, SoundNumber};
 use crate::project::settings::DeviceSettings;
 use crate::project::track::{MAX_OCTAVE, PadMode, Track};
 use crate::queue::Producer;
@@ -40,6 +40,22 @@ enum Entry<'a> {
     Sound(&'a Sound),
 }
 
+/// What the text that scrolls depends on: when any of it changes, the cursor has landed on
+/// something new.
+#[derive(Clone, Copy, PartialEq, Eq)]
+struct Focus {
+    overlay: Option<Button>,
+    screen: Screen,
+    /// The page that `screen.paged()` shows and the item its cursor is on.
+    page: usize,
+    item: usize,
+    /// The highlighted row of the sound picker while it is open.
+    picker: Option<usize>,
+    track: u8,
+    pad: Option<u8>,
+    sound: Option<SoundNumber>,
+}
+
 /// The control part: it turns stamped inputs into numbered messages for the audio part. It keeps
 /// the project, the device settings, the held buttons, the notes that are on, what the screen
 /// shows and the header's message, works out the lights and draws the picture.
@@ -62,6 +78,13 @@ pub struct Control {
     /// The message on the right of the header and its colour. A later button press clears it
     /// (`press`).
     message: Option<(Label<32>, Color)>,
+    /// The `until` of the latest step.
+    now: u64,
+    /// The sample of the event after which the cursor last landed on something new: the text
+    /// under it scrolls from there.
+    landed: u64,
+    /// What the cursor was on after the latest event; none before the first.
+    focus: Option<Focus>,
 }
 
 impl Control {
@@ -77,6 +100,9 @@ impl Control {
             notes: Notes::new(),
             view: View::new(),
             message: None,
+            now: 0,
+            landed: 0,
+            focus: None,
         }
     }
 
@@ -102,7 +128,9 @@ impl Control {
     /// every later event for a later step, which goes on exactly where this one stopped.
     ///
     /// After each event every page's cursor is kept on an item that the page shows: a cursor whose
-    /// item vanished moves to the nearest item above, where it stays when the item comes back.
+    /// item vanished moves to the nearest item above, where it stays when the item comes back. When
+    /// the cursor has then landed on something new (`Focus`), the text under it scrolls from that
+    /// event's sample.
     pub fn step(
         &mut self,
         until: u64,
@@ -117,23 +145,42 @@ impl Control {
             let input = self.inputs.peek().filter(|stamped| {
                 stamped.sample < until && repeat.is_none_or(|(sample, _)| stamped.sample <= sample)
             });
-            if let Some(stamped) = input {
+            let sample = if let Some(stamped) = input {
                 self.inputs.pop();
                 self.input(stamped, messages);
+                stamped.sample
             } else if let Some((sample, button)) = repeat {
                 // Each repeat makes the same move as the press.
                 self.nudge(button, sample, messages);
                 self.buttons.repeated(button);
+                sample
             } else {
                 break;
-            }
+            };
             for screen in Screen::ALL {
                 for (page, def) in pages(screen, self.track()).iter().enumerate() {
                     self.view.keep_cursor(screen, page, def.items.len());
                 }
             }
+            let paged = self.view.screen.paged();
+            let track = self.track();
+            let focus = Some(Focus {
+                overlay: self.overlay(),
+                screen: self.view.screen,
+                page: self.shown_page(paged),
+                item: self.cursor(paged).item,
+                picker: self.view.picker.map(|picker| picker.item),
+                track: self.project.track,
+                pad: track.selected_pad,
+                sound: track.selected_sound,
+            });
+            if focus != self.focus {
+                self.focus = focus;
+                self.landed = sample;
+            }
             redraw = true;
         }
+        self.now = until;
         redraw
     }
 

@@ -255,7 +255,7 @@ fn playing(value: &str) -> Screen {
         &SETTINGS_HEADER,
         None,
         |screen| {
-            draw_item(screen, 2, 17, 160, &velocity(value), true);
+            draw_item(screen, 2, 17, 160, &velocity(value), true, None);
             draw_cursor(screen, 2, 17, 160, 17);
         },
         &[Some(velocity(value)), None, None, None],
@@ -264,7 +264,14 @@ fn playing(value: &str) -> Screen {
 
 /// The tiles of MENU or PAGE under this header, over an empty strip.
 fn tiles(header: &[(&str, Color)], tiles: &[Tile; 16]) -> Screen {
-    drawn(header, None, |screen| draw_tiles(screen, tiles), &[None; 4])
+    drawn(
+        header,
+        None,
+        |screen| {
+            draw_tiles(screen, tiles, 0);
+        },
+        &[None; 4],
+    )
 }
 
 #[test]
@@ -1380,7 +1387,7 @@ fn a_message_stays_until_a_later_button_press() {
             &SETTINGS_HEADER,
             Some(("Pool full", RECORD)),
             |screen| {
-                draw_item(screen, 2, 17, 160, &velocity("Off"), true);
+                draw_item(screen, 2, 17, 160, &velocity("Off"), true, None);
                 draw_cursor(screen, 2, 17, 160, 17);
             },
             &[Some(velocity("Off")), None, None, None],

@@ -38,6 +38,9 @@ impl Control {
     /// MENU or PAGE is held, or the sound picker while it is open. On STEP it stays empty, as its
     /// grid comes with the sequencer. The strip shows the items that the encoders hold on the page
     /// they use, and nothing while MENU or PAGE is held or the picker is open.
+    ///
+    /// The text under the cursor, the current tile's name and the selected pad's name scroll when
+    /// they do not fit, as far as the samples since the cursor landed say; the strip never scrolls.
     pub fn draw(&self, canvas: &mut impl Canvas) {
         canvas.fill_rect(rect(0, 0, WIDTH as i32, HEIGHT as i32), BACKGROUND);
         let track = self.track();
@@ -111,10 +114,11 @@ impl Control {
             }),
         );
 
+        let elapsed = self.now - self.landed;
         let mut values = [Label::new(); 4];
         let mut cells = [None; 4];
         if let Some(tiles) = self.tiles() {
-            draw_tiles(canvas, &tiles);
+            draw_tiles(canvas, &tiles, elapsed);
         } else if let Some(picker) = self.view.picker {
             let shown = picker.scroll..self.picker_rows().min(picker.scroll + LIST_VISIBLE);
             let mut rows = [Row {
@@ -144,6 +148,7 @@ impl Control {
                 &rows[..shown.len()],
                 0,
                 Some(picker.item - picker.scroll),
+                elapsed,
             );
         } else {
             let cursor = self.cursor(screen);
@@ -163,19 +168,23 @@ impl Control {
                     PAGE_WIDTH,
                     &self.item_view(item, &mut value),
                     true,
+                    (index == cursor.item).then_some(elapsed),
                 );
                 if index == cursor.item {
                     draw_cursor(canvas, PAGE_X, y, PAGE_WIDTH, ITEM_HEIGHT);
                 }
             }
             match self.page(screen).and_then(|page| page.picture) {
-                Some(Picture::Pads) => draw_pad_tiles(
-                    canvas,
-                    &core::array::from_fn(|pad| PadTile {
-                        name: track.pads[pad].map(|sound| self.name(sound)),
-                        selected: track.selected_pad.map(usize::from) == Some(pad),
-                    }),
-                ),
+                Some(Picture::Pads) => {
+                    draw_pad_tiles(
+                        canvas,
+                        &core::array::from_fn(|pad| PadTile {
+                            name: track.pads[pad].map(|sound| self.name(sound)),
+                            selected: track.selected_pad.map(usize::from) == Some(pad),
+                        }),
+                        elapsed,
+                    );
+                }
                 Some(Picture::FilterCurve) => {
                     let mode = self.value(MODE.id);
                     let cutoff = param::real(&CUTOFF, self.value(CUTOFF.id));

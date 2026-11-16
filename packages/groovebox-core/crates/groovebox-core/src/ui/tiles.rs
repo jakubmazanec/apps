@@ -34,8 +34,10 @@ pub struct Tile<'a> {
 }
 
 /// Draws the 16 tiles of the step buttons, 4 in a row, each with its number from 1 and its name
-/// next to it. A name that does not fit is shortened.
-pub fn draw_tiles(canvas: &mut impl Canvas, tiles: &[Tile; 16]) {
+/// next to it. A name that does not fit is shortened, or on the current tile scrolls, `elapsed`
+/// samples after the cursor landed (`text::draw_in`). Returns whether a name scrolls.
+pub fn draw_tiles(canvas: &mut impl Canvas, tiles: &[Tile; 16], elapsed: u64) -> bool {
+    let mut scrolls = false;
     for (index, tile) in tiles.iter().enumerate() {
         let x = TILE_X + TILE_PITCH_X * (index % TILE_COLUMNS) as i32;
         let y = TILE_Y + TILE_PITCH_Y * (index / TILE_COLUMNS) as i32;
@@ -53,15 +55,18 @@ pub fn draw_tiles(canvas: &mut impl Canvas, tiles: &[Tile; 16]) {
             number_color,
         );
         if let (Some(name), Some(color)) = (tile.name, name_color) {
-            text::draw_fitted(
+            scrolls |= text::draw_in(
                 canvas,
                 x + TILE_NAME_X,
                 y + TEXT_INSET,
-                text::fit(name, TILE_WIDTH - TILE_NAME_X - TEXT_INSET),
+                TILE_WIDTH - TILE_NAME_X - TEXT_INSET,
+                name,
+                (tile.state == TileState::Current).then_some(elapsed),
                 color,
             );
         }
     }
+    scrolls
 }
 
 /// A pad of the Pad page: the name of its sound, none when it is empty.
@@ -74,8 +79,10 @@ pub struct PadTile<'a> {
 /// Draws the 12 pads, 4 in a row, each with its number from 1 and below it the name of its
 /// sound. The selected pad is all in the accent. The others have a dim number and a bright name,
 /// and a line outline or, when the pad is empty, a faint one. A name that does not fit is
-/// shortened.
-pub fn draw_pad_tiles(canvas: &mut impl Canvas, pads: &[PadTile; 12]) {
+/// shortened, or on the selected pad scrolls, `elapsed` samples after the cursor landed
+/// (`text::draw_in`). Returns whether a name scrolls.
+pub fn draw_pad_tiles(canvas: &mut impl Canvas, pads: &[PadTile; 12], elapsed: u64) -> bool {
+    let mut scrolls = false;
     for (index, pad) in pads.iter().enumerate() {
         let x = PICTURE.0 + PAD_TILE_PITCH * (index % PAD_TILE_COLUMNS) as i32;
         let y = PICTURE.1 + PAD_TILE_PITCH * (index / PAD_TILE_COLUMNS) as i32;
@@ -93,16 +100,18 @@ pub fn draw_pad_tiles(canvas: &mut impl Canvas, pads: &[PadTile; 12]) {
             number_color,
         );
         if let Some(name) = pad.name {
-            let fitted = text::fit(name, PAD_TILE_SIZE - 2 * TEXT_INSET);
-            text::draw_fitted(
+            scrolls |= text::draw_in(
                 canvas,
                 x + TEXT_INSET,
                 y + PAD_TILE_NAME_Y,
-                fitted,
+                PAD_TILE_SIZE - 2 * TEXT_INSET,
+                name,
+                pad.selected.then_some(elapsed),
                 name_color,
             );
         }
     }
+    scrolls
 }
 
 #[cfg(test)]
@@ -110,7 +119,7 @@ mod tests {
     use super::*;
     use crate::palette::{ACCENT, DIM, FAINT, LINE, TEXT};
     use crate::screen::Screen;
-    use crate::ui::test_pixels::{ink, outlined, picture, span};
+    use crate::ui::test_pixels::{MOVED, ink, outlined, picture, span};
     use crate::ui::text;
 
     /// The sixteen tiles of menu-held.png: Step is the current screen, the next nine exist.
@@ -139,7 +148,7 @@ mod tests {
     fn the_menu_tiles_match_menu_held_png() {
         let mut screen = Screen::new();
 
-        draw_tiles(&mut screen, &menu());
+        draw_tiles(&mut screen, &menu(), 0);
 
         // Tile 1, the current one: the accent outline, number and name.
         assert!(outlined(&screen, 1, 16, 118, 58, ACCENT));
@@ -178,17 +187,17 @@ mod tests {
         let mut screen = Screen::new();
         let mut name = Screen::new();
         let mut tiles = menu();
-        tiles[0].name = Some("Name that is far too long");
+        tiles[1].name = Some("Name that is far too long");
 
-        draw_tiles(&mut screen, &tiles);
-        // 16 characters are 95 pixels, from the name's x 21 to the 3 pixels inside the tile.
-        text::draw(&mut name, 21, 19, "Name that is fa…", ACCENT);
+        draw_tiles(&mut screen, &tiles, 0);
+        // 16 characters are 95 pixels, from the name's x 140 to the 3 pixels inside the tile.
+        text::draw(&mut name, 140, 19, "Name that is fa…", TEXT);
 
         assert_eq!(
-            picture(&screen, 20..=117, 17..=72, ACCENT),
-            picture(&name, 20..=117, 17..=72, ACCENT)
+            picture(&screen, 139..=236, 17..=72, TEXT),
+            picture(&name, 139..=236, 17..=72, TEXT)
         );
-        assert_eq!(span(&screen, 20..=117, 17..=72, ACCENT), Some((21, 115)));
+        assert_eq!(span(&screen, 139..=236, 17..=72, TEXT), Some((140, 234)));
     }
 
     #[test]
@@ -197,7 +206,7 @@ mod tests {
         let mut tiles = menu();
         tiles[10].name = Some("Hidden");
 
-        draw_tiles(&mut screen, &tiles);
+        draw_tiles(&mut screen, &tiles, 0);
 
         assert_eq!(span(&screen, 240..=355, 135..=190, TEXT), None);
     }
@@ -228,7 +237,7 @@ mod tests {
     fn the_pad_tiles_match_sound_pad_png() {
         let mut screen = Screen::new();
 
-        draw_pad_tiles(&mut screen, &pads());
+        draw_pad_tiles(&mut screen, &pads(), 0);
 
         // Tile 1: a line outline, a dim number 3 pixels in and the name on the row at y + 17.
         assert!(outlined(&screen, 164, 16, 78, 78, LINE));
@@ -257,7 +266,7 @@ mod tests {
     fn an_empty_pad_tile_has_a_faint_outline_and_only_its_number() {
         let mut screen = Screen::new();
 
-        draw_pad_tiles(&mut screen, &pads());
+        draw_pad_tiles(&mut screen, &pads(), 0);
 
         assert!(outlined(&screen, 243, 174, 78, 78, FAINT));
         assert_eq!(span(&screen, 244..=319, 175..=250, DIM), Some((246, 256)));
@@ -275,7 +284,7 @@ mod tests {
         };
         pads[9].selected = true;
 
-        draw_pad_tiles(&mut screen, &pads);
+        draw_pad_tiles(&mut screen, &pads, 0);
 
         assert!(outlined(&screen, 243, 174, 78, 78, ACCENT));
         assert_eq!(
@@ -293,12 +302,64 @@ mod tests {
         let mut pads = pads();
         pads[0].name = Some("Žluťoučký kůň");
 
-        draw_pad_tiles(&mut screen, &pads);
+        draw_pad_tiles(&mut screen, &pads, 0);
         text::draw(&mut name, 167, 33, "Žluťoučký k…", TEXT);
 
         assert_eq!(
             picture(&screen, 165..=240, 33..=92, TEXT),
             picture(&name, 165..=240, 33..=92, TEXT)
         );
+    }
+
+    #[test]
+    fn only_the_current_tile_scrolls() {
+        let mut screen = Screen::new();
+        let mut name = Screen::new();
+        let mut tiles = menu();
+        tiles[0].name = Some("Filter envelope 2");
+        tiles[1].name = Some("Filter envelope 2");
+
+        let scrolls = draw_tiles(&mut screen, &tiles, MOVED);
+        text::draw(&mut name, 140, 19, "Filter envelope…", TEXT);
+
+        assert!(scrolls);
+        let (first, last) = span(&screen, 20..=117, 17..=72, ACCENT).unwrap();
+        assert!(first >= 21 && last <= 115, "{first} to {last}");
+        assert_ne!(
+            picture(&screen, 21..=115, 17..=72, ACCENT),
+            picture(&name, 21..=115, 17..=72, ACCENT)
+        );
+        assert_eq!(
+            picture(&screen, 139..=236, 17..=72, TEXT),
+            picture(&name, 139..=236, 17..=72, TEXT)
+        );
+        assert!(!draw_tiles(&mut Screen::new(), &menu(), MOVED));
+    }
+
+    #[test]
+    fn only_the_selected_pad_scrolls() {
+        let mut screen = Screen::new();
+        let mut name = Screen::new();
+        let mut pads = pads();
+        pads[0] = PadTile {
+            name: Some("Hat open take3"),
+            selected: true,
+        };
+        pads[1] = PadTile {
+            name: Some("Hat open take3"),
+            selected: false,
+        };
+
+        let scrolls = draw_pad_tiles(&mut screen, &pads, MOVED);
+        text::draw(&mut name, 246, 33, "Hat open ta…", TEXT);
+
+        assert!(scrolls);
+        let (first, last) = span(&screen, 165..=240, 33..=92, ACCENT).unwrap();
+        assert!(first >= 167 && last <= 238, "{first} to {last}");
+        assert_eq!(
+            picture(&screen, 244..=319, 33..=92, TEXT),
+            picture(&name, 244..=319, 33..=92, TEXT)
+        );
+        assert!(!draw_pad_tiles(&mut Screen::new(), &self::pads(), MOVED));
     }
 }

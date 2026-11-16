@@ -19,10 +19,18 @@ pub struct Row<'a> {
 
 /// Draws the rows from `first` on, at most 16 of them. The cursor goes on the row `cursor` when it
 /// is one of them. The text is bright and the label dim. A text that does not fit is shortened to
-/// leave the whole label and 6 pixels between them.
-pub fn draw_rows(canvas: &mut impl Canvas, rows: &[Row], first: usize, cursor: Option<usize>) {
+/// leave the whole label and 6 pixels between them; under the cursor it scrolls in that room,
+/// `elapsed` samples after the cursor landed (`text::draw_in`). Returns whether a text scrolls.
+pub fn draw_rows(
+    canvas: &mut impl Canvas,
+    rows: &[Row],
+    first: usize,
+    cursor: Option<usize>,
+    elapsed: u64,
+) -> bool {
     let left = ROW_X + TEXT_INSET;
     let right = ROW_X + ROW_WIDTH - 1 - TEXT_INSET;
+    let mut scrolls = false;
     for (slot, row) in rows.iter().skip(first).take(LIST_VISIBLE).enumerate() {
         let y = ROW_FIRST + ROW_PITCH * slot as i32;
         let mut room = right - left + 1;
@@ -30,11 +38,21 @@ pub fn draw_rows(canvas: &mut impl Canvas, rows: &[Row], first: usize, cursor: O
             text::draw_right(canvas, right, y, label, DIM);
             room -= text::width(label) + PIECE_GAP;
         }
-        text::draw_fitted(canvas, left, y, text::fit(row.left, room), TEXT);
-        if cursor == Some(first + slot) {
+        let under_cursor = cursor == Some(first + slot);
+        scrolls |= text::draw_in(
+            canvas,
+            left,
+            y,
+            room,
+            row.left,
+            under_cursor.then_some(elapsed),
+            TEXT,
+        );
+        if under_cursor {
             draw_cursor(canvas, ROW_X, y, ROW_WIDTH, ROW_HEIGHT);
         }
     }
+    scrolls
 }
 
 #[cfg(test)]
@@ -42,7 +60,7 @@ mod tests {
     use super::*;
     use crate::palette::{ACCENT, DIM, TEXT};
     use crate::screen::Screen;
-    use crate::ui::test_pixels::{ink, outlined, span};
+    use crate::ui::test_pixels::{MOVED, ink, outlined, picture, span};
 
     /// The first six rows of picker-sound.png.
     const PICKER: [Row; 6] = [
@@ -76,7 +94,7 @@ mod tests {
     fn the_rows_and_cursor_match_picker_sound_png() {
         let mut screen = Screen::new();
 
-        draw_rows(&mut screen, &PICKER, 0, Some(4));
+        draw_rows(&mut screen, &PICKER, 0, Some(4), 0);
 
         // The cursor on row 4: an outline 1 pixel outside the row, which spans x 2 to 477.
         assert!(outlined(&screen, 1, 72, 478, 15, ACCENT));
@@ -106,7 +124,7 @@ mod tests {
     fn sixteen_rows_from_the_first_are_drawn() {
         let mut screen = Screen::new();
 
-        draw_rows(&mut screen, &many(), 2, Some(2));
+        draw_rows(&mut screen, &many(), 2, Some(2), 0);
 
         // 16 rows fit under the header, the last one's text on rows 230 to 236.
         assert_eq!(span(&screen, 0..=479, 20..=26, TEXT), Some((5, 9)));
@@ -120,13 +138,13 @@ mod tests {
         for (cursor, visible) in [(1, false), (18, false), (19, false), (17, true)] {
             let mut screen = Screen::new();
 
-            draw_rows(&mut screen, &many(), 2, Some(cursor));
+            draw_rows(&mut screen, &many(), 2, Some(cursor), 0);
 
             assert_eq!(ink(&screen, ACCENT) > 0, visible, "cursor {cursor}");
         }
         let mut screen = Screen::new();
 
-        draw_rows(&mut screen, &many()[..3], 0, Some(5));
+        draw_rows(&mut screen, &many()[..3], 0, Some(5), 0);
 
         assert_eq!(ink(&screen, ACCENT), 0);
     }
@@ -135,7 +153,7 @@ mod tests {
     fn the_cursor_on_the_last_visible_row_is_one_pixel_outside_it() {
         let mut screen = Screen::new();
 
-        draw_rows(&mut screen, &many(), 2, Some(17));
+        draw_rows(&mut screen, &many(), 2, Some(17), 0);
 
         assert!(outlined(&screen, 1, 226, 478, 15, ACCENT));
     }
@@ -145,8 +163,8 @@ mod tests {
         let mut with_rows = Screen::new();
         let mut past_the_end = Screen::new();
 
-        draw_rows(&mut with_rows, &many(), 0, None);
-        draw_rows(&mut past_the_end, &many()[..3], 5, Some(5));
+        draw_rows(&mut with_rows, &many(), 0, None, 0);
+        draw_rows(&mut past_the_end, &many()[..3], 5, Some(5), 0);
 
         assert_eq!(ink(&with_rows, ACCENT), 0);
         assert!(ink(&with_rows, TEXT) > 0);
@@ -172,6 +190,7 @@ mod tests {
             ],
             0,
             None,
+            0,
         );
 
         // 70 characters and "…" end at x 429, 10 pixels before the label's 440 (one more character
@@ -179,5 +198,38 @@ mod tests {
         assert_eq!(span(&screen, 2..=439, 20..=26, TEXT), Some((5, 429)));
         assert_eq!(span(&screen, 440..=477, 20..=26, DIM), Some((440, 474)));
         assert_eq!(span(&screen, 2..=477, 34..=40, TEXT), Some((5, 471)));
+    }
+
+    const LONG: &str = "Žluťoučký kůň úpěl ďábelské ódy, Žluťoučký kůň úpěl ďábelské ódy, Žluťoučký kůň úpěl ďábelské ódy";
+
+    #[test]
+    fn the_row_under_the_cursor_scrolls_up_to_its_label() {
+        let rows = [Row {
+            left: LONG,
+            right: Some("synth"),
+        }; 2];
+        let mut screen = Screen::new();
+        let mut shortened = Screen::new();
+
+        let scrolls = draw_rows(&mut screen, &rows, 0, Some(0), MOVED);
+        draw_rows(&mut shortened, &rows, 0, None, MOVED);
+
+        assert!(scrolls);
+        // The text has the room up to 6 pixels before "synth", which starts at x 446.
+        let (first, last) = span(&screen, 2..=477, 17..=29, TEXT).unwrap();
+        assert!(first >= 5 && last <= 439, "{first} to {last}");
+        assert_ne!(
+            picture(&screen, 5..=439, 17..=29, TEXT),
+            picture(&shortened, 5..=439, 17..=29, TEXT)
+        );
+        assert_eq!(
+            picture(&screen, 2..=477, 17..=29, DIM),
+            picture(&shortened, 2..=477, 17..=29, DIM)
+        );
+        assert_eq!(
+            picture(&screen, 2..=477, 31..=43, TEXT),
+            picture(&shortened, 2..=477, 31..=43, TEXT)
+        );
+        assert!(!draw_rows(&mut shortened, &rows, 0, None, MOVED));
     }
 }

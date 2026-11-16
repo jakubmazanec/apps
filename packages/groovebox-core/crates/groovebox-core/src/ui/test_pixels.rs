@@ -1,9 +1,13 @@
 //! Reads drawn pixels back for the tests of the parts of `ui`.
 
 use crate::screen::{Color, Screen};
+use crate::ui::text::{SCROLL_PAUSE, SCROLL_PIXEL};
 use core::ops::RangeInclusive;
 use std::string::String;
 use std::vec::Vec;
+
+/// The time after the cursor landed at which a scrolling text has moved 30 pixels.
+pub const MOVED: u64 = SCROLL_PAUSE + 30 * SCROLL_PIXEL;
 
 /// The pixels in `columns` and `rows` as lines of text: `#` where a pixel is `ink`, `.` elsewhere.
 pub fn picture(

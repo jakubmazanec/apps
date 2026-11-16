@@ -10,6 +10,8 @@ use crate::param::{
 };
 use crate::ui::layout::HEADER_LINE;
 use crate::ui::list::{Row, draw_rows};
+use crate::ui::test_pixels::MOVED;
+use crate::ui::text::{SCROLL_PAUSE, SCROLL_PIXEL};
 use crate::ui::tiles::{PadTile, draw_pad_tiles};
 use core::ops::RangeInclusive;
 use std::format;
@@ -56,7 +58,7 @@ fn pad_page(
         |screen| {
             for (row, item) in items.iter().enumerate() {
                 let y = 17 + 18 * row as i32;
-                draw_item(screen, 2, y, 160, item, true);
+                draw_item(screen, 2, y, 160, item, true, None);
                 if row == cursor {
                     draw_cursor(screen, 2, y, 160, 17);
                 }
@@ -67,6 +69,7 @@ fn pad_page(
                     name: pads[pad],
                     selected: pad == selected,
                 }),
+                0,
             );
         },
         &strip,
@@ -105,7 +108,9 @@ fn picker(header: &[(&str, Color)], rows: &[Row], first: usize, cursor: usize) -
     drawn(
         header,
         None,
-        |screen| draw_rows(screen, rows, first, Some(cursor)),
+        |screen| {
+            draw_rows(screen, rows, first, Some(cursor), 0);
+        },
         &[None; 4],
     )
 }
@@ -1485,6 +1490,7 @@ fn the_filter_page_matches_its_geometry() {
             bar: Bar::Fill(65_535),
         },
         true,
+        None,
     );
     assert!(same(&screen, &cutoff, 2..=161, 35..=51));
 
@@ -1537,8 +1543,149 @@ fn oscillator_2_names_give_way_to_their_values() {
             bar: Bar::Fill(32_767),
         },
         true,
+        None,
     );
     assert!(same(&screen, &expected, 2..=161, 143..=159));
+}
+
+/// Puts Syn 1 on pad 1 and the cursor of SOUND's Synth page on item 8, Oscillator 2 fine tune,
+/// with seven taps of DOWN, the last at sample 32.
+fn on_fine_tune(rig: &mut Rig<'_>) {
+    rig.synth_on(0);
+    rig.menu(0, 2);
+    rig.page(10, 1);
+    for sample in (20..=32).step_by(2) {
+        rig.tap(sample, Button::Down);
+    }
+}
+
+/// Item 8 of the Synth page, Oscillator 2 fine tune at "+0", `elapsed` samples after the cursor
+/// landed on it.
+fn item_8(elapsed: u64) -> Screen {
+    let mut screen = Screen::new();
+    draw_item(
+        &mut screen,
+        2,
+        143,
+        160,
+        &ItemView {
+            encoder: None,
+            name: "Oscillator 2 fine tune",
+            value: "+0",
+            bar: Bar::Fill(32_767),
+        },
+        true,
+        Some(elapsed),
+    );
+    screen
+}
+
+/// Whether the control part draws item 8 as `expected` has it.
+fn shows_item_8(control: &Control, expected: &Screen) -> bool {
+    same(&picture(control), expected, 2..=161, 143..=159)
+}
+
+#[test]
+fn the_name_under_the_cursor_holds_still_then_scrolls() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    on_fine_tune(&mut rig);
+
+    rig.step(32 + 24_000);
+    assert!(shows_item_8(&rig.control, &item_8(0)));
+    rig.step(32 + MOVED);
+    assert!(shows_item_8(&rig.control, &item_8(MOVED)));
+    assert!(!shows_item_8(&rig.control, &item_8(0)));
+}
+
+#[test]
+fn landing_counts_from_the_press_not_the_step() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    on_fine_tune(&mut rig);
+
+    rig.step(32 + SCROLL_PAUSE + 7 * SCROLL_PIXEL);
+
+    assert!(shows_item_8(
+        &rig.control,
+        &item_8(SCROLL_PAUSE + 7 * SCROLL_PIXEL)
+    ));
+}
+
+#[test]
+fn leaving_the_name_shortens_it_and_coming_back_starts_it_again() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    on_fine_tune(&mut rig);
+    let mut shortened = Screen::new();
+    draw_item(
+        &mut shortened,
+        2,
+        143,
+        160,
+        &ItemView {
+            encoder: None,
+            name: "Oscillator 2 fine tu…",
+            value: "+0",
+            bar: Bar::Fill(32_767),
+        },
+        true,
+        None,
+    );
+
+    rig.tap(32 + MOVED, Button::Up);
+    rig.step(32 + MOVED + 10);
+    assert!(shows_item_8(&rig.control, &shortened));
+
+    let t = 32 + MOVED + 100;
+    rig.tap(t, Button::Down);
+    rig.step(t + 1_000);
+    assert!(shows_item_8(&rig.control, &item_8(0)));
+}
+
+#[test]
+fn a_pad_hit_does_not_restart_the_scroll() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    on_fine_tune(&mut rig);
+
+    rig.hit(32 + SCROLL_PAUSE, 0, 100);
+    rig.release(32 + SCROLL_PAUSE + 1, 0);
+    rig.step(32 + MOVED);
+
+    assert!(shows_item_8(&rig.control, &item_8(MOVED)));
+}
+
+#[test]
+fn a_value_change_keeps_the_name_moving_within_its_new_room() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    on_fine_tune(&mut rig);
+    for tap in 0..10 {
+        rig.tap(32 + SCROLL_PAUSE + 2 * tap, Button::Plus);
+    }
+
+    rig.step(32 + MOVED);
+
+    let screen = picture(&rig.control);
+    let mut expected = Screen::new();
+    draw_item(
+        &mut expected,
+        2,
+        143,
+        160,
+        &ItemView {
+            encoder: None,
+            name: "Oscillator 2 fine tune",
+            value: "+10",
+            bar: Bar::Track,
+        },
+        true,
+        Some(MOVED),
+    );
+    assert!(same(&screen, &expected, 2..=161, 143..=155));
+    let (first, last) = span(&screen, 2..=161, 143..=155, DIM).unwrap();
+    assert!(first >= 16 && last <= 135, "{first} to {last}");
 }
 
 #[test]
