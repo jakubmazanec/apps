@@ -58,6 +58,22 @@ export const STATES: ReadonlyArray<{title: string; frame: string; approved?: str
   },
   {title: 'SOUND Voice page', frame: 'synth-pages/frame-403200.png'},
   {
+    title: 'SOUND Synth page, Oscillator 2 fine tune holding still',
+    frame: 'scrolling-text/frame-69120.png',
+  },
+  {
+    title: 'SOUND Synth page, Oscillator 2 fine tune scrolled 30 pixels',
+    frame: 'scrolling-text/frame-140800.png',
+  },
+  {
+    title: 'SOUND Synth page, Oscillator 2 fine tune coming round',
+    frame: 'scrolling-text/frame-316800.png',
+  },
+  {
+    title: 'SOUND Synth page, Oscillator 2 fine tune shortened after the cursor left',
+    frame: 'scrolling-text/frame-352000.png',
+  },
+  {
     title: 'PAGE held on SOUND',
     frame: 'synth-pages/frame-409600.png',
     approved: 'page-held.png',

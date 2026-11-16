@@ -1,0 +1,46 @@
+groovebox-scene 1
+# Syn 1 on pad 1 through the panel: MENU + step 3, then OK, down and OK in the sound picker.
+input 3200 press menu
+input 4800 press step-3
+input 6400 release step-3
+input 8000 release menu
+input 9600 press ok
+input 11200 release ok
+input 12800 press down
+input 14400 release down
+input 16000 press ok
+input 17600 release ok
+# PAGE + step 2: the Synth page.
+input 19200 press page
+input 20800 press step-2
+input 22400 release step-2
+input 24000 release page
+# Down seven times to item 8, Oscillator 2 fine tune, too long beside its value: the last press at
+# 44800 is where the scroll starts.
+input 25600 press down
+input 27200 release down
+input 28800 press down
+input 30400 release down
+input 32000 press down
+input 33600 release down
+input 35200 press down
+input 36800 release down
+input 38400 press down
+input 40000 release down
+input 41600 press down
+input 43200 release down
+input 44800 press down
+input 46400 release down
+# Holding still at its start: "Oscillator 2 fine tun", cut at the box, no "…".
+frame 69120
+# 30 pixels on: the name has moved five letters left.
+frame 140800
+# 140 pixels on: the name has gone round; a 9 pixel gap, then the name again from its first letter.
+frame 316800
+# The next round: holding still at its start again, the same picture as at 69120.
+frame 340992
+# Up to item 7: item 8 reads "Oscillator 2 fine tu…" again and Oscillator 2 interval fits.
+input 345600 press up
+input 347200 release up
+frame 352000
+end 355200
