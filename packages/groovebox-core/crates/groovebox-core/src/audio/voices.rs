@@ -93,9 +93,6 @@ impl Voices {
         }
 
         let mode = read(&PLAY_MODE);
-        let held = self.held[..self.length]
-            .iter()
-            .any(|key| key.sound == sound && key.track == track);
         let playing = self.voices.iter().position(|voice| {
             mode != POLY
                 && voice.state() != State::Idle
@@ -103,6 +100,9 @@ impl Voices {
                 && voice.track() == track
         });
         if let Some(index) = playing {
+            // The voice's own key, not the held list: after a change from Poly a key may be held
+            // by another voice.
+            let held = self.voices[index].state() == State::Held;
             self.voices[index].change(
                 note,
                 pitch,
@@ -160,19 +160,22 @@ impl Voices {
             self.held.copy_within(place + 1..self.length, place);
             self.length -= 1;
         }
+        let plays = |voice: &Voice, note| voice.state() != State::Idle && voice.note() == note;
         // An idle voice still names the note it last played.
-        let Some(voice) = self
-            .voices
-            .iter_mut()
-            .find(|voice| voice.state() != State::Idle && voice.note() == note)
-        else {
+        let Some(index) = self.voices.iter().position(|voice| plays(voice, note)) else {
             return;
         };
+        let voice = &self.voices[index];
         let values = sounds.values(voice.sound());
         let read = |entry: &Entry| values[Sound::place(entry.id)];
+        // After a change from Poly another voice may already play a held key.
         let back = self.held[..self.length].iter().rev().find(|key| {
-            read(&PLAY_MODE) != POLY && key.sound == voice.sound() && key.track == voice.track()
+            read(&PLAY_MODE) != POLY
+                && key.sound == voice.sound()
+                && key.track == voice.track()
+                && !self.voices.iter().any(|other| plays(other, key.note))
         });
+        let voice = &mut self.voices[index];
         match back {
             // A return always overlaps, so it glides whenever Glide time is above 0.
             Some(key) => voice.change(
@@ -268,6 +271,12 @@ mod tests {
 
         fn off(&mut self, note: u32) {
             self.voices.note_off(NoteId(note), &self.sounds);
+        }
+
+        /// Changes a value of `sound` as a `SetParam` does.
+        fn set(&mut self, sound: u32, entry: &Entry, value: i32) {
+            self.sounds.set(SoundNumber(sound), entry.id, value);
+            self.voices.set(SoundNumber(sound), entry.id, value);
         }
 
         /// The left channel of the next `chunks` chunks of every voice.
@@ -551,6 +560,36 @@ mod tests {
             let samples = rig.play_alone(note, 8);
             assert_eq!(peak(&samples[4 * CHUNK..]) == 0.0, silenced, "note {note}");
         }
+    }
+
+    #[test]
+    fn turning_to_mono_under_held_poly_notes_leaves_no_voice_stuck() {
+        let mut rig = Rig::new(&[&[]]);
+        rig.on(0, 0, 1, 60);
+        rig.on(1, 0, 1, 64);
+        rig.set(1, &PLAY_MODE, MONO);
+
+        rig.off(1);
+        rig.off(0);
+        rig.play(300);
+
+        assert_eq!(rig.sounding(), 0);
+    }
+
+    #[test]
+    fn a_legato_key_after_a_mode_change_sounds() {
+        let mut rig = Rig::new(&[&[]]);
+        rig.on(0, 0, 1, 60);
+        rig.on(1, 0, 1, 64);
+        rig.play(10);
+        rig.off(1);
+        rig.play(100);
+        rig.set(1, &PLAY_MODE, LEGATO);
+
+        rig.on(2, 0, 1, 67);
+
+        let peak = peak(&rig.play_alone(2, 5));
+        assert!(peak > 0.1, "peak {peak}");
     }
 
     #[test]
