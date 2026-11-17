@@ -76,6 +76,22 @@ impl<'a> Rig<'a> {
         request
     }
 
+    /// Carries out the request that is out and queues its reply at `sample` with `value` in place
+    /// of the storage's, as a faulty platform might. Gives the request.
+    #[allow(unsafe_code)]
+    fn serve_claiming(&mut self, sample: u64, value: u64) -> Request {
+        let (number, request) = self.control.take_request().expect("a request is out");
+        // SAFETY: the rig has no audio part, so every block of its sample RAM is the control side's.
+        let reply = unsafe { self.storage.carry_out(&request, &mut self.io, &self.ram) };
+        let claimed = Reply {
+            number,
+            value,
+            ..reply
+        };
+        assert_eq!(self.control.queue_reply(sample, claimed), Ok(()));
+        request
+    }
+
     /// Serves every request of the start-up at the sample where the latest step ended, until the
     /// project opens. Gives the requests.
     pub(super) fn open(&mut self) -> Vec<Request> {
@@ -393,6 +409,51 @@ fn a_failed_list_ends_the_listing_and_says_the_library_cant_be_read() {
         &rig.control,
         &step_with(("Library can't be read", RECORD))
     ));
+}
+
+#[test]
+fn a_list_claiming_more_records_than_its_page_holds_ends_the_listing() {
+    let queue = Queue::new();
+    let mut rig = Rig::with_files(&queue, &[("samples/kick.wav", converted(100, 1))]);
+    rig.step(1);
+    rig.serve(0);
+    rig.step(1);
+    // The page holds kick.wav's record of 13 bytes and no more.
+    rig.io.truncate(13);
+
+    assert!(matches!(rig.serve_claiming(0, 2), Request::List { .. }));
+    rig.step(1);
+    rig.io.resize(budget::IO_BUFFER, 0);
+    rig.open();
+
+    assert!(rig.control.library.file(FileId(0)).loaded);
+    assert!(shows(
+        &rig.control,
+        &step_with(("Library can't be read", RECORD))
+    ));
+}
+
+#[test]
+fn a_head_claiming_more_bytes_than_the_buffer_holds_is_read_from_the_buffer() {
+    let queue = Queue::new();
+    let mut rig = Rig::with_files(&queue, &[("samples/kick.wav", converted(100, 1))]);
+    rig.step(1);
+    // The Delete and the List.
+    for _ in 0..2 {
+        rig.serve(0);
+        rig.step(1);
+    }
+
+    let claimed = budget::IO_BUFFER as u64 + 1;
+    assert!(matches!(
+        rig.serve_claiming(0, claimed),
+        Request::Read { .. }
+    ));
+    rig.step(1);
+    rig.open();
+
+    assert!(rig.control.library.file(FileId(0)).loaded);
+    assert_eq!(rig.control.message, None);
 }
 
 #[test]
@@ -834,6 +895,25 @@ fn an_unreadable_wav_is_refused_and_reasons_are_listed_in_order() {
             RECORD
         ))
     ));
+}
+
+#[test]
+fn a_dropped_head_claiming_more_bytes_than_the_buffer_holds_is_read_from_the_buffer() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    rig.drop_files(10, &[("tmp/1/kick.wav", short(100.0, 0.01))]);
+    rig.step(11);
+    assert!(matches!(rig.serve(11), Request::List { .. }));
+    rig.step(12);
+
+    let claimed = budget::IO_BUFFER as u64 + 1;
+    assert!(matches!(
+        rig.serve_claiming(12, claimed),
+        Request::Read { .. }
+    ));
+    rig.settle(13);
+
+    assert_eq!(stored(&rig), ["samples/kick.wav"]);
 }
 
 /// `file`, a plain WAV file from `wav::sine`, with a `smpl` chunk before its audio that names

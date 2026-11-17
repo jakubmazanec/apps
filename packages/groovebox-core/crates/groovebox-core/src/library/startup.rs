@@ -125,10 +125,17 @@ impl StartUp {
                 if matches!(status, Status::Done | Status::More) {
                     let mut records = io;
                     for _ in 0..value {
-                        let (path, rest) = records[1..].split_at(usize::from(records[0]));
-                        let (size, rest) = rest
-                            .split_first_chunk()
-                            .expect("a record ends in the file's size");
+                        // A page with fewer records than it claims counts as a failed `List`.
+                        let Some((path, size, rest)) =
+                            records.split_first().and_then(|(&length, rest)| {
+                                let (path, rest) = rest.split_at_checked(usize::from(length))?;
+                                let (size, rest) = rest.split_first_chunk()?;
+                                Some((path, size, rest))
+                            })
+                        else {
+                            self.unreadable = true;
+                            return self.read_from(0, library);
+                        };
                         records = rest;
                         match core::str::from_utf8(path).ok().and_then(|path| {
                             let file = library.free_file()?;
@@ -155,7 +162,7 @@ impl StartUp {
                 let Some((head, ours)) = (status == Status::Done)
                     .then(|| {
                         wav::parse(
-                            &io[..value as usize],
+                            &io[..value.min(io.len() as u64) as usize],
                             u64::from(self.sizes[usize::from(file.0)]),
                         )
                     })

@@ -241,7 +241,12 @@ impl Import {
             }
             Stage::Reading => {
                 let Some(head) = ok
-                    .then(|| wav::parse(&io[..value as usize], u64::from(self.size)))
+                    .then(|| {
+                        wav::parse(
+                            &io[..value.min(io.len() as u64) as usize],
+                            u64::from(self.size),
+                        )
+                    })
                     .flatten()
                 else {
                     self.end(Some(Refusal::Unreadable), library, tables);
