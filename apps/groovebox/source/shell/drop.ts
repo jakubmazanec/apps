@@ -4,7 +4,7 @@ function isWav(name: string) {
 }
 
 // The .wav files of `entry`, at `path` in the drop: a file, or every file of a folder at any depth,
-// its entries in name order
+// its entries in name order. A hidden folder, one whose name starts with a dot, holds none
 async function filesOf(
   entry: FileSystemEntry,
   path: string,
@@ -20,6 +20,10 @@ async function filesOf(
           },
         ]
       : [];
+  }
+
+  if (entry.name.startsWith('.')) {
+    return [];
   }
 
   let reader = (entry as FileSystemDirectoryEntry).createReader();

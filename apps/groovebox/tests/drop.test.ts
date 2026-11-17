@@ -106,6 +106,15 @@ describe(droppedFiles, () => {
     ]);
   });
 
+  test('skips everything inside a hidden folder', async () => {
+    let dropped = items(
+      {folder: '.hidden', holds: ['kick.wav', {folder: 'deep', holds: ['snare.wav']}]},
+      {folder: 'kit', holds: ['hat.wav', {folder: '.cache', holds: ['clap.wav']}]},
+    );
+
+    await expect(pathsAndNames(dropped)).resolves.toStrictEqual([['kit/hat.wav', 'hat.wav']]);
+  });
+
   test('keeps the rest of a drop when an entry cannot be read', async () => {
     let dropped = items({unreadable: 'gone.wav'}, 'kick.wav', {
       folder: 'kit',
