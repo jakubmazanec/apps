@@ -14,9 +14,9 @@ const HEAD: u32 = 512;
 
 /// The start-up's job: it empties `tmp/`, lists `samples/` and loads every file into the sample
 /// RAM in SAMPLES' order, depth first, one request at a time. A file stays not loaded when its
-/// head is not this device's, when a request for it fails, and when it or a file before it finds
-/// too few free blocks. When the storage fails the `Delete` or a `List`, the listing ends there
-/// and the files listed so far load.
+/// head is not this device's or a request for it fails; once a file finds too few free blocks, it
+/// and every file after it stay not loaded. When the storage fails the `Delete` or a `List`, the
+/// listing ends there and the files listed so far load.
 pub struct StartUp {
     stage: Stage,
     /// Each listed file's size in bytes, by `FileId`.
