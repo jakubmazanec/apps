@@ -2,8 +2,9 @@ import {describe, expect, test} from 'vitest';
 
 import {droppedFiles} from '../source/shell/drop.js';
 
-// What a test drops: a file by its name, or a folder by its name and what it holds
-type Dropped = {folder: string; holds: Dropped[]} | string;
+// What a test drops: a file by its name, a file that cannot be read by its name, or a folder by its
+// name and what it holds
+type Dropped = {folder: string; holds: Dropped[]} | {unreadable: string} | string;
 
 // An entry as Chromium gives it. A folder's reader gives its entries unsorted, in two batches,
 // then an empty one
@@ -15,6 +16,17 @@ function entry(dropped: Dropped): FileSystemEntry {
       name: dropped,
       file: (success: FileCallback) => {
         success(new File([dropped], dropped));
+      },
+    } as unknown as FileSystemFileEntry;
+  }
+
+  if ('unreadable' in dropped) {
+    return {
+      isFile: true,
+      isDirectory: false,
+      name: dropped.unreadable,
+      file: (success: FileCallback, failure: ErrorCallback) => {
+        failure(new DOMException('The file is gone', 'NotFoundError'));
       },
     } as unknown as FileSystemFileEntry;
   }
@@ -91,6 +103,19 @@ describe(droppedFiles, () => {
       ['my kit/b/z.wav', 'z.wav'],
       ['my kit/snare.wav', 'snare.wav'],
       ['bass.wav', 'bass.wav'],
+    ]);
+  });
+
+  test('keeps the rest of a drop when an entry cannot be read', async () => {
+    let dropped = items({unreadable: 'gone.wav'}, 'kick.wav', {
+      folder: 'kit',
+      holds: ['snare.wav', {unreadable: 'lost.wav'}, 'hat.wav'],
+    });
+
+    await expect(pathsAndNames(dropped)).resolves.toStrictEqual([
+      ['kick.wav', 'kick.wav'],
+      ['kit/hat.wav', 'hat.wav'],
+      ['kit/snare.wav', 'snare.wav'],
     ]);
   });
 });

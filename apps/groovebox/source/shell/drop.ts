@@ -37,13 +37,16 @@ async function filesOf(
   entries.sort((a, b) => (a.name < b.name ? -1 : 1));
 
   return (
-    await Promise.all(entries.map(async (inside) => filesOf(inside, `${path}/${inside.name}`)))
+    await Promise.all(
+      entries.map(async (inside) => filesOf(inside, `${path}/${inside.name}`).catch(() => [])),
+    )
   ).flat();
 }
 
 // The .wav files of a drop with their paths in it, the items in their order: a loose file at the
 // top, a folder's files under its name (answer 6). The items are taken before anything waits, as
-// they are empty once the drop event is over. A synthetic drop has no entries, only loose files
+// they are empty once the drop event is over. A synthetic drop has no entries, only loose files.
+// An entry that cannot be read, at any depth, is left out
 export async function droppedFiles(
   items: DataTransferItemList,
 ): Promise<Array<{path: string; file: File}>> {
@@ -56,7 +59,7 @@ export async function droppedFiles(
           return isWav(entry.name) ? [{path: entry.name, file: entry}] : [];
         }
 
-        return entry ? filesOf(entry, entry.name) : [];
+        return entry ? filesOf(entry, entry.name).catch(() => []) : [];
       }),
     )
   ).flat();
