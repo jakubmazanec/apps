@@ -42,15 +42,17 @@ impl Control {
     /// there is no sound to name, and the pad's dim number stands in its place. While MENU is held
     /// the header names MENU in place of the screen and its page. The message is on the right, or
     /// while there is none the import's progress, in the room right of the pieces; a file's name in
-    /// it is shortened with "…" so that the rest of the text fits there.
+    /// it is shortened with "…" so that the rest of the text fits there, and a message still too
+    /// wide for it loses its end to a "…".
     ///
     /// The main area shows the page's items with the cursor and the page's picture, the tiles while
     /// MENU or PAGE is held, or the picker while one is open. On STEP it stays empty, as its grid
     /// comes with the sequencer. SAMPLES shows its rows (`samples_row`) with the cursor, inside a
-    /// folder under a dim line with the folder's path, and the library meter above the strip. A
-    /// question shows in a box in the middle of the main area, over what the main area shows.
-    /// The strip shows the items that the encoders hold on the page they use, and nothing
-    /// while MENU or PAGE is held, the picker is open or SAMPLES shows.
+    /// folder under a dim line with the folder's path, which loses its start to a "…" when too wide
+    /// for the row, and the library meter above the strip. A question shows in a box in the middle
+    /// of the main area, over what the main area shows. The strip shows the items that the encoders
+    /// hold on the page they use, and nothing while MENU or PAGE is held, the picker is open or
+    /// SAMPLES shows.
     ///
     /// The text under the cursor, the current tile's name and the selected pad's name scroll when
     /// they do not fit, as far as the samples since the cursor landed say; the strip never scrolls.
@@ -151,13 +153,13 @@ impl Control {
                 let name = text::fit(&text[from..to], room - ADVANCE * rest);
                 // The "…" takes the place of at least one character, so two bytes more at most.
                 let mut shown = Label::<{ 128 + 2 }>::new();
-                shown.push_str(before);
-                shown.push_str(name.text);
-                if name.ellipsis {
-                    shown.push_str("…");
-                }
-                shown.push_str(after);
-                (shown, color)
+                write!(shown, "{before}{name}{after}").expect("writing to a label never fails");
+                // A message still too wide loses its end, and the "…" takes the place of two
+                // characters at least.
+                let mut message = Label::<{ 128 + 2 }>::new();
+                write!(message, "{}", text::fit(shown.as_str(), room))
+                    .expect("writing to a label never fails");
+                (message, color)
             },
         );
         draw_header(
@@ -222,13 +224,12 @@ impl Control {
             let mut y = ROW_FIRST;
             if let Some(folder) = samples.folder {
                 let path = self.library.storage_path(library::Entry::Folder(folder));
-                text::draw_in(
+                text::draw_end(
                     canvas,
                     ROW_X + TEXT_INSET,
                     y,
                     ROW_WIDTH - 2 * TEXT_INSET,
                     &path.as_str()["samples/".len()..],
-                    None,
                     DIM,
                 );
                 y += ROW_PITCH;

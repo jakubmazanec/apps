@@ -2,6 +2,7 @@ use crate::{
     font::{ADVANCE, glyph},
     screen::{Canvas, Color, Rect},
 };
+use core::fmt;
 
 /// The width in pixels of `text`: 6 per character, except that the last one's blank column does
 /// not count.
@@ -72,6 +73,45 @@ pub fn draw_fitted(canvas: &mut impl Canvas, x: i32, row: i32, fitted: Fitted, c
         let after = x.saturating_add(ADVANCE * fitted.text.chars().count() as i32);
         draw(canvas, after, row, "…", color);
     }
+}
+
+/// The text, followed by "…" when `ellipsis` is set.
+impl fmt::Display for Fitted<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.text)?;
+        if self.ellipsis {
+            f.write_str("…")?;
+        }
+        Ok(())
+    }
+}
+
+/// Draws `text` with its first cell at (`x`, `row`) in the `room` pixels from `x`: whole when it
+/// fits; otherwise its end after a "…", from the longest suffix of whole characters that leaves room
+/// for it. A text with no room for even the "…" is not drawn.
+pub fn draw_end(canvas: &mut impl Canvas, x: i32, row: i32, room: i32, text: &str, color: Color) {
+    if width(text) <= room {
+        draw(canvas, x, row, text, color);
+        return;
+    }
+    // The "…" and the suffix are `characters + 1` characters, 6 * (characters + 1) - 1 pixels.
+    let Ok(characters) = usize::try_from(room.saturating_add(1) / ADVANCE - 1) else {
+        return;
+    };
+    let start = text
+        .char_indices()
+        .rev()
+        .take(characters)
+        .last()
+        .map_or(text.len(), |(start, _)| start);
+    draw(canvas, x, row, "…", color);
+    draw(
+        canvas,
+        x.saturating_add(ADVANCE),
+        row,
+        &text[start..],
+        color,
+    );
 }
 
 /// Samples a scrolling text holds still at its start each round, about a second. It is a whole
@@ -148,6 +188,7 @@ mod tests {
     use crate::palette::{BACKGROUND, TEXT};
     use crate::screen::Screen;
     use crate::ui::test_pixels::{ink, picture};
+    use std::format;
 
     #[test]
     fn text_width_is_six_per_character_minus_one() {
@@ -265,6 +306,58 @@ mod tests {
 
         assert_eq!(fitted.pixels(), whole.pixels());
         assert!(ink(&fitted, TEXT) > 0);
+    }
+
+    #[test]
+    fn a_fitted_text_displays_with_its_ellipsis_after_it() {
+        assert_eq!(format!("{}", fit("Kicks", 23)), "Kic…");
+        assert_eq!(format!("{}", fit("Kick", 23)), "Kick");
+        assert_eq!(format!("{}", fit("Kick", 4)), "");
+    }
+
+    /// `text` drawn by `draw_end` from column 10 in a room of `room` pixels.
+    fn drawn_end(text: &str, room: i32) -> Screen {
+        let mut screen = Screen::new();
+        draw_end(&mut screen, 10, 0, room, text, TEXT);
+        screen
+    }
+
+    #[test]
+    fn draw_end_draws_a_text_that_fits_whole() {
+        let mut whole = Screen::new();
+        draw(&mut whole, 10, 0, "Kick", TEXT);
+
+        assert_eq!(drawn_end("Kick", 23).pixels(), whole.pixels());
+        assert!(ink(&whole, TEXT) > 0);
+    }
+
+    #[test]
+    fn draw_end_keeps_the_end_after_an_ellipsis() {
+        let mut shortened = Screen::new();
+        draw(&mut shortened, 10, 0, "…cks", TEXT);
+
+        assert_eq!(drawn_end("Kicks", 23).pixels(), shortened.pixels());
+        assert!(ink(&shortened, TEXT) > 0);
+    }
+
+    #[test]
+    fn draw_end_cuts_the_start_at_a_character_boundary() {
+        let mut shortened = Screen::new();
+        draw(&mut shortened, 10, 0, "…uťoučký kůň", TEXT);
+
+        assert_eq!(drawn_end("Žluťoučký kůň", 71).pixels(), shortened.pixels());
+        assert!(ink(&shortened, TEXT) > 0);
+    }
+
+    #[test]
+    fn draw_end_draws_nothing_when_not_even_the_ellipsis_fits() {
+        let mut ellipsis = Screen::new();
+        draw(&mut ellipsis, 10, 0, "…", TEXT);
+
+        assert_eq!(drawn_end("Kick", 5).pixels(), ellipsis.pixels());
+        for room in [4, 0, -30] {
+            assert_eq!(ink(&drawn_end("Kick", room), TEXT), 0, "room {room}");
+        }
     }
 
     /// "Kicks" scrolled `offset` pixels into its 47 px loop in the 23 px room from column 10.

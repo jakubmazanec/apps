@@ -6,6 +6,7 @@ use crate::budget;
 use crate::library::wav::{self, Encoding, Format, Ours};
 use crate::library::{Entry, FileId, FolderId};
 use crate::storage::{Memory, Path};
+use crate::ui::layout::HEADER_LINE;
 use crate::ui::list::{Row, draw_rows};
 use crate::ui::question::draw_question;
 use crate::ui::test_pixels::MOVED;
@@ -1191,6 +1192,48 @@ fn a_long_name_is_shortened_so_the_rest_of_the_message_shows() {
     assert!(shows(&rig.control, &step_with((&shortened, RECORD))));
 }
 
+#[test]
+fn a_message_too_wide_for_the_room_right_of_the_header_is_cut_with_an_ellipsis() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    rig.synth_on(0);
+    rig.menu(0, 2);
+    rig.page(10, 4);
+    rig.step(20);
+    let header = [
+        ("Sound", ACCENT),
+        ("Volume envelope", TEXT),
+        ("T1", TEXT),
+        ("Syn 1", TEXT),
+        ("Pads", DIM),
+    ];
+    // Right of these pieces 261 pixels hold 43 characters: 43 fit whole, 44 lose their end after 42.
+    for (message, shown) in [
+        ("x".repeat(43), "x".repeat(43)),
+        ("x".repeat(44), format!("{}…", "x".repeat(42))),
+        (
+            String::from("3 files imported, 2 not: library full, can't be read"),
+            String::from("3 files imported, 2 not: library full, can…"),
+        ),
+    ] {
+        let mut text = Label::new();
+        text.push_str(&message);
+        rig.control.message = Some(HeaderMessage {
+            text,
+            color: RECORD,
+            name: (0, 0),
+        });
+
+        let screen = picture(&rig.control);
+        let expected = drawn(&header, Some((&shown, RECORD)), |_| {}, &[None; 4]);
+        assert!(
+            (0..=HEADER_LINE as usize)
+                .all(|y| (0..WIDTH).all(|x| screen.pixel(x, y) == expected.pixel(x, y))),
+            "{message}"
+        );
+    }
+}
+
 /// SAMPLES' header on T1 in PADS mode while pad 1 is empty.
 const SAMPLES_HEADER: [(&str, Color); 4] =
     [("Samples", ACCENT), ("T1", TEXT), ("1", DIM), ("Pads", DIM)];
@@ -1335,6 +1378,34 @@ fn inside_a_folder_a_dim_line_names_it_and_dot_dot_comes_first() {
     assert_eq!(span(&screen, 2..=477, 17..=29, TEXT), None);
     assert!(span(&screen, 2..=477, 20..=26, DIM).is_some());
     assert!(outlined(&screen, 1, 30, 478, 15, ACCENT));
+}
+
+#[test]
+fn a_folder_line_too_wide_for_its_row_keeps_its_end_and_starts_with_an_ellipsis() {
+    let queue = Queue::new();
+    let (first, second) = ("x".repeat(32), "y".repeat(32));
+    let path = format!("samples/{first}/{second}/808 collection/long names/clap.wav");
+    let mut rig = on_samples(&queue, &[(&path, converted(4_800, 1))]);
+
+    // Into the four folders: the top level has only the first, and each folder ".." and the next.
+    rig.tap(100, Button::Ok);
+    for sample in [200, 300, 400] {
+        rig.tap(sample, Button::Down);
+        rig.tap(sample + 10, Button::Ok);
+    }
+    rig.step(500);
+
+    // The line is 92 characters, and the row's 470 pixels hold 78: the "…" and the last 77.
+    let line = format!("…{}/{second}/808 collection/long names/", "x".repeat(17));
+    assert!(shows(
+        &rig.control,
+        &samples(
+            Some(&line),
+            &[row("..", None), row("clap.wav", Some("0.1 s  10 KB"))],
+            TOP,
+            &meter("0.0 of 64 MB", 0)
+        )
+    ));
 }
 
 #[test]
