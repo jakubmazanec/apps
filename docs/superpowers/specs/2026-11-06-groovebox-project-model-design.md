@@ -563,7 +563,10 @@ choice)**: nothing is compared and nothing is numbered, and the new file keeps i
 **(my call)**, so KICK.wav dropped over kick.wav leaves KICK.wav. It passes the same three checks,
 so a full library still refuses it with "kick.wav not imported: library full". The old file stays
 until the new one is written whole, and the old file's sample is let go of as DELETE does it
-(below).
+(below). Two different files of one drop whose names end up the same after the device cleans names
+(see "Sample files") are no exception: "Bass_C2.wav" and "Bass_C#2.wav" both become "Bass_C2.wav",
+the later one replaces the earlier one like any file whose name is taken, and the result counts both
+as imported **(owner's choice)**.
 
 The library in RAM carries each file's length, channels and size, which the picker, POOL and the
 SAMPLES screen show; file headers are read only at start-up. DELETE on the SAMPLES screen removes
@@ -591,8 +594,8 @@ On top of the other specs' testing:
   queue and the handover under a model checker that permutes interleavings; every loader rule with a
   damaged, missing, orphan or old file; the save order and a simulated crash between any two writes;
   "too big" counting; the give-way order; the replace rule, the forward-snap rule, erase across the
-  loop point, a switch mid-pass; name sanitising, the replace rule and the order of names with
-  numbers; the fingerprint against known vectors.
+  loop point, a switch mid-pass; name sanitising, a dropped file replacing its name and the order of
+  names with numbers; the fingerprint against known vectors.
 - **Drift scenes:** autosave during recording; a project closed and reopened with its view intact; a
   1,000-bar sparse pattern and a dense bar; a paste of thousands of notes while playing; a clear
   with and without undo; a hit just before a grid line with quantize on; a signature change while
