@@ -29,8 +29,8 @@ pub fn blocks_for(frames: u32, channels: u8) -> usize {
 /// stereo frame left then right.
 pub struct SampleRam(UnsafeCell<[u8; budget::SAMPLE_RAM]>);
 
-// SAFETY: `bytes` is the only way to its bytes, and the callers of `bytes` promise that only the
-// side that owns a block touches it.
+// SAFETY: `bytes` and the readers of `Tables::readers` are the only ways to its bytes, and the
+// callers of both promise that only the side that owns a block touches it.
 unsafe impl Sync for SampleRam {}
 
 impl SampleRam {
@@ -197,9 +197,8 @@ pub enum Listed {
     Appended,
     /// It wrote every other file's slice, packed, and then this one into the other table, where
     /// the slices differ from those of the table the audio part reads. So the caller sends
-    /// `UseTable { version }` at once, before any other message: every message after it names
-    /// slices of the table that the audio part then reads. It calls `applied` once that
-    /// message's applied report has come back.
+    /// `UseTable { version }` at once, before any other message, as only the table it names lists
+    /// this file. It calls `applied` once that message's applied report has come back.
     Packed { version: u8 },
 }
 
@@ -294,8 +293,9 @@ impl Listing {
     ///
     /// # Safety
     ///
-    /// The audio part has let go of `file`: the applied report of the message that told it to has
-    /// come back, so it reads none of the file's entries and blocks any more.
+    /// The audio part has let go of `file`, as the applied report of the message that told it to
+    /// has come back, or it was never told about `file`: either way it reads none of the file's
+    /// entries and blocks.
     pub unsafe fn forget(&mut self, file: FileId) {
         self.lengths[usize::from(file.0)] = 0;
     }
