@@ -1,4 +1,6 @@
-use super::{Entry, File, FileId, Library, wav};
+use super::wav::{self, Encoding};
+use super::{Entry, File, FileId, Library};
+use crate::audio::SAMPLE_RATE;
 use crate::budget;
 use crate::label::Label;
 use crate::sample_ram::{BLOCK, Listed, Tables, blocks_for};
@@ -13,7 +15,8 @@ const HEAD: u32 = 512;
 /// The start-up's job: it empties `tmp/`, lists `samples/` and loads every file into the sample
 /// RAM in SAMPLES' order, depth first, one request at a time. A file stays not loaded when its
 /// head is not this device's, when a request for it fails, and when it or a file before it finds
-/// too few free blocks.
+/// too few free blocks. When the storage fails the `Delete` or a `List`, the listing ends there
+/// and the files listed so far load.
 pub struct StartUp {
     stage: Stage,
     /// Each listed file's size in bytes, by `FileId`.
@@ -21,6 +24,8 @@ pub struct StartUp {
     not_loaded: u32,
     /// Whether a file found too few free blocks.
     too_big: bool,
+    /// Whether the storage failed the `Delete` or a `List`.
+    unreadable: bool,
 }
 
 /// The request the job waits for.
@@ -55,6 +60,7 @@ impl StartUp {
             sizes: [0; budget::LIBRARY_FILES],
             not_loaded: 0,
             too_big: false,
+            unreadable: false,
         }
     }
 
@@ -104,7 +110,13 @@ impl StartUp {
         tables: &Tables,
     ) -> ControlFlow<()> {
         match self.stage {
-            // Whatever the reply, `Missing` for a storage without `tmp/` among them, it goes on.
+            // `Missing` is a storage without `tmp/` or `samples/`: nothing there.
+            Stage::EmptyingTmp | Stage::Listing { .. }
+                if !matches!(status, Status::Done | Status::More | Status::Missing) =>
+            {
+                self.unreadable = true;
+                self.read_from(0, library)
+            }
             Stage::EmptyingTmp => {
                 self.stage = Stage::Listing { from: 0 };
                 ControlFlow::Continue(())
@@ -147,6 +159,9 @@ impl StartUp {
                         )
                     })
                     .flatten()
+                    .filter(|head| {
+                        head.format.encoding == Encoding::Int16 && head.format.rate == SAMPLE_RATE
+                    })
                     .and_then(|head| Some((head, head.ours?)))
                 else {
                     self.not_loaded += 1;
@@ -202,11 +217,14 @@ impl StartUp {
         }
     }
 
-    /// The header's message once the job ended: how many files it did not load, and whether the
-    /// sample RAM ran out. None when it loaded every file.
+    /// The header's message once the job ended: that the library can't be read when the storage
+    /// failed it, else how many files it did not load and whether the sample RAM ran out. None
+    /// when it loaded every file.
     pub fn result<const N: usize>(&self) -> Option<Label<N>> {
-        (self.not_loaded > 0).then(|| {
-            let mut text = Label::new();
+        let mut text = Label::new();
+        if self.unreadable {
+            text.push_str("Library can't be read");
+        } else if self.not_loaded > 0 {
             if self.too_big {
                 text.push_str("Library too big. ");
             }
@@ -217,8 +235,10 @@ impl StartUp {
                 if self.not_loaded == 1 { "" } else { "s" }
             )
             .expect("writing to a label never fails");
-            text
-        })
+        } else {
+            return None;
+        }
+        Some(text)
     }
 
     /// Waits for the head of the first file from place `at` of SAMPLES' order on, or breaks after

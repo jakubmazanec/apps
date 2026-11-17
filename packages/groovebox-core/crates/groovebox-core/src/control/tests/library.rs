@@ -57,6 +57,18 @@ impl<'a> Rig<'a> {
         request
     }
 
+    /// Queues a `Failed` reply at `sample` to the request that is out. Gives the request.
+    fn fail(&mut self, sample: u64) -> Request {
+        let (number, request) = self.control.take_request().expect("a request is out");
+        let failed = Reply {
+            number,
+            status: Status::Failed,
+            value: 0,
+        };
+        assert_eq!(self.control.queue_reply(sample, failed), Ok(()));
+        request
+    }
+
     /// Serves every request of the start-up at the sample where the latest step ended, until the
     /// project opens. Gives the requests.
     pub(super) fn open(&mut self) -> Vec<Request> {
@@ -277,6 +289,66 @@ fn a_file_that_is_not_ours_is_not_loaded() {
 }
 
 #[test]
+fn a_file_with_our_chunk_but_another_format_is_not_loaded() {
+    // In a converted file the `fmt ` chunk's rate is at byte 24 and its bits at byte 34.
+    let mut bits_24 = converted(100, 1);
+    bits_24[34..36].copy_from_slice(&24u16.to_le_bytes());
+    let mut rate_44_1 = converted(100, 1);
+    rate_44_1[24..28].copy_from_slice(&44_100u32.to_le_bytes());
+    for file in [bits_24, rate_44_1] {
+        let queue = Queue::new();
+        let mut rig = Rig::with_files(&queue, &[("samples/kick.wav", file)]);
+
+        rig.open();
+
+        assert_eq!(entries(&rig), [Entry::File(FileId(0))]);
+        assert!(!rig.control.library.file(FileId(0)).loaded);
+        assert_eq!(rig.control.library.used(), 0);
+        assert!(shows(
+            &rig.control,
+            &step_with(("1 file not loaded", RECORD))
+        ));
+    }
+}
+
+#[test]
+fn a_failed_list_ends_the_listing_and_says_the_library_cant_be_read() {
+    let queue = Queue::new();
+    let mut rig = Rig::with_files(&queue, &[("samples/kick.wav", converted(100, 1))]);
+    rig.step(1);
+    rig.serve(0);
+    rig.step(1);
+
+    assert!(matches!(rig.fail(0), Request::List { .. }));
+    rig.step(1);
+
+    assert!(rig.control.startup.is_none());
+    assert!(entries(&rig).is_empty());
+    assert!(shows(
+        &rig.control,
+        &step_with(("Library can't be read", RECORD))
+    ));
+}
+
+#[test]
+fn a_failed_delete_of_tmp_says_the_library_cant_be_read() {
+    let queue = Queue::new();
+    let mut rig = Rig::with_files(&queue, &[("samples/kick.wav", converted(100, 1))]);
+    rig.step(1);
+
+    assert_eq!(rig.fail(0), Request::Delete { path: path("tmp") });
+    rig.step(1);
+
+    assert_eq!(rig.control.take_request(), None);
+    assert!(rig.control.startup.is_none());
+    assert!(entries(&rig).is_empty());
+    assert!(shows(
+        &rig.control,
+        &step_with(("Library can't be read", RECORD))
+    ));
+}
+
+#[test]
 fn a_failed_load_leaves_its_file_not_loaded_and_its_blocks_free() {
     let queue = Queue::new();
     let mut rig = Rig::with_files(
@@ -292,14 +364,7 @@ fn a_failed_load_leaves_its_file_not_loaded_and_its_blocks_free() {
         rig.serve(0);
         rig.step(1);
     }
-    let (number, load) = rig.control.take_request().unwrap();
-    assert!(matches!(load, Request::Load { .. }));
-    let failed = Reply {
-        number,
-        status: Status::Failed,
-        value: 0,
-    };
-    assert_eq!(rig.control.queue_reply(0, failed), Ok(()));
+    assert!(matches!(rig.fail(0), Request::Load { .. }));
     rig.step(1);
 
     let requests = rig.open();
