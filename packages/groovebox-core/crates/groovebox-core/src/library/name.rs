@@ -141,48 +141,48 @@ fn key(name: &str) -> impl Iterator<Item = char> + '_ {
     name.chars().flat_map(char::to_lowercase).map(plain)
 }
 
-/// Orders two keys by their characters, a run of digits counting as its number, so "2" comes before
-/// "10". The run's length without its leading zeros settles it first, then its digits one by one, so
-/// no run is too long. Only when nothing else tells the keys apart does the run with fewer leading
-/// zeros come first.
-fn compare_keys(a: &str, b: &str) -> Ordering {
-    let (mut a, mut b) = (key(a).peekable(), key(b).peekable());
+/// The order of the library: by lowercase letters with accents folded away and runs of digits as
+/// numbers, each name without its ".wav" so that "kick.wav" comes before "kick 2.wav", then by bytes.
+pub fn order(a: &str, b: &str) -> Ordering {
+    // Orders the two keys by their characters, a run of digits counting as its number, so "2" comes
+    // before "10". The run's length without its leading zeros settles it first, then its digits one
+    // by one, so no run is too long. Only when nothing else tells the keys apart does the run with
+    // fewer leading zeros come first.
+    let (mut left, mut right) = (
+        key(split_extension(a).0).peekable(),
+        key(split_extension(b).0).peekable(),
+    );
     let mut zeros = Ordering::Equal;
-    loop {
-        match (a.peek().copied(), b.peek().copied()) {
+    let by_key = loop {
+        match (left.peek().copied(), right.peek().copied()) {
             (Some(x), Some(y)) if x.is_ascii_digit() && y.is_ascii_digit() => {
                 zeros = zeros.then(
-                    iter::from_fn(|| a.next_if_eq(&'0'))
+                    iter::from_fn(|| left.next_if_eq(&'0'))
                         .count()
-                        .cmp(&iter::from_fn(|| b.next_if_eq(&'0')).count()),
+                        .cmp(&iter::from_fn(|| right.next_if_eq(&'0')).count()),
                 );
                 let mut first_difference = Ordering::Equal;
                 let numbers = loop {
                     match (
-                        a.next_if(char::is_ascii_digit),
-                        b.next_if(char::is_ascii_digit),
+                        left.next_if(char::is_ascii_digit),
+                        right.next_if(char::is_ascii_digit),
                     ) {
                         (Some(x), Some(y)) => first_difference = first_difference.then(x.cmp(&y)),
                         (x, y) => break x.cmp(&y).then(first_difference),
                     }
                 };
                 if numbers.is_ne() {
-                    return numbers;
+                    break numbers;
                 }
             }
             (Some(x), Some(y)) if x == y => {
-                a.next();
-                b.next();
+                left.next();
+                right.next();
             }
-            (x, y) => return x.cmp(&y).then(zeros),
+            (x, y) => break x.cmp(&y).then(zeros),
         }
-    }
-}
-
-/// The order of the library: by lowercase letters with accents folded away and runs of digits as
-/// numbers, each name without its ".wav" so that "kick.wav" comes before "kick 2.wav", then by bytes.
-pub fn order(a: &str, b: &str) -> Ordering {
-    compare_keys(split_extension(a).0, split_extension(b).0).then_with(|| a.cmp(b))
+    };
+    by_key.then_with(|| a.cmp(b))
 }
 
 /// Frames at 48 kHz: tenths of a second below a minute, else minutes and seconds. It rounds first
