@@ -664,12 +664,14 @@ impl Import {
         let old = library
             .entries(folder)
             .filter(|_| new_folders == 0)
-            .find_map(|entry| match entry {
+            .filter_map(|entry| match entry {
                 Entry::File(file) => Some(file).filter(|&file| {
                     name::same(library.file(file).name.as_str(), self.name.as_str())
                 }),
                 Entry::Folder(_) => None,
-            });
+            })
+            // Of two spellings the storage kept, the file's own is the one it replaces.
+            .min_by_key(|&file| library.file(file).name != self.name);
         if old.is_some() && deleting {
             return;
         }

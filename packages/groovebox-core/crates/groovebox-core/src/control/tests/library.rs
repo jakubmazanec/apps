@@ -797,7 +797,7 @@ fn a_name_taken_but_for_case_is_replaced_under_its_own_spelling() {
 }
 
 #[test]
-fn an_old_spelling_the_storage_keeps_stays_listed_beside_the_new_file() {
+fn an_old_spelling_the_storage_keeps_stays_listed_until_a_drop_of_that_spelling_replaces_it() {
     let queue = Queue::new();
     let mut rig = Rig::new(&queue);
     rig.drop_files(10, &[("tmp/1/kick.wav", short(100.0, 0.01))]);
@@ -827,6 +827,30 @@ fn an_old_spelling_the_storage_keeps_stays_listed_beside_the_new_file() {
         &rig.control,
         &step_with(("KICK.wav imported", ACCENT))
     ));
+
+    // Of the two, kick.wav dropped again replaces the one of its own spelling.
+    rig.drop_files(60, &[("tmp/3/kick.wav", short(300.0, 0.01))]);
+    let requests = rig.settle(70);
+    assert_eq!(begun(&requests), ["samples/kick.wav"]);
+    assert_eq!(rig.sent(), [message(0, 70, forget(0))]);
+    rig.control.applied(0, 90);
+    rig.settle(100);
+
+    assert_eq!(stored(&rig), ["samples/KICK.wav", "samples/kick.wav"]);
+    assert_eq!(
+        entries(&rig),
+        [Entry::File(FileId(1)), Entry::File(FileId(2))]
+    );
+    assert_eq!(
+        rig.control.library.path(FileId(2)).as_str(),
+        "samples/kick.wav"
+    );
+    let file = &rig.storage.files()["samples/kick.wav"];
+    let header = wav::parse(file, file.len() as u64).unwrap();
+    assert_eq!(
+        rig.control.library.file(FileId(2)).fingerprint,
+        header.ours.unwrap().fingerprint
+    );
 }
 
 #[test]
@@ -2380,56 +2404,67 @@ fn a_replace_in_a_full_library_is_refused() {
 }
 
 #[test]
-fn the_cursor_and_the_question_move_onto_the_file_that_replaces_theirs() {
-    let queue = Queue::new();
-    let mut rig = on_samples(&queue, &three_files());
-    rig.tap(100, Button::Down);
-    rig.tap(200, Button::Ok);
-    rig.tap(210, Button::Ok);
-    rig.step(220);
-    assert_eq!(
-        rig.control.view.question,
-        Some(Question::DeleteFile(FileId(0)))
-    );
-
-    rig.drop_files(300, &[("tmp/1/BASS.wav", short(100.0, 0.01))]);
-    rig.settle(310);
-    // OK deletes nothing while the import replaces a file.
-    rig.tap(400, Button::Ok);
-    rig.step(410);
-
-    assert_eq!(
-        rig.sent(),
-        [
-            message(0, 100, preview(0, 48_000)),
-            message(1, 200, MessageKind::StopPreview),
-            message(2, 310, forget(0))
-        ]
-    );
-    assert_eq!(
-        rig.control.view.question,
-        Some(Question::DeleteFile(FileId(0)))
-    );
-
-    rig.control.applied(2, 330);
-    rig.settle(500);
-
-    assert_eq!(stored(&rig)[0], "samples/BASS.wav");
-    assert_eq!(
-        rig.control.view.samples,
-        SamplesView {
-            folder: None,
-            cursor: Cursor { item: 1, scroll: 0 },
-            on: Some(Line::File(FileId(3)))
+fn a_replace_closes_the_delete_picker_or_question_of_its_file() {
+    // The Delete picker of Bass.wav is open, or its question after a second OK.
+    for question in [false, true] {
+        let queue = Queue::new();
+        let mut rig = on_samples(&queue, &three_files());
+        rig.tap(100, Button::Down);
+        rig.tap(200, Button::Ok);
+        if question {
+            rig.tap(210, Button::Ok);
         }
-    );
-    assert_eq!(
-        rig.control.view.question,
-        Some(Question::DeleteFile(FileId(3)))
-    );
-    rig.tap(600, Button::Ok);
-    rig.step(610);
-    assert_eq!(rig.sent(), [message(3, 600, forget(3))]);
+        rig.step(220);
+
+        rig.drop_files(300, &[("tmp/1/BASS.wav", short(100.0, 0.01))]);
+        rig.settle(310);
+        if question {
+            // OK deletes nothing while the import replaces a file.
+            rig.tap(400, Button::Ok);
+            rig.step(410);
+            assert_eq!(
+                rig.control.view.question,
+                Some(Question::DeleteFile(FileId(0)))
+            );
+        }
+        assert_eq!(
+            rig.sent(),
+            [
+                message(0, 100, preview(0, 48_000)),
+                message(1, 200, MessageKind::StopPreview),
+                message(2, 310, forget(0))
+            ],
+            "{question}"
+        );
+
+        rig.control.applied(2, 330);
+        rig.settle(500);
+
+        assert_eq!(stored(&rig)[0], "samples/BASS.wav");
+        assert_eq!(
+            (rig.control.view.picker, rig.control.view.question),
+            (None, None),
+            "{question}"
+        );
+        assert_eq!(
+            rig.control.view.samples,
+            SamplesView {
+                folder: None,
+                cursor: Cursor { item: 1, scroll: 0 },
+                on: Some(Line::File(FileId(3)))
+            },
+            "{question}"
+        );
+        // OK on the new file asks anew.
+        rig.tap(600, Button::Ok);
+        rig.step(610);
+        assert_eq!(rig.sent(), [], "{question}");
+        assert_eq!(
+            rig.control.view.picker,
+            Some((Picker::Delete(FileId(3)), TOP)),
+            "{question}"
+        );
+    }
 }
 
 #[test]

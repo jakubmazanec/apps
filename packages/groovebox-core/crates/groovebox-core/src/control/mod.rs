@@ -1074,27 +1074,27 @@ impl Control {
         }
     }
 
-    /// Sends the `UseTable` or `ForgetSample` that the import asks for, moves SAMPLES' cursor, the
-    /// Delete picker and the question from a file it replaced onto the new file and puts out its
-    /// next request.
+    /// Sends the `UseTable` or `ForgetSample` that the import asks for, moves SAMPLES' cursor from
+    /// a file it replaced onto the new file, closes the old file's Delete picker or question, as
+    /// CANCEL does, so that no OK deletes the audio just dropped, and puts out its next request.
     fn follow_import(&mut self, sample: u64, messages: &mut Producer<'_, Message, MESSAGE_QUEUE>) {
         if let Some(kind) = self.import.message() {
             self.send(sample, kind, messages);
         }
         if let Some((old, new)) = self.import.replaced() {
-            let replace = |file: &mut FileId| {
-                if *file == old {
-                    *file = new;
-                }
-            };
-            if let Some(samples::Row::File(file)) = &mut self.view.samples.on {
-                replace(file);
+            if self.view.samples.on == Some(samples::Row::File(old)) {
+                self.view.samples.on = Some(samples::Row::File(new));
             }
-            if let Some((Picker::Delete(file), _)) = &mut self.view.picker {
-                replace(file);
+            if self
+                .view
+                .picker
+                .is_some_and(|(picker, _)| picker == Picker::Delete(old))
+            {
+                self.view.picker = None;
+                self.end_held_repeats();
             }
-            if let Some(Question::DeleteFile(file)) = &mut self.view.question {
-                replace(file);
+            if self.view.question == Some(Question::DeleteFile(old)) {
+                self.view.question = None;
             }
         }
         self.put_request();
