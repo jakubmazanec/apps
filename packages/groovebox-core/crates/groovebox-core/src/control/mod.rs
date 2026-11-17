@@ -107,9 +107,9 @@ pub struct Control {
     out: Option<u32>,
     /// The (sample, reply) replies of the storage, in sample order.
     replies: Ring<(u64, Reply), REPLY_QUEUE>,
-    /// The numbers of the messages sent whose reports the control part waits for, each until
+    /// The number and kind of each message sent whose report the control part waits for, until
     /// `step` handles its report.
-    awaited: [Option<u32>; AWAITED],
+    awaited: [Option<(u32, MessageKind)>; AWAITED],
     /// The (number, sample) reports of awaited messages, each an event at its sample.
     heard: Ring<(u32, u64), AWAITED>,
     started: bool,
@@ -202,7 +202,12 @@ impl Control {
     /// Hears that the audio part applied the message with this number at `sample`. The report of
     /// a message the control part waits for becomes an event at that sample; others are dropped.
     pub fn applied(&mut self, number: u32, sample: u64) {
-        if self.awaited.contains(&Some(number)) {
+        if self
+            .awaited
+            .iter()
+            .flatten()
+            .any(|&(awaited, _)| awaited == number)
+        {
             self.heard
                 .push((number, sample))
                 .expect("every heard report holds its message's slot in `awaited`");
@@ -299,15 +304,19 @@ impl Control {
                 }
                 Event::Heard(number) => {
                     self.heard.pop();
-                    self.awaited = self
+                    let slot = self
                         .awaited
-                        .map(|slot| slot.filter(|&awaited| awaited != number));
-                    // SAFETY: the control part waits only for the reports of `UseTable`s, and only
-                    // a `Listed::Packed` sends one, so this is the report of the latest.
-                    #[allow(unsafe_code)]
-                    let waited = unsafe { self.import.applied(&mut self.library, tables) };
-                    if waited {
-                        self.follow_import(sample, messages);
+                        .iter_mut()
+                        .find(|slot| slot.is_some_and(|(awaited, _)| awaited == number))
+                        .expect("every heard report holds its message's slot in `awaited`");
+                    if let Some((_, MessageKind::UseTable { .. })) = slot.take() {
+                        // SAFETY: only a `Listed::Packed` sends a `UseTable`, so this is the
+                        // report of the latest.
+                        #[allow(unsafe_code)]
+                        let waited = unsafe { self.import.applied(&mut self.library, tables) };
+                        if waited {
+                            self.follow_import(sample, messages);
+                        }
                     }
                 }
                 Event::Input(stamped) => {
@@ -1059,7 +1068,7 @@ impl Control {
     }
 
     /// Sends the next message, stamped with `sample` or with the sample of its replay record. The
-    /// control part waits for the report of a `UseTable`.
+    /// control part waits for the report of a `UseTable` and of a `ForgetSample`.
     fn send(
         &mut self,
         sample: u64,
@@ -1081,13 +1090,16 @@ impl Control {
                 kind,
             })
             .expect("the step leaves room for every message of an event");
-        if matches!(kind, MessageKind::UseTable { .. }) {
+        if matches!(
+            kind,
+            MessageKind::UseTable { .. } | MessageKind::ForgetSample { .. }
+        ) {
             *self
                 .awaited
                 .iter_mut()
                 .find(|slot| slot.is_none())
                 .expect("the control part waits for at most `AWAITED` messages at a time") =
-                Some(number);
+                Some((number, kind));
         }
         self.next_number += 1;
     }

@@ -264,15 +264,8 @@ impl Voice {
             _ => Mode::Bp,
         };
 
-        let gain =
-            real(&LEVEL) * (1.0 - real(&VOLUME_VELOCITY) * (1.0 - self.velocity as f32 / 127.0));
-        // Constant power, with both gains equal in the middle; a stereo voice's channels each get
-        // theirs, which makes it a balance.
-        let pan = real(&PAN);
-        let (to_left, to_right) = (
-            libm::sqrtf((1.0 - pan) / 2.0),
-            libm::sqrtf((1.0 + pan) / 2.0),
-        );
+        let gain = level_gain(read, self.velocity);
+        let (to_left, to_right) = pan_gains(read);
         let (attack, decay, level, release) = (
             samples(&ATTACK),
             samples(&DECAY),
@@ -301,12 +294,36 @@ impl Voice {
     pub fn fade(&mut self, out: &mut [[f32; CHUNK]; 2]) {
         let mut chunk = [[0.0; CHUNK]; 2];
         self.render(&mut chunk);
-        for (out, chunk) in out.iter_mut().zip(chunk) {
-            for (n, (out, x)) in out.iter_mut().zip(chunk).enumerate() {
-                *out += x * (CHUNK - 1 - n) as f32 / (CHUNK - 1) as f32;
-            }
-        }
+        add_fading(out, chunk);
         self.state = State::Idle;
+    }
+}
+
+/// The gain of a note at `velocity`, before its envelope, of a sound whose values `read` gives.
+pub(super) fn level_gain(read: impl Fn(ParamId) -> i32, velocity: u8) -> f32 {
+    param::real(&LEVEL, read(LEVEL.id))
+        * (1.0
+            - param::real(&VOLUME_VELOCITY, read(VOLUME_VELOCITY.id))
+                * (1.0 - velocity as f32 / 127.0))
+}
+
+/// The left and right gains of the pan of a sound whose values `read` gives. Constant power, with
+/// both gains equal in the middle; a stereo voice's channels each get theirs, which makes it a
+/// balance.
+pub(super) fn pan_gains(read: impl Fn(ParamId) -> i32) -> (f32, f32) {
+    let pan = param::real(&PAN, read(PAN.id));
+    (
+        libm::sqrtf((1.0 - pan) / 2.0),
+        libm::sqrtf((1.0 + pan) / 2.0),
+    )
+}
+
+/// Adds `chunk` to `out`, fading in a line to exactly 0 at its last sample: a stop never clicks.
+pub(super) fn add_fading(out: &mut [[f32; CHUNK]; 2], chunk: [[f32; CHUNK]; 2]) {
+    for (out, chunk) in out.iter_mut().zip(chunk) {
+        for (n, (out, x)) in out.iter_mut().zip(chunk).enumerate() {
+            *out += x * (CHUNK - 1 - n) as f32 / (CHUNK - 1) as f32;
+        }
     }
 }
 

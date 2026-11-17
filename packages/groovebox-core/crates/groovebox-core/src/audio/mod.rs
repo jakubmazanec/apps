@@ -3,10 +3,13 @@ use crate::message::{MESSAGE_QUEUE, Message, MessageKind, REPORT_QUEUE, Report, 
 use crate::param::{self, OUTPUT_VOLUME};
 use crate::project::pool::SOUND_DEFAULTS;
 use crate::queue::{Consumer, Producer};
+use crate::sample_ram::Reader;
+use preview::Preview;
 use sounds::Sounds;
 use voice::Glide;
 use voices::Voices;
 
+pub mod preview;
 pub mod sounds;
 pub mod synth;
 pub mod voice;
@@ -22,6 +25,7 @@ pub struct Audio {
     position: u64,
     sounds: Sounds,
     voices: Voices,
+    preview: Preview,
     /// The output volume's value, where it glides to and the chunks it takes to get there.
     volume: Glide,
     /// The block table it reads blocks through, 0 or 1.
@@ -34,6 +38,7 @@ impl Audio {
             position: 0,
             sounds: Sounds::new(),
             voices: Voices::new(),
+            preview: Preview::new(),
             volume: Glide::at(OUTPUT_VOLUME.default),
             table: 0,
         }
@@ -44,19 +49,21 @@ impl Audio {
         self.position
     }
 
-    /// The block table it reads blocks through, 0 or 1.
-    pub fn table(&self) -> u8 {
-        self.table
-    }
-
     /// Renders `left.len()` samples, which must be a multiple of `CHUNK`. At each chunk start it
     /// applies every message that is due and reports the sample at which it applied it. It then
-    /// adds up the voices and the last chunk of each voice a new note took or choked, soft-clips
-    /// the sum and multiplies it by the output volume, which moves in a line across the chunk.
+    /// adds up the voices, the last chunk of each voice a new note took or choked and the preview,
+    /// soft-clips the sum and multiplies it by the output volume, which moves in a line across the
+    /// chunk.
+    ///
+    /// It reads the files' blocks through `readers[v]`, the reader of block table `v`, as
+    /// `Tables::readers` allows: through the table that the latest `UseTable` named and only frames
+    /// below the length of the latest `Preview`'s file. It reads none of that file from the chunk
+    /// at which a `StopPreview`, a newer `Preview` or a `ForgetSample` of it applies.
     pub fn render(
         &mut self,
         left: &mut [f32],
         right: &mut [f32],
+        readers: &[Reader<'_>; 2],
         messages: &mut Consumer<'_, Message, MESSAGE_QUEUE>,
         reports: &mut Producer<'_, Report, REPORT_QUEUE>,
     ) {
@@ -106,6 +113,13 @@ impl Audio {
                     ),
                     MessageKind::NoteOff { note } => self.voices.note_off(note, &self.sounds),
                     MessageKind::UseTable { version } => self.table = version,
+                    MessageKind::Preview {
+                        file,
+                        frames,
+                        stereo,
+                    } => self.preview.start(file, frames, stereo),
+                    MessageKind::StopPreview => self.preview.stop(),
+                    MessageKind::ForgetSample { file } => self.preview.forget(file),
                     // Another device value is not the audio part's.
                     MessageKind::SetParam { .. } => {}
                 }
@@ -118,13 +132,16 @@ impl Audio {
 
             let mut mix = [[0.0; CHUNK]; 2];
             self.voices.render(&mut mix);
+            let mut preview = [[0.0; CHUNK]; 2];
+            self.preview
+                .render(&readers[usize::from(self.table)], &mut preview);
             let before = param::real(&OUTPUT_VOLUME, self.volume.value);
             self.volume.step();
             let after = param::real(&OUTPUT_VOLUME, self.volume.value);
             for n in 0..CHUNK {
                 let gain = before + (after - before) * (n + 1) as f32 / CHUNK as f32;
-                left[n] = soft_clip(mix[0][n] + fades[0][n]) * gain;
-                right[n] = soft_clip(mix[1][n] + fades[1][n]) * gain;
+                left[n] = soft_clip(mix[0][n] + fades[0][n] + preview[0][n]) * gain;
+                right[n] = soft_clip(mix[1][n] + fades[1][n] + preview[1][n]) * gain;
             }
             self.position += CHUNK as u64;
         }
@@ -140,6 +157,7 @@ impl Default for Audio {
 #[cfg(all(test, not(feature = "loom")))]
 mod tests {
     use super::*;
+    use crate::library::FileId;
     use crate::message::{
         MESSAGE_QUEUE, Message, MessageKind, NoteId, REPORT_QUEUE, Report, Target,
     };
@@ -148,14 +166,24 @@ mod tests {
     };
     use crate::project::pool::{SOUND_DEFAULTS, Sound, SoundNumber};
     use crate::queue::{Consumer, Producer, Queue};
+    use crate::sample_ram::{
+        BLOCK, BLOCKS, Blocks, Listed, Listing, SampleRam, Tables, blocks_for,
+    };
+    use std::boxed::Box;
     use std::vec::Vec;
 
+    /// An audio part with its own queues, block tables and sample RAM. The test plays the control
+    /// side of the tables through `listing` and `blocks`.
     struct Rig<'a> {
         audio: Audio,
         to_audio: Producer<'a, Message, MESSAGE_QUEUE>,
         inbox: Consumer<'a, Message, MESSAGE_QUEUE>,
         outbox: Producer<'a, Report, REPORT_QUEUE>,
         from_audio: Consumer<'a, Report, REPORT_QUEUE>,
+        tables: Box<Tables>,
+        ram: Box<SampleRam>,
+        listing: Listing,
+        blocks: Blocks,
     }
 
     impl<'a> Rig<'a> {
@@ -172,6 +200,10 @@ mod tests {
                     inbox: messages.consumer(),
                     outbox: reports.producer(),
                     from_audio: reports.consumer(),
+                    tables: Box::new(Tables::new()),
+                    ram: SampleRam::boxed(),
+                    listing: Listing::new(),
+                    blocks: Blocks::new(),
                 }
             }
         }
@@ -185,11 +217,48 @@ mod tests {
             self.audio.sounds.add(SoundNumber(1), SOUND_DEFAULTS);
         }
 
+        /// Turns the output volume to full at once, so that the output is what the clipper gives.
+        fn full_volume(&mut self) {
+            self.audio.volume = Glide::at(OUTPUT_VOLUME.high);
+        }
+
+        /// Writes `samples` into free blocks of the sample RAM as `file`, a stereo file's frames
+        /// left then right, and lists the blocks as its slice.
+        #[allow(unsafe_code)]
+        fn add_file(&mut self, file: u16, stereo: bool, samples: &[i16]) {
+            let frames = samples.len() as u32 / (1 + u32::from(stereo));
+            let blocks: Vec<u32> = self
+                .blocks
+                .take(blocks_for(frames, 1 + u8::from(stereo)))
+                .expect("enough blocks are free")
+                .collect();
+            for (&block, part) in blocks.iter().zip(samples.chunks(BLOCK / 2)) {
+                // SAFETY: the audio part was not told about the file yet.
+                let bytes = unsafe { self.ram.bytes(block * BLOCK as u32, 2 * part.len() as u32) };
+                for (bytes, sample) in bytes.as_chunks_mut::<2>().0.iter_mut().zip(part) {
+                    *bytes = sample.to_le_bytes();
+                }
+            }
+            let listed = self
+                .listing
+                .add(&self.tables, FileId(file), blocks.into_iter());
+            assert_eq!(listed, Some(Listed::Appended));
+        }
+
+        #[allow(unsafe_code)]
         fn render_stereo(&mut self, length: usize) -> [Vec<f32>; 2] {
             let mut left = std::vec![f32::NAN; length];
             let mut right = std::vec![f32::NAN; length];
-            self.audio
-                .render(&mut left, &mut right, &mut self.inbox, &mut self.outbox);
+            // SAFETY: the test tells the audio part only about files it listed and wrote, and
+            // writes no block of them afterwards.
+            let readers = unsafe { self.tables.readers(&self.ram) };
+            self.audio.render(
+                &mut left,
+                &mut right,
+                &readers,
+                &mut self.inbox,
+                &mut self.outbox,
+            );
             [left, right]
         }
 
@@ -341,13 +410,17 @@ mod tests {
 
     #[test]
     #[should_panic]
+    #[allow(unsafe_code)]
     fn render_refuses_channels_of_different_lengths() {
         let (messages, reports) = (Queue::new(), Queue::new());
         let mut rig = Rig::new(&messages, &reports);
+        // SAFETY: the audio part is told about no file.
+        let readers = unsafe { rig.tables.readers(&rig.ram) };
 
         rig.audio.render(
             &mut [0.0; 64],
             &mut [0.0; 32],
+            &readers,
             &mut rig.inbox,
             &mut rig.outbox,
         );
@@ -598,5 +671,193 @@ mod tests {
 
         assert_eq!(by_chunks, rendered(MAX_BATCH));
         assert!(by_chunks[0].iter().any(|&x| x != 0));
+    }
+
+    /// `count` samples, each unlike its neighbours and quiet enough that a preview of them and 32
+    /// quiet notes stay below 0.5.
+    fn samples(count: usize) -> Vec<i16> {
+        (0..count)
+            .map(|n| (n * 37 % 8_192) as i16 - 4_096)
+            .collect()
+    }
+
+    /// The samples as the preview plays them: at the Level default through the centred pan.
+    fn played(samples: &[i16]) -> Vec<f32> {
+        let gain = param::real(&LEVEL, LEVEL.default) * libm::sqrtf(0.5);
+        samples
+            .iter()
+            .map(|&sample| f32::from(sample) / 32_768.0 * gain)
+            .collect()
+    }
+
+    fn preview(file: u16, frames: u32, stereo: bool) -> MessageKind {
+        MessageKind::Preview {
+            file: FileId(file),
+            frames,
+            stereo,
+        }
+    }
+
+    /// The frames of each file of `previewed`: past a block and not a whole number of chunks.
+    const FRAMES: u32 = 1_100;
+
+    /// What a rig at full volume plays for `length` samples with `messages`, numbered from 0. It
+    /// holds two mono files of `FRAMES` frames: file 0 of `samples(FRAMES)` and file 1 of the
+    /// samples after them.
+    fn previewed(messages: &[(u64, MessageKind)], length: usize) -> Vec<f32> {
+        let (queue, reports) = (Queue::new(), Queue::new());
+        let mut rig = Rig::new(&queue, &reports);
+        rig.full_volume();
+        let both = samples(2 * FRAMES as usize);
+        rig.add_file(0, false, &both[..FRAMES as usize]);
+        rig.add_file(1, false, &both[FRAMES as usize..]);
+        for (number, &(at, kind)) in (0..).zip(messages) {
+            rig.send(number, at, kind);
+        }
+        rig.render(length)
+    }
+
+    /// Adds two outputs sample by sample.
+    fn sum(first: &[f32], second: &[f32]) -> Vec<f32> {
+        first.iter().zip(second).map(|(a, b)| a + b).collect()
+    }
+
+    #[test]
+    fn a_preview_plays_the_file_once_at_the_default_sound_level() {
+        let out = previewed(&[(0, preview(0, FRAMES, false))], 1_216);
+
+        let frames = FRAMES as usize;
+        assert_eq!(bits(&out[..frames]), bits(&played(&samples(frames))));
+        assert!(is_silent(&out[frames..]));
+    }
+
+    #[test]
+    fn a_stereo_preview_keeps_its_channels() {
+        let (messages, reports) = (Queue::new(), Queue::new());
+        let mut rig = Rig::new(&messages, &reports);
+        rig.full_volume();
+        // 600 frames, past the 512 of a block.
+        let file = samples(2 * 600);
+        rig.add_file(0, true, &file);
+        rig.send(0, 0, preview(0, 600, true));
+
+        let [left, right] = rig.render_stereo(640);
+
+        let [lefts, rights] = [0, 1].map(|channel| {
+            file.iter()
+                .skip(channel)
+                .step_by(2)
+                .copied()
+                .collect::<Vec<_>>()
+        });
+        assert_eq!(bits(&left[..600]), bits(&played(&lefts)));
+        assert_eq!(bits(&right[..600]), bits(&played(&rights)));
+        assert!(is_silent(&left[600..]) && is_silent(&right[600..]));
+    }
+
+    #[test]
+    fn stop_and_forget_fade_within_one_chunk() {
+        let file = played(&samples(FRAMES as usize));
+        for stop in [
+            MessageKind::StopPreview,
+            MessageKind::ForgetSample { file: FileId(0) },
+        ] {
+            let out = previewed(&[(0, preview(0, FRAMES, false)), (64, stop)], 160);
+
+            let (playing, fade, after) = (&out[..64], &out[64..96], &out[96..]);
+            assert_eq!(bits(playing), bits(&file[..64]), "{stop:?}");
+            // The fade starts where the file goes on.
+            assert!(libm::fabsf(fade[0] - file[64]) < 1e-6, "{stop:?}");
+            assert_eq!(fade[CHUNK - 1], 0.0, "{stop:?}");
+            assert!(is_silent(after), "{stop:?}");
+        }
+    }
+
+    #[test]
+    fn forgetting_another_file_changes_nothing() {
+        let start = (0, preview(0, FRAMES, false));
+        let forget = (64, MessageKind::ForgetSample { file: FileId(1) });
+
+        let out = previewed(&[start, forget], 1_216);
+
+        assert_eq!(bits(&out), bits(&previewed(&[start], 1_216)));
+    }
+
+    #[test]
+    fn a_new_preview_fades_the_old_one_out() {
+        let first = (0, preview(0, FRAMES, false));
+        let second = (64, preview(1, FRAMES, false));
+        let faded = previewed(&[first, (64, MessageKind::StopPreview)], 256);
+
+        let both = previewed(&[first, second], 256);
+
+        assert_eq!(bits(&both), bits(&sum(&faded, &previewed(&[second], 256))));
+        // A preview that a third one replaces before it sounded plays nothing, so no more than
+        // two ever overlap.
+        let third = (64, preview(0, FRAMES, false));
+        let replaced = previewed(&[first, second, third], 256);
+        assert_eq!(
+            bits(&replaced),
+            bits(&sum(&faded, &previewed(&[third], 256)))
+        );
+    }
+
+    #[test]
+    #[allow(unsafe_code)]
+    fn use_table_switches_at_its_chunk() {
+        let (messages, reports) = (Queue::new(), Queue::new());
+        let mut rig = Rig::new(&messages, &reports);
+        rig.full_volume();
+        // File 1 lies in table 0 from entry 1. Once file 0 has gone, file 2 takes every other
+        // block, so they are packed into table 1, file 1 from entry 0.
+        rig.add_file(0, false, &samples(1));
+        let file = samples(2 * 1_024);
+        rig.add_file(1, false, &file);
+        // SAFETY: the audio part was never told about file 0.
+        unsafe { rig.listing.forget(FileId(0)) };
+        rig.blocks.give_back(0);
+        let rest = rig.blocks.take(BLOCKS - 2).expect("the rest is free");
+        let listed = rig.listing.add(&rig.tables, FileId(2), rest);
+        assert_eq!(listed, Some(Listed::Packed { version: 1 }));
+        rig.send(0, 0, preview(1, 2 * 1_024, false));
+        rig.send(1, 40, MessageKind::UseTable { version: 1 });
+
+        let before = rig.render(64);
+        assert_eq!(rig.audio.table, 0);
+        let after = rig.render(2 * 1_024);
+        assert_eq!(rig.audio.table, 1);
+
+        let out = [before, after].concat();
+        assert_eq!(bits(&out[..2 * 1_024]), bits(&played(&file)));
+        assert_eq!(rig.report(), applied(0, 0));
+        assert_eq!(rig.report(), applied(1, 64));
+    }
+
+    #[test]
+    fn the_preview_takes_no_voice() {
+        let play = |notes: bool, previews: bool| {
+            let (messages, reports) = (Queue::new(), Queue::new());
+            let mut rig = Rig::new(&messages, &reports);
+            rig.full_volume();
+            rig.add_file(0, false, &samples(FRAMES as usize));
+            rig.send(0, 0, new_sound(1));
+            // Quiet notes, so that the sum stays below 0.5, where the clipper changes nothing.
+            rig.send(1, 0, set_sound(1, &LEVEL, 8_000));
+            for note in (0..32).filter(|_| notes) {
+                rig.send(2 + note, 0, note_on(note));
+            }
+            if previews {
+                rig.send(40, 64, preview(0, FRAMES, false));
+            }
+            rig.render(512)
+        };
+        let (voices, preview) = (play(true, false), play(false, true));
+        assert!(!is_silent(&voices) && !is_silent(&preview));
+
+        let both = play(true, true);
+
+        // Every note keeps its voice: the output is the voices alone and the preview alone.
+        assert!(peak(&both) < 0.5, "peak {}", peak(&both));
+        assert_eq!(bits(&both), bits(&sum(&voices, &preview)));
     }
 }

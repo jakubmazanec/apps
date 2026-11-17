@@ -99,6 +99,14 @@ impl Library {
             .expect("the file is listed")
     }
 
+    /// The control side of the block tables.
+    // shortcut: a test packs the tables by hand, since nothing lets go of a file yet; drive it
+    // through a delete once one exists.
+    #[cfg(test)]
+    pub fn listing(&mut self) -> &mut Listing {
+        &mut self.listing
+    }
+
     /// The bytes of the sample RAM that the files take: their blocks, whole.
     pub fn used(&self) -> u64 {
         ((BLOCKS - self.blocks.free()) * BLOCK) as u64

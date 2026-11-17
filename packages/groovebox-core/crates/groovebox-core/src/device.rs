@@ -261,25 +261,21 @@ pub struct AudioSide<'a> {
     readers: [Reader<'a>; 2],
 }
 
-impl<'a> AudioSide<'a> {
+impl AudioSide<'_> {
     /// Renders `left.len()` samples: see `Audio::render`.
     pub fn render(&mut self, left: &mut [f32], right: &mut [f32]) {
-        self.audio
-            .render(left, right, &mut self.messages, &mut self.reports);
+        self.audio.render(
+            left,
+            right,
+            &self.readers,
+            &mut self.messages,
+            &mut self.reports,
+        );
     }
 
     /// The sample at which the next `render` starts.
     pub fn position(&self) -> u64 {
         self.audio.position()
-    }
-
-    /// Reads the files' blocks through the table that the audio part uses.
-    ///
-    /// # Safety
-    ///
-    /// The caller reads through it only the frames that `Tables::readers` allows.
-    pub unsafe fn reader(&self) -> &Reader<'a> {
-        &self.readers[usize::from(self.audio.table())]
     }
 }
 
@@ -529,29 +525,45 @@ mod tests {
         assert_eq!(listed, Some(Listed::Packed { version: 1 }));
         // SAFETY: block 5, file 1's fifth, is the test's own: no side reads it yet.
         unsafe { ram.bytes(5 * BLOCK as u32, 2) }.copy_from_slice(&7i16.to_le_bytes());
-        let message = Message {
+        let preview = Message {
             number: 0,
+            at: 0,
+            kind: MessageKind::Preview {
+                file: FileId(1),
+                frames: 10 * 1_024,
+                stereo: false,
+            },
+        };
+        let message = Message {
+            number: 1,
             at: 40,
             kind: MessageKind::UseTable { version: 1 },
         };
+        assert_eq!(control.messages.push(preview), Ok(()));
         assert_eq!(control.messages.push(message), Ok(()));
 
-        audio.render(&mut [0.0; 64], &mut [0.0; 64]);
-        // SAFETY: the test reads a frame of file 1, which the control side no longer writes.
-        let reader = unsafe { audio.reader() };
-        assert_eq!(reader.slice(FileId(1)), 1);
-        assert_eq!(reader.frame(1, false, 4 * 1_024), (7, 7));
+        let (mut left, mut right) = ([0.0; 4_128], [0.0; 4_128]);
+        audio.render(&mut left, &mut right);
 
-        audio.render(&mut [0.0; 32], &mut [0.0; 32]);
-        // SAFETY: as above.
-        let reader = unsafe { audio.reader() };
-        assert_eq!(reader.slice(FileId(1)), 0);
-        assert_eq!(reader.frame(0, false, 4 * 1_024), (7, 7));
-        control.step(96);
+        // From sample 64 the preview reads file 1 through table 1, where it starts at entry 0, and
+        // only its frame 4,096 is not 0.
+        assert!(
+            left.iter()
+                .enumerate()
+                .all(|(sample, &x)| (x != 0.0) == (sample == 4 * 1_024))
+        );
+        control.step(4_128);
         assert_eq!(
             control.take_report(),
             Some(Report::Applied {
                 number: 0,
+                sample: 0
+            })
+        );
+        assert_eq!(
+            control.take_report(),
+            Some(Report::Applied {
+                number: 1,
                 sample: 64
             })
         );

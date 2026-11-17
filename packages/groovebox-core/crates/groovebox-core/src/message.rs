@@ -1,3 +1,4 @@
+use crate::library::FileId;
 use crate::param::ParamId;
 use crate::project::pool::SoundNumber;
 
@@ -60,6 +61,20 @@ pub enum MessageKind {
     /// From this chunk on the audio part reads blocks through block table `version`, 0 or 1.
     UseTable {
         version: u8,
+    },
+    /// The preview player plays `file`, of `frames` frames, once from its first; the file it
+    /// played fades out.
+    Preview {
+        file: FileId,
+        frames: u32,
+        stereo: bool,
+    },
+    /// The file the preview player plays fades out.
+    StopPreview,
+    /// Whatever plays `file` fades out, and from this chunk on the audio part reads none of its
+    /// blocks: its report says that the audio part let go of the file.
+    ForgetSample {
+        file: FileId,
     },
 }
 
