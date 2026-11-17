@@ -8,7 +8,7 @@ import {
   type WorkerRequest,
 } from './protocol.js';
 import {SessionLog} from './session.js';
-import {carryOut, fileAt, readRequest, STATUSES, writeFile} from './storage.js';
+import {carryOut, fileAt, readRequest, STATUSES, type StorageReply, writeFile} from './storage.js';
 
 /* eslint-disable @typescript-eslint/naming-convention, @typescript-eslint/max-params -- the core's exports */
 type ControlExports = {
@@ -63,6 +63,22 @@ globalThis.addEventListener(
       // and each drop. The drift harness carries out a request right after the step that sent it,
       // so a drop must not write while a request is carried out
       let storage = Promise.resolve();
+      // Puts `work` after the storage's work so far. A throw is logged and the work after it still
+      // goes ahead, as a request skipped would leave the core waiting forever
+      let queueStorageWork = (work: () => Promise<void>) => {
+        let before = storage;
+
+        storage = (async () => {
+          await before;
+
+          try {
+            await work();
+          } catch (error) {
+            // eslint-disable-next-line no-console -- a worker has nowhere else to report a throw
+            console.error(error);
+          }
+        })();
+      };
       // The first request is the start-up's `Delete tmp`: a drop waits until it is carried out, or
       // it would be deleted
       let emptied = Promise.withResolvers<undefined>();
@@ -100,7 +116,7 @@ globalThis.addEventListener(
             // many came (answer 11)
             void (async () => {
               await emptied.promise;
-              storage = storage.then(async () => {
+              queueStorageWork(async () => {
                 let before = dropped;
 
                 for (let {path, file} of data.files) {
@@ -157,7 +173,7 @@ globalThis.addEventListener(
           if (core.control_take_request() === 1) {
             let request = readRequest(memory.buffer, core.request_pointer());
 
-            storage = storage.then(async () => {
+            queueStorageWork(async () => {
               // A file the session wrote needs no copy
               if ((request.kind === 'read' || request.kind === 'load') && !held.has(request.path)) {
                 held.add(request.path);
@@ -171,17 +187,23 @@ globalThis.addEventListener(
                 held.add(request.path);
               }
 
-              let reply = await carryOut(request, root, memory.buffer, storageAddresses);
-              let sample = Atomics.load(position, 0);
+              // A carry-out that throws is answered `failed`, and the throw goes on to be logged
+              let reply: StorageReply = {status: 'failed', value: 0};
 
-              core.control_queue_reply(
-                sample,
-                request.requestNumber,
-                STATUSES.indexOf(reply.status),
-                BigInt(reply.value),
-              );
-              log.reply(request.requestNumber, sample, reply);
-              emptied.resolve(undefined);
+              try {
+                reply = await carryOut(request, root, memory.buffer, storageAddresses);
+              } finally {
+                let sample = Atomics.load(position, 0);
+
+                core.control_queue_reply(
+                  sample,
+                  request.requestNumber,
+                  STATUSES.indexOf(reply.status),
+                  BigInt(reply.value),
+                );
+                log.reply(request.requestNumber, sample, reply);
+                emptied.resolve(undefined);
+              }
             });
           }
 
