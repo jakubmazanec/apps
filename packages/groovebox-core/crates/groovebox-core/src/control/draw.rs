@@ -426,8 +426,7 @@ impl Control {
             ItemKind::LibraryMeter => {
                 let (used, total) = (self.library.used(), budget::SAMPLE_RAM as u64);
                 value.push_str(name::meter(used, total).as_str());
-                let share = used * u64::from(u16::MAX) / total;
-                ("Library", value.as_str(), Bar::Fill(share as u16))
+                ("Library", value.as_str(), Bar::Fill(used, total))
             }
         };
         ItemView {
@@ -503,9 +502,6 @@ impl Control {
 fn bar(entry: &param::Entry, value: i32) -> Bar {
     match entry.curve {
         Curve::Switch | Curve::List => Bar::Track,
-        _ => Bar::Fill(
-            (i64::from(value - entry.low) * i64::from(u16::MAX) / i64::from(entry.high - entry.low))
-                as u16,
-        ),
+        _ => Bar::Fill((value - entry.low) as u64, (entry.high - entry.low) as u64),
     }
 }

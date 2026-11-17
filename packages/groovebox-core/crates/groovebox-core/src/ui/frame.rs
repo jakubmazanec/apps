@@ -111,7 +111,7 @@ mod tests {
         draw_strip(
             &mut screen,
             &[
-                cell("Mode", "LP 24", Bar::Fill(65_535)),
+                cell("Mode", "LP 24", Bar::Fill(65_535, 65_535)),
                 cell("Cutoff", "64%", Bar::Track),
                 None,
                 None,

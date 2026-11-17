@@ -523,12 +523,12 @@ fn the_dev_page_shows_the_library_meter() {
     rig.menu(10, 7);
     rig.page(20, 1);
     rig.step(30);
-    // 96,256 of 64,000,000 bytes fill 98 of 65,535.
+    // 96,256 of 64,000,000 bytes are 0.23 of the page bar's 154 pixels: no fill.
     let meter = ItemView {
         encoder: None,
         name: "Library",
         value: "0.1 of 64 MB",
-        bar: Bar::Fill(98),
+        bar: Bar::Fill(96_256, 64_000_000),
     };
     let dev = drawn(
         &[
@@ -1247,13 +1247,14 @@ fn row<'a>(left: &'a str, right: Option<&'a str>) -> Row<'a> {
     }
 }
 
-/// The library meter showing `value`, its bar filled `fill` of 65,535.
-fn meter(value: &str, fill: u16) -> ItemView<'_> {
+/// The library meter showing `value`, its bar filled by `blocks` of 2,048 bytes of the sample RAM's
+/// 64,000,000.
+fn meter(value: &str, blocks: u64) -> ItemView<'_> {
     ItemView {
         encoder: None,
         name: "Library",
         value,
-        bar: Bar::Fill(fill),
+        bar: Bar::Fill(blocks * 2_048, 64_000_000),
     }
 }
 
@@ -1291,7 +1292,7 @@ fn three_files() -> [(&'static str, Vec<u8>); 3] {
 
 /// The meter of `three_files`: their 67 blocks.
 fn three_files_meter() -> ItemView<'static> {
-    meter("0.1 of 64 MB", 140)
+    meter("0.1 of 64 MB", 67)
 }
 
 /// A rig whose library holds `files`, on SAMPLES, which MENU + 10 opened from sample 10 to 13.
@@ -1501,7 +1502,7 @@ fn the_arrows_and_minus_plus_move_rows_and_stop_at_the_ends() {
     assert_eq!(rig.control.view.samples.cursor, scrolled);
     assert!(shows(
         &rig.control,
-        &samples(None, &rows, scrolled, &meter("0.1 of 64 MB", 146))
+        &samples(None, &rows, scrolled, &meter("0.1 of 64 MB", 70))
     ));
 
     // SHIFT + an arrow, - or + does nothing.
@@ -1730,7 +1731,7 @@ fn not_loaded_files_are_red_and_play_nothing() {
                 }
             ],
             TOP,
-            &meter("0.1 of 64 MB", 98)
+            &meter("0.1 of 64 MB", 47)
         )
     ));
     let screen = picture(&rig.control);
@@ -1803,7 +1804,7 @@ fn a_long_name_scrolls_under_the_cursor() {
     let rows = names
         .each_ref()
         .map(|name| row(name, Some("10.0 s  960 KB")));
-    let meter = meter("1.9 of 64 MB", 1_967);
+    let meter = meter("1.9 of 64 MB", 938);
 
     // The cursor last landed when MENU was let go, at 13.
     rig.step(13 + MOVED);
@@ -2079,7 +2080,7 @@ fn deleting_the_last_file_of_a_folder_shows_the_folder_above() {
             Some("drums/"),
             &[row("..", None), row("clap.wav", Some("0.1 s  10 KB"))],
             TOP,
-            &meter("0.1 of 64 MB", 109)
+            &meter("0.1 of 64 MB", 52)
         )
     ));
     assert_eq!(rig.sent()[2..], [message(2, 220, forget(1))]);
@@ -2164,7 +2165,7 @@ fn the_meter_drops_once_the_blocks_are_free() {
             None,
             &[row("drums/", None)],
             TOP,
-            &meter("0.0 of 64 MB", 41)
+            &meter("0.0 of 64 MB", 20)
         )
     ));
 }

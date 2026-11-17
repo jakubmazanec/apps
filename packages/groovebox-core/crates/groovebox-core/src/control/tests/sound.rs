@@ -1532,7 +1532,7 @@ fn the_filter_page_matches_its_geometry() {
             encoder: Some(2),
             name: "Cutoff",
             value: "100%",
-            bar: Bar::Fill(65_535),
+            bar: Bar::Fill(65_535, 65_535),
         },
         true,
         None,
@@ -1553,9 +1553,9 @@ fn the_filter_page_matches_its_geometry() {
         |_| {},
         &[
             cell(1, "Mode", "LP 24", Bar::Track),
-            cell(2, "Cutoff", "100%", Bar::Fill(65_535)),
-            cell(3, "Resonance", "0%", Bar::Fill(0)),
-            cell(4, "Envelope amount", "+0", Bar::Fill(32_768)),
+            cell(2, "Cutoff", "100%", Bar::Fill(65_535, 65_535)),
+            cell(3, "Resonance", "0%", Bar::Fill(0, 65_535)),
+            cell(4, "Envelope amount", "+0", Bar::Fill(32_768, 65_535)),
         ],
     );
     assert!(same(&screen, &strip, 0..=WIDTH - 1, 253..=HEIGHT - 1));
@@ -1585,7 +1585,7 @@ fn oscillator_2_names_give_way_to_their_values() {
             encoder: None,
             name: "Oscillator 2 fine tu…",
             value: "+0",
-            bar: Bar::Fill(32_767),
+            bar: Bar::Fill(50, 100),
         },
         true,
         None,
@@ -1617,7 +1617,7 @@ fn item_8(elapsed: u64) -> Screen {
             encoder: None,
             name: "Oscillator 2 fine tune",
             value: "+0",
-            bar: Bar::Fill(32_767),
+            bar: Bar::Fill(50, 100),
         },
         true,
         Some(elapsed),
@@ -1672,7 +1672,7 @@ fn leaving_the_name_shortens_it_and_coming_back_starts_it_again() {
             encoder: None,
             name: "Oscillator 2 fine tu…",
             value: "+0",
-            bar: Bar::Fill(32_767),
+            bar: Bar::Fill(50, 100),
         },
         true,
         None,
@@ -1776,10 +1776,10 @@ fn the_strip_on_step_follows_sounds_shown_page() {
             None,
             |_| {},
             &[
-                cell(1, "Attack", "0 ms", Bar::Fill(0)),
-                cell(2, "Decay", "300 ms", Bar::Fill(20_363)),
-                cell(3, "Sustain", "100%", Bar::Fill(65_535)),
-                cell(4, "Release", "100 ms", Bar::Fill(14_117)),
+                cell(1, "Attack", "0 ms", Bar::Fill(0, 65_535)),
+                cell(2, "Decay", "300 ms", Bar::Fill(20_363, 65_535)),
+                cell(3, "Sustain", "100%", Bar::Fill(65_535, 65_535)),
+                cell(4, "Release", "100 ms", Bar::Fill(14_117, 65_535)),
             ],
         )
     ));

@@ -13,9 +13,9 @@ use crate::{
 pub enum Bar {
     /// The faint track alone.
     Track,
-    /// The track with an accent fill from the left: this share of the bar, from 0 to 65,535, rounded
-    /// down to whole pixels.
-    Fill(u16),
+    /// The track with an accent fill from the left: a part of the bar, the first number out of the
+    /// second, rounded to the nearest pixel (half a pixel rounds up).
+    Fill(u64, u64),
 }
 
 /// What an item shows.
@@ -67,12 +67,12 @@ pub fn draw_item(
 
     let bar = (width - 2 * TEXT_INSET).max(0);
     canvas.fill_rect(rect(left, y + ITEM_BAR, bar, BAR_HEIGHT), FAINT);
-    if let Bar::Fill(share) = item.bar {
+    if let Bar::Fill(part, whole) = item.bar {
         canvas.fill_rect(
             rect(
                 left,
                 y + ITEM_BAR,
-                (i64::from(bar) * i64::from(share) / i64::from(u16::MAX)) as i32,
+                ((2 * bar as u64 * part + whole) / (2 * whole)) as i32,
                 BAR_HEIGHT,
             ),
             ACCENT,
@@ -196,32 +196,40 @@ mod tests {
     }
 
     #[test]
-    fn a_fill_is_the_accent_from_the_left_rounded_down_to_pixels() {
-        // The bar of a 120 pixel item is 114 pixels, 4 to 117.
-        for (share, pixels) in [
-            (0, 0),
-            (1, 0),
-            (32_767, 56),
-            (32_768, 57),
-            (65_534, 113),
-            (65_535, 114),
+    fn a_fill_is_the_accent_from_the_left_rounded_to_the_nearest_pixel() {
+        // The bar of a 120 pixel item is 114 pixels, 4 to 117; of a 476 pixel item, 470.
+        for (width, part, whole, pixels) in [
+            (120, 0, 65_535, 0),
+            // 0.4992, 0.5 and 0.5010 of a pixel.
+            (120, 287, 65_535, 0),
+            (120, 1, 228, 1),
+            (120, 288, 65_535, 1),
+            // 113.4990 and 113.5008.
+            (120, 65_247, 65_535, 113),
+            (120, 65_248, 65_535, 114),
+            (120, 65_535, 65_535, 114),
+            // 13.68: 12%, Resonance's value in Milestone 1's pictures.
+            (120, 12, 100, 14),
+            // 302.56: the library meter at 41.2 of 64 MB in samples.png.
+            (476, 41_200_000, 64_000_000, 303),
         ] {
             let mut screen = Screen::new();
+            let bar = width as usize - 6;
 
             draw_item(
                 &mut screen,
                 1,
                 255,
-                120,
-                &item("Cutoff", "64%", Bar::Fill(share)),
+                width,
+                &item("Cutoff", "64%", Bar::Fill(part, whole)),
                 false,
                 None,
             );
 
-            assert_eq!(ink(&screen, ACCENT), 2 * pixels, "share {share}");
-            assert_eq!(ink(&screen, FAINT), 2 * (114 - pixels), "share {share}");
+            assert_eq!(ink(&screen, ACCENT), 2 * pixels, "{part} of {whole}");
+            assert_eq!(ink(&screen, FAINT), 2 * (bar - pixels), "{part} of {whole}");
             assert!(filled(&screen, 4..=3 + pixels, 269..=270, ACCENT));
-            assert!(filled(&screen, 4 + pixels..=117, 269..=270, FAINT));
+            assert!(filled(&screen, 4 + pixels..=3 + bar, 269..=270, FAINT));
         }
     }
 
@@ -312,7 +320,7 @@ mod tests {
             2,
             143,
             160,
-            &item("Oscillator 2 fine tune", "+0", Bar::Fill(32_767)),
+            &item("Oscillator 2 fine tune", "+0", Bar::Fill(50, 100)),
             true,
             scroll,
         );
@@ -329,7 +337,7 @@ mod tests {
             2,
             143,
             160,
-            &item("Oscillator 2 fine tu…", "+0", Bar::Fill(32_767)),
+            &item("Oscillator 2 fine tu…", "+0", Bar::Fill(50, 100)),
             true,
             None,
         );
