@@ -181,10 +181,6 @@ pub struct ControlSide<'a> {
     reports: Consumer<'a, Report, REPORT_QUEUE>,
     taken: &'a mut Ring<Report, REPORT_QUEUE>,
     io: &'a mut [u8; budget::IO_BUFFER],
-    #[expect(
-        dead_code,
-        reason = "the control part has no file to write into its blocks yet"
-    )]
     ram: &'a SampleRam,
 }
 
@@ -221,10 +217,13 @@ impl ControlSide<'_> {
             // A host that leaves reports untaken loses the newest, as a full report queue does.
             let _ = self.taken.push(report);
         }
-        if self
-            .control
-            .step(until, &mut self.messages, &self.io[..], &self.device.tables)
-        {
+        if self.control.step(
+            until,
+            &mut self.messages,
+            &mut self.io[..],
+            &self.device.tables,
+            self.ram,
+        ) {
             // Only this side stores `front`, so a relaxed load sees its last store.
             let back = 1 - self.device.front.load(Ordering::Relaxed);
             // SAFETY: only the control side writes a screen, and it writes only the back one. No

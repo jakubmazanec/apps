@@ -7,6 +7,7 @@ pub mod view;
 use crate::input::{Button, Input, PADS, Stamped, VOLUME};
 use crate::label::Label;
 use crate::library::Library;
+use crate::library::import::Import;
 use crate::library::startup::StartUp;
 use crate::lights::Lights;
 use crate::message::{MAX_MESSAGES_PER_EVENT, MESSAGE_QUEUE, Message, MessageKind, Target};
@@ -18,7 +19,7 @@ use crate::project::settings::DeviceSettings;
 use crate::project::track::{MAX_OCTAVE, PadMode, Track};
 use crate::queue::Producer;
 use crate::ring::Ring;
-use crate::sample_ram::Tables;
+use crate::sample_ram::{SampleRam, Tables};
 use crate::screen::Color;
 use crate::storage::{Reply, Request};
 use crate::ui::layout::LIST_VISIBLE;
@@ -57,6 +58,16 @@ enum Event {
     Heard(u32),
     Input(Stamped),
     Repeat(Button),
+}
+
+/// A message on the right of the header: its text and colour, and where a file's name lies in the
+/// text, which `draw` shortens with "…" so that the rest of the text shows.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct HeaderMessage {
+    pub text: Label<128>,
+    pub color: Color,
+    /// The name's first byte and the byte after it, both 0 when the text names no file.
+    pub name: (usize, usize),
 }
 
 /// What the text that scrolls depends on: when any of it changes, the cursor has landed on
@@ -104,15 +115,17 @@ pub struct Control {
     started: bool,
     /// The start-up's job until it ends and the project opens.
     startup: Option<StartUp>,
+    /// The import's job, which takes the dropped files once the project is open.
+    import: Import,
     library: Library,
     project: Project,
     settings: DeviceSettings,
     buttons: Buttons,
     notes: Notes,
     view: View,
-    /// The message on the right of the header and its colour. A later button press clears it
-    /// (`press`).
-    message: Option<(Label<48>, Color)>,
+    /// The message on the right of the header. A later button press clears it (`press`); while
+    /// there is none, the import's progress shows there.
+    message: Option<HeaderMessage>,
     /// The `until` of the latest step.
     now: u64,
     /// The sample of the event after which the cursor last landed on something new: the text
@@ -138,6 +151,7 @@ impl Control {
             heard: Ring::new(),
             started: false,
             startup: Some(StartUp::new()),
+            import: Import::new(),
             library: Library::new(),
             project: Project::new(),
             settings: DeviceSettings::new(),
@@ -209,7 +223,9 @@ impl Control {
     ///
     /// The first step starts the start-up's job, and a reply goes to it with `io`, the I/O buffer,
     /// as its request left it. When the job ends the project opens, with the job's result as the
-    /// header's message. Until then every input but a turn of the volume encoder is dropped.
+    /// header's message. Until then every input is dropped but a turn of the volume encoder and a
+    /// drop, whose files wait for the project. Then the import's job takes them, and the replies go
+    /// to it with `io` and `ram`, the sample RAM; when it ends, its result is the header's message.
     ///
     /// After each event every page's cursor is kept on an item that the page shows: a cursor whose
     /// item vanished moves to the nearest item above, where it stays when the item comes back. When
@@ -219,8 +235,9 @@ impl Control {
         &mut self,
         until: u64,
         messages: &mut Producer<'_, Message, MESSAGE_QUEUE>,
-        io: &[u8],
+        io: &mut [u8],
         tables: &Tables,
+        ram: &SampleRam,
     ) -> bool {
         let first = !core::mem::replace(&mut self.started, true);
         if first && let Some(startup) = &self.startup {
@@ -254,17 +271,29 @@ impl Control {
             match event {
                 Event::Reply(reply) => {
                     self.replies.pop();
-                    if self.out.take_if(|&mut out| out == reply.number).is_some()
-                        && let Some(startup) = &mut self.startup
-                    {
-                        match startup.reply(reply, io, &mut self.library, tables) {
-                            ControlFlow::Continue(()) => {
-                                self.request = Some(startup.request(&self.library));
+                    if self.out.take_if(|&mut out| out == reply.number).is_some() {
+                        if let Some(startup) = &mut self.startup {
+                            match startup.reply(reply, io, &mut self.library, tables) {
+                                ControlFlow::Continue(()) => {
+                                    self.request = Some(startup.request(&self.library));
+                                }
+                                ControlFlow::Break(()) => {
+                                    self.message = startup.result().map(|text| HeaderMessage {
+                                        text,
+                                        color: RECORD,
+                                        name: (0, 0),
+                                    });
+                                    self.startup = None;
+                                    self.start_import(sample, messages);
+                                }
                             }
-                            ControlFlow::Break(()) => {
-                                self.message = startup.result().map(|text| (text, RECORD));
-                                self.startup = None;
+                        } else if self.import.running() {
+                            if let ControlFlow::Break(result) =
+                                self.import.reply(reply, io, ram, &mut self.library, tables)
+                            {
+                                self.message = Some(result);
                             }
+                            self.follow_import(sample, messages);
                         }
                     }
                 }
@@ -273,6 +302,13 @@ impl Control {
                     self.awaited = self
                         .awaited
                         .map(|slot| slot.filter(|&awaited| awaited != number));
+                    // SAFETY: the control part waits only for the reports of `UseTable`s, and only
+                    // a `Listed::Packed` sends one, so this is the report of the latest.
+                    #[allow(unsafe_code)]
+                    let waited = unsafe { self.import.applied(&mut self.library, tables) };
+                    if waited {
+                        self.follow_import(sample, messages);
+                    }
                 }
                 Event::Input(stamped) => {
                     self.inputs.pop();
@@ -282,7 +318,7 @@ impl Control {
                             Input::EncoderTurn {
                                 encoder: VOLUME,
                                 ..
-                            }
+                            } | Input::Dropped { .. }
                         )
                     {
                         self.input(stamped, messages);
@@ -419,6 +455,12 @@ impl Control {
                 {
                     self.change(item, i32::from(clicks), sample, messages);
                 }
+            }
+            // The drop's files join the import, whose new progress replaces the message.
+            Input::Dropped { files } => {
+                self.import.add(files);
+                self.message = None;
+                self.start_import(sample, messages);
             }
             Input::NoteOn { .. }
             | Input::PadPressure { .. }
@@ -916,7 +958,28 @@ impl Control {
     fn pool_full(&mut self) {
         let mut text = Label::new();
         text.push_str("Pool full");
-        self.message = Some((text, RECORD));
+        self.message = Some(HeaderMessage {
+            text,
+            color: RECORD,
+            name: (0, 0),
+        });
+    }
+
+    /// Starts the import on the files waiting once the project is open, unless it runs already.
+    /// Its progress replaces the message.
+    fn start_import(&mut self, sample: u64, messages: &mut Producer<'_, Message, MESSAGE_QUEUE>) {
+        if self.startup.is_none() && self.import.start() {
+            self.message = None;
+            self.follow_import(sample, messages);
+        }
+    }
+
+    /// Sends the `UseTable` that the import asks for and puts out its next request.
+    fn follow_import(&mut self, sample: u64, messages: &mut Producer<'_, Message, MESSAGE_QUEUE>) {
+        if let Some(version) = self.import.use_table() {
+            self.send(sample, MessageKind::UseTable { version }, messages);
+        }
+        self.request = self.import.request();
     }
 
     /// MENU or PAGE while it is held and counts: the first of them pressed.

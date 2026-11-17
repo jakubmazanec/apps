@@ -97,8 +97,13 @@ impl<'a> Rig<'a> {
     }
 
     fn step(&mut self, until: u64) -> bool {
-        self.control
-            .step(until, &mut self.producer, &self.io, &self.tables)
+        self.control.step(
+            until,
+            &mut self.producer,
+            &mut self.io,
+            &self.tables,
+            &self.ram,
+        )
     }
 
     /// Takes every message that was sent.
@@ -1394,7 +1399,11 @@ fn a_message_stays_until_a_later_button_press() {
     rig.press(100, Button::Plus);
     rig.step(101);
     // The press at 100 shows a message, as New synth on a full pool does.
-    rig.control.message = Some((text, RECORD));
+    rig.control.message = Some(HeaderMessage {
+        text,
+        color: RECORD,
+        name: (0, 0),
+    });
 
     // Releases, a second press of a held button, pads, MIDI notes, turns and the volume keep it.
     rig.let_go(110, Button::Plus);
@@ -1525,7 +1534,10 @@ fn new_synth_and_copy_tell_the_audio_part() {
     rig.tap(130, Button::Ok);
     rig.step(140);
     assert_eq!(rig.control.project.pool.sounds().len(), 1_024);
-    assert_eq!(rig.control.message.map(|(_, color)| color), Some(RECORD));
+    assert_eq!(
+        rig.control.message.map(|message| message.color),
+        Some(RECORD)
+    );
     assert_eq!(rig.sent(), []);
 }
 

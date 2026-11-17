@@ -116,7 +116,9 @@ fn within(value: u32, range: impl RangeBounds<u8>) -> Option<u8> {
 
 /// An input. The core takes its values as they are; the browser export and the scene parser keep
 /// them in range: pads below `PADS`, encoders below `ENCODERS`, `clicks` from -127 to 127 and not
-/// 0, notes and pressures from 0 to 127 and velocities from 1 to 127.
+/// 0, notes and pressures from 0 to 127, velocities from 1 to 127 and dropped files from 1.
+/// `Dropped` says that the platform copied a drop's `files` .wav files into `tmp/`, each into the
+/// next numbered folder.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Input {
     PadHit { pad: u8, velocity: u8 },
@@ -129,6 +131,7 @@ pub enum Input {
     NoteOff { note: u8 },
     NotePressure { note: u8, pressure: u8 },
     ChannelPressure { pressure: u8 },
+    Dropped { files: u16 },
 }
 
 impl Input {
@@ -176,6 +179,9 @@ impl Input {
             9 => Self::ChannelPressure {
                 pressure: within(a, DATA)?,
             },
+            10 => Self::Dropped {
+                files: u16::try_from(a).ok().filter(|&files| files > 0)?,
+            },
             _ => return None,
         })
     }
@@ -194,6 +200,7 @@ impl Input {
             Self::NoteOff { note } => (7, note.into(), 0),
             Self::NotePressure { note, pressure } => (8, note.into(), pressure.into()),
             Self::ChannelPressure { pressure } => (9, pressure.into(), 0),
+            Self::Dropped { files } => (10, files.into(), 0),
         }
     }
 }
@@ -270,6 +277,7 @@ mod tests {
                 pressure: 99,
             },
             Input::ChannelPressure { pressure: 0 },
+            Input::Dropped { files: 65_535 },
         ];
 
         for (kind, input) in (0..).zip(inputs) {
@@ -333,6 +341,7 @@ mod tests {
             (8, 61, 99)
         );
         assert_eq!(wire(Input::ChannelPressure { pressure: 40 }), (9, 40, 0));
+        assert_eq!(wire(Input::Dropped { files: 3 }), (10, 3, 0));
     }
 
     #[test]
@@ -358,6 +367,8 @@ mod tests {
             (8, 127, 127),
             (9, 0, 0),
             (9, 127, 0),
+            (10, 1, 0),
+            (10, 65_535, 0),
         ] {
             assert!(Input::from_wire(kind, a, b).is_some(), "{kind} {a} {b}");
         }
@@ -367,6 +378,8 @@ mod tests {
     fn the_wire_refuses_what_is_out_of_range() {
         for (kind, a, b) in [
             (10, 0, 0),
+            (10, 65_536, 0),
+            (11, 1, 0),
             (u32::MAX, 0, 0),
             (0, 12, 100),
             (0, 256, 100),

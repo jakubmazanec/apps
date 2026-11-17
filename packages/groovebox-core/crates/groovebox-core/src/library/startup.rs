@@ -3,7 +3,7 @@ use super::{Entry, File, FileId, Library};
 use crate::audio::SAMPLE_RATE;
 use crate::budget;
 use crate::label::Label;
-use crate::sample_ram::{BLOCK, Listed, Tables, blocks_for};
+use crate::sample_ram::{Listed, Tables, blocks_for};
 use crate::storage::{Path, Reply, Request, Status};
 use core::fmt::Write;
 use core::ops::ControlFlow;
@@ -130,10 +130,11 @@ impl StartUp {
                             .split_first_chunk()
                             .expect("a record ends in the file's size");
                         records = rest;
-                        match core::str::from_utf8(path)
-                            .ok()
-                            .and_then(|path| library.add(path))
-                        {
+                        match core::str::from_utf8(path).ok().and_then(|path| {
+                            let file = library.free_file()?;
+                            library.add(file, path)?;
+                            Some(file)
+                        }) {
                             Some(file) => {
                                 self.sizes[usize::from(file.0)] = u32::from_le_bytes(*size)
                             }
@@ -268,24 +269,14 @@ impl StartUp {
         library: &Library,
         tables: &Tables,
     ) -> ControlFlow<()> {
-        let mut blocks = library
-            .listing
-            .blocks(tables, file)
-            .skip(done as usize / BLOCK);
-        let first = blocks
-            .next()
-            .expect("a file's blocks hold all of its audio");
-        let run = 1 + blocks
-            .zip(first + 1..)
-            .take_while(|&(block, next)| block == next)
-            .count();
+        let (into, length) = library.run(tables, file, done, library.file(file).bytes());
         self.stage = Stage::Loading {
             at,
             file,
             data_at,
             done,
-            length: (run * BLOCK).min((library.file(file).bytes() - done) as usize) as u32,
-            into: first * BLOCK as u32,
+            length,
+            into,
         };
         ControlFlow::Continue(())
     }

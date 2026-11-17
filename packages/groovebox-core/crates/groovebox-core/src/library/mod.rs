@@ -1,11 +1,12 @@
 pub mod convert;
+pub mod import;
 pub mod name;
 pub mod startup;
 pub mod wav;
 
 use crate::budget;
 use crate::label::Label;
-use crate::sample_ram::{BLOCK, BLOCKS, Blocks, Listing};
+use crate::sample_ram::{BLOCK, BLOCKS, Blocks, Listing, Tables};
 use crate::storage::Path;
 use core::cmp::Ordering;
 
@@ -108,11 +109,16 @@ impl Library {
         self.storage_path(Entry::File(file))
     }
 
-    /// Lists the file at `path` under `samples/`, not loaded, in its place of SAMPLES' order, and
-    /// the folders it is in that are not listed yet. None when the file or one of its folders finds
-    /// the library full.
-    fn add(&mut self, path: &str) -> Option<FileId> {
-        let file = FileId(self.files.iter().position(Option::is_none)? as u16);
+    /// The first free place in the table of files; none when the library holds as many files as it
+    /// can.
+    fn free_file(&self) -> Option<FileId> {
+        Some(FileId(self.files.iter().position(Option::is_none)? as u16))
+    }
+
+    /// Lists the file at `path` under `samples/` as `file`, whose place is free, not loaded, in its
+    /// place of SAMPLES' order, and the folders it is in that are not listed yet. None when one of
+    /// its folders finds the library full.
+    fn add(&mut self, file: FileId, path: &str) -> Option<()> {
         let mut parts = path.split('/');
         let mut name = Label::new();
         name.push_str(parts.next_back().expect("a split gives at least one part"));
@@ -150,7 +156,27 @@ impl Library {
             loaded: false,
         });
         self.insert(Entry::File(file));
-        Some(file)
+        Some(())
+    }
+
+    /// The run of consecutive blocks of `file` that holds byte `done` of its `bytes` bytes of audio
+    /// on: where it starts in the sample RAM and its bytes, which end with the audio at the latest.
+    fn run(&self, tables: &Tables, file: FileId, done: u32, bytes: u32) -> (u32, u32) {
+        let mut blocks = self
+            .listing
+            .blocks(tables, file)
+            .skip(done as usize / BLOCK);
+        let first = blocks
+            .next()
+            .expect("a file's blocks hold all of its audio");
+        let run = 1 + blocks
+            .zip(first + 1..)
+            .take_while(|&(block, next)| block == next)
+            .count();
+        (
+            first * BLOCK as u32,
+            (run * BLOCK).min((bytes - done) as usize) as u32,
+        )
     }
 
     /// Puts `entry` in its place of SAMPLES' order.

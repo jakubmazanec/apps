@@ -1,6 +1,7 @@
 use super::pages::{ItemDef, ItemKind, Picture};
-use super::{Control, Entry};
+use super::{Control, Entry, HeaderMessage};
 use crate::budget;
+use crate::font::ADVANCE;
 use crate::input::Button;
 use crate::label::Label;
 use crate::library::name;
@@ -12,11 +13,12 @@ use crate::screen::{Canvas, HEIGHT, WIDTH};
 use crate::ui::frame::{Piece, draw_header, draw_strip};
 use crate::ui::item::{Bar, ItemView, draw_cursor, draw_item};
 use crate::ui::layout::{
-    ITEM_HEIGHT, ITEM_PITCH, LIST_VISIBLE, PAGE_FIRST, PAGE_VISIBLE, PAGE_WIDTH, PAGE_X, PICTURE,
-    rect,
+    HEADER_RIGHT, ITEM_HEIGHT, ITEM_PITCH, LIST_VISIBLE, PAGE_FIRST, PAGE_VISIBLE, PAGE_WIDTH,
+    PAGE_X, PICTURE, PIECE_GAP, TEXT_X, rect,
 };
 use crate::ui::list::{Row, draw_rows};
 use crate::ui::plot::draw_line;
+use crate::ui::text;
 use crate::ui::tiles::{PadTile, draw_pad_tiles, draw_tiles};
 use core::fmt::Write;
 
@@ -34,7 +36,9 @@ impl Control {
     /// The header names the screen and, on a screen with pages, its page; then the track, the
     /// selected sound and the pad mode with the octave in KEYS mode. While an empty pad is selected
     /// there is no sound to name, and the pad's dim number stands in its place. While MENU is held
-    /// the header names MENU in place of the screen and its page. The message is on the right.
+    /// the header names MENU in place of the screen and its page. The message is on the right, or
+    /// while there is none the import's progress, in the room right of the pieces; a file's name in
+    /// it is shortened with "…" so that the rest of the text fits there.
     ///
     /// The main area shows the page's items with the cursor and the page's picture, the tiles while
     /// MENU or PAGE is held, or the sound picker while it is open. On STEP it stays empty, as its
@@ -122,10 +126,37 @@ impl Control {
         } else {
             &[header[0], header[2], header[3], header[4]]
         };
+        let room = HEADER_RIGHT + 1
+            - TEXT_X
+            - left
+                .iter()
+                .map(|piece| text::width(piece.text) + PIECE_GAP)
+                .sum::<i32>();
+        let message = self.message.or_else(|| self.import.progress()).map(
+            |HeaderMessage {
+                 text,
+                 color,
+                 name: (from, to),
+             }| {
+                let text = text.as_str();
+                let (before, after) = (&text[..from], &text[to..]);
+                let rest = (before.chars().count() + after.chars().count()) as i32;
+                let name = text::fit(&text[from..to], room - ADVANCE * rest);
+                // The "…" takes the place of at least one character, so two bytes more at most.
+                let mut shown = Label::<{ 128 + 2 }>::new();
+                shown.push_str(before);
+                shown.push_str(name.text);
+                if name.ellipsis {
+                    shown.push_str("…");
+                }
+                shown.push_str(after);
+                (shown, color)
+            },
+        );
         draw_header(
             canvas,
             left,
-            self.message.as_ref().map(|(text, color)| Piece {
+            message.as_ref().map(|(text, color)| Piece {
                 text: text.as_str(),
                 color: *color,
             }),
