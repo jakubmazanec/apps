@@ -47,6 +47,15 @@ struct RequestRecord {
     path: [u8; 255],
 }
 
+const _: () = assert!(
+    size_of::<RequestRecord>() == 304
+        && core::mem::offset_of!(RequestRecord, into) == 24
+        && core::mem::offset_of!(RequestRecord, at) == 32
+        && core::mem::offset_of!(RequestRecord, path_length) == 40
+        && core::mem::offset_of!(RequestRecord, path) == 44,
+    "the request record moved from the offsets its doc gives the worker"
+);
+
 const EMPTY_REQUEST: RequestRecord = RequestRecord {
     number: 0,
     kind: 0,
@@ -218,17 +227,21 @@ pub extern "C" fn control_take_request() -> u32 {
 }
 
 /// Queues the storage's reply to request `number`, stamped with `sample`. `status` numbers
-/// `Status`'s variants from 0 for `Done` to 4 for `Failed`; any other traps. `value` is as `Reply`
-/// says. Returns 1 when queued and 0 when the queue is full.
+/// `Status`'s variants from 0 for `Done` to 4 for `Failed`, and `value` is as `Reply` says.
+/// Returns 1 when queued, 0 when the queue is full and 2 for a status above 4, which queues
+/// nothing.
 #[unsafe(no_mangle)]
 pub extern "C" fn control_queue_reply(sample: u64, number: u32, status: u32, value: u64) -> u32 {
-    let status = [
+    let Some(&status) = [
         Status::Done,
         Status::More,
         Status::Missing,
         Status::Full,
         Status::Failed,
-    ][status as usize];
+    ]
+    .get(status as usize) else {
+        return 2;
+    };
     u32::from(
         control_side()
             .queue_reply(

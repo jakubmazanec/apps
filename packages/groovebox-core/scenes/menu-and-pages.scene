@@ -6,7 +6,7 @@ frame 6400
 input 9600 press step-8
 input 11200 release step-8
 input 12800 release menu
-# PAGE held on SETTINGS: the tile of its one page, Playing, current.
+# PAGE held on SETTINGS: the tiles of its two pages, Playing and Dev, with Playing current.
 input 16000 press page
 frame 19200
 input 22400 release page

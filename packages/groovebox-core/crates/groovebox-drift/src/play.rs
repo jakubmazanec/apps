@@ -18,7 +18,8 @@ pub struct Outcome {
     pub lights: Vec<(u64, u64)>,
     /// The (number, sample) of every report the steps took, in order.
     pub applied: Vec<(u32, u64)>,
-    /// The fingerprint of every file of the storage at the end, its path and bytes, in path order.
+    /// The fingerprint of every file of the storage at the end, in path order: the lengths of its
+    /// path and of its bytes, each as 8 little-endian bytes, then its path and its bytes.
     pub storage: u64,
     /// False when a sample is not a number or infinite.
     pub finite: bool,
@@ -237,6 +238,8 @@ pub fn play(scene: &[SceneLine], runner: &mut dyn Runner) -> Outcome {
     }
     let mut storage = Fingerprint::new();
     for (path, bytes) in player.storage.files() {
+        storage.bytes(&(path.len() as u64).to_le_bytes());
+        storage.bytes(&(bytes.len() as u64).to_le_bytes());
         storage.bytes(path.as_bytes());
         storage.bytes(bytes);
     }
@@ -458,6 +461,28 @@ mod tests {
             ["samples/ours.wav", "samples/plain.wav"]
         );
         assert_eq!(runner.files(loaded), ["samples/ours.wav"]);
+    }
+
+    #[test]
+    fn a_file_whose_path_holds_a_space_loads() {
+        let mut runner = Recording::new(NativeRunner::default());
+
+        play(
+            &parse("groovebox-scene 1\nfile samples/snare%20drum.wav ours 440 0.1 1\nend 2048")
+                .unwrap(),
+            &mut runner,
+        );
+
+        assert_eq!(runner.files(loaded), ["samples/snare drum.wav"]);
+    }
+
+    #[test]
+    fn the_storage_fingerprint_tells_paths_from_bytes() {
+        // "ab" holding "c" and "a" holding "bc" spell the same bytes one after another.
+        let ab = play_text("groovebox-scene 1\nfile ab base64 Yw==\nend 128");
+        let a = play_text("groovebox-scene 1\nfile a base64 YmM=\nend 128");
+
+        assert_ne!(ab.storage, a.storage);
     }
 
     #[test]

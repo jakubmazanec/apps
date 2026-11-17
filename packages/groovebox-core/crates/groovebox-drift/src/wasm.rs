@@ -358,4 +358,26 @@ mod tests {
 
         assert_eq!(fill(&mut runner), fill(&mut fresh()));
     }
+
+    #[test]
+    fn the_reply_export_returns_2_and_queues_nothing_for_an_unknown_status() {
+        let reply = |runner: &mut WasmRunner, status: u32| -> u32 {
+            runner.call(
+                runner.control,
+                "control_queue_reply",
+                (0_u64, 0_u32, status, 0_u64),
+            )
+        };
+        let mut runner = fresh();
+
+        for status in 0..=4 {
+            assert_eq!(reply(&mut runner, status), 1, "{status}");
+        }
+        for status in [5, u32::MAX] {
+            assert_eq!(reply(&mut runner, status), 2, "{status}");
+        }
+
+        let fill = |runner: &mut WasmRunner| (0..).take_while(|_| reply(runner, 0) == 1).count();
+        assert_eq!(fill(&mut runner) + 5, fill(&mut fresh()));
+    }
 }

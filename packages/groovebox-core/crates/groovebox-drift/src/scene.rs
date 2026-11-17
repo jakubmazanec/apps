@@ -9,6 +9,10 @@ use std::str::FromStr;
 
 /// One item of a scene file: see "Shared formats" in the foundation plan and, for the storage,
 /// "Scene lines" in the library plan.
+///
+/// The path word of a `file` or a `drop` line spells a space as `%20` and a percent sign as `%25`
+/// and nothing else as an escape, so a path may hold spaces. A `base64` source without data is an
+/// empty file.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum SceneLine {
     Input(Stamped),
@@ -190,10 +194,32 @@ fn base64(number: usize, data: &str) -> Result<Vec<u8>, String> {
     Ok(bytes)
 }
 
+/// The path that a path word spells: `%20` is a space, `%25` a percent sign and any other `%` an
+/// error.
+fn path(number: usize, word: &str) -> Result<String, String> {
+    let (mut path, mut rest) = (String::new(), word);
+    while let Some((before, after)) = rest.split_once('%') {
+        path.push_str(before);
+        path.push(match after.get(..2) {
+            Some("20") => ' ',
+            Some("25") => '%',
+            _ => {
+                return Err(format!(
+                    "line {number}: `{word}` holds a `%` that is not `%20` or `%25`"
+                ));
+            }
+        });
+        rest = &after[2..];
+    }
+    path.push_str(rest);
+    Ok(path)
+}
+
 /// The bytes of the file that the words of a `<source>` make for `path`: see "Scene lines".
 fn source(number: usize, path: &str, words: &[&str]) -> Result<Vec<u8>, String> {
     let channels = |word| byte(number, "channels", word, 1, 2);
     match *words {
+        ["base64"] => Ok(Vec::new()),
         ["base64", data] => base64(number, data),
         ["sine", hz, seconds, rate, bits, count] => Ok(wav::sine(
             decimal(number, hz)?,
@@ -356,15 +382,21 @@ pub fn parse(text: &str) -> Result<Vec<SceneLine>, String> {
                 },
             }),
             ["storage", bytes] => SceneLine::Storage(decimal(number, bytes)?),
-            ["file", path, ref words @ ..] => SceneLine::File {
-                path: path.to_string(),
-                bytes: source(number, path, words)?,
-            },
-            ["drop", sample, path, ref words @ ..] => SceneLine::Drop {
-                sample: decimal(number, sample)?,
-                path: path.to_string(),
-                bytes: source(number, path, words)?,
-            },
+            ["file", path_word, ref words @ ..] => {
+                let path = path(number, path_word)?;
+                SceneLine::File {
+                    bytes: source(number, &path, words)?,
+                    path,
+                }
+            }
+            ["drop", sample, path_word, ref words @ ..] => {
+                let path = path(number, path_word)?;
+                SceneLine::Drop {
+                    sample: decimal(number, sample)?,
+                    bytes: source(number, &path, words)?,
+                    path,
+                }
+            }
             ["reply", message, sample, status_word, ref value @ ..] if value.len() <= 1 => {
                 SceneLine::Reply {
                     sample: decimal(number, sample)?,
@@ -550,6 +582,44 @@ mod tests {
         let mut fingerprint = [0; 16];
         hasher.finalize(&mut fingerprint);
         assert_eq!(ours.fingerprint, fingerprint);
+    }
+
+    #[test]
+    fn a_path_spells_a_space_and_a_percent_sign_as_escapes() {
+        let scene = parse(
+            "groovebox-scene 1\nfile samples/snare%20drum.wav ours 440 0.1 1\n\
+            drop 64 my%20kit/100%25%20dry.wav base64 AA==\nend 128",
+        )
+        .unwrap();
+
+        let SceneLine::File { path, bytes } = &scene[0] else {
+            panic!("{:?} is not a file", scene[0]);
+        };
+        assert_eq!(path, "samples/snare drum.wav");
+        let ours = wav::parse(bytes, bytes.len() as u64).unwrap().ours.unwrap();
+        assert_eq!(ours.original.as_str(), "snare drum.wav");
+        assert_eq!(
+            scene[1],
+            SceneLine::Drop {
+                sample: 64,
+                path: "my kit/100% dry.wav".to_string(),
+                bytes: vec![0]
+            }
+        );
+    }
+
+    #[test]
+    fn a_bare_base64_is_an_empty_file() {
+        assert_eq!(
+            parse("groovebox-scene 1\nfile samples/empty.wav base64\nend 128"),
+            Ok(vec![
+                SceneLine::File {
+                    path: "samples/empty.wav".to_string(),
+                    bytes: Vec::new()
+                },
+                SceneLine::End(128)
+            ])
+        );
     }
 
     #[test]
@@ -750,6 +820,26 @@ mod tests {
             ("groovebox-scene 1\nreply 0 128 lost\nend 128", "line 2"),
             ("groovebox-scene 1\nreply 0 128 done 1 2\nend 128", "line 2"),
             ("groovebox-scene 1\nstorage many\nend 128", "line 2"),
+            (
+                "groovebox-scene 1\nfile a%.wav base64 AA==\nend 128",
+                "line 2",
+            ),
+            (
+                "groovebox-scene 1\nfile a%2.wav base64 AA==\nend 128",
+                "line 2",
+            ),
+            (
+                "groovebox-scene 1\nfile a%41.wav base64 AA==\nend 128",
+                "line 2",
+            ),
+            (
+                "groovebox-scene 1\nfile a%2é.wav base64 AA==\nend 128",
+                "line 2",
+            ),
+            (
+                "groovebox-scene 1\ndrop 0 a% base64 AA==\nend 128",
+                "line 2",
+            ),
         ] {
             let error = parse(text).expect_err(text);
             assert!(error.contains(line), "{text:?}: {error}");
