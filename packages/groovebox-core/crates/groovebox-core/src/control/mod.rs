@@ -128,7 +128,8 @@ pub struct Control {
     /// The import's job, which takes the dropped files once the project is open.
     import: Import,
     /// The delete's job while it runs: the file it deletes and what it waits for. Deletes run one
-    /// at a time, so the control part waits for at most one `ForgetSample`.
+    /// at a time and never while the import replaces a file, which waits for a delete that runs,
+    /// so the control part waits for at most one `ForgetSample`.
     delete: Option<(FileId, Deleting)>,
     library: Library,
     project: Project,
@@ -344,9 +345,18 @@ impl Control {
                             }
                         }
                         // The audio part let go of the file the delete deletes.
-                        Some((_, MessageKind::ForgetSample { file })) => {
+                        Some((_, MessageKind::ForgetSample { file })) if self.delete.is_some() => {
                             self.delete = Some((file, Deleting::Turn));
                             self.put_request();
+                        }
+                        Some((_, MessageKind::ForgetSample { .. })) => {
+                            // SAFETY: no delete runs while the import replaces a file, so this is
+                            // the report of the `ForgetSample` of the file it replaces.
+                            #[allow(unsafe_code)]
+                            unsafe {
+                                self.import.list_written(&mut self.library, tables);
+                            }
+                            self.follow_import(sample, messages);
                         }
                         _ => unreachable!(
                             "the control part waits only for `UseTable`s and `ForgetSample`s"
@@ -622,8 +632,8 @@ impl Control {
     /// press, so it neither moves the highlight nor repeats, also once SHIFT or PADS/KEYS is let
     /// go. Opening and closing the picker take the arrows, - and + that are held, as a counted MENU
     /// or PAGE does (`end_held_repeats`). While a question is open only OK and a tap of CANCEL
-    /// answer it, OK deleting the file (`delete_file`); the arrows, - and + are taken too, and the
-    /// other controls act as with a picker open.
+    /// answer it, OK deleting the file (`delete_file`) unless the import replaces a file; the
+    /// arrows, - and + are taken too, and the other controls act as with a picker open.
     ///
     /// Otherwise the arrows, - and + nudge (`nudge`), OK uses the item under the cursor, or acts on
     /// SAMPLES' row (`ok_in_samples`), and an encoder push the item its encoder holds.
@@ -671,9 +681,12 @@ impl Control {
             {
                 self.nudge(button, sample, messages);
             }
+            // No delete starts while the import replaces a file (`Import::replacing`).
             Button::Ok if let Some(Question::DeleteFile(file)) = self.view.question => {
-                self.view.question = None;
-                self.delete_file(file, sample, messages);
+                if self.import.replacing().is_none() {
+                    self.view.question = None;
+                    self.delete_file(file, sample, messages);
+                }
             }
             Button::Ok if let Some((open, highlight)) = self.view.picker => {
                 self.view.picker = None;
@@ -1061,17 +1074,36 @@ impl Control {
         }
     }
 
-    /// Sends the `UseTable` that the import asks for and puts out its next request.
+    /// Sends the `UseTable` or `ForgetSample` that the import asks for, moves SAMPLES' cursor, the
+    /// Delete picker and the question from a file it replaced onto the new file and puts out its
+    /// next request.
     fn follow_import(&mut self, sample: u64, messages: &mut Producer<'_, Message, MESSAGE_QUEUE>) {
-        if let Some(version) = self.import.use_table() {
-            self.send(sample, MessageKind::UseTable { version }, messages);
+        if let Some(kind) = self.import.message() {
+            self.send(sample, kind, messages);
+        }
+        if let Some((old, new)) = self.import.replaced() {
+            let replace = |file: &mut FileId| {
+                if *file == old {
+                    *file = new;
+                }
+            };
+            if let Some(samples::Row::File(file)) = &mut self.view.samples.on {
+                replace(file);
+            }
+            if let Some((Picker::Delete(file), _)) = &mut self.view.picker {
+                replace(file);
+            }
+            if let Some(Question::DeleteFile(file)) = &mut self.view.question {
+                replace(file);
+            }
         }
         self.put_request();
     }
 
     /// Puts out the next storage request unless one is out: the delete's `Delete` once its turn
     /// has come, which is at the first gap between the import's requests, and otherwise the
-    /// import's request, unless the delete's waits to be taken.
+    /// import's request, unless the delete's waits to be taken. A converted file first settles
+    /// where it goes, unless it replaces a file while a delete runs (`Import::settle`).
     fn put_request(&mut self) {
         if self.out.is_some() {
             return;
@@ -1084,7 +1116,10 @@ impl Control {
                 self.delete = Some((file, Deleting::Reply));
             }
             Some((_, Deleting::Reply)) => {}
-            _ => self.request = self.import.request(),
+            _ => {
+                self.import.settle(&self.library, self.delete.is_some());
+                self.request = self.import.request(&self.library);
+            }
         }
     }
 

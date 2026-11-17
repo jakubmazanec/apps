@@ -46,8 +46,8 @@ pub fn rows(library: &Library, folder: Option<FolderId>) -> impl Iterator<Item =
 impl Control {
     /// An arrow, - or + on SAMPLES moves the cursor as in a list (`moved`). Moving onto a loaded
     /// file plays it once through the preview player, which fades the file it played, unless it
-    /// is being deleted; moving onto anything else stops the preview (`stop_preview`). A move that
-    /// leaves the cursor where it was does nothing.
+    /// is being deleted or replaced; moving onto anything else stops the preview (`stop_preview`).
+    /// A move that leaves the cursor where it was does nothing.
     pub(super) fn move_in_samples(
         &mut self,
         button: Button,
@@ -67,7 +67,8 @@ impl Control {
         match on {
             Some(Row::File(file))
                 if self.library.file(file).loaded
-                    && self.delete.is_none_or(|(deleted, _)| deleted != file) =>
+                    && self.delete.is_none_or(|(deleted, _)| deleted != file)
+                    && self.import.replacing() != Some(file) =>
             {
                 let File {
                     frames, channels, ..
@@ -89,7 +90,8 @@ impl Control {
 
     /// OK on SAMPLES stops the preview. On a folder it shows that folder with the cursor on "..",
     /// on ".." it goes up (`go_up`) and on a file it opens the file's Delete picker, unless a
-    /// delete runs: deletes run one at a time.
+    /// delete runs or the import replaces a file: deletes run one at a time, and never with a
+    /// replace.
     pub(super) fn ok_in_samples(
         &mut self,
         sample: u64,
@@ -105,7 +107,7 @@ impl Control {
                 };
             }
             Some(Row::Up) => self.go_up(),
-            Some(Row::File(file)) if self.delete.is_none() => {
+            Some(Row::File(file)) if self.delete.is_none() && self.import.replacing().is_none() => {
                 self.view.highlight(Picker::Delete(file), 0);
                 self.end_held_repeats();
             }

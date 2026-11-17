@@ -6,6 +6,7 @@ use crate::blake3::Hasher;
 use crate::budget;
 use crate::control::HeaderMessage;
 use crate::label::Label;
+use crate::message::MessageKind;
 use crate::palette::{ACCENT, RECORD};
 use crate::sample_ram::{BLOCK, Listed, SampleRam, Tables, blocks_for};
 use crate::storage::{Memory, Path, Reply, Request, Status};
@@ -45,6 +46,9 @@ enum Stage {
     Converting {
         done: u64,
     },
+    /// No request: the file's name is taken, and its replace waits for the delete that runs to
+    /// end (`settle`).
+    Settling,
     Beginning,
     /// The converted file's head, from Io.
     AppendingHead,
@@ -56,6 +60,10 @@ enum Stage {
         length: u32,
     },
     Committing,
+    /// The deletion of the file it replaces, whose name differs from its own in case.
+    Removing,
+    /// No request: the audio part lets go of the file it replaces (`list_written`).
+    LettingGo,
     /// The deletion of the file's folder in `tmp/`.
     Deleting,
 }
@@ -65,12 +73,13 @@ enum Stage {
 /// checks it in this order: whether it can be read, whether the library has room for its file, its
 /// folders and its blocks at 48 kHz, and whether the storage's free space less the reserve holds
 /// the converted file. It takes the blocks, reads the audio in pieces of whole frames and converts
-/// it into them, hashing it for the fingerprint. A name the folder holds already, but for case,
-/// keeps the file when the fingerprints match, which writes nothing and counts as imported, and
-/// otherwise gets "-2", then "-3". It writes the converted file under `samples/`, its head from Io
-/// and its audio from the blocks, lists it in the library and deletes its folder in `tmp/`. A
-/// refused file gives its blocks back and is deleted from `tmp/` too; any failed request refuses
-/// it as unreadable.
+/// it into them, hashing it for the fingerprint. It writes the converted file under `samples/`
+/// under its own name, its head from Io and its audio from the blocks, lists it in the library
+/// and deletes its folder in `tmp/`. A name the folder holds already, but for case, replaces that
+/// file: the old file stays until the new one is written whole, then its other spelling goes from
+/// the storage, and the audio part lets go of it as of a deleted file before the library unlists
+/// it and its blocks are free. A refused file gives its blocks back and is deleted from `tmp/`
+/// too; any failed request refuses it as unreadable.
 pub struct Import {
     /// The files dropped since the start.
     dropped: u32,
@@ -108,8 +117,13 @@ pub struct Import {
     fingerprint: [u8; 16],
     /// Its path under `samples/`.
     target: Path,
-    /// The version of a `UseTable` to send at once, as `Listing::add` packed the tables.
-    use_table: Option<u8>,
+    /// The file of the library it replaces, from `settle` until the library lists the new one.
+    old: Option<FileId>,
+    /// The message to send at once, once: a `UseTable` as `Listing::add` packed the tables, or the
+    /// `ForgetSample` of the file it replaces.
+    message: Option<MessageKind>,
+    /// The file replaced and the file that replaced it, once, as the library lists the new one.
+    replaced: Option<(FileId, FileId)>,
 }
 
 impl Import {
@@ -142,7 +156,9 @@ impl Import {
             written: 0,
             fingerprint: [0; 16],
             target: Path::new(),
-            use_table: None,
+            old: None,
+            message: None,
+            replaced: None,
         }
     }
 
@@ -166,8 +182,9 @@ impl Import {
         self.stage.is_some()
     }
 
-    /// The request the job waits for now; none while it is idle or waits for the audio part.
-    pub fn request(&self) -> Option<Request> {
+    /// The request the job waits for now; none while it is idle or waits for the audio part or a
+    /// delete.
+    pub fn request(&self, library: &Library) -> Option<Request> {
         let mut folder = Path::new();
         write!(folder, "tmp/{}", self.next).expect("writing to a label never fails");
         let mut source = folder;
@@ -204,6 +221,10 @@ impl Import {
                 length,
             },
             Stage::Committing => Request::Commit,
+            Stage::Removing => Request::Delete {
+                path: library.path(self.old.expect("only a replace removes a file")),
+            },
+            Stage::Settling | Stage::LettingGo => return None,
             Stage::Deleting => Request::Delete { path: folder },
         })
     }
@@ -287,7 +308,9 @@ impl Import {
                     _ => self.end(Some(Refusal::LibraryFull), library, tables),
                 }
             }
-            Stage::Switching => unreachable!("no request is out while the tables switch"),
+            Stage::Switching | Stage::Settling | Stage::LettingGo => {
+                unreachable!("no request is out while the job waits for the audio part or a delete")
+            }
             Stage::Freeing if !ok => self.end(Some(Refusal::Unreadable), library, tables),
             Stage::Freeing => {
                 if value.saturating_sub(budget::STORAGE_RESERVE as u64)
@@ -315,7 +338,16 @@ impl Import {
                         self.stage = Some(Stage::Converting { done });
                     } else {
                         self.convert(None, library, tables, ram);
-                        self.settle(library, tables);
+                        assert_eq!(
+                            self.written,
+                            self.converted * u32::from(self.format.channels),
+                            "the conversion gives the frames that `output_frames` counts"
+                        );
+                        self.hasher
+                            .as_ref()
+                            .expect("the conversion has started")
+                            .finalize(&mut self.fingerprint);
+                        self.stage = Some(Stage::Settling);
                     }
                 }
             }
@@ -351,24 +383,19 @@ impl Import {
                 self.append(done + length, library, tables)
             }
             Stage::Appending { .. } => self.stage = Some(Stage::Committing),
-            Stage::Committing => {
-                library
-                    .add(self.file, self.target.as_str())
-                    .expect("the import checked the room for the file and its folders");
-                let listed = library.file_mut(self.file);
-                *listed = File {
-                    frames: self.converted,
-                    channels: self.format.channels,
-                    root: self.root,
-                    loop_points: self.loop_points,
-                    fingerprint: self.fingerprint,
-                    loaded: true,
-                    ..*listed
-                };
-                // The library holds the blocks now.
-                self.holding = false;
-                self.end(None, library, tables);
+            Stage::Committing => match self.old {
+                // The storage keeps a name that differs in case beside the new one.
+                Some(old) if library.file(old).name != self.name => {
+                    self.stage = Some(Stage::Removing);
+                }
+                _ => self.forget_old(library, tables),
+            },
+            // The library lists the old file beside the new one while the storage keeps it.
+            Stage::Removing if !matches!(status, Status::Done | Status::Missing) => {
+                self.old = None;
+                self.forget_old(library, tables);
             }
+            Stage::Removing => self.forget_old(library, tables),
             Stage::Deleting => {
                 self.next += 1;
                 if self.next <= self.dropped {
@@ -405,9 +432,20 @@ impl Import {
         waited
     }
 
-    /// The version of the `UseTable` to send at once, once.
-    pub fn use_table(&mut self) -> Option<u8> {
-        self.use_table.take()
+    /// The message to send at once, once.
+    pub fn message(&mut self) -> Option<MessageKind> {
+        self.message.take()
+    }
+
+    /// The file it replaces, from `settle` until the library lists the new one: meanwhile it is
+    /// never previewed and no delete starts.
+    pub fn replacing(&self) -> Option<FileId> {
+        self.old
+    }
+
+    /// The file replaced and the file that replaced it, once the library lists the new one.
+    pub fn replaced(&mut self) -> Option<(FileId, FileId)> {
+        self.replaced.take()
     }
 
     /// The header's message while it runs: "Importing 3 files", or "Importing kick.wav" for one
@@ -554,7 +592,7 @@ impl Import {
             None => self.stage = Some(Stage::Switching),
             Some(listed) => {
                 if let Listed::Packed { version } = listed {
-                    self.use_table = Some(version);
+                    self.message = Some(MessageKind::UseTable { version });
                 }
                 self.holding = true;
                 self.head = wav::write_header(
@@ -614,41 +652,78 @@ impl Import {
         }
     }
 
-    /// Takes the fingerprint of the converted audio and settles the file's name in its folder:
-    /// the first of its name, then with "-2", "-3" and so on, that the folder does not hold but
-    /// for case. A file there of the same name and fingerprint keeps the import from writing it.
-    fn settle(&mut self, library: &mut Library, tables: &Tables) {
-        assert_eq!(
-            self.written,
-            self.converted * u32::from(self.format.channels),
-            "the conversion gives the frames that `output_frames` counts"
-        );
-        self.hasher
-            .as_ref()
-            .expect("the conversion has started")
-            .finalize(&mut self.fingerprint);
-        let (place, folder, new_folders) = self.folders(library);
-        let mut name = self.name;
-        for number in 2.. {
-            let held = library
-                .entries(folder)
-                .filter(|_| new_folders == 0)
-                .find_map(|entry| match entry {
-                    Entry::File(file) => Some(library.file(file))
-                        .filter(|held| name::same(held.name.as_str(), name.as_str())),
-                    Entry::Folder(_) => None,
-                });
-            match held {
-                Some(held) if held.fingerprint == self.fingerprint => {
-                    return self.end(None, library, tables);
-                }
-                Some(_) => name = name::numbered(self.name.as_str(), number),
-                None => break,
-            }
+    /// Once the file is converted, settles where it goes: under its own name in its folder,
+    /// replacing the file there whose name is the same but for case. A replace waits while a
+    /// delete runs (`deleting`), so that the two never take the same file and the audio part lets
+    /// go of one file at a time.
+    pub fn settle(&mut self, library: &Library, deleting: bool) {
+        if !matches!(self.stage, Some(Stage::Settling)) {
+            return;
         }
+        let (place, folder, new_folders) = self.folders(library);
+        let old = library
+            .entries(folder)
+            .filter(|_| new_folders == 0)
+            .find_map(|entry| match entry {
+                Entry::File(file) => Some(file).filter(|&file| {
+                    name::same(library.file(file).name.as_str(), self.name.as_str())
+                }),
+                Entry::Folder(_) => None,
+            });
+        if old.is_some() && deleting {
+            return;
+        }
+        self.old = old;
         self.target = place;
-        self.target.push_str(name.as_str());
+        self.target.push_str(self.name.as_str());
         self.stage = Some(Stage::Beginning);
+    }
+
+    /// Lists the written file once the audio part let go of the file it replaces: of a loaded one
+    /// it asks with a `ForgetSample` and waits for its report.
+    #[allow(unsafe_code)]
+    fn forget_old(&mut self, library: &mut Library, tables: &Tables) {
+        match self.old.filter(|&old| library.file(old).loaded) {
+            Some(file) => {
+                self.message = Some(MessageKind::ForgetSample { file });
+                self.stage = Some(Stage::LettingGo);
+            }
+            // SAFETY: the audio part was never told about a file that is not loaded.
+            None => unsafe { self.list_written(library, tables) },
+        }
+    }
+
+    /// Lists the written file in its place of SAMPLES' order, unlists the file it replaces and
+    /// gives that file's blocks back, then waits for the deletion of its folder in `tmp/`.
+    ///
+    /// # Safety
+    ///
+    /// The audio part has let go of the file it replaces or was never told about it: the applied
+    /// report of the `ForgetSample` that `message` gave has come back.
+    #[allow(unsafe_code)]
+    pub unsafe fn list_written(&mut self, library: &mut Library, tables: &Tables) {
+        library
+            .add(self.file, self.target.as_str())
+            .expect("the import checked the room for the file and its folders");
+        let listed = library.file_mut(self.file);
+        *listed = File {
+            frames: self.converted,
+            channels: self.format.channels,
+            root: self.root,
+            loop_points: self.loop_points,
+            fingerprint: self.fingerprint,
+            loaded: true,
+            ..*listed
+        };
+        // The library holds the blocks now.
+        self.holding = false;
+        if let Some(old) = self.old {
+            // The new file holds the old one's folders, so none is left empty.
+            // SAFETY: the caller promises that the audio part let go of the old file.
+            unsafe { library.remove(old, tables) };
+            self.replaced = Some((old, self.file));
+        }
+        self.end(None, library, tables);
     }
 
     /// Waits for the `Append` of the run of consecutive blocks that holds byte `done` of the
@@ -658,10 +733,11 @@ impl Import {
         self.stage = Some(Stage::Appending { done, from, length });
     }
 
-    /// Ends the file: gives back the blocks it holds, counts it as imported or refused and waits
-    /// for the deletion of its folder in `tmp/`.
+    /// Ends the file: gives back the blocks it holds, counts it as imported or refused, replaces
+    /// nothing any more and waits for the deletion of its folder in `tmp/`.
     #[allow(unsafe_code)]
     fn end(&mut self, refusal: Option<Refusal>, library: &mut Library, tables: &Tables) {
+        self.old = None;
         if core::mem::take(&mut self.holding) {
             // SAFETY: the audio part was never told about the file.
             unsafe { library.free_blocks(self.file, tables) };

@@ -108,18 +108,6 @@ pub fn same(a: &str, b: &str) -> bool {
         .eq(b.chars().flat_map(char::to_lowercase))
 }
 
-/// `name` with "-`number`" before its ".wav", its base cut at a character boundary to fit.
-pub fn numbered(name: &str, number: u32) -> Label<FILE_BYTES> {
-    let (base, extension) = split_extension(name);
-    let suffix = written::<11>(format_args!("-{number}"));
-    let room = FILE_BYTES - EXTENSION.len() - suffix.as_str().len();
-    written(format_args!(
-        "{}{}{extension}",
-        &base[..base.floor_char_boundary(room)],
-        suffix.as_str()
-    ))
-}
-
 /// The letter a lowercase character is sorted as: its plain letter when it is a plain letter with
 /// an accent, a stroke or a dot (Latin-1 Supplement and Latin Extended-A), else itself, so that
 /// ligatures and letters of their own (æ ð þ ß ĳ ŉ ĸ ŋ œ) come after z.
@@ -212,10 +200,6 @@ mod tests {
         assert_eq!(file_name("漢字").as_str(), "sample.wav");
         assert!(file_name("kick.waΩ").as_str().ends_with(".wav"));
         assert_eq!(file_name("kick.mp3").as_str(), "kick.mp3.wav");
-        assert_eq!(numbered("abc", 2).as_str(), "abc-2.wav");
-        assert_eq!(numbered("漢字", 2).as_str(), "漢字-2.wav");
-        assert_eq!(numbered("kick.waΩ", 2).as_str(), "kick.waΩ-2.wav");
-        assert_eq!(numbered("", 2).as_str(), "-2.wav");
     }
 
     #[test]
@@ -274,18 +258,6 @@ mod tests {
         assert!(same("Říkanka.wav", "říkanka.WAV"));
         assert!(!same("Kick.wav", "Kick-2.wav"));
         assert!(!same("rikanka.wav", "říkanka.wav"));
-    }
-
-    #[test]
-    fn the_second_kick_is_kick_2() {
-        assert_eq!(numbered("kick.wav", 2).as_str(), "kick-2.wav");
-        assert_eq!(numbered("Kick.WAV", 10).as_str(), "Kick-10.WAV");
-        let long = "k".repeat(60) + ".wav";
-        assert_eq!(numbered(&long, 2).as_str(), "k".repeat(58) + "-2.wav");
-        assert_eq!(numbered(&long, 2).as_str().len(), 64);
-        let wide = "ž".repeat(30) + ".wav";
-        assert_eq!(numbered(&wide, 2).as_str(), "ž".repeat(29) + "-2.wav");
-        assert_eq!(numbered("a.wav", u32::MAX).as_str(), "a-4294967295.wav");
     }
 
     #[test]

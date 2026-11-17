@@ -694,28 +694,55 @@ fn loose_files_sit_at_the_top_and_folders_keep_their_subfolders() {
 }
 
 #[test]
-fn an_identical_redrop_writes_nothing_and_counts_as_imported() {
+fn an_identical_redrop_replaces_the_file() {
     let queue = Queue::new();
     let mut rig = Rig::new(&queue);
     let kick = short(100.0, 0.1);
     rig.drop_files(10, &[("tmp/1/kick.wav", kick.clone())]);
     rig.settle(20);
     let written = rig.storage.files()["samples/kick.wav"].clone();
+    let head = wav::parse(&written, written.len() as u64).unwrap().data_at;
     let used = rig.control.library.used();
 
     rig.drop_files(30, &[("tmp/2/kick.wav", kick)]);
     let requests = rig.settle(40);
 
-    assert!(begun(&requests).is_empty());
+    // The new file is written over the old one, which the audio part then lets go of.
     assert_eq!(
-        requests.last(),
-        Some(&Request::Delete {
+        requests[requests.len() - 4..],
+        [
+            Request::Begin {
+                file: path("samples/kick.wav")
+            },
+            Request::Append {
+                from: Memory::Io,
+                offset: 0,
+                length: head as u32
+            },
+            Request::Append {
+                from: Memory::SampleRam,
+                offset: 5 * 2_048,
+                length: 9_600
+            },
+            Request::Commit,
+        ]
+    );
+    assert_eq!(rig.sent(), [message(0, 40, forget(0))]);
+    assert_eq!(rig.control.request, None);
+    assert_eq!(rig.control.library.used(), 2 * used);
+
+    rig.control.applied(0, 64);
+    let requests = rig.settle(100);
+
+    assert_eq!(
+        requests,
+        [Request::Delete {
             path: path("tmp/2")
-        })
+        }]
     );
     assert_eq!(stored(&rig), ["samples/kick.wav"]);
     assert_eq!(rig.storage.files()["samples/kick.wav"], written);
-    assert_eq!(entries(&rig), [Entry::File(FileId(0))]);
+    assert_eq!(entries(&rig), [Entry::File(FileId(1))]);
     assert_eq!(rig.control.library.used(), used);
     assert!(shows(
         &rig.control,
@@ -724,45 +751,82 @@ fn an_identical_redrop_writes_nothing_and_counts_as_imported() {
 }
 
 #[test]
-fn different_audio_under_a_name_differing_in_case_gets_dash_2() {
+fn a_name_taken_but_for_case_is_replaced_under_its_own_spelling() {
     let queue = Queue::new();
     let mut rig = Rig::new(&queue);
     rig.drop_files(10, &[("tmp/1/kick.wav", short(100.0, 0.01))]);
     rig.settle(20);
 
-    rig.drop_files(
-        30,
-        &[
-            ("tmp/2/KICK.wav", short(200.0, 0.01)),
-            ("tmp/3/Kick.wav", short(300.0, 0.01)),
-        ],
-    );
+    rig.drop_files(30, &[("tmp/2/KICK.wav", short(200.0, 0.02))]);
     let requests = rig.settle(40);
 
+    // The storage keeps both spellings, so the old one goes once the new one is written whole.
+    assert_eq!(begun(&requests), ["samples/KICK.wav"]);
     assert_eq!(
-        begun(&requests),
-        ["samples/KICK-2.wav", "samples/Kick-3.wav"]
-    );
-    assert_eq!(
-        stored(&rig),
+        requests[requests.len() - 2..],
         [
-            "samples/KICK-2.wav",
-            "samples/Kick-3.wav",
-            "samples/kick.wav"
+            Request::Commit,
+            Request::Delete {
+                path: path("samples/kick.wav")
+            }
         ]
     );
+    assert_eq!(rig.sent(), [message(0, 40, forget(0))]);
+    assert_eq!(entries(&rig), [Entry::File(FileId(0))]);
+
+    rig.control.applied(0, 64);
+    rig.settle(100);
+
+    assert_eq!(stored(&rig), ["samples/KICK.wav"]);
+    assert_eq!(entries(&rig), [Entry::File(FileId(1))]);
+    let listed = rig.control.library.file(FileId(1));
+    assert_eq!(listed.name.as_str(), "KICK.wav");
+    assert_eq!(listed.frames, 960);
+    let file = &rig.storage.files()["samples/KICK.wav"];
+    let header = wav::parse(file, file.len() as u64).unwrap();
+    assert_eq!(
+        header.ours.unwrap().fingerprint,
+        fingerprint(1, &file[header.data_at as usize..])
+    );
+    assert_eq!(listed.fingerprint, header.ours.unwrap().fingerprint);
+    assert_eq!(rig.control.library.used(), 2_048);
+    assert!(shows(
+        &rig.control,
+        &step_with(("KICK.wav imported", ACCENT))
+    ));
+}
+
+#[test]
+fn an_old_spelling_the_storage_keeps_stays_listed_beside_the_new_file() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    rig.drop_files(10, &[("tmp/1/kick.wav", short(100.0, 0.01))]);
+    rig.settle(20);
+    rig.drop_files(30, &[("tmp/2/KICK.wav", short(200.0, 0.02))]);
+    rig.step(31);
+    while rig.serve(40) != Request::Commit {
+        rig.step(41);
+    }
+    rig.step(41);
+
+    assert_eq!(
+        rig.fail(50),
+        Request::Delete {
+            path: path("samples/kick.wav")
+        }
+    );
+    rig.settle(51);
+
+    assert_eq!(rig.sent(), []);
+    assert_eq!(stored(&rig), ["samples/KICK.wav", "samples/kick.wav"]);
     assert_eq!(
         entries(&rig),
-        [
-            Entry::File(FileId(1)),
-            Entry::File(FileId(2)),
-            Entry::File(FileId(0))
-        ]
+        [Entry::File(FileId(1)), Entry::File(FileId(0))]
     );
-    assert_eq!(
-        rig.control.library.file(FileId(1)).name.as_str(),
-        "KICK-2.wav"
-    );
+    assert!(shows(
+        &rig.control,
+        &step_with(("KICK.wav imported", ACCENT))
+    ));
 }
 
 #[test]
@@ -2198,4 +2262,207 @@ fn only_the_report_of_a_use_table_ends_the_switch_of_tables() {
     assert_eq!(requests.first(), Some(&Request::Free));
     assert_eq!(stored(&rig), ["samples/c.wav", "samples/d.wav"]);
     assert_eq!(rig.control.library.used(), 2 * 2_048);
+}
+
+#[test]
+fn a_replace_while_the_old_file_previews_reuses_its_blocks_only_after_the_let_go() {
+    let queue = Queue::new();
+    let mut rig = on_samples(&queue, &three_files());
+    rig.tap(100, Button::Ok);
+    rig.tap(110, Button::Right);
+    let into = |requests: &[Request]| {
+        requests.iter().find_map(|request| match *request {
+            Request::Append {
+                from: Memory::SampleRam,
+                offset,
+                ..
+            } => Some(offset / 2_048),
+            _ => None,
+        })
+    };
+
+    // clap.wav, blocks 15 to 19, is previewing when a drop replaces it, and Arp.wav comes next.
+    rig.drop_files(
+        200,
+        &[
+            ("tmp/1/drums/clap.wav", short(100.0, 0.01)),
+            ("tmp/2/Arp.wav", short(200.0, 0.01)),
+        ],
+    );
+    let requests = rig.settle(210);
+
+    assert_eq!(begun(&requests), ["samples/drums/clap.wav"]);
+    assert_eq!(into(&requests), Some(67));
+    assert_eq!(
+        rig.sent(),
+        [
+            message(0, 110, preview(2, 4_800)),
+            message(1, 210, forget(2))
+        ]
+    );
+    assert_eq!(rig.control.take_request(), None);
+    assert_eq!(rig.control.library.used(), 68 * 2_048);
+    // Until the audio part let go, moving back onto clap.wav plays nothing and OK on it offers no
+    // delete.
+    rig.tap(300, Button::Up);
+    rig.tap(310, Button::Down);
+    rig.tap(320, Button::Ok);
+    rig.step(330);
+    assert_eq!(rig.sent(), [message(2, 300, MessageKind::StopPreview)]);
+    assert_eq!(rig.control.view.picker, None);
+
+    rig.control.applied(1, 240);
+    let requests = rig.settle(400);
+
+    assert_eq!(begun(&requests), ["samples/Arp.wav"]);
+    assert_eq!(into(&requests), Some(15));
+    assert_eq!(rig.control.view.samples.on, Some(Line::File(FileId(3))));
+    assert_eq!(rig.control.library.used(), 64 * 2_048);
+}
+
+#[test]
+fn a_replace_of_a_not_loaded_file_needs_no_let_go() {
+    let queue = Queue::new();
+    let plain = wav::sine(440.0, 0.5, 44_100, Encoding::Int16, 1);
+    let mut rig = on_samples(
+        &queue,
+        &[
+            ("samples/Bass.wav", converted(48_000, 1)),
+            ("samples/plain.wav", plain),
+        ],
+    );
+
+    rig.drop_files(100, &[("tmp/1/plain.wav", short(100.0, 0.01))]);
+    let requests = rig.settle(110);
+
+    assert_eq!(rig.sent(), []);
+    assert_eq!(
+        requests[requests.len() - 2..],
+        [
+            Request::Commit,
+            Request::Delete {
+                path: path("tmp/1")
+            }
+        ]
+    );
+    assert_eq!(stored(&rig), ["samples/Bass.wav", "samples/plain.wav"]);
+    assert_eq!(
+        entries(&rig),
+        [Entry::File(FileId(0)), Entry::File(FileId(2))]
+    );
+    assert!(rig.control.library.file(FileId(2)).loaded);
+    assert_eq!(rig.control.library.used(), 48 * 2_048);
+}
+
+#[test]
+fn a_replace_in_a_full_library_is_refused() {
+    let queue = Queue::new();
+    let files = two_files_filling_the_ram();
+    let mut rig = Rig::with_files(&queue, &files);
+    rig.open();
+
+    // The old a.wav's blocks are not free until the new one is written whole.
+    rig.drop_files(10, &[("tmp/1/a.wav", short(100.0, 0.01))]);
+    rig.settle(20);
+
+    assert!(shows(
+        &rig.control,
+        &step_with(("a.wav not imported: library full", RECORD))
+    ));
+    assert_eq!(rig.sent(), []);
+    assert_eq!(stored(&rig), ["samples/a.wav", "samples/b.wav"]);
+    assert!(rig.storage.files()["samples/a.wav"] == files[0].1);
+    assert_eq!(
+        entries(&rig),
+        [Entry::File(FileId(0)), Entry::File(FileId(1))]
+    );
+    assert_eq!(rig.control.library.used(), 64_000_000);
+}
+
+#[test]
+fn the_cursor_and_the_question_move_onto_the_file_that_replaces_theirs() {
+    let queue = Queue::new();
+    let mut rig = on_samples(&queue, &three_files());
+    rig.tap(100, Button::Down);
+    rig.tap(200, Button::Ok);
+    rig.tap(210, Button::Ok);
+    rig.step(220);
+    assert_eq!(
+        rig.control.view.question,
+        Some(Question::DeleteFile(FileId(0)))
+    );
+
+    rig.drop_files(300, &[("tmp/1/BASS.wav", short(100.0, 0.01))]);
+    rig.settle(310);
+    // OK deletes nothing while the import replaces a file.
+    rig.tap(400, Button::Ok);
+    rig.step(410);
+
+    assert_eq!(
+        rig.sent(),
+        [
+            message(0, 100, preview(0, 48_000)),
+            message(1, 200, MessageKind::StopPreview),
+            message(2, 310, forget(0))
+        ]
+    );
+    assert_eq!(
+        rig.control.view.question,
+        Some(Question::DeleteFile(FileId(0)))
+    );
+
+    rig.control.applied(2, 330);
+    rig.settle(500);
+
+    assert_eq!(stored(&rig)[0], "samples/BASS.wav");
+    assert_eq!(
+        rig.control.view.samples,
+        SamplesView {
+            folder: None,
+            cursor: Cursor { item: 1, scroll: 0 },
+            on: Some(Line::File(FileId(3)))
+        }
+    );
+    assert_eq!(
+        rig.control.view.question,
+        Some(Question::DeleteFile(FileId(3)))
+    );
+    rig.tap(600, Button::Ok);
+    rig.step(610);
+    assert_eq!(rig.sent(), [message(3, 600, forget(3))]);
+}
+
+#[test]
+fn a_replace_waits_for_the_delete_that_runs() {
+    let queue = Queue::new();
+    let mut rig = on_samples(&queue, &three_files());
+    rig.tap(100, Button::Ok);
+    rig.tap(110, Button::Right);
+    delete_under_cursor(&mut rig, 200);
+    rig.sent();
+
+    rig.drop_files(300, &[("tmp/1/drums/clap.wav", short(100.0, 0.01))]);
+    let requests = rig.settle(310);
+
+    // Converted, the file waits until the delete of clap.wav is done, and then takes a free name.
+    assert!(begun(&requests).is_empty());
+    assert_eq!(rig.control.take_request(), None);
+    rig.control.applied(2, 224);
+    let requests = rig.settle(400);
+
+    assert_eq!(
+        requests[..2],
+        [
+            Request::Delete {
+                path: path("samples/drums/clap.wav")
+            },
+            Request::Begin {
+                file: path("samples/drums/clap.wav")
+            }
+        ]
+    );
+    assert_eq!(rig.sent(), []);
+    let drums: Vec<_> = rig.control.library.entries(Some(FolderId(0))).collect();
+    assert_eq!(drums, [Entry::Folder(FolderId(1)), Entry::File(FileId(3))]);
+    assert!(stored(&rig).contains(&"samples/drums/clap.wav"));
 }

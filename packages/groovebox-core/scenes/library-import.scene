@@ -8,8 +8,8 @@ input 3200 dropped 3
 # "Importing 3 files" in the accent while it runs, then "3 files imported".
 frame 4864
 frame 11264
-# A second drop into kit/: KICK.wav with other audio becomes KICK-2.wav, kick.wav again writes
-# nothing and counts as imported, and the 8-bit lofi.wav can't be read.
+# A second drop into kit/: KICK.wav with other audio replaces kick.wav, kick.wav with the first
+# audio then replaces KICK.wav, and the 8-bit lofi.wav can't be read.
 drop 12800 kit/KICK.wav sine 80 0.3 96000 32f 1
 drop 12800 kit/kick.wav sine 60 0.3 96000 32f 1
 drop 12800 kit/lofi.wav base64 UklGRigAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQQAAACAwIBA
@@ -17,7 +17,7 @@ input 12800 dropped 3
 # "Importing 3 files", then "2 files imported, 1 not: can't be read" in red.
 frame 14464
 frame 19200
-# MENU + step 10 and OK show kit/: fx/, KICK-2.wav, kick.wav and pad.wav.
+# MENU + step 10 and OK show kit/: fx/, kick.wav and pad.wav.
 input 20800 press menu
 input 22400 press step-10
 input 24000 release step-10
