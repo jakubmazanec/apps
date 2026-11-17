@@ -5,7 +5,7 @@ const KINDS = ['list', 'read', 'load', 'begin', 'append', 'commit', 'delete', 'f
 export const STATUSES = ['done', 'more', 'missing', 'full', 'failed'] as const;
 
 // The bytes of the core's I/O buffer: `io_buffer` in budget.toml
-const IO_BUFFER = 65_536;
+export const IO_BUFFER = 65_536;
 
 // A request as the core's `RequestRecord` holds it. A field the request does not have is 0
 export type StorageRequest = {

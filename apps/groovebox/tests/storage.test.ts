@@ -1,6 +1,7 @@
+import {readFile} from 'node:fs/promises';
 import {describe, expect, test} from 'vitest';
 
-import {readRequest, type StorageRequest} from '../source/shell/storage.js';
+import {IO_BUFFER, readRequest, type StorageRequest} from '../source/shell/storage.js';
 
 // Where the record sits in the shared memory: not at 0, so that an offset that forgets it shows
 const ADDRESS = 72;
@@ -105,5 +106,18 @@ describe(readRequest, () => {
       }),
       decoded({requestNumber: 8, kind: 'commit'}),
     ]);
+  });
+});
+
+describe('IO_BUFFER', () => {
+  test('is as big as budget.toml says', async () => {
+    let budget = await readFile(
+      new URL('../../../packages/groovebox-core/budget.toml', import.meta.url),
+      'utf8',
+    );
+
+    expect(IO_BUFFER).toBe(
+      Number(/^io_buffer = ([\d_]+)/mu.exec(budget)?.[1]?.replaceAll('_', '')),
+    );
   });
 });
