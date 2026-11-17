@@ -10,6 +10,9 @@ struct Playing {
     file: FileId,
     frames: u32,
     stereo: bool,
+    /// The gain on the left and on the right: a default sound's at velocity 127, so that a
+    /// preview sounds as loud as the pad will.
+    gains: [f32; 2],
     /// The frame it reads next; 0 until its first chunk.
     frame: u32,
     /// The chunk that `render` adds next, read a chunk ahead: a stop fades it out without reading
@@ -18,20 +21,16 @@ struct Playing {
 }
 
 impl Playing {
-    /// The next chunk of the file at the gain of a default sound at velocity 127, so that a
-    /// preview sounds as loud as the pad will; silent past the file's end.
+    /// The next chunk of the file at its gains; silent past the file's end.
     fn read(&mut self, reader: &Reader<'_>) -> [[f32; CHUNK]; 2] {
-        let default = |id| param::entry(id).default;
-        let gain = level_gain(default, 127);
-        let (to_left, to_right) = pan_gains(default);
         // After a `UseTable` the file's slice lies elsewhere: it is looked up in the table in use.
         let slice = reader.slice(self.file);
         let mut chunk = [[0.0; CHUNK]; 2];
         let [lefts, rights] = &mut chunk;
         for ((left, right), frame) in lefts.iter_mut().zip(rights).zip(self.frame..self.frames) {
             let (from_left, from_right) = reader.frame(slice, self.stereo, frame);
-            *left = f32::from(from_left) / 32_768.0 * (gain * to_left);
-            *right = f32::from(from_right) / 32_768.0 * (gain * to_right);
+            *left = f32::from(from_left) / 32_768.0 * self.gains[0];
+            *right = f32::from(from_right) / 32_768.0 * self.gains[1];
         }
         self.frame = self.frames.min(self.frame + CHUNK as u32);
         chunk
@@ -57,10 +56,14 @@ impl Preview {
     /// Plays `file`, of `frames` frames, from its first frame; the file it played stops.
     pub fn start(&mut self, file: FileId, frames: u32, stereo: bool) {
         self.stop();
+        let default = |id| param::entry(id).default;
+        let gain = level_gain(default, 127);
+        let (to_left, to_right) = pan_gains(default);
         self.playing = Some(Playing {
             file,
             frames,
             stereo,
+            gains: [gain * to_left, gain * to_right],
             frame: 0,
             next: [[0.0; CHUNK]; 2],
         });

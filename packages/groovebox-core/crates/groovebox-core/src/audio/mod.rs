@@ -222,9 +222,22 @@ mod tests {
             self.audio.volume = Glide::at(OUTPUT_VOLUME.high);
         }
 
+        /// A rig at full volume that holds two mono files of `FRAMES` frames: file 0 of
+        /// `samples(FRAMES)` and file 1 of the samples after them.
+        fn with_two_files(
+            messages: &'a Queue<Message, MESSAGE_QUEUE>,
+            reports: &'a Queue<Report, REPORT_QUEUE>,
+        ) -> Self {
+            let mut rig = Self::new(messages, reports);
+            rig.full_volume();
+            let both = samples(2 * FRAMES as usize);
+            rig.add_file(0, false, &both[..FRAMES as usize]);
+            rig.add_file(1, false, &both[FRAMES as usize..]);
+            rig
+        }
+
         /// Writes `samples` into free blocks of the sample RAM as `file`, a stereo file's frames
         /// left then right, and lists the blocks as its slice.
-        #[allow(unsafe_code)]
         fn add_file(&mut self, file: u16, stereo: bool, samples: &[i16]) {
             let frames = samples.len() as u32 / (1 + u32::from(stereo));
             let blocks: Vec<u32> = self
@@ -232,17 +245,25 @@ mod tests {
                 .take(blocks_for(frames, 1 + u8::from(stereo)))
                 .expect("enough blocks are free")
                 .collect();
+            self.write(&blocks, samples);
+            let listed = self
+                .listing
+                .add(&self.tables, FileId(file), blocks.into_iter());
+            assert_eq!(listed, Some(Listed::Appended));
+        }
+
+        /// Writes `samples` into `blocks` of the sample RAM, a stereo file's frames left then
+        /// right.
+        #[allow(unsafe_code)]
+        fn write(&self, blocks: &[u32], samples: &[i16]) {
             for (&block, part) in blocks.iter().zip(samples.chunks(BLOCK / 2)) {
-                // SAFETY: the audio part was not told about the file yet.
+                // SAFETY: the readers live only while a render runs, so between renders no other
+                // reference to these bytes does.
                 let bytes = unsafe { self.ram.bytes(block * BLOCK as u32, 2 * part.len() as u32) };
                 for (bytes, sample) in bytes.as_chunks_mut::<2>().0.iter_mut().zip(part) {
                     *bytes = sample.to_le_bytes();
                 }
             }
-            let listed = self
-                .listing
-                .add(&self.tables, FileId(file), blocks.into_iter());
-            assert_eq!(listed, Some(Listed::Appended));
         }
 
         #[allow(unsafe_code)]
@@ -250,7 +271,7 @@ mod tests {
             let mut left = std::vec![f32::NAN; length];
             let mut right = std::vec![f32::NAN; length];
             // SAFETY: the test tells the audio part only about files it listed and wrote, and
-            // writes no block of them afterwards.
+            // writes their blocks only between renders, while no reader lives.
             let readers = unsafe { self.tables.readers(&self.ram) };
             self.audio.render(
                 &mut left,
@@ -698,19 +719,14 @@ mod tests {
         }
     }
 
-    /// The frames of each file of `previewed`: past a block and not a whole number of chunks.
+    /// The frames of each file of `Rig::with_two_files`: past a block and not a whole number of
+    /// chunks.
     const FRAMES: u32 = 1_100;
 
-    /// What a rig at full volume plays for `length` samples with `messages`, numbered from 0. It
-    /// holds two mono files of `FRAMES` frames: file 0 of `samples(FRAMES)` and file 1 of the
-    /// samples after them.
+    /// What a `Rig::with_two_files` plays for `length` samples with `messages`, numbered from 0.
     fn previewed(messages: &[(u64, MessageKind)], length: usize) -> Vec<f32> {
         let (queue, reports) = (Queue::new(), Queue::new());
-        let mut rig = Rig::new(&queue, &reports);
-        rig.full_volume();
-        let both = samples(2 * FRAMES as usize);
-        rig.add_file(0, false, &both[..FRAMES as usize]);
-        rig.add_file(1, false, &both[FRAMES as usize..]);
+        let mut rig = Rig::with_two_files(&queue, &reports);
         for (number, &(at, kind)) in (0..).zip(messages) {
             rig.send(number, at, kind);
         }
@@ -774,6 +790,35 @@ mod tests {
     }
 
     #[test]
+    fn a_stop_reads_nothing_more_of_the_file() {
+        for stop in [
+            MessageKind::StopPreview,
+            MessageKind::ForgetSample { file: FileId(0) },
+            preview(1, FRAMES, false),
+        ] {
+            let messages = [(0, preview(0, FRAMES, false)), (64, stop)];
+            let (queue, reports) = (Queue::new(), Queue::new());
+            let mut rig = Rig::with_two_files(&queue, &reports);
+            for (number, &(at, kind)) in (0..).zip(&messages) {
+                rig.send(number, at, kind);
+            }
+            rig.render(64);
+            // From the stop's chunk on the audio part reads none of file 0, so wiping its blocks
+            // now changes nothing that it plays: the fade is of what it read before.
+            let blocks: Vec<u32> = rig.listing.blocks(&rig.tables, FileId(0)).collect();
+            rig.write(&blocks, &[0; 2 * 1_024]);
+
+            let fade = rig.render(CHUNK);
+
+            assert_eq!(
+                bits(&fade),
+                bits(&previewed(&messages, 96)[64..]),
+                "{stop:?}"
+            );
+        }
+    }
+
+    #[test]
     fn forgetting_another_file_changes_nothing() {
         let start = (0, preview(0, FRAMES, false));
         let forget = (64, MessageKind::ForgetSample { file: FileId(1) });
@@ -819,18 +864,28 @@ mod tests {
         let rest = rig.blocks.take(BLOCKS - 2).expect("the rest is free");
         let listed = rig.listing.add(&rig.tables, FileId(2), rest);
         assert_eq!(listed, Some(Listed::Packed { version: 1 }));
+        // Only table 1 lists file 2: through table 0 its frames past its first block would be
+        // file 1's.
+        let other = samples(4 * 1_024)[2 * 1_024..].to_vec();
+        let blocks: Vec<u32> = rig.listing.blocks(&rig.tables, FileId(2)).take(2).collect();
+        rig.write(&blocks, &other);
         rig.send(0, 0, preview(1, 2 * 1_024, false));
         rig.send(1, 40, MessageKind::UseTable { version: 1 });
+        // A message after the `UseTable` names file 2 as table 1 lists it.
+        rig.send(2, 2_112, preview(2, 2 * 1_024, false));
 
         let before = rig.render(64);
         assert_eq!(rig.audio.table, 0);
         let after = rig.render(2 * 1_024);
         assert_eq!(rig.audio.table, 1);
+        let later = rig.render(2 * 1_024);
 
         let out = [before, after].concat();
         assert_eq!(bits(&out[..2 * 1_024]), bits(&played(&file)));
+        assert_eq!(bits(&later), bits(&played(&other)));
         assert_eq!(rig.report(), applied(0, 0));
         assert_eq!(rig.report(), applied(1, 64));
+        assert_eq!(rig.report(), applied(2, 2_112));
     }
 
     #[test]

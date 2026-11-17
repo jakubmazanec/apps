@@ -511,7 +511,8 @@ mod tests {
             listing.add(&DEVICE.tables, FileId(file), taken)
         };
         // File 1 takes blocks 1 to 10 at entry 1 of table 0. Once file 0 has gone, file 2 fills the
-        // rest, so they are packed into table 1, file 1 from entry 0.
+        // rest, so they are packed into table 1, file 1 from entry 0. File 2, on block 0 and from
+        // block 11, starts there at entry 10; table 0 never lists it.
         add(0, 1);
         add(1, 10);
         // SAFETY: the audio side was never told about file 0.
@@ -523,41 +524,42 @@ mod tests {
             blocks.take(BLOCKS - 10).expect("the rest is free"),
         );
         assert_eq!(listed, Some(Listed::Packed { version: 1 }));
-        // SAFETY: block 5, file 1's fifth, is the test's own: no side reads it yet.
-        unsafe { ram.bytes(5 * BLOCK as u32, 2) }.copy_from_slice(&7i16.to_le_bytes());
-        let preview = Message {
-            number: 0,
-            at: 0,
-            kind: MessageKind::Preview {
-                file: FileId(1),
-                frames: 10 * 1_024,
-                stereo: false,
-            },
-        };
+        // SAFETY: block 11, file 2's second, is the test's own: no side reads it yet.
+        unsafe { ram.bytes(11 * BLOCK as u32, 2) }.copy_from_slice(&7i16.to_le_bytes());
         let message = Message {
-            number: 1,
+            number: 0,
             at: 40,
             kind: MessageKind::UseTable { version: 1 },
         };
-        assert_eq!(control.messages.push(preview), Ok(()));
+        // After the `UseTable`, as every message that names a file as table 1 lists it.
+        let preview = Message {
+            number: 1,
+            at: 40,
+            kind: MessageKind::Preview {
+                file: FileId(2),
+                frames: 2 * 1_024,
+                stereo: false,
+            },
+        };
         assert_eq!(control.messages.push(message), Ok(()));
+        assert_eq!(control.messages.push(preview), Ok(()));
 
-        let (mut left, mut right) = ([0.0; 4_128], [0.0; 4_128]);
+        let (mut left, mut right) = ([0.0; 1_120], [0.0; 1_120]);
         audio.render(&mut left, &mut right);
 
-        // From sample 64 the preview reads file 1 through table 1, where it starts at entry 0, and
-        // only its frame 4,096 is not 0.
+        // From sample 64 the preview reads file 2 through table 1, and only its frame 1,024 is not
+        // 0; table 0 would give block 1 there.
         assert!(
             left.iter()
                 .enumerate()
-                .all(|(sample, &x)| (x != 0.0) == (sample == 4 * 1_024))
+                .all(|(sample, &x)| (x != 0.0) == (sample == 64 + 1_024))
         );
-        control.step(4_128);
+        control.step(1_120);
         assert_eq!(
             control.take_report(),
             Some(Report::Applied {
                 number: 0,
-                sample: 0
+                sample: 64
             })
         );
         assert_eq!(
