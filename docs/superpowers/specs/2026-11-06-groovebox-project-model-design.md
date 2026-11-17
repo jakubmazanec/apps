@@ -91,6 +91,8 @@ even after a delete **(my call)**, so a number in any file or on any screen only
 sound. It carries its automatic name, its engine, and its parameters as "ID = number" pairs,
 addressed by layer and engine as Sound decided. A sample sound also carries which library file it
 plays: the file's path in the library plus the fingerprint of the file's audio (see "Sample files").
+A file replaced by a dropped file of the same name keeps being found by its path, so the sound plays
+the new audio; the fingerprint does not make it missing **(owner's choice)**.
 
 **Pads, notes and the selected sound refer to sounds by number.** "Deleting a sound in use" means a
 number that appears anywhere always points at a sound that exists, undo, redo and the clipboard
@@ -512,7 +514,7 @@ number in the file header, which is reserved now.
 
 **Starting up** empties `tmp/`, loads the whole library from storage into RAM, folder by folder,
 then opens the project named in the settings, or a new empty one if there is none or it cannot be
-opened. While the library loads the header says "LOADING LIBRARY"; the project opens once it is
+opened. While the library loads the header says "Loading library"; the project opens once it is
 done, so a project never meets a half-loaded library **(owner's choice)**. A library bigger than the
 sample RAM, possible only after a hardware change or a lowered budget, is loaded in the order
 SAMPLES lists it as far as it fits: the first file that does not fit and every file after it stay on
@@ -557,9 +559,10 @@ being written gives "storage full" too, not "can't be read" **(owner's choice)**
 converts the file in pieces through the storage interface into `samples/`, in the folder it was
 dropped with, places the converted audio in RAM and removes the original. A dropped file whose name
 is already taken in its folder, ignoring case, replaces the old file, whatever its sound **(owner's
-choice)**: nothing is compared and nothing is numbered. It passes the same three checks, so a full
-library still refuses it with "kick.wav not imported: library full". The old file stays until the
-new one is written whole, and the old file's sample is let go of as DELETE does it (below).
+choice)**: nothing is compared and nothing is numbered, and the new file keeps its own spelling, so
+KICK.wav dropped over kick.wav leaves KICK.wav. It passes the same three checks, so a full library
+still refuses it with "kick.wav not imported: library full". The old file stays until the new one is
+written whole, and the old file's sample is let go of as DELETE does it (below).
 
 The library in RAM carries each file's length, channels and size, which the picker, POOL and the
 SAMPLES screen show; file headers are read only at start-up. DELETE on the SAMPLES screen removes
@@ -681,10 +684,10 @@ bullet below, the target spec's current text holds.
 
 - **Look:** draws the SAMPLES screen, the MISSING and OLD marks, the library meter on POOL, SAMPLES
   and the sample picker, the notices and header messages (UNDO LOST, FULL, NOT ENOUGH MEMORY,
-  STORAGE FULL. NOT SAVED, "<file> not imported: library full", "Library can't be read", LOADING
-  LIBRARY, RESTORED FROM LAST SAVE, PATTERN n DAMAGED, PATTERN n MISSING), the delete questions, and
-  a development meter for note memory; the browser shell's file drop puts files into `tmp/` for the
-  core to import.
+  STORAGE FULL. NOT SAVED, "<file> not imported: library full", "Library can't be read", "Loading
+  library", RESTORED FROM LAST SAVE, PATTERN n DAMAGED, PATTERN n MISSING), the delete questions,
+  and a development meter for note memory; the browser shell's file drop puts files into `tmp/` for
+  the core to import.
 - **Part 2 (companion):** transfer and backup over USB; the format's growth listed under "Later,
   with the companion"; the companion runs the same core to read and write files.
 - **Part 3 (hardware):** a file system with atomic rename and wear levelling; RAM for the whole
