@@ -1,4 +1,7 @@
 groovebox-scene 1
+# kick.wav and pad.wav, a long stereo file for SAMPLES to preview.
+file samples/kick.wav ours 55 0.3 1
+file samples/pad.wav ours 220 10 2
 # The operation count plays this scene: the most a render batch has to do. Syn 1 on pad 1 through
 # the panel: MENU + step 3, then OK, down and OK in the sound picker. A tap of PADS/KEYS then makes
 # the pads keys that play Syn 1.
@@ -34,6 +37,13 @@ input 43200 press step-5
 input 44800 release step-5
 input 46400 release page
 input 48000 turn encoder-4 127
+# MENU + step 10 opens SAMPLES on kick.wav, and down onto pad.wav previews it through to the end.
+input 48400 press menu
+input 48800 press step-10
+input 49200 release step-10
+input 49600 release menu
+input 50000 press down
+input 50400 release down
 # 32 MIDI notes at once, one for each voice, held for a second.
 input 51200 note-on 36 127
 input 51200 note-on 37 127

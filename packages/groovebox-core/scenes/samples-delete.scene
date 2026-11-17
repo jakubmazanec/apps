@@ -1,0 +1,60 @@
+groovebox-scene 1
+# drums/808/kick.wav, drums/clap.wav, Bass.wav in stereo and zap.wav: 0.7 of 64 MB.
+file samples/drums/808/kick.wav ours 55 1 1
+file samples/drums/clap.wav ours 1500 0.5 1
+file samples/Bass.wav ours 110 3 2
+file samples/zap.wav ours 3000 0.1 1
+# MENU + step 10 opens SAMPLES at the top level: drums/, Bass.wav and zap.wav.
+input 3200 press menu
+input 4800 press step-10
+input 6400 release step-10
+input 8000 release menu
+frame 9600
+# Down onto Bass.wav plays it, and OK opens its Delete picker, which stops it.
+input 11200 press down
+input 12800 release down
+input 14400 press ok
+input 16000 release ok
+frame 17664
+# OK on Delete asks "Delete Bass.wav?".
+input 19200 press ok
+input 20800 release ok
+frame 22400
+# CANCEL answers no: back on the list on Bass.wav, which does not play.
+input 24000 press cancel
+input 25600 release cancel
+frame 27264
+# Up and down onto Bass.wav play it again. While it plays, OK, OK on Delete and OK on the question
+# come within one render batch, so the stop of its preview and its ForgetSample apply at the same
+# chunk.
+# Bass.wav goes, the cursor moves up onto drums/ and the meter drops to 0.2 of 64 MB.
+input 28800 press up
+input 30400 release up
+input 32000 press down
+input 33600 release down
+input 35201 press ok
+input 35202 release ok
+input 35203 press ok
+input 35204 release ok
+input 35205 press ok
+input 35206 release ok
+frame 36864
+# OK enters drums/, down and OK enter 808/, and down onto kick.wav plays it. OK, OK on Delete and OK
+# on the question delete it, the last file of 808/: 808/ goes, SAMPLES shows drums/ with the cursor
+# on "..", the row above where 808/ was, and the meter drops to 0.1 of 64 MB.
+input 38400 press ok
+input 40000 release ok
+input 41600 press down
+input 43200 release down
+input 44800 press ok
+input 46400 release ok
+input 48000 press down
+input 49600 release down
+input 51200 press ok
+input 52800 release ok
+input 54400 press ok
+input 56000 release ok
+input 57600 press ok
+input 59200 release ok
+frame 60800
+end 62400

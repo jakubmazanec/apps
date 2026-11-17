@@ -1,0 +1,102 @@
+groovebox-scene 1
+# The library of Look's samples.png and picker-sample.png: drums/ with 808/ and the files of the
+# pictures, with Bass.wav and chords.wav at the top level, so that the meter reads 41.2 of 64 MB.
+# déšť.wav is stereo, the others mono.
+file samples/Bass.wav ours 110 1 1
+file samples/chords.wav ours 262 29.9 2
+file samples/drums/808/kick.wav ours 50 0.8 1
+file samples/drums/kick-01.wav ours 60 0.4 1
+file samples/drums/kick-02.wav ours 65 0.49 1
+file samples/drums/snare-tight.wav ours 200 0.3 1
+file samples/drums/snare-room.wav ours 180 1.2 1
+file samples/drums/hat-closed.wav ours 8000 0.1 1
+file samples/drums/hat-open.wav ours 7000 0.8 1
+file samples/drums/clap.wav ours 1500 0.4 1
+file samples/drums/říkanka.wav ours 440 2.6 1
+file samples/drums/déšť.wav ours 330 14 2
+file samples/drums/ambience-long.wav ours 110 330 1
+file samples/drums/tom-lo.wav ours 100 0.6 1
+file samples/drums/tom-hi.wav ours 150 0.5 1
+file samples/drums/vox-ah.wav ours 520 1.77 1
+# MENU + step 10 opens SAMPLES at the top level: drums/, Bass.wav and chords.wav, with the cursor
+# on drums/ and nothing playing.
+input 6400 press menu
+input 8000 press step-10
+input 9600 release step-10
+input 11200 release menu
+frame 12800
+# Up and - stop at the first row.
+input 14400 press up
+input 16000 release up
+input 17600 press minus
+input 19200 release minus
+# + onto Bass.wav plays it, and down onto chords.wav cuts it short and plays chords.wav, which
+# right leaves playing on the last row.
+input 20800 press plus
+input 22400 release plus
+input 24000 press down
+input 25600 release down
+input 27200 press right
+input 28800 release right
+# Left goes up as far as 15 rows, to drums/ on the first, which stops chords.wav. OK enters drums/:
+# its line, then "..", 808/ and the files A to Z, with the cursor on "..".
+input 30400 press left
+input 32000 release left
+input 33600 press ok
+input 35200 release ok
+frame 36864
+# Right goes down 14 rows onto vox-ah.wav, the last, and plays it as the rows scroll by one. Up four
+# times cuts each preview short, on tom-lo.wav, tom-hi.wav and snare-tight.wav, and snare-room.wav
+# plays out.
+input 38400 press right
+input 40000 release right
+input 41600 press up
+input 43200 release up
+input 44800 press up
+input 46400 release up
+input 48000 press up
+input 49600 release up
+input 51200 press up
+input 52800 release up
+frame 54400
+# Left goes up to "..", and OK on it goes up onto drums/.
+input 110400 press left
+input 112000 release left
+input 113600 press ok
+input 115200 release ok
+# OK enters drums/ again, + moves onto 808/ and OK enters it.
+input 116800 press ok
+input 118400 release ok
+input 120000 press plus
+input 121600 release plus
+input 123200 press ok
+input 124800 release ok
+# Down onto kick.wav plays it, and CANCEL cuts it short and goes up onto 808/. CANCEL goes up again
+# onto drums/, and at the top level does nothing.
+input 126400 press down
+input 128000 release down
+input 129600 press cancel
+input 131200 release cancel
+input 132800 press cancel
+input 134400 release cancel
+input 136000 press cancel
+input 137600 release cancel
+# Right goes down onto chords.wav, the last row, and plays it. MENU and PAGE held without choosing
+# leave it playing, and MENU + step 8 leaves SAMPLES for SETTINGS mid-preview, which fades it.
+input 139200 press right
+input 140800 release right
+input 142400 press menu
+input 158400 release menu
+input 160000 press page
+input 176000 release page
+input 177600 press menu
+input 179200 press step-8
+input 180800 release step-8
+input 182400 release menu
+# PAGE + step 2 shows SETTINGS' Dev page with the library meter.
+input 184000 press page
+input 185600 press step-2
+input 187200 release step-2
+input 188800 release page
+frame 190464
+end 192000

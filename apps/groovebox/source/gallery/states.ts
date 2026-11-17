@@ -78,6 +78,39 @@ export const STATES: ReadonlyArray<{title: string; frame: string; approved?: str
     frame: 'synth-pages/frame-409600.png',
     approved: 'page-held.png',
   },
+  {title: 'SAMPLES at the top level', frame: 'samples-screen/frame-12800.png'},
+  {
+    title: 'SAMPLES inside drums/ on ".."',
+    frame: 'samples-screen/frame-36864.png',
+    approved: 'picker-sample.png',
+  },
+  {
+    title: 'SAMPLES inside drums/ on snare-room.wav',
+    frame: 'samples-screen/frame-54400.png',
+    approved: 'samples.png',
+  },
+  {title: 'Delete picker on Bass.wav', frame: 'samples-delete/frame-17664.png'},
+  {
+    title: 'Question before deleting Bass.wav',
+    frame: 'samples-delete/frame-22400.png',
+    approved: 'question.png',
+  },
+  {title: 'SETTINGS Dev page', frame: 'samples-screen/frame-190464.png'},
+  {
+    title: 'STEP while importing 3 files',
+    frame: 'library-import/frame-4864.png',
+    approved: 'step-message.png',
+  },
+  {
+    title: 'STEP after 3 files imported',
+    frame: 'library-import/frame-11264.png',
+    approved: 'step-message.png',
+  },
+  {
+    title: 'STEP after 2 files imported and 1 not',
+    frame: 'library-import/frame-19200.png',
+    approved: 'step-message.png',
+  },
   {title: 'Every glyph of the font', frame: 'gallery/font.png', approved: 'font.png'},
   {
     title: 'Every named colour of the palette',

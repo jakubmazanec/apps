@@ -1,0 +1,28 @@
+groovebox-scene 1
+# A drop of the folder kit/ on STEP: kick.wav at 96 kHz in 32-bit float, mono, pad.wav at 44.1 kHz
+# in 24 bits, stereo, and zap.wav in the nested folder fx/, handed over in the browser's order.
+drop 3200 kit/fx/zap.wav sine 3000 0.05 48000 16 1
+drop 3200 kit/kick.wav sine 60 0.3 96000 32f 1
+drop 3200 kit/pad.wav sine 220 1 44100 24 2
+input 3200 dropped 3
+# "Importing 3 files" in the accent while it runs, then "3 files imported".
+frame 4864
+frame 11264
+# A second drop into kit/: KICK.wav with other audio becomes KICK-2.wav, kick.wav again writes
+# nothing and counts as imported, and the 8-bit lofi.wav can't be read.
+drop 12800 kit/KICK.wav sine 80 0.3 96000 32f 1
+drop 12800 kit/kick.wav sine 60 0.3 96000 32f 1
+drop 12800 kit/lofi.wav base64 UklGRigAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQQAAACAwIBA
+input 12800 dropped 3
+# "Importing 3 files", then "2 files imported, 1 not: can't be read" in red.
+frame 14464
+frame 19200
+# MENU + step 10 and OK show kit/: fx/, KICK-2.wav, kick.wav and pad.wav.
+input 20800 press menu
+input 22400 press step-10
+input 24000 release step-10
+input 25600 release menu
+input 27200 press ok
+input 28800 release ok
+frame 30464
+end 32000

@@ -1,0 +1,98 @@
+groovebox-scene 1
+# kick.wav and pad.wav, 2 s in stereo.
+file samples/kick.wav ours 55 0.3 1
+file samples/pad.wav ours 220 2 2
+# Syn 1 on pad 1 through the panel: MENU + step 3, then OK, down and OK in the sound picker. A tap
+# of PADS/KEYS then makes the pads keys that play Syn 1.
+input 3200 press menu
+input 4800 press step-3
+input 6400 release step-3
+input 8000 release menu
+input 9600 press ok
+input 11200 release ok
+input 12800 press down
+input 14400 release down
+input 16000 press ok
+input 17600 release ok
+input 19200 press pads-keys
+input 20800 release pads-keys
+# Synth page: Supersaw.
+input 22400 press page
+input 24000 press step-2
+input 25600 release step-2
+input 27200 release page
+input 28800 turn encoder-1 4
+# MENU + step 10 opens SAMPLES on kick.wav, and down onto pad.wav plays it.
+input 30400 press menu
+input 32000 press step-10
+input 33600 release step-10
+input 35200 release menu
+input 36800 press down
+input 38400 release down
+# 32 MIDI notes at once while it plays, held for half a second: they take every voice, and the
+# preview takes none and plays on beside them.
+input 40000 note-on 36 127
+input 40000 note-on 37 127
+input 40000 note-on 38 127
+input 40000 note-on 39 127
+input 40000 note-on 40 127
+input 40000 note-on 41 127
+input 40000 note-on 42 127
+input 40000 note-on 43 127
+input 40000 note-on 44 127
+input 40000 note-on 45 127
+input 40000 note-on 46 127
+input 40000 note-on 47 127
+input 40000 note-on 48 127
+input 40000 note-on 49 127
+input 40000 note-on 50 127
+input 40000 note-on 51 127
+input 40000 note-on 52 127
+input 40000 note-on 53 127
+input 40000 note-on 54 127
+input 40000 note-on 55 127
+input 40000 note-on 56 127
+input 40000 note-on 57 127
+input 40000 note-on 58 127
+input 40000 note-on 59 127
+input 40000 note-on 60 127
+input 40000 note-on 61 127
+input 40000 note-on 62 127
+input 40000 note-on 63 127
+input 40000 note-on 64 127
+input 40000 note-on 65 127
+input 40000 note-on 66 127
+input 40000 note-on 67 127
+input 64000 note-off 36
+input 64000 note-off 37
+input 64000 note-off 38
+input 64000 note-off 39
+input 64000 note-off 40
+input 64000 note-off 41
+input 64000 note-off 42
+input 64000 note-off 43
+input 64000 note-off 44
+input 64000 note-off 45
+input 64000 note-off 46
+input 64000 note-off 47
+input 64000 note-off 48
+input 64000 note-off 49
+input 64000 note-off 50
+input 64000 note-off 51
+input 64000 note-off 52
+input 64000 note-off 53
+input 64000 note-off 54
+input 64000 note-off 55
+input 64000 note-off 56
+input 64000 note-off 57
+input 64000 note-off 58
+input 64000 note-off 59
+input 64000 note-off 60
+input 64000 note-off 61
+input 64000 note-off 62
+input 64000 note-off 63
+input 64000 note-off 64
+input 64000 note-off 65
+input 64000 note-off 66
+input 64000 note-off 67
+end 72000

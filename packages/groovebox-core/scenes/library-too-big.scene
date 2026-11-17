@@ -1,0 +1,17 @@
+groovebox-scene 1
+# Two 40 MB files at 48 kHz: rain.wav loads, and wind.wav finds too few free blocks.
+file samples/rain.wav ours 440 417 1
+file samples/wind.wav ours 220 417 1
+# The header says in red "Library too big. 1 file not loaded".
+frame 1664
+# MENU + step 10 opens SAMPLES: wind.wav in red, "not loaded".
+input 3200 press menu
+input 4800 press step-10
+input 6400 release step-10
+input 8000 release menu
+frame 9600
+# Down onto wind.wav plays nothing.
+input 11200 press down
+input 12800 release down
+frame 14464
+end 16000
