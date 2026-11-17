@@ -88,16 +88,19 @@ fn rows(names: &[String]) -> Vec<Row<'_>> {
         Row {
             left: "Empty",
             right: None,
+            alert: false,
         },
         Row {
             left: "New synth",
             right: None,
+            alert: false,
         },
     ]
     .into_iter()
     .chain(names.iter().map(|name| Row {
         left: name,
         right: Some("synth"),
+        alert: false,
     }))
     .collect()
 }
@@ -109,7 +112,7 @@ fn picker(header: &[(&str, Color)], rows: &[Row], first: usize, cursor: usize) -
         header,
         None,
         |screen| {
-            draw_rows(screen, rows, first, Some(cursor), 0);
+            draw_rows(screen, 17, 16, rows, first, Some(cursor), 0);
         },
         &[None; 4],
     )

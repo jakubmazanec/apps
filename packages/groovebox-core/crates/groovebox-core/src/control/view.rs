@@ -1,6 +1,8 @@
 use super::pages::{MENU, PageDef};
-use crate::input::STEPS;
-use crate::ui::layout::{LIST_VISIBLE, PAGE_VISIBLE};
+use super::samples::Row;
+use crate::input::{Button, STEPS};
+use crate::library::FolderId;
+use crate::ui::layout::{LIST_VISIBLE, PAGE_VISIBLE, SAMPLES_VISIBLE};
 use crate::ui::tiles::{Tile, TileState};
 
 /// The screens of the device that exist so far. A new project opens on STEP.
@@ -9,16 +11,17 @@ pub enum Screen {
     Step,
     Sound,
     Settings,
+    Samples,
 }
 
 /// How many screens there are.
-const SCREENS: usize = Screen::Settings as usize + 1;
+const SCREENS: usize = Screen::Samples as usize + 1;
 /// The most pages a screen can have: one per step.
 const PAGES: usize = STEPS as usize;
 
 impl Screen {
     /// Every screen, in the order of their steps under MENU.
-    pub const ALL: [Self; SCREENS] = [Self::Step, Self::Sound, Self::Settings];
+    pub const ALL: [Self; SCREENS] = [Self::Step, Self::Sound, Self::Settings, Self::Samples];
 
     /// The name the header starts with.
     pub fn name(self) -> &'static str {
@@ -26,6 +29,7 @@ impl Screen {
             Self::Step => "Step",
             Self::Sound => "Sound",
             Self::Settings => "Settings",
+            Self::Samples => "Samples",
         }
     }
 
@@ -47,8 +51,37 @@ pub struct Cursor {
     pub scroll: usize,
 }
 
-/// What the screen shows: the screen, the page each screen shows, the cursor of each page and the
-/// sound picker while it is open. They are kept while the control part lives and are not saved.
+/// SAMPLES' folder and cursor. The cursor stays on its row while rows come or go above it
+/// (`Control::keep_samples_cursor`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct SamplesView {
+    /// The folder shown; none at the top level.
+    pub folder: Option<FolderId>,
+    pub cursor: Cursor,
+    /// The row under the cursor; none while the folder has no rows.
+    pub on: Option<Row>,
+}
+
+impl SamplesView {
+    /// How many rows fit: 15 at the top level and 14 inside a folder, under its line.
+    pub fn fit(&self) -> usize {
+        SAMPLES_VISIBLE - usize::from(self.folder.is_some())
+    }
+
+    /// Puts the cursor on row `item`, which is `on`, and scrolls the rows as far as they must to
+    /// keep it on the screen.
+    pub fn land(&mut self, item: usize, on: Option<Row>) {
+        self.cursor = Cursor {
+            item,
+            scroll: scrolled(item, self.cursor.scroll, self.fit()),
+        };
+        self.on = on;
+    }
+}
+
+/// What the screen shows: the screen, the page each screen shows, the cursor of each page, SAMPLES'
+/// folder and cursor and the sound picker while it is open. They are kept while the control part
+/// lives and are not saved.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct View {
     pub screen: Screen,
@@ -56,18 +89,24 @@ pub struct View {
     pages: [usize; SCREENS],
     /// The cursor of each page, by screen and page.
     cursors: [[Cursor; PAGES]; SCREENS],
+    pub samples: SamplesView,
     /// The sound picker while it is open over the main area of `screen`, with its highlight.
     pub picker: Option<Cursor>,
 }
 
 impl View {
     /// STEP, where a new project opens, with every screen on its first page, every cursor on the
-    /// first item and no picker open.
+    /// first item, SAMPLES at the top level and no picker open.
     pub const fn new() -> Self {
         Self {
             screen: Screen::Step,
             pages: [0; SCREENS],
             cursors: [[Cursor { item: 0, scroll: 0 }; PAGES]; SCREENS],
+            samples: SamplesView {
+                folder: None,
+                cursor: Cursor { item: 0, scroll: 0 },
+                on: None,
+            },
             picker: None,
         }
     }
@@ -135,6 +174,19 @@ impl Default for View {
 /// the first. Pages and pickers scroll this way.
 pub fn scrolled(cursor: usize, scroll: usize, visible: usize) -> usize {
     scroll.clamp((cursor + 1).saturating_sub(visible), cursor)
+}
+
+/// The row an arrow, - or + moves a list's highlight to from row `row`, when `last` is its last row
+/// and `visible` rows fit: up, down, - and + move one row and left and right `visible` rows,
+/// stopping at the ends. Pickers and SAMPLES move this way.
+pub fn moved(button: Button, row: usize, last: usize, visible: usize) -> usize {
+    match button {
+        Button::Up | Button::Minus => row.saturating_sub(1),
+        Button::Down | Button::Plus => (row + 1).min(last),
+        Button::Left => row.saturating_sub(visible),
+        Button::Right => (row + visible).min(last),
+        _ => unreachable!("only the arrows, - and + move a list"),
+    }
 }
 
 /// The tiles MENU shows: each screen that exists on the tile of its step, `current` as the
@@ -207,7 +259,7 @@ mod tests {
     }
 
     #[test]
-    fn the_menu_tiles_show_step_sound_and_settings() {
+    fn the_menu_tiles_show_step_sound_settings_and_samples() {
         let tiles = menu_tiles(Screen::Settings);
 
         assert_eq!(
@@ -231,7 +283,14 @@ mod tests {
                 state: TileState::Current
             }
         );
-        assert_eq!(tiles.iter().filter(|&&tile| tile == EMPTY).count(), 13);
+        assert_eq!(
+            tiles[9],
+            Tile {
+                name: Some("Samples"),
+                state: TileState::Exists
+            }
+        );
+        assert_eq!(tiles.iter().filter(|&&tile| tile == EMPTY).count(), 12);
         assert_eq!(menu_tiles(Screen::Step)[0].state, TileState::Current);
     }
 

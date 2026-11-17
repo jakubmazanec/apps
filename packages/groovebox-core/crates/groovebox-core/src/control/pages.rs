@@ -64,7 +64,14 @@ pub const MENU: [Option<Screen>; STEPS as usize] = {
     menu[0] = Some(Screen::Step);
     menu[2] = Some(Screen::Sound);
     menu[7] = Some(Screen::Settings);
+    menu[9] = Some(Screen::Samples);
     menu
+};
+
+/// The library meter, which no encoder holds: the Dev page's item and SAMPLES' above the strip.
+pub const LIBRARY_METER: ItemDef = ItemDef {
+    kind: ItemKind::LibraryMeter,
+    encoder: None,
 };
 
 /// The Pad page's Sound, on encoder 1.
@@ -167,14 +174,14 @@ const VOICE: PageDef = PageDef {
 };
 
 /// The pages of `screen` in the order of their steps under PAGE, while `track` is the current
-/// track. STEP has none of its own: PAGE there acts on SOUND's pages.
+/// track. STEP has none of its own: PAGE there acts on SOUND's pages. SAMPLES has none.
 ///
 /// SOUND works on the track's selected pad: its Pad page, then the pages of the sound's engine and
 /// its voice. While that pad is empty there is no sound to copy or to shape, and SOUND has only
 /// the Pad page with its Sound item.
 pub fn pages(screen: Screen, track: &Track) -> &'static [PageDef] {
     match screen {
-        Screen::Step => &[],
+        Screen::Step | Screen::Samples => &[],
         Screen::Sound => match track.selected_sound {
             Some(_) => &[PAD, SYNTH, FILTER, FILTER_ENVELOPE, VOLUME_ENVELOPE, VOICE],
             None => &[PageDef {
@@ -193,10 +200,7 @@ pub fn pages(screen: Screen, track: &Track) -> &'static [PageDef] {
             },
             PageDef {
                 name: "Dev",
-                items: &[ItemDef {
-                    kind: ItemKind::LibraryMeter,
-                    encoder: None,
-                }],
+                items: &[LIBRARY_METER],
                 picture: None,
             },
         ],

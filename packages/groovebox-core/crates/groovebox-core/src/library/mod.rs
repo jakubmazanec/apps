@@ -41,10 +41,11 @@ impl File {
     }
 }
 
+/// A folder of the library: its name and the folder it is in (none at the top level).
 #[derive(Clone, Copy, PartialEq, Eq)]
-struct Folder {
-    name: Label<32>,
-    parent: Option<FolderId>,
+pub struct Folder {
+    pub name: Label<32>,
+    pub parent: Option<FolderId>,
 }
 
 /// A row of SAMPLES.
@@ -205,14 +206,14 @@ impl Library {
         }
     }
 
-    fn folder(&self, folder: FolderId) -> &Folder {
+    pub fn folder(&self, folder: FolderId) -> &Folder {
         self.folders[usize::from(folder.0)]
             .as_ref()
             .expect("the folder is listed")
     }
 
     /// Where `entry` is in the storage, a folder's path ending in "/".
-    fn storage_path(&self, entry: Entry) -> Path {
+    pub fn storage_path(&self, entry: Entry) -> Path {
         let mut path = Path::new();
         match entry {
             Entry::Folder(folder) => self.write_folder(Some(folder), &mut path),

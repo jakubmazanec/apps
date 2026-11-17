@@ -85,6 +85,11 @@ pub const ROW_HEIGHT: i32 = 13;
 pub const ROW_PITCH: i32 = 14;
 pub const LIST_VISIBLE: usize = 16;
 
+/// SAMPLES' rows from `ROW_FIRST` above its meter, an item at the bottom of the main area: how many
+/// fit at the top level, and the meter's top.
+pub const SAMPLES_VISIBLE: usize = 15;
+pub const METER_Y: i32 = MAIN_BOTTOM - ITEM_HEIGHT;
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -103,6 +108,11 @@ mod tests {
         assert!(!fits(PAGE_FIRST, ITEM_PITCH, ITEM_HEIGHT, PAGE_VISIBLE + 1));
         assert!(fits(ROW_FIRST, ROW_PITCH, ROW_HEIGHT, LIST_VISIBLE));
         assert!(!fits(ROW_FIRST, ROW_PITCH, ROW_HEIGHT, LIST_VISIBLE + 1));
+        // SAMPLES' rows and their cursor stay above its meter, at y 235 as in samples.png.
+        let above_meter = |count| last_row(ROW_FIRST, ROW_PITCH, ROW_HEIGHT, count) + 1 < METER_Y;
+        assert!(above_meter(SAMPLES_VISIBLE));
+        assert!(!above_meter(SAMPLES_VISIBLE + 1));
+        assert_eq!(METER_Y, 235);
     }
 
     #[test]

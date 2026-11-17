@@ -2,6 +2,7 @@ pub mod buttons;
 mod draw;
 pub mod notes;
 pub mod pages;
+pub mod samples;
 pub mod view;
 
 use crate::input::{Button, Input, PADS, Stamped, VOLUME};
@@ -30,7 +31,7 @@ use core::cell::Cell;
 use core::ops::ControlFlow;
 use notes::{Notes, Source};
 use pages::{ItemDef, ItemKind, MENU, PageDef, pages};
-use view::{Cursor, Screen, View, menu_tiles, page_tiles};
+use view::{Cursor, Screen, View, menu_tiles, moved, page_tiles};
 
 pub const INPUT_QUEUE: usize = 64;
 pub const REPLAY_QUEUE: usize = 64;
@@ -52,6 +53,7 @@ enum Entry<'a> {
 }
 
 /// An event of `step`, in this order on equal samples.
+#[derive(Clone, Copy)]
 enum Event {
     Reply(Reply),
     /// The report of an awaited message, with that message's number.
@@ -81,14 +83,17 @@ struct Focus {
     item: usize,
     /// The highlighted row of the sound picker while it is open.
     picker: Option<usize>,
+    /// The row under SAMPLES' cursor while SAMPLES shows.
+    samples: Option<samples::Row>,
     track: u8,
     pad: Option<u8>,
     sound: Option<SoundNumber>,
 }
 
 /// The control part: it turns stamped inputs into numbered messages for the audio part. It keeps
-/// the project, the device settings, the library, the held buttons, the notes that are on, what
-/// the screen shows and the header's message, works out the lights and draws the picture.
+/// the project, the device settings, the library, the held buttons, the notes that are on, whether
+/// a preview plays, what the screen shows and the header's message, works out the lights and draws
+/// the picture.
 ///
 /// The control part does not check the inputs: the browser export and the scene parser keep them
 /// in range (`Input`). They are queued in sample order, so for live play and for a complete replay
@@ -122,6 +127,8 @@ pub struct Control {
     settings: DeviceSettings,
     buttons: Buttons,
     notes: Notes,
+    /// Whether a preview was started since the last stop, which a stop fades out.
+    previewing: bool,
     view: View,
     /// The message on the right of the header. A later button press clears it (`press`); while
     /// there is none, the import's progress shows there.
@@ -157,6 +164,7 @@ impl Control {
             settings: DeviceSettings::new(),
             buttons: Buttons::new(),
             notes: Notes::new(),
+            previewing: false,
             view: View::new(),
             message: None,
             now: 0,
@@ -233,9 +241,10 @@ impl Control {
     /// to it with `io` and `ram`, the sample RAM; when it ends, its result is the header's message.
     ///
     /// After each event every page's cursor is kept on an item that the page shows: a cursor whose
-    /// item vanished moves to the nearest item above, where it stays when the item comes back. When
-    /// the cursor has then landed on something new (`Focus`), the text under it scrolls from that
-    /// event's sample.
+    /// item vanished moves to the nearest item above, where it stays when the item comes back.
+    /// After a reply or a report SAMPLES' cursor is kept on its row (`keep_samples_cursor`), as
+    /// only the jobs they drive change the library. When the cursor has then landed on something
+    /// new (`Focus`), the text under it scrolls from that event's sample.
     pub fn step(
         &mut self,
         until: u64,
@@ -339,6 +348,9 @@ impl Control {
                     self.buttons.repeated(button);
                 }
             }
+            if matches!(event, Event::Reply(_) | Event::Heard(_)) {
+                self.keep_samples_cursor();
+            }
             for screen in Screen::ALL {
                 for (page, def) in pages(screen, self.track()).iter().enumerate() {
                     self.view.keep_cursor(screen, page, def.items.len());
@@ -352,6 +364,11 @@ impl Control {
                 page: self.shown_page(paged),
                 item: self.cursor(paged).item,
                 picker: self.view.picker.map(|picker| picker.item),
+                samples: self
+                    .view
+                    .samples
+                    .on
+                    .filter(|_| self.view.screen == Screen::Samples),
                 track: self.project.track,
                 pad: track.selected_pad,
                 sound: track.selected_sound,
@@ -451,7 +468,7 @@ impl Control {
             Input::PadRelease { pad } => self.end(Source::Pad(pad), sample, messages),
             Input::NoteOff { note } => self.end(Source::Midi(note), sample, messages),
             Input::ButtonPress { button } => self.press(button, sample, messages),
-            Input::ButtonRelease { button } => self.release(button, sample),
+            Input::ButtonRelease { button } => self.release(button, sample, messages),
             Input::EncoderTurn { encoder, clicks } => {
                 self.buttons.used();
                 // Under MENU or PAGE and while the picker is open a turn of encoders 1 to 4 is
@@ -556,8 +573,9 @@ impl Control {
     /// - Of MENU and PAGE the first one pressed counts, and the other is taken. The one that counts
     ///   takes the arrows, - and + that are held, so they stop repeating and act again only when
     ///   pressed again. While it is held, a step shows its screen or page, and a dark step does
-    ///   nothing. The arrows, OK, CANCEL, - and +, the encoder pushes, ROLL, PADS/KEYS and COPY
-    ///   are dropped, and so taken too.
+    ///   nothing; leaving SAMPLES for another screen stops the preview (`stop_preview`). The
+    ///   arrows, OK, CANCEL, - and +, the encoder pushes, ROLL, PADS/KEYS and COPY are dropped,
+    ///   and so taken too.
     /// - T1 to T4 select the track. With SHIFT held they do nothing until muting comes with the
     ///   sequencer.
     /// - SHIFT + OK and SHIFT + an encoder push do nothing.
@@ -577,8 +595,8 @@ impl Control {
     /// and closing the picker take the arrows, - and + that are held, as a counted MENU or PAGE
     /// does (`end_held_repeats`).
     ///
-    /// Otherwise the arrows, - and + nudge (`nudge`), OK uses the item under the cursor and an
-    /// encoder push the item its encoder holds.
+    /// Otherwise the arrows, - and + nudge (`nudge`), OK uses the item under the cursor, or acts on
+    /// SAMPLES' row (`ok_in_samples`), and an encoder push the item its encoder holds.
     fn press(
         &mut self,
         button: Button,
@@ -665,6 +683,9 @@ impl Control {
             Button::Step(step) if overlay == Some(Button::Menu) => {
                 self.buttons.take(button);
                 if let Some(screen) = MENU[usize::from(step)] {
+                    if self.view.screen == Screen::Samples && screen != Screen::Samples {
+                        self.stop_preview(sample, messages);
+                    }
                     self.view.screen = screen;
                 }
             }
@@ -712,6 +733,9 @@ impl Control {
             | Button::Right
             | Button::Minus
             | Button::Plus => self.nudge(button, sample, messages),
+            Button::Ok if self.view.screen == Screen::Samples => {
+                self.ok_in_samples(sample, messages);
+            }
             Button::Ok => {
                 let screen = self.view.screen;
                 if let Some(&item) = self.items(screen).get(self.cursor(screen).item) {
@@ -729,7 +753,8 @@ impl Control {
 
     /// An arrow, - or + at its press and at each of its repeats, which reads SHIFT anew. In the
     /// picker up, down, - and + move the highlight one row and left and right a picker page of 16
-    /// rows, stopping at the ends, and with SHIFT held none of them does anything. On a page up
+    /// rows, stopping at the ends, and on SAMPLES they move its cursor the same way by as many rows
+    /// as fit (`move_in_samples`); with SHIFT held none of them does anything there. On a page up
     /// and down move the cursor one item, stopping at the ends, and - and + move the value under
     /// it by a click, a fine one while SHIFT is held. SHIFT + an arrow does nothing outside STEP,
     /// and left and right do nothing on a page of one column. None of them gets here while MENU or
@@ -743,17 +768,23 @@ impl Control {
     ) {
         let shift = self.buttons.is_held(Button::Shift);
         if let Some(picker) = self.view.picker {
-            let (row, last) = (picker.item, self.picker_rows() - 1);
-            self.view.highlight(match (button, shift) {
-                (Button::Up | Button::Minus, false) => row.saturating_sub(1),
-                (Button::Down | Button::Plus, false) => (row + 1).min(last),
-                (Button::Left, false) => row.saturating_sub(LIST_VISIBLE),
-                (Button::Right, false) => (row + LIST_VISIBLE).min(last),
-                _ => return,
-            });
+            if !shift {
+                self.view.highlight(moved(
+                    button,
+                    picker.item,
+                    self.picker_rows() - 1,
+                    LIST_VISIBLE,
+                ));
+            }
             return;
         }
         let screen = self.view.screen;
+        if screen == Screen::Samples {
+            if !shift {
+                self.move_in_samples(button, sample, messages);
+            }
+            return;
+        }
         let items = self.items(screen);
         let cursor = self.cursor(screen).item;
         match button {
@@ -1040,8 +1071,13 @@ impl Control {
     }
 
     /// A button goes up. A tap of PADS/KEYS switches the current track's pad mode, and a tap of
-    /// CANCEL closes the picker without choosing.
-    fn release(&mut self, button: Button, sample: u64) {
+    /// CANCEL closes the picker without choosing, or on SAMPLES goes up (`cancel_in_samples`).
+    fn release(
+        &mut self,
+        button: Button,
+        sample: u64,
+        messages: &mut Producer<'_, Message, MESSAGE_QUEUE>,
+    ) {
         match (button, self.buttons.release(button, sample)) {
             (Button::PadsKeys, Release::Tap) => {
                 let track = self.track_mut();
@@ -1053,6 +1089,9 @@ impl Control {
             (Button::Cancel, Release::Tap) if self.view.picker.is_some() => {
                 self.view.picker = None;
                 self.end_held_repeats();
+            }
+            (Button::Cancel, Release::Tap) if self.view.screen == Screen::Samples => {
+                self.cancel_in_samples(sample, messages);
             }
             _ => {}
         }

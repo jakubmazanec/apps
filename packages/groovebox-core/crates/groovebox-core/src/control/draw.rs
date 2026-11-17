@@ -1,10 +1,12 @@
-use super::pages::{ItemDef, ItemKind, Picture};
+use super::pages::{ItemDef, ItemKind, LIBRARY_METER, Picture};
+use super::samples::{self, rows};
+use super::view::Screen;
 use super::{Control, Entry, HeaderMessage};
 use crate::budget;
 use crate::font::ADVANCE;
 use crate::input::Button;
 use crate::label::Label;
-use crate::library::name;
+use crate::library::{self, name};
 use crate::palette::{ACCENT, BACKGROUND, DIM, FAINT, TEXT};
 use crate::param::{self, BP, CUTOFF, Curve, HP, LP_12, LP_24, MODE, ParamId, RESONANCE};
 use crate::project::pool::{Engine, SoundNumber};
@@ -13,8 +15,9 @@ use crate::screen::{Canvas, HEIGHT, WIDTH};
 use crate::ui::frame::{Piece, draw_header, draw_strip};
 use crate::ui::item::{Bar, ItemView, draw_cursor, draw_item};
 use crate::ui::layout::{
-    HEADER_RIGHT, ITEM_HEIGHT, ITEM_PITCH, LIST_VISIBLE, PAGE_FIRST, PAGE_VISIBLE, PAGE_WIDTH,
-    PAGE_X, PICTURE, PIECE_GAP, TEXT_X, rect,
+    HEADER_RIGHT, ITEM_HEIGHT, ITEM_PITCH, LIST_VISIBLE, METER_Y, PAGE_FIRST, PAGE_VISIBLE,
+    PAGE_WIDTH, PAGE_X, PICTURE, PIECE_GAP, ROW_FIRST, ROW_PITCH, ROW_WIDTH, ROW_X,
+    SAMPLES_VISIBLE, TEXT_INSET, TEXT_X, rect,
 };
 use crate::ui::list::{Row, draw_rows};
 use crate::ui::plot::draw_line;
@@ -42,8 +45,10 @@ impl Control {
     ///
     /// The main area shows the page's items with the cursor and the page's picture, the tiles while
     /// MENU or PAGE is held, or the sound picker while it is open. On STEP it stays empty, as its
-    /// grid comes with the sequencer. The strip shows the items that the encoders hold on the page
-    /// they use, and nothing while MENU or PAGE is held or the picker is open.
+    /// grid comes with the sequencer. SAMPLES shows its rows (`samples_row`) with the cursor, inside
+    /// a folder under a dim line with the folder's path, and the library meter above the strip.
+    /// The strip shows the items that the encoders hold on the page they use, and nothing
+    /// while MENU or PAGE is held, the picker is open or SAMPLES shows.
     ///
     /// The text under the cursor, the current tile's name and the selected pad's name scroll when
     /// they do not fit, as far as the samples since the cursor landed say; the strip never scrolls.
@@ -173,31 +178,88 @@ impl Control {
             let mut rows = [Row {
                 left: "",
                 right: None,
+                alert: false,
             }; LIST_VISIBLE];
             for (slot, row) in rows.iter_mut().zip(shown.clone()) {
                 *slot = match self.entry(row) {
                     Entry::Empty => Row {
                         left: "Empty",
                         right: None,
+                        alert: false,
                     },
                     Entry::NewSynth => Row {
                         left: "New synth",
                         right: None,
+                        alert: false,
                     },
                     Entry::Sound(sound) => Row {
                         left: sound.name.as_str(),
                         right: Some(match sound.engine {
                             Engine::Synth => "synth",
                         }),
+                        alert: false,
                     },
                 };
             }
             scrolls = draw_rows(
                 canvas,
+                ROW_FIRST,
+                LIST_VISIBLE,
                 &rows[..shown.len()],
                 0,
                 Some(picker.item - picker.scroll),
                 elapsed,
+            );
+        } else if screen == Screen::Samples {
+            let samples = self.view.samples;
+            let mut y = ROW_FIRST;
+            if let Some(folder) = samples.folder {
+                let path = self.library.storage_path(library::Entry::Folder(folder));
+                text::draw_in(
+                    canvas,
+                    ROW_X + TEXT_INSET,
+                    y,
+                    ROW_WIDTH - 2 * TEXT_INSET,
+                    &path.as_str()["samples/".len()..],
+                    None,
+                    DIM,
+                );
+                y += ROW_PITCH;
+            }
+            let mut lefts = [Label::new(); SAMPLES_VISIBLE];
+            let mut rights = [Label::new(); SAMPLES_VISIBLE];
+            let mut shown = [Row {
+                left: "",
+                right: None,
+                alert: false,
+            }; SAMPLES_VISIBLE];
+            let mut count = 0;
+            for ((slot, row), (left, right)) in shown
+                .iter_mut()
+                .zip(rows(&self.library, samples.folder).skip(samples.cursor.scroll))
+                .zip(lefts.iter_mut().zip(&mut rights))
+            {
+                *slot = self.samples_row(row, left, right);
+                count += 1;
+            }
+            scrolls = draw_rows(
+                canvas,
+                y,
+                samples.fit(),
+                &shown[..count],
+                0,
+                Some(samples.cursor.item - samples.cursor.scroll),
+                elapsed,
+            );
+            let mut value = Label::new();
+            draw_item(
+                canvas,
+                ROW_X,
+                METER_Y,
+                ROW_WIDTH,
+                &self.item_view(&LIBRARY_METER, &mut value),
+                false,
+                None,
             );
         } else {
             let cursor = self.cursor(screen);
@@ -352,6 +414,55 @@ impl Control {
             name,
             value,
             bar,
+        }
+    }
+
+    /// What SAMPLES' row `row` shows: ".."; a folder as its name and "/", written into `left`; a
+    /// file as its name with its length and size written into `right`, or in red with "not loaded"
+    /// when start-up could not load it.
+    fn samples_row<'a>(
+        &'a self,
+        row: samples::Row,
+        left: &'a mut Label<{ 32 + 1 }>,
+        right: &'a mut Label<{ 16 + 2 + 16 }>,
+    ) -> Row<'a> {
+        match row {
+            samples::Row::Up => Row {
+                left: "..",
+                right: None,
+                alert: false,
+            },
+            samples::Row::Folder(folder) => {
+                left.push_str(self.library.folder(folder).name.as_str());
+                left.push_str("/");
+                Row {
+                    left: left.as_str(),
+                    right: None,
+                    alert: false,
+                }
+            }
+            samples::Row::File(file) => {
+                let file = self.library.file(file);
+                if !file.loaded {
+                    return Row {
+                        left: file.name.as_str(),
+                        right: Some("not loaded"),
+                        alert: true,
+                    };
+                }
+                write!(
+                    right,
+                    "{}  {}",
+                    name::length(file.frames).as_str(),
+                    name::size(u64::from(file.bytes())).as_str()
+                )
+                .expect("writing to a label never fails");
+                Row {
+                    left: file.name.as_str(),
+                    right: Some(right.as_str()),
+                    alert: false,
+                }
+            }
         }
     }
 

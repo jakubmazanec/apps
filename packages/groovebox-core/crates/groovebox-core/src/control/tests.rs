@@ -1077,7 +1077,10 @@ fn menu_with_step_8_shows_settings_at_the_steps_press() {
         &rig.control,
         &tiles(&MENU_HEADER, &menu_tiles(view::Screen::Step))
     ));
-    assert_eq!(rig.lit(), [pad(0), step(0), step(2), step(7), track(0)]);
+    assert_eq!(
+        rig.lit(),
+        [pad(0), step(0), step(2), step(7), step(9), track(0)]
+    );
 
     rig.step(101);
     assert_eq!(rig.control.view.screen, view::Screen::Settings);
@@ -1085,7 +1088,10 @@ fn menu_with_step_8_shows_settings_at_the_steps_press() {
         &rig.control,
         &tiles(&MENU_HEADER, &menu_tiles(view::Screen::Settings))
     ));
-    assert_eq!(rig.lit(), [pad(0), step(0), step(2), step(7), track(0)]);
+    assert_eq!(
+        rig.lit(),
+        [pad(0), step(0), step(2), step(7), step(9), track(0)]
+    );
 
     rig.let_go(200, Button::Step(7));
     rig.let_go(300, Button::Menu);

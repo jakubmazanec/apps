@@ -1,4 +1,4 @@
-//! The start-up, importing dropped files and SETTINGS' Dev page.
+//! The start-up, importing dropped files, SETTINGS' Dev page and SAMPLES.
 
 use super::*;
 use crate::blake3::Hasher;
@@ -6,8 +6,13 @@ use crate::budget;
 use crate::library::wav::{self, Encoding, Format, Ours};
 use crate::library::{Entry, FileId, FolderId};
 use crate::storage::{Memory, Path};
+use crate::ui::list::{Row, draw_rows};
+use crate::ui::test_pixels::MOVED;
+use crate::ui::text;
+use samples::Row as Line;
 use std::format;
 use std::string::String;
+use view::{Cursor, SamplesView};
 
 impl<'a> Rig<'a> {
     /// A rig before its first step, whose storage holds `files`, each at its path.
@@ -1015,4 +1020,529 @@ fn a_long_name_is_shortened_so_the_rest_of_the_message_shows() {
     // Right of STEP's pieces 386 pixels hold 64 characters: 35 of the name, the "…" and the rest.
     let shortened = format!("{}… not imported: can't be read", "x".repeat(35));
     assert!(shows(&rig.control, &step_with((&shortened, RECORD))));
+}
+
+/// SAMPLES' header on T1 in PADS mode while pad 1 is empty.
+const SAMPLES_HEADER: [(&str, Color); 4] =
+    [("Samples", ACCENT), ("T1", TEXT), ("1", DIM), ("Pads", DIM)];
+
+/// A row of SAMPLES in the usual colours: its text bright and its label dim.
+fn row<'a>(left: &'a str, right: Option<&'a str>) -> Row<'a> {
+    Row {
+        left,
+        right,
+        alert: false,
+    }
+}
+
+/// The library meter showing `value`, its bar filled `fill` of 65,535.
+fn meter(value: &str, fill: u16) -> ItemView<'_> {
+    ItemView {
+        encoder: None,
+        name: "Library",
+        value,
+        bar: Bar::Fill(fill),
+    }
+}
+
+/// SAMPLES over an empty strip: inside a folder the dim `line` and the rows under it, at the top
+/// level the rows alone, from row `cursor.scroll` with the cursor on row `cursor.item`; and `meter`
+/// above the strip.
+fn samples(line: Option<&str>, rows: &[Row], cursor: Cursor, meter: &ItemView) -> Screen {
+    drawn(
+        &SAMPLES_HEADER,
+        None,
+        |screen| {
+            let (y, fit) = match line {
+                Some(line) => {
+                    text::draw(screen, 5, 17, line, DIM);
+                    (31, 14)
+                }
+                None => (17, 15),
+            };
+            draw_rows(screen, y, fit, rows, cursor.scroll, Some(cursor.item), 0);
+            draw_item(screen, 2, 235, 476, meter, false, None);
+        },
+        &[None; 4],
+    )
+}
+
+/// A second of Bass.wav at the top level, and drums/808/kick.wav and drums/clap.wav. They are files
+/// 0 to 2, and drums/ and 808/ are folders 0 and 1.
+fn three_files() -> [(&'static str, Vec<u8>); 3] {
+    [
+        ("samples/Bass.wav", converted(48_000, 1)),
+        ("samples/drums/808/kick.wav", converted(14_400, 1)),
+        ("samples/drums/clap.wav", converted(4_800, 1)),
+    ]
+}
+
+/// The meter of `three_files`: their 67 blocks.
+fn three_files_meter() -> ItemView<'static> {
+    meter("0.1 of 64 MB", 140)
+}
+
+/// A rig whose library holds `files`, on SAMPLES, which MENU + 10 opened from sample 10 to 13.
+fn on_samples<'a>(queue: &'a Queue<Message, MESSAGE_QUEUE>, files: &[(&str, Vec<u8>)]) -> Rig<'a> {
+    let mut rig = Rig::with_files(queue, files);
+    rig.open();
+    rig.menu(10, 9);
+    rig.step(20);
+    rig
+}
+
+/// A preview of the mono file `file` of `frames` frames.
+fn preview(file: u16, frames: u32) -> MessageKind {
+    MessageKind::Preview {
+        file: FileId(file),
+        frames,
+        stereo: false,
+    }
+}
+
+const TOP: Cursor = Cursor { item: 0, scroll: 0 };
+
+#[test]
+fn menu_10_lists_the_top_level() {
+    let queue = Queue::new();
+    let rig = on_samples(&queue, &three_files());
+
+    assert!(shows(
+        &rig.control,
+        &samples(
+            None,
+            &[row("drums/", None), row("Bass.wav", Some("1.0 s  96 KB"))],
+            TOP,
+            &three_files_meter()
+        )
+    ));
+    // As in samples.png: a file's length and size end at x 474, and the meter's name starts at x 5
+    // with its capitals on rows 238 to 244 and its bar on rows 249 and 250.
+    let screen = picture(&rig.control);
+    assert_eq!(
+        span(&screen, 300..=477, 34..=40, DIM).map(|(_, last)| last),
+        Some(474)
+    );
+    assert_eq!(span(&screen, 2..=100, 238..=244, DIM), Some((5, 45)));
+    assert_eq!(span(&screen, 0..=479, 249..=250, FAINT), Some((6, 474)));
+    assert_eq!(rig.lit(), [pad(0), track(0)]);
+}
+
+#[test]
+fn inside_a_folder_a_dim_line_names_it_and_dot_dot_comes_first() {
+    let queue = Queue::new();
+    let mut rig = on_samples(&queue, &three_files());
+
+    rig.tap(100, Button::Ok);
+    rig.step(110);
+    assert!(shows(
+        &rig.control,
+        &samples(
+            Some("drums/"),
+            &[
+                row("..", None),
+                row("808/", None),
+                row("clap.wav", Some("0.1 s  10 KB"))
+            ],
+            TOP,
+            &three_files_meter()
+        )
+    ));
+
+    rig.tap(200, Button::Down);
+    rig.tap(210, Button::Ok);
+    rig.step(220);
+    assert!(shows(
+        &rig.control,
+        &samples(
+            Some("drums/808/"),
+            &[row("..", None), row("kick.wav", Some("0.3 s  29 KB"))],
+            TOP,
+            &three_files_meter()
+        )
+    ));
+    // The line takes the first text row, and ".." is the row under it.
+    let screen = picture(&rig.control);
+    assert_eq!(span(&screen, 2..=477, 17..=29, TEXT), None);
+    assert!(span(&screen, 2..=477, 20..=26, DIM).is_some());
+    assert!(outlined(&screen, 1, 30, 478, 15, ACCENT));
+}
+
+#[test]
+fn ok_enters_and_dot_dot_and_cancel_go_up_onto_the_folder_left() {
+    let queue = Queue::new();
+    let mut rig = on_samples(&queue, &three_files());
+    let (drums, eight_o_eight) = (Some(FolderId(0)), Some(FolderId(1)));
+    let at = |folder, item, on| SamplesView {
+        folder,
+        cursor: Cursor { item, scroll: 0 },
+        on: Some(on),
+    };
+
+    for (sample, button, view) in [
+        (100, Button::Ok, at(drums, 0, Line::Up)),
+        (110, Button::Down, at(drums, 1, Line::Folder(FolderId(1)))),
+        (120, Button::Ok, at(eight_o_eight, 0, Line::Up)),
+        (130, Button::Ok, at(drums, 1, Line::Folder(FolderId(1)))),
+        (140, Button::Ok, at(eight_o_eight, 0, Line::Up)),
+        (
+            150,
+            Button::Down,
+            at(eight_o_eight, 1, Line::File(FileId(1))),
+        ),
+        (160, Button::Cancel, at(drums, 1, Line::Folder(FolderId(1)))),
+        (170, Button::Cancel, at(None, 0, Line::Folder(FolderId(0)))),
+        (180, Button::Cancel, at(None, 0, Line::Folder(FolderId(0)))),
+    ] {
+        rig.tap(sample, button);
+        rig.step(sample + 2);
+        assert_eq!(rig.control.view.samples, view, "{button:?} at {sample}");
+    }
+    // Only kick.wav played, and CANCEL stopped it.
+    assert_eq!(
+        rig.sent(),
+        [
+            message(0, 150, preview(1, 14_400)),
+            message(1, 161, MessageKind::StopPreview)
+        ]
+    );
+}
+
+#[test]
+fn the_arrows_and_minus_plus_move_rows_and_stop_at_the_ends() {
+    let queue = Queue::new();
+    let paths: Vec<String> = (0..30)
+        .map(|n| format!("samples/{n:02}.wav"))
+        .chain((0..40).map(|n| format!("samples/many/{n:02}.wav")))
+        .collect();
+    let files: Vec<_> = paths
+        .iter()
+        .map(|path| (path.as_str(), converted(1, 1)))
+        .collect();
+    let mut rig = on_samples(&queue, &files);
+    let check = |rig: &mut Rig<'_>, moves: &[(u64, Button, usize)]| {
+        for &(sample, button, row) in moves {
+            rig.tap(sample, button);
+            rig.step(sample + 2);
+            let cursor = rig.control.view.samples.cursor.item;
+            assert_eq!(cursor, row, "{button:?} at {sample}");
+        }
+    };
+
+    // At the top level many/ and 30 files: up, down, - and + move one row and left and right 15,
+    // all stopping at row 0 and row 30.
+    check(
+        &mut rig,
+        &[
+            (100, Button::Up, 0),
+            (110, Button::Minus, 0),
+            (120, Button::Left, 0),
+            (130, Button::Plus, 1),
+            (140, Button::Down, 2),
+            (150, Button::Right, 17),
+            (160, Button::Right, 30),
+            (170, Button::Down, 30),
+            (180, Button::Plus, 30),
+            (190, Button::Left, 15),
+            (200, Button::Minus, 14),
+            (210, Button::Up, 13),
+        ],
+    );
+    // The rows move only as far as they must: row 30 came in at the bottom, row 13 at the top.
+    let names: Vec<String> = (0..30).map(|n| format!("{n:02}.wav")).collect();
+    let rows: Vec<Row> = [row("many/", None)]
+        .into_iter()
+        .chain(names.iter().map(|name| row(name, Some("0.0 s  0 KB"))))
+        .collect();
+    let scrolled = Cursor {
+        item: 13,
+        scroll: 13,
+    };
+    assert_eq!(rig.control.view.samples.cursor, scrolled);
+    assert!(shows(
+        &rig.control,
+        &samples(None, &rows, scrolled, &meter("0.1 of 64 MB", 146))
+    ));
+
+    // SHIFT + an arrow, - or + does nothing.
+    rig.press(300, Button::Shift);
+    check(
+        &mut rig,
+        &[
+            (310, Button::Up, 13),
+            (320, Button::Down, 13),
+            (330, Button::Left, 13),
+            (340, Button::Right, 13),
+            (350, Button::Minus, 13),
+            (360, Button::Plus, 13),
+        ],
+    );
+    rig.let_go(370, Button::Shift);
+
+    // Inside many/ ".." and 40 files: left and right move 14 rows, stopping at row 0 and row 40.
+    check(&mut rig, &[(400, Button::Left, 0), (410, Button::Ok, 0)]);
+    check(
+        &mut rig,
+        &[
+            (500, Button::Right, 14),
+            (510, Button::Right, 28),
+            (520, Button::Right, 40),
+            (530, Button::Down, 40),
+            (540, Button::Left, 26),
+            (550, Button::Left, 12),
+            (560, Button::Left, 0),
+            (570, Button::Up, 0),
+        ],
+    );
+}
+
+#[test]
+fn moving_onto_a_file_previews_it_and_landing_does_not() {
+    let queue = Queue::new();
+    let mut rig = on_samples(&queue, &three_files());
+    assert_eq!(
+        rig.control.library.file(FileId(0)).name.as_str(),
+        "Bass.wav"
+    );
+
+    rig.tap(100, Button::Down);
+    rig.menu(200, 0);
+    rig.step(210);
+    assert_eq!(
+        rig.sent(),
+        [
+            message(0, 100, preview(0, 48_000)),
+            message(1, 201, MessageKind::StopPreview)
+        ]
+    );
+
+    // Back on SAMPLES the cursor is on Bass.wav, which does not play.
+    rig.menu(300, 9);
+    rig.step(310);
+    assert_eq!(rig.sent(), []);
+    assert_eq!(rig.control.view.samples.on, Some(Line::File(FileId(0))));
+
+    // Moving off it plays nothing, and moving back onto it plays it.
+    rig.tap(400, Button::Up);
+    rig.tap(500, Button::Down);
+    rig.step(510);
+    assert_eq!(rig.sent(), [message(2, 500, preview(0, 48_000))]);
+}
+
+#[test]
+fn a_folder_row_ok_cancel_and_leaving_stop_the_preview() {
+    let queue = Queue::new();
+    let mut rig = on_samples(&queue, &three_files());
+    let stop = MessageKind::StopPreview;
+
+    // Each move from drums/ down onto Bass.wav plays it.
+    rig.tap(100, Button::Down);
+    rig.tap(110, Button::Up);
+    rig.tap(120, Button::Down);
+    rig.tap(130, Button::Ok);
+    // A stop with no preview since the last one sends nothing.
+    rig.tap(140, Button::Ok);
+    rig.tap(150, Button::Up);
+    rig.tap(160, Button::Down);
+    rig.tap(170, Button::Cancel);
+    rig.tap(180, Button::Up);
+    rig.tap(190, Button::Down);
+    // MENU or PAGE held without choosing a screen does not stop it.
+    rig.tap(200, Button::Menu);
+    rig.press(210, Button::Page);
+    rig.let_go(210 + HOLD, Button::Page);
+    rig.menu(20_000, 2);
+    rig.step(20_010);
+    assert_eq!(
+        rig.sent(),
+        [
+            message(0, 100, preview(0, 48_000)),
+            message(1, 110, stop),
+            message(2, 120, preview(0, 48_000)),
+            message(3, 130, stop),
+            message(4, 160, preview(0, 48_000)),
+            message(5, 171, stop),
+            message(6, 190, preview(0, 48_000)),
+            message(7, 20_001, stop),
+        ]
+    );
+
+    // Inside drums/ ".." stops it too.
+    rig.menu(30_000, 9);
+    rig.tap(30_100, Button::Up);
+    rig.tap(30_110, Button::Ok);
+    rig.tap(30_120, Button::Right);
+    rig.tap(30_130, Button::Left);
+    rig.step(30_140);
+    assert_eq!(
+        rig.sent(),
+        [
+            message(8, 30_120, preview(2, 4_800)),
+            message(9, 30_130, stop)
+        ]
+    );
+}
+
+#[test]
+fn the_cursor_stays_on_its_file_when_an_import_adds_rows_above() {
+    let queue = Queue::new();
+    let mut rig = on_samples(&queue, &three_files());
+    rig.tap(100, Button::Down);
+    rig.step(110);
+    rig.sent();
+
+    rig.drop_files(200, &[("tmp/1/Arp.wav", short(100.0, 0.01))]);
+    rig.settle(210);
+
+    // drums/, Arp.wav and Bass.wav: the cursor moved down with Bass.wav, and played nothing.
+    assert_eq!(
+        rig.control.view.samples,
+        SamplesView {
+            folder: None,
+            cursor: Cursor { item: 2, scroll: 0 },
+            on: Some(Line::File(FileId(0)))
+        }
+    );
+    assert_eq!(rig.sent(), []);
+}
+
+#[test]
+fn a_cursor_whose_row_is_gone_moves_to_the_row_above() {
+    let queue = Queue::new();
+    let mut rig = on_samples(&queue, &three_files());
+    rig.tap(100, Button::Ok);
+    rig.tap(110, Button::Right);
+    rig.step(120);
+    assert_eq!(rig.control.view.samples.on, Some(Line::File(FileId(2))));
+
+    // Nothing deletes a file yet, so the cursor is put on a file the library does not list.
+    rig.control.view.samples.on = Some(Line::File(FileId(9)));
+    rig.control.keep_samples_cursor();
+
+    assert_eq!(
+        rig.control.view.samples,
+        SamplesView {
+            folder: Some(FolderId(0)),
+            cursor: Cursor { item: 1, scroll: 0 },
+            on: Some(Line::Folder(FolderId(1)))
+        }
+    );
+}
+
+#[test]
+fn not_loaded_files_are_red_and_play_nothing() {
+    let queue = Queue::new();
+    let plain = wav::sine(440.0, 0.5, 44_100, Encoding::Int16, 1);
+    let mut rig = on_samples(
+        &queue,
+        &[
+            ("samples/Bass.wav", converted(48_000, 1)),
+            ("samples/plain.wav", plain),
+        ],
+    );
+
+    assert!(shows(
+        &rig.control,
+        &samples(
+            None,
+            &[
+                row("Bass.wav", Some("1.0 s  96 KB")),
+                Row {
+                    left: "plain.wav",
+                    right: Some("not loaded"),
+                    alert: true
+                }
+            ],
+            TOP,
+            &meter("0.1 of 64 MB", 98)
+        )
+    ));
+    let screen = picture(&rig.control);
+    assert_eq!(span(&screen, 2..=477, 31..=43, TEXT), None);
+    assert_eq!(span(&screen, 2..=477, 31..=43, DIM), None);
+    assert_eq!(
+        span(&screen, 300..=477, 34..=40, RECORD).map(|(_, last)| last),
+        Some(474)
+    );
+
+    rig.tap(100, Button::Down);
+    rig.tap(110, Button::Up);
+    rig.tap(120, Button::Down);
+    rig.step(130);
+    assert_eq!(
+        rig.sent(),
+        [
+            message(0, 110, preview(0, 48_000)),
+            message(1, 120, MessageKind::StopPreview)
+        ]
+    );
+}
+
+#[test]
+fn the_encoders_hold_nothing_and_page_shows_sixteen_empty_tiles() {
+    let queue = Queue::new();
+    let mut rig = on_samples(&queue, &three_files());
+    let top_level = samples(
+        None,
+        &[row("drums/", None), row("Bass.wav", Some("1.0 s  96 KB"))],
+        TOP,
+        &three_files_meter(),
+    );
+
+    for encoder in 0..4 {
+        rig.turn(100 + 10 * u64::from(encoder), encoder, 1);
+        rig.tap(105 + 10 * u64::from(encoder), Button::Push(encoder));
+    }
+    rig.step(200);
+    assert_eq!(rig.sent(), []);
+    assert!(shows(&rig.control, &top_level));
+
+    rig.press(300, Button::Page);
+    rig.tap(310, Button::Step(0));
+    rig.step(320);
+    assert!(shows(
+        &rig.control,
+        &tiles(&SAMPLES_HEADER, &page_tiles(&[], 0))
+    ));
+    assert_eq!(rig.lit(), [pad(0), track(0)]);
+
+    rig.let_go(400, Button::Page);
+    rig.step(410);
+    assert!(shows(&rig.control, &top_level));
+}
+
+#[test]
+fn a_long_name_scrolls_under_the_cursor() {
+    let queue = Queue::new();
+    // 64 characters do not fit beside "10.0 s  960 KB".
+    let names = ["x".repeat(60) + ".wav", "y".repeat(60) + ".wav"];
+    let paths = names.clone().map(|name| format!("samples/{name}"));
+    let mut rig = on_samples(
+        &queue,
+        &[
+            (&paths[0], converted(480_000, 1)),
+            (&paths[1], converted(480_000, 1)),
+        ],
+    );
+    let rows = names
+        .each_ref()
+        .map(|name| row(name, Some("10.0 s  960 KB")));
+    let meter = meter("1.9 of 64 MB", 1_967);
+
+    // The cursor last landed when MENU was let go, at 13.
+    rig.step(13 + MOVED);
+
+    assert!(shows(
+        &rig.control,
+        &drawn(
+            &SAMPLES_HEADER,
+            None,
+            |screen| {
+                draw_rows(screen, 17, 15, &rows, 0, Some(0), MOVED);
+                draw_item(screen, 2, 235, 476, &meter, false, None);
+            },
+            &[None; 4],
+        )
+    ));
+    assert!(!shows(&rig.control, &samples(None, &rows, TOP, &meter)));
 }
