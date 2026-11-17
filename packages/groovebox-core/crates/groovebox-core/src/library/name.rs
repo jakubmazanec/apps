@@ -3,6 +3,7 @@ use crate::font;
 use crate::label::Label;
 use core::cmp::Ordering;
 use core::fmt::{self, Write};
+use core::iter;
 
 const EXTENSION: &str = ".wav";
 const FILE_BYTES: usize = 64;
@@ -140,9 +141,47 @@ fn key(name: &str) -> impl Iterator<Item = char> + '_ {
     name.chars().flat_map(char::to_lowercase).map(plain)
 }
 
-/// The order of the library: by lowercase letters with accents folded away, then by bytes.
+/// Orders two keys by their characters, a run of digits counting as its number, so "2" comes before
+/// "10". The run's length without its leading zeros settles it first, then its digits one by one, so
+/// no run is too long. Only when nothing else tells the keys apart does the run with fewer leading
+/// zeros come first.
+fn compare_keys(a: &str, b: &str) -> Ordering {
+    let (mut a, mut b) = (key(a).peekable(), key(b).peekable());
+    let mut zeros = Ordering::Equal;
+    loop {
+        match (a.peek().copied(), b.peek().copied()) {
+            (Some(x), Some(y)) if x.is_ascii_digit() && y.is_ascii_digit() => {
+                let a_zeros = iter::from_fn(|| a.next_if_eq(&'0')).count();
+                let b_zeros = iter::from_fn(|| b.next_if_eq(&'0')).count();
+                zeros = zeros.then(a_zeros.cmp(&b_zeros));
+                let mut first_difference = Ordering::Equal;
+                let longer = loop {
+                    match (
+                        a.next_if(char::is_ascii_digit),
+                        b.next_if(char::is_ascii_digit),
+                    ) {
+                        (Some(x), Some(y)) => first_difference = first_difference.then(x.cmp(&y)),
+                        (x, y) => break x.cmp(&y),
+                    }
+                };
+                let numbers = longer.then(first_difference);
+                if numbers.is_ne() {
+                    return numbers;
+                }
+            }
+            (Some(x), Some(y)) if x == y => {
+                a.next();
+                b.next();
+            }
+            (x, y) => return x.cmp(&y).then(zeros),
+        }
+    }
+}
+
+/// The order of the library: by lowercase letters with accents folded away and runs of digits as
+/// numbers, each name without its ".wav" so that "kick.wav" comes before "kick 2.wav", then by bytes.
 pub fn order(a: &str, b: &str) -> Ordering {
-    key(a).cmp(key(b)).then_with(|| a.cmp(b))
+    compare_keys(split_extension(a).0, split_extension(b).0).then_with(|| a.cmp(b))
 }
 
 /// Frames at 48 kHz: tenths of a second below a minute, else minutes and seconds. It rounds first
@@ -290,6 +329,93 @@ mod tests {
         assert_eq!(order("kick.wav", "kick.wav"), Ordering::Equal);
         assert_eq!(order("resume.wav", "résumé.wav"), Ordering::Less);
         assert_eq!(order("zebra.wav", "Ábel.wav"), Ordering::Greater);
+    }
+
+    #[test]
+    fn a_run_of_digits_sorts_by_its_value() {
+        let mut names = ["kick 10.wav", "Kick 2.wav", "kick 1.wav", "kick 9.wav"];
+
+        names.sort_by(|a, b| order(a, b));
+
+        assert_eq!(
+            names,
+            ["kick 1.wav", "Kick 2.wav", "kick 9.wav", "kick 10.wav"]
+        );
+        assert_eq!(order("take 2 b.wav", "take 10 a.wav"), Ordering::Less);
+        assert_eq!(order("a9.wav", "a_.wav"), Ordering::Less);
+        assert_eq!(order("a-.wav", "a9.wav"), Ordering::Less);
+    }
+
+    #[test]
+    fn a_name_comes_before_the_same_name_with_more_after_it() {
+        assert_eq!(order("kick.wav", "kick 2.wav"), Ordering::Less);
+        assert_eq!(order("kick.wav", "kick-2.wav"), Ordering::Less);
+        assert_eq!(order("kick.wav", "kick2.wav"), Ordering::Less);
+        assert_eq!(order("kick.WAV", "kick 2.wav"), Ordering::Less);
+    }
+
+    #[test]
+    fn equal_numbers_sort_by_their_leading_zeros_then_by_bytes() {
+        assert_eq!(order("a1.wav", "a01.wav"), Ordering::Less);
+        assert_eq!(order("a01.wav", "a1.wav"), Ordering::Greater);
+        assert_eq!(order("a0.wav", "a00.wav"), Ordering::Less);
+        assert_eq!(order("a01b.wav", "a1c.wav"), Ordering::Less);
+        assert_eq!(order("a01.wav", "a001.wav"), Ordering::Less);
+        assert_eq!(order("a01.wav", "A01.wav"), Ordering::Greater);
+    }
+
+    #[test]
+    fn a_run_of_digits_of_any_length_sorts_without_overflow() {
+        let forty = "9".repeat(40);
+        let shorter = "9".repeat(39);
+        let next = "1".to_string() + &"0".repeat(40);
+
+        assert_eq!(
+            order(&(forty.clone() + ".wav"), &(shorter + ".wav")),
+            Ordering::Greater
+        );
+        assert_eq!(
+            order(&(forty.clone() + ".wav"), &(next + ".wav")),
+            Ordering::Less
+        );
+        assert_eq!(
+            order(&("0".repeat(40) + &forty + "8.wav"), &(forty + "9.wav")),
+            Ordering::Less
+        );
+    }
+
+    #[test]
+    fn the_order_is_total() {
+        let mut names = std::vec![std::string::String::new()];
+        let mut longest = names.clone();
+        for _ in 0..3 {
+            longest = longest
+                .iter()
+                .flat_map(|name| ["0", "1", "2", " ", "a"].map(|c| std::format!("{name}{c}")))
+                .collect();
+            names.extend(longest.clone());
+        }
+        let orders: Vec<Vec<Ordering>> = names
+            .iter()
+            .map(|a| names.iter().map(|b| order(a, b)).collect())
+            .collect();
+
+        for a in 0..names.len() {
+            for b in 0..names.len() {
+                assert_eq!(orders[a][b], orders[b][a].reverse(), "{a} {b}");
+                if orders[a][b].is_le() {
+                    for c in 0..names.len() {
+                        assert!(
+                            orders[b][c].is_gt() || orders[a][c].is_le(),
+                            "{:?} {:?} {:?}",
+                            names[a],
+                            names[b],
+                            names[c]
+                        );
+                    }
+                }
+            }
+        }
     }
 
     #[test]
