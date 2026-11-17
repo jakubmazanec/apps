@@ -486,17 +486,17 @@ WAV at 48 kHz and 16 bits, channels kept, as Sound decided, with the sampler chu
 new rate (loop ends inclusive, as the WAV rules say; loop types other than forward are read as
 forward) and one private chunk of our own before the audio data: the original file name and a
 fingerprint of the converted audio, BLAKE3 cut to 128 bits with the channel count in front **(my
-call)**, computed once at import and written into the sound that uses it too. A sound keeps it to
-recognise its sample; a dropped file is never compared by it, since a taken name is replaced (see
-"The library"). Names are trimmed and reduced on import to the letters the font draws, digits,
-space, dash, underscore and dot, so they survive Windows, FAT and the browser alike. A name loses
-its leading dots, so no name is hidden, and a folder name loses its trailing dots too, which Windows
-drops **(owner's choice)**. A file name keeps ".wav" and is cut at a character boundary to 64 bytes,
-a folder name to 32; a name with nothing left before ".wav" becomes "sample.wav" and a folder name
-with nothing left becomes "sample" **(owner's choice)**. A path has at most four folder levels:
-deeper files go into the fourth, so a path fits in 255 bytes. Two names differing only in case are
-the same name. The root note and loop points in the file are the defaults a new sound takes; the
-sound's own values live in the project.
+call)**, computed once at import and written into the sound that uses it too. A sound keeps it for
+finding a moved file in part 2 (see "Later, with the companion"); a dropped file is never compared
+by it, since a taken name is replaced (see "The library"). Names are trimmed and reduced on import
+to the letters the font draws, digits, space, dash, underscore and dot, so they survive Windows, FAT
+and the browser alike. A name loses its leading dots, so no name is hidden, and a folder name loses
+its trailing dots too, which Windows drops **(owner's choice)**. A file name keeps ".wav" and is cut
+at a character boundary to 64 bytes, a folder name to 32; a name with nothing left before ".wav"
+becomes "sample.wav" and a folder name with nothing left becomes "sample" **(owner's choice)**. A
+path has at most four folder levels: deeper files go into the fourth, so a path fits in 255 bytes.
+Two names differing only in case are the same name. The root note and loop points in the file are
+the defaults a new sound takes; the sound's own values live in the project.
 
 ### Later, with the companion
 
@@ -518,16 +518,16 @@ opened. While the library loads the header says "Loading library"; the project o
 done, so a project never meets a half-loaded library **(owner's choice)**. A library bigger than the
 sample RAM, possible only after a hardware change or a lowered budget, is loaded in the order
 SAMPLES lists it as far as it fits: the first file that does not fit and every file after it stay on
-storage, unloaded, even a smaller one that would fill the gap, and are marked "not loaded" on
-SAMPLES; one line says in red "Library too big. 3 files not loaded", and sounds that use those files
-are MISSING until something is deleted and the device restarts **(owner's choice)**. A file whose
-header is not this device's (damaged or foreign) is not loaded either, and neither is a file that
-has our private chunk but is not 16-bit at 48 kHz **(owner's choice)**; when the RAM did not run
-out, the line counts it as "1 file not loaded". Every file not loaded is listed in red as "not
-loaded" and can be deleted. If storage fails while the library is listed, the project opens with
-whatever has loaded and the header says in red "Library can't be read" instead of the count
-**(owner's choice)**. The library is listed and loaded again at every start, which takes about 7
-seconds for 300 files in the browser; that stays as it is in part 1 **(owner's choice)**.
+storage unloaded and are marked "not loaded" on SAMPLES, even a smaller one that would fill the gap;
+one line says in red "Library too big. 3 files not loaded", and sounds that use those files are
+MISSING until something is deleted and the device restarts **(owner's choice)**. A file whose header
+is not this device's (damaged or foreign) is not loaded either, and neither is a file that has our
+private chunk but is not 16-bit at 48 kHz **(owner's choice)**; when the RAM did not run out, the
+line counts it as "1 file not loaded". Every file not loaded is listed in red as "not loaded" and
+can be deleted. If storage fails while the library is listed, the project opens with whatever has
+loaded and the header says in red "Library can't be read" instead of the count **(owner's choice)**.
+The library is listed and loaded again at every start, which takes about 7 seconds for 300 files in
+the browser; that stays as it is in part 1 **(owner's choice)**.
 
 **Opening a project** reads its project, view and pattern files and nothing else: every sample is
 already in RAM, so every sound plays at once. A sample that is not in the library makes its sound
@@ -559,10 +559,11 @@ being written gives "storage full" too, not "can't be read" **(owner's choice)**
 converts the file in pieces through the storage interface into `samples/`, in the folder it was
 dropped with, places the converted audio in RAM and removes the original. A dropped file whose name
 is already taken in its folder, ignoring case, replaces the old file, whatever its sound **(owner's
-choice)**: nothing is compared and nothing is numbered, and the new file keeps its own spelling, so
-KICK.wav dropped over kick.wav leaves KICK.wav. It passes the same three checks, so a full library
-still refuses it with "kick.wav not imported: library full". The old file stays until the new one is
-written whole, and the old file's sample is let go of as DELETE does it (below).
+choice)**: nothing is compared and nothing is numbered, and the new file keeps its own spelling
+**(my call)**, so KICK.wav dropped over kick.wav leaves KICK.wav. It passes the same three checks,
+so a full library still refuses it with "kick.wav not imported: library full". The old file stays
+until the new one is written whole, and the old file's sample is let go of as DELETE does it
+(below).
 
 The library in RAM carries each file's length, channels and size, which the picker, POOL and the
 SAMPLES screen show; file headers are read only at start-up. DELETE on the SAMPLES screen removes
@@ -685,9 +686,9 @@ bullet below, the target spec's current text holds.
 - **Look:** draws the SAMPLES screen, the MISSING and OLD marks, the library meter on POOL, SAMPLES
   and the sample picker, the notices and header messages (UNDO LOST, FULL, NOT ENOUGH MEMORY,
   STORAGE FULL. NOT SAVED, "<file> not imported: library full", "Library can't be read", "Loading
-  library", RESTORED FROM LAST SAVE, PATTERN n DAMAGED, PATTERN n MISSING), the delete questions,
-  and a development meter for note memory; the browser shell's file drop puts files into `tmp/` for
-  the core to import.
+  library", RESTORED FROM LAST SAVE, PATTERN n DAMAGED, PATTERN n MISSING), the delete questions and
+  a development meter for note memory; the browser shell's file drop puts files into `tmp/` for the
+  core to import.
 - **Part 2 (companion):** transfer and backup over USB; the format's growth listed under "Later,
   with the companion"; the companion runs the same core to read and write files.
 - **Part 3 (hardware):** a file system with atomic rename and wear levelling; RAM for the whole

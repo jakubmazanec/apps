@@ -14,7 +14,8 @@ pub enum Bar {
     /// The faint track alone.
     Track,
     /// The track with an accent fill from the left: a part of the bar, the first number out of the
-    /// second, rounded to the nearest pixel (half a pixel rounds up).
+    /// second, rounded to the nearest pixel (half a pixel rounds up). The second is more than 0 and
+    /// the first at most the second.
     Fill(u64, u64),
 }
 

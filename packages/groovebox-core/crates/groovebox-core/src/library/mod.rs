@@ -119,7 +119,8 @@ impl Library {
             mut folder, loaded, ..
         } = *self.file(file);
         if loaded {
-            // SAFETY: the caller promises that the audio part let go of the file.
+            // SAFETY: the caller promises that the audio part let go of the file or was never told
+            // about it.
             unsafe { self.free_blocks(file, tables) };
         }
         self.unlist(Entry::File(file));
@@ -143,7 +144,8 @@ impl Library {
         for block in self.listing.blocks(tables, file) {
             self.blocks.give_back(block);
         }
-        // SAFETY: the caller promises that the audio part let go of the file.
+        // SAFETY: the caller promises that the audio part let go of the file or was never told
+        // about it.
         unsafe { self.listing.forget(file) };
     }
 

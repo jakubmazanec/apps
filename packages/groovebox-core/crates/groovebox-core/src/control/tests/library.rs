@@ -2190,7 +2190,7 @@ fn the_meter_drops_once_the_blocks_are_free() {
     // The audio part let go of Bass.wav, but the storage still holds it.
     assert_eq!(rig.control.library.used(), 67 * 2_048);
     rig.settle(300);
-    // Its 47 blocks are free: 20 blocks fill 41 of 65,535.
+    // Its 47 blocks are free: the meter shows the 20 blocks left.
     assert_eq!(rig.control.library.used(), 20 * 2_048);
     assert!(shows(
         &rig.control,

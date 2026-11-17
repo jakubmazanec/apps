@@ -151,20 +151,21 @@ fn compare_keys(a: &str, b: &str) -> Ordering {
     loop {
         match (a.peek().copied(), b.peek().copied()) {
             (Some(x), Some(y)) if x.is_ascii_digit() && y.is_ascii_digit() => {
-                let a_zeros = iter::from_fn(|| a.next_if_eq(&'0')).count();
-                let b_zeros = iter::from_fn(|| b.next_if_eq(&'0')).count();
-                zeros = zeros.then(a_zeros.cmp(&b_zeros));
+                zeros = zeros.then(
+                    iter::from_fn(|| a.next_if_eq(&'0'))
+                        .count()
+                        .cmp(&iter::from_fn(|| b.next_if_eq(&'0')).count()),
+                );
                 let mut first_difference = Ordering::Equal;
-                let longer = loop {
+                let numbers = loop {
                     match (
                         a.next_if(char::is_ascii_digit),
                         b.next_if(char::is_ascii_digit),
                     ) {
                         (Some(x), Some(y)) => first_difference = first_difference.then(x.cmp(&y)),
-                        (x, y) => break x.cmp(&y),
+                        (x, y) => break x.cmp(&y).then(first_difference),
                     }
                 };
-                let numbers = longer.then(first_difference);
                 if numbers.is_ne() {
                     return numbers;
                 }

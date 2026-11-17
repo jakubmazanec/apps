@@ -2,7 +2,7 @@ import {describe, expect, test} from 'vitest';
 
 import {droppedFiles} from '../source/shell/drop.js';
 
-// What a test drops: a file by its name, a file that cannot be read by its name, or a folder by its
+// What a test drops: a file by its name, a file that cannot be read by its name or a folder by its
 // name and what it holds
 type Dropped = {folder: string; holds: Dropped[]} | {unreadable: string} | string;
 

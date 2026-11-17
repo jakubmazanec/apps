@@ -1074,9 +1074,9 @@ impl Control {
         }
     }
 
-    /// Sends the `UseTable` or `ForgetSample` that the import asks for, moves SAMPLES' cursor from
-    /// a file it replaced onto the new file, closes the old file's Delete picker or question, as
-    /// CANCEL does, so that no OK deletes the audio just dropped, and puts out its next request.
+    /// Sends the `UseTable` or `ForgetSample` that the import asks for. Moves SAMPLES' cursor from
+    /// a file it replaced onto the new file. Closes the old file's Delete picker or question, as
+    /// CANCEL does, so that no OK deletes the audio just dropped. Puts out its next request.
     fn follow_import(&mut self, sample: u64, messages: &mut Producer<'_, Message, MESSAGE_QUEUE>) {
         if let Some(kind) = self.import.message() {
             self.send(sample, kind, messages);
