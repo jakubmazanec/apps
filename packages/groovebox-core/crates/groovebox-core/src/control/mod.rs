@@ -7,9 +7,9 @@ pub mod view;
 
 use crate::input::{Button, Input, PADS, Stamped, VOLUME};
 use crate::label::Label;
-use crate::library::Library;
 use crate::library::import::Import;
 use crate::library::startup::StartUp;
+use crate::library::{FileId, Library};
 use crate::lights::Lights;
 use crate::message::{MAX_MESSAGES_PER_EVENT, MESSAGE_QUEUE, Message, MessageKind, Target};
 use crate::palette::RECORD;
@@ -31,7 +31,8 @@ use core::cell::Cell;
 use core::ops::ControlFlow;
 use notes::{Notes, Source};
 use pages::{ItemDef, ItemKind, MENU, PageDef, pages};
-use view::{Cursor, Screen, View, menu_tiles, moved, page_tiles};
+use samples::Deleting;
+use view::{Cursor, Picker, Question, Screen, View, menu_tiles, moved, page_tiles};
 
 pub const INPUT_QUEUE: usize = 64;
 pub const REPLAY_QUEUE: usize = 64;
@@ -42,7 +43,7 @@ const AWAITED: usize = 4;
 /// The sound picker's first row of a sound of the pool, after Empty and New synth.
 const FIRST_SOUND_ROW: usize = 2;
 
-/// What a row of the sound picker chooses.
+/// What a row of a picker chooses.
 enum Entry<'a> {
     /// Empties the pad.
     Empty,
@@ -50,6 +51,8 @@ enum Entry<'a> {
     NewSynth,
     /// Puts this sound of the pool on the pad.
     Sound(&'a Sound),
+    /// Asks whether to delete this file of the library.
+    Delete(FileId),
 }
 
 /// An event of `step`, in this order on equal samples.
@@ -81,8 +84,10 @@ struct Focus {
     /// The page that `screen.paged()` shows and the item its cursor is on.
     page: usize,
     item: usize,
-    /// The highlighted row of the sound picker while it is open.
+    /// The highlighted row of the picker while one is open.
     picker: Option<usize>,
+    /// The question while one is open.
+    question: Option<Question>,
     /// The row under SAMPLES' cursor while SAMPLES shows.
     samples: Option<samples::Row>,
     track: u8,
@@ -122,6 +127,9 @@ pub struct Control {
     startup: Option<StartUp>,
     /// The import's job, which takes the dropped files once the project is open.
     import: Import,
+    /// The delete's job while it runs: the file it deletes and what it waits for. Deletes run one
+    /// at a time, so the control part waits for at most one `ForgetSample`.
+    delete: Option<(FileId, Deleting)>,
     library: Library,
     project: Project,
     settings: DeviceSettings,
@@ -159,6 +167,7 @@ impl Control {
             started: false,
             startup: Some(StartUp::new()),
             import: Import::new(),
+            delete: None,
             library: Library::new(),
             project: Project::new(),
             settings: DeviceSettings::new(),
@@ -239,6 +248,8 @@ impl Control {
     /// header's message. Until then every input is dropped but a turn of the volume encoder and a
     /// drop, whose files wait for the project. Then the import's job takes them, and the replies go
     /// to it with `io` and `ram`, the sample RAM; when it ends, its result is the header's message.
+    /// A delete's job sends its `Delete` between two of the import's requests (`put_request`), and
+    /// that request's reply goes to it (`deleted`).
     ///
     /// After each event every page's cursor is kept on an item that the page shows: a cursor whose
     /// item vanished moves to the nearest item above, where it stays when the item comes back.
@@ -303,6 +314,8 @@ impl Control {
                                     self.start_import(sample, messages);
                                 }
                             }
+                        } else if let Some((file, Deleting::Reply)) = self.delete {
+                            self.deleted(file, reply.status, tables);
                         } else if self.import.running() {
                             if let ControlFlow::Break(result) =
                                 self.import.reply(reply, io, ram, &mut self.library, tables)
@@ -320,14 +333,24 @@ impl Control {
                         .iter_mut()
                         .find(|slot| slot.is_some_and(|(awaited, _)| awaited == number))
                         .expect("every heard report holds its message's slot in `awaited`");
-                    if let Some((_, MessageKind::UseTable { .. })) = slot.take() {
-                        // SAFETY: only a `Listed::Packed` sends a `UseTable`, so this is the
-                        // report of the latest.
-                        #[allow(unsafe_code)]
-                        let waited = unsafe { self.import.applied(&mut self.library, tables) };
-                        if waited {
-                            self.follow_import(sample, messages);
+                    match slot.take() {
+                        Some((_, MessageKind::UseTable { .. })) => {
+                            // SAFETY: only a `Listed::Packed` sends a `UseTable`, so this is the
+                            // report of the latest.
+                            #[allow(unsafe_code)]
+                            let waited = unsafe { self.import.applied(&mut self.library, tables) };
+                            if waited {
+                                self.follow_import(sample, messages);
+                            }
                         }
+                        // The audio part let go of the file the delete deletes.
+                        Some((_, MessageKind::ForgetSample { file })) => {
+                            self.delete = Some((file, Deleting::Turn));
+                            self.put_request();
+                        }
+                        _ => unreachable!(
+                            "the control part waits only for `UseTable`s and `ForgetSample`s"
+                        ),
                     }
                 }
                 Event::Input(stamped) => {
@@ -365,7 +388,8 @@ impl Control {
                 screen: self.view.screen,
                 page: self.shown_page(paged),
                 item: self.cursor(paged).item,
-                picker: self.view.picker.map(|picker| picker.item),
+                picker: self.view.picker.map(|(_, highlight)| highlight.item),
+                question: self.view.question,
                 samples: self
                     .view
                     .samples
@@ -498,8 +522,8 @@ impl Control {
     }
 
     /// A hit from `source`. In PADS mode it hits `pad`: it plays the pad's sound at C4, where a
-    /// synth sounds unchanged, and selects the pad and its sound unless the picker is open, as a
-    /// new selection would change the pad the picker is for. In KEYS mode it is the key of the
+    /// synth sounds unchanged, and selects the pad and its sound unless a picker or a question is
+    /// open, as a new selection would change what it is for. In KEYS mode it is the key of the
     /// pitch `key`: that becomes the last key played, and it plays the selected sound at that
     /// pitch. With no sound it plays nothing, and neither does a source that has a note on
     /// already.
@@ -512,11 +536,11 @@ impl Control {
         sample: u64,
         messages: &mut Producer<'_, Message, MESSAGE_QUEUE>,
     ) {
-        let picker = self.view.picker.is_some();
+        let open = self.view.picker.is_some() || self.view.question.is_some();
         let track = self.track_mut();
         let (pad, pitch, sound) = match track.mode {
             PadMode::Pads => {
-                if !picker {
+                if !open {
                     track.select(pad);
                 }
                 (Some(pad), 60, track.pads[usize::from(pad)])
@@ -586,16 +610,18 @@ impl Control {
     ///   PADS/KEYS is taken, so it does not repeat, and like any press it still counts as another
     ///   control used.
     ///
-    /// While the sound picker is open the controls act on it. The arrows, - and + move its
-    /// highlight (`nudge`), OK chooses the highlighted row and closes it, and a tap of CANCEL
-    /// closes it (`release`). PLAY, STOP, REC and SHIFT + T1 to T4 act as usual. T1 to T4, MENU,
-    /// PAGE, ROLL, PADS/KEYS, TEMPO, COPY, the steps and the encoder pushes are dropped: they are
-    /// taken, so they act neither now nor when they are let go, and the picker stays open. Every
-    /// other combination does nothing there either: an arrow, - or + pressed while SHIFT or
-    /// PADS/KEYS is held, even a PADS/KEYS dropped by the picker, is taken at its press, so it
-    /// neither moves the highlight nor repeats, also once SHIFT or PADS/KEYS is let go. Opening
-    /// and closing the picker take the arrows, - and + that are held, as a counted MENU or PAGE
-    /// does (`end_held_repeats`).
+    /// While a picker is open the controls act on it. The arrows, - and + move its highlight
+    /// (`nudge`), OK chooses the highlighted row and closes it, Delete opening its question, and a
+    /// tap of CANCEL closes it (`release`). PLAY, STOP, REC and SHIFT + T1 to T4 act as usual. T1
+    /// to T4, MENU, PAGE, ROLL, PADS/KEYS, TEMPO, COPY, the steps and the encoder pushes are
+    /// dropped: they are taken, so they act neither now nor when they are let go, and the picker
+    /// stays open. Every other combination does nothing there either: an arrow, - or + pressed
+    /// while SHIFT or PADS/KEYS is held, even a PADS/KEYS dropped by the picker, is taken at its
+    /// press, so it neither moves the highlight nor repeats, also once SHIFT or PADS/KEYS is let
+    /// go. Opening and closing the picker take the arrows, - and + that are held, as a counted MENU
+    /// or PAGE does (`end_held_repeats`). While a question is open only OK and a tap of CANCEL
+    /// answer it, OK deleting the file (`delete_file`); the arrows, - and + are taken too, and the
+    /// other controls act as with a picker open.
     ///
     /// Otherwise the arrows, - and + nudge (`nudge`), OK uses the item under the cursor, or acts on
     /// SAMPLES' row (`ok_in_samples`), and an encoder push the item its encoder holds.
@@ -612,6 +638,7 @@ impl Control {
         self.buttons.press(button, sample);
         let overlay = self.overlay();
         let picker = self.view.picker.is_some();
+        let question = self.view.question.is_some();
         let pads_keys = self.buttons.first_held(&[Button::PadsKeys]).is_some();
         match button {
             Button::T1 | Button::T2 | Button::T3 | Button::T4 | Button::Ok | Button::Push(_)
@@ -625,9 +652,10 @@ impl Control {
             | Button::Right
             | Button::Minus
             | Button::Plus
-                if picker
-                    && (self.buttons.is_held(Button::Shift)
-                        || self.buttons.is_held(Button::PadsKeys)) =>
+                if question
+                    || picker
+                        && (self.buttons.is_held(Button::Shift)
+                            || self.buttons.is_held(Button::PadsKeys)) =>
             {
                 self.buttons.take(button);
             }
@@ -641,14 +669,18 @@ impl Control {
             {
                 self.nudge(button, sample, messages);
             }
-            Button::Ok if let Some(highlight) = self.view.picker => {
+            Button::Ok if let Some(Question::DeleteFile(file)) = self.view.question => {
+                self.view.question = None;
+                self.delete_file(file, sample, messages);
+            }
+            Button::Ok if let Some((open, highlight)) = self.view.picker => {
                 self.view.picker = None;
                 self.end_held_repeats();
-                let pad = self
-                    .track()
-                    .selected_pad
-                    .expect("the sound picker belongs to the selected pad");
-                let sound = match self.entry(highlight.item) {
+                let sound = match self.entry(open, highlight.item) {
+                    Entry::Delete(file) => {
+                        self.view.question = Some(Question::DeleteFile(file));
+                        return;
+                    }
                     Entry::Empty => None,
                     Entry::NewSynth => match self.project.pool.new_synth() {
                         Ok(sound) => {
@@ -662,6 +694,10 @@ impl Control {
                     },
                     Entry::Sound(sound) => Some(sound.number),
                 };
+                let pad = self
+                    .track()
+                    .selected_pad
+                    .expect("the sound picker belongs to the selected pad");
                 self.project.put(pad, sound);
             }
             Button::T1
@@ -676,7 +712,7 @@ impl Control {
             | Button::Tempo
             | Button::Step(_)
             | Button::Push(_)
-                if picker =>
+                if picker || question =>
             {
                 self.buttons.take(button);
             }
@@ -769,14 +805,17 @@ impl Control {
         messages: &mut Producer<'_, Message, MESSAGE_QUEUE>,
     ) {
         let shift = self.buttons.is_held(Button::Shift);
-        if let Some(picker) = self.view.picker {
+        if let Some((picker, highlight)) = self.view.picker {
             if !shift {
-                self.view.highlight(moved(
-                    button,
-                    picker.item,
-                    self.picker_rows() - 1,
-                    LIST_VISIBLE,
-                ));
+                self.view.highlight(
+                    picker,
+                    moved(
+                        button,
+                        highlight.item,
+                        self.picker_rows(picker) - 1,
+                        LIST_VISIBLE,
+                    ),
+                );
             }
             return;
         }
@@ -837,7 +876,7 @@ impl Control {
                         FIRST_SOUND_ROW + index
                     }
                 };
-                self.view.highlight(row);
+                self.view.highlight(Picker::Sound, row);
                 self.end_held_repeats();
             }
             ItemKind::PadCopy => {
@@ -980,19 +1019,23 @@ impl Control {
         }
     }
 
-    /// Row `row` of the sound picker: Empty, New synth, then the sounds of the pool in number
-    /// order.
-    fn entry(&self, row: usize) -> Entry<'_> {
-        match row {
-            0 => Entry::Empty,
-            1 => Entry::NewSynth,
-            _ => Entry::Sound(&self.project.pool.sounds()[row - FIRST_SOUND_ROW]),
+    /// Row `row` of `picker`: in the sound picker Empty, New synth, then the sounds of the pool in
+    /// number order; in the Delete picker, Delete.
+    fn entry(&self, picker: Picker, row: usize) -> Entry<'_> {
+        match (picker, row) {
+            (Picker::Sound, 0) => Entry::Empty,
+            (Picker::Sound, 1) => Entry::NewSynth,
+            (Picker::Sound, _) => Entry::Sound(&self.project.pool.sounds()[row - FIRST_SOUND_ROW]),
+            (Picker::Delete(file), _) => Entry::Delete(file),
         }
     }
 
-    /// How many rows the sound picker has.
-    fn picker_rows(&self) -> usize {
-        FIRST_SOUND_ROW + self.project.pool.sounds().len()
+    /// How many rows `picker` has.
+    fn picker_rows(&self, picker: Picker) -> usize {
+        match picker {
+            Picker::Sound => FIRST_SOUND_ROW + self.project.pool.sounds().len(),
+            Picker::Delete(_) => 1,
+        }
     }
 
     /// Shows "Pool full" in red: New synth or Copy made nothing, as the pool holds as many sounds
@@ -1021,7 +1064,26 @@ impl Control {
         if let Some(version) = self.import.use_table() {
             self.send(sample, MessageKind::UseTable { version }, messages);
         }
-        self.request = self.import.request();
+        self.put_request();
+    }
+
+    /// Puts out the next storage request unless one is out: the delete's `Delete` once its turn
+    /// has come, which is at the first gap between the import's requests, and otherwise the
+    /// import's request, unless the delete's waits to be taken.
+    fn put_request(&mut self) {
+        if self.out.is_some() {
+            return;
+        }
+        match self.delete {
+            Some((file, Deleting::Turn)) => {
+                self.request = Some(Request::Delete {
+                    path: self.library.path(file),
+                });
+                self.delete = Some((file, Deleting::Reply));
+            }
+            Some((_, Deleting::Reply)) => {}
+            _ => self.request = self.import.request(),
+        }
     }
 
     /// MENU or PAGE while it is held and counts: the first of them pressed.
@@ -1073,7 +1135,8 @@ impl Control {
     }
 
     /// A button goes up. A tap of PADS/KEYS switches the current track's pad mode, and a tap of
-    /// CANCEL closes the picker without choosing, or on SAMPLES goes up (`cancel_in_samples`).
+    /// CANCEL closes the picker without choosing, answers the question no, or on SAMPLES goes up
+    /// (`cancel_in_samples`).
     fn release(
         &mut self,
         button: Button,
@@ -1091,6 +1154,9 @@ impl Control {
             (Button::Cancel, Release::Tap) if self.view.picker.is_some() => {
                 self.view.picker = None;
                 self.end_held_repeats();
+            }
+            (Button::Cancel, Release::Tap) if self.view.question.is_some() => {
+                self.view.question = None;
             }
             (Button::Cancel, Release::Tap) if self.view.screen == Screen::Samples => {
                 self.cancel_in_samples(sample, messages);

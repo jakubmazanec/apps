@@ -2,14 +2,13 @@ use super::buttons::{HOLD, REPEAT_DELAY, REPEAT_EVERY};
 use super::view::{menu_tiles, page_tiles};
 use super::*;
 use crate::input::VOLUME;
-use crate::library::FileId;
 use crate::memory_storage::MemoryStorage;
 use crate::message::{NoteId, Target};
 use crate::palette::{ACCENT, BACKGROUND, DIM, FAINT, LINE, RECORD, TEXT};
 use crate::param::{CUTOFF, OUTPUT_VOLUME};
 use crate::project::pool::SoundNumber;
 use crate::queue::{Consumer, Queue};
-use crate::sample_ram::{BLOCKS, Listed, SampleRam};
+use crate::sample_ram::SampleRam;
 use crate::screen::{Canvas, Color, HEIGHT, Rect, Screen, WIDTH};
 use crate::storage::Status;
 use crate::ui::frame::{Piece, draw_header, draw_strip};
@@ -1723,54 +1722,4 @@ fn the_control_part_hears_when_its_awaited_message_applied() {
 
     assert!(rig.step(97));
     assert!(!rig.control.awaited.contains(&awaited));
-}
-
-#[test]
-#[allow(unsafe_code)]
-fn only_the_report_of_a_use_table_ends_the_switch_of_tables() {
-    let queue = Queue::new();
-    let mut rig = Rig::new(&queue);
-    // The tables pack as only a deleted file lets them: file 0 goes and leaves room before file
-    // 1, and file 2, every block but the last, does not fit after file 1.
-    let listing = rig.control.library.listing();
-    assert_eq!(
-        listing.add(&rig.tables, FileId(0), [0, 1].into_iter()),
-        Some(Listed::Appended)
-    );
-    assert_eq!(
-        listing.add(&rig.tables, FileId(1), [2].into_iter()),
-        Some(Listed::Appended)
-    );
-    // SAFETY: the audio part was never told about file 0.
-    unsafe { listing.forget(FileId(0)) };
-    let last = BLOCKS as u32 - 1;
-    let rest: Vec<u32> = (0..last).filter(|&block| block != 2).collect();
-    assert_eq!(
-        listing.add(&rig.tables, FileId(2), rest.into_iter()),
-        Some(Listed::Packed { version: 1 })
-    );
-    rig.control.send(
-        64,
-        MessageKind::ForgetSample { file: FileId(1) },
-        &mut rig.producer,
-    );
-    rig.control
-        .send(64, MessageKind::UseTable { version: 1 }, &mut rig.producer);
-
-    rig.control.applied(0, 64);
-    rig.step(65);
-
-    // The listing still waits for the switch, so it writes nothing.
-    let listing = rig.control.library.listing();
-    assert_eq!(
-        listing.add(&rig.tables, FileId(3), [last].into_iter()),
-        None
-    );
-    rig.control.applied(1, 64);
-    rig.step(66);
-    let listing = rig.control.library.listing();
-    assert_eq!(
-        listing.add(&rig.tables, FileId(3), [last].into_iter()),
-        Some(Listed::Appended)
-    );
 }

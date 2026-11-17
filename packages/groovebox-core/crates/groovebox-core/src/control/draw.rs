@@ -1,6 +1,6 @@
 use super::pages::{ItemDef, ItemKind, LIBRARY_METER, Picture};
 use super::samples::{self, rows};
-use super::view::Screen;
+use super::view::{Question, Screen};
 use super::{Control, Entry, HeaderMessage};
 use crate::budget;
 use crate::font::ADVANCE;
@@ -21,6 +21,7 @@ use crate::ui::layout::{
 };
 use crate::ui::list::{Row, draw_rows};
 use crate::ui::plot::draw_line;
+use crate::ui::question::draw_question;
 use crate::ui::text;
 use crate::ui::tiles::{PadTile, draw_pad_tiles, draw_tiles};
 use core::fmt::Write;
@@ -44,9 +45,10 @@ impl Control {
     /// it is shortened with "…" so that the rest of the text fits there.
     ///
     /// The main area shows the page's items with the cursor and the page's picture, the tiles while
-    /// MENU or PAGE is held, or the sound picker while it is open. On STEP it stays empty, as its
-    /// grid comes with the sequencer. SAMPLES shows its rows (`samples_row`) with the cursor, inside
-    /// a folder under a dim line with the folder's path, and the library meter above the strip.
+    /// MENU or PAGE is held, or the picker while one is open. On STEP it stays empty, as its grid
+    /// comes with the sequencer. SAMPLES shows its rows (`samples_row`) with the cursor, inside a
+    /// folder under a dim line with the folder's path, and the library meter above the strip. A
+    /// question shows in a box in the middle of the main area, over what the main area shows.
     /// The strip shows the items that the encoders hold on the page they use, and nothing
     /// while MENU or PAGE is held, the picker is open or SAMPLES shows.
     ///
@@ -173,15 +175,15 @@ impl Control {
         let mut scrolls = false;
         if let Some(tiles) = self.tiles() {
             scrolls = draw_tiles(canvas, &tiles, elapsed);
-        } else if let Some(picker) = self.view.picker {
-            let shown = picker.scroll..self.picker_rows().min(picker.scroll + LIST_VISIBLE);
+        } else if let Some((open, picker)) = self.view.picker {
+            let shown = picker.scroll..self.picker_rows(open).min(picker.scroll + LIST_VISIBLE);
             let mut rows = [Row {
                 left: "",
                 right: None,
                 alert: false,
             }; LIST_VISIBLE];
             for (slot, row) in rows.iter_mut().zip(shown.clone()) {
-                *slot = match self.entry(row) {
+                *slot = match self.entry(open, row) {
                     Entry::Empty => Row {
                         left: "Empty",
                         right: None,
@@ -197,6 +199,11 @@ impl Control {
                         right: Some(match sound.engine {
                             Engine::Synth => "synth",
                         }),
+                        alert: false,
+                    },
+                    Entry::Delete(_) => Row {
+                        left: "Delete",
+                        right: None,
                         alert: false,
                     },
                 };
@@ -371,6 +378,19 @@ impl Control {
                     .find(|item| item.encoder == Some(encoder))
                     .map(|item| self.item_view(item, value));
             }
+        }
+        if let Some(Question::DeleteFile(file)) = self.view.question {
+            let mut question = Label::<{ 7 + 64 + 1 }>::new();
+            write!(
+                question,
+                "Delete {}?",
+                self.library.file(file).name.as_str()
+            )
+            .expect("writing to a label never fails");
+            draw_question(
+                canvas,
+                &[(question.as_str(), TEXT), ("OK deletes, Cancel keeps", DIM)],
+            );
         }
         draw_strip(canvas, &cells);
         self.scrolling.set(scrolls);

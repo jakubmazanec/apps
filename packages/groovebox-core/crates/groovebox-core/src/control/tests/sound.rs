@@ -16,7 +16,7 @@ use crate::ui::tiles::{PadTile, draw_pad_tiles};
 use core::ops::RangeInclusive;
 use std::format;
 use std::string::String;
-use view::Cursor;
+use view::{Cursor, Picker};
 
 /// SOUND's header on T1 in PADS mode, with the sound as the header shows it.
 fn sound_header(sound: (&str, Color)) -> [(&str, Color); 5] {
@@ -175,7 +175,10 @@ fn the_picker_opens_on_the_pads_current_entry() {
     rig.tap(10, Button::Ok);
 
     rig.step(20);
-    assert_eq!(rig.control.view.picker, Some(Cursor { item: 4, scroll: 0 }));
+    assert_eq!(
+        rig.control.view.picker,
+        Some((Picker::Sound, Cursor { item: 4, scroll: 0 }))
+    );
     assert!(shows(
         &rig.control,
         &picker(&sound_header(("Syn 3", TEXT)), &rows, 0, 4)
@@ -187,7 +190,10 @@ fn the_picker_opens_on_the_pads_current_entry() {
     rig.release(50, 1);
     rig.tap(60, Button::Ok);
     rig.step(70);
-    assert_eq!(rig.control.view.picker, Some(Cursor { item: 0, scroll: 0 }));
+    assert_eq!(
+        rig.control.view.picker,
+        Some((Picker::Sound, Cursor { item: 0, scroll: 0 }))
+    );
     assert!(shows(
         &rig.control,
         &picker(&sound_header(("2", DIM)), &rows, 0, 0)
@@ -201,10 +207,13 @@ fn the_picker_opens_on_the_pads_current_entry() {
     rig.step(120);
     assert_eq!(
         rig.control.view.picker,
-        Some(Cursor {
-            item: 26,
-            scroll: 11
-        })
+        Some((
+            Picker::Sound,
+            Cursor {
+                item: 26,
+                scroll: 11
+            }
+        ))
     );
     assert!(shows(
         &rig.control,
@@ -434,17 +443,26 @@ fn cancel_closes_the_picker_on_a_short_release_only() {
     // Neither its press nor a long press closes it.
     rig.press(100, Button::Cancel);
     rig.step(101);
-    assert_eq!(rig.control.view.picker, Some(Cursor { item: 1, scroll: 0 }));
+    assert_eq!(
+        rig.control.view.picker,
+        Some((Picker::Sound, Cursor { item: 1, scroll: 0 }))
+    );
     rig.let_go(100 + HOLD, Button::Cancel);
     rig.step(100 + HOLD + 1);
-    assert_eq!(rig.control.view.picker, Some(Cursor { item: 1, scroll: 0 }));
+    assert_eq!(
+        rig.control.view.picker,
+        Some((Picker::Sound, Cursor { item: 1, scroll: 0 }))
+    );
 
     // Nor does a short one with another control used meanwhile.
     rig.press(20_000, Button::Cancel);
     rig.tap(20_010, Button::Down);
     rig.let_go(20_020, Button::Cancel);
     rig.step(20_030);
-    assert_eq!(rig.control.view.picker, Some(Cursor { item: 2, scroll: 0 }));
+    assert_eq!(
+        rig.control.view.picker,
+        Some((Picker::Sound, Cursor { item: 2, scroll: 0 }))
+    );
 
     // A tap closes it without choosing.
     rig.tap(30_000, Button::Cancel);
@@ -512,7 +530,10 @@ fn with_the_picker_open_pads_sound_but_do_not_select_and_menu_waits() {
         [message(2, 130, note_off(0)), message(3, 140, note_off(1))]
     );
     assert_eq!(rig.control.view.screen, view::Screen::Sound);
-    assert_eq!(rig.control.view.picker, Some(Cursor { item: 2, scroll: 0 }));
+    assert_eq!(
+        rig.control.view.picker,
+        Some((Picker::Sound, Cursor { item: 2, scroll: 0 }))
+    );
     assert_eq!(rig.control.project.track, 0);
     assert_eq!(rig.track().mode, PadMode::Pads);
     assert_eq!(rig.control.project.pool.sounds().len(), 2);
@@ -553,7 +574,7 @@ fn the_picker_keys_move_the_highlight_and_stop_at_the_ends() {
         for &(sample, button, row) in moves {
             rig.tap(sample, button);
             rig.step(sample + 2);
-            let highlight = rig.control.view.picker.map(|picker| picker.item);
+            let highlight = rig.control.view.picker.map(|(_, picker)| picker.item);
             assert_eq!(highlight, Some(row), "{button:?} at {sample}");
         }
     };
@@ -603,7 +624,7 @@ fn shift_with_minus_or_plus_does_nothing_in_the_picker() {
     rig.tap(10, Button::Ok);
     rig.tap(20, Button::Plus);
     rig.tap(30, Button::Plus);
-    let highlight = |rig: &Rig<'_>| rig.control.view.picker.map(|picker| picker.item);
+    let highlight = |rig: &Rig<'_>| rig.control.view.picker.map(|(_, picker)| picker.item);
 
     // SHIFT + - and SHIFT + + are taken at their press: they move nothing, do not repeat and do
     // nothing once SHIFT is let go.
@@ -644,7 +665,10 @@ fn an_arrow_under_pads_keys_does_nothing_in_the_picker() {
     rig.tap(30, Button::Ok);
     rig.step(40);
     let open = picture(&rig.control);
-    assert_eq!(rig.control.view.picker.map(|picker| picker.item), Some(21));
+    assert_eq!(
+        rig.control.view.picker.map(|(_, picker)| picker.item),
+        Some(21)
+    );
 
     // The arrows are taken at their press: in KEYS mode up and down leave the octave too, a held
     // down does not repeat, and letting go of PADS/KEYS first leaves it taken.
@@ -659,7 +683,10 @@ fn an_arrow_under_pads_keys_does_nothing_in_the_picker() {
     rig.press(200, Button::Down);
     rig.let_go(300, Button::PadsKeys);
     rig.step(200 + 3 * REPEAT_DELAY);
-    assert_eq!(rig.control.view.picker.map(|picker| picker.item), Some(21));
+    assert_eq!(
+        rig.control.view.picker.map(|(_, picker)| picker.item),
+        Some(21)
+    );
     assert_eq!(rig.control.buttons.next_repeat(), None);
     assert_eq!(rig.track().octave, 4);
     assert_eq!(rig.track().mode, PadMode::Keys);
@@ -669,7 +696,10 @@ fn an_arrow_under_pads_keys_does_nothing_in_the_picker() {
     rig.let_go(70_000, Button::Down);
     rig.tap(70_100, Button::Down);
     rig.step(70_200);
-    assert_eq!(rig.control.view.picker.map(|picker| picker.item), Some(22));
+    assert_eq!(
+        rig.control.view.picker.map(|(_, picker)| picker.item),
+        Some(22)
+    );
 }
 
 #[test]
@@ -680,7 +710,7 @@ fn an_arrow_under_pads_keys_pressed_in_the_picker_does_nothing() {
     rig.menu(0, 2);
     rig.tap(10, Button::Ok);
     rig.tap(20, Button::Plus);
-    let highlight = |rig: &Rig<'_>| rig.control.view.picker.map(|picker| picker.item);
+    let highlight = |rig: &Rig<'_>| rig.control.view.picker.map(|(_, picker)| picker.item);
 
     // PADS/KEYS pressed with the picker open is dropped, yet it is still held: an arrow under it
     // is taken at its press, does not repeat and stays taken once PADS/KEYS is let go.
@@ -702,7 +732,7 @@ fn opening_the_picker_ends_a_held_arrow() {
     let mut rig = Rig::new(&queue);
     fill(&mut rig, 30);
     rig.menu(0, 2);
-    let highlight = |rig: &Rig<'_>| rig.control.view.picker.map(|picker| picker.item);
+    let highlight = |rig: &Rig<'_>| rig.control.view.picker.map(|(_, picker)| picker.item);
 
     // Down is held on the Pad page when OK opens the picker on Empty: it does not repeat into the
     // picker, which stays on the pad's entry until down is pressed again.
@@ -754,7 +784,7 @@ fn shift_with_an_arrow_does_nothing_in_the_picker_also_after_shift() {
     rig.menu(0, 2);
     rig.tap(10, Button::Ok);
     rig.tap(20, Button::Plus);
-    let highlight = |rig: &Rig<'_>| rig.control.view.picker.map(|picker| picker.item);
+    let highlight = |rig: &Rig<'_>| rig.control.view.picker.map(|(_, picker)| picker.item);
 
     // SHIFT + down is taken at its press like SHIFT + +: letting go of SHIFT first does not wake
     // the held down, which neither moves nor repeats until it is pressed again.
@@ -789,7 +819,7 @@ fn held_down_moves_the_highlight_after_400_ms_every_50_ms() {
     let mut shown = None;
     for sample in 0..=40_000 {
         rig.step(sample + 1);
-        let highlight = rig.control.view.picker.map(|picker| picker.item);
+        let highlight = rig.control.view.picker.map(|(_, picker)| picker.item);
         if highlight != shown {
             moves.push(sample);
             shown = highlight;
@@ -805,7 +835,7 @@ struct Session {
     messages: Vec<Message>,
     /// The lights and the picker after every 4,096 samples.
     lights: Vec<Vec<u32>>,
-    pickers: Vec<Option<Cursor>>,
+    pickers: Vec<Option<(Picker, Cursor)>>,
     last: Screen,
 }
 
@@ -875,18 +905,27 @@ fn the_result_does_not_depend_on_the_step_size() {
     // By 57,344 down has moved the highlight 17 rows; by 61,440 it has moved 18 and left 16 back.
     assert_eq!(
         coarse.pickers[13],
-        Some(Cursor {
-            item: 17,
-            scroll: 2
-        })
+        Some((
+            Picker::Sound,
+            Cursor {
+                item: 17,
+                scroll: 2
+            }
+        ))
     );
-    assert_eq!(coarse.pickers[14], Some(Cursor { item: 2, scroll: 2 }));
+    assert_eq!(
+        coarse.pickers[14],
+        Some((Picker::Sound, Cursor { item: 2, scroll: 2 }))
+    );
     assert_eq!(
         coarse.pickers[21],
-        Some(Cursor {
-            item: 31,
-            scroll: 16
-        })
+        Some((
+            Picker::Sound,
+            Cursor {
+                item: 31,
+                scroll: 16
+            }
+        ))
     );
     assert_eq!(coarse.pickers[23], None);
     assert!(
@@ -1008,7 +1047,10 @@ fn encoders_on_step_act_on_sounds_page() {
     rig.tap(200, Button::Push(0));
     rig.step(210);
     assert_eq!(rig.control.view.screen, view::Screen::Step);
-    assert_eq!(rig.control.view.picker, Some(Cursor { item: 2, scroll: 0 }));
+    assert_eq!(
+        rig.control.view.picker,
+        Some((Picker::Sound, Cursor { item: 2, scroll: 0 }))
+    );
     assert_eq!(sound_cursor(&rig), 0);
     assert!(shows(
         &rig.control,

@@ -7,12 +7,13 @@ use crate::library::wav::{self, Encoding, Format, Ours};
 use crate::library::{Entry, FileId, FolderId};
 use crate::storage::{Memory, Path};
 use crate::ui::list::{Row, draw_rows};
+use crate::ui::question::draw_question;
 use crate::ui::test_pixels::MOVED;
 use crate::ui::text;
 use samples::Row as Line;
 use std::format;
 use std::string::String;
-use view::{Cursor, SamplesView};
+use view::{Cursor, Picker, Question, SamplesView};
 
 impl<'a> Rig<'a> {
     /// A rig before its first step, whose storage holds `files`, each at its path.
@@ -1340,8 +1341,10 @@ fn a_folder_row_ok_cancel_and_leaving_stop_the_preview() {
     rig.tap(110, Button::Up);
     rig.tap(120, Button::Down);
     rig.tap(130, Button::Ok);
+    // OK opened the Delete picker, which CANCEL closes.
+    rig.tap(135, Button::Cancel);
     // A stop with no preview since the last one sends nothing.
-    rig.tap(140, Button::Ok);
+    rig.tap(140, Button::Cancel);
     rig.tap(150, Button::Up);
     rig.tap(160, Button::Down);
     rig.tap(170, Button::Cancel);
@@ -1415,9 +1418,9 @@ fn a_cursor_whose_row_is_gone_moves_to_the_row_above() {
     rig.step(120);
     assert_eq!(rig.control.view.samples.on, Some(Line::File(FileId(2))));
 
-    // Nothing deletes a file yet, so the cursor is put on a file the library does not list.
-    rig.control.view.samples.on = Some(Line::File(FileId(9)));
-    rig.control.keep_samples_cursor();
+    delete_under_cursor(&mut rig, 200);
+    rig.control.applied(2, 224);
+    rig.settle(300);
 
     assert_eq!(
         rig.control.view.samples,
@@ -1579,4 +1582,522 @@ fn a_long_name_scrolls_under_the_cursor() {
         )
     ));
     assert!(!shows(&rig.control, &samples(None, &rows, TOP, &meter)));
+}
+
+/// Asks from `sample` on to delete the file under SAMPLES' cursor: OK opens the Delete picker, OK
+/// on Delete opens the question and OK answers it, 10 samples apart.
+fn delete_under_cursor(rig: &mut Rig<'_>, sample: u64) {
+    for tap in 0..3 {
+        rig.tap(sample + 10 * tap, Button::Ok);
+    }
+    rig.step(sample + 30);
+}
+
+fn forget(file: u16) -> MessageKind {
+    MessageKind::ForgetSample { file: FileId(file) }
+}
+
+/// The rows of drums/ in `three_files`.
+fn drums_rows() -> [Row<'static>; 3] {
+    [
+        row("..", None),
+        row("808/", None),
+        row("clap.wav", Some("0.1 s  10 KB")),
+    ]
+}
+
+#[test]
+fn ok_on_a_file_opens_the_delete_picker_and_stops_the_preview() {
+    let queue = Queue::new();
+    let mut rig = on_samples(&queue, &three_files());
+    rig.tap(100, Button::Down);
+
+    rig.tap(200, Button::Ok);
+    rig.step(210);
+
+    assert_eq!(
+        rig.sent(),
+        [
+            message(0, 100, preview(0, 48_000)),
+            message(1, 200, MessageKind::StopPreview)
+        ]
+    );
+    assert_eq!(
+        rig.control.view.picker,
+        Some((Picker::Delete(FileId(0)), TOP))
+    );
+    assert!(shows(
+        &rig.control,
+        &drawn(
+            &SAMPLES_HEADER,
+            None,
+            |screen| {
+                draw_rows(screen, 17, 16, &[row("Delete", None)], 0, Some(0), 0);
+            },
+            &[None; 4],
+        )
+    ));
+
+    rig.tap(300, Button::Cancel);
+    rig.step(310);
+
+    assert_eq!(rig.sent(), []);
+    assert_eq!(rig.control.view.picker, None);
+    assert!(shows(
+        &rig.control,
+        &samples(
+            None,
+            &[row("drums/", None), row("Bass.wav", Some("1.0 s  96 KB"))],
+            Cursor { item: 1, scroll: 0 },
+            &three_files_meter()
+        )
+    ));
+}
+
+#[test]
+fn the_question_names_the_file_and_only_ok_and_cancel_answer_it() {
+    let queue = Queue::new();
+    let mut rig = on_samples(&queue, &three_files());
+    let syn_1 = rig.synth_on(1);
+    rig.tap(100, Button::Ok);
+    rig.tap(110, Button::Right);
+    rig.tap(200, Button::Ok);
+    rig.tap(210, Button::Ok);
+    rig.step(220);
+    rig.sent();
+    let at_clap = Cursor { item: 2, scroll: 0 };
+    let mut question = samples(Some("drums/"), &drums_rows(), at_clap, &three_files_meter());
+    draw_question(
+        &mut question,
+        &[
+            ("Delete clap.wav?", TEXT),
+            ("OK deletes, Cancel keeps", DIM),
+        ],
+    );
+    assert_eq!(
+        rig.control.view.question,
+        Some(Question::DeleteFile(FileId(2)))
+    );
+    assert!(shows(&rig.control, &question));
+
+    // The arrows, - and + do nothing, an encoder does nothing and MENU waits; a pad sounds but
+    // does not select.
+    rig.tap(300, Button::Down);
+    rig.tap(310, Button::Minus);
+    rig.turn(320, 0, 1);
+    rig.menu(330, 0);
+    rig.hit(340, 1, 100);
+    rig.release(350, 1);
+    rig.step(360);
+
+    assert_eq!(
+        rig.sent(),
+        [
+            message(2, 340, note_on(0, 0, syn_1, 60, 100)),
+            message(3, 350, note_off(0))
+        ]
+    );
+    assert_eq!(rig.track().selected_pad, Some(0));
+    assert!(shows(&rig.control, &question));
+
+    rig.tap(400, Button::Cancel);
+    rig.step(410);
+
+    assert_eq!(rig.sent(), []);
+    assert_eq!(rig.control.view.question, None);
+    assert!(shows(
+        &rig.control,
+        &samples(Some("drums/"), &drums_rows(), at_clap, &three_files_meter())
+    ));
+}
+
+#[test]
+fn ok_deletes_after_the_audio_part_let_go() {
+    let queue = Queue::new();
+    let mut rig = on_samples(&queue, &three_files());
+    rig.tap(100, Button::Ok);
+    rig.tap(110, Button::Right);
+
+    delete_under_cursor(&mut rig, 200);
+
+    assert_eq!(
+        rig.sent(),
+        [
+            message(0, 110, preview(2, 4_800)),
+            message(1, 200, MessageKind::StopPreview),
+            message(2, 220, forget(2))
+        ]
+    );
+    assert_eq!(rig.control.view.question, None);
+    // Until the audio part let go, nothing goes to the storage, moving back onto clap.wav plays
+    // nothing and OK on it offers no second delete.
+    rig.tap(300, Button::Up);
+    rig.tap(310, Button::Down);
+    rig.tap(320, Button::Ok);
+    rig.step(330);
+    assert_eq!(rig.control.take_request(), None);
+    assert_eq!(rig.sent(), []);
+    assert_eq!(rig.control.view.picker, None);
+
+    rig.control.applied(2, 224);
+    rig.step(400);
+
+    assert_eq!(
+        rig.serve(400),
+        Request::Delete {
+            path: path("samples/drums/clap.wav")
+        }
+    );
+    rig.step(401);
+    assert_eq!(rig.control.take_request(), None);
+    assert_eq!(
+        stored(&rig),
+        ["samples/Bass.wav", "samples/drums/808/kick.wav"]
+    );
+    let drums: Vec<_> = rig.control.library.entries(Some(FolderId(0))).collect();
+    assert_eq!(drums, [Entry::Folder(FolderId(1))]);
+    assert_eq!(rig.control.message, None);
+    assert_eq!(rig.sent(), []);
+}
+
+#[test]
+fn blocks_are_reused_only_after_the_audio_part_let_go() {
+    let queue = Queue::new();
+    let mut rig = on_samples(&queue, &three_files());
+    rig.tap(100, Button::Ok);
+    rig.tap(110, Button::Right);
+    // clap.wav is previewing when it is deleted.
+    delete_under_cursor(&mut rig, 200);
+    let into = |requests: &[Request]| {
+        requests.iter().find_map(|request| match *request {
+            Request::Append {
+                from: Memory::SampleRam,
+                offset,
+                ..
+            } => Some(offset / 2_048),
+            _ => None,
+        })
+    };
+
+    // kick.wav takes blocks 0 to 14, clap.wav 15 to 19 and Bass.wav 20 to 66, so a drop imported
+    // while the report is pending gets block 67.
+    rig.drop_files(300, &[("tmp/1/Arp.wav", short(100.0, 0.01))]);
+    let requests = rig.settle(310);
+    assert_eq!(into(&requests), Some(67));
+
+    rig.control.applied(2, 224);
+    rig.settle(400);
+    rig.drop_files(500, &[("tmp/2/Bell.wav", short(200.0, 0.01))]);
+    let requests = rig.settle(510);
+
+    assert_eq!(into(&requests), Some(15));
+}
+
+#[test]
+fn deleting_the_last_file_of_a_folder_shows_the_folder_above() {
+    let queue = Queue::new();
+    let mut rig = on_samples(&queue, &three_files());
+    rig.tap(100, Button::Ok);
+    rig.tap(110, Button::Down);
+    rig.tap(120, Button::Ok);
+    rig.tap(130, Button::Down);
+
+    delete_under_cursor(&mut rig, 200);
+    rig.control.applied(2, 224);
+    rig.settle(300);
+
+    // 808/ is gone, so SAMPLES shows drums/ with the cursor on "..", the row above where 808/ was.
+    assert_eq!(stored(&rig), ["samples/Bass.wav", "samples/drums/clap.wav"]);
+    assert_eq!(
+        rig.control.view.samples,
+        SamplesView {
+            folder: Some(FolderId(0)),
+            cursor: TOP,
+            on: Some(Line::Up)
+        }
+    );
+    assert!(shows(
+        &rig.control,
+        &samples(
+            Some("drums/"),
+            &[row("..", None), row("clap.wav", Some("0.1 s  10 KB"))],
+            TOP,
+            &meter("0.1 of 64 MB", 109)
+        )
+    ));
+    assert_eq!(rig.sent()[2..], [message(2, 220, forget(1))]);
+
+    // Two folders emptied at once: SAMPLES shows the top level, the cursor on the row above x/.
+    let queue = Queue::new();
+    let mut rig = on_samples(
+        &queue,
+        &[
+            ("samples/a/b.wav", converted(100, 1)),
+            ("samples/x/y/z.wav", converted(100, 1)),
+        ],
+    );
+    rig.tap(100, Button::Down);
+    rig.tap(110, Button::Ok);
+    rig.tap(120, Button::Down);
+    rig.tap(130, Button::Ok);
+    rig.tap(140, Button::Down);
+
+    delete_under_cursor(&mut rig, 200);
+    rig.control.applied(2, 224);
+    rig.settle(300);
+
+    assert_eq!(stored(&rig), ["samples/a/b.wav"]);
+    assert_eq!(
+        rig.control.view.samples,
+        SamplesView {
+            folder: None,
+            cursor: TOP,
+            on: Some(Line::Folder(FolderId(0)))
+        }
+    );
+}
+
+#[test]
+fn a_not_loaded_file_is_deleted_from_storage_only() {
+    let queue = Queue::new();
+    let plain = wav::sine(440.0, 0.5, 44_100, Encoding::Int16, 1);
+    let mut rig = on_samples(
+        &queue,
+        &[
+            ("samples/Bass.wav", converted(48_000, 1)),
+            ("samples/plain.wav", plain),
+        ],
+    );
+    rig.tap(100, Button::Down);
+
+    delete_under_cursor(&mut rig, 200);
+
+    assert_eq!(rig.sent(), []);
+    assert_eq!(
+        rig.serve(300),
+        Request::Delete {
+            path: path("samples/plain.wav")
+        }
+    );
+    rig.step(301);
+    assert_eq!(stored(&rig), ["samples/Bass.wav"]);
+    assert_eq!(entries(&rig), [Entry::File(FileId(0))]);
+    assert_eq!(rig.control.library.used(), 47 * 2_048);
+    assert_eq!(rig.control.view.samples.on, Some(Line::File(FileId(0))));
+}
+
+#[test]
+fn the_meter_drops_once_the_blocks_are_free() {
+    let queue = Queue::new();
+    let mut rig = on_samples(&queue, &three_files());
+    rig.tap(100, Button::Down);
+    delete_under_cursor(&mut rig, 200);
+
+    rig.control.applied(2, 224);
+    rig.step(300);
+
+    // The audio part let go of Bass.wav, but the storage still holds it.
+    assert_eq!(rig.control.library.used(), 67 * 2_048);
+    rig.settle(300);
+    // Its 47 blocks are free: 20 blocks fill 41 of 65,535.
+    assert_eq!(rig.control.library.used(), 20 * 2_048);
+    assert!(shows(
+        &rig.control,
+        &samples(
+            None,
+            &[row("drums/", None)],
+            TOP,
+            &meter("0.0 of 64 MB", 41)
+        )
+    ));
+}
+
+#[test]
+fn a_failed_delete_keeps_the_file_and_says_so() {
+    let queue = Queue::new();
+    let mut rig = on_samples(&queue, &three_files());
+    rig.tap(100, Button::Ok);
+    rig.tap(110, Button::Right);
+    delete_under_cursor(&mut rig, 200);
+    rig.control.applied(2, 224);
+    rig.step(300);
+
+    assert_eq!(
+        rig.fail(300),
+        Request::Delete {
+            path: path("samples/drums/clap.wav")
+        }
+    );
+    rig.step(301);
+
+    let mut text = Label::new();
+    text.push_str("clap.wav not deleted");
+    assert_eq!(
+        rig.control.message,
+        Some(HeaderMessage {
+            text,
+            color: RECORD,
+            name: (0, 8)
+        })
+    );
+    let drums: Vec<_> = rig.control.library.entries(Some(FolderId(0))).collect();
+    assert_eq!(drums, [Entry::Folder(FolderId(1)), Entry::File(FileId(2))]);
+    assert_eq!(rig.control.library.used(), 67 * 2_048);
+    // It plays again from the next preview.
+    rig.sent();
+    rig.tap(400, Button::Up);
+    rig.tap(410, Button::Down);
+    rig.step(420);
+    assert_eq!(rig.sent(), [message(3, 410, preview(2, 4_800))]);
+}
+
+#[test]
+fn a_file_the_storage_no_longer_holds_is_deleted_all_the_same() {
+    let queue = Queue::new();
+    let mut rig = on_samples(&queue, &three_files());
+    rig.tap(100, Button::Down);
+    delete_under_cursor(&mut rig, 200);
+    rig.control.applied(2, 224);
+    rig.step(300);
+
+    let (number, _) = rig.control.take_request().expect("a request is out");
+    let missing = Reply {
+        number,
+        status: Status::Missing,
+        value: 0,
+    };
+    assert_eq!(rig.control.queue_reply(300, missing), Ok(()));
+    rig.step(301);
+
+    assert_eq!(entries(&rig), [Entry::Folder(FolderId(0))]);
+    assert_eq!(rig.control.message, None);
+}
+
+#[test]
+fn a_delete_during_an_import_goes_out_between_its_requests() {
+    let queue = Queue::new();
+    let mut rig = on_samples(&queue, &three_files());
+    rig.tap(100, Button::Ok);
+    rig.tap(110, Button::Right);
+    rig.drop_files(150, &[("tmp/1/Arp.wav", short(100.0, 0.01))]);
+    rig.step(151);
+    // The import's listing is out, and its reply comes at 400.
+    assert_eq!(
+        rig.serve(400),
+        Request::List {
+            folder: path("tmp/1"),
+            from: 0
+        }
+    );
+
+    delete_under_cursor(&mut rig, 200);
+    rig.control.applied(2, 224);
+    rig.step(300);
+    assert_eq!(rig.control.take_request(), None);
+    rig.step(401);
+
+    assert_eq!(
+        rig.serve(401),
+        Request::Delete {
+            path: path("samples/drums/clap.wav")
+        }
+    );
+    rig.step(402);
+    assert_eq!(
+        rig.serve(402),
+        Request::Read {
+            file: path("tmp/1/Arp.wav"),
+            at: 0,
+            length: 65_536
+        }
+    );
+    rig.settle(403);
+    assert_eq!(
+        stored(&rig),
+        [
+            "samples/Arp.wav",
+            "samples/Bass.wav",
+            "samples/drums/808/kick.wav"
+        ]
+    );
+    assert_eq!(rig.control.library.used(), 63 * 2_048);
+}
+
+/// a.wav and b.wav, which take every block of the sample RAM: 20,000 and 11,250 blocks.
+fn two_files_filling_the_ram() -> [(&'static str, Vec<u8>); 2] {
+    [
+        ("samples/a.wav", converted(20_000 * 1_024, 1)),
+        ("samples/b.wav", converted(11_250 * 1_024, 1)),
+    ]
+}
+
+#[test]
+fn an_import_after_a_delete_packs_the_tables_before_its_preview() {
+    let queue = Queue::new();
+    let mut rig = on_samples(&queue, &two_files_filling_the_ram());
+    delete_under_cursor(&mut rig, 100);
+    rig.control.applied(0, 128);
+    rig.settle(200);
+
+    // c.wav takes one of a.wav's blocks, but its slice does not fit after b.wav's, which ends at
+    // the last entry of the table.
+    rig.drop_files(300, &[("tmp/1/c.wav", short(100.0, 0.01))]);
+    rig.settle(310);
+    rig.tap(400, Button::Down);
+    rig.step(410);
+
+    assert_eq!(
+        rig.sent(),
+        [
+            message(0, 120, forget(0)),
+            message(1, 310, MessageKind::UseTable { version: 1 }),
+            message(2, 400, preview(0, 480))
+        ]
+    );
+}
+
+#[test]
+fn only_the_report_of_a_use_table_ends_the_switch_of_tables() {
+    let queue = Queue::new();
+    let mut rig = on_samples(&queue, &two_files_filling_the_ram());
+    delete_under_cursor(&mut rig, 100);
+    rig.control.applied(0, 128);
+    rig.settle(200);
+    // b.wav's `ForgetSample` goes before c.wav packs the tables, and d.wav waits for the switch.
+    delete_under_cursor(&mut rig, 300);
+    rig.drop_files(
+        400,
+        &[
+            ("tmp/1/c.wav", short(100.0, 0.01)),
+            ("tmp/2/d.wav", short(200.0, 0.01)),
+        ],
+    );
+    rig.settle(410);
+    assert_eq!(
+        rig.sent(),
+        [
+            message(0, 120, forget(0)),
+            message(1, 320, forget(1)),
+            message(2, 410, MessageKind::UseTable { version: 1 })
+        ]
+    );
+    assert_eq!(rig.control.request, None);
+
+    // The report of b.wav's `ForgetSample` lets its delete go on, but d.wav still waits.
+    rig.control.applied(1, 416);
+    let requests = rig.settle(500);
+    assert_eq!(
+        requests,
+        [Request::Delete {
+            path: path("samples/b.wav")
+        }]
+    );
+    assert_eq!(rig.control.request, None);
+
+    rig.control.applied(2, 416);
+    let requests = rig.settle(600);
+
+    assert_eq!(requests.first(), Some(&Request::Free));
+    assert_eq!(stored(&rig), ["samples/c.wav", "samples/d.wav"]);
+    assert_eq!(rig.control.library.used(), 2 * 2_048);
 }

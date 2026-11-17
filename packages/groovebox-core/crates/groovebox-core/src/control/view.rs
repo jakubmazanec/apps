@@ -1,7 +1,7 @@
 use super::pages::{MENU, PageDef};
 use super::samples::Row;
 use crate::input::{Button, STEPS};
-use crate::library::FolderId;
+use crate::library::{FileId, FolderId};
 use crate::ui::layout::{LIST_VISIBLE, PAGE_VISIBLE, SAMPLES_VISIBLE};
 use crate::ui::tiles::{Tile, TileState};
 
@@ -79,9 +79,23 @@ impl SamplesView {
     }
 }
 
+/// A picker: the sound picker of the selected pad, or the Delete picker of a file of SAMPLES.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Picker {
+    Sound,
+    Delete(FileId),
+}
+
+/// A question, which only OK and CANCEL answer.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Question {
+    /// "Delete clap.wav?"
+    DeleteFile(FileId),
+}
+
 /// What the screen shows: the screen, the page each screen shows, the cursor of each page, SAMPLES'
-/// folder and cursor and the sound picker while it is open. They are kept while the control part
-/// lives and are not saved.
+/// folder and cursor and a picker or a question while one is open. They are kept while the control
+/// part lives and are not saved.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct View {
     pub screen: Screen,
@@ -90,13 +104,15 @@ pub struct View {
     /// The cursor of each page, by screen and page.
     cursors: [[Cursor; PAGES]; SCREENS],
     pub samples: SamplesView,
-    /// The sound picker while it is open over the main area of `screen`, with its highlight.
-    pub picker: Option<Cursor>,
+    /// The picker while it is open over the main area of `screen`, with its highlight.
+    pub picker: Option<(Picker, Cursor)>,
+    /// The question while it is open over the middle of the main area of `screen`.
+    pub question: Option<Question>,
 }
 
 impl View {
     /// STEP, where a new project opens, with every screen on its first page, every cursor on the
-    /// first item, SAMPLES at the top level and no picker open.
+    /// first item, SAMPLES at the top level and no picker or question open.
     pub const fn new() -> Self {
         Self {
             screen: Screen::Step,
@@ -108,6 +124,7 @@ impl View {
                 on: None,
             },
             picker: None,
+            question: None,
         }
     }
 
@@ -151,14 +168,17 @@ impl View {
         }
     }
 
-    /// Highlights row `row` of the picker, opening it when it is closed, and scrolls it as far as
-    /// it must to keep the row on the screen.
-    pub fn highlight(&mut self, row: usize) {
-        let scroll = self.picker.map_or(0, |picker| picker.scroll);
-        self.picker = Some(Cursor {
-            item: row,
-            scroll: scrolled(row, scroll, LIST_VISIBLE),
-        });
+    /// Highlights row `row` of `picker`, opening it when it is closed, and scrolls it as far as it
+    /// must to keep the row on the screen.
+    pub fn highlight(&mut self, picker: Picker, row: usize) {
+        let scroll = self.picker.map_or(0, |(_, highlight)| highlight.scroll);
+        self.picker = Some((
+            picker,
+            Cursor {
+                item: row,
+                scroll: scrolled(row, scroll, LIST_VISIBLE),
+            },
+        ));
     }
 }
 

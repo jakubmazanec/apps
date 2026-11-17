@@ -100,12 +100,39 @@ impl Library {
             .expect("the file is listed")
     }
 
-    /// The control side of the block tables.
-    // shortcut: a test packs the tables by hand, since nothing lets go of a file yet; drive it
-    // through a delete once one exists.
-    #[cfg(test)]
-    pub fn listing(&mut self) -> &mut Listing {
-        &mut self.listing
+    /// The folders that hold nothing but `file`, from its own folder up: those that `remove`
+    /// unlists with it.
+    pub fn emptied_by(&self, file: FileId) -> impl Iterator<Item = FolderId> + '_ {
+        core::iter::successors(self.file(file).folder, |&folder| self.folder(folder).parent)
+            .take_while(|&folder| self.entries(Some(folder)).nth(1).is_none())
+    }
+
+    /// Unlists `file` and the folders it leaves empty, and gives its blocks back when it is
+    /// loaded.
+    ///
+    /// # Safety
+    ///
+    /// The audio part has let go of `file` or was never told about it (`Listing::forget`).
+    #[allow(unsafe_code)]
+    pub unsafe fn remove(&mut self, file: FileId, tables: &Tables) {
+        let File {
+            mut folder, loaded, ..
+        } = *self.file(file);
+        if loaded {
+            for block in self.listing.blocks(tables, file) {
+                self.blocks.give_back(block);
+            }
+            // SAFETY: the caller promises that the audio part let go of the file.
+            unsafe { self.listing.forget(file) };
+        }
+        self.unlist(Entry::File(file));
+        self.files[usize::from(file.0)] = None;
+        while let Some(empty) = folder.filter(|&folder| self.entries(Some(folder)).next().is_none())
+        {
+            folder = self.folder(empty).parent;
+            self.unlist(Entry::Folder(empty));
+            self.folders[usize::from(empty.0)] = None;
+        }
     }
 
     /// The bytes of the sample RAM that the files take: their blocks, whole.
@@ -197,6 +224,16 @@ impl Library {
         self.tree.copy_within(place..self.listed, place + 1);
         self.tree[place] = entry;
         self.listed += 1;
+    }
+
+    /// Takes `entry` out of SAMPLES' order.
+    fn unlist(&mut self, entry: Entry) {
+        let place = self.tree[..self.listed]
+            .iter()
+            .position(|&listed| listed == entry)
+            .expect("the entry is listed");
+        self.tree.copy_within(place + 1..self.listed, place);
+        self.listed -= 1;
     }
 
     fn parent(&self, entry: Entry) -> Option<FolderId> {
