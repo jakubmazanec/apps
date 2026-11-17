@@ -142,10 +142,11 @@ column of STEP ("Žluťoučký k…") **(my call: 12)**.
 - **A parameter item** looks the same everywhere: name at the left (dim), value at the right
   (bright), 3 px inside; under them, after 1 px, a 2 px bar across the item (a faint track, the
   accent fill), then 1 px; 17 px tall. In the strip, on a screen's page and in the NOTE panel alike.
-  An empty item draws nothing. On a page, an item an encoder holds shows the encoder's number before
-  its name, dim, the way the MENU and PAGE tiles carry their numbers; items without an encoder leave
-  that column blank, so the names stay aligned **(owner's choice)**. The strip needs no mark: its
-  cells sit under the encoders.
+  The fill's width is the value's share of the bar's width rounded to the nearest pixel, for every
+  bar including the library meter's **(owner's choice)**. An empty item draws nothing. On a page, an
+  item an encoder holds shows the encoder's number before its name, dim, the way the MENU and PAGE
+  tiles carry their numbers; items without an encoder leave that column blank, so the names stay
+  aligned **(owner's choice)**. The strip needs no mark: its cells sit under the encoders.
 - **The cursor** is an orange outline 1 px outside whatever it is on: an item, a cell, a list row, a
   picker row, a tile. It is the one "you are here" colour. Items and rows are 1 px apart, so the
   outline uses the gap.
@@ -200,8 +201,8 @@ the owner "for now", expected to change with testing.
   while recording; a small metronome icon while the metronome is on; "Mute 2 4" while tracks are
   muted.
 - **A message** replaces the transport group, in red for errors (Storage full. Not saved; kick.wav
-  not imported: library full) and in the accent for notices (2 samples missing; Loading library),
-  until a later press of a button clears it **(owner's choice)**:
+  not imported: library full; Library can't be read) and in the accent for notices (2 samples
+  missing; Loading library), until a later press of a button clears it **(owner's choice)**:
   - The presses that clear it are the 22 function buttons, a step and an encoder push. The press
     that caused the message does not count, and the clearing press still acts. Pads, MIDI notes,
     turns and the volume do not clear it.
@@ -330,8 +331,10 @@ shows the filter's curve with a faint line at the cutoff. Richer graphics come l
   "/" and a file as its stored name with ".wav", its length and size dim at the right; a file
   start-up could not load in red with "not loaded". Inside a folder a dim line names the folder and
   the first row is "..", as in the picture of the sample picker; at the top level both are left out.
-  The library meter is an item above the strip ("Library", "41.2 of 64 MB" and the 2 px bar, full
-  width), never a cursor target; the strip empty.
+  A folder line too wide for its row is cut at its start with "…", as in "…808 collection/long
+  names/", so the folder you are in always shows **(owner's choice)**. The library meter is an item
+  above the strip ("Library", "41.2 of 64 MB" and the 2 px bar, full width), never a cursor target;
+  the strip empty.
 
 Rejected: a CPU meter on the Dev page **(owner's choice)**; a measured time comes from a clock
 outside the core and differs per machine and per run, so a frame showing it could never be
@@ -398,6 +401,8 @@ Unless CANCEL or COPY is held, a pad lit by its selection or by a note does not 
 held, every pad it would erase or copy blinks, the selected pad included. The control part works the
 pad lights out **(owner's choice)**.
 
+T1 and pad 1 stay lit while "Loading library" shows **(owner's choice)**.
+
 With dimming, pads with a sound are dim and the selected one bright, and the five black-key
 positions are dimmer in Keys mode.
 
@@ -463,8 +468,10 @@ stamp. The core decides taps and holds; the shell never does.
   imported" in the accent, or in red "2 files imported, 1 not: library full" or "kick.wav not
   imported: library full". The reasons are library full, storage full and can't be read, each listed
   once in that order: "5 files imported, 3 not: library full, can't be read". A name too long for
-  the header is shortened with "…" so that the rest of the message shows. A refused file does not
-  stop the ones after it **(owner's choice)**.
+  the header is shortened with "…" so that the rest of the message shows; a message still too wide
+  for the room right of the header's left pieces is shortened with "…" before it reaches them, so it
+  never draws over the screen name **(owner's choice)**. A refused file does not stop the ones after
+  it **(owner's choice)**.
 - **What the shell never does:** draw anything of its own on the screen, decide a tap or a hold,
   latch a modifier, or scale the screen by a fraction **(my call)**.
 
@@ -483,12 +490,14 @@ frames are first recorded from the implementation that matches.
 On top of the other specs' testing:
 
 - **Ordinary tests**: the layout rules as pure functions (text rows 13 px, items 17 px, the cursor 1
-  px outside, 2 px container padding, 1 px elsewhere); shortening with "…"; scrolling text: only
-  under the cursor, the pause, a pixel at a time, the loop and its gap, the cut at the box's edges;
-  the header's content per state; the library meter showing the same number on POOL, SAMPLES and in
-  the sample picker; the strip's cells, empty on lists, in pickers and in questions; the encoder
-  marks on a page; a page's scrolling; STEP's page arithmetic in 4/4, 3/4, 7/8 and 5/4; ROLL's rows;
-  the palette's entries; the keyboard and MIDI maps; tap-and-hold forwarding.
+  px outside, 2 px container padding, 1 px elsewhere); shortening with "…", including a folder line
+  cut at its start and a header message cut before the left pieces; bar fills rounded to the nearest
+  pixel at their boundaries; scrolling text: only under the cursor, the pause, a pixel at a time,
+  the loop and its gap, the cut at the box's edges; the header's content per state; the library
+  meter showing the same number on POOL, SAMPLES and in the sample picker; the strip's cells, empty
+  on lists, in pickers and in questions; the encoder marks on a page; a page's scrolling; STEP's
+  page arithmetic in 4/4, 3/4, 7/8 and 5/4; ROLL's rows; the palette's entries; the keyboard and
+  MIDI maps; tap-and-hold forwarding.
 - **Drift scenes**: every gallery state captured as a frame.
 - **The gallery** itself, with the PNGs beside it.
 

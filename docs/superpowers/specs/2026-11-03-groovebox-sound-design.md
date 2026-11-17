@@ -243,9 +243,10 @@ oscillator's level are 0. Every number is a constant tuned by ear.
   music can steal it. It plays when the arrows or − and + move the highlight onto a file, and it
   stops when the highlight leaves the file: onto another file, which starts that file's; onto a
   folder row, which plays nothing. Nothing else starts it: not opening the list; not coming back to
-  it from the picker with DELETE or from a question; not a delete that moves the cursor. OK, CANCEL,
-  STOP while stopped and leaving the SAMPLES screen fade it out within one 32-sample chunk; holding
-  MENU or PAGE without choosing a screen does not. It works while the music plays.
+  it from the picker with DELETE or from a question; not a delete that moves the cursor; not moving
+  onto the file being deleted while its delete runs. OK, CANCEL, STOP while stopped and leaving the
+  SAMPLES screen fade it out within one 32-sample chunk; holding MENU or PAGE without choosing a
+  screen does not. It works while the music plays.
 - **STOP pressed while stopped silences everything in one step (owner's choice):** every sounding
   note fades out within one 32-sample chunk, as a taken voice does, instead of playing its release,
   the preview stops and every effect slot's memory on all tracks is cleared, applied by the audio
@@ -351,7 +352,8 @@ and others, each one more type that any slot can hold.
 
 - **Accepted:** WAV files at 16, 24 or 32 bits (integer or floating point), any sample rate, mono or
   stereo. AIFF can come later. Only names ending in .wav, in any case, count: the other files of a
-  drop are skipped and not mentioned **(owner's choice)**.
+  drop are skipped and not mentioned. So is anything hidden: a name that starts with "." and
+  everything inside a folder whose name starts with "." **(owner's choice)**.
 - **Converted once, when imported,** by the core, so a device imports exactly the same way:
   - high-quality conversion to 48 kHz;
   - mono or stereo kept as in the file;
@@ -365,22 +367,26 @@ and others, each one more type that any slot can hold.
 - **The root note** comes from the file's sampler information (the WAV `smpl` chunk), otherwise from
   a note name in the file name such as `Bass_C2.wav`, otherwise C4. It can always be changed. There
   is no automatic pitch detection in part 1.
-- **Loop points** come from the file's sampler information too.
+- **Loop points** come from the file's sampler information too. The import reads only the first 64
+  KB of a file, so a file whose sampler information lies after that point, as it does after long
+  audio, imports without it: the root note comes from the name or is C4, and there is no loop
+  **(owner's choice)**.
 - **The file's root note and loop points are the defaults a new sound takes;** the sound's own
   values live in the project (Project model).
-- **Names.** Import cleans each file name down to a small set of safe characters and settles a name
-  that is already in the library by the fingerprint: identical audio reuses the existing file,
-  different audio gets a new name. The Project model has the rules.
+- **Names.** Import cleans each file name down to a small set of safe characters. A name that is
+  already taken in its folder, ignoring case, is replaced by the dropped file, whatever its sound:
+  nothing is compared and nothing is numbered **(owner's choice)**. The Project model has the rules.
 - **Length and size.** Import gives each file a length and a size, which the sample picker, POOL and
   the SAMPLES screen show (Workflow A, Project model).
 - **Import is the only place a sample is refused.** A file is refused with a clear message in three
   cases **(owner's choice)**: the device cannot read it (8-bit, compressed, more than two channels
   or damaged), "kick.wav not imported: can't be read"; the library is full, whether in the sample
   RAM, in files or in folders, "kick.wav not imported: library full"; or storage is full, since the
-  converted file would reach into the storage reserve, "kick.wav not imported: storage full". Over
-  several files the header counts them and lists each reason once, "5 files imported, 3 not: library
-  full, can't be read" (Look). The other files of a dropped folder still import. The picker never
-  refuses a sample, since everything in the library is already in RAM.
+  converted file would reach into the storage reserve or storage fills up while it is being written,
+  "kick.wav not imported: storage full". Over several files the header counts them and lists each
+  reason once, "5 files imported, 3 not: library full, can't be read" (Look). The other files of a
+  dropped folder still import. The picker never refuses a sample, since everything in the library is
+  already in RAM.
 
 ## Parameters
 

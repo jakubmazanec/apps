@@ -128,9 +128,9 @@ called on time and its control part runs the rest of the time.
   and hardware are designed. Later, recording writes straight into the library in RAM, as on the
   EP-133.
 - A library on storage bigger than the sample RAM can only follow a hardware change or a lowered
-  budget. Start-up then loads files in the order SAMPLES lists them until the RAM is full, leaves
-  the rest unloaded and marked on SAMPLES, and says so in one line (see the Project model, "Starting
-  up").
+  budget. Start-up then loads files in the order SAMPLES lists them until one does not fit; that
+  file and every file after it stay unloaded and marked on SAMPLES, even a smaller one that would
+  fill the gap, and one line says so (see the Project model, "Starting up").
 
 Rejected: **a budget per project, the first design.** The library sat on storage and could be far
 bigger than RAM; opening a project copied the samples its sounds used into RAM within 64 MB per
@@ -391,7 +391,11 @@ need a parser, versioning and reloading for something that code changes already 
   (the library at start-up and each dropped file) and the sample at which each storage reply
   arrived, so a session replays on its own, without the storage it was recorded on **(owner's
   choice)**. Such session files can be big, which is accepted. A scene written by hand makes its
-  files with a line that generates them, such as a sine tone.
+  files with a line that generates them, such as a sine tone. The source
+  `ours <hz> <seconds> <channels>` makes a file as the device's import writes it (48 kHz, 16 bits,
+  our private chunk, root C4, no loop), and the source `base64` gives the bytes themselves, where a
+  bare `base64` is an empty file. A path in a scene is one word: a space is written `%20` and a
+  percent sign `%25`, so a path may hold spaces **(owner's choice)**.
 - **Rule checks.** The core does not use Rust's allocation library, so an accidental allocation
   fails to compile. The core is also built for a target without Rust's standard library, which
   proves it never relies on one. Tests check that no "not a number" value reaches the output.

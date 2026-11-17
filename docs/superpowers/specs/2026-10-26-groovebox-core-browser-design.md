@@ -342,6 +342,9 @@ Spec: [Project model](./2026-11-06-groovebox-project-model-design.md). In short:
   project, the projects beside it **(decided)**. Samples get in now by dropping files on the shell;
   projects out, backup and restore are the companion's job in part 2 **(decided)**. A SAMPLES screen
   (MENU + 10) deletes library files after a question, like POOL and PROJECT **(decided)**.
+- **A dropped file whose name is already taken in its folder replaces the old file,** whatever its
+  sound; nothing is numbered. Library names sort with numbers by value: kick 1, kick 2, kick 10
+  **(decided)**.
 - **Deleting a sound in use** removes its pads and notes too, after a question that counts them; the
   project never holds a note whose sound is gone **(decided)**. "Used" means on any pad of any track
   or played by any note of any pattern.

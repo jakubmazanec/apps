@@ -189,8 +189,9 @@ Where the controls sit on the panel is the Look spec's job.
   arrows and − and + move the highlight; OK chooses; CANCEL backs out. The encoders do nothing and
   the strip is empty: a picker is a list, and a list holds nothing for them. See "Sounds and pads"
   for the details.
-- **A question,** such as "DELETE KICK?", is answered only with OK or CANCEL. The encoders, − and +
-  do nothing there and the strip is empty, so a stray press cannot confirm a delete.
+- **A question,** such as "DELETE KICK?", is answered only with OK or CANCEL. Encoders 1 to 4 do
+  nothing there, and neither do − and +; the strip is empty, so a stray press cannot confirm a
+  delete. The volume encoder still sets the output volume **(owner's choice)**.
 - **While a picker or a question is open the music carries on and you can keep playing (owner's
   choice);** controls that would leave it or change something else wait. Pads and keys sound, and
   are recorded when recording, but do not select: a new selection would change what the picker is
@@ -358,11 +359,14 @@ All pickers work the same way:
 - Lists the library by folder, each file with its length and its size, and shows the library meter
   at the top: how full the library is, the same number as on POOL and SAMPLES. SAMPLES lists the
   library the same way, and the rules below hold on both.
-- **Order (owner's choice).** Folders first, then files, each A to Z ignoring case; an accented
-  letter sorts with its plain letter, so déšť.wav comes between clap.wav and hat-closed.wav. A new
-  import lands in its place by name.
+- **Order (owner's choice).** Folders first, then files, each A to Z ignoring case, with a run of
+  digits compared by its value, so kick 1.wav, kick 2.wav and kick 10.wav come in that order and
+  kick.wav comes before kick 2.wav. An accented letter sorts with its plain letter, so déšť.wav
+  comes between clap.wav and hat-closed.wav. A new import lands in its place by name.
 - **Inside a folder (owner's choice)** a dim line names the folder, and the first row is "..": OK on
-  it goes up, and so does CANCEL. At the top level the folder line and ".." are left out.
+  it goes up, and so does CANCEL. At the top level the folder line and ".." are left out. A folder
+  line too long for its row is cut at its start, "…808 collection/long names/", so the folder you
+  are in always shows.
 - Every file can be chosen. The whole library is in RAM (Foundation), so picking loads nothing and
   nothing is ever "no room" here; the only refusal is at import (Sound).
 - **The highlighted sample plays once (owner's choice),** from RAM through Sound's preview player
@@ -371,9 +375,10 @@ All pickers work the same way:
   onto a file. Moving the highlight stops the preview playing, and onto a file the new file's
   starts; a folder row and ".." play nothing. Nothing else starts it: not opening the list; not
   coming back to it from the picker with DELETE or from a question; not a delete that moves the
-  cursor. OK or CANCEL stops it; STOP while stopped silences it too (Workflow B). Leaving SAMPLES
-  fades a preview still playing out, as OK and CANCEL do; holding MENU or PAGE without choosing a
-  screen does not stop it. Previewing while the music plays is allowed.
+  cursor; not moving onto the file being deleted while its delete runs. OK or CANCEL stops it; STOP
+  while stopped silences it too (Workflow B). Leaving SAMPLES fades a preview still playing out, as
+  OK and CANCEL do; holding MENU or PAGE without choosing a screen does not stop it. Previewing
+  while the music plays is allowed.
 - The sample engine's sample parameter opens the same picker.
 
 Rejected: a memory cost per file, the time left in a budget and a "no room" mark, the first design.
