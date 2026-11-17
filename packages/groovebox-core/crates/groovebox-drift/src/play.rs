@@ -536,6 +536,69 @@ mod tests {
     }
 
     #[test]
+    fn an_import_does_not_depend_on_the_batch_size() {
+        let scene = parse(include_str!("../../../scenes/library-import.scene")).unwrap();
+        // The scene's last frame, SAMPLES inside kit/ once both drops are imported, and its end.
+        let (settled, end) = (30_464, 32_000);
+        // The scene's drops and inputs with a step every `spacing` samples and one at `settled`,
+        // so that every reply comes at another sample than in the scene's batches of 128.
+        let stepped = |spacing: u64| {
+            let mut steps: Vec<u64> = (1..)
+                .map(|n| n * spacing)
+                .take_while(|&step| step < end)
+                .chain([settled])
+                .collect();
+            steps.sort_unstable();
+            steps.dedup();
+            let mut events = scene
+                .iter()
+                .filter_map(|line| match *line {
+                    SceneLine::Input(input) => Some((input.sample, line)),
+                    SceneLine::Drop { sample, .. } => Some((sample, line)),
+                    _ => None,
+                })
+                .peekable();
+            let mut lines = Vec::new();
+            for until in steps {
+                while let Some((_, line)) = events.next_if(|&(sample, _)| sample < until) {
+                    lines.push(line.clone());
+                }
+                lines.push(SceneLine::Step(until));
+            }
+            lines.extend([SceneLine::Frame(settled), SceneLine::End(end)]);
+            lines
+        };
+        let last_frame = |outcome: &Outcome| {
+            outcome
+                .frames
+                .last()
+                .map(|&(sample, fingerprint, _)| (sample, fingerprint))
+        };
+
+        let batches = play(&scene, &mut NativeRunner::default());
+
+        assert_ne!(
+            batches.storage,
+            play_text("groovebox-scene 1\nend 128").storage
+        );
+        // With a step every 352 samples the second drop joins the first import, which still runs.
+        for (schedule, outcome) in [
+            (
+                "native, a step every 96",
+                play(&stepped(96), &mut NativeRunner::default()),
+            ),
+            (
+                "native, a step every 352",
+                play(&stepped(352), &mut NativeRunner::default()),
+            ),
+            ("wasm, a step every 352", play(&stepped(352), &mut fresh())),
+        ] {
+            assert_eq!(outcome.storage, batches.storage, "{schedule}");
+            assert_eq!(last_frame(&outcome), last_frame(&batches), "{schedule}");
+        }
+    }
+
+    #[test]
     fn the_wasm_build_gives_the_same_requests() {
         // A start-up that loads a file, then an import that reads, converts and writes one.
         let scene = parse(
