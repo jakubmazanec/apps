@@ -206,11 +206,8 @@ impl StartUp {
                     }
                     library.file_mut(file).loaded = true;
                 } else {
-                    for block in library.listing.blocks(tables, file) {
-                        library.blocks.give_back(block);
-                    }
                     // SAFETY: the audio part was never told about the file.
-                    unsafe { library.listing.forget(file) };
+                    unsafe { library.free_blocks(file, tables) };
                     self.not_loaded += 1;
                 }
                 self.read_from(at + 1, library)

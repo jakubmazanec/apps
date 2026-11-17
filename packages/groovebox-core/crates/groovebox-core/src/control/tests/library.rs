@@ -1712,6 +1712,24 @@ fn the_question_names_the_file_and_only_ok_and_cancel_answer_it() {
 }
 
 #[test]
+fn a_question_drops_encoders_1_to_4_and_lets_the_volume_act() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    // SAMPLES' encoders hold nothing, so the question is put over SETTINGS' Playing page, where
+    // encoder 1 holds Velocity.
+    rig.menu(100, 7);
+    rig.step(110);
+    rig.control.view.question = Some(Question::DeleteFile(FileId(0)));
+
+    rig.turn(200, 0, -1);
+    rig.turn(210, VOLUME, -1);
+    rig.step(220);
+
+    assert_eq!(rig.velocity(), 1);
+    assert_eq!(rig.sent(), [message(0, 210, volume(45_875 - 512))]);
+}
+
+#[test]
 fn ok_deletes_after_the_audio_part_let_go() {
     let queue = Queue::new();
     let mut rig = on_samples(&queue, &three_files());

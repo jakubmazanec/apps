@@ -497,12 +497,14 @@ impl Control {
             Input::ButtonRelease { button } => self.release(button, sample, messages),
             Input::EncoderTurn { encoder, clicks } => {
                 self.buttons.used();
-                // Under MENU or PAGE and while the picker is open a turn of encoders 1 to 4 is
-                // dropped. The volume acts as usual there, and SHIFT does not make its click fine.
+                // Under MENU or PAGE and while a picker or a question is open a turn of encoders 1
+                // to 4 is dropped. The volume acts as usual there, and SHIFT does not make its
+                // click fine.
                 if encoder == VOLUME {
                     self.turn(OUTPUT_VOLUME.id, i32::from(clicks), false, sample, messages);
                 } else if self.overlay().is_none()
                     && self.view.picker.is_none()
+                    && self.view.question.is_none()
                     && let Some(item) = self.reach(encoder)
                 {
                     self.change(item, i32::from(clicks), sample, messages);

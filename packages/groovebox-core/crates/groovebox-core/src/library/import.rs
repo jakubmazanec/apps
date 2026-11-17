@@ -658,11 +658,8 @@ impl Import {
     #[allow(unsafe_code)]
     fn end(&mut self, refusal: Option<Refusal>, library: &mut Library, tables: &Tables) {
         if core::mem::take(&mut self.holding) {
-            for block in library.listing.blocks(tables, self.file) {
-                library.blocks.give_back(block);
-            }
             // SAFETY: the audio part was never told about the file.
-            unsafe { library.listing.forget(self.file) };
+            unsafe { library.free_blocks(self.file, tables) };
         }
         match refusal {
             None => self.imported += 1,

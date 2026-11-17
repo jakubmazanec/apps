@@ -119,11 +119,8 @@ impl Library {
             mut folder, loaded, ..
         } = *self.file(file);
         if loaded {
-            for block in self.listing.blocks(tables, file) {
-                self.blocks.give_back(block);
-            }
             // SAFETY: the caller promises that the audio part let go of the file.
-            unsafe { self.listing.forget(file) };
+            unsafe { self.free_blocks(file, tables) };
         }
         self.unlist(Entry::File(file));
         self.files[usize::from(file.0)] = None;
@@ -133,6 +130,21 @@ impl Library {
             self.unlist(Entry::Folder(empty));
             self.folders[usize::from(empty.0)] = None;
         }
+    }
+
+    /// Gives the blocks of `file` back, then unlists them: the listing gives them only while it
+    /// lists the file.
+    ///
+    /// # Safety
+    ///
+    /// The audio part has let go of `file` or was never told about it (`Listing::forget`).
+    #[allow(unsafe_code)]
+    unsafe fn free_blocks(&mut self, file: FileId, tables: &Tables) {
+        for block in self.listing.blocks(tables, file) {
+            self.blocks.give_back(block);
+        }
+        // SAFETY: the caller promises that the audio part let go of the file.
+        unsafe { self.listing.forget(file) };
     }
 
     /// The bytes of the sample RAM that the files take: their blocks, whole.
