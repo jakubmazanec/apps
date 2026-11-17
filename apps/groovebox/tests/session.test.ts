@@ -59,6 +59,23 @@ describe(SessionLog, () => {
     ]);
   });
 
+  test('writes reply, drop, file and dropped lines', () => {
+    let log = new SessionLog();
+
+    log.step(128n);
+    log.reply(0, 160n, {status: 'missing', value: 0});
+    log.file('samples/kick.wav', Uint8Array.of(1));
+    log.drop(200n, 'my kit/100% dry.wav', Uint8Array.of(0, 1, 2, 255));
+    log.drop(200n, 'empty.wav', new Uint8Array());
+    log.input({sample: 210n, input: {kind: 'dropped', files: 2}});
+    log.file('samples/a b.wav', new Uint8Array());
+    log.reply(1, 300n, {status: 'more', value: 258});
+
+    expect(log.finish(512n, 0n)).toBe(
+      'groovebox-scene 1\nfile samples/kick.wav base64 AQ==\nfile samples/a%20b.wav base64\nstep 128\nreply 0 160 missing 0\ndrop 200 my%20kit/100%25%20dry.wav base64 AAEC/w==\ndrop 200 empty.wav base64\ninput 210 dropped 2\nreply 1 300 more 258\nexpect-audio 512 0000000000000000\nend 512\n',
+    );
+  });
+
   test('writes a negative fingerprint as 64 unsigned bits', () => {
     expect(new SessionLog().finish(512n, -1n)).toContain('expect-audio 512 ffffffffffffffff\n');
   });

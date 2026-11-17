@@ -76,12 +76,16 @@ async function runMounted() {
   return {...shell, ...elements};
 }
 
-// Starts the audio with a click on the status line, so that the shell sends inputs
+// Starts the audio with a click on the status line, so that the shell sends inputs, and waits for
+// the project to open after the library, as the core takes no input before (S13)
 async function runStarted() {
   let shell = await runMounted();
 
   await userEvent.click(shell.status);
   await shell.start();
+
+  // "Step" in the accent, where the header said "Loading library"
+  await expect.poll(() => inkSpan(shell.core, HEADER, ACCENT)).toEqual([4, 26]);
 
   return shell;
 }

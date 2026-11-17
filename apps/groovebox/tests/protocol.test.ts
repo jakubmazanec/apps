@@ -61,6 +61,7 @@ describe(coreArguments, () => {
     [{kind: 'note-off', note: 127}, [7, 127, 0]],
     [{kind: 'note-pressure', note: 60, pressure: 0}, [8, 60, 0]],
     [{kind: 'channel-pressure', pressure: 64}, [9, 64, 0]],
+    [{kind: 'dropped', files: 65_535}, [10, 65_535, 0]],
   ])('%o is %j', (input, expected) => {
     expect(coreArguments(input)).toStrictEqual(expected);
   });

@@ -2,6 +2,7 @@
 import wasmUrl from 'groovebox-core/build/groovebox-core.wasm?url';
 
 import {bootCore, type Core} from './boot.js';
+import {droppedFiles} from './drop.js';
 import {Holders} from './holders.js';
 import {keyToInput} from './keyboard.js';
 import {dragClicks, isPush, wheelClicks} from './knob.js';
@@ -421,6 +422,28 @@ export async function runShell({
   container.addEventListener('pointercancel', end, {signal: listening.signal});
   container.addEventListener('lostpointercapture', end, {signal: listening.signal});
   container.addEventListener('wheel', wheel, {passive: false, signal: listening.signal});
+  // The page takes every drop, so that a dropped file does not open in the tab, and hands the
+  // drop's WAV files to the worker, which copies them for the core
+  globalThis.addEventListener(
+    'dragover',
+    (event) => {
+      event.preventDefault();
+    },
+    {signal: listening.signal},
+  );
+  globalThis.addEventListener(
+    'drop',
+    (event) => {
+      event.preventDefault();
+
+      if (event.dataTransfer) {
+        void droppedFiles(event.dataTransfer.items).then((files) => {
+          worker.postMessage({type: 'drop', files} satisfies WorkerRequest);
+        });
+      }
+    },
+    {signal: listening.signal},
+  );
   saveSession.addEventListener(
     'click',
     () => {

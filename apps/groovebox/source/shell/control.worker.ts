@@ -8,6 +8,7 @@ import {
   type WorkerRequest,
 } from './protocol.js';
 import {SessionLog} from './session.js';
+import {carryOut, fileAt, readRequest, STATUSES, writeFile} from './storage.js';
 
 /* eslint-disable @typescript-eslint/naming-convention, @typescript-eslint/max-params -- the core's exports */
 type ControlExports = {
@@ -15,6 +16,16 @@ type ControlExports = {
   control_step: (until: bigint) => number;
   control_applied_number: (index: number) => number;
   control_applied_sample: (index: number) => bigint;
+  control_take_request: () => number;
+  control_queue_reply: (
+    sample: bigint,
+    requestNumber: number,
+    status: number,
+    value: bigint,
+  ) => number;
+  request_pointer: () => number;
+  io_pointer: () => number;
+  sample_ram_pointer: () => number;
   screen_pointer: (index: number) => number;
   front_pointer: () => number;
   palette_pointer: () => number;
@@ -46,6 +57,20 @@ globalThis.addEventListener(
       let wake = new Int32Array(memory.buffer, addresses.wake, 1);
       let position = new BigUint64Array(memory.buffer, addresses.position, 1);
       let stepped = 0n;
+      let root = await navigator.storage.getDirectory();
+      let storageAddresses = {io: core.io_pointer(), sampleRam: core.sample_ram_pointer()};
+      // The storage's work, one piece at a time in the order it came: each request of the core
+      // and each drop. The drift harness carries out a request right after the step that sent it,
+      // so a drop must not write while a request is carried out
+      let storage = Promise.resolve();
+      // The first request is the start-up's `Delete tmp`: a drop waits until it is carried out, or
+      // it would be deleted
+      let emptied = Promise.withResolvers<undefined>();
+      // The files the session holds: those it copied the first time a request read them and those
+      // it wrote
+      let held = new Set<string>();
+      // The files dropped since the start, which number the folders of `tmp/` (S26)
+      let dropped = 0;
 
       let drain = () => {
         for (let stamped of drainPending(pending, ({sample, input}) => {
@@ -69,6 +94,39 @@ globalThis.addEventListener(
           if (data.type === 'input') {
             pending.push(data.stamped);
             drain();
+          } else if (data.type === 'drop') {
+            // Each file goes into the next numbered folder of `tmp/`, and one that cannot be
+            // copied is left out as if it had not been dropped. Then one input tells the core how
+            // many came (answer 11)
+            void (async () => {
+              await emptied.promise;
+              storage = storage.then(async () => {
+                let before = dropped;
+
+                for (let {path, file} of data.files) {
+                  let copy = `tmp/${dropped + 1}/${path}`;
+
+                  try {
+                    let bytes = await file.bytes();
+
+                    await writeFile(root, copy, new Blob([bytes]));
+                    dropped += 1;
+                    held.add(copy);
+                    log.drop(Atomics.load(position, 0), path, bytes);
+                  } catch {
+                    // Left out
+                  }
+                }
+
+                if (dropped > before) {
+                  pending.push({
+                    sample: Atomics.load(position, 0),
+                    input: {kind: 'dropped', files: dropped - before},
+                  });
+                  drain();
+                }
+              });
+            })();
           } else {
             globalThis.postMessage({
               type: 'session',
@@ -92,6 +150,39 @@ globalThis.addEventListener(
 
           for (let index = 0; index < applied; index++) {
             log.applied(core.control_applied_number(index), core.control_applied_sample(index));
+          }
+
+          // The request the step sent is carried out while the loop goes on, and its reply is
+          // stamped with the audio position when it is done
+          if (core.control_take_request() === 1) {
+            let request = readRequest(memory.buffer, core.request_pointer());
+
+            storage = storage.then(async () => {
+              // A file the session wrote needs no copy
+              if ((request.kind === 'read' || request.kind === 'load') && !held.has(request.path)) {
+                held.add(request.path);
+
+                try {
+                  log.file(request.path, await (await fileAt(root, request.path)).bytes());
+                } catch {
+                  // A file that is not there has nothing to copy
+                }
+              } else if (request.kind === 'begin') {
+                held.add(request.path);
+              }
+
+              let reply = await carryOut(request, root, memory.buffer, storageAddresses);
+              let sample = Atomics.load(position, 0);
+
+              core.control_queue_reply(
+                sample,
+                request.requestNumber,
+                STATUSES.indexOf(reply.status),
+                BigInt(reply.value),
+              );
+              log.reply(request.requestNumber, sample, reply);
+              emptied.resolve(undefined);
+            });
           }
 
           stepped = until;

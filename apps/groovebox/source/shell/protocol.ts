@@ -66,9 +66,10 @@ export function encoderName(encoder: number): 'volume' | `encoder-${number}` {
 
 // One member per kind of the "Inputs" table, named as its scene line is. Pads 0–11, encoders 0–4
 // (4 is the volume), clicks and velocities in the ranges that the core takes (`clicks` from -127
-// to 127 and not 0)
+// to 127 and not 0, `files` from 1 to 65,535)
 export type ShellInput =
   | {kind: 'channel-pressure'; pressure: number}
+  | {kind: 'dropped'; files: number}
   | {kind: 'note-off'; note: number}
   | {kind: 'note-on'; note: number; velocity: number}
   | {kind: 'note-pressure'; note: number; pressure: number}
@@ -89,6 +90,10 @@ export function coreArguments(input: ShellInput): [kind: number, a: number, b: n
   switch (input.kind) {
     case 'channel-pressure': {
       return [9, input.pressure, 0];
+    }
+
+    case 'dropped': {
+      return [10, input.files, 0];
     }
 
     case 'note-off': {
@@ -141,6 +146,7 @@ export type CoreAddresses = {
 };
 
 export type WorkerRequest =
+  | {type: 'drop'; files: Array<{path: string; file: File}>}
   | {type: 'input'; stamped: StampedInput}
   | {type: 'save'}
   | {type: 'start'; module: WebAssembly.Module; memory: WebAssembly.Memory};

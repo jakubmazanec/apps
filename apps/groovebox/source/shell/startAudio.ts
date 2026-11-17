@@ -6,6 +6,10 @@ export async function startAudio({
   memory,
   addresses: {stackTop},
 }: Core): Promise<AudioContext> {
+  // The browser may clear the site's storage unless asked to keep it. The answer changes nothing
+  // (S25)
+  void navigator.storage.persist();
+
   let context = new AudioContext({latencyHint: 'interactive', sampleRate: 48000});
 
   await context.audioWorklet.addModule(workletUrl);
