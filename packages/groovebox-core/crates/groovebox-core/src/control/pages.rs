@@ -20,6 +20,9 @@ pub enum ItemKind {
     /// The Pad page's Copy: how many pads use the selected pad's sound. OK gives the pad its own
     /// copy of it.
     PadCopy,
+    /// "Library": how much of the sample RAM the library takes, in text and in its bar. It is not
+    /// set.
+    LibraryMeter,
 }
 
 /// An item of a page and the encoder that holds it.
@@ -179,14 +182,24 @@ pub fn pages(screen: Screen, track: &Track) -> &'static [PageDef] {
                 ..PAD
             }],
         },
-        Screen::Settings => &[PageDef {
-            name: "Playing",
-            items: &[ItemDef {
-                kind: ItemKind::Param(VELOCITY.id),
-                encoder: Some(0),
-            }],
-            picture: None,
-        }],
+        Screen::Settings => &[
+            PageDef {
+                name: "Playing",
+                items: &[ItemDef {
+                    kind: ItemKind::Param(VELOCITY.id),
+                    encoder: Some(0),
+                }],
+                picture: None,
+            },
+            PageDef {
+                name: "Dev",
+                items: &[ItemDef {
+                    kind: ItemKind::LibraryMeter,
+                    encoder: None,
+                }],
+                picture: None,
+            },
+        ],
     }
 }
 

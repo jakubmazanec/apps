@@ -2,38 +2,44 @@ use super::buttons::{HOLD, REPEAT_DELAY, REPEAT_EVERY};
 use super::view::{menu_tiles, page_tiles};
 use super::*;
 use crate::input::VOLUME;
+use crate::memory_storage::MemoryStorage;
 use crate::message::{NoteId, Target};
 use crate::palette::{ACCENT, BACKGROUND, DIM, FAINT, LINE, RECORD, TEXT};
 use crate::param::{CUTOFF, OUTPUT_VOLUME};
 use crate::project::pool::SoundNumber;
 use crate::queue::{Consumer, Queue};
+use crate::sample_ram::SampleRam;
 use crate::screen::{Canvas, Color, HEIGHT, Rect, Screen, WIDTH};
 use crate::storage::Status;
 use crate::ui::frame::{Piece, draw_header, draw_strip};
 use crate::ui::item::{Bar, ItemView, draw_cursor, draw_item};
 use crate::ui::test_pixels::{filled, outlined, span};
 use crate::ui::tiles::{Tile, TileState, draw_tiles};
+use std::boxed::Box;
 use std::vec::Vec;
 
+mod library;
 mod sound;
 
+/// A control part with its own storage, I/O buffer, block tables and sample RAM. The control part
+/// is copied straight onto the heap: a debug build of `Control::new()` builds it on the stack, and
+/// its copies there overflow a test thread's 2 MiB.
 struct Rig<'a> {
-    control: Control,
+    control: Box<Control>,
     producer: Producer<'a, Message, MESSAGE_QUEUE>,
     consumer: Consumer<'a, Message, MESSAGE_QUEUE>,
+    storage: MemoryStorage,
+    io: Vec<u8>,
+    tables: Box<Tables>,
+    ram: Box<SampleRam>,
 }
 
 impl<'a> Rig<'a> {
-    #[allow(unsafe_code)]
+    /// A rig whose project opened at sample 0, after a start-up on an empty storage.
     fn new(messages: &'a Queue<Message, MESSAGE_QUEUE>) -> Self {
-        // SAFETY: each rig takes one producer and one consumer from its own queue.
-        unsafe {
-            Self {
-                control: Control::new(),
-                producer: messages.producer(),
-                consumer: messages.consumer(),
-            }
-        }
+        let mut rig = Self::with_files(messages, &[]);
+        rig.open();
+        rig
     }
 
     fn queue(&mut self, sample: u64, input: Input) {
@@ -91,7 +97,8 @@ impl<'a> Rig<'a> {
     }
 
     fn step(&mut self, until: u64) -> bool {
-        self.control.step(until, &mut self.producer)
+        self.control
+            .step(until, &mut self.producer, &self.io, &self.tables)
     }
 
     /// Takes every message that was sent.
@@ -1001,7 +1008,7 @@ fn held_arrows_repeat_at_their_own_samples_and_do_nothing_on_step() {
 #[test]
 fn step_redraws_on_the_first_step_and_after_an_event() {
     let queue = Queue::new();
-    let mut rig = Rig::new(&queue);
+    let mut rig = Rig::with_files(&queue, &[]);
 
     assert!(rig.step(128));
     assert!(!rig.step(128));
@@ -1020,7 +1027,7 @@ fn nothing_redraws_on_time_alone_when_nothing_scrolls() {
     let queue = Queue::new();
     let mut rig = Rig::new(&queue);
 
-    assert!(rig.step(128));
+    rig.step(128);
     picture(&rig.control);
 
     for until in (256..=200_064).step_by(128) {
@@ -1239,7 +1246,7 @@ fn under_menu_pads_play_and_select_and_the_rest_is_dropped() {
 }
 
 #[test]
-fn page_on_settings_shows_one_tile_and_lights_step_1() {
+fn page_on_settings_shows_playing_and_dev_and_lights_steps_1_and_2() {
     let queue = Queue::new();
     let mut rig = Rig::new(&queue);
     rig.menu(0, 7);
@@ -1248,21 +1255,27 @@ fn page_on_settings_shows_one_tile_and_lights_step_1() {
 
     let shown = page_tiles(pages(view::Screen::Settings, rig.track()), 0);
     assert_eq!(
-        shown[0],
-        Tile {
-            name: Some("Playing"),
-            state: TileState::Current
-        }
+        shown[..2],
+        [
+            Tile {
+                name: Some("Playing"),
+                state: TileState::Current
+            },
+            Tile {
+                name: Some("Dev"),
+                state: TileState::Exists
+            }
+        ]
     );
-    assert!(shown[1..].iter().all(|tile| tile.state == TileState::Empty));
+    assert!(shown[2..].iter().all(|tile| tile.state == TileState::Empty));
     // The header stays as it is.
     assert!(shows(&rig.control, &tiles(&SETTINGS_HEADER, &shown)));
     assert!(outlined(&picture(&rig.control), 1, 16, 118, 58, ACCENT));
-    assert_eq!(rig.lit(), [pad(0), step(0), track(0)]);
+    assert_eq!(rig.lit(), [pad(0), step(0), step(1), track(0)]);
 
-    // Step 1 shows the page that is shown already, and step 2 is dark.
+    // Step 1 shows the page that is shown already, and step 3 is dark.
     rig.tap(110, Button::Step(0));
-    rig.tap(120, Button::Step(1));
+    rig.tap(120, Button::Step(2));
     rig.step(130);
     assert_eq!(rig.control.view.page(view::Screen::Settings), 0);
     assert!(shows(&rig.control, &tiles(&SETTINGS_HEADER, &shown)));
@@ -1631,18 +1644,19 @@ fn a_request_is_given_once_and_the_next_waits_for_its_reply() {
     let mut rig = Rig::new(&queue);
     rig.control.request = Some(Request::Free);
 
-    assert_eq!(rig.control.take_request(), Some((0, Request::Free)));
+    // The start-up sent requests 0 and 1.
+    assert_eq!(rig.control.take_request(), Some((2, Request::Free)));
     assert_eq!(rig.control.take_request(), None);
 
     rig.control.request = Some(Request::Commit);
     assert_eq!(rig.control.take_request(), None);
     // A reply to another request changes nothing.
-    assert_eq!(rig.control.queue_reply(100, done(1)), Ok(()));
-    assert_eq!(rig.control.queue_reply(200, done(0)), Ok(()));
+    assert_eq!(rig.control.queue_reply(100, done(3)), Ok(()));
+    assert_eq!(rig.control.queue_reply(200, done(2)), Ok(()));
     rig.step(200);
     assert_eq!(rig.control.take_request(), None);
     rig.step(201);
-    assert_eq!(rig.control.take_request(), Some((1, Request::Commit)));
+    assert_eq!(rig.control.take_request(), Some((3, Request::Commit)));
     assert_eq!(rig.control.take_request(), None);
 }
 
@@ -1652,17 +1666,18 @@ fn a_reply_goes_before_an_input_of_the_same_sample() {
     let mut rig = Rig::new(&queue);
     let sound = rig.synth_on(0);
     rig.control.request = Some(Request::Free);
-    assert_eq!(rig.control.take_request(), Some((0, Request::Free)));
+    // The start-up sent requests 0 and 1.
+    assert_eq!(rig.control.take_request(), Some((2, Request::Free)));
     rig.control.request = Some(Request::Commit);
     rig.fill_the_message_queue();
     // Room for the hit's message only: an event after the hit waits.
     rig.consumer.pop();
     rig.hit(1_000, 0, 80);
-    assert_eq!(rig.control.queue_reply(1_000, done(0)), Ok(()));
+    assert_eq!(rig.control.queue_reply(1_000, done(2)), Ok(()));
 
     rig.step(u64::MAX);
 
-    assert_eq!(rig.control.take_request(), Some((1, Request::Commit)));
+    assert_eq!(rig.control.take_request(), Some((3, Request::Commit)));
     assert_eq!(
         rig.sent().last(),
         Some(&message(256, 1_000, note_on(128, 0, sound, 60, 80)))

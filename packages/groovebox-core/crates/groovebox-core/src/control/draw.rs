@@ -1,7 +1,9 @@
 use super::pages::{ItemDef, ItemKind, Picture};
 use super::{Control, Entry};
+use crate::budget;
 use crate::input::Button;
 use crate::label::Label;
+use crate::library::name;
 use crate::palette::{ACCENT, BACKGROUND, DIM, FAINT, TEXT};
 use crate::param::{self, BP, CUTOFF, Curve, HP, LP_12, LP_24, MODE, ParamId, RESONANCE};
 use crate::project::pool::{Engine, SoundNumber};
@@ -41,8 +43,23 @@ impl Control {
     ///
     /// The text under the cursor, the current tile's name and the selected pad's name scroll when
     /// they do not fit, as far as the samples since the cursor landed say; the strip never scrolls.
+    ///
+    /// Until the project opens the header holds only the message "Loading library" in the accent,
+    /// and the main area and the strip are empty.
     pub fn draw(&self, canvas: &mut impl Canvas) {
         canvas.fill_rect(rect(0, 0, WIDTH as i32, HEIGHT as i32), BACKGROUND);
+        if self.startup.is_some() {
+            draw_header(
+                canvas,
+                &[],
+                Some(Piece {
+                    text: "Loading library",
+                    color: ACCENT,
+                }),
+            );
+            draw_strip(canvas, &[None; 4]);
+            return;
+        }
         let track = self.track();
         let mut track_name = Label::<2>::new();
         write!(track_name, "T{}", self.project.track + 1).expect("writing to a label never fails");
@@ -291,6 +308,12 @@ impl Control {
                 write!(value, "on {pads} pad{}", if pads == 1 { "" } else { "s" })
                     .expect("writing to a label never fails");
                 ("Copy", value.as_str(), Bar::Track)
+            }
+            ItemKind::LibraryMeter => {
+                let (used, total) = (self.library.used(), budget::SAMPLE_RAM as u64);
+                value.push_str(name::meter(used, total).as_str());
+                let share = used * u64::from(u16::MAX) / total;
+                ("Library", value.as_str(), Bar::Fill(share as u16))
             }
         };
         ItemView {

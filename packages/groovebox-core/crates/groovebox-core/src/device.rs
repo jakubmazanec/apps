@@ -221,7 +221,10 @@ impl ControlSide<'_> {
             // A host that leaves reports untaken loses the newest, as a full report queue does.
             let _ = self.taken.push(report);
         }
-        if self.control.step(until, &mut self.messages) {
+        if self
+            .control
+            .step(until, &mut self.messages, &self.io[..], &self.device.tables)
+        {
             // Only this side stores `front`, so a relaxed load sees its last store.
             let back = 1 - self.device.front.load(Ordering::Relaxed);
             // SAFETY: only the control side writes a screen, and it writes only the back one. No
@@ -288,6 +291,7 @@ mod tests {
     use crate::input::{Button, Input, Stamped};
     use crate::library::FileId;
     use crate::lights::Lights;
+    use crate::memory_storage::MemoryStorage;
     use crate::message::{MessageKind, NoteId};
     use crate::palette::{BACKGROUND, LINE};
     use crate::project::pool::SoundNumber;
@@ -302,6 +306,18 @@ mod tests {
     fn release(sample: u64, button: Button) -> Stamped {
         let input = Input::ButtonRelease { button };
         Stamped { sample, input }
+    }
+
+    /// Opens the project at sample 0, after a start-up on an empty storage.
+    fn open(control: &mut ControlSide<'_>, ram: &SampleRam) {
+        let mut storage = MemoryStorage::new(0);
+        control.step(1);
+        while let Some((number, request)) = control.take_request() {
+            // SAFETY: an empty storage writes nothing into the sample RAM.
+            let reply = unsafe { storage.carry_out(&request, control.io(), ram) };
+            assert_eq!(control.queue_reply(0, Reply { number, ..reply }), Ok(()));
+            control.step(1);
+        }
     }
 
     #[test]
@@ -344,7 +360,7 @@ mod tests {
         let ram = SampleRam::boxed();
         // SAFETY: this test takes the only control side of its own device.
         let mut control = unsafe { DEVICE.control_side(&ram) };
-        control.step(1);
+        open(&mut control, &ram);
         // KEYS mode draws the longer "Keys C4" into the screen that is drawn again last.
         assert_eq!(control.queue_input(press(1, Button::PadsKeys)), Ok(()));
         assert_eq!(control.queue_input(release(2, Button::PadsKeys)), Ok(()));
@@ -399,6 +415,7 @@ mod tests {
         // SAFETY: this test takes the only control side of its own device.
         let mut control = unsafe { DEVICE.control_side(&ram) };
         assert_eq!(loaded(&DEVICE), 0);
+        open(&mut control, &ram);
 
         control.step(128);
         assert_eq!(loaded(&DEVICE), 1 << Lights::PAD | 1 << Lights::TRACK);
@@ -419,6 +436,7 @@ mod tests {
         let ram = SampleRam::boxed();
         // SAFETY: this test takes the only control side of its own device.
         let mut control = unsafe { DEVICE.control_side(&ram) };
+        open(&mut control, &ram);
         assert_eq!(control.queue_input(press(0, Button::PadsKeys)), Ok(()));
         assert_eq!(control.queue_input(release(1, Button::PadsKeys)), Ok(()));
 

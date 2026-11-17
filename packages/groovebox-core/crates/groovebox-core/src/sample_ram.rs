@@ -315,6 +315,15 @@ impl Listing {
     pub fn slice(&self, tables: &Tables, file: FileId) -> u32 {
         tables.0[usize::from(self.table)].slice(usize::from(file.0))
     }
+
+    /// The blocks of `file`, in the order of its slice, as the table that `slice` reads lists them.
+    pub fn blocks<'a>(&self, tables: &'a Tables, file: FileId) -> impl Iterator<Item = u32> + 'a {
+        let entries =
+            &tables.0[usize::from(self.table)].entries[self.slice(tables, file) as usize..];
+        entries[..self.lengths[usize::from(file.0)] as usize]
+            .iter()
+            .map(|entry| entry.load(Ordering::Relaxed))
+    }
 }
 
 impl Default for Listing {
@@ -498,6 +507,11 @@ mod tests {
             [0, 20_000, 31_000]
         );
         assert_eq!(listing.slice(&tables, FileId(3)), 31_000);
+        assert!(
+            listing
+                .blocks(&tables, FileId(3))
+                .eq((20_000..20_100).chain(31_100..31_200))
+        );
         let after = [block_ends(&new, 0, 20_000), block_ends(&new, 2, 11_000)];
         assert_eq!(after, before);
         // File 3 got the blocks file 1 gave back and the next 100.

@@ -6,6 +6,8 @@ pub mod view;
 
 use crate::input::{Button, Input, PADS, Stamped, VOLUME};
 use crate::label::Label;
+use crate::library::Library;
+use crate::library::startup::StartUp;
 use crate::lights::Lights;
 use crate::message::{MAX_MESSAGES_PER_EVENT, MESSAGE_QUEUE, Message, MessageKind, Target};
 use crate::palette::RECORD;
@@ -16,6 +18,7 @@ use crate::project::settings::DeviceSettings;
 use crate::project::track::{MAX_OCTAVE, PadMode, Track};
 use crate::queue::Producer;
 use crate::ring::Ring;
+use crate::sample_ram::Tables;
 use crate::screen::Color;
 use crate::storage::{Reply, Request};
 use crate::ui::layout::LIST_VISIBLE;
@@ -23,6 +26,7 @@ use crate::ui::text::SCROLL_PIXEL;
 use crate::ui::tiles::{Tile, TileState};
 use buttons::{Buttons, REPEATING, Release};
 use core::cell::Cell;
+use core::ops::ControlFlow;
 use notes::{Notes, Source};
 use pages::{ItemDef, ItemKind, MENU, PageDef, pages};
 use view::{Cursor, Screen, View, menu_tiles, page_tiles};
@@ -72,8 +76,8 @@ struct Focus {
 }
 
 /// The control part: it turns stamped inputs into numbered messages for the audio part. It keeps
-/// the project, the device settings, the held buttons, the notes that are on, what the screen
-/// shows and the header's message, works out the lights and draws the picture.
+/// the project, the device settings, the library, the held buttons, the notes that are on, what
+/// the screen shows and the header's message, works out the lights and draws the picture.
 ///
 /// The control part does not check the inputs: the browser export and the scene parser keep them
 /// in range (`Input`). They are queued in sample order, so for live play and for a complete replay
@@ -98,6 +102,9 @@ pub struct Control {
     /// The (number, sample) reports of awaited messages, each an event at its sample.
     heard: Ring<(u32, u64), AWAITED>,
     started: bool,
+    /// The start-up's job until it ends and the project opens.
+    startup: Option<StartUp>,
+    library: Library,
     project: Project,
     settings: DeviceSettings,
     buttons: Buttons,
@@ -105,7 +112,7 @@ pub struct Control {
     view: View,
     /// The message on the right of the header and its colour. A later button press clears it
     /// (`press`).
-    message: Option<(Label<32>, Color)>,
+    message: Option<(Label<48>, Color)>,
     /// The `until` of the latest step.
     now: u64,
     /// The sample of the event after which the cursor last landed on something new: the text
@@ -130,6 +137,8 @@ impl Control {
             awaited: [None; AWAITED],
             heard: Ring::new(),
             started: false,
+            startup: Some(StartUp::new()),
+            library: Library::new(),
             project: Project::new(),
             settings: DeviceSettings::new(),
             buttons: Buttons::new(),
@@ -198,6 +207,10 @@ impl Control {
     /// and leaves it and every later event for a later step, which goes on exactly where this one
     /// stopped.
     ///
+    /// The first step starts the start-up's job, and a reply goes to it with `io`, the I/O buffer,
+    /// as its request left it. When the job ends the project opens, with the job's result as the
+    /// header's message. Until then every input but a turn of the volume encoder is dropped.
+    ///
     /// After each event every page's cursor is kept on an item that the page shows: a cursor whose
     /// item vanished moves to the nearest item above, where it stays when the item comes back. When
     /// the cursor has then landed on something new (`Focus`), the text under it scrolls from that
@@ -206,8 +219,14 @@ impl Control {
         &mut self,
         until: u64,
         messages: &mut Producer<'_, Message, MESSAGE_QUEUE>,
+        io: &[u8],
+        tables: &Tables,
     ) -> bool {
-        let mut redraw = !core::mem::replace(&mut self.started, true);
+        let first = !core::mem::replace(&mut self.started, true);
+        if first && let Some(startup) = &self.startup {
+            self.request = Some(startup.request(&self.library));
+        }
+        let mut redraw = first;
         while messages.free() >= MAX_MESSAGES_PER_EVENT {
             let events = [
                 self.replies
@@ -235,7 +254,19 @@ impl Control {
             match event {
                 Event::Reply(reply) => {
                     self.replies.pop();
-                    self.out.take_if(|&mut out| out == reply.number);
+                    if self.out.take_if(|&mut out| out == reply.number).is_some()
+                        && let Some(startup) = &mut self.startup
+                    {
+                        match startup.reply(reply, io, &mut self.library, tables) {
+                            ControlFlow::Continue(()) => {
+                                self.request = Some(startup.request(&self.library));
+                            }
+                            ControlFlow::Break(()) => {
+                                self.message = startup.result().map(|text| (text, RECORD));
+                                self.startup = None;
+                            }
+                        }
+                    }
                 }
                 Event::Heard(number) => {
                     self.heard.pop();
@@ -245,7 +276,17 @@ impl Control {
                 }
                 Event::Input(stamped) => {
                     self.inputs.pop();
-                    self.input(stamped, messages);
+                    if self.startup.is_none()
+                        || matches!(
+                            stamped.input,
+                            Input::EncoderTurn {
+                                encoder: VOLUME,
+                                ..
+                            }
+                        )
+                    {
+                        self.input(stamped, messages);
+                    }
                 }
                 Event::Repeat(button) => {
                     // Each repeat makes the same move as the press.
@@ -684,7 +725,8 @@ impl Control {
     }
 
     /// OK on `item`: a switch flips. The pad's sound opens the sound picker on the pad's entry,
-    /// and Copy puts a copy of the pad's sound on the pad, unless the pool is full.
+    /// and Copy puts a copy of the pad's sound on the pad, unless the pool is full. The library
+    /// meter only shows.
     fn use_item(
         &mut self,
         item: ItemDef,
@@ -737,11 +779,13 @@ impl Control {
                     Err(PoolFull) => self.pool_full(),
                 }
             }
+            ItemKind::LibraryMeter => {}
         }
     }
 
     /// Moves the value of `item` by `clicks` clicks, fine ones while SHIFT is held. The Pad page's
-    /// items have no value to move, so a stray turn never changes what a pad plays.
+    /// items have no value to move, so a stray turn never changes what a pad plays, and the
+    /// library meter has none either.
     fn change(
         &mut self,
         item: ItemDef,
@@ -757,7 +801,7 @@ impl Control {
                 sample,
                 messages,
             ),
-            ItemKind::PadSound | ItemKind::PadCopy => {}
+            ItemKind::PadSound | ItemKind::PadCopy | ItemKind::LibraryMeter => {}
         }
     }
 
