@@ -14,6 +14,7 @@ use groovebox_core::input::{Input, Stamped};
 use groovebox_core::message::{REPORT_QUEUE, Report};
 use groovebox_core::palette;
 use groovebox_core::sample_ram::SampleRam;
+use groovebox_core::storage::{Path, Reply, Request, Status};
 
 #[cfg(target_arch = "wasm32")]
 #[panic_handler]
@@ -27,6 +28,37 @@ const AUDIO_STACK_SIZE: usize = 65_536;
 struct Stack {
     _bytes: [u8; AUDIO_STACK_SIZE],
 }
+
+/// A storage request for the worker, little-endian: `number` at byte 0, `kind` at 4, `memory` at
+/// 8, `offset` at 12, `length` at 16, `from` at 20, `into` at 24, `at` at 32, `path_length` at 40
+/// and `path` at 44. `kind` numbers `Request`'s variants from 0 for `List` to 7 for `Free`, and
+/// `memory` is 0 for `Io` and 1 for `SampleRam`. A field the request does not have is 0.
+#[repr(C)]
+struct RequestRecord {
+    number: u32,
+    kind: u32,
+    memory: u32,
+    offset: u32,
+    length: u32,
+    from: u32,
+    into: u32,
+    at: u64,
+    path_length: u32,
+    path: [u8; 255],
+}
+
+const EMPTY_REQUEST: RequestRecord = RequestRecord {
+    number: 0,
+    kind: 0,
+    memory: 0,
+    offset: 0,
+    length: 0,
+    from: 0,
+    into: 0,
+    at: 0,
+    path_length: 0,
+    path: [0; 255],
+};
 
 static DEVICE: Device = Device::new();
 static SAMPLE_RAM: SampleRam = SampleRam::new();
@@ -47,6 +79,8 @@ static mut OUTPUT: [[f32; MAX_BATCH]; 2] = [[0.0; MAX_BATCH]; 2];
 /// The (number, sample) of the reports that the latest `control_step` took. Only the control side
 /// touches it.
 static mut APPLIED: [(u32, u64); REPORT_QUEUE] = [(0, 0); REPORT_QUEUE];
+/// The request that the latest `control_take_request` took. Only the control side touches it.
+static mut REQUEST: RequestRecord = EMPTY_REQUEST;
 /// The stack of the audio instance. Only that instance's code uses it, through its stack pointer.
 static mut AUDIO_STACK: Stack = Stack {
     _bytes: [0; AUDIO_STACK_SIZE],
@@ -109,6 +143,125 @@ pub extern "C" fn control_applied_number(index: u32) -> u32 {
 pub extern "C" fn control_applied_sample(index: u32) -> u64 {
     // SAFETY: only the worker touches the stash, and it does so one call at a time.
     unsafe { APPLIED[index as usize].1 }
+}
+
+/// Takes the storage request that the steps sent into the record at `request_pointer`. Returns 1
+/// when it did and 0 when there is none, which leaves the record as it was.
+#[unsafe(no_mangle)]
+pub extern "C" fn control_take_request() -> u32 {
+    let Some((number, request)) = control_side().take_request() else {
+        return 0;
+    };
+    let (kind, path, record) = match request {
+        Request::List { folder, from } => (
+            0,
+            folder,
+            RequestRecord {
+                from,
+                ..EMPTY_REQUEST
+            },
+        ),
+        Request::Read { file, at, length } => (
+            1,
+            file,
+            RequestRecord {
+                at,
+                length,
+                ..EMPTY_REQUEST
+            },
+        ),
+        Request::Load {
+            file,
+            at,
+            length,
+            into,
+        } => (
+            2,
+            file,
+            RequestRecord {
+                at,
+                length,
+                into,
+                ..EMPTY_REQUEST
+            },
+        ),
+        Request::Begin { file } => (3, file, EMPTY_REQUEST),
+        Request::Append {
+            from,
+            offset,
+            length,
+        } => (
+            4,
+            Path::new(),
+            RequestRecord {
+                memory: from as u32,
+                offset,
+                length,
+                ..EMPTY_REQUEST
+            },
+        ),
+        Request::Commit => (5, Path::new(), EMPTY_REQUEST),
+        Request::Delete { path } => (6, path, EMPTY_REQUEST),
+        Request::Free => (7, Path::new(), EMPTY_REQUEST),
+    };
+    let path = path.as_str().as_bytes();
+    let mut record = RequestRecord {
+        number,
+        kind,
+        path_length: path.len() as u32,
+        ..record
+    };
+    record.path[..path.len()].copy_from_slice(path);
+    // SAFETY: only the worker touches the record, and it does so one call at a time.
+    unsafe { REQUEST = record };
+    1
+}
+
+/// Queues the storage's reply to request `number`, stamped with `sample`. `status` numbers
+/// `Status`'s variants from 0 for `Done` to 4 for `Failed`; any other traps. `value` is as `Reply`
+/// says. Returns 1 when queued and 0 when the queue is full.
+#[unsafe(no_mangle)]
+pub extern "C" fn control_queue_reply(sample: u64, number: u32, status: u32, value: u64) -> u32 {
+    let status = [
+        Status::Done,
+        Status::More,
+        Status::Missing,
+        Status::Full,
+        Status::Failed,
+    ][status as usize];
+    u32::from(
+        control_side()
+            .queue_reply(
+                sample,
+                Reply {
+                    number,
+                    status,
+                    value,
+                },
+            )
+            .is_ok(),
+    )
+}
+
+/// The address of the request record that `control_take_request` fills.
+#[unsafe(no_mangle)]
+pub extern "C" fn request_pointer() -> u32 {
+    (&raw const REQUEST) as u32
+}
+
+/// The first byte of the I/O buffer, which the worker reads and writes while it carries out the
+/// request that is out, between control steps.
+#[unsafe(no_mangle)]
+pub extern "C" fn io_pointer() -> u32 {
+    DEVICE.io_pointer() as u32
+}
+
+/// The first byte of the sample RAM, which holds `budget::SAMPLE_RAM` bytes. The worker writes the
+/// bytes of a `Load` and reads those of an `Append` from `SampleRam`, while that request is out.
+#[unsafe(no_mangle)]
+pub extern "C" fn sample_ram_pointer() -> u32 {
+    // SAFETY: an empty span touches no block.
+    unsafe { SAMPLE_RAM.bytes(0, 0) }.as_ptr() as u32
 }
 
 /// The first pixel of screen `index`, 0 or 1.

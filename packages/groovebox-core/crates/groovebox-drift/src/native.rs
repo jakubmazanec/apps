@@ -1,8 +1,10 @@
 use crate::runner::Runner;
 use groovebox_core::device::{ControlSide, Device};
 use groovebox_core::input::Stamped;
+use groovebox_core::memory_storage::MemoryStorage;
 use groovebox_core::message::Report;
 use groovebox_core::sample_ram::SampleRam;
+use groovebox_core::storage::{Reply, Request};
 use std::sync::atomic::{AtomicU32, Ordering};
 
 /// The core built for this machine.
@@ -60,6 +62,23 @@ impl Runner for NativeRunner {
 
     fn take_applied(&mut self) -> Vec<(u32, u64)> {
         std::mem::take(&mut self.applied)
+    }
+
+    fn take_request(&mut self) -> Option<(u32, Request)> {
+        self.control().take_request()
+    }
+
+    fn queue_reply(&mut self, sample: u64, reply: Reply) -> bool {
+        self.control().queue_reply(sample, reply).is_ok()
+    }
+
+    fn carry_out(&mut self, storage: &mut MemoryStorage, request: &Request) -> Reply {
+        // SAFETY: the side lives only for this call, which borrows this runner mutably, so no
+        // other side of its device exists while it lives.
+        let mut control = unsafe { self.device.control_side(&self.ram) };
+        // SAFETY: no render runs while this call does, and the core loads into and appends from
+        // only blocks of its control side that the audio part was never told about.
+        unsafe { storage.carry_out(request, control.io(), &self.ram) }
     }
 
     fn lights(&mut self) -> u64 {

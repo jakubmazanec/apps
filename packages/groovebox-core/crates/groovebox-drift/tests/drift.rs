@@ -9,10 +9,10 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 /// The text of the fingerprints file for this outcome: the audio, then the frames, the lights at
-/// each frame and the applied reports, each in sample order.
+/// each frame and the applied reports, each in sample order, then the storage.
 fn fingerprints(outcome: &Outcome) -> String {
     format!(
-        "audio {:016x}\n{}{}{}",
+        "audio {:016x}\n{}{}{}storage {:016x}\n",
         outcome.audio,
         outcome
             .frames
@@ -28,7 +28,8 @@ fn fingerprints(outcome: &Outcome) -> String {
             .applied
             .iter()
             .map(|(number, sample)| format!("applied {number} {sample}\n"))
-            .collect::<String>()
+            .collect::<String>(),
+        outcome.storage
     )
 }
 

@@ -1,31 +1,34 @@
 groovebox-scene 1
 # Syn 1 on pad 1 through the panel: MENU + step 3, then OK, down and OK in the sound picker. A tap
 # of PADS/KEYS then makes the pads keys that play Syn 1.
-input 0 press menu
-input 8 press step-3
-input 16 release step-3
-input 24 release menu
-input 32 press ok
-input 40 release ok
-input 48 press down
-input 56 release down
-input 64 press ok
-input 72 release ok
-input 80 press pads-keys
-input 88 release pads-keys
-# The records apply the first two notes later than the steps after their hits: messages 1 and 2
-# at 1024 and 1536, after New synth's message 0.
-input 100 pad-hit 0 127
+# The first two steps serve the start-up on an empty storage, which then opens the project.
 step 128
-applied 1 1024
-input 700 pad-hit 7 64
-step 1024
-applied 2 1536
-step 1536
-frame 1536
-input 2000 pad-release 7
-step 4096
-frame 4096
-input 4200 pad-release 0
-step 8192
-end 9600
+step 256
+input 1024 press menu
+input 1032 press step-3
+input 1040 release step-3
+input 1048 release menu
+input 1056 press ok
+input 1064 release ok
+input 1072 press down
+input 1080 release down
+input 1088 press ok
+input 1096 release ok
+input 1104 press pads-keys
+input 1112 release pads-keys
+# The records apply the first two notes later than the steps after their hits: messages 1 and 2
+# at 2048 and 2560, after New synth's message 0.
+input 1124 pad-hit 0 127
+step 1152
+applied 1 2048
+input 1724 pad-hit 7 64
+step 2048
+applied 2 2560
+step 2560
+frame 2560
+input 3024 pad-release 7
+step 5120
+frame 5120
+input 5224 pad-release 0
+step 9216
+end 10624

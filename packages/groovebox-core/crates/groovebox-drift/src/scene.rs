@@ -1,17 +1,47 @@
 use groovebox_core::audio::MAX_BATCH;
+use groovebox_core::blake3::Hasher;
 use groovebox_core::input::{Button, ENCODERS, Input, PADS, Stamped};
+use groovebox_core::label::Label;
+use groovebox_core::library::wav::{self, Encoding, Ours};
+use groovebox_core::storage::{Reply, Status};
 use std::any::type_name;
 use std::str::FromStr;
 
-/// One item of a scene file: see "Shared formats" in the foundation plan.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+/// One item of a scene file: see "Shared formats" in the foundation plan and, for the storage,
+/// "Scene lines" in the library plan.
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum SceneLine {
     Input(Stamped),
     Step(u64),
-    Applied { number: u32, sample: u64 },
+    Applied {
+        number: u32,
+        sample: u64,
+    },
     Frame(u64),
-    ExpectAudio { sample: u64, fingerprint: u64 },
+    ExpectAudio {
+        sample: u64,
+        fingerprint: u64,
+    },
     End(u64),
+    /// The size of the harness storage in bytes.
+    Storage(u64),
+    /// A file that the storage holds at the start.
+    File {
+        path: String,
+        bytes: Vec<u8>,
+    },
+    /// A dropped file, which the platform writes at `sample` into `tmp/<k>/<path>`, k counting the
+    /// dropped files from 1.
+    Drop {
+        sample: u64,
+        path: String,
+        bytes: Vec<u8>,
+    },
+    /// A recorded reply, queued at `sample`.
+    Reply {
+        sample: u64,
+        reply: Reply,
+    },
 }
 
 fn decimal<T: FromStr>(number: usize, word: &str) -> Result<T, String> {
@@ -125,6 +155,104 @@ fn clicks(number: usize, word: &str) -> Result<i8, String> {
     }
 }
 
+fn status(number: usize, word: &str) -> Result<Status, String> {
+    match word {
+        "done" => Ok(Status::Done),
+        "more" => Ok(Status::More),
+        "missing" => Ok(Status::Missing),
+        "full" => Ok(Status::Full),
+        "failed" => Ok(Status::Failed),
+        _ => Err(format!("line {number}: `{word}` is not a status")),
+    }
+}
+
+/// The bytes of standard base64 with its padding.
+fn base64(number: usize, data: &str) -> Result<Vec<u8>, String> {
+    const DIGITS: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    let error = || format!("line {number}: `{data}` is not base64");
+    let digits = data.trim_end_matches('=');
+    if !data.len().is_multiple_of(4) || data.len() - digits.len() > 2 {
+        return Err(error());
+    }
+    let (mut bytes, mut bits, mut held) = (Vec::new(), 0_u32, 0);
+    for digit in digits.bytes() {
+        let value = DIGITS
+            .iter()
+            .position(|&known| known == digit)
+            .ok_or_else(error)?;
+        bits = bits << 6 | value as u32;
+        held += 6;
+        if held >= 8 {
+            held -= 8;
+            bytes.push((bits >> held) as u8);
+        }
+    }
+    Ok(bytes)
+}
+
+/// The bytes of the file that the words of a `<source>` make for `path`: see "Scene lines".
+fn source(number: usize, path: &str, words: &[&str]) -> Result<Vec<u8>, String> {
+    let channels = |word| byte(number, "channels", word, 1, 2);
+    match *words {
+        ["base64", data] => base64(number, data),
+        ["sine", hz, seconds, rate, bits, count] => Ok(wav::sine(
+            decimal(number, hz)?,
+            decimal(number, seconds)?,
+            decimal(number, rate)?,
+            match bits {
+                "16" => Encoding::Int16,
+                "24" => Encoding::Int24,
+                "32" => Encoding::Int32,
+                "32f" => Encoding::Float32,
+                _ => {
+                    return Err(format!(
+                        "line {number}: bits `{bits}` are not 16, 24, 32 or 32f"
+                    ));
+                }
+            },
+            channels(count)?,
+        )),
+        // A file as the device's import writes it: 48 kHz, 16 bits, our `gbox` chunk, root C4 and
+        // no loop.
+        ["ours", hz, seconds, count] => {
+            let channels = channels(count)?;
+            let sine = wav::sine(
+                decimal(number, hz)?,
+                decimal(number, seconds)?,
+                48_000,
+                Encoding::Int16,
+                channels,
+            );
+            // The audio follows the 44 bytes of the header that `sine` writes.
+            let audio = &sine[44..];
+            let mut ours = Ours {
+                fingerprint: [0; 16],
+                original: Label::new(),
+            };
+            let mut hasher = Hasher::new();
+            hasher.update(&[channels]);
+            hasher.update(audio);
+            hasher.finalize(&mut ours.fingerprint);
+            ours.original
+                .push_str(path.rsplit_once('/').map_or(path, |(_, name)| name));
+            let mut head = [0; 512];
+            let written = wav::write_header(
+                &mut head,
+                channels,
+                (audio.len() / 2 / usize::from(channels)) as u32,
+                60,
+                None,
+                &ours,
+            );
+            Ok([&head[..written], audio].concat())
+        }
+        _ => Err(format!(
+            "line {number}: `{}` is not a source",
+            words.join(" ")
+        )),
+    }
+}
+
 /// Parses a scene file. Besides the shape of each line, it checks the header, the ranges of the
 /// values of inputs, that `end` comes once and last, that `expect-audio` is at the end and that
 /// each frame follows a step. Errors name the line.
@@ -218,6 +346,37 @@ pub fn parse(text: &str) -> Result<Vec<SceneLine>, String> {
                     pressure: pressure(number, pressure_word)?,
                 },
             }),
+            ["input", sample, "dropped", files] => SceneLine::Input(Stamped {
+                sample: decimal(number, sample)?,
+                input: Input::Dropped {
+                    files: match decimal(number, files)? {
+                        0 => return Err(format!("line {number}: 0 files are not a drop")),
+                        files => files,
+                    },
+                },
+            }),
+            ["storage", bytes] => SceneLine::Storage(decimal(number, bytes)?),
+            ["file", path, ref words @ ..] => SceneLine::File {
+                path: path.to_string(),
+                bytes: source(number, path, words)?,
+            },
+            ["drop", sample, path, ref words @ ..] => SceneLine::Drop {
+                sample: decimal(number, sample)?,
+                path: path.to_string(),
+                bytes: source(number, path, words)?,
+            },
+            ["reply", message, sample, status_word, ref value @ ..] if value.len() <= 1 => {
+                SceneLine::Reply {
+                    sample: decimal(number, sample)?,
+                    reply: Reply {
+                        number: decimal(number, message)?,
+                        status: status(number, status_word)?,
+                        value: value
+                            .first()
+                            .map_or(Ok(0), |value| decimal(number, value))?,
+                    },
+                }
+            }
             ["step", sample] => SceneLine::Step(decimal(number, sample)?),
             ["applied", message, sample] => SceneLine::Applied {
                 number: decimal(number, message)?,
@@ -258,8 +417,8 @@ pub fn parse(text: &str) -> Result<Vec<SceneLine>, String> {
             _ => None,
         })
         .collect();
-    for &(number, line) in &lines {
-        match line {
+    for (number, line) in &lines {
+        match *line {
             SceneLine::Frame(sample)
                 if steps.is_empty()
                     && (sample == 0
@@ -293,8 +452,9 @@ mod tests {
     #[test]
     fn parses_every_line_kind() {
         let text = "groovebox-scene 1\n# A comment.\n\ninput 100 pad-hit 0 127\n\
-            input 300 pad-release 11\nstep 128\napplied 0 128\nframe 128\n\
-            expect-audio 512 0123456789abcdef\nend 512\n";
+            input 300 pad-release 11\nstep 128\napplied 0 128\nframe 128\nstorage 5000\n\
+            file samples/a.wav base64 AAEC/w==\ndrop 64 drums/b.wav base64 AA==\n\
+            reply 0 128 done 3\nreply 1 256 missing\nexpect-audio 512 0123456789abcdef\nend 512\n";
 
         assert_eq!(
             parse(text),
@@ -316,6 +476,32 @@ mod tests {
                     sample: 128
                 },
                 SceneLine::Frame(128),
+                SceneLine::Storage(5000),
+                SceneLine::File {
+                    path: "samples/a.wav".to_string(),
+                    bytes: vec![0, 1, 2, 255]
+                },
+                SceneLine::Drop {
+                    sample: 64,
+                    path: "drums/b.wav".to_string(),
+                    bytes: vec![0]
+                },
+                SceneLine::Reply {
+                    sample: 128,
+                    reply: Reply {
+                        number: 0,
+                        status: Status::Done,
+                        value: 3
+                    }
+                },
+                SceneLine::Reply {
+                    sample: 256,
+                    reply: Reply {
+                        number: 1,
+                        status: Status::Missing,
+                        value: 0
+                    }
+                },
                 SceneLine::ExpectAudio {
                     sample: 512,
                     fingerprint: 0x0123_4567_89ab_cdef
@@ -323,6 +509,47 @@ mod tests {
                 SceneLine::End(512),
             ])
         );
+    }
+
+    #[test]
+    fn generated_files_are_the_same_bytes_everywhere() {
+        let text = "groovebox-scene 1\nfile samples/a.wav sine 440 0.5 44100 24 2\nend 128";
+
+        let scene = parse(text).unwrap();
+
+        assert_eq!(parse(text).unwrap(), scene);
+        let SceneLine::File { bytes, .. } = &scene[0] else {
+            panic!("{:?} is not a file", scene[0]);
+        };
+        assert_eq!(*bytes, wav::sine(440.0, 0.5, 44_100, Encoding::Int24, 2));
+        let header = wav::parse(bytes, bytes.len() as u64).unwrap();
+        assert_eq!((header.format.channels, header.frames), (2, 22_050));
+    }
+
+    #[test]
+    fn an_ours_file_is_a_converted_sine_named_after_its_path() {
+        let scene = parse("groovebox-scene 1\nfile samples/drums/kick.wav ours 440 0.1 2\nend 128")
+            .unwrap();
+        let SceneLine::File { bytes, .. } = &scene[0] else {
+            panic!("{:?} is not a file", scene[0]);
+        };
+
+        let header = wav::parse(bytes, bytes.len() as u64).unwrap();
+        let sine = wav::sine(440.0, 0.1, 48_000, Encoding::Int16, 2);
+        assert_eq!(bytes[header.data_at as usize..], sine[44..]);
+        assert_eq!(
+            (header.format.rate, header.format.encoding, header.frames),
+            (48_000, Encoding::Int16, 4_800)
+        );
+        assert_eq!((header.root, header.loop_points), (Some(60), None));
+        let ours = header.ours.unwrap();
+        assert_eq!(ours.original.as_str(), "kick.wav");
+        let mut hasher = Hasher::new();
+        hasher.update(&[2]);
+        hasher.update(&sine[44..]);
+        let mut fingerprint = [0; 16];
+        hasher.finalize(&mut fingerprint);
+        assert_eq!(ours.fingerprint, fingerprint);
     }
 
     #[test]
@@ -392,6 +619,7 @@ mod tests {
                 },
             ),
             ("channel-pressure 0", Input::ChannelPressure { pressure: 0 }),
+            ("dropped 65535", Input::Dropped { files: 65_535 }),
         ] {
             assert_eq!(
                 parse(&format!("groovebox-scene 1\ninput 64 {line}\nend 128")),
@@ -434,6 +662,8 @@ mod tests {
             "note-pressure 128 0",
             "note-pressure 0 128",
             "channel-pressure 128",
+            "dropped 0",
+            "dropped 65536",
         ] {
             let error =
                 parse(&format!("groovebox-scene 1\ninput 0 {line}\nend 128")).expect_err(line);
@@ -487,6 +717,39 @@ mod tests {
             ("groovebox-scene 1\nframe 0\nend 128", "line 2"),
             ("groovebox-scene 1\nframe 256\nend 128", "line 2"),
             ("groovebox-scene 1\nstep 128\nframe 256\nend 512", "line 3"),
+            (
+                "groovebox-scene 1\nfile a.wav base64 AAE\nend 128",
+                "line 2",
+            ),
+            (
+                "groovebox-scene 1\nfile a.wav base64 A=A=\nend 128",
+                "line 2",
+            ),
+            (
+                "groovebox-scene 1\nfile a.wav base64 A===\nend 128",
+                "line 2",
+            ),
+            (
+                "groovebox-scene 1\nfile a.wav base64 AA-=\nend 128",
+                "line 2",
+            ),
+            (
+                "groovebox-scene 1\nfile a.wav sine 440 1 48000 8 1\nend 128",
+                "line 2",
+            ),
+            (
+                "groovebox-scene 1\nfile a.wav sine 440 1 48000 16 3\nend 128",
+                "line 2",
+            ),
+            (
+                "groovebox-scene 1\nfile a.wav ours 440 1 0\nend 128",
+                "line 2",
+            ),
+            ("groovebox-scene 1\nfile a.wav noise 1\nend 128", "line 2"),
+            ("groovebox-scene 1\ndrop 0 a.wav\nend 128", "line 2"),
+            ("groovebox-scene 1\nreply 0 128 lost\nend 128", "line 2"),
+            ("groovebox-scene 1\nreply 0 128 done 1 2\nend 128", "line 2"),
+            ("groovebox-scene 1\nstorage many\nend 128", "line 2"),
         ] {
             let error = parse(text).expect_err(text);
             assert!(error.contains(line), "{text:?}: {error}");

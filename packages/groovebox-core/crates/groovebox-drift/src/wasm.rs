@@ -1,7 +1,11 @@
 use crate::runner::Runner;
 use groovebox_core::audio::MAX_BATCH;
+use groovebox_core::budget::IO_BUFFER;
 use groovebox_core::input::Stamped;
+use groovebox_core::memory_storage::MemoryStorage;
+use groovebox_core::sample_ram::SampleRam;
 use groovebox_core::screen::{HEIGHT, WIDTH};
+use groovebox_core::storage::{self, Memory, Reply, Request};
 use std::path::Path;
 use wasmtime::{
     Config, Engine, Instance, Module, SharedMemory, Store, Val, WasmParams, WasmResults,
@@ -20,6 +24,9 @@ pub struct WasmRunner {
     stashed: u32,
     /// The most fuel one `audio_render` call has used.
     busiest: u64,
+    /// The sample RAM that the storage loads into and appends from, copied to and from the
+    /// module's.
+    ram: Box<SampleRam>,
 }
 
 impl WasmRunner {
@@ -54,6 +61,7 @@ impl WasmRunner {
             audio,
             stashed: 0,
             busiest: 0,
+            ram: SampleRam::boxed(),
         };
         let top: i32 = runner.call(control, "audio_stack_top", ());
         audio
@@ -95,11 +103,31 @@ impl WasmRunner {
     fn read(&self, address: u32, bytes: &mut [u8]) {
         let cells = &self.memory.data()[address as usize..][..bytes.len()];
         for (byte, cell) in bytes.iter_mut().zip(cells) {
-            // SAFETY: only the instances write the memory, and only during a call, which runs on
-            // this thread and has returned.
+            // SAFETY: only the instances write the memory, during a call, and `write`, all on this
+            // thread, and neither runs now.
             *byte = unsafe { *cell.get() };
         }
     }
+
+    /// Copies `bytes` into the memory at `address`.
+    fn write(&self, address: u32, bytes: &[u8]) {
+        let cells = &self.memory.data()[address as usize..][..bytes.len()];
+        for (cell, byte) in cells.iter().zip(bytes) {
+            // SAFETY: only the instances touch the memory otherwise, during a call, which runs on
+            // this thread and has returned.
+            unsafe { *cell.get() = *byte };
+        }
+    }
+}
+
+/// A fresh runner of the stable build, for the tests.
+#[cfg(test)]
+pub(crate) fn fresh() -> WasmRunner {
+    let package = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .ancestors()
+        .nth(2)
+        .expect("the crate lies two folders below the package");
+    WasmRunner::new(&package.join("build/groovebox-core.wasm"))
 }
 
 impl Runner for WasmRunner {
@@ -134,6 +162,86 @@ impl Runner for WasmRunner {
                 )
             })
             .collect()
+    }
+
+    fn take_request(&mut self) -> Option<(u32, Request)> {
+        if self.call::<_, u32>(self.control, "control_take_request", ()) == 0 {
+            return None;
+        }
+        // The browser crate's `RequestRecord`, without the padding at its end.
+        let mut record = [0; 299];
+        let address = self.call(self.control, "request_pointer", ());
+        self.read(address, &mut record);
+        let word = |at: usize| u32::from_le_bytes(record[at..at + 4].try_into().expect("4 bytes"));
+        let at = u64::from_le_bytes(record[32..40].try_into().expect("8 bytes"));
+        let mut path = storage::Path::new();
+        path.push_str(
+            std::str::from_utf8(&record[44..][..word(40) as usize]).expect("a path is UTF-8"),
+        );
+        let request = match word(4) {
+            0 => Request::List {
+                folder: path,
+                from: word(20),
+            },
+            1 => Request::Read {
+                file: path,
+                at,
+                length: word(16),
+            },
+            2 => Request::Load {
+                file: path,
+                at,
+                length: word(16),
+                into: word(24),
+            },
+            3 => Request::Begin { file: path },
+            4 => Request::Append {
+                from: [Memory::Io, Memory::SampleRam][word(8) as usize],
+                offset: word(12),
+                length: word(16),
+            },
+            5 => Request::Commit,
+            6 => Request::Delete { path },
+            7 => Request::Free,
+            kind => panic!("the build took a request of kind {kind}"),
+        };
+        Some((word(0), request))
+    }
+
+    fn queue_reply(&mut self, sample: u64, reply: Reply) -> bool {
+        self.call::<_, u32>(
+            self.control,
+            "control_queue_reply",
+            (sample, reply.number, reply.status as u32, reply.value),
+        ) == 1
+    }
+
+    fn carry_out(&mut self, storage: &mut MemoryStorage, request: &Request) -> Reply {
+        let io_address = self.call(self.control, "io_pointer", ());
+        let ram_address: u32 = self.call(self.control, "sample_ram_pointer", ());
+        let mut io = vec![0; IO_BUFFER];
+        self.read(io_address, &mut io);
+        if let Request::Append {
+            from: Memory::SampleRam,
+            offset,
+            length,
+        } = *request
+        {
+            // SAFETY: the runner's own sample RAM, which nothing else touches.
+            self.read(ram_address + offset, unsafe {
+                self.ram.bytes(offset, length)
+            });
+        }
+        // SAFETY: as above.
+        let reply = unsafe { storage.carry_out(request, &mut io, &self.ram) };
+        self.write(io_address, &io);
+        if let Request::Load { into, .. } = *request {
+            // SAFETY: as above.
+            self.write(ram_address + into, unsafe {
+                self.ram.bytes(into, reply.value as u32)
+            });
+        }
+        reply
     }
 
     fn lights(&mut self) -> u64 {
@@ -171,14 +279,6 @@ impl Runner for WasmRunner {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    fn fresh() -> WasmRunner {
-        let package = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .ancestors()
-            .nth(2)
-            .expect("the crate lies two folders below the package");
-        WasmRunner::new(&package.join("build/groovebox-core.wasm"))
-    }
 
     fn queue(runner: &mut WasmRunner, kind: u32, a: u32, b: u32) -> u32 {
         runner.call(runner.control, "control_queue_input", (0_u64, kind, a, b))
