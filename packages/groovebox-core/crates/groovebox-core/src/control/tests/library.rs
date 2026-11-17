@@ -1430,6 +1430,40 @@ fn a_cursor_whose_row_is_gone_moves_to_the_row_above() {
 }
 
 #[test]
+fn samples_opens_on_its_first_row_after_a_listing_of_several_pages() {
+    let queue = Queue::new();
+    let names: Vec<String> = (100..150)
+        .map(|n| format!("samples/{n}.wav"))
+        .chain([String::from("samples/zz/x.wav")])
+        .collect();
+    let files: Vec<_> = names
+        .iter()
+        .map(|name| (name.as_str(), converted(1, 1)))
+        .collect();
+    let mut rig = Rig::with_files(&queue, &files);
+    // A buffer that holds a file's head holds 42 records of "100.wav", so zz/ comes on the second
+    // page, though SAMPLES lists it first.
+    rig.io.truncate(512);
+
+    let requests = rig.open();
+    rig.menu(10, 9);
+    rig.step(20);
+
+    let lists = requests
+        .iter()
+        .filter(|request| matches!(request, Request::List { .. }));
+    assert_eq!(lists.count(), 2);
+    assert_eq!(
+        rig.control.view.samples,
+        SamplesView {
+            folder: None,
+            cursor: TOP,
+            on: Some(Line::Folder(FolderId(0)))
+        }
+    );
+}
+
+#[test]
 fn not_loaded_files_are_red_and_play_nothing() {
     let queue = Queue::new();
     let plain = wav::sine(440.0, 0.5, 44_100, Encoding::Int16, 1);

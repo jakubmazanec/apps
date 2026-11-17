@@ -243,8 +243,10 @@ impl Control {
     /// After each event every page's cursor is kept on an item that the page shows: a cursor whose
     /// item vanished moves to the nearest item above, where it stays when the item comes back.
     /// After a reply or a report SAMPLES' cursor is kept on its row (`keep_samples_cursor`), as
-    /// only the jobs they drive change the library. When the cursor has then landed on something
-    /// new (`Focus`), the text under it scrolls from that event's sample.
+    /// only the jobs they drive change the library; from the reply that opens the project on, so
+    /// that start-up, which lists the library page by page in another order, leaves it on the
+    /// first row. When the cursor has then landed on something new (`Focus`), the text under it
+    /// scrolls from that event's sample.
     pub fn step(
         &mut self,
         until: u64,
@@ -348,7 +350,7 @@ impl Control {
                     self.buttons.repeated(button);
                 }
             }
-            if matches!(event, Event::Reply(_) | Event::Heard(_)) {
+            if self.startup.is_none() && matches!(event, Event::Reply(_) | Event::Heard(_)) {
                 self.keep_samples_cursor();
             }
             for screen in Screen::ALL {
