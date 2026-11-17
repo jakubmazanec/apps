@@ -435,6 +435,39 @@ fn a_list_claiming_more_records_than_its_page_holds_ends_the_listing() {
 }
 
 #[test]
+fn a_more_page_without_records_ends_the_listing() {
+    let queue = Queue::new();
+    let mut rig = Rig::with_files(
+        &queue,
+        &[
+            ("samples/kick.wav", converted(100, 1)),
+            ("samples/snare.wav", converted(100, 1)),
+        ],
+    );
+    rig.step(1);
+    rig.serve(0);
+    rig.step(1);
+    // The first page holds kick.wav's record of 13 bytes and not snare.wav's, the second page none.
+    rig.io.truncate(13);
+    assert!(matches!(rig.serve(0), Request::List { from: 0, .. }));
+    rig.step(1);
+    rig.io.clear();
+    assert!(matches!(rig.serve(0), Request::List { from: 1, .. }));
+    rig.step(1);
+
+    assert!(matches!(rig.control.request, Some(Request::Read { .. })));
+    rig.io.resize(budget::IO_BUFFER, 0);
+    rig.open();
+
+    assert_eq!(entries(&rig), [Entry::File(FileId(0))]);
+    assert!(rig.control.library.file(FileId(0)).loaded);
+    assert!(shows(
+        &rig.control,
+        &step_with(("Library can't be read", RECORD))
+    ));
+}
+
+#[test]
 fn a_head_claiming_more_bytes_than_the_buffer_holds_is_read_from_the_buffer() {
     let queue = Queue::new();
     let mut rig = Rig::with_files(&queue, &[("samples/kick.wav", converted(100, 1))]);

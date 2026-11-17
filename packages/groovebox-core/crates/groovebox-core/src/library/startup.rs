@@ -150,6 +150,12 @@ impl StartUp {
                     }
                 }
                 if status == Status::More {
+                    // A `More` page without a record would repeat its request for ever, so it
+                    // counts as a failed `List` too.
+                    if value == 0 {
+                        self.unreadable = true;
+                        return self.read_from(0, library);
+                    }
                     self.stage = Stage::Listing {
                         from: from + value as u32,
                     };
