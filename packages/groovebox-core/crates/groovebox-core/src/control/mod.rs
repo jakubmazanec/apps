@@ -1319,8 +1319,8 @@ impl Control {
 
     /// The first missing sound whose path is that of the file the import listed, but for case,
     /// takes the file (S16) and sends each value it changed; when none is left the relink ends. A
-    /// sound whose End is 0, as its file had a frame at most or was not loaded, takes the file's
-    /// points as a sound changing its file does (`take_file`, S8). Any other keeps its points
+    /// sound whose End is 0, as its file had one frame at most or the library knew no frame count
+    /// of it, takes the file's points as a sound changing its file does (`take_file`, S8). Any other keeps its points
     /// within the file: End and Loop end at most its last frame, then Start before End and Loop
     /// start before Loop end (answer 3). One sound at a time, as each sound's values may fill the
     /// room of an event.

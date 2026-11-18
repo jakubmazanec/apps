@@ -180,7 +180,7 @@ impl Tables {
     /// about, in a `Preview` or a `NoteOn`, and has not yet heard it let go of, each within its
     /// file's length: only those blocks are the audio side's (see `SampleRam::bytes`). The control
     /// side may also read the frames of a file the library lists as loaded, within its length,
-    /// through the reader of the table the listing uses (`Listing::table`): no one writes a listed
+    /// through the reader of the table the listing uses (`Listing::table`): no one writes a loaded
     /// file's blocks or its entries there (`Library::peaks`).
     pub unsafe fn readers<'a>(&'a self, ram: &'a SampleRam) -> [Reader<'a>; 2] {
         self.0.each_ref().map(|table| Reader { table, ram })

@@ -76,7 +76,7 @@ Master:                  all 4 tracks mixed → master level → + sample previe
    - default settings for the shared chain, such as one-shot for drums or mono for an acid engine.
 3. **What an engine gets for each note:**
    - at the start: pitch, velocity, an accent mark, a seed number that makes any randomness repeat
-     exactly, and the kind of start (new note, restart, or legato). A sample restarts from Start
+     exactly, and the kind of start (new note, restart or legato). A sample restarts from Start
      (from End in reverse) with the new note's file; in legato it keeps its place and its file and
      only the pitch moves, as the EP-133's legato carries on from the same play position;
    - every 32-sample chunk: the current pitch with glide already applied, whether the note is held,

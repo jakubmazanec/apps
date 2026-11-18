@@ -1,6 +1,6 @@
 groovebox-scene 1
-# drums/ with 808/, kick.wav and snare-room.wav, 1.2 s as in Look's picker-sample.png, and pad.wav
-# in stereo at the top level.
+# drums/ with 808/, kick.wav and snare-room.wav (1.2 s as in Look's picker-sample.png); pad.wav in
+# stereo at the top level.
 file samples/drums/808/boom.wav ours 50 0.8 1
 file samples/drums/kick.wav ours 55 0.3 1
 file samples/drums/snare-room.wav ours 180 1.2 1

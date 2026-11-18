@@ -108,7 +108,7 @@ impl Sound {
     }
 
     /// Makes the sound a sample sound of `audio`, the file `file` names: the sample entries take
-    /// their defaults, Loop is on when the file has a loop of its own, and then `take_file`.
+    /// their defaults; Loop is on when the file has a loop of its own; then `take_file`.
     pub fn start_sample(&mut self, file: FileId, audio: &File) {
         self.reset_engine(&START);
         self.set(LOOP.id, i32::from(audio.loop_points.is_some()));
