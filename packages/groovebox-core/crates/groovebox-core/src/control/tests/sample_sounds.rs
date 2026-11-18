@@ -1,4 +1,5 @@
-//! New sample, the sample picker, the notes of sample sounds, ENGINE and the Sample page.
+//! New sample, the sample picker, the notes of sample sounds, ENGINE, the Sample page and a used
+//! file that is deleted or replaced.
 
 use super::library::{converted_with, row};
 use super::sound::{names, pad_page, set_param, sound_header};
@@ -13,6 +14,7 @@ use crate::param::{
 use crate::project::pool::{Engine, Sample};
 use crate::storage::Path;
 use crate::ui::list::{Row, draw_rows};
+use crate::ui::question::draw_question;
 use crate::ui::text;
 use samples::Row as Line;
 use view::{Cursor, Pick, Picker, SamplesView};
@@ -1331,5 +1333,592 @@ fn peaks_read_at_most_64_frames_a_column() {
     assert_eq!(
         peaks(3),
         core::array::from_fn(|column| (column * 100 / 315) as u16)
+    );
+}
+
+/// A dropped file of 480 frames of mono at 48 kHz, which the import keeps as it is.
+fn short() -> Vec<u8> {
+    wav::sine(100.0, 0.01, 48_000, Encoding::Int16, 1)
+}
+
+/// From `sample` on, shows SAMPLES, goes into drums/ and onto kick.wav, which previews it, and
+/// asks to delete it: OK opens the Delete picker and OK on Delete the question, 10 samples apart.
+fn ask_to_delete_kick(rig: &mut Rig<'_>, sample: u64) {
+    rig.menu(sample, 9);
+    for (after, button) in [
+        (10, Button::Ok),
+        (20, Button::Down),
+        (30, Button::Down),
+        (40, Button::Ok),
+        (50, Button::Ok),
+    ] {
+        rig.tap(sample + after, button);
+    }
+    rig.step(sample + 60);
+}
+
+/// From `sample` on, asks to delete kick.wav and answers OK at `sample` + 60. Gives the
+/// `ForgetSample` that the delete sent, after taking every message sent.
+fn delete_kick(rig: &mut Rig<'_>, sample: u64) -> Message {
+    ask_to_delete_kick(rig, sample);
+    rig.tap(sample + 60, Button::Ok);
+    rig.step(sample + 70);
+    let forget = rig.sent().pop().unwrap();
+    assert_eq!(forget.kind, MessageKind::ForgetSample { file: KICK.file });
+    forget
+}
+
+/// The engine of kick.wav's sounds once kick.wav is gone: missing, by its path.
+fn missing_kick() -> Engine {
+    let mut path = Path::new();
+    path.push_str("samples/drums/kick.wav");
+    Engine::Sample(Sample::Missing(path))
+}
+
+#[test]
+fn the_delete_question_counts_the_sounds_that_use_the_file() {
+    let queue = Queue::new();
+    let mut rig = Rig::with_files(&queue, &library());
+    rig.open();
+    let kick = sample_on(&mut rig, 0, KICK.file);
+    let copy = sample_on(&mut rig, 1, KICK.file);
+    sample_on(&mut rig, 2, SNARE.file);
+    ask_to_delete_kick(&mut rig, 10);
+    let asked = |rig: &mut Rig<'_>, lines: &[(&str, Color)]| {
+        let question = rig.control.view.question.take();
+        let mut screen = picture(&rig.control);
+        rig.control.view.question = question;
+        draw_question(&mut screen, lines);
+        shows(&rig.control, &screen)
+    };
+
+    assert!(asked(
+        &mut rig,
+        &[
+            ("Delete kick.wav?", TEXT),
+            ("2 sounds use it", DIM),
+            ("OK deletes, Cancel keeps", DIM),
+        ]
+    ));
+
+    rig.control
+        .project
+        .pool
+        .get_mut(copy)
+        .unwrap()
+        .start_synth();
+    assert!(asked(
+        &mut rig,
+        &[
+            ("Delete kick.wav?", TEXT),
+            ("1 sound uses it", DIM),
+            ("OK deletes, Cancel keeps", DIM),
+        ]
+    ));
+
+    rig.control
+        .project
+        .pool
+        .get_mut(kick)
+        .unwrap()
+        .start_synth();
+    assert!(asked(
+        &mut rig,
+        &[
+            ("Delete kick.wav?", TEXT),
+            ("OK deletes, Cancel keeps", DIM),
+        ]
+    ));
+}
+
+#[test]
+fn deleting_a_used_file_fades_its_voices_and_leaves_its_sounds_missing() {
+    let queue = Queue::new();
+    let mut rig = Rig::with_files(&queue, &library());
+    rig.open();
+    let kick = sample_on(&mut rig, 0, KICK.file);
+
+    // The `ForgetSample` fades every voice reading kick.wav.
+    let forget = delete_kick(&mut rig, 10);
+    rig.control.applied(forget.number, 90);
+    rig.settle(100);
+
+    assert_eq!(
+        rig.control.project.pool.get(kick).unwrap().engine,
+        missing_kick()
+    );
+    // The sound picker's row and the header's name in red.
+    rig.menu(200, 2);
+    rig.tap(210, Button::Ok);
+    rig.step(220);
+    assert!(shows(
+        &rig.control,
+        &drawn(
+            &sound_header(("kick", RECORD)),
+            None,
+            |screen| {
+                draw_rows(
+                    screen,
+                    17,
+                    16,
+                    &[
+                        row("Empty", None),
+                        row("New sample", None),
+                        row("New synth", None),
+                        Row {
+                            left: "kick",
+                            right: Some("sample"),
+                            alert: true,
+                        },
+                    ],
+                    0,
+                    Some(3),
+                    0,
+                );
+            },
+            &[None; 4],
+        )
+    ));
+
+    // Its note carries no file.
+    rig.hit(300, 0, 100);
+    rig.step(310);
+    assert_eq!(
+        rig.sent(),
+        [message(
+            forget.number + 1,
+            300,
+            sample_note(0, kick, 48, None)
+        )]
+    );
+}
+
+#[test]
+fn a_hit_during_a_delete_sends_no_file() {
+    let queue = Queue::new();
+    let mut rig = Rig::with_files(&queue, &library());
+    rig.open();
+    let kick = sample_on(&mut rig, 0, KICK.file);
+    let forget = delete_kick(&mut rig, 10);
+
+    // While the audio part lets go of kick.wav, and then while its `Delete` is out.
+    rig.hit(100, 0, 100);
+    rig.release(110, 0);
+    rig.control.applied(forget.number, 120);
+    rig.step(130);
+    assert!(matches!(
+        rig.control.take_request(),
+        Some((_, Request::Delete { .. }))
+    ));
+    rig.hit(200, 0, 100);
+    rig.step(210);
+
+    let number = forget.number;
+    assert_eq!(
+        rig.sent(),
+        [
+            message(number + 1, 100, sample_note(0, kick, 48, None)),
+            message(number + 2, 110, note_off(0)),
+            message(number + 3, 200, sample_note(1, kick, 48, None)),
+        ]
+    );
+}
+
+#[test]
+fn a_failed_delete_leaves_the_sounds_playing_the_file() {
+    let queue = Queue::new();
+    let mut rig = Rig::with_files(&queue, &library());
+    rig.open();
+    let kick = sample_on(&mut rig, 0, KICK.file);
+    let forget = delete_kick(&mut rig, 10);
+    rig.control.applied(forget.number, 90);
+    rig.step(100);
+
+    let (number, _) = rig.control.take_request().expect("a request is out");
+    let failed = Reply {
+        number,
+        status: Status::Failed,
+        value: 0,
+    };
+    assert_eq!(rig.control.queue_reply(100, failed), Ok(()));
+    rig.hit(200, 0, 100);
+    rig.step(210);
+
+    assert_eq!(
+        rig.control.project.pool.get(kick).unwrap().engine,
+        Engine::Sample(Sample::File(KICK.file))
+    );
+    assert_eq!(
+        rig.sent(),
+        [message(
+            forget.number + 1,
+            200,
+            sample_note(0, kick, 48, Some(KICK))
+        )]
+    );
+}
+
+#[test]
+fn a_file_dropped_again_under_its_path_revives_its_sounds() {
+    let queue = Queue::new();
+    let mut rig = Rig::with_files(&queue, &library());
+    rig.open();
+    let kick = sample_on(&mut rig, 0, KICK.file);
+    let forget = delete_kick(&mut rig, 10);
+    rig.control.applied(forget.number, 90);
+    rig.settle(100);
+
+    // KICK.wav goes into drums/, kick.wav's path but for case, in kick.wav's place. The sound's
+    // End and Loop end stop at its last frame.
+    rig.drop_files(200, &[("tmp/1/drums/KICK.wav", short())]);
+    rig.settle(210);
+    rig.hit(300, 0, 100);
+    rig.step(310);
+
+    let new = SampleFile {
+        file: FileId(2),
+        frames: 480,
+        stereo: false,
+    };
+    assert_eq!(rig.control.library.file(new.file).name.as_str(), "KICK.wav");
+    assert_eq!(
+        rig.control.project.pool.get(kick).unwrap().engine,
+        Engine::Sample(Sample::File(new.file))
+    );
+    let number = forget.number;
+    assert_eq!(
+        rig.sent(),
+        [
+            message(number + 1, 210, set_param(kick, END.id, 479)),
+            message(number + 2, 210, set_param(kick, LOOP_END.id, 479)),
+            message(number + 3, 300, sample_note(0, kick, 48, Some(new))),
+        ]
+    );
+}
+
+#[test]
+fn a_new_file_in_a_deleted_files_place_does_not_revive_its_sounds() {
+    let queue = Queue::new();
+    let mut rig = Rig::with_files(&queue, &library());
+    rig.open();
+    let kick = sample_on(&mut rig, 0, KICK.file);
+    let forget = delete_kick(&mut rig, 10);
+    rig.control.applied(forget.number, 90);
+    rig.settle(100);
+
+    // clap.wav takes kick.wav's place in the library.
+    rig.drop_files(200, &[("tmp/1/drums/clap.wav", short())]);
+    rig.settle(210);
+    rig.hit(300, 0, 100);
+    rig.step(310);
+
+    assert_eq!(
+        rig.control.library.file(KICK.file).name.as_str(),
+        "clap.wav"
+    );
+    assert_eq!(
+        rig.control.project.pool.get(kick).unwrap().engine,
+        missing_kick()
+    );
+    assert_eq!(
+        rig.sent(),
+        [message(
+            forget.number + 1,
+            300,
+            sample_note(0, kick, 48, None)
+        )]
+    );
+}
+
+#[test]
+fn a_replaced_file_keeps_its_sounds_on_the_new_audio() {
+    let queue = Queue::new();
+    let mut rig = Rig::with_files(&queue, &library());
+    rig.open();
+    let kick = sample_on(&mut rig, 0, KICK.file);
+    let copy = sample_on(&mut rig, 1, KICK.file);
+
+    rig.drop_files(10, &[("tmp/1/drums/KICK.wav", short())]);
+    rig.settle(20);
+    let forget = rig.sent().pop().unwrap();
+    assert_eq!(forget.kind, MessageKind::ForgetSample { file: KICK.file });
+    rig.control.applied(forget.number, 30);
+    rig.settle(40);
+    rig.hit(100, 0, 100);
+    rig.hit(110, 1, 100);
+    rig.step(120);
+
+    // KICK.wav took the first free place.
+    let new = SampleFile {
+        file: FileId(4),
+        frames: 480,
+        stereo: false,
+    };
+    for sound in [kick, copy] {
+        assert_eq!(
+            rig.control.project.pool.get(sound).unwrap().engine,
+            Engine::Sample(Sample::File(new.file))
+        );
+    }
+    let number = forget.number;
+    assert_eq!(
+        rig.sent(),
+        [
+            message(number + 1, 30, set_param(kick, END.id, 479)),
+            message(number + 2, 30, set_param(kick, LOOP_END.id, 479)),
+            message(number + 3, 30, set_param(copy, END.id, 479)),
+            message(number + 4, 30, set_param(copy, LOOP_END.id, 479)),
+            message(number + 5, 100, sample_note(0, kick, 48, Some(new))),
+            message(number + 6, 110, sample_note(1, copy, 48, Some(new))),
+        ]
+    );
+}
+
+#[test]
+fn a_hit_during_a_replace_sends_no_file() {
+    let queue = Queue::new();
+    let mut rig = Rig::with_files(&queue, &library());
+    rig.open();
+    let kick = sample_on(&mut rig, 0, KICK.file);
+    rig.drop_files(10, &[("tmp/1/drums/kick.wav", short())]);
+    rig.settle(20);
+    let forget = rig.sent().pop().unwrap();
+    assert_eq!(forget.kind, MessageKind::ForgetSample { file: KICK.file });
+
+    rig.hit(100, 0, 100);
+    rig.step(110);
+
+    assert_eq!(
+        rig.sent(),
+        [message(
+            forget.number + 1,
+            100,
+            sample_note(0, kick, 48, None)
+        )]
+    );
+}
+
+#[test]
+fn a_missing_sound_plays_and_shows_without_its_file() {
+    let queue = Queue::new();
+    let mut rig = Rig::with_files(&queue, &library());
+    rig.open();
+    let kick = sample_on(&mut rig, 0, KICK.file);
+    let forget = delete_kick(&mut rig, 10);
+    rig.control.applied(forget.number, 90);
+    rig.settle(100);
+
+    rig.hit(200, 0, 100);
+    rig.menu(210, 2);
+    rig.page(220, 1);
+    rig.step(230);
+    assert_eq!(
+        rig.sent(),
+        [message(
+            forget.number + 1,
+            200,
+            sample_note(0, kick, 48, None)
+        )]
+    );
+    // The Sample item names the file, and the points show against no frames.
+    let items = [
+        item(Some(1), "Sample", "kick.wav", Bar::Track),
+        item(Some(2), "Start", "0.0%", Bar::Track),
+        item(Some(3), "End", "0.0%", Bar::Track),
+        item(Some(4), "Loop", "Off", Bar::Track),
+        item(None, "Loop start", "0.0%", Bar::Track),
+        item(None, "Loop end", "0.0%", Bar::Track),
+        item(None, "Reverse", "Off", Bar::Track),
+        item(None, "Root note", "C3", Bar::Fill(48, 127)),
+    ];
+    let strip = [
+        Some(items[0]),
+        Some(items[1]),
+        Some(items[2]),
+        Some(items[3]),
+    ];
+    assert!(shows(
+        &rig.control,
+        &drawn(
+            &[
+                ("Sound", ACCENT),
+                ("Sample", TEXT),
+                ("T1", TEXT),
+                ("kick", RECORD),
+                ("Pads", DIM)
+            ],
+            None,
+            |screen| {
+                for (row, item) in (0..).zip(&items) {
+                    draw_item(screen, 2, 17 + 18 * row, 160, item, true, None);
+                }
+                draw_cursor(screen, 2, 17, 160, 17);
+                // Only the middle line and the marks, both on the first column.
+                screen.hline(164, 134, 315, FAINT);
+                screen.vline(164, 16, 236, ACCENT);
+            },
+            &strip,
+        )
+    ));
+
+    // STEP's strip shows the Sample page's items.
+    rig.menu(300, 0);
+    rig.step(310);
+    assert!(shows(
+        &rig.control,
+        &drawn(
+            &[
+                ("Step", ACCENT),
+                ("T1", TEXT),
+                ("kick", RECORD),
+                ("Pads", DIM)
+            ],
+            None,
+            |_| {},
+            &strip,
+        )
+    ));
+}
+
+#[test]
+fn a_sound_of_a_file_that_was_not_loaded_takes_the_new_files_points() {
+    let plain = || wav::sine(440.0, 0.5, 44_100, Encoding::Int16, 1);
+    let queue = Queue::new();
+    let mut rig = Rig::with_files(
+        &queue,
+        &[
+            ("samples/bass.wav", converted_with(48_000, 2, 36, None)),
+            ("samples/other.wav", plain()),
+            ("samples/plain.wav", plain()),
+        ],
+    );
+    rig.open();
+    // Sounds of files that are not loaded, so End is 0.
+    let other = sample_on(&mut rig, 0, FileId(1));
+    let plain_sound = sample_on(&mut rig, 1, FileId(2));
+    // SAMPLES deletes other.wav, so its sound is missing.
+    rig.menu(10, 9);
+    rig.tap(20, Button::Down);
+    for at in [30, 40, 50] {
+        rig.tap(at, Button::Ok);
+    }
+    rig.settle(60);
+    assert!(matches!(
+        rig.control.project.pool.get(other).unwrap().engine,
+        Engine::Sample(Sample::Missing(_))
+    ));
+
+    // plain.wav replaces its file, which the audio part never read, and takes other.wav's place;
+    // then other.wav comes back in the place plain.wav left.
+    rig.drop_files(
+        100,
+        &[("tmp/1/plain.wav", short()), ("tmp/2/other.wav", short())],
+    );
+    rig.settle(110);
+    rig.hit(200, 0, 100);
+    rig.hit(210, 1, 100);
+    rig.step(220);
+
+    let new_plain = SampleFile {
+        file: FileId(1),
+        frames: 480,
+        stereo: false,
+    };
+    let new_other = SampleFile {
+        file: FileId(2),
+        ..new_plain
+    };
+    assert_eq!(
+        rig.sent(),
+        [
+            message(0, 110, set_param(plain_sound, END.id, 479)),
+            message(1, 110, set_param(plain_sound, LOOP_END.id, 479)),
+            message(2, 110, set_param(plain_sound, ROOT_NOTE.id, 60)),
+            message(3, 110, set_param(other, END.id, 479)),
+            message(4, 110, set_param(other, LOOP_END.id, 479)),
+            message(5, 110, set_param(other, ROOT_NOTE.id, 60)),
+            message(6, 200, sample_note(0, other, 60, Some(new_other))),
+            message(7, 210, sample_note(1, plain_sound, 60, Some(new_plain))),
+        ]
+    );
+}
+
+#[test]
+fn a_replace_by_a_shorter_file_keeps_the_points_held_within_it() {
+    let queue = Queue::new();
+    let mut rig = Rig::with_files(&queue, &library());
+    rig.open();
+    let kick = sample_on(&mut rig, 0, KICK.file);
+    let sound = rig.control.project.pool.get_mut(kick).unwrap();
+    for (id, value) in [
+        (START.id, 600),
+        (END.id, 4_000),
+        (LOOP_START.id, 200),
+        (LOOP_END.id, 300),
+    ] {
+        sound.set(id, value);
+    }
+
+    // kick.wav of 480 frames replaces it: End stops at the last frame and Start before End.
+    rig.drop_files(10, &[("tmp/1/drums/kick.wav", short())]);
+    rig.settle(20);
+    let forget = rig.sent().pop().unwrap();
+    rig.control.applied(forget.number, 30);
+    rig.settle(40);
+
+    let number = forget.number;
+    assert_eq!(
+        rig.sent(),
+        [
+            message(number + 1, 30, set_param(kick, START.id, 478)),
+            message(number + 2, 30, set_param(kick, END.id, 479)),
+        ]
+    );
+    let sound = rig.control.project.pool.get(kick).unwrap();
+    assert_eq!(sound.value(LOOP_START.id), 200);
+    assert_eq!(sound.value(LOOP_END.id), 300);
+    assert_eq!(sound.value(ROOT_NOTE.id), 48);
+}
+
+#[test]
+fn a_relink_waits_for_room_for_each_sounds_values() {
+    let queue = Queue::new();
+    let mut rig = Rig::with_files(&queue, &library());
+    rig.open();
+    let kick = sample_on(&mut rig, 0, KICK.file);
+    let copy = sample_on(&mut rig, 1, KICK.file);
+    rig.drop_files(10, &[("tmp/1/drums/kick.wav", short())]);
+    rig.settle(20);
+    let forget = rig.sent().pop().unwrap();
+    rig.fill_the_message_queue();
+    rig.consumer.pop();
+
+    // The report lists the new file with room for one event: the first sound takes it and sends
+    // its two values, and the second waits, missing.
+    rig.control.applied(forget.number, 30);
+    rig.step(40);
+    let engine = |rig: &Rig<'_>, sound| rig.control.project.pool.get(sound).unwrap().engine;
+    assert_eq!(engine(&rig, kick), Engine::Sample(Sample::File(FileId(4))));
+    assert!(matches!(
+        engine(&rig, copy),
+        Engine::Sample(Sample::Missing(_))
+    ));
+    let sent = rig.sent();
+    assert_eq!(
+        sent[sent.len() - 2..],
+        [
+            message(forget.number + 1, 30, set_param(kick, END.id, 479)),
+            message(forget.number + 2, 30, set_param(kick, LOOP_END.id, 479)),
+        ]
+    );
+
+    rig.step(40);
+    assert_eq!(engine(&rig, copy), Engine::Sample(Sample::File(FileId(4))));
+    assert_eq!(
+        rig.sent(),
+        [
+            message(forget.number + 3, 30, set_param(copy, END.id, 479)),
+            message(forget.number + 4, 30, set_param(copy, LOOP_END.id, 479)),
+        ]
     );
 }

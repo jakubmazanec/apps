@@ -7,11 +7,11 @@ use crate::font::ADVANCE;
 use crate::input::Button;
 use crate::label::Label;
 use crate::library::{self, name};
-use crate::palette::{ACCENT, BACKGROUND, DIM, FAINT, NOTE_MID, TEXT};
+use crate::palette::{ACCENT, BACKGROUND, DIM, FAINT, NOTE_MID, RECORD, TEXT};
 use crate::param::{
     self, BP, CUTOFF, Curve, END, HP, LP_12, LP_24, MODE, ParamId, RESONANCE, START,
 };
-use crate::project::pool::{Engine, Sample, SoundNumber};
+use crate::project::pool::{Engine, Sample, Sound, SoundNumber};
 use crate::project::track::PadMode;
 use crate::screen::{Canvas, HEIGHT, WIDTH};
 use crate::ui::frame::{Piece, draw_header, draw_strip};
@@ -40,12 +40,12 @@ impl Control {
     /// before.
     ///
     /// The header names the screen and, on a screen with pages, its page; then the track, the
-    /// selected sound and the pad mode with the octave in KEYS mode. While an empty pad is selected
-    /// there is no sound to name, and the pad's dim number stands in its place. While MENU is held
-    /// the header names MENU in place of the screen and its page. The message is on the right, or
-    /// while there is none the import's progress, in the room right of the pieces; a file's name in
-    /// it is shortened with "…" so that the rest of the text fits there, and a message still too
-    /// wide for it loses its end to a "…".
+    /// selected sound, in red while it is MISSING (`missing`), and the pad mode with the octave in
+    /// KEYS mode. While an empty pad is selected there is no sound to name, and the pad's dim
+    /// number stands in its place. While MENU is held the header names MENU in place of the screen
+    /// and its page. The message is on the right, or while there is none the import's progress, in
+    /// the room right of the pieces; a file's name in it is shortened with "…" so that the rest of
+    /// the text fits there, and a message still too wide for it loses its end to a "…".
     ///
     /// The main area shows the page's items with the cursor and the page's picture, the tiles while
     /// MENU or PAGE is held, or the picker while one is open. On STEP it stays empty, as its grid
@@ -54,9 +54,11 @@ impl Control {
     /// for the row, and the library meter above the strip. The sample picker shows the same rows
     /// under a dim top line at every level: the folder's path and two spaces inside a folder, then
     /// "Library" and the meter's value, the line losing its start to a "…" when too wide for the
-    /// row. A question shows in a box in the middle of the main area, over what the main area
-    /// shows. The strip shows the items that the encoders hold on the page they use, and nothing
-    /// while MENU or PAGE is held, the picker is open or SAMPLES shows.
+    /// row. The sound picker shows a MISSING sound's row in red. A question shows in a box in the
+    /// middle of the main area, over what the main area shows: DELETE's names the file, then counts
+    /// the sounds that use it, if any, as "2 sounds use it" (S17). The strip shows the items that
+    /// the encoders hold on the page they use, and nothing while MENU or PAGE is held, the picker
+    /// is open or SAMPLES shows.
     ///
     /// The text under the cursor, the current tile's name and the selected pad's name scroll when
     /// they do not fit, as far as the samples since the cursor landed say; the strip never scrolls.
@@ -81,10 +83,10 @@ impl Control {
         let mut track_name = Label::<2>::new();
         write!(track_name, "T{}", self.project.track + 1).expect("writing to a label never fails");
         let mut pad_number = Label::<2>::new();
-        let sound = match track.selected_sound {
+        let sound = match self.selected() {
             Some(sound) => Piece {
-                text: self.name(sound),
-                color: TEXT,
+                text: sound.name.as_str(),
+                color: if self.missing(sound) { RECORD } else { TEXT },
             },
             None => {
                 write!(
@@ -213,7 +215,7 @@ impl Control {
                             Engine::Synth => "synth",
                             Engine::Sample(_) => "sample",
                         }),
-                        alert: false,
+                        alert: self.missing(sound),
                     },
                     Entry::SampleEngine => Row {
                         left: "Sample",
@@ -458,10 +460,35 @@ impl Control {
                 self.library.file(file).name.as_str()
             )
             .expect("writing to a label never fails");
-            draw_question(
-                canvas,
-                &[(question.as_str(), TEXT), ("OK deletes, Cancel keeps", DIM)],
-            );
+            let sounds = self
+                .project
+                .pool
+                .sounds()
+                .iter()
+                .filter(|sound| sound.engine == Engine::Sample(Sample::File(file)))
+                .count();
+            let mut count = Label::<24>::new();
+            write!(
+                count,
+                "{sounds} {}",
+                if sounds == 1 {
+                    "sound uses it"
+                } else {
+                    "sounds use it"
+                }
+            )
+            .expect("writing to a label never fails");
+            let lines = [
+                (question.as_str(), TEXT),
+                (count.as_str(), DIM),
+                ("OK deletes, Cancel keeps", DIM),
+            ];
+            let shown: &[_] = if sounds == 0 {
+                &[lines[0], lines[2]]
+            } else {
+                &lines
+            };
+            draw_question(canvas, shown);
         }
         draw_strip(canvas, &cells);
         self.scrolling.set(scrolls);
@@ -602,6 +629,15 @@ impl Control {
         match self.selected().map(|sound| &sound.engine) {
             Some(Engine::Sample(Sample::File(file))) => self.library.file(*file).frames,
             _ => 0,
+        }
+    }
+
+    /// Whether `sound` is MISSING (S15): its sample is missing or its file is not loaded.
+    fn missing(&self, sound: &Sound) -> bool {
+        match sound.engine {
+            Engine::Sample(Sample::Missing(_)) => true,
+            Engine::Sample(Sample::File(file)) => !self.library.file(file).loaded,
+            Engine::Synth => false,
         }
     }
 

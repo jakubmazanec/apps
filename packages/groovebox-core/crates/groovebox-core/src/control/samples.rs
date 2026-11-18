@@ -189,10 +189,11 @@ impl Control {
 
     /// The storage's reply to the `Delete` of `file`, which ends the delete. Once the storage no
     /// longer holds the file, SAMPLES leaves each folder that holds nothing but the file, as CANCEL
-    /// does, and the library unlists the file and those folders and frees its blocks: the cursor
-    /// then moves from the row that is gone to the row above (`keep_samples_cursor`). The sample
-    /// picker goes to the top level when its folder is one of those folders. Otherwise the file
-    /// stays, in the sample RAM too, and the header says in red "clap.wav not deleted".
+    /// does, the file's sounds turn missing, keeping its path (S18), and the library unlists the
+    /// file and those folders and frees its blocks: the cursor then moves from the row that is gone
+    /// to the row above (`keep_samples_cursor`). The sample picker goes to the top level when its
+    /// folder is one of those folders. Otherwise the file stays, in the sample RAM too, its sounds
+    /// play it and the header says in red "clap.wav not deleted".
     #[allow(unsafe_code)]
     pub(super) fn deleted(&mut self, file: FileId, status: Status, tables: &Tables) {
         self.delete = None;
@@ -210,6 +211,7 @@ impl Control {
             if self.view.sample_picker.folder.is_some_and(emptied) {
                 self.view.sample_picker = SamplesView::top(true);
             }
+            self.project.pool.lose(file, self.library.path(file));
             // SAFETY: the applied report of the file's `ForgetSample` came back, or the file is
             // not loaded, so the audio part was never told about it.
             unsafe { self.library.remove(file, tables) };

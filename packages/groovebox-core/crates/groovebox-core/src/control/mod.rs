@@ -9,7 +9,7 @@ use crate::input::{Button, Input, PADS, Stamped, VOLUME};
 use crate::label::Label;
 use crate::library::import::Import;
 use crate::library::startup::StartUp;
-use crate::library::{FileId, Library};
+use crate::library::{FileId, Library, name};
 use crate::lights::Lights;
 use crate::message::{
     MAX_MESSAGES_PER_EVENT, MESSAGE_QUEUE, Message, MessageKind, NoteEngine, SampleFile, Target,
@@ -143,6 +143,9 @@ pub struct Control {
     /// at a time and never while the import replaces a file, which waits for a delete that runs,
     /// so the control part waits for at most one `ForgetSample`.
     delete: Option<(FileId, Deleting)>,
+    /// The sample of the event at which the import listed a file, and the file, while missing
+    /// sounds of its path wait to take it (`relink`).
+    relinking: Option<(u64, FileId)>,
     library: Library,
     project: Project,
     settings: DeviceSettings,
@@ -185,6 +188,7 @@ impl Control {
             startup: Some(StartUp::new()),
             import: Import::new(),
             delete: None,
+            relinking: None,
             library: Library::new(),
             project: Project::new(),
             settings: DeviceSettings::new(),
@@ -259,7 +263,8 @@ impl Control {
     /// request; one to another request does nothing. An event is handled only while the message
     /// queue has room for `MAX_MESSAGES_PER_EVENT` messages. Otherwise the step stops before it
     /// and leaves it and every later event for a later step, which goes on exactly where this one
-    /// stopped.
+    /// stopped. Before any later event the missing sounds of a file the import listed take it, one
+    /// sound at a time with the same room (`relink`).
     ///
     /// The first step starts the start-up's job, and a reply goes to it with `io`, the I/O buffer,
     /// as its request left it. When the job ends the project opens, with the job's result as the
@@ -294,6 +299,11 @@ impl Control {
         }
         let mut redraw = first;
         while messages.free() >= MAX_MESSAGES_PER_EVENT {
+            if self.relinking.is_some() {
+                self.relink(messages);
+                redraw = true;
+                continue;
+            }
             let events = [
                 self.replies
                     .peek()
@@ -1271,15 +1281,22 @@ impl Control {
         }
     }
 
-    /// Sends the `UseTable` or `ForgetSample` that the import asks for. Moves the cursors of
-    /// SAMPLES and of the sample picker from a file it replaced onto the new file. Closes the old
-    /// file's Delete picker or question, as CANCEL does, so that no OK deletes the audio just
-    /// dropped. Puts out its next request.
+    /// Sends the `UseTable` or `ForgetSample` that the import asks for. Once the library lists a
+    /// file, the missing sounds of its path take it (`relink`). The sounds of a file it replaced,
+    /// which is unlisted already, turn missing by the new file's path, their own but for case, so
+    /// that they take the new file too (S16). Moves the cursors of SAMPLES and of the sample picker
+    /// from a file it replaced onto the new file. Closes the old file's Delete picker or question,
+    /// as CANCEL does, so that no OK deletes the audio just dropped. Puts out its next request.
     fn follow_import(&mut self, sample: u64, messages: &mut Producer<'_, Message, MESSAGE_QUEUE>) {
         if let Some(kind) = self.import.message() {
             self.send(sample, kind, messages);
         }
-        if let Some((old, new)) = self.import.replaced() {
+        let listed = self.import.listed();
+        if let Some((new, _)) = listed {
+            self.relinking = Some((sample, new));
+        }
+        if let Some((new, Some(old))) = listed {
+            self.project.pool.lose(old, self.library.path(new));
             for list in [&mut self.view.samples, &mut self.view.sample_picker] {
                 if list.on == Some(samples::Row::File(old)) {
                     list.on = Some(samples::Row::File(new));
@@ -1298,6 +1315,53 @@ impl Control {
             }
         }
         self.put_request();
+    }
+
+    /// The first missing sound whose path is that of the file the import listed, but for case,
+    /// takes the file (S16) and sends each value it changed; when none is left the relink ends. A
+    /// sound whose End is 0, as its file had a frame at most or was not loaded, takes the file's
+    /// points as a sound changing its file does (`take_file`, S8). Any other keeps its points
+    /// within the file: End and Loop end at most its last frame, then Start before End and Loop
+    /// start before Loop end (answer 3). One sound at a time, as each sound's values may fill the
+    /// room of an event.
+    fn relink(&mut self, messages: &mut Producer<'_, Message, MESSAGE_QUEUE>) {
+        let (sample, file) = self.relinking.expect("a relink runs");
+        let path = self.library.path(file);
+        let Some(number) = self
+            .project
+            .pool
+            .sounds()
+            .iter()
+            .find(|sound| {
+                matches!(&sound.engine, Engine::Sample(Sample::Missing(missing))
+                    if name::same(missing.as_str(), path.as_str()))
+            })
+            .map(|sound| sound.number)
+        else {
+            self.relinking = None;
+            return;
+        };
+        let audio = *self.library.file(file);
+        let sound = self
+            .project
+            .pool
+            .get_mut(number)
+            .expect("a sound of the pool is in the pool");
+        let before = sound.values;
+        if sound.value(END.id) == 0 {
+            sound.take_file(file, &audio);
+        } else {
+            // The import lists a file loaded, so it has a frame, and its frames fit in an `i32`.
+            let last = audio.frames as i32 - 1;
+            for (end, start) in [(END.id, START.id), (LOOP_END.id, LOOP_START.id)] {
+                let held = sound.value(end).min(last);
+                sound.set(end, held);
+                // `set` stops at 0 when a file of one frame leaves none before it.
+                sound.set(start, sound.value(start).min(held - 1));
+            }
+            sound.engine = Engine::Sample(Sample::File(file));
+        }
+        self.send_values(number, &before, sample, messages);
     }
 
     /// Puts out the next storage request unless one is out: the delete's `Delete` once its turn

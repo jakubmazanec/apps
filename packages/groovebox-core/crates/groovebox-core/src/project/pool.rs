@@ -239,6 +239,15 @@ impl Pool {
         &self.sounds[..self.length]
     }
 
+    /// Makes every sound of `file` missing, kept by `path`.
+    pub fn lose(&mut self, file: FileId, path: Path) {
+        for sound in &mut self.sounds[..self.length] {
+            if sound.engine == Engine::Sample(Sample::File(file)) {
+                sound.engine = Engine::Sample(Sample::Missing(path));
+            }
+        }
+    }
+
     /// The place of the sound with this number among the sounds.
     fn find(&self, number: SoundNumber) -> Option<usize> {
         self.sounds()

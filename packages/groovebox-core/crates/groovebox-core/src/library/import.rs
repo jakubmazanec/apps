@@ -122,8 +122,8 @@ pub struct Import {
     /// The message to send at once, once: a `UseTable` as `Listing::add` packed the tables, or the
     /// `ForgetSample` of the file it replaces.
     message: Option<MessageKind>,
-    /// The file replaced and the file that replaced it, once, as the library lists the new one.
-    replaced: Option<(FileId, FileId)>,
+    /// The file the library just listed and the file it replaced, once.
+    listed: Option<(FileId, Option<FileId>)>,
 }
 
 impl Import {
@@ -158,7 +158,7 @@ impl Import {
             target: Path::new(),
             old: None,
             message: None,
-            replaced: None,
+            listed: None,
         }
     }
 
@@ -443,9 +443,9 @@ impl Import {
         self.old
     }
 
-    /// The file replaced and the file that replaced it, once the library lists the new one.
-    pub fn replaced(&mut self) -> Option<(FileId, FileId)> {
-        self.replaced.take()
+    /// The file the library just listed and the file it replaced, once.
+    pub fn listed(&mut self) -> Option<(FileId, Option<FileId>)> {
+        self.listed.take()
     }
 
     /// The header's message while it runs: "Importing 3 files", or "Importing kick.wav" for one
@@ -723,8 +723,8 @@ impl Import {
             // The new file holds the old one's folders, so none is left empty.
             // SAFETY: the caller promises that the audio part let go of the old file.
             unsafe { library.remove(old, tables) };
-            self.replaced = Some((old, self.file));
         }
+        self.listed = Some((self.file, self.old));
         self.end(None, library, tables);
     }
 
