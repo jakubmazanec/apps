@@ -385,11 +385,14 @@ mod tests {
 
     #[test]
     fn a_full_pool_refuses_and_uses_no_number() {
-        let mut pool = Pool::new();
-        for number in 1..=1_024 {
-            assert_eq!(pool.new_synth(), Ok(SoundNumber(number)));
-        }
-        let before = pool.clone();
+        let full = || {
+            let mut pool = Box::new(Pool::new());
+            for number in 1..=1_024 {
+                assert_eq!(pool.new_synth(), Ok(SoundNumber(number)));
+            }
+            pool
+        };
+        let (mut pool, before) = (full(), full());
 
         assert_eq!(pool.new_synth(), Err(PoolFull));
         assert_eq!(pool.copy(SoundNumber(1)), Err(PoolFull));

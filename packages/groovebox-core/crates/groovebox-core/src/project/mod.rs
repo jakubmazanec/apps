@@ -52,10 +52,19 @@ mod tests {
     use super::pool::SoundNumber;
     use super::track::PadMode;
     use super::*;
+    use std::boxed::Box;
+
+    /// A new project to copy into a `Box`: a debug build of a call of `Project::new` needs more
+    /// stack than the test thread leaves room for.
+    #[expect(
+        clippy::large_const_arrays,
+        reason = "a constant is copied straight to the heap, a call is built on the stack first"
+    )]
+    const NEW: Project = Project::new();
 
     #[test]
     fn a_new_project_has_pad_1_selected_on_every_track_in_pads_mode_at_c4() {
-        let project = Project::new();
+        let project = Box::new(NEW);
 
         assert_eq!(project.track, 0);
         assert!(project.pool.sounds().is_empty());
@@ -79,7 +88,7 @@ mod tests {
 
     #[test]
     fn copy_counts_pads_on_every_track() {
-        let mut project = Project::new();
+        let mut project = Box::new(NEW);
         let sound = project.pool.new_synth().unwrap();
         let other = project.pool.new_synth().unwrap();
         project.put(1, Some(sound));
@@ -95,7 +104,7 @@ mod tests {
 
     #[test]
     fn putting_a_sound_on_the_selected_pad_selects_it() {
-        let mut project = Project::new();
+        let mut project = Box::new(NEW);
         let sound = project.pool.new_synth().unwrap();
 
         project.put(0, Some(sound));
@@ -108,7 +117,7 @@ mod tests {
 
     #[test]
     fn put_acts_on_the_current_track_only() {
-        let mut project = Project::new();
+        let mut project = Box::new(NEW);
         let sound = project.pool.new_synth().unwrap();
         project.track = 2;
 
