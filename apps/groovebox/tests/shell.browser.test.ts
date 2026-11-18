@@ -450,7 +450,9 @@ describe(runShell, () => {
     let inputs = watchInputs(shell);
 
     // Syn 1 on pad 1, then KEYS mode, where a pad is lit while its note is on
-    await userEvent.keyboard('{KeyL>}{Digit3}{/KeyL}{Enter}{ArrowDown}{Enter}{Backslash}');
+    await userEvent.keyboard(
+      '{KeyL>}{Digit3}{/KeyL}{Enter}{ArrowDown}{ArrowDown}{Enter}{Backslash}',
+    );
 
     await expect.poll(() => isLit('pads-keys')).toBe(true);
 
