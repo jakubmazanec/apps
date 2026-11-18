@@ -75,7 +75,7 @@ fn reduce<const N: usize>(text: &str, room: usize) -> Label<N> {
 
 /// `name` as its stem and its ending, which is ".wav" in any case and stays as it was written. A
 /// name without that ending is all stem and gets ".wav".
-fn split_extension(name: &str) -> (&str, &str) {
+pub fn split_extension(name: &str) -> (&str, &str) {
     match name
         .len()
         .checked_sub(EXTENSION.len())

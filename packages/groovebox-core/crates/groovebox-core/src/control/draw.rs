@@ -200,6 +200,7 @@ impl Control {
                         left: sound.name.as_str(),
                         right: Some(match sound.engine {
                             Engine::Synth => "synth",
+                            Engine::Sample(_) => "sample",
                         }),
                         alert: false,
                     },

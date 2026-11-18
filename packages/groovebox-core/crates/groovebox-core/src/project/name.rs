@@ -67,18 +67,19 @@ pub fn next_name(pool: &Pool, base: &str, numbered: bool) -> Label<NAME_BYTES> {
 mod tests {
     use super::*;
     use crate::project::pool::SoundNumber;
+    use std::boxed::Box;
 
-    fn pool_of(names: &[&str]) -> Pool {
+    fn pool_of(names: &[&str]) -> Box<Pool> {
         let mut pool = Pool::new();
         for name in names {
             pool.add_named(name);
         }
-        pool
+        Box::new(pool)
     }
 
     #[test]
     fn names_follow_the_owners_table() {
-        let mut synths = Pool::new();
+        let mut synths = pool_of(&[]);
         assert_eq!(next_name(&synths, "Syn", true).as_str(), "Syn 1");
         synths.new_synth().unwrap();
         synths.new_synth().unwrap();
@@ -92,8 +93,8 @@ mod tests {
         assert_eq!(next_name(&kicks, "Kick", true).as_str(), "Kick 3");
         assert_eq!(next_name(&kicks, "Kick", false).as_str(), "Kick 3");
 
-        assert_eq!(next_name(&Pool::new(), "Kick", false).as_str(), "Kick");
-        assert_eq!(next_name(&Pool::new(), "Kick", true).as_str(), "Kick 1");
+        assert_eq!(next_name(&pool_of(&[]), "Kick", false).as_str(), "Kick");
+        assert_eq!(next_name(&pool_of(&[]), "Kick", true).as_str(), "Kick 1");
     }
 
     #[test]

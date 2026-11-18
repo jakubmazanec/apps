@@ -35,6 +35,9 @@ pub enum Curve {
     Cutoff,
     /// `p²` as a gain.
     Level,
+    /// A frame of a sample file, from 0 to `i32::MAX`. The control part holds it within its file,
+    /// moves it with `moved_frame` and shows it with `format_frame`; it is never modulated.
+    Frame,
 }
 
 /// How a value is shown.
@@ -44,6 +47,8 @@ pub enum Unit {
     Percent,
     Signed,
     Time,
+    /// A MIDI note, shown by its name.
+    Note,
 }
 
 /// One choice of a named list. Its key is permanent; its label can be renamed.
@@ -156,9 +161,11 @@ const fn choice(key: i32, label: &'static str) -> Choice {
 }
 
 mod chain;
+mod sample;
 mod synth;
 
 pub use chain::*;
+pub use sample::*;
 pub use synth::*;
 
 /// The master list, in ID order: a sound keeps its values in this order.
@@ -198,6 +205,13 @@ pub const ENTRIES: &[Entry] = &[
     OSCILLATOR_2_LEVEL,
     OSCILLATOR_2_INTERVAL,
     OSCILLATOR_2_FINE_TUNE,
+    START,
+    END,
+    LOOP,
+    LOOP_START,
+    LOOP_END,
+    REVERSE,
+    ROOT_NOTE,
 ];
 
 const _: () = assert!(check(ENTRIES).is_ok());
@@ -205,10 +219,10 @@ const _: () = assert!(check(ENTRIES).is_ok());
 /// The rules the list keeps, checked when the core builds. They apply in this order: IDs are
 /// unique; each ID lies in its scope's block (device 1 to 99, project 100 to 199, track 200 to 299
 /// or from 10,000, sound 1,000 to 9,999); the default lies between the lowest and the highest
-/// value; a smooth entry (click above 0) runs 0 to 65,535 and its click divides by 16, so a fine
-/// click is a whole sixteenth; a switch runs 0 to 1; a list has choices with unique keys, its
-/// default among them and no click; a count has no click; a fraction, a bipolar value, a time, a
-/// cutoff and a level are smooth.
+/// value; a frame entry has no click and runs 0 to `i32::MAX`; a smooth entry (click above 0) runs
+/// 0 to 65,535 and its click divides by 16, so a fine click is a whole sixteenth; a switch runs 0
+/// to 1; a list has choices with unique keys, its default among them and no click; a count has no
+/// click; a fraction, a bipolar value, a time, a cutoff and a level are smooth.
 pub const fn check(entries: &[Entry]) -> Result<(), &'static str> {
     let mut first = 0;
     while first < entries.len() {
@@ -236,6 +250,11 @@ pub const fn check(entries: &[Entry]) -> Result<(), &'static str> {
         }
         if entry.default < entry.low || entry.default > entry.high {
             return Err("a default lies outside the range");
+        }
+        if matches!(entry.curve, Curve::Frame)
+            && (entry.click != 0 || entry.low != 0 || entry.high != i32::MAX)
+        {
+            return Err("a frame entry has a click or does not run from 0 to 2,147,483,647");
         }
         if entry.click > 0 {
             if entry.low != 0 || entry.high != 65_535 {
@@ -377,7 +396,7 @@ fn offset(value: i32) -> i32 {
 pub fn real(entry: &Entry, value: i32) -> f32 {
     let p = value as f32 / 65_535.0;
     match entry.curve {
-        Curve::Switch | Curve::List | Curve::Count => value as f32,
+        Curve::Switch | Curve::List | Curve::Count | Curve::Frame => value as f32,
         Curve::Fraction => p,
         Curve::Bipolar => offset(value) as f32 / 32_767.0,
         Curve::Time { max_ms } => max_ms as f32 / 1_000.0 * p * p * p,
@@ -386,12 +405,41 @@ pub fn real(entry: &Entry, value: i32) -> f32 {
     }
 }
 
-/// Appends the value as it is shown. Rounding is half away from zero, done on integers.
+/// The frame after `clicks` encoder clicks (negative is down) in a file of `frames` frames, at
+/// least one: a click is a 128th of the file and a fine one a sixteenth of that, each at least a
+/// frame. It stops at the first frame and the last.
+pub fn moved_frame(value: i32, clicks: i32, fine: bool, frames: u32) -> i32 {
+    let click = (frames / 128).max(1);
+    let step = if fine { (click / 16).max(1) } else { click };
+    let target = i64::from(value) + i64::from(clicks) * i64::from(step);
+
+    // A file lies within the sample RAM, so its last frame fits in an `i32`.
+    target.clamp(0, i64::from(frames) - 1) as i32
+}
+
+/// Appends the frame `value` of a file of `frames` frames as the share of the file it is at, in
+/// tenths of a percent of the last frame, rounded half up on integers. A file of one frame reads
+/// "0.0%".
+pub fn format_frame(value: i32, frames: u32, out: &mut Label<16>) {
+    let last = i64::from(frames) - 1;
+    let tenths = if last > 0 {
+        (2 * i64::from(value) * 1_000 + last) / (2 * last)
+    } else {
+        0
+    };
+
+    write!(out, "{}.{}%", tenths / 10, tenths % 10).expect("writing to a label never fails");
+}
+
+/// Appends the value as it is shown. Rounding is half away from zero, done on integers. A frame is
+/// shown by `format_frame`, never by this.
 pub fn format(entry: &Entry, value: i32, out: &mut Label<16>) {
     let written = match entry.curve {
         Curve::Switch => out.write_str(if value == 0 { "Off" } else { "On" }),
         Curve::List => out.write_str(entry.choices[place(entry, value)].label),
+        Curve::Count if entry.unit == Unit::Note => note(value, out),
         Curve::Count => signed(value, out),
+        Curve::Frame => unreachable!("a frame is shown by `format_frame`"),
         Curve::Bipolar => {
             let from_middle = offset(value);
             signed(
@@ -418,19 +466,40 @@ pub fn format(entry: &Entry, value: i32, out: &mut Label<16>) {
     written.expect("writing to a label never fails");
 }
 
+/// The sign of a value below 0.
+const MINUS: &str = "\u{2212}";
+
 /// Appends `value` with its sign, "+" for 0 and above and "−" below.
 fn signed(value: i32, out: &mut Label<16>) -> core::fmt::Result {
     write!(
         out,
         "{}{}",
-        if value < 0 { '\u{2212}' } else { '+' },
+        if value < 0 { MINUS } else { "+" },
         value.unsigned_abs()
+    )
+}
+
+/// Appends the name of the MIDI note `value`, from 0 to 127: C4 is 60, a sharp is "#" and note 0
+/// is "C−1".
+fn note(value: i32, out: &mut Label<16>) -> core::fmt::Result {
+    const NAMES: [&str; 12] = [
+        "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B",
+    ];
+    let octave = value / 12 - 1;
+
+    write!(
+        out,
+        "{}{}{}",
+        NAMES[(value % 12) as usize],
+        if octave < 0 { MINUS } else { "" },
+        octave.unsigned_abs()
     )
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::project::pool::SOUND_VALUES;
 
     /// A smooth sound entry.
     const SMOOTH: Entry = Entry {
@@ -640,10 +709,63 @@ mod tests {
     };
 
     #[test]
-    fn the_list_passes_its_check_with_33_sound_and_2_device_entries() {
+    fn the_list_passes_its_check_with_40_sound_and_2_device_entries() {
         assert_eq!(check(ENTRIES), Ok(()));
-        assert_eq!(count(ENTRIES, Scope::Sound), 33);
+        assert_eq!(count(ENTRIES, Scope::Sound), 40);
         assert_eq!(count(ENTRIES, Scope::Device), 2);
+    }
+
+    #[test]
+    fn check_refuses_a_frame_entry_with_a_click() {
+        assert_eq!(check(&[START]), Ok(()));
+        assert_eq!(
+            check(&[Entry {
+                click: 512,
+                ..START
+            }]),
+            Err("a frame entry has a click or does not run from 0 to 2,147,483,647")
+        );
+    }
+
+    #[test]
+    fn frames_move_by_a_128th_of_the_file_or_a_sixteenth_with_shift() {
+        assert_eq!(moved_frame(0, 1, false, 48_000), 375);
+        assert_eq!(moved_frame(0, 1, true, 48_000), 23);
+        assert_eq!(moved_frame(47_900, 1, false, 48_000), 47_999);
+        assert_eq!(moved_frame(10, -1, false, 48_000), 0);
+        assert_eq!(moved_frame(0, 1, true, 100), 1);
+    }
+
+    #[test]
+    fn frames_read_as_a_percent_with_one_decimal() {
+        let percent = |value| {
+            let mut out = Label::new();
+            format_frame(value, 48_000, &mut out);
+            out
+        };
+
+        assert_eq!(percent(0).as_str(), "0.0%");
+        assert_eq!(percent(47_999).as_str(), "100.0%");
+        assert_eq!(percent(2_016).as_str(), "4.2%");
+        assert_eq!(percent(44_160).as_str(), "92.0%");
+    }
+
+    #[test]
+    fn a_one_frame_file_reads_0_percent_and_never_moves() {
+        let mut out = Label::new();
+
+        format_frame(0, 1, &mut out);
+
+        assert_eq!(out.as_str(), "0.0%");
+        assert_eq!(moved_frame(0, 5, false, 1), 0);
+    }
+
+    #[test]
+    fn notes_read_as_names() {
+        assert_eq!(text(&ROOT_NOTE, 60).as_str(), "C4");
+        assert_eq!(text(&ROOT_NOTE, 61).as_str(), "C#4");
+        assert_eq!(text(&ROOT_NOTE, 0).as_str(), "C\u{2212}1");
+        assert_eq!(text(&ROOT_NOTE, 127).as_str(), "G9");
     }
 
     #[test]
@@ -712,7 +834,7 @@ mod tests {
 
     #[test]
     fn a_new_sound_is_the_plain_open_saw() {
-        const DEFAULTS: [i32; 33] = defaults(ENTRIES, Scope::Sound);
+        const DEFAULTS: [i32; SOUND_VALUES] = defaults(ENTRIES, Scope::Sound);
         let default = |entry: &Entry| {
             DEFAULTS[position(ENTRIES, Scope::Sound, entry.id).expect("a sound entry")]
         };

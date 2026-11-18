@@ -71,9 +71,10 @@ mod tests {
     #[test]
     fn a_project_is_built_at_compile_time() {
         const TRACKS: usize = Project::new().tracks.len();
+        static BUILT: Project = Project::new();
 
         assert_eq!(TRACKS, 4);
-        assert_eq!(Project::new(), Project::default());
+        assert_eq!(BUILT, Project::default());
     }
 
     #[test]

@@ -1,7 +1,13 @@
 use super::name;
 use crate::budget;
 use crate::label::Label;
-use crate::param::{self, ENTRIES, ParamId, Scope};
+use crate::library::name::split_extension;
+use crate::library::{File, FileId};
+use crate::param::{
+    self, END, ENTRIES, GATE, LOOP, LOOP_END, LOOP_START, ONE_SHOT, ParamId, ROOT_NOTE, START,
+    Scope, TRIGGER, WAVE,
+};
+use crate::storage::Path;
 
 /// The most bytes of a sound's name.
 pub const NAME_BYTES: usize = 64;
@@ -17,17 +23,37 @@ pub const SOUND_DEFAULTS: [i32; SOUND_VALUES] = param::defaults(ENTRIES, Scope::
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct SoundNumber(pub u32);
 
-/// How a sound makes its sound. Milestone 2 adds `Sample`.
+/// The file a sample sound plays.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[expect(
+    clippy::large_enum_variant,
+    reason = "the path stays in the sound, so a sound stays `Copy` and the pool never allocates"
+)]
+pub enum Sample {
+    /// A file of the library.
+    File(FileId),
+    /// A file the library lacks, kept by its path so that the sound plays again when a file of that
+    /// path comes back.
+    Missing(Path),
+}
+
+/// How a sound makes its sound.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[expect(
+    clippy::large_enum_variant,
+    reason = "the path stays in the sound, so a sound stays `Copy` and the pool never allocates"
+)]
 pub enum Engine {
     Synth,
+    Sample(Sample),
 }
 
 impl Engine {
     /// The name of the page SOUND shows for the engine's own entries.
-    pub const fn page_name(self) -> &'static str {
+    pub const fn page_name(&self) -> &'static str {
         match self {
             Self::Synth => "Synth",
+            Self::Sample(_) => "Sample",
         }
     }
 }
@@ -60,6 +86,49 @@ impl Sound {
     pub fn set(&mut self, id: ParamId, value: i32) {
         let entry = param::entry(id);
         self.values[Self::place(id)] = value.clamp(entry.low, entry.high);
+    }
+
+    /// Takes the start, the end, the loop points and the root note of `audio`, the file `file`
+    /// names, and makes it the sound's sample. Every other value stays.
+    pub fn take_file(&mut self, file: FileId, audio: &File) {
+        let last = audio.frames - 1;
+        let (loop_start, loop_end) = audio.loop_points.unwrap_or((0, last));
+        for (id, value) in [
+            (START.id, 0),
+            (END.id, last),
+            (LOOP_START.id, loop_start),
+            (LOOP_END.id, loop_end),
+        ] {
+            // A file lies within the sample RAM, so its frames fit in an `i32`.
+            self.set(id, value as i32);
+        }
+        self.set(ROOT_NOTE.id, i32::from(audio.root));
+        self.engine = Engine::Sample(Sample::File(file));
+    }
+
+    /// Makes the sound a sample sound of `audio`, the file `file` names: the sample entries take
+    /// their defaults, Loop is on when the file has a loop of its own, and then `take_file`.
+    pub fn start_sample(&mut self, file: FileId, audio: &File) {
+        self.reset_engine(&START);
+        self.set(LOOP.id, i32::from(audio.loop_points.is_some()));
+        self.take_file(file, audio);
+    }
+
+    /// Makes the sound a synth: the synth entries take their defaults and the rest stays.
+    pub fn start_synth(&mut self) {
+        self.reset_engine(&WAVE);
+        self.engine = Engine::Synth;
+    }
+
+    /// Puts every entry of the engine that `of` belongs to back to its default. An engine's entries
+    /// share a block of 1,000 IDs.
+    fn reset_engine(&mut self, of: &param::Entry) {
+        for entry in ENTRIES
+            .iter()
+            .filter(|entry| entry.id.0 / 1_000 == of.id.0 / 1_000)
+        {
+            self.set(entry.id, entry.default);
+        }
     }
 
     /// What the pool's places hold before a sound is made in them.
@@ -107,6 +176,30 @@ impl Pool {
             engine: Engine::Synth,
             values: SOUND_DEFAULTS,
         }))
+    }
+
+    /// Makes a sample sound of `audio`, the file `file` names. It is named after the file as the
+    /// first sound of a file is, and it triggers on Gate when the file has a loop of its own and
+    /// as One-shot otherwise. A refusal changes nothing.
+    pub fn new_sample(&mut self, file: FileId, audio: &File) -> Result<SoundNumber, PoolFull> {
+        let number = self.vacancy()?;
+        let (stem, _) = split_extension(audio.name.as_str());
+        let mut sound = Sound {
+            number,
+            name: name::next_name(self, name::split(stem).0, false),
+            ..Sound::UNUSED
+        };
+        sound.set(
+            TRIGGER.id,
+            if audio.loop_points.is_some() {
+                GATE
+            } else {
+                ONE_SHOT
+            },
+        );
+        sound.start_sample(file, audio);
+
+        Ok(self.append(sound))
     }
 
     /// Makes a sound with the engine and the values of `of`, and its own name and number. A refusal
@@ -195,7 +288,7 @@ impl Default for Pool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::param::{CUTOFF, LP_24, MODE};
+    use crate::param::{CUTOFF, LP_24, MODE, PULSE, REVERSE, SAW};
 
     #[test]
     fn numbers_are_never_reused() {
@@ -317,9 +410,159 @@ mod tests {
     #[test]
     fn a_pool_is_built_at_compile_time() {
         const LENGTH: usize = Pool::new().length;
+        static BUILT: Pool = Pool::new();
 
         assert_eq!(LENGTH, 0);
-        assert!(Pool::new().sounds().is_empty());
-        assert_eq!(Pool::new(), Pool::default());
+        assert!(BUILT.sounds().is_empty());
+        assert_eq!(BUILT, Pool::default());
+    }
+
+    /// A library file of this stored name, length, root note and loop.
+    fn file(name: &str, frames: u32, root: u8, loop_points: Option<(u32, u32)>) -> File {
+        let mut stored = Label::new();
+        stored.push_str(name);
+
+        File {
+            name: stored,
+            folder: None,
+            frames,
+            channels: 1,
+            root,
+            loop_points,
+            fingerprint: [0; 16],
+            loaded: true,
+        }
+    }
+
+    #[test]
+    fn a_sample_sound_of_a_file_without_a_loop_is_one_shot_over_the_whole_file() {
+        let mut pool = Pool::new();
+
+        let number = pool
+            .new_sample(FileId(3), &file("kick.wav", 4_800, 48, None))
+            .unwrap();
+
+        let sound = pool.get(number).unwrap();
+        assert_eq!(sound.name.as_str(), "kick");
+        assert_eq!(sound.value(TRIGGER.id), ONE_SHOT);
+        assert_eq!(sound.value(LOOP.id), 0);
+        assert_eq!(sound.value(START.id), 0);
+        assert_eq!(sound.value(END.id), 4_799);
+        assert_eq!(sound.value(LOOP_START.id), 0);
+        assert_eq!(sound.value(LOOP_END.id), 4_799);
+        assert_eq!(sound.value(ROOT_NOTE.id), 48);
+        assert_eq!(sound.value(CUTOFF.id), CUTOFF.default);
+        assert_eq!(sound.engine, Engine::Sample(Sample::File(FileId(3))));
+    }
+
+    #[test]
+    fn a_sample_sound_of_a_file_with_a_loop_loops_on_gate() {
+        let mut pool = Pool::new();
+
+        let number = pool
+            .new_sample(FileId(0), &file("pad.wav", 4_800, 60, Some((1_000, 3_999))))
+            .unwrap();
+
+        let sound = pool.get(number).unwrap();
+        assert_eq!(sound.value(LOOP.id), 1);
+        assert_eq!(sound.value(TRIGGER.id), GATE);
+        assert_eq!(sound.value(LOOP_START.id), 1_000);
+        assert_eq!(sound.value(LOOP_END.id), 3_999);
+        assert_eq!(sound.value(START.id), 0);
+        assert_eq!(sound.value(END.id), 4_799);
+    }
+
+    #[test]
+    fn taking_another_file_keeps_every_other_value() {
+        let mut pool = Pool::new();
+        let number = pool
+            .new_sample(FileId(3), &file("kick.wav", 4_800, 48, None))
+            .unwrap();
+        let sound = pool.get_mut(number).unwrap();
+        for (entry, value) in [(LOOP, 1), (REVERSE, 1), (TRIGGER, GATE), (CUTOFF, 1_000)] {
+            sound.set(entry.id, value);
+        }
+
+        sound.take_file(FileId(5), &file("snare.wav", 9_600, 72, None));
+
+        assert_eq!(sound.engine, Engine::Sample(Sample::File(FileId(5))));
+        assert_eq!(sound.value(LOOP.id), 1);
+        assert_eq!(sound.value(REVERSE.id), 1);
+        assert_eq!(sound.value(TRIGGER.id), GATE);
+        assert_eq!(sound.value(CUTOFF.id), 1_000);
+        assert_eq!(sound.value(START.id), 0);
+        assert_eq!(sound.value(END.id), 9_599);
+        assert_eq!(sound.value(LOOP_START.id), 0);
+        assert_eq!(sound.value(LOOP_END.id), 9_599);
+        assert_eq!(sound.value(ROOT_NOTE.id), 72);
+    }
+
+    #[test]
+    fn starting_a_sample_again_puts_its_values_back_to_their_defaults() {
+        let mut pool = Pool::new();
+        let number = pool.new_synth().unwrap();
+        let sound = pool.get_mut(number).unwrap();
+        sound.set(REVERSE.id, 1);
+        sound.set(START.id, 100);
+        sound.set(CUTOFF.id, 1_000);
+
+        sound.start_sample(FileId(1), &file("kick.wav", 4_800, 48, Some((10, 20))));
+
+        assert_eq!(sound.value(REVERSE.id), 0);
+        assert_eq!(sound.value(START.id), 0);
+        assert_eq!(sound.value(LOOP.id), 1);
+        assert_eq!(sound.value(CUTOFF.id), 1_000);
+        assert_eq!(sound.engine, Engine::Sample(Sample::File(FileId(1))));
+    }
+
+    #[test]
+    fn the_synth_starts_at_its_defaults_and_keeps_the_chain() {
+        let mut pool = Pool::new();
+        let number = pool
+            .new_sample(FileId(3), &file("kick.wav", 4_800, 48, None))
+            .unwrap();
+        let sound = pool.get_mut(number).unwrap();
+        sound.set(WAVE.id, PULSE);
+        sound.set(CUTOFF.id, 1_000);
+
+        sound.start_synth();
+
+        assert_eq!(sound.value(WAVE.id), SAW);
+        assert_eq!(sound.value(CUTOFF.id), 1_000);
+        assert_eq!(sound.engine, Engine::Synth);
+    }
+
+    #[test]
+    fn a_full_pool_refuses_a_sample_sound_and_changes_nothing() {
+        let mut pool = Pool::new();
+        for _ in 0..1_024 {
+            pool.new_synth().unwrap();
+        }
+        let before = pool.clone();
+
+        assert_eq!(
+            pool.new_sample(FileId(0), &file("kick.wav", 4_800, 60, None)),
+            Err(PoolFull)
+        );
+
+        assert_eq!(pool, before);
+    }
+
+    #[test]
+    fn a_second_sound_of_a_file_is_numbered() {
+        let mut pool = Pool::new();
+        let kick = file("kick.wav", 4_800, 60, None);
+
+        let first = pool.new_sample(FileId(0), &kick).unwrap();
+        let second = pool.new_sample(FileId(0), &kick).unwrap();
+
+        assert_eq!(pool.get(first).unwrap().name.as_str(), "kick");
+        assert_eq!(pool.get(second).unwrap().name.as_str(), "kick 2");
+
+        let mut other = Pool::new();
+        let numbered = other
+            .new_sample(FileId(0), &file("kick 2.wav", 4_800, 60, None))
+            .unwrap();
+        assert_eq!(other.get(numbered).unwrap().name.as_str(), "kick");
     }
 }
