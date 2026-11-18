@@ -1,4 +1,4 @@
-use super::CHUNK;
+use super::{CHUNK, SAMPLE_RATE};
 use crate::library::FileId;
 use crate::message::SampleFile;
 use crate::param::{END, Entry, LOOP, LOOP_END, LOOP_START, ParamId, REVERSE, START};
@@ -7,10 +7,15 @@ use crate::sample_ram::Reader;
 /// A whole frame in the 32.32 fixed point of a position.
 const FRAME: u64 = 1 << 32;
 
+/// The output frames of the fade at the end of a sample that ends by itself: 1 ms.
+const FADE: u64 = (SAMPLE_RATE / 1_000) as u64;
+
 /// The sample engine's source: it plays a file from Start to End and around its loop at any rate,
 /// in reverse from End back to Start. It reads one chunk ahead, as the preview does, so a fade
 /// reads nothing of the file. Each output frame is a 4-point Hermite curve through the frames
-/// around the position, unscaled: a full-scale sample reads ±1, a mono one in both channels.
+/// around the position, unscaled: a full-scale sample reads ±1, a mono one in both channels. A
+/// sample that ends by itself, without a loop, fades out in a straight line over its last `FADE`
+/// output frames, so its end never clicks.
 pub struct Player {
     /// The file it plays; none for a missing sample.
     sample: Option<SampleFile>,
@@ -111,7 +116,18 @@ impl Player {
         let step = (rate * FRAME as f32) as u64;
         // After a `UseTable` the file's slice lies elsewhere: it is looked up in the table in use.
         let slice = reader.slice(file);
+        // The whole output frames from this chunk's first until a sample that ends by itself plays
+        // its last: none for a loop, which never ends.
+        let after = match (reverse, looped) {
+            (false, None) => end.saturating_sub(self.position).checked_div(step),
+            (true, None) => self.position.saturating_sub(start).checked_div(step),
+            (_, Some(_)) => None,
+        };
         for n in 0..CHUNK {
+            // The frames left, counting this one, over `FADE`: a straight line to the last frame.
+            let fade = after.map_or(1.0, |after| {
+                (after - n as u64 + 1).min(FADE) as f32 / FADE as f32
+            });
             let whole = self.position / FRAME;
             let t = (self.position % FRAME) as f32 / FRAME as f32;
             let around = [whole.saturating_sub(1), whole, whole + 1, whole + 2]
@@ -122,7 +138,7 @@ impl Player {
                 let c1 = 0.5 * (x1 - before);
                 let c2 = before - 2.5 * x0 + 2.0 * x1 - 0.5 * after;
                 let c3 = 0.5 * (after - before) + 1.5 * (x0 - x1);
-                out[n] = (((c3 * t + c2) * t + c1) * t + x0) / 32_768.0;
+                out[n] = (((c3 * t + c2) * t + c1) * t + x0) / 32_768.0 * fade;
             }
             let moved = match (reverse, looped) {
                 (false, None) => self.position.checked_add(step).filter(|&next| next <= end),
@@ -265,6 +281,16 @@ mod tests {
             .collect()
     }
 
+    /// `samples` of a sample that ends right after them as the player gives them: the last 48
+    /// frames, 1 ms, fade out in a straight line, the nth from the end scaled by n / 48.
+    fn fade_out(mut samples: Vec<f32>) -> Vec<f32> {
+        let frames = samples.len();
+        for (n, sample) in samples.iter_mut().enumerate() {
+            *sample *= (frames - n).min(48) as f32 / 48.0;
+        }
+        samples
+    }
+
     /// The values of a sound: `changes`, and every other entry's default.
     fn values<'a>(changes: &'a [(&Entry, i32)]) -> impl Fn(ParamId) -> i32 + Copy + 'a {
         move |id| {
@@ -313,7 +339,7 @@ mod tests {
 
         let ([left, right], finished) = play(&ram, sample, &[(&START, 100), (&END, 163)], 1.0, 4);
 
-        assert_eq!(bits(&left[..64]), bits(&ramp_at(100..164)));
+        assert_eq!(bits(&left[..64]), bits(&fade_out(ramp_at(100..164))));
         assert!(is_silent(&left[64..]));
         assert_eq!(bits(&left), bits(&right));
         assert_eq!(finished, [false, true, true, true]);
@@ -336,7 +362,10 @@ mod tests {
 
         let ([left, _], finished) = play(&ram, sample, changes, 1.0, 3);
 
-        assert_eq!(bits(&left[..64]), bits(&ramp_at((100..164).rev())));
+        assert_eq!(
+            bits(&left[..64]),
+            bits(&fade_out(ramp_at((100..164).rev())))
+        );
         assert!(is_silent(&left[64..]));
         assert_eq!(finished, [false, true, true]);
     }
@@ -376,7 +405,7 @@ mod tests {
 
         let ([left, _], finished) = play(&ram, sample, changes, 1.0, 17);
 
-        assert_eq!(bits(&left[..500]), bits(&ramp_at(500..1_000)));
+        assert_eq!(bits(&left[..500]), bits(&fade_out(ramp_at(500..1_000))));
         assert!(is_silent(&left[500..]));
         assert_eq!(finished, [[false; 15].as_slice(), &[true; 2]].concat());
     }
@@ -487,11 +516,97 @@ mod tests {
 
             assert_eq!(
                 bits(&left[..2]),
-                bits(&ramp_at(frames)),
+                bits(&fade_out(ramp_at(frames))),
                 "reverse {reverse}"
             );
             assert!(is_silent(&left[2..]), "reverse {reverse}");
             assert_eq!(finished, [true, true], "reverse {reverse}");
+        }
+    }
+
+    /// A full-scale sample.
+    const FULL: f32 = i16::MAX as f32 / 32_768.0;
+
+    /// Checks that `left` holds `frames` frames of a full-scale sample that ends by itself, faded
+    /// out over its last 48 or all of them, and silence after.
+    fn assert_fades_out(left: &[f32], frames: usize, context: impl core::fmt::Debug) {
+        assert_eq!(
+            bits(&left[..frames]),
+            bits(&fade_out(core::iter::repeat_n(FULL, frames).collect())),
+            "{context:?}"
+        );
+        assert!(is_silent(&left[frames..]), "{context:?}");
+    }
+
+    #[test]
+    fn a_sample_that_ends_fades_out_over_its_last_48_frames() {
+        let mut ram = Ram::new();
+        let sample = ram.add(0, false, &[i16::MAX; 1_000]);
+        let forward: &[(&Entry, i32)] = &[(&START, 0), (&END, 199)];
+        let reverse: &[(&Entry, i32)] = &[(&START, 800), (&END, 999), (&REVERSE, 1)];
+
+        // The 200 frames to the end fade over the last 48, which span three chunks.
+        for (changes, direction) in [(forward, "forward"), (reverse, "reverse")] {
+            let ([left, right], finished) = play(&ram, sample, changes, 1.0, 8);
+
+            assert_fades_out(&left, 200, direction);
+            assert_eq!(bits(&left), bits(&right), "{direction}");
+            assert!(finished[7], "{direction}");
+        }
+    }
+
+    #[test]
+    fn a_sample_shorter_than_48_frames_fades_out_over_its_whole_length() {
+        let mut ram = Ram::new();
+        let sample = ram.add(0, false, &[i16::MAX; 20]);
+
+        for (reverse, direction) in [(0, "forward"), (1, "reverse")] {
+            let changes: &[(&Entry, i32)] = &[(&START, 0), (&END, 19), (&REVERSE, reverse)];
+            let ([left, _], _) = play(&ram, sample, changes, 1.0, 2);
+
+            assert_fades_out(&left, 20, direction);
+        }
+    }
+
+    #[test]
+    fn the_fade_spans_48_output_frames_at_any_rate() {
+        let mut ram = Ram::new();
+        let sample = ram.add(0, false, &[i16::MAX; 1_000]);
+        let changes: &[(&Entry, i32)] = &[(&START, 0), (&END, 199)];
+
+        // Frames 0 to 199 at the rate: 100 at rate 2, 399 at rate 0.5 and 133 at rate 1.5.
+        for (rate, frames) in [(2.0, 100), (0.5, 399), (1.5, 133)] {
+            let ([left, _], _) = play(&ram, sample, changes, rate, 14);
+
+            assert_fades_out(&left, frames, rate);
+        }
+    }
+
+    #[test]
+    fn a_loop_does_not_fade() {
+        let mut ram = Ram::new();
+        let sample = ram.add(0, false, &[i16::MAX; 1_000]);
+        let forward: &[(&Entry, i32)] = &[
+            (&LOOP, 1),
+            (&LOOP_START, 200),
+            (&LOOP_END, 231),
+            (&START, 0),
+            (&END, 231),
+        ];
+        let reverse: &[(&Entry, i32)] = &[
+            (&LOOP, 1),
+            (&LOOP_START, 200),
+            (&LOOP_END, 231),
+            (&START, 200),
+            (&END, 999),
+            (&REVERSE, 1),
+        ];
+
+        for (changes, direction) in [(forward, "forward"), (reverse, "reverse")] {
+            let ([left, _], finished) = play(&ram, sample, changes, 1.0, 40);
+
+            assert_eq!(bits(&left), bits(&[FULL; 40 * CHUNK]), "{direction}");
+            assert!(!finished.contains(&true), "{direction}");
         }
     }
 
@@ -503,11 +618,11 @@ mod tests {
 
         let ([left, right], _) = play(&ram, stereo, &[(&END, 63)], 1.0, 2);
 
-        assert_eq!(bits(&left), bits(&ramp_at(0..64)));
+        assert_eq!(bits(&left), bits(&fade_out(ramp_at(0..64))));
         let rights: Vec<f32> = (0..64)
             .map(|frame: i16| f32::from(-8 * frame) / 32_768.0)
             .collect();
-        assert_eq!(bits(&right), bits(&rights));
+        assert_eq!(bits(&right), bits(&fade_out(rights)));
         let mut player = Player::new();
         for (sample, is_stereo) in [(mono, false), (stereo, true)] {
             player.start(Some(sample), values(&[]), 1.0, &ram.reader());

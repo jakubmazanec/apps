@@ -157,6 +157,9 @@ A supersaw voice costs about 3 to 5 times a basic voice; the worst-case tests co
   crudest method.
 - A sample that is not looping reports "finished" at End (at Start in reverse) in either trigger,
   and the voice is free from then on. In gate trigger letting go releases the note, as for a synth.
+- **A sample that ends by itself** (not looping, so it ends at End, or at Start in reverse) fades to
+  silence over its last 1 ms, a straight fade, so its end never clicks **(owner's choice)**. A
+  looping sample never ends and is unaffected.
 - **Play modes:** poly, mono and legato allowed; poly by default.
 - **Loop and trigger of a new sound:** a file without a loop gives Loop off and one-shot. A file
   with its own loop gives Loop on and gate, so the sound loops while the pad is held and fades after
