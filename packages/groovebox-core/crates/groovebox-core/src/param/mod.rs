@@ -437,7 +437,20 @@ pub fn format(entry: &Entry, value: i32, out: &mut Label<16>) {
     let written = match entry.curve {
         Curve::Switch => out.write_str(if value == 0 { "Off" } else { "On" }),
         Curve::List => out.write_str(entry.choices[place(entry, value)].label),
-        Curve::Count if entry.unit == Unit::Note => note(value, out),
+        Curve::Count if entry.unit == Unit::Note => {
+            // The MIDI note's name, from 0 to 127: C4 is 60, a sharp is "#" and note 0 is "C−1".
+            const NAMES: [&str; 12] = [
+                "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B",
+            ];
+            let octave = value / 12 - 1;
+            write!(
+                out,
+                "{}{}{}",
+                NAMES[(value % 12) as usize],
+                if octave < 0 { MINUS } else { "" },
+                octave.unsigned_abs()
+            )
+        }
         Curve::Count => signed(value, out),
         Curve::Frame => unreachable!("a frame is shown by `format_frame`"),
         Curve::Bipolar => {
@@ -476,23 +489,6 @@ fn signed(value: i32, out: &mut Label<16>) -> core::fmt::Result {
         "{}{}",
         if value < 0 { MINUS } else { "+" },
         value.unsigned_abs()
-    )
-}
-
-/// Appends the name of the MIDI note `value`, from 0 to 127: C4 is 60, a sharp is "#" and note 0
-/// is "C−1".
-fn note(value: i32, out: &mut Label<16>) -> core::fmt::Result {
-    const NAMES: [&str; 12] = [
-        "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B",
-    ];
-    let octave = value / 12 - 1;
-
-    write!(
-        out,
-        "{}{}{}",
-        NAMES[(value % 12) as usize],
-        if octave < 0 { MINUS } else { "" },
-        octave.unsigned_abs()
     )
 }
 

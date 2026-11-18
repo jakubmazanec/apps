@@ -70,11 +70,11 @@ mod tests {
     use std::boxed::Box;
 
     fn pool_of(names: &[&str]) -> Box<Pool> {
-        let mut pool = Pool::new();
+        let mut pool = Box::new(Pool::new());
         for name in names {
             pool.add_named(name);
         }
-        Box::new(pool)
+        pool
     }
 
     #[test]

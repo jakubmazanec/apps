@@ -289,6 +289,7 @@ impl Default for Pool {
 mod tests {
     use super::*;
     use crate::param::{CUTOFF, LP_24, MODE, PULSE, REVERSE, SAW};
+    use std::boxed::Box;
 
     #[test]
     fn numbers_are_never_reused() {
@@ -534,11 +535,14 @@ mod tests {
 
     #[test]
     fn a_full_pool_refuses_a_sample_sound_and_changes_nothing() {
-        let mut pool = Pool::new();
-        for _ in 0..1_024 {
-            pool.new_synth().unwrap();
-        }
-        let before = pool.clone();
+        let full = || {
+            let mut pool = Box::new(Pool::new());
+            for _ in 0..1_024 {
+                pool.new_synth().unwrap();
+            }
+            pool
+        };
+        let (mut pool, before) = (full(), full());
 
         assert_eq!(
             pool.new_sample(FileId(0), &file("kick.wav", 4_800, 60, None)),
@@ -558,11 +562,16 @@ mod tests {
 
         assert_eq!(pool.get(first).unwrap().name.as_str(), "kick");
         assert_eq!(pool.get(second).unwrap().name.as_str(), "kick 2");
+    }
 
-        let mut other = Pool::new();
-        let numbered = other
+    #[test]
+    fn a_file_named_with_a_number_gives_its_base() {
+        let mut pool = Pool::new();
+
+        let number = pool
             .new_sample(FileId(0), &file("kick 2.wav", 4_800, 60, None))
             .unwrap();
-        assert_eq!(other.get(numbered).unwrap().name.as_str(), "kick");
+
+        assert_eq!(pool.get(number).unwrap().name.as_str(), "kick");
     }
 }
