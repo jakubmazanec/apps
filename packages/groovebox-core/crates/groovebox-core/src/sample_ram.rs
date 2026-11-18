@@ -177,8 +177,8 @@ impl Tables {
     /// # Safety
     ///
     /// The readers may read only the frames of files that the control side told the audio side
-    /// about and has not yet heard it let go of, each within its file's length: only those
-    /// blocks are the audio side's (see `SampleRam::bytes`).
+    /// about, in a `Preview` or a `NoteOn`, and has not yet heard it let go of, each within its
+    /// file's length: only those blocks are the audio side's (see `SampleRam::bytes`).
     pub unsafe fn readers<'a>(&'a self, ram: &'a SampleRam) -> [Reader<'a>; 2] {
         self.0.each_ref().map(|table| Reader { table, ram })
     }

@@ -1,16 +1,19 @@
+use super::sample::Player;
 use super::synth::Synth;
 use super::{CHUNK, SAMPLE_RATE};
 use crate::dsp::envelope::Envelope;
 use crate::dsp::filter::{Filter, Mode};
 use crate::dsp::flush;
-use crate::message::NoteId;
+use crate::library::FileId;
+use crate::message::{NoteEngine, NoteId};
 use crate::param::{
     self, ATTACK, CUTOFF, DECAY, ENVELOPE_AMOUNT, Entry, FILTER_ATTACK, FILTER_DECAY,
     FILTER_RELEASE, FILTER_SUSTAIN, FILTER_VELOCITY, FINE_TUNE, GLIDE_TIME, HP, KEY_FOLLOW, LEVEL,
-    LP_12, LP_24, MODE, ONE_SHOT, PAN, ParamId, RELEASE, RESONANCE, SPREAD, SUSTAIN, TRANSPOSE,
-    TRIGGER, VOLUME_VELOCITY,
+    LOOP, LP_12, LP_24, MODE, ONE_SHOT, PAN, ParamId, RELEASE, RESONANCE, ROOT_NOTE, SPREAD,
+    SUSTAIN, TRANSPOSE, TRIGGER, VOLUME_VELOCITY,
 };
 use crate::project::pool::{SOUND_VALUES, Sound, SoundNumber};
+use crate::sample_ram::Reader;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum State {
@@ -18,7 +21,8 @@ pub enum State {
     Idle,
     /// Its key is held.
     Held,
-    /// Its key was let go: a Gate note plays its release, a One-shot note the rest of its decay.
+    /// Its key was let go: a Gate note plays its release, a One-shot note the rest of its decay,
+    /// or of its sample when that does not loop.
     Released,
 }
 
@@ -71,8 +75,18 @@ impl Values {
     }
 }
 
-/// One note: the synth engine and the chain every sound shares, the tuning, glide, filter, both
-/// envelopes, level, pan and trigger.
+/// What a note plays, chosen when it starts.
+#[expect(
+    clippy::large_enum_variant,
+    reason = "every voice can play a sample and the audio part never allocates"
+)]
+enum Engine {
+    Synth(Synth),
+    Sample(Player),
+}
+
+/// One note: its engine (the synth or the sample player) and the chain every sound shares, the
+/// tuning, glide, filter, both envelopes, level, pan and trigger.
 pub struct Voice {
     state: State,
     note: NoteId,
@@ -84,10 +98,10 @@ pub struct Voice {
     /// there in a line.
     bend: f32,
     bend_chunks: u32,
-    /// Fixed when the note starts: Spread was above 0.
+    /// Fixed when the note starts: Spread was above 0, or its sample's file is stereo.
     stereo: bool,
     values: Values,
-    synth: Synth,
+    engine: Engine,
     /// A stereo voice runs both, a mono one the first.
     filters: [Filter; 2],
     filter_envelope: Envelope,
@@ -107,7 +121,7 @@ impl Voice {
             bend_chunks: 0,
             stereo: false,
             values: Values([Glide::at(0); SOUND_VALUES]),
-            synth: Synth::new(),
+            engine: Engine::Synth(Synth::new()),
             filters: [Filter::new(), Filter::new()],
             filter_envelope: Envelope::new(),
             volume_envelope: Envelope::new(),
@@ -130,8 +144,17 @@ impl Voice {
         self.sound
     }
 
-    /// Starts a new note with a copy of its sound's `values`, from silence: the engine, the
-    /// filters and the envelopes start afresh. Whether it is stereo is fixed now.
+    /// The file the note reads: none for a synth note, a missing sample or an idle voice.
+    pub fn reads(&self) -> Option<FileId> {
+        match &self.engine {
+            Engine::Sample(player) if self.state != State::Idle => player.file(),
+            _ => None,
+        }
+    }
+
+    /// Starts a new note of `engine` with a copy of its sound's `values`, from silence: the
+    /// engine, the filters and the envelopes start afresh. A sample note reads its first chunk of
+    /// the file through `reader` now. Whether it is stereo is fixed now.
     #[expect(
         clippy::too_many_arguments,
         reason = "a note brings all of these and the voice keeps each"
@@ -144,7 +167,9 @@ impl Voice {
         pitch: u8,
         velocity: u8,
         seed: u32,
+        engine: NoteEngine,
         values: &[i32; SOUND_VALUES],
+        reader: &Reader<'_>,
     ) {
         let values = Values(values.map(Glide::at));
         *self = Self {
@@ -158,15 +183,47 @@ impl Voice {
             values,
             ..Self::new()
         };
-        self.synth.start(seed);
+        self.engine = match engine {
+            NoteEngine::Synth => {
+                let mut synth = Synth::new();
+                synth.start(seed);
+                Engine::Synth(synth)
+            }
+            NoteEngine::Sample(sample) => {
+                let mut player = Player::new();
+                player.start(
+                    sample,
+                    |id| self.values.read(id),
+                    rate(self.semitones(), self.values.read(ROOT_NOTE.id)),
+                    reader,
+                );
+                self.stereo = player.stereo();
+                Engine::Sample(player)
+            }
+        };
         self.filter_envelope.start();
         self.volume_envelope.start();
     }
 
     /// Moves a mono voice to another note. With `glide` the pitch moves there in a line over Glide
     /// time. With `restart` both envelopes start again from where they are and the new velocity
-    /// counts; without it, as in Legato, only the pitch moves.
-    pub fn change(&mut self, note: NoteId, pitch: u8, velocity: u8, restart: bool, glide: bool) {
+    /// counts; a sample note then plays the file of `engine` from Start (End in reverse), or no
+    /// file when `engine` is the synth, reading its first chunk through `reader`. Without it, as
+    /// in Legato, only the pitch moves: a sample note keeps its place and its file.
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "a change brings the new note, how it moves there and what it plays"
+    )]
+    pub fn change(
+        &mut self,
+        note: NoteId,
+        pitch: u8,
+        velocity: u8,
+        restart: bool,
+        glide: bool,
+        engine: NoteEngine,
+        reader: &Reader<'_>,
+    ) {
         self.bend_chunks = if glide {
             (param::real(&GLIDE_TIME, self.values.read(GLIDE_TIME.id)) * SAMPLE_RATE as f32
                 / CHUNK as f32) as u32
@@ -185,11 +242,20 @@ impl Voice {
             self.velocity = velocity;
             self.filter_envelope.start();
             self.volume_envelope.start();
+            let speed = rate(self.semitones(), self.values.read(ROOT_NOTE.id));
+            if let Engine::Sample(player) = &mut self.engine {
+                let sample = match engine {
+                    NoteEngine::Sample(sample) => sample,
+                    NoteEngine::Synth => None,
+                };
+                player.start(sample, |id| self.values.read(id), speed, reader);
+            }
         }
     }
 
     /// Lets go of the key. From the chunk it renders next, a Gate note plays its release; a
-    /// One-shot note plays on to the end of its decay, or releases once Trigger turns to Gate.
+    /// One-shot note plays on to the end of its decay, or of its sample when that does not loop,
+    /// or releases once Trigger turns to Gate.
     pub fn release(&mut self) {
         self.state = State::Released;
     }
@@ -202,8 +268,33 @@ impl Voice {
 
     /// Adds one chunk of the note to `out`. The pitch, the filter's tuning and the gain are found
     /// once per chunk; the voice goes `Idle` once the volume envelope has ended a released or
-    /// one-shot note.
-    pub fn render(&mut self, out: &mut [[f32; CHUNK]; 2]) {
+    /// one-shot note, or after the chunk in which its sample ended. A sample note reads its file
+    /// through `reader`, one chunk ahead.
+    pub fn render(&mut self, reader: &Reader<'_>, out: &mut [[f32; CHUNK]; 2]) {
+        self.play(Some(reader), out);
+    }
+
+    /// Adds one last chunk of the note to `out`, fading in a line to exactly 0 at its last
+    /// sample, and goes `Idle`: a taken or choked voice never stops with a click. A sample note
+    /// fades the chunk it read ahead, so a fade reads nothing of its file.
+    pub fn fade(&mut self, out: &mut [[f32; CHUNK]; 2]) {
+        let mut chunk = [[0.0; CHUNK]; 2];
+        self.play(None, &mut chunk);
+        add_fading(out, chunk);
+        self.state = State::Idle;
+    }
+
+    /// The pitch the note plays in semitones: its key's, bent on its way there, with Transpose and
+    /// Fine tune.
+    fn semitones(&self) -> f32 {
+        self.pitch as f32
+            + self.bend
+            + self.values.read(TRANSPOSE.id) as f32
+            + self.values.read(FINE_TUNE.id) as f32 / 100.0
+    }
+
+    /// `render`; without a reader a sample note plays the chunk it read ahead and reads nothing.
+    fn play(&mut self, reader: Option<&Reader<'_>>, out: &mut [[f32; CHUNK]; 2]) {
         for glide in &mut self.values.0 {
             glide.step();
         }
@@ -214,9 +305,17 @@ impl Voice {
         let read = |id: ParamId| self.values.read(id);
         let real = |entry: &Entry| param::real(entry, read(entry.id));
         let samples = |entry: &Entry| (real(entry) * SAMPLE_RATE as f32) as u32;
-        // One-shot counts the sustain as 0, so the note always ends.
+        // One-shot counts the sustain as 0 when the note would never end by itself, a synth or a
+        // looping sample, so the note always ends; a sample that does not loop plays to its end.
         let one_shot = read(TRIGGER.id) == ONE_SHOT;
-        let sustain = |entry: &Entry| if one_shot { 0.0 } else { real(entry) };
+        let endless = !matches!(self.engine, Engine::Sample(_)) || read(LOOP.id) != 0;
+        let sustain = |entry: &Entry| {
+            if one_shot && endless {
+                0.0
+            } else {
+                real(entry)
+            }
+        };
         // A let-go note releases whenever its trigger reads Gate, so a One-shot turned to Gate
         // after its key is up still ends; releasing an envelope that already does changes nothing.
         if self.state == State::Released && !one_shot {
@@ -224,17 +323,24 @@ impl Voice {
             self.volume_envelope.release();
         }
 
-        let semitones = self.pitch as f32
-            + self.bend
-            + read(TRANSPOSE.id) as f32
-            + read(FINE_TUNE.id) as f32 / 100.0;
+        let semitones = self.semitones();
         let mut sources = [[0.0; CHUNK]; 2];
-        self.synth.render(
-            read,
-            440.0 * libm::exp2f((semitones - 69.0) / 12.0),
-            self.stereo,
-            &mut sources,
-        );
+        match &mut self.engine {
+            Engine::Synth(synth) => synth.render(
+                read,
+                440.0 * libm::exp2f((semitones - 69.0) / 12.0),
+                self.stereo,
+                &mut sources,
+            ),
+            Engine::Sample(player) => {
+                sources = match reader {
+                    Some(reader) => {
+                        player.render(read, rate(semitones, read(ROOT_NOTE.id)), reader)
+                    }
+                    None => player.ahead(),
+                };
+            }
+        }
 
         // The filter envelope runs through the chunk first, so the filter opens in the chunk its
         // attack starts in.
@@ -284,19 +390,17 @@ impl Voice {
             out[1][n] += right * to_right;
         }
 
-        if self.volume_envelope.is_done() && (one_shot || self.state == State::Released) {
+        if matches!(&self.engine, Engine::Sample(player) if player.finished())
+            || (self.volume_envelope.is_done() && (one_shot || self.state == State::Released))
+        {
             self.state = State::Idle;
         }
     }
+}
 
-    /// Adds one last chunk of the note to `out`, fading in a line to exactly 0 at its last
-    /// sample, and goes `Idle`: a taken or choked voice never stops with a click.
-    pub fn fade(&mut self, out: &mut [[f32; CHUNK]; 2]) {
-        let mut chunk = [[0.0; CHUNK]; 2];
-        self.render(&mut chunk);
-        add_fading(out, chunk);
-        self.state = State::Idle;
-    }
+/// How many times as fast as it was recorded a sample plays at `semitones`, from Root note `root`.
+fn rate(semitones: f32, root: i32) -> f32 {
+    libm::exp2f((semitones - root as f32) / 12.0)
 }
 
 /// The gain of a note at `velocity`, before its envelope, of a sound whose values `read` gives.
@@ -336,6 +440,7 @@ impl Default for Voice {
 #[cfg(all(test, not(feature = "loom")))]
 mod tests {
     use super::*;
+    use crate::audio::tests::empty_reader;
     use crate::param::{
         CUTOFF, FINE_TUNE, GATE, ONE_SHOT, OSCILLATOR_2_INTERVAL, OSCILLATOR_2_LEVEL, SINE, SPREAD,
         SUPERSAW, SUSTAIN, TRANSPOSE, TRIGGER, VOLUME_VELOCITY, WAVE,
@@ -355,10 +460,20 @@ mod tests {
         values
     }
 
-    /// A voice that has started `pitch` at `velocity`.
+    /// A voice that has started a synth note of `pitch` at `velocity`.
     fn note(values: &[i32; SOUND_VALUES], pitch: u8, velocity: u8, seed: u32) -> Voice {
         let mut voice = Voice::new();
-        voice.start(NoteId(0), 0, SoundNumber(1), pitch, velocity, seed, values);
+        voice.start(
+            NoteId(0),
+            0,
+            SoundNumber(1),
+            pitch,
+            velocity,
+            seed,
+            NoteEngine::Synth,
+            values,
+            &empty_reader(),
+        );
         voice
     }
 
@@ -367,7 +482,7 @@ mod tests {
         let mut channels = [Vec::new(), Vec::new()];
         for _ in 0..chunks {
             let mut out = [[0.0; CHUNK]; 2];
-            voice.render(&mut out);
+            voice.render(&empty_reader(), &mut out);
             channels[0].extend(out[0]);
             channels[1].extend(out[1]);
         }
@@ -533,7 +648,15 @@ mod tests {
         let mut voice = note(&sound(&[(&VOLUME_VELOCITY, 65_535)]), 60, 127, 1);
         let before = peak(&play(&mut voice, 20)[0]);
 
-        voice.change(NoteId(1), 60, 30, false, false);
+        voice.change(
+            NoteId(1),
+            60,
+            30,
+            false,
+            false,
+            NoteEngine::Synth,
+            &empty_reader(),
+        );
 
         let after = peak(&play(&mut voice, 20)[0]);
         assert!(

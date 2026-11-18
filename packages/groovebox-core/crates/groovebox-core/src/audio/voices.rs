@@ -4,14 +4,16 @@ use super::voice::{State, Voice};
 use crate::budget;
 use crate::dsp::osc::seed;
 use crate::input::PADS;
-use crate::message::NoteId;
+use crate::library::FileId;
+use crate::message::{NoteEngine, NoteId};
 use crate::param::{ALWAYS, CHOKE_GROUP, Entry, GLIDE, GLIDE_TIME, MONO, PLAY_MODE, POLY, ParamId};
 use crate::project::pool::{Sound, SoundNumber};
+use crate::sample_ram::Reader;
 
 /// The most notes held at once: the control part holds one for each pad and each MIDI note.
 const HELD: usize = PADS as usize + 128;
 
-/// A note whose key is held, as its `NoteOn` brought it.
+/// A note whose key is held, as its `NoteOn` brought it: a Mono return plays its engine.
 #[derive(Clone, Copy)]
 struct Key {
     note: NoteId,
@@ -19,6 +21,7 @@ struct Key {
     sound: SoundNumber,
     pitch: u8,
     velocity: u8,
+    engine: NoteEngine,
 }
 
 /// Every voice, and the notes whose keys are held. A Poly note takes a voice of its own; a Mono or
@@ -47,17 +50,19 @@ impl Voices {
                 sound: SoundNumber(0),
                 pitch: 0,
                 velocity: 0,
+                engine: NoteEngine::Synth,
             }; HELD],
             length: 0,
         }
     }
 
-    /// Plays a note. A note of a choke group first fades the voices of the group's other sounds on
-    /// its track into `fades`. A Mono or Legato note then moves its sound's voice on the track to
-    /// it, if that voice is not idle: Mono restarts the envelopes, Legato only when the voice's own
-    /// key is not held any more. Otherwise the note starts a voice: a finished one, or else the
-    /// oldest released voice, the oldest voice of its sound or the oldest voice, which fades into
-    /// `fades` first.
+    /// Plays a note of `engine`, which reads a sample's file through `reader`. A note of a choke
+    /// group first fades the voices of the group's other sounds on its track into `fades`. A Mono
+    /// or Legato note then moves its sound's voice on the track to it, if that voice is not idle:
+    /// Mono restarts the envelopes and a sample, which then plays the note's file from Start,
+    /// Legato only when the voice's own key is not held any more. Otherwise the note starts a
+    /// voice: a finished one, or else the oldest released voice, the oldest voice of its sound or
+    /// the oldest voice, which fades into `fades` first.
     ///
     /// # Panics
     ///
@@ -65,7 +70,7 @@ impl Voices {
     /// holds.
     #[expect(
         clippy::too_many_arguments,
-        reason = "a note brings five of these and may fade voices of other sounds"
+        reason = "a note brings six of these, reads its file and may fade voices of other sounds"
     )]
     pub fn note_on(
         &mut self,
@@ -74,7 +79,9 @@ impl Voices {
         sound: SoundNumber,
         pitch: u8,
         velocity: u8,
+        engine: NoteEngine,
         sounds: &Sounds,
+        reader: &Reader<'_>,
         fades: &mut [[f32; CHUNK]; 2],
     ) {
         let values = sounds.values(sound);
@@ -108,6 +115,8 @@ impl Voices {
                 velocity,
                 mode == MONO || !held,
                 read(&GLIDE_TIME) > 0 && (read(&GLIDE) == ALWAYS || held),
+                engine,
+                reader,
             );
         } else {
             let index = (0..budget::VOICES)
@@ -132,7 +141,9 @@ impl Voices {
                 pitch,
                 velocity,
                 seed(self.count),
+                engine,
                 values,
+                reader,
             );
             self.starts[index] = self.count;
             self.count = self.count.wrapping_add(1);
@@ -144,14 +155,16 @@ impl Voices {
             sound,
             pitch,
             velocity,
+            engine,
         };
         self.length += 1;
     }
 
     /// Lets go of a note's key. Only a voice that still plays the note changes: a Poly note
     /// releases, and a Mono or Legato voice goes back to the newest key of its sound still held on
-    /// its track that no other voice plays, or releases when there is none.
-    pub fn note_off(&mut self, note: NoteId, sounds: &Sounds) {
+    /// its track that no other voice plays, or releases when there is none. A Mono return plays
+    /// that key's engine, reading a sample's file through `reader`.
+    pub fn note_off(&mut self, note: NoteId, sounds: &Sounds, reader: &Reader<'_>) {
         if let Some(place) = self.held[..self.length]
             .iter()
             .position(|key| key.note == note)
@@ -183,9 +196,29 @@ impl Voices {
                 key.velocity,
                 mode == MONO,
                 read(&GLIDE_TIME) > 0,
+                key.engine,
+                reader,
             );
         } else {
             self.voices[index].release();
+        }
+    }
+
+    /// Lets go of `file`: every voice that reads it fades into `fades`, and a held key of it
+    /// plays no file from now on, so a Mono return to it plays silence. Nothing reads the file
+    /// after this.
+    pub fn forget(&mut self, file: FileId, fades: &mut [[f32; CHUNK]; 2]) {
+        for voice in self
+            .voices
+            .iter_mut()
+            .filter(|voice| voice.reads() == Some(file))
+        {
+            voice.fade(fades);
+        }
+        for key in &mut self.held[..self.length] {
+            if matches!(key.engine, NoteEngine::Sample(Some(sample)) if sample.file == file) {
+                key.engine = NoteEngine::Sample(None);
+            }
         }
     }
 
@@ -200,15 +233,25 @@ impl Voices {
         }
     }
 
-    /// Adds one chunk of every voice that is not idle to `out`.
-    pub fn render(&mut self, out: &mut [[f32; CHUNK]; 2]) {
+    /// Adds one chunk of every voice that is not idle to `out`, reading the samples' files through
+    /// `reader`.
+    pub fn render(&mut self, reader: &Reader<'_>, out: &mut [[f32; CHUNK]; 2]) {
         for voice in self
             .voices
             .iter_mut()
             .filter(|voice| voice.state() != State::Idle)
         {
-            voice.render(out);
+            voice.render(reader, out);
         }
+    }
+
+    /// How many voices are not idle.
+    #[cfg(test)]
+    pub fn sounding(&self) -> usize {
+        self.voices
+            .iter()
+            .filter(|voice| voice.state() != State::Idle)
+            .count()
     }
 }
 
@@ -221,6 +264,7 @@ impl Default for Voices {
 #[cfg(all(test, not(feature = "loom")))]
 mod tests {
     use super::*;
+    use crate::audio::tests::empty_reader;
     use crate::param::{
         DECAY, LEGATO, LEVEL, ONE_SHOT, OVERLAPPING, SINE, SUPERSAW, SUSTAIN, TRIGGER, WAVE,
     };
@@ -254,7 +298,7 @@ mod tests {
             rig
         }
 
-        /// Plays `note` at velocity 127 and gives the fades it made.
+        /// Plays `note`, a synth note, at velocity 127 and gives the fades it made.
         fn on(&mut self, note: u32, track: u8, sound: u32, pitch: u8) -> [[f32; CHUNK]; 2] {
             let mut fades = [[0.0; CHUNK]; 2];
             self.voices.note_on(
@@ -263,14 +307,17 @@ mod tests {
                 SoundNumber(sound),
                 pitch,
                 127,
+                NoteEngine::Synth,
                 &self.sounds,
+                &empty_reader(),
                 &mut fades,
             );
             fades
         }
 
         fn off(&mut self, note: u32) {
-            self.voices.note_off(NoteId(note), &self.sounds);
+            self.voices
+                .note_off(NoteId(note), &self.sounds, &empty_reader());
         }
 
         /// Changes a value of `sound` as a `SetParam` does.
@@ -281,13 +328,13 @@ mod tests {
 
         /// The left channel of the next `chunks` chunks of every voice.
         fn play(&mut self, chunks: usize) -> Vec<f32> {
-            left(chunks, |out| self.voices.render(out))
+            left(chunks, |out| self.voices.render(&empty_reader(), out))
         }
 
         /// The left channel of the next `chunks` chunks of the voice that plays `note`, alone.
         fn play_alone(&mut self, note: u32, chunks: usize) -> Vec<f32> {
             let voice = &mut self.voices.voices[self.voice(note).expect("a voice plays it")];
-            left(chunks, |out| voice.render(out))
+            left(chunks, |out| voice.render(&empty_reader(), out))
         }
 
         /// The voice that plays `note`.
@@ -300,11 +347,7 @@ mod tests {
 
         /// How many voices are not idle.
         fn sounding(&self) -> usize {
-            self.voices
-                .voices
-                .iter()
-                .filter(|voice| voice.state() != State::Idle)
-                .count()
+            self.voices.sounding()
         }
 
         fn states(&self) -> Vec<(State, NoteId)> {

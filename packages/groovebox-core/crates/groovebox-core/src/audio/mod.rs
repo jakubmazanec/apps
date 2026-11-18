@@ -52,14 +52,16 @@ impl Audio {
 
     /// Renders `left.len()` samples, which must be a multiple of `CHUNK`. At each chunk start it
     /// applies every message that is due and reports the sample at which it applied it. It then
-    /// adds up the voices, the last chunk of each voice a new note took or choked and the preview,
-    /// soft-clips the sum and multiplies it by the output volume, which moves in a line across the
-    /// chunk.
+    /// adds up the voices, the last chunk of each voice a new note took or choked or a
+    /// `ForgetSample` faded and the preview, soft-clips the sum and multiplies it by the output
+    /// volume, which moves in a line across the chunk.
     ///
     /// It reads the files' blocks through `readers[v]`, the reader of block table `v`, as
     /// `Tables::readers` allows: through the table that the latest `UseTable` named and only frames
-    /// below the length of the latest `Preview`'s file. It reads none of that file from the chunk
-    /// at which a `StopPreview`, a newer `Preview` or a `ForgetSample` of it applies.
+    /// below the length of the latest `Preview`'s file and of each file a `NoteOn` named, which
+    /// the note's voice reads until the note ends. It reads none of the preview's file from the
+    /// chunk at which a `StopPreview` or a newer `Preview` applies, and none of a file from the
+    /// chunk at which a `ForgetSample` of it applies.
     pub fn render(
         &mut self,
         left: &mut [f32],
@@ -79,6 +81,7 @@ impl Audio {
                 .filter(|message| message.at <= self.position)
             {
                 messages.pop();
+                let reader = &readers[usize::from(self.table)];
                 match message.kind {
                     MessageKind::NewSound { sound } => self.sounds.add(sound, SOUND_DEFAULTS),
                     MessageKind::CopySound { sound, of } => {
@@ -103,21 +106,28 @@ impl Audio {
                         sound,
                         pitch,
                         velocity,
-                        ..
+                        engine,
                     } => self.voices.note_on(
                         note,
                         track,
                         sound,
                         pitch,
                         velocity,
+                        engine,
                         &self.sounds,
+                        reader,
                         &mut fades,
                     ),
-                    MessageKind::NoteOff { note } => self.voices.note_off(note, &self.sounds),
+                    MessageKind::NoteOff { note } => {
+                        self.voices.note_off(note, &self.sounds, reader);
+                    }
                     MessageKind::UseTable { version } => self.table = version,
                     MessageKind::Preview { sample } => self.preview.start(sample),
                     MessageKind::StopPreview => self.preview.stop(),
-                    MessageKind::ForgetSample { file } => self.preview.forget(file),
+                    MessageKind::ForgetSample { file } => {
+                        self.preview.forget(file);
+                        self.voices.forget(file, &mut fades);
+                    }
                     // Another device value is not the audio part's.
                     MessageKind::SetParam { .. } => {}
                 }
@@ -128,11 +138,11 @@ impl Audio {
                 });
             }
 
+            let reader = &readers[usize::from(self.table)];
             let mut mix = [[0.0; CHUNK]; 2];
-            self.voices.render(&mut mix);
+            self.voices.render(reader, &mut mix);
             let mut preview = [[0.0; CHUNK]; 2];
-            self.preview
-                .render(&readers[usize::from(self.table)], &mut preview);
+            self.preview.render(reader, &mut preview);
             let before = param::real(&OUTPUT_VOLUME, self.volume.value);
             self.volume.step();
             let after = param::real(&OUTPUT_VOLUME, self.volume.value);
@@ -161,9 +171,10 @@ mod tests {
         Target,
     };
     use crate::param::{
-        CHOKE_GROUP, CUTOFF, Entry, LEVEL, OUTPUT_VOLUME, RESONANCE, SPREAD, SUPERSAW, WAVE,
+        CHOKE_GROUP, CUTOFF, DECAY, END, Entry, GATE, LEGATO, LEVEL, LOOP, LOOP_END, MONO,
+        ONE_SHOT, OUTPUT_VOLUME, PLAY_MODE, RESONANCE, SPREAD, SUPERSAW, SUSTAIN, TRIGGER, WAVE,
     };
-    use crate::project::pool::{SOUND_DEFAULTS, Sound, SoundNumber};
+    use crate::project::pool::{SOUND_DEFAULTS, SOUND_VALUES, Sound, SoundNumber};
     use crate::queue::{Consumer, Producer, Queue};
     use crate::sample_ram::{
         BLOCK, BLOCKS, Blocks, Listed, Listing, SampleRam, Tables, blocks_for,
@@ -221,17 +232,32 @@ mod tests {
             self.audio.volume = Glide::at(OUTPUT_VOLUME.high);
         }
 
-        /// A rig at full volume that holds two mono files of `FRAMES` frames: file 0 of
-        /// `samples(FRAMES)` and file 1 of the samples after them.
+        /// A rig at full volume that holds two mono files of `frames` frames: file 0 of
+        /// `samples(frames)` and file 1 of the samples after them.
         fn with_two_files(
             messages: &'a Queue<Message, MESSAGE_QUEUE>,
             reports: &'a Queue<Report, REPORT_QUEUE>,
+            frames: u32,
         ) -> Self {
             let mut rig = Self::new(messages, reports);
             rig.full_volume();
-            let both = samples(2 * FRAMES as usize);
-            rig.add_file(0, false, &both[..FRAMES as usize]);
-            rig.add_file(1, false, &both[FRAMES as usize..]);
+            let both = samples(2 * frames as usize);
+            rig.add_file(0, false, &both[..frames as usize]);
+            rig.add_file(1, false, &both[frames as usize..]);
+            rig
+        }
+
+        /// A `Rig::with_two_files` of `LENGTH` frames that holds sound 1, a sample sound of such
+        /// a file with `changes` (see `sample_sound`).
+        fn with_sample_sound(
+            messages: &'a Queue<Message, MESSAGE_QUEUE>,
+            reports: &'a Queue<Report, REPORT_QUEUE>,
+            changes: &[(&Entry, i32)],
+        ) -> Self {
+            let mut rig = Self::with_two_files(messages, reports, LENGTH);
+            rig.audio
+                .sounds
+                .add(SoundNumber(1), sample_sound(LENGTH, changes));
             rig
         }
 
@@ -263,6 +289,13 @@ mod tests {
                     *bytes = sample.to_le_bytes();
                 }
             }
+        }
+
+        /// Fills the blocks of `file` with `i16::MAX`, as the control part may once the audio part
+        /// has let go of the file: a read of it would sound near full scale.
+        fn overwrite(&self, file: u16) {
+            let blocks: Vec<u32> = self.listing.blocks(&self.tables, FileId(file)).collect();
+            self.write(&blocks, &std::vec![i16::MAX; blocks.len() * BLOCK / 2]);
         }
 
         #[allow(unsafe_code)]
@@ -299,13 +332,18 @@ mod tests {
     }
 
     fn note_on(note: u32) -> MessageKind {
+        note_of(note, 1, 60, NoteEngine::Synth)
+    }
+
+    /// A note of `sound` on track 0 at `pitch` and velocity 127 that plays `engine`.
+    fn note_of(note: u32, sound: u32, pitch: u8, engine: NoteEngine) -> MessageKind {
         MessageKind::NoteOn {
             note: NoteId(note),
             track: 0,
-            sound: SoundNumber(1),
-            pitch: 60,
+            sound: SoundNumber(sound),
+            pitch,
             velocity: 127,
-            engine: NoteEngine::Synth,
+            engine,
         }
     }
 
@@ -726,10 +764,11 @@ mod tests {
     /// chunks.
     const FRAMES: u32 = 1_100;
 
-    /// What a `Rig::with_two_files` plays for `length` samples with `messages`, numbered from 0.
+    /// What a `Rig::with_two_files` of `FRAMES` plays for `length` samples with `messages`,
+    /// numbered from 0.
     fn previewed(messages: &[(u64, MessageKind)], length: usize) -> Vec<f32> {
         let (queue, reports) = (Queue::new(), Queue::new());
-        let mut rig = Rig::with_two_files(&queue, &reports);
+        let mut rig = Rig::with_two_files(&queue, &reports, FRAMES);
         for (number, &(at, kind)) in (0..).zip(messages) {
             rig.send(number, at, kind);
         }
@@ -801,7 +840,7 @@ mod tests {
         ] {
             let messages = [(0, preview(0, FRAMES, false)), (64, stop)];
             let (queue, reports) = (Queue::new(), Queue::new());
-            let mut rig = Rig::with_two_files(&queue, &reports);
+            let mut rig = Rig::with_two_files(&queue, &reports, FRAMES);
             for (number, &(at, kind)) in (0..).zip(&messages) {
                 rig.send(number, at, kind);
             }
@@ -917,5 +956,326 @@ mod tests {
         // Every note keeps its voice: the output is the voices alone and the preview alone.
         assert!(peak(&both) < 0.5, "peak {}", peak(&both));
         assert_eq!(bits(&both), bits(&sum(&voices, &preview)));
+    }
+
+    /// A reader of a sample RAM that holds no file, for the voices' tests, whose synth notes read
+    /// none.
+    #[allow(unsafe_code)]
+    pub(super) fn empty_reader() -> Reader<'static> {
+        static TABLES: Tables = Tables::new();
+        static RAM: SampleRam = SampleRam::new();
+        // SAFETY: a synth note reads no file.
+        let [reader, _] = unsafe { TABLES.readers(&RAM) };
+        reader
+    }
+
+    /// The frames of each file of `Rig::with_sample_sound`: 200 ms.
+    const LENGTH: u32 = 9_600;
+
+    /// The values of a sample sound of a file of `frames` frames, as a new sample sound of a file
+    /// without a loop starts (One-shot, Loop off, from the first frame to the last, Root note 60),
+    /// with `changes`.
+    fn sample_sound(frames: u32, changes: &[(&Entry, i32)]) -> [i32; SOUND_VALUES] {
+        let last = frames as i32 - 1;
+        let mut values = SOUND_DEFAULTS;
+        for &(entry, value) in [(&TRIGGER, ONE_SHOT), (&END, last), (&LOOP_END, last)]
+            .iter()
+            .chain(changes)
+        {
+            values[Sound::place(entry.id)] = value;
+        }
+        values
+    }
+
+    /// The engine of a note that plays `file`, a mono file of `LENGTH` frames.
+    fn plays(file: u16) -> NoteEngine {
+        NoteEngine::Sample(Some(SampleFile {
+            file: FileId(file),
+            frames: LENGTH,
+            stereo: false,
+        }))
+    }
+
+    #[test]
+    fn a_one_shot_sample_plays_to_its_end_at_full_sustain() {
+        let (messages, reports) = (Queue::new(), Queue::new());
+        let mut rig = Rig::with_sample_sound(&messages, &reports, &[]);
+        rig.send(0, 0, note_of(0, 1, 60, plays(0)));
+
+        let out = rig.render(LENGTH as usize);
+
+        // As loud near its end, past frame 9,000, as at its start.
+        let (start, end) = (peak(&out[..640]), peak(&out[8_960..]));
+        assert!(libm::fabsf(end / start - 1.0) < 0.1, "{start} then {end}");
+        assert_eq!(rig.audio.voices.sounding(), 0);
+        assert!(is_silent(&rig.render(CHUNK)));
+    }
+
+    #[test]
+    fn a_looping_one_shot_sample_ends_by_its_decay() {
+        let (messages, reports) = (Queue::new(), Queue::new());
+        let mut rig = Rig::with_sample_sound(&messages, &reports, &[(&LOOP, 1)]);
+        rig.send(0, 0, note_of(0, 1, 60, plays(0)));
+
+        // Decay's 300 ms twice over.
+        let out = rig.render(28_800);
+
+        assert!(!is_silent(&out[LENGTH as usize..][..CHUNK]));
+        assert!(is_silent(&out[28_800 - CHUNK..]));
+        assert_eq!(rig.audio.voices.sounding(), 0);
+    }
+
+    #[test]
+    fn lowering_sustain_shortens_a_one_shot_sample() {
+        let (messages, reports) = (Queue::new(), Queue::new());
+        // A decay of 10 ms.
+        let changes: &[(&Entry, i32)] = &[(&SUSTAIN, 0), (&DECAY, 6_554)];
+        let mut rig = Rig::with_sample_sound(&messages, &reports, changes);
+        rig.send(0, 0, note_of(0, 1, 60, plays(0)));
+
+        let out = rig.render(3_200);
+
+        assert!(!is_silent(&out[..CHUNK]));
+        assert!(is_silent(&out[3_200 - CHUNK..]));
+        assert_eq!(rig.audio.voices.sounding(), 0);
+    }
+
+    #[test]
+    fn a_gate_sample_releases_when_let_go_and_ends_at_its_end_when_held() {
+        for let_go in [false, true] {
+            let (messages, reports) = (Queue::new(), Queue::new());
+            let mut rig = Rig::with_sample_sound(&messages, &reports, &[(&TRIGGER, GATE)]);
+            rig.send(0, 0, note_of(0, 1, 60, plays(0)));
+            if let_go {
+                rig.send(1, 320, note_off(0));
+            }
+
+            // A release of about 100 ms ends a let-go note long before the file's end.
+            rig.render(8_000);
+            let held = usize::from(!let_go);
+            assert_eq!(rig.audio.voices.sounding(), held, "let go {let_go}");
+            rig.render(LENGTH as usize - 8_000 - CHUNK);
+            assert_eq!(rig.audio.voices.sounding(), held, "let go {let_go}");
+            rig.render(CHUNK);
+            assert_eq!(rig.audio.voices.sounding(), 0, "let go {let_go}");
+        }
+    }
+
+    #[test]
+    fn a_sample_plays_an_octave_up_twelve_semitones_above_its_root() {
+        let played = |file: &[i16], pitch| {
+            let (messages, reports) = (Queue::new(), Queue::new());
+            let mut rig = Rig::new(&messages, &reports);
+            rig.full_volume();
+            rig.add_file(0, false, file);
+            let frames = file.len() as u32;
+            rig.audio
+                .sounds
+                .add(SoundNumber(1), sample_sound(frames, &[]));
+            let sample = SampleFile {
+                file: FileId(0),
+                frames,
+                stereo: false,
+            };
+            rig.send(0, 0, note_of(0, 1, pitch, NoteEngine::Sample(Some(sample))));
+            let out = rig.render(LENGTH as usize / 2 + CHUNK);
+            (bits(&out), rig.audio.voices.sounding())
+        };
+        let file = samples(LENGTH as usize);
+        let every_other: Vec<i16> = file.iter().step_by(2).copied().collect();
+
+        // Root note 60 and pitch 72 read every other frame, so the note ends in half the time.
+        let (up, sounding) = played(&file, 72);
+
+        assert_eq!(up, played(&every_other, 60).0);
+        assert_eq!(sounding, 0);
+    }
+
+    #[test]
+    fn a_stereo_file_makes_a_stereo_voice() {
+        let file = samples(2 * 640);
+        let played = |samples: &[i16], stereo: bool| {
+            let (messages, reports) = (Queue::new(), Queue::new());
+            let mut rig = Rig::new(&messages, &reports);
+            rig.full_volume();
+            rig.add_file(0, stereo, samples);
+            rig.audio.sounds.add(SoundNumber(1), sample_sound(640, &[]));
+            let sample = SampleFile {
+                file: FileId(0),
+                frames: 640,
+                stereo,
+            };
+            rig.send(0, 0, note_of(0, 1, 60, NoteEngine::Sample(Some(sample))));
+            rig.render_stereo(640).map(|channel| bits(&channel))
+        };
+
+        let [left, right] = played(&file, true);
+
+        // Each channel plays as a mono file of it does.
+        let [lefts, rights] = [0, 1].map(|channel| {
+            file.iter()
+                .skip(channel)
+                .step_by(2)
+                .copied()
+                .collect::<Vec<_>>()
+        });
+        assert_eq!(left, played(&lefts, false)[0]);
+        assert_eq!(right, played(&rights, false)[1]);
+        assert_ne!(left, right);
+    }
+
+    #[test]
+    fn a_missing_sample_takes_a_voice_and_sounds_nothing() {
+        let (messages, reports) = (Queue::new(), Queue::new());
+        let mut rig = Rig::with_sample_sound(&messages, &reports, &[(&CHOKE_GROUP, 1)]);
+        let mut synth = SOUND_DEFAULTS;
+        synth[Sound::place(CHOKE_GROUP.id)] = 1;
+        rig.audio.sounds.add(SoundNumber(2), synth);
+        rig.send(0, 0, note_of(0, 2, 60, NoteEngine::Synth));
+        rig.send(1, 64, note_of(1, 1, 60, NoteEngine::Sample(None)));
+        assert!(!is_silent(&rig.render(64)));
+
+        // Only the fade of the synth it chokes sounds, and its own voice is free after one chunk.
+        let fade = rig.render(CHUNK);
+
+        assert!(!is_silent(&fade));
+        assert_eq!(fade[CHUNK - 1], 0.0);
+        assert_eq!(rig.audio.voices.sounding(), 0);
+        assert!(is_silent(&rig.render(CHUNK)));
+    }
+
+    #[test]
+    fn mono_restarts_a_sample_and_legato_keeps_its_place() {
+        // Each note at its own sample, playing a file: 2 is silence.
+        let played = |mode, notes: &[(u64, u16)]| {
+            let (messages, reports) = (Queue::new(), Queue::new());
+            let mut rig = Rig::with_sample_sound(&messages, &reports, &[(&PLAY_MODE, mode)]);
+            rig.add_file(2, false, &[0; LENGTH as usize]);
+            for (note, &(at, file)) in (0..).zip(notes) {
+                rig.send(note, at, note_of(note, 1, 60, plays(file)));
+            }
+            let out = rig.render(LENGTH as usize + 320);
+            (bits(&out), rig.audio.voices.sounding())
+        };
+        let (alone, _) = played(MONO, &[(0, 0)]);
+
+        // Mono plays file 0 from its start as a new note of it would: the silence before left no
+        // trace in the filter.
+        let (mono, sounding) = played(MONO, &[(0, 2), (320, 0)]);
+        assert_eq!(mono[320..], alone[..LENGTH as usize]);
+        assert_eq!(sounding, 0);
+        // Legato goes on with file 0 from where it was.
+        let (legato, _) = played(LEGATO, &[(0, 0), (320, 1)]);
+        assert_eq!(legato, alone);
+    }
+
+    #[test]
+    fn forget_fades_the_voices_reading_the_file_within_one_chunk() {
+        let played = |files: &[u16], forget: bool| {
+            let (messages, reports) = (Queue::new(), Queue::new());
+            let mut rig = Rig::with_sample_sound(&messages, &reports, &[]);
+            for (note, &file) in (0..).zip(files) {
+                rig.send(note, 0, note_of(note, 1, 60, plays(file)));
+            }
+            if forget {
+                let forget = MessageKind::ForgetSample { file: FileId(0) };
+                rig.send(files.len() as u32, 64, forget);
+            }
+            let out = rig.render(160);
+            (out, rig.audio.voices.sounding())
+        };
+
+        let (forgotten, sounding) = played(&[0], true);
+
+        let fade = &forgotten[64..96];
+        assert!(!is_silent(fade));
+        assert_eq!(fade[CHUNK - 1], 0.0);
+        assert!(is_silent(&forgotten[96..]));
+        assert_eq!(sounding, 0);
+        // A voice of another file plays on.
+        let (both, sounding) = played(&[0, 1], true);
+        assert_eq!(bits(&both), bits(&sum(&forgotten, &played(&[1], false).0)));
+        assert_eq!(sounding, 1);
+    }
+
+    #[test]
+    fn a_forgotten_file_is_not_read_from_the_chunk_its_forget_applies() {
+        let played = |forget: bool, overwrite: bool| {
+            let (messages, reports) = (Queue::new(), Queue::new());
+            let mut rig = Rig::with_sample_sound(&messages, &reports, &[]);
+            rig.send(0, 0, note_of(0, 1, 60, plays(0)));
+            if forget {
+                rig.send(1, 64, MessageKind::ForgetSample { file: FileId(0) });
+            }
+            let before = rig.render(64);
+            if overwrite {
+                rig.overwrite(0);
+            }
+            bits(&[before, rig.render(128)].concat())
+        };
+        // A voice that still reads the file plays what was written.
+        assert_ne!(played(false, true), played(false, false));
+
+        assert_eq!(played(true, true), played(true, false));
+    }
+
+    #[test]
+    fn a_mono_return_to_a_forgotten_key_plays_silence() {
+        let played = |overwrite: bool| {
+            let (messages, reports) = (Queue::new(), Queue::new());
+            let mut rig = Rig::with_sample_sound(&messages, &reports, &[(&PLAY_MODE, MONO)]);
+            // The second key moves the voice to file 1, so the forget leaves it playing.
+            rig.send(0, 0, note_of(0, 1, 60, plays(0)));
+            rig.send(1, 64, note_of(1, 1, 60, plays(1)));
+            rig.send(2, 128, MessageKind::ForgetSample { file: FileId(0) });
+            rig.send(3, 192, note_off(1));
+            rig.render(160);
+            if overwrite {
+                rig.overwrite(0);
+            }
+            let out = rig.render(160);
+            (bits(&out), rig.audio.voices.sounding())
+        };
+
+        let (out, sounding) = played(true);
+
+        // The return at sample 192 plays no file and ends.
+        assert_eq!(out, played(false).0);
+        assert!(out[64..].iter().all(|&x| x == 0));
+        assert_eq!(sounding, 0);
+    }
+
+    #[test]
+    fn a_steal_fades_a_sample_voice_without_reading() {
+        let played = |at_64: &[MessageKind], overwrite: bool| {
+            let (messages, reports) = (Queue::new(), Queue::new());
+            let mut rig = Rig::with_sample_sound(&messages, &reports, &[]);
+            // Sound 2 is silent: its notes only take voices.
+            let mut silent = SOUND_DEFAULTS;
+            silent[Sound::place(LEVEL.id)] = 0;
+            rig.audio.sounds.add(SoundNumber(2), silent);
+            rig.send(0, 0, note_of(0, 1, 60, plays(0)));
+            for note in 1..32 {
+                rig.send(note, 0, note_of(note, 2, 60, NoteEngine::Synth));
+            }
+            for (number, &kind) in (32..).zip(at_64) {
+                rig.send(number, 64, kind);
+            }
+            let before = rig.render(64);
+            if overwrite {
+                rig.overwrite(0);
+            }
+            bits(&[before, rig.render(128)].concat())
+        };
+        // A voice that still reads the file plays what was written.
+        assert_ne!(played(&[], true), played(&[], false));
+
+        // The 33rd note takes the oldest voice of its sound, which reads file 0, alone and in the
+        // chunk that forgets file 0.
+        let steal = note_of(32, 1, 60, plays(1));
+        let forget = MessageKind::ForgetSample { file: FileId(0) };
+        for at_64 in [&[steal][..], &[steal, forget]] {
+            assert_eq!(played(at_64, true), played(at_64, false), "{at_64:?}");
+        }
     }
 }
