@@ -164,8 +164,8 @@ Where the controls sit on the panel is the Look spec's job.
   the repeats, so replays match.
 - **How the cursor moves (owner's choice).** Up and down move it one item and stop at the ends. Left
   and right do nothing on a page of one column and move along a row of tiles. In a picker, up, down,
-  − and + move one row, and left and right move one picker page of 16 rows, stopping at the ends.
-  SHIFT + the arrows do nothing outside STEP and ROLL.
+  − and + move one row, and left and right move one picker page of 16 rows, or 15 under the sample
+  picker's top line, stopping at the ends. SHIFT + the arrows do nothing outside STEP and ROLL.
 - **Each page remembers its cursor (owner's choice)** until the project closes; it is not saved. An
   item that vanishes moves the cursor to the nearest item above it, where it stays.
 - **OK** uses the item under the cursor: it opens the item's picker, flips a switch, runs an action
