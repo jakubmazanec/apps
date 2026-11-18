@@ -1,6 +1,7 @@
 use super::CHUNK;
 use super::voice::{add_fading, level_gain, pan_gains};
 use crate::library::FileId;
+use crate::message::SampleFile;
 use crate::param;
 use crate::sample_ram::Reader;
 
@@ -53,8 +54,13 @@ impl Preview {
         }
     }
 
-    /// Plays `file`, of `frames` frames, from its first frame; the file it played stops.
-    pub fn start(&mut self, file: FileId, frames: u32, stereo: bool) {
+    /// Plays `sample` from its first frame; the file it played stops.
+    pub fn start(&mut self, sample: SampleFile) {
+        let SampleFile {
+            file,
+            frames,
+            stereo,
+        } = sample;
         self.stop();
         let default = |id| param::entry(id).default;
         let gain = level_gain(default, 127);

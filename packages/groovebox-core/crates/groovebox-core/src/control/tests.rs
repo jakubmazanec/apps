@@ -157,6 +157,7 @@ fn note_on(note: u32, track: u8, sound: SoundNumber, pitch: u8, velocity: u8) ->
         sound,
         pitch,
         velocity,
+        engine: NoteEngine::Synth,
     }
 }
 

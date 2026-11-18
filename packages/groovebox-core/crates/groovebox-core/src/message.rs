@@ -22,6 +22,21 @@ pub struct Message {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct NoteId(pub u32);
 
+/// A library file the audio part may read: its place, its length in frames and its channels.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct SampleFile {
+    pub file: FileId,
+    pub frames: u32,
+    pub stereo: bool,
+}
+
+/// What a note's engine plays: the synth, or a sample sound's file; none for a missing one.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum NoteEngine {
+    Synth,
+    Sample(Option<SampleFile>),
+}
+
 /// What a changed value belongs to. Milestone 3 adds the project, a track and a slot.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Target {
@@ -32,13 +47,14 @@ pub enum Target {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum MessageKind {
     /// A note of `sound` starts on track `track` (0 to 3) at the MIDI note `pitch`, with a
-    /// velocity from 1 to 127.
+    /// velocity from 1 to 127, playing `engine`.
     NoteOn {
         note: NoteId,
         track: u8,
         sound: SoundNumber,
         pitch: u8,
         velocity: u8,
+        engine: NoteEngine,
     },
     NoteOff {
         note: NoteId,
@@ -62,12 +78,10 @@ pub enum MessageKind {
     UseTable {
         version: u8,
     },
-    /// The preview player plays `file`, of `frames` frames, once from its first; the file it
-    /// played fades out.
+    /// The preview player plays `sample` once from its first frame; the file it played fades
+    /// out.
     Preview {
-        file: FileId,
-        frames: u32,
-        stereo: bool,
+        sample: SampleFile,
     },
     /// The file the preview player plays fades out.
     StopPreview,

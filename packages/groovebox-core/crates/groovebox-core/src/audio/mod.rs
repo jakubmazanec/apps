@@ -10,6 +10,7 @@ use voice::Glide;
 use voices::Voices;
 
 pub mod preview;
+pub mod sample;
 pub mod sounds;
 pub mod synth;
 pub mod voice;
@@ -102,6 +103,7 @@ impl Audio {
                         sound,
                         pitch,
                         velocity,
+                        ..
                     } => self.voices.note_on(
                         note,
                         track,
@@ -113,11 +115,7 @@ impl Audio {
                     ),
                     MessageKind::NoteOff { note } => self.voices.note_off(note, &self.sounds),
                     MessageKind::UseTable { version } => self.table = version,
-                    MessageKind::Preview {
-                        file,
-                        frames,
-                        stereo,
-                    } => self.preview.start(file, frames, stereo),
+                    MessageKind::Preview { sample } => self.preview.start(sample),
                     MessageKind::StopPreview => self.preview.stop(),
                     MessageKind::ForgetSample { file } => self.preview.forget(file),
                     // Another device value is not the audio part's.
@@ -159,7 +157,8 @@ mod tests {
     use super::*;
     use crate::library::FileId;
     use crate::message::{
-        MESSAGE_QUEUE, Message, MessageKind, NoteId, REPORT_QUEUE, Report, Target,
+        MESSAGE_QUEUE, Message, MessageKind, NoteEngine, NoteId, REPORT_QUEUE, Report, SampleFile,
+        Target,
     };
     use crate::param::{
         CHOKE_GROUP, CUTOFF, Entry, LEVEL, OUTPUT_VOLUME, RESONANCE, SPREAD, SUPERSAW, WAVE,
@@ -306,6 +305,7 @@ mod tests {
             sound: SoundNumber(1),
             pitch: 60,
             velocity: 127,
+            engine: NoteEngine::Synth,
         }
     }
 
@@ -631,6 +631,7 @@ mod tests {
                 sound: SoundNumber(2),
                 pitch: 60,
                 velocity: 127,
+                engine: NoteEngine::Synth,
             },
         );
         assert!(!is_silent(&rig.render(256)));
@@ -713,9 +714,11 @@ mod tests {
 
     fn preview(file: u16, frames: u32, stereo: bool) -> MessageKind {
         MessageKind::Preview {
-            file: FileId(file),
-            frames,
-            stereo,
+            sample: SampleFile {
+                file: FileId(file),
+                frames,
+                stereo,
+            },
         }
     }
 

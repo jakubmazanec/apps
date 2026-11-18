@@ -287,7 +287,7 @@ mod tests {
     use crate::library::FileId;
     use crate::lights::Lights;
     use crate::memory_storage::MemoryStorage;
-    use crate::message::{MessageKind, NoteId};
+    use crate::message::{MessageKind, NoteEngine, NoteId, SampleFile};
     use crate::palette::{BACKGROUND, LINE};
     use crate::project::pool::SoundNumber;
     use crate::sample_ram::{BLOCK, BLOCKS, Blocks, Listed, Listing};
@@ -459,6 +459,7 @@ mod tests {
             sound: SoundNumber(1),
             pitch: 60,
             velocity: 100,
+            engine: NoteEngine::Synth,
         };
         // The control part sends a message only for a pad with a sound, so the test sends one
         // itself through the control side's end of the queue, after the sound it plays.
@@ -536,9 +537,11 @@ mod tests {
             number: 1,
             at: 40,
             kind: MessageKind::Preview {
-                file: FileId(2),
-                frames: 2 * 1_024,
-                stereo: false,
+                sample: SampleFile {
+                    file: FileId(2),
+                    frames: 2 * 1_024,
+                    stereo: false,
+                },
             },
         };
         assert_eq!(control.messages.push(message), Ok(()));

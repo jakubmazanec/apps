@@ -5,6 +5,7 @@ use crate::blake3::Hasher;
 use crate::budget;
 use crate::library::wav::{self, Encoding, Format, Ours};
 use crate::library::{Entry, FileId, FolderId};
+use crate::message::SampleFile;
 use crate::storage::{Memory, Path};
 use crate::ui::layout::HEADER_LINE;
 use crate::ui::list::{Row, draw_rows};
@@ -1340,9 +1341,11 @@ fn on_samples<'a>(queue: &'a Queue<Message, MESSAGE_QUEUE>, files: &[(&str, Vec<
 /// A preview of the mono file `file` of `frames` frames.
 fn preview(file: u16, frames: u32) -> MessageKind {
     MessageKind::Preview {
-        file: FileId(file),
-        frames,
-        stereo: false,
+        sample: SampleFile {
+            file: FileId(file),
+            frames,
+            stereo: false,
+        },
     }
 }
 

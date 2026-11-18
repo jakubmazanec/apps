@@ -5,7 +5,7 @@ use super::{Control, HeaderMessage};
 use crate::input::Button;
 use crate::label::Label;
 use crate::library::{Entry, File, FileId, FolderId, Library};
-use crate::message::{MESSAGE_QUEUE, Message, MessageKind};
+use crate::message::{MESSAGE_QUEUE, Message, MessageKind, SampleFile};
 use crate::palette::RECORD;
 use crate::queue::Producer;
 use crate::sample_ram::Tables;
@@ -77,9 +77,11 @@ impl Control {
                 self.send(
                     sample,
                     MessageKind::Preview {
-                        file,
-                        frames,
-                        stereo: channels == 2,
+                        sample: SampleFile {
+                            file,
+                            frames,
+                            stereo: channels == 2,
+                        },
                     },
                     messages,
                 );

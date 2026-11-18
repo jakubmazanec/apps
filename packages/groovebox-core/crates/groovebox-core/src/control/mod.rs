@@ -11,7 +11,9 @@ use crate::library::import::Import;
 use crate::library::startup::StartUp;
 use crate::library::{FileId, Library};
 use crate::lights::Lights;
-use crate::message::{MAX_MESSAGES_PER_EVENT, MESSAGE_QUEUE, Message, MessageKind, Target};
+use crate::message::{
+    MAX_MESSAGES_PER_EVENT, MESSAGE_QUEUE, Message, MessageKind, NoteEngine, Target,
+};
 use crate::palette::RECORD;
 use crate::param::{self, Curve, OUTPUT_VOLUME, ParamId, Scope, VELOCITY};
 use crate::project::Project;
@@ -583,6 +585,7 @@ impl Control {
                 sound,
                 pitch,
                 velocity,
+                engine: NoteEngine::Synth,
             },
             messages,
         );
