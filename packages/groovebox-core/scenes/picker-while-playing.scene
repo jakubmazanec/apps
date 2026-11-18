@@ -1,5 +1,5 @@
 groovebox-scene 1
-# Syn 1 on pad 1 through the panel: MENU + step 3, then OK, down and OK in the sound picker.
+# Syn 1 on pad 1 through the panel: MENU + step 3, then OK, down twice and OK in the sound picker.
 input 3200 press menu
 input 4800 press step-3
 input 6400 release step-3
@@ -8,6 +8,8 @@ input 9600 press ok
 input 11200 release ok
 input 12800 press down
 input 14400 release down
+input 14800 press down
+input 15200 release down
 input 16000 press ok
 input 17600 release ok
 # OK opens the picker again, on Syn 1.

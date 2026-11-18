@@ -1,6 +1,6 @@
 groovebox-scene 1
-# Syn 1 on pad 1 through the panel: MENU + step 3, then OK, down and OK in the sound picker. A tap
-# of PADS/KEYS then makes the pads keys that play Syn 1.
+# Syn 1 on pad 1 through the panel: MENU + step 3, then OK, down twice and OK in the sound picker. A
+# tap of PADS/KEYS then makes the pads keys that play Syn 1.
 # The first two steps serve the start-up on an empty storage, which then opens the project.
 step 128
 step 256
@@ -12,6 +12,8 @@ input 1056 press ok
 input 1064 release ok
 input 1072 press down
 input 1080 release down
+input 1082 press down
+input 1084 release down
 input 1088 press ok
 input 1096 release ok
 input 1104 press pads-keys

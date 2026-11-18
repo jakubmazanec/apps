@@ -1,10 +1,12 @@
 groovebox-scene 1
-# kick.wav and pad.wav, a long stereo file for SAMPLES to preview.
+# kick.wav and pad.wav, a long stereo file for the sample picker to preview.
 file samples/kick.wav ours 55 0.3 1
 file samples/pad.wav ours 220 10 2
-# The operation count plays this scene: the most a render batch has to do. Syn 1 on pad 1 through
-# the panel: MENU + step 3, then OK, down and OK in the sound picker. A tap of PADS/KEYS then makes
-# the pads keys that play Syn 1.
+# The operation count plays this scene: the most a render batch has to do. 32 voices of a stereo
+# sample sound at Transpose +48 cost more than 32 of a stereo Supersaw, as measured when sample
+# sounds came. pad on pad 1 through the panel: MENU + step 3, then OK, down and OK in the sound
+# picker open the sample picker on kick.wav, and down onto pad.wav and OK choose it. A tap of
+# PADS/KEYS then makes the pads keys that play pad.
 input 3200 press menu
 input 4800 press step-3
 input 6400 release step-3
@@ -15,98 +17,118 @@ input 12800 press down
 input 14400 release down
 input 16000 press ok
 input 17600 release ok
-input 19200 press pads-keys
-input 20800 release pads-keys
-# Synth page: Supersaw, Spread 50%, so every voice is stereo.
-input 22400 press page
-input 24000 press step-2
-input 25600 release step-2
-input 27200 release page
-input 28800 turn encoder-1 4
-input 30400 turn encoder-3 64
+input 19200 press down
+input 20800 release down
+input 22400 press ok
+input 24000 release ok
+input 25600 press pads-keys
+input 27200 release pads-keys
 # Filter page: Resonance 100%.
-input 32000 press page
-input 33600 press step-3
-input 35200 release step-3
-input 36800 release page
-input 38400 turn encoder-3 127
-input 40000 turn encoder-3 1
+input 28800 press page
+input 30400 press step-3
+input 32000 release step-3
+input 33600 release page
+input 35200 turn encoder-3 127
+input 36800 turn encoder-3 1
 # Volume envelope page: Release 10 s.
-input 41600 press page
-input 43200 press step-5
-input 44800 release step-5
-input 46400 release page
-input 48000 turn encoder-4 127
-# MENU + step 10 opens SAMPLES on kick.wav, and down onto pad.wav previews it through to the end.
-input 48400 press menu
-input 48800 press step-10
-input 49200 release step-10
-input 49600 release menu
-input 50000 press down
-input 50400 release down
+input 38400 press page
+input 40000 press step-5
+input 41600 release step-5
+input 43200 release page
+input 44800 turn encoder-4 127
+# Voice page: down five times to Transpose and + held for 48 moves: +48, so the notes below read
+# pad.wav 4 to 24 times as fast as it was recorded.
+input 46400 press page
+input 48000 press step-6
+input 49600 release step-6
+input 51200 release page
+input 52800 press down
+input 54400 release down
+input 56000 press down
+input 57600 release down
+input 59200 press down
+input 60800 release down
+input 62400 press down
+input 64000 release down
+input 65600 press down
+input 67200 release down
+input 68800 press plus
+input 201800 release plus
+# Sample page: push 1 opens the sample picker on pad.wav, playing nothing. Up onto kick.wav and
+# down onto pad.wav preview it through to the end.
+input 204800 press page
+input 206400 press step-2
+input 208000 release step-2
+input 209600 release page
+input 211200 press push-1
+input 212800 release push-1
+input 214400 press up
+input 216000 release up
+input 217600 press down
+input 219200 release down
 # 32 MIDI notes at once, one for each voice, held for a second.
-input 51200 note-on 36 127
-input 51200 note-on 37 127
-input 51200 note-on 38 127
-input 51200 note-on 39 127
-input 51200 note-on 40 127
-input 51200 note-on 41 127
-input 51200 note-on 42 127
-input 51200 note-on 43 127
-input 51200 note-on 44 127
-input 51200 note-on 45 127
-input 51200 note-on 46 127
-input 51200 note-on 47 127
-input 51200 note-on 48 127
-input 51200 note-on 49 127
-input 51200 note-on 50 127
-input 51200 note-on 51 127
-input 51200 note-on 52 127
-input 51200 note-on 53 127
-input 51200 note-on 54 127
-input 51200 note-on 55 127
-input 51200 note-on 56 127
-input 51200 note-on 57 127
-input 51200 note-on 58 127
-input 51200 note-on 59 127
-input 51200 note-on 60 127
-input 51200 note-on 61 127
-input 51200 note-on 62 127
-input 51200 note-on 63 127
-input 51200 note-on 64 127
-input 51200 note-on 65 127
-input 51200 note-on 66 127
-input 51200 note-on 67 127
-input 99200 note-off 36
-input 99200 note-off 37
-input 99200 note-off 38
-input 99200 note-off 39
-input 99200 note-off 40
-input 99200 note-off 41
-input 99200 note-off 42
-input 99200 note-off 43
-input 99200 note-off 44
-input 99200 note-off 45
-input 99200 note-off 46
-input 99200 note-off 47
-input 99200 note-off 48
-input 99200 note-off 49
-input 99200 note-off 50
-input 99200 note-off 51
-input 99200 note-off 52
-input 99200 note-off 53
-input 99200 note-off 54
-input 99200 note-off 55
-input 99200 note-off 56
-input 99200 note-off 57
-input 99200 note-off 58
-input 99200 note-off 59
-input 99200 note-off 60
-input 99200 note-off 61
-input 99200 note-off 62
-input 99200 note-off 63
-input 99200 note-off 64
-input 99200 note-off 65
-input 99200 note-off 66
-input 99200 note-off 67
-end 105600
+input 220800 note-on 36 127
+input 220800 note-on 37 127
+input 220800 note-on 38 127
+input 220800 note-on 39 127
+input 220800 note-on 40 127
+input 220800 note-on 41 127
+input 220800 note-on 42 127
+input 220800 note-on 43 127
+input 220800 note-on 44 127
+input 220800 note-on 45 127
+input 220800 note-on 46 127
+input 220800 note-on 47 127
+input 220800 note-on 48 127
+input 220800 note-on 49 127
+input 220800 note-on 50 127
+input 220800 note-on 51 127
+input 220800 note-on 52 127
+input 220800 note-on 53 127
+input 220800 note-on 54 127
+input 220800 note-on 55 127
+input 220800 note-on 56 127
+input 220800 note-on 57 127
+input 220800 note-on 58 127
+input 220800 note-on 59 127
+input 220800 note-on 60 127
+input 220800 note-on 61 127
+input 220800 note-on 62 127
+input 220800 note-on 63 127
+input 220800 note-on 64 127
+input 220800 note-on 65 127
+input 220800 note-on 66 127
+input 220800 note-on 67 127
+input 268800 note-off 36
+input 268800 note-off 37
+input 268800 note-off 38
+input 268800 note-off 39
+input 268800 note-off 40
+input 268800 note-off 41
+input 268800 note-off 42
+input 268800 note-off 43
+input 268800 note-off 44
+input 268800 note-off 45
+input 268800 note-off 46
+input 268800 note-off 47
+input 268800 note-off 48
+input 268800 note-off 49
+input 268800 note-off 50
+input 268800 note-off 51
+input 268800 note-off 52
+input 268800 note-off 53
+input 268800 note-off 54
+input 268800 note-off 55
+input 268800 note-off 56
+input 268800 note-off 57
+input 268800 note-off 58
+input 268800 note-off 59
+input 268800 note-off 60
+input 268800 note-off 61
+input 268800 note-off 62
+input 268800 note-off 63
+input 268800 note-off 64
+input 268800 note-off 65
+input 268800 note-off 66
+input 268800 note-off 67
+end 275200

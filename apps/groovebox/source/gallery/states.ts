@@ -78,6 +78,21 @@ export const STATES: ReadonlyArray<{title: string; frame: string; approved?: str
     frame: 'synth-pages/frame-409600.png',
     approved: 'page-held.png',
   },
+  {
+    title: 'Sample picker inside drums/ on snare-room.wav',
+    frame: 'sample-sounds/frame-60800.png',
+    approved: 'picker-sample.png',
+  },
+  {
+    title: 'SOUND Sample page of snare-room with Start 4.0% and End 92.0%',
+    frame: 'sample-sounds/frame-243200.png',
+    approved: 'sound-sample.png',
+  },
+  {
+    title: 'SOUND Pad page with the sample sound snare-room on pad 1',
+    frame: 'sample-sounds/frame-579200.png',
+    approved: 'sound-pad.png',
+  },
   {title: 'SAMPLES at the top level', frame: 'samples-screen/frame-12800.png'},
   {
     title: 'SAMPLES inside drums/ on ".."',
@@ -94,6 +109,16 @@ export const STATES: ReadonlyArray<{title: string; frame: string; approved?: str
     title: 'Question before deleting Bass.wav',
     frame: 'samples-delete/frame-22400.png',
     approved: 'question.png',
+  },
+  {
+    title: 'Question before deleting kick.wav, which 2 sounds use',
+    frame: 'sample-delete/frame-76800.png',
+    approved: 'question.png',
+  },
+  {
+    title: 'Sound picker on kick, missing as kick 2 is',
+    frame: 'sample-delete/frame-108800.png',
+    approved: 'picker-sound.png',
   },
   {title: 'SETTINGS Dev page', frame: 'samples-screen/frame-190464.png'},
   {

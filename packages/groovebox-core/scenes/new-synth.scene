@@ -9,9 +9,11 @@ frame 9600
 input 12800 press ok
 input 14400 release ok
 frame 16000
-# Down to New synth and OK: Syn 1 on pad 1.
+# Down twice to New synth and OK: Syn 1 on pad 1.
 input 19200 press down
 input 20800 release down
+input 21200 press down
+input 21600 release down
 input 22400 press ok
 input 24000 release ok
 frame 25600

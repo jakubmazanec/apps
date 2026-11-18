@@ -353,12 +353,13 @@ mod tests {
     }
 
     /// The start of a scene that makes Syn 1 on pad 1 through the panel once the start-up on an
-    /// empty storage has opened the project: MENU + step 3, then OK, down and OK in the sound
+    /// empty storage has opened the project: MENU + step 3, then OK, down twice and OK in the sound
     /// picker.
     const SYN_1: &str = "groovebox-scene 1\ninput 1024 press menu\ninput 1032 press step-3\n\
         input 1040 release step-3\ninput 1048 release menu\ninput 1056 press ok\n\
         input 1064 release ok\ninput 1072 press down\ninput 1080 release down\n\
-        input 1088 press ok\ninput 1096 release ok\n";
+        input 1082 press down\ninput 1084 release down\ninput 1088 press ok\n\
+        input 1096 release ok\n";
 
     /// The steps of the start-up on an empty storage: it empties `tmp/` and lists `samples/`.
     const START_UP: &str = "step 128\nstep 256\n";

@@ -1,0 +1,128 @@
+groovebox-scene 1
+# drums/ with 808/, kick.wav and snare-room.wav, 1.2 s as in Look's picker-sample.png, and pad.wav
+# in stereo at the top level.
+file samples/drums/808/boom.wav ours 50 0.8 1
+file samples/drums/kick.wav ours 55 0.3 1
+file samples/drums/snare-room.wav ours 180 1.2 1
+file samples/pad.wav ours 220 2 2
+# MENU + step 3 shows SOUND's Pad page for the empty pad 1. OK, down onto New sample and OK open
+# the sample picker at the top level on its first row, drums/, playing nothing.
+input 3200 press menu
+input 4800 press step-3
+input 6400 release step-3
+input 8000 release menu
+input 9600 press ok
+input 11200 release ok
+input 12800 press down
+input 14400 release down
+input 16000 press ok
+input 17600 release ok
+frame 19200
+# Down onto pad.wav plays it, and up onto drums/ stops it.
+input 20800 press down
+input 22400 release down
+input 44800 press up
+input 46400 release up
+# OK enters drums/ on "..". Down onto 808/ plays nothing, down onto kick.wav plays it and down onto
+# snare-room.wav cuts it short and plays snare-room.wav.
+input 48000 press ok
+input 49600 release ok
+input 51200 press down
+input 52800 release down
+input 54400 press down
+input 56000 release down
+input 57600 press down
+input 59200 release down
+frame 60800
+# OK chooses it: snare-room on pad 1, a One-shot sound of the whole file.
+input 64000 press ok
+input 65600 release ok
+# Pad 1 held past the file's end plays it to its end.
+input 70400 pad-hit 0 100
+input 147200 pad-release 0
+# A tap of PADS/KEYS switches T1 to KEYS mode. Pad 1 plays C4, and after PADS/KEYS + up it plays C5
+# an octave above while C4 still sounds.
+input 150400 press pads-keys
+input 152000 release pads-keys
+input 153600 pad-hit 0 100
+input 160000 pad-release 0
+input 163200 press pads-keys
+input 164800 press up
+input 166400 release up
+input 168000 release pads-keys
+input 169600 pad-hit 0 100
+input 176000 pad-release 0
+# A tap of PADS/KEYS goes back to PADS mode, as Look's pictures show. PAGE + step 2: the Sample
+# page. End 92.0% and Start 4.0%, each with fine clicks under SHIFT, which puts the cursor on Start.
+input 220800 press pads-keys
+input 222400 release pads-keys
+input 224000 press page
+input 225600 press step-2
+input 227200 release step-2
+input 228800 release page
+input 230400 turn encoder-3 -10
+input 232000 press shift
+input 233600 turn encoder-3 -4
+input 235200 release shift
+input 236800 turn encoder-2 5
+input 238400 press shift
+input 240000 turn encoder-2 2
+input 241600 release shift
+frame 243200
+# PAGE + step 6: the Voice page, Trigger Gate, so a held pad keeps the loop going. PAGE + step 2
+# and Loop on: pad 1 held for 2.5 s goes round the loop twice.
+input 244800 press page
+input 246400 press step-6
+input 248000 release step-6
+input 249600 release page
+input 251200 turn encoder-4 -1
+input 252800 press page
+input 254400 press step-2
+input 256000 release step-2
+input 257600 release page
+input 259200 turn encoder-4 1
+input 262400 pad-hit 0 100
+input 382400 pad-release 0
+# Down three times to Reverse and +: On. Pad 1 held for 2.5 s plays the loop backwards.
+input 403200 press down
+input 404800 release down
+input 406400 press down
+input 408000 release down
+input 409600 press down
+input 411200 release down
+input 412800 press plus
+input 414400 release plus
+input 417600 pad-hit 0 100
+input 537600 pad-release 0
+# PAGE + step 1: the Pad page, with Engine Sample.
+input 571200 press page
+input 572800 press step-1
+input 574400 release step-1
+input 576000 release page
+frame 579200
+# Push 3 opens the Engine picker on Sample; down onto Synth and OK: a synth, which pad 1 plays.
+input 582400 press push-3
+input 584000 release push-3
+input 585600 press down
+input 587200 release down
+input 588800 press ok
+input 590400 release ok
+input 592000 pad-hit 0 100
+input 600000 pad-release 0
+# Push 3 opens it on Synth; up onto Sample and OK open the sample picker in drums/ on "..". Down
+# twice onto kick.wav plays it, and OK chooses it: a sample sound of kick.wav, which pad 1 plays.
+input 620800 press push-3
+input 622400 release push-3
+input 624000 press up
+input 625600 release up
+input 627200 press ok
+input 628800 release ok
+input 630400 press down
+input 632000 release down
+input 633600 press down
+input 635200 release down
+input 636800 press ok
+input 638400 release ok
+input 641600 pad-hit 0 100
+input 649600 pad-release 0
+end 672000
