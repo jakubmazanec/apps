@@ -279,9 +279,10 @@ start as long as the note; drums sit on their root row.
 - **A picker** replaces the main area with a list of 13 px rows, the cursor an outline as
   everywhere, the strip empty since the encoders do nothing in a picker: the sound picker lists
   Empty, New sample, New synth, then the pool with each sound's engine, a missing sound in red; the
-  sample picker shows the folder and the library meter at the top (how full the library is, the same
-  number as on POOL and SAMPLES), then folders and files with length and size; every file can be
-  chosen.
+  sample picker has a dim top line that names the folder and shows the library meter (how full the
+  library is, the same number as on POOL and SAMPLES), "drums/ Library 41.2 of 64 MB", the folder
+  losing its start to "…" when too wide; at the top level it reads "Library 41.2 of 64 MB". Under it
+  are 15 rows at every level, folders and files with length and size; every file can be chosen.
 - **A question** is a box with a 1 px outline in the middle of the main area: the question, its
   count, and what OK and Cancel do; the strip is empty while it is open.
 - **The NOTE panel** is a box over STEP with the cell's four values as parameter items, the cursor
@@ -310,6 +311,14 @@ shows the filter's curve with a faint line at the cutoff. Richer graphics come l
 - **SOUND**: the six pages Workflow A lists (Pad, the engine, Filter, Filter envelope, Volume
   envelope, Voice), each drawn this way, each a whole group: Filter is seven items, the sample
   engine eight.
+  - **The sample page's points.** Start, End, Loop start and Loop end are frames of the sound's file
+    and show a percent of its length with one decimal, "4.2%", so every fine click shows;
+    `sound-sample.png` shows whole percents.
+  - **The waveform** has one line per column of the picture: the highest absolute sample, of both
+    channels, among up to 64 frames spread evenly over the column's share of the whole file, so the
+    work per file is bounded. It is drawn as a vertical line in the note mid grey, symmetric about a
+    faint middle line, with its half height 2 px less than half the area's at full scale. Start and
+    End are full-height accent lines.
 - **FX, Chain**: the six slots as a row of tiles in chain order, the cursor on one, empty slots
   faint; under them Type and Move for that slot, on encoders 1 and 2. The slot pages are ordinary
   pages with all of the effect's settings; an empty slot's page and strip are empty.

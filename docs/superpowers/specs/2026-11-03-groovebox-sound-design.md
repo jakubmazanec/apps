@@ -76,7 +76,9 @@ Master:                  all 4 tracks mixed → master level → + sample previe
    - default settings for the shared chain, such as one-shot for drums or mono for an acid engine.
 3. **What an engine gets for each note:**
    - at the start: pitch, velocity, an accent mark, a seed number that makes any randomness repeat
-     exactly, and the kind of start (new note, restart, or legato);
+     exactly, and the kind of start (new note, restart, or legato). A sample restarts from Start
+     (from End in reverse) with the new note's file; in legato it keeps its place and its file and
+     only the pitch moves, as the EP-133's legato carries on from the same play position;
    - every 32-sample chunk: the current pitch with glide already applied, whether the note is held,
      and its parameter values, read through Foundation's single parameter-read step;
    - finally: release, or a stop when the voice is taken.
@@ -130,14 +132,35 @@ A supersaw voice costs about 3 to 5 times a basic voice; the worst-case tests co
 
 ### Sample player
 
-- Plays one sample, mono or stereo as the file is.
-- **Start and end points; loop on or off,** with its own start and end, played forward; **reverse.**
-- **Root note:** the note at which the sample plays unchanged; KEYS mode plays it chromatically from
-  there.
-- **Pitch changes** by reading faster or slower, with 4-point cubic Hermite interpolation: clean
-  even far from the root note, at about four times the cost of the crudest method.
-- Reports "finished" at the end unless it is looping.
-- **Play modes:** poly, mono and legato allowed; poly by default. One-shot trigger by default.
+- Plays one sample, mono or stereo as the file is. The sample is not scaled: a full-scale sample
+  reads as ±1, so a default sample sound at velocity 127 plays as loud as its preview.
+- **Start and end points; loop on or off,** with its own start and end. Each point is a frame of the
+  sound's file, so a file's own loop stays exact **(owner's choice)**. One click moves 1/128 of the
+  file's length and SHIFT a sixteenth of that. A point is shown as a percent of the length with one
+  decimal ("4.2%"), so every fine click shows.
+- **Points that would cross** each stop at the other **(owner's choice)**: Start stops one frame
+  before End and End one frame after Start; Loop start and Loop end stop at each other the same way.
+  Only the part of a loop that lies between Start and End plays.
+- **Reverse** plays from End back to Start; with loop on, the loop runs backwards between its
+  points. A loop always runs in one direction and never back and forth. The waveform on the page is
+  not flipped.
+- **Root note:** the note at which the sample plays unchanged, from 0 to 127, MIDI's range, as a
+  note's pitch is (Project model). It is a count: one per click, and SHIFT changes nothing. It is
+  shown as a note name with C4 for 60 and sharps as "#": "C4", "C#4" and "C−1" for 0, with the minus
+  sign of signed values.
+- **The pitch a pad plays:** in PADS mode a sample sound plays at its root note, so it sounds as
+  recorded, while a synth stays at C4 (Workflow B). KEYS mode plays it chromatically from the root
+  note, at the key's pitch.
+- **Pitch changes** by reading faster or slower: the sample is read
+  `2^((pitch + Transpose + Fine tune / 100 − Root note) / 12)` times as fast, with 4-point cubic
+  Hermite interpolation: clean even far from the root note, at about four times the cost of the
+  crudest method.
+- A sample that is not looping reports "finished" at End (at Start in reverse) in either trigger,
+  and the voice is free from then on. In gate trigger letting go releases the note, as for a synth.
+- **Play modes:** poly, mono and legato allowed; poly by default.
+- **Loop and trigger of a new sound:** a file without a loop gives Loop off and one-shot. A file
+  with its own loop gives Loop on and gate, so the sound loops while the pad is held and fades after
+  letting go **(owner's choice)**.
 - **Starting page,** one for the whole engine: sample, start, end, loop on or off, loop start, loop
   end, reverse, root note. The encoders hold sample, start, end and loop on or off **(owner's
   choice)**.
@@ -175,8 +198,10 @@ Every layer of every note runs through this chain after its engine, the same for
 3. **Volume envelope:** attack, decay, sustain, release, and a velocity amount.
 4. **Trigger mode.**
    - Gate: letting go starts the release.
-   - One-shot: letting go is ignored; the note plays until the sample ends or the envelope decays,
-     with sustain counted as zero so it always ends.
+   - One-shot: letting go is ignored, and a sample plays to its end **(owner's choice)**; the
+     EP-133's one-shot too "plays the whole sample". The volume envelope's sustain counts as zero
+     only when a note would never end by itself, a synth or a sample with Loop on, so that note
+     always ends. Lowering Sustain still lets Decay shorten a drum.
    - Engines that shape their own volume keep the volume envelope fully open until they report
      "finished".
 5. **Level and pan;** for stereo voices pan works as balance.

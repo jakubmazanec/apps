@@ -174,14 +174,20 @@ Which project was open last is a device setting, so starting up opens it (Workfl
 ## A missing sample
 
 **(owner's choice)** The project opens and plays. A sound whose file is gone keeps every setting and
-plays silence. On opening, one line reports the total, such as "2 SAMPLES MISSING"; on POOL the
-sound is marked MISSING with the file's name, and so are its lane on STEP and its name in the
-header. The repair is what Workflow A already has: the sample parameter on the sound's engine page
-opens the sample picker, and choosing a file fixes the sound everywhere it is used. The reference is
-kept, so if the file comes back the sound works again. There is no other way for a sound to lack its
-sample: the whole library is in RAM, so a file that is in the library always plays. The one
-exception is a library bigger than the sample RAM after a hardware change or a lowered budget; the
-files start-up could not load count as missing until something is deleted (see "Starting up").
+plays silence: its note takes a voice that sounds nothing and ends. On opening, one line reports the
+total, such as "2 SAMPLES MISSING"; on POOL the sound is marked MISSING with the file's name, and so
+are its lane on STEP, its row in the sound picker and its name in the header, all in red (Look). Its
+Sample item shows the file's name; its waveform area shows only the middle line and the marks; and
+turning Start, End, Loop start or Loop end does nothing until a file is chosen, since those points
+are frames of a file. The repair is what Workflow A already has: the Sample item on the sound's
+engine page opens the sample picker, and choosing a file fixes the sound everywhere it is used. A
+missing sound keeps its file's path. A file listed under that path, ignoring case, by an import
+makes it play again; a file replaced by a drop of its name keeps its sounds, which play the new
+audio (see "The library"). There is no other way for a sound to lack its sample: the whole library
+is in RAM, so a file that is in the library always plays. The one exception is a library bigger than
+the sample RAM after a hardware change or a lowered budget; the files start-up could not load count
+as missing until something is deleted (see "Starting up"). The sample picker lists them in red as
+"not loaded" and never previews them, and choosing one makes the sound MISSING.
 
 Every device researched that points at files (Deluge, Digitakt II, M8, OP-XY) opens the project and
 plays silence; the Deluge keeps the broken reference and writes it back on save, and the M8 offers a
@@ -218,11 +224,12 @@ removable, the user never sees files.
   library the way the sample picker does: by folder, each file with its length and size, the
   highlighted file playing once from RAM through Sound's preview player exactly as in the picker,
   with the library meter: how full the library is, the same number as on POOL and in the picker. OK
-  on a file opens a picker with DELETE; a question comes first, "DELETE KICK.WAV?", with "2 SOUNDS
-  USE IT" added when the open project uses the file. Deleting frees the file's share of storage and
-  of sample RAM; it is the one way sample RAM is freed. SAMPLES is a list, so the encoders hold
-  nothing and the strip is empty, as on POOL and PROJECT; DELETE is reached only through the file's
-  picker. Sounds that used the file, in this or any other project, show as MISSING afterwards.
+  on a file opens a picker with DELETE; a question comes first, "Delete clap.wav?", then "2 sounds
+  use it" or "1 sound uses it" when sounds of the open project play the file, then "OK deletes,
+  Cancel keeps". Deleting frees the file's share of storage and of sample RAM; it is the one way
+  sample RAM is freed. SAMPLES is a list, so the encoders hold nothing and the strip is empty, as on
+  POOL and PROJECT; DELETE is reached only through the file's picker. Sounds that used the file, in
+  this or any other project, show as MISSING afterwards.
 - **In the browser,** how the device's storage is imitated is an implementation choice inside
   Foundation's storage interface: the browser's private storage for the site, which the shell asks
   to keep permanently. Nothing else about the browser shows through, and no browser feature shapes
@@ -573,11 +580,12 @@ SAMPLES screen show; file headers are read only at start-up. DELETE on the SAMPL
 the file from storage and from RAM: voices reading it fade out within one 32-sample chunk first, as
 a taken voice does, and the preview player stops the same way; the file's RAM is reused, and the
 meter drops, only after the sound side reports, the handshake the note store uses **(owner's
-choice)**; sounds of the open project that use it turn MISSING at once, and other projects find out
-when they are opened. Deletes run one at a time: while one runs, OK on a file opens nothing and
-moving onto the file being deleted plays nothing, with no message **(owner's choice)**. If storage
-says the file is already gone, the delete counts as done **(owner's choice)**. REMOVE UNUSED on POOL
-removes sounds from the project and never touches a file or sample RAM.
+choice)**; sounds of the open project that use it turn MISSING when the delete ends, and other
+projects find out when they are opened. A delete that fails leaves them playing the file. Deletes
+run one at a time: while one runs, OK on a file opens nothing and moving onto the file being deleted
+plays nothing, with no message **(owner's choice)**. If storage says the file is already gone, the
+delete counts as done **(owner's choice)**. REMOVE UNUSED on POOL removes sounds from the project
+and never touches a file or sample RAM.
 
 **The library meter** is one number, how full the library is: the converted size of every file in
 the library against the sample RAM, such as "41.2 of 64 MB", where a MB is 1,000,000 bytes and the

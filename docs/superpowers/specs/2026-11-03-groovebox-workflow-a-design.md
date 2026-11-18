@@ -291,12 +291,17 @@ from here **(owner's choice)**. Its items, held by encoders 1 to 3:
   swap or create a sound.
 - **Item 2: COPY.** It shows how many pads use the sound. OK gives this pad its own copy of the
   sound, so further edits stay on this pad **(owner's choice)**.
-- **Item 3: ENGINE (owner's choice),** SAMPLE or SYNTH. OK opens a picker; turning or − and + do
-  nothing, so a stray turn cannot reset a sound's engine.
+- **Item 3: ENGINE (owner's choice),** "Sample" or "Synth", as Look's Pad page shows it. OK opens a
+  picker of two rows, "Sample" then "Synth", on the current one; turning or − and + do nothing, so a
+  stray turn cannot reset a sound's engine. Choosing the current engine changes nothing.
   - Changing it keeps the shared chain (filter, envelopes, level and pan, tuning, voice) and starts
-    the new engine at its defaults. Switching to SAMPLE opens the sample picker straight away.
+    the new engine at its defaults. "Synth" does this at once. "Sample" replaces the picker with the
+    sample picker at once, and the switch happens only when a file is chosen, so CANCEL leaves a
+    synth as it was and a sound never becomes a sample sound without its sample (Project model).
   - If the new engine does not allow the current play mode, the sound takes that engine's default.
+    Both engines allow every play mode, so the mode stays.
   - Switching back does not restore the old engine's settings; a sound holds one engine's settings.
+    The old engine's entries are never read again and are reset when that engine comes back.
 - Encoder 4 holds nothing, so its strip cell is empty.
 - When the sound was selected on POOL, there is no selected pad and the page shows only ENGINE,
   still on encoder 3.
@@ -316,13 +321,18 @@ edited another pad's sound.
 
 - New projects start empty: no sounds, no samples, every pad empty.
 - **NEW SYNTH** puts a virtual-analog sound with default settings on the pad.
-- **NEW SAMPLE** opens the sample picker; choosing a sample puts a sample sound on the pad.
+- **NEW SAMPLE** opens the sample picker; choosing a sample puts a sample sound on the pad. It has
+  every default, then Start is the file's first frame and End its last; Loop start and Loop end are
+  the file's own loop, or the whole file when it has none; Root note is the file's; Loop and trigger
+  follow the file's loop, as Sound says.
 - **A pool sound** chosen in the picker goes on the pad as the same sound, shared with every other
   pad that uses it.
 - **EMPTY** clears the pad.
 - **The pool holds 1,024 sounds per project (owner's choice),** in working memory (Foundation's
-  budget profile). When it is full, NEW SYNTH and COPY change nothing: the picker closes as on any
-  choice, no sound number is used up (Project model) and the header shows "Pool full" in red.
+  budget profile). When it is full, NEW SYNTH, NEW SAMPLE and COPY change nothing: the picker closes
+  as on any choice, no sound number is used up (Project model) and the header shows "Pool full" in
+  red. NEW SAMPLE is refused at once **(owner's choice)**: OK on it closes the picker, and the
+  sample picker never opens.
 - **Names are automatic (owner's choice).** A name is a base plus a number. The base of a synth is
   "Syn"; the base of a sample is the file's name without ".wav"; a trailing space and digits count
   as the number. A synth always carries a number (Syn 1), the first sound of a file none (Kick).
@@ -335,10 +345,14 @@ edited another pad's sound.
 
 Each note stores which sound it plays, so:
 
-- **Changing the sample,** with the sample parameter on the sample engine's page, changes the sound
+- **Changing the sample,** with the Sample item on the sample engine's page, changes the sound
   itself. Every pad and every note that uses the sound hears the new sample. Every other setting
-  stays; only the start, end, loop points and root note come from the new file. This is how a kick
-  is swapped for a better one.
+  stays, Loop and trigger too; only the start, end, loop points and root note come from the new
+  file, as for a new sound. This is how a kick is swapped for a better one.
+  - **The Sample page** is "Sample" (header "Sound Sample", tile "2 Sample"): Sample, Start, End and
+    Loop on encoders 1 to 4, then Loop start, Loop end, Reverse and Root note (Sound; Look's Sample
+    page). The Sample item shows the file's stored name with ".wav"; OK on it, or its push, opens
+    the sample picker; turns, − and + do nothing, as on the Pad page's Sound and ENGINE.
 - **Putting another sound on the pad,** with the PAD page's picker, changes only what the pad plays
   from now on. Notes recorded earlier keep their sound, which stays in the pool and can be reached
   on POOL.
@@ -356,19 +370,24 @@ All pickers work the same way:
 
 ### The sample picker
 
-- Lists the library by folder, each file with its length and its size, and shows the library meter
-  at the top: how full the library is, the same number as on POOL and SAMPLES. SAMPLES lists the
-  library the same way, and the rules below hold on both.
+- Lists the library by folder, each file with its length and its size. A dim line at the top names
+  the folder and shows the library meter, how full the library is, the same number as on POOL and
+  SAMPLES: "drums/ Library 41.2 of 64 MB" in a folder, "Library 41.2 of 64 MB" at the top. Under it
+  are 15 rows at every level. SAMPLES lists the library the same way, with its meter above the strip
+  (Look), and the rules below hold on both.
 - **Order (owner's choice).** Folders first, then files, each A to Z ignoring case, with a run of
   digits compared by its value, so kick 1.wav, kick 2.wav and kick 10.wav come in that order and
   kick.wav comes before kick 2.wav. An accented letter sorts with its plain letter, so déšť.wav
   comes between clap.wav and hat-closed.wav. A new import lands in its place by name.
-- **Inside a folder (owner's choice)** a dim line names the folder, and the first row is "..": OK on
-  it goes up, and so does CANCEL. At the top level the folder line and ".." are left out. A folder
-  line too long for its row is cut at its start, "…808 collection/long names/", so the folder you
-  are in always shows.
+- **Inside a folder (owner's choice)** the dim line names the folder, before the meter in the
+  picker, and the first row is "..": OK on it goes up, and so does CANCEL. At the top level the
+  folder and ".." are left out, and the picker's line keeps its meter. A folder too long for its
+  place in the line is cut at its start, "…808 collection/long names/", so the folder you are in
+  always shows.
 - Every file can be chosen. The whole library is in RAM (Foundation), so picking loads nothing and
-  nothing is ever "no room" here; the only refusal is at import (Sound).
+  nothing is ever "no room" here; the only refusal is at import (Sound). A file that start-up could
+  not load is listed in red with "not loaded", as on SAMPLES, and is never previewed, but it can be
+  chosen: the sound is then MISSING (Project model).
 - **The highlighted sample plays once (owner's choice),** from RAM through Sound's preview player
   beside the 32 voices: dry, at a fixed level, after the tracks and before the soft clipper, so it
   never takes a voice from the music. It plays only when the arrows or − and + move the highlight
@@ -379,7 +398,11 @@ All pickers work the same way:
   while stopped silences it too (Workflow B). Leaving SAMPLES fades a preview still playing out, as
   OK and CANCEL do; holding MENU or PAGE without choosing a screen does not stop it. Previewing
   while the music plays is allowed.
-- The sample engine's sample parameter opens the same picker.
+- **Where it opens.** From NEW SAMPLE and ENGINE it opens in the folder it was last in, on its first
+  row. From the Sample item of the sample engine's page it opens in the folder of the sound's file,
+  on the file, or as from NEW SAMPLE when the file is missing. Opening plays nothing. The folder is
+  kept while the project is open (Project model: "the sample picker's folder"); a folder that is
+  gone gives the top level.
 
 Rejected: a memory cost per file, the time left in a budget and a "no room" mark, the first design.
 They belonged to the per-project budget, which Foundation replaced with one library in RAM.

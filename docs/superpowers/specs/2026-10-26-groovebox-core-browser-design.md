@@ -492,17 +492,11 @@ settles it with the owner.
   view opens on ROLL. Proposed: none yet.
 - **DELETE for an unused sound.** What the question reads when no pad or note uses the sound.
   Proposed: none yet.
-- **NEW SAMPLE on a full pool.** When the pool is full, NEW SYNTH and COPY change nothing and the
-  header shows "Pool full" (Workflow A); NEW SAMPLE, which comes with Milestone 2, is not named.
-  Does the sample picker open, and what does choosing a sample do? Proposed: none yet.
 
 ### Sound and settings
 
 - **Delay time on the strip.** How dotted and triplet values are written, their order in the list
   and whether "1/1 (1/2)" fits a strip cell. Proposed: none yet.
-- **Sample start, end and loop points.** Their unit is unsaid. Proposed: sample frames of the
-  converted file; one click moves 1/128 of its length.
-- **Root note.** No range. Proposed: 0 to 127.
 - **LENGTH limits.** What the pattern's picker lists; a note's shortest and longest. Proposed: 1, 2,
   4, 8, 16, 32 and 64 bars; a note from one fine step (30 ticks) to the pattern's length.
 - **Counted or smooth.** Unmarked for note pitch and velocity. Proposed: note PITCH and VELOCITY
