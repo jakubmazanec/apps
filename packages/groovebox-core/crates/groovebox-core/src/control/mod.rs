@@ -12,12 +12,12 @@ use crate::library::startup::StartUp;
 use crate::library::{FileId, Library};
 use crate::lights::Lights;
 use crate::message::{
-    MAX_MESSAGES_PER_EVENT, MESSAGE_QUEUE, Message, MessageKind, NoteEngine, Target,
+    MAX_MESSAGES_PER_EVENT, MESSAGE_QUEUE, Message, MessageKind, NoteEngine, SampleFile, Target,
 };
 use crate::palette::RECORD;
-use crate::param::{self, Curve, OUTPUT_VOLUME, ParamId, Scope, VELOCITY};
+use crate::param::{self, Curve, ENTRIES, OUTPUT_VOLUME, ParamId, ROOT_NOTE, Scope, VELOCITY};
 use crate::project::Project;
-use crate::project::pool::{PoolFull, Sound, SoundNumber};
+use crate::project::pool::{Engine, PoolFull, SOUND_VALUES, Sample, Sound, SoundNumber};
 use crate::project::settings::DeviceSettings;
 use crate::project::track::{MAX_OCTAVE, PadMode, Track};
 use crate::queue::Producer;
@@ -34,7 +34,7 @@ use core::ops::ControlFlow;
 use notes::{Notes, Source};
 use pages::{ItemDef, ItemKind, MENU, PageDef, pages};
 use samples::Deleting;
-use view::{Cursor, Picker, Question, Screen, View, menu_tiles, moved, page_tiles};
+use view::{Cursor, Pick, Picker, Question, Screen, View, menu_tiles, moved, page_tiles};
 
 pub const INPUT_QUEUE: usize = 64;
 pub const REPLAY_QUEUE: usize = 64;
@@ -42,13 +42,15 @@ pub const REPLY_QUEUE: usize = 8;
 /// The most messages whose reports the control part waits for at a time.
 const AWAITED: usize = 4;
 
-/// The sound picker's first row of a sound of the pool, after Empty and New synth.
-const FIRST_SOUND_ROW: usize = 2;
+/// The sound picker's first row of a sound of the pool, after Empty, New sample and New synth.
+const FIRST_SOUND_ROW: usize = 3;
 
 /// What a row of a picker chooses.
 enum Entry<'a> {
     /// Empties the pad.
     Empty,
+    /// Opens the sample picker, whose file goes on the pad as a new sound.
+    NewSample,
     /// Puts a new synth on the pad.
     NewSynth,
     /// Puts this sound of the pool on the pad.
@@ -90,7 +92,7 @@ struct Focus {
     picker: Option<usize>,
     /// The question while one is open.
     question: Option<Question>,
-    /// The row under SAMPLES' cursor while SAMPLES shows.
+    /// The row under the cursor of SAMPLES or of the sample picker while it shows.
     samples: Option<samples::Row>,
     track: u8,
     pad: Option<u8>,
@@ -402,11 +404,14 @@ impl Control {
                 item: self.cursor(paged).item,
                 picker: self.view.picker.map(|(_, highlight)| highlight.item),
                 question: self.view.question,
-                samples: self
-                    .view
-                    .samples
-                    .on
-                    .filter(|_| self.view.screen == Screen::Samples),
+                samples: match self.view.picker {
+                    Some((Picker::Sample(_), _)) => self.view.sample_picker.on,
+                    _ => self
+                        .view
+                        .samples
+                        .on
+                        .filter(|_| self.view.screen == Screen::Samples),
+                },
                 track: self.project.track,
                 pad: track.selected_pad,
                 sound: track.selected_sound,
@@ -535,12 +540,14 @@ impl Control {
         }
     }
 
-    /// A hit from `source`. In PADS mode it hits `pad`: it plays the pad's sound at C4, where a
-    /// synth sounds unchanged, and selects the pad and its sound unless a picker or a question is
+    /// A hit from `source`. In PADS mode it hits `pad`: it plays the pad's sound at its own pitch,
+    /// C4 for a synth, where it sounds unchanged, and its Root note for a sample sound, where it
+    /// sounds as recorded (S2), and selects the pad and its sound unless a picker or a question is
     /// open, as a new selection would change what it is for. In KEYS mode it is the key of the
     /// pitch `key`: that becomes the last key played, and it plays the selected sound at that
     /// pitch. With no sound it plays nothing, and neither does a source that has a note on
-    /// already.
+    /// already. A sample sound's note carries its file while the audio part may read it
+    /// (`playable`), and no file otherwise.
     fn hit(
         &mut self,
         source: Source,
@@ -552,20 +559,35 @@ impl Control {
     ) {
         let open = self.view.picker.is_some() || self.view.question.is_some();
         let track = self.track_mut();
-        let (pad, pitch, sound) = match track.mode {
+        let (pad, key, sound) = match track.mode {
             PadMode::Pads => {
                 if !open {
                     track.select(pad);
                 }
-                (Some(pad), 60, track.pads[usize::from(pad)])
+                (Some(pad), None, track.pads[usize::from(pad)])
             }
             PadMode::Keys => {
                 track.last_key = Some(key);
-                (None, key, track.selected_sound)
+                (None, Some(key), track.selected_sound)
             }
         };
         let Some(sound) = sound else {
             return;
+        };
+        let played = self
+            .project
+            .pool
+            .get(sound)
+            .expect("a sound on a pad is in the pool");
+        let (engine, pitch) = match played.engine {
+            Engine::Synth => (NoteEngine::Synth, key.unwrap_or(60)),
+            Engine::Sample(sample) => (
+                NoteEngine::Sample(match sample {
+                    Sample::File(file) => self.playable(file),
+                    Sample::Missing(_) => None,
+                }),
+                key.unwrap_or(played.value(ROOT_NOTE.id) as u8),
+            ),
         };
         let track = self.project.track;
         let Some(note) = self.notes.start(source, track, pad, pitch) else {
@@ -585,10 +607,24 @@ impl Control {
                 sound,
                 pitch,
                 velocity,
-                engine: NoteEngine::Synth,
+                engine,
             },
             messages,
         );
+    }
+
+    /// `file` as the audio part may read it: none while it is not loaded or is being deleted or
+    /// replaced, as the audio part may have let go of it.
+    fn playable(&self, file: FileId) -> Option<SampleFile> {
+        let audio = self.library.file(file);
+        (audio.loaded
+            && self.delete.is_none_or(|(deleted, _)| deleted != file)
+            && self.import.replacing() != Some(file))
+        .then_some(SampleFile {
+            file,
+            frames: audio.frames,
+            stereo: audio.channels == 2,
+        })
     }
 
     /// A pad release or a MIDI note-off: it ends the note that the hit from `source` started,
@@ -626,17 +662,19 @@ impl Control {
     ///   control used.
     ///
     /// While a picker is open the controls act on it. The arrows, - and + move its highlight
-    /// (`nudge`), OK chooses the highlighted row and closes it, Delete opening its question, and a
-    /// tap of CANCEL closes it (`release`). PLAY, STOP, REC and SHIFT + T1 to T4 act as usual. T1
-    /// to T4, MENU, PAGE, ROLL, PADS/KEYS, TEMPO, COPY, the steps and the encoder pushes are
-    /// dropped: they are taken, so they act neither now nor when they are let go, and the picker
-    /// stays open. Every other combination does nothing there either: an arrow, - or + pressed
-    /// while SHIFT or PADS/KEYS is held, even a PADS/KEYS dropped by the picker, is taken at its
-    /// press, so it neither moves the highlight nor repeats, also once SHIFT or PADS/KEYS is let
-    /// go. Opening and closing the picker take the arrows, - and + that are held, as a counted MENU
-    /// or PAGE does (`end_held_repeats`). While a question is open only OK and a tap of CANCEL
-    /// answer it, OK deleting the file (`delete_file`) unless the import replaces a file; the
-    /// arrows, - and + are taken too, and the other controls act as with a picker open.
+    /// (`nudge`), OK chooses the highlighted row and closes it, Delete opening its question and New
+    /// sample the sample picker, and a tap of CANCEL closes it (`release`). In the sample picker OK
+    /// and CANCEL act as on SAMPLES (`ok_in_samples`, `cancel_in_samples`). PLAY, STOP, REC and
+    /// SHIFT + T1 to T4 act as usual. T1 to T4, MENU, PAGE, ROLL, PADS/KEYS, TEMPO, COPY, the steps
+    /// and the encoder pushes are dropped: they are taken, so they act neither now nor when they
+    /// are let go, and the picker stays open. Every other combination does nothing there either: an
+    /// arrow, - or + pressed while SHIFT or PADS/KEYS is held, even a PADS/KEYS dropped by the
+    /// picker, is taken at its press, so it neither moves the highlight nor repeats, also once
+    /// SHIFT or PADS/KEYS is let go. Opening and closing the picker take the arrows, - and + that
+    /// are held, as a counted MENU or PAGE does (`end_held_repeats`). While a question is open only
+    /// OK and a tap of CANCEL answer it, OK deleting the file (`delete_file`) unless the import
+    /// replaces a file; the arrows, - and + are taken too, and the other controls act as with a
+    /// picker open.
     ///
     /// Otherwise the arrows, - and + nudge (`nudge`), OK uses the item under the cursor, or acts on
     /// SAMPLES' row (`ok_in_samples`), and an encoder push the item its encoder holds.
@@ -691,12 +729,23 @@ impl Control {
                     self.delete_file(file, sample, messages);
                 }
             }
+            Button::Ok if matches!(self.view.picker, Some((Picker::Sample(_), _))) => {
+                self.ok_in_samples(sample, messages);
+            }
             Button::Ok if let Some((open, highlight)) = self.view.picker => {
                 self.view.picker = None;
                 self.end_held_repeats();
                 let sound = match self.entry(open, highlight.item) {
                     Entry::Delete(file) => {
                         self.view.question = Some(Question::DeleteFile(file));
+                        return;
+                    }
+                    // A full pool refuses at once, so the sample picker never opens (answer 4).
+                    Entry::NewSample => {
+                        match self.project.pool.vacancy() {
+                            Ok(_) => self.open_sample_picker(Pick::NewSound, None),
+                            Err(PoolFull) => self.pool_full(),
+                        }
                         return;
                     }
                     Entry::Empty => None,
@@ -809,13 +858,13 @@ impl Control {
 
     /// An arrow, - or + at its press and at each of its repeats, which reads SHIFT anew. In the
     /// picker up, down, - and + move the highlight one row and left and right a picker page of 16
-    /// rows, stopping at the ends, and on SAMPLES they move its cursor the same way by as many rows
-    /// as fit (`move_in_samples`); with SHIFT held none of them does anything there. On a page up
-    /// and down move the cursor one item, stopping at the ends, and - and + move the value under
-    /// it by a click, a fine one while SHIFT is held. SHIFT + an arrow does nothing outside STEP,
-    /// and left and right do nothing on a page of one column. None of them gets here while MENU or
-    /// PAGE is held (`press`). STEP has no page, and its own arrows, - and + come with the
-    /// sequencer.
+    /// rows, stopping at the ends, and on SAMPLES and in the sample picker they move its cursor the
+    /// same way by as many rows as fit (`move_in_samples`); with SHIFT held none of them does
+    /// anything there. On a page up and down move the cursor one item, stopping at the ends, and -
+    /// and + move the value under it by a click, a fine one while SHIFT is held. SHIFT + an arrow
+    /// does nothing outside STEP, and left and right do nothing on a page of one column. None of
+    /// them gets here while MENU or PAGE is held (`press`). STEP has no page, and its own arrows, -
+    /// and + come with the sequencer.
     fn nudge(
         &mut self,
         button: Button,
@@ -824,8 +873,10 @@ impl Control {
     ) {
         let shift = self.buttons.is_held(Button::Shift);
         if let Some((picker, highlight)) = self.view.picker {
-            if !shift {
-                self.view.highlight(
+            match picker {
+                _ if shift => {}
+                Picker::Sample(_) => self.move_in_samples(button, sample, messages),
+                _ => self.view.highlight(
                     picker,
                     moved(
                         button,
@@ -833,7 +884,7 @@ impl Control {
                         self.picker_rows(picker) - 1,
                         LIST_VISIBLE,
                     ),
-                );
+                ),
             }
             return;
         }
@@ -1037,14 +1088,17 @@ impl Control {
         }
     }
 
-    /// Row `row` of `picker`: in the sound picker Empty, New synth, then the sounds of the pool in
-    /// number order; in the Delete picker, Delete.
+    /// Row `row` of `picker`: in the sound picker Empty, New sample, New synth, then the sounds of
+    /// the pool in number order; in the Delete picker, Delete. The sample picker's rows are the
+    /// library's (`samples::rows`).
     fn entry(&self, picker: Picker, row: usize) -> Entry<'_> {
         match (picker, row) {
             (Picker::Sound, 0) => Entry::Empty,
-            (Picker::Sound, 1) => Entry::NewSynth,
+            (Picker::Sound, 1) => Entry::NewSample,
+            (Picker::Sound, 2) => Entry::NewSynth,
             (Picker::Sound, _) => Entry::Sound(&self.project.pool.sounds()[row - FIRST_SOUND_ROW]),
             (Picker::Delete(file), _) => Entry::Delete(file),
+            (Picker::Sample(_), _) => unreachable!("the sample picker's rows are the library's"),
         }
     }
 
@@ -1052,12 +1106,47 @@ impl Control {
     fn picker_rows(&self, picker: Picker) -> usize {
         match picker {
             Picker::Sound => FIRST_SOUND_ROW + self.project.pool.sounds().len(),
+            Picker::Sample(_) => unreachable!("the sample picker's rows are the library's"),
             Picker::Delete(_) => 1,
         }
     }
 
-    /// Shows "Pool full" in red: New synth or Copy made nothing, as the pool holds as many sounds
-    /// as it can.
+    /// Sends a `SetParam` for each value of `sound` that differs from `before`, in list order.
+    fn send_values(
+        &mut self,
+        sound: SoundNumber,
+        before: &[i32; SOUND_VALUES],
+        sample: u64,
+        messages: &mut Producer<'_, Message, MESSAGE_QUEUE>,
+    ) {
+        let values = self
+            .project
+            .pool
+            .get(sound)
+            .expect("the sound is in the pool")
+            .values;
+        for ((entry, value), old) in ENTRIES
+            .iter()
+            .filter(|entry| entry.scope == Scope::Sound)
+            .zip(values)
+            .zip(before)
+        {
+            if value != *old {
+                self.send(
+                    sample,
+                    MessageKind::SetParam {
+                        target: Target::Sound(sound),
+                        id: entry.id,
+                        value,
+                    },
+                    messages,
+                );
+            }
+        }
+    }
+
+    /// Shows "Pool full" in red: New synth, New sample or Copy made nothing, as the pool holds as
+    /// many sounds as it can.
     fn pool_full(&mut self) {
         let mut text = Label::new();
         text.push_str("Pool full");
@@ -1077,16 +1166,19 @@ impl Control {
         }
     }
 
-    /// Sends the `UseTable` or `ForgetSample` that the import asks for. Moves SAMPLES' cursor from
-    /// a file it replaced onto the new file. Closes the old file's Delete picker or question, as
-    /// CANCEL does, so that no OK deletes the audio just dropped. Puts out its next request.
+    /// Sends the `UseTable` or `ForgetSample` that the import asks for. Moves the cursors of
+    /// SAMPLES and of the sample picker from a file it replaced onto the new file. Closes the old
+    /// file's Delete picker or question, as CANCEL does, so that no OK deletes the audio just
+    /// dropped. Puts out its next request.
     fn follow_import(&mut self, sample: u64, messages: &mut Producer<'_, Message, MESSAGE_QUEUE>) {
         if let Some(kind) = self.import.message() {
             self.send(sample, kind, messages);
         }
         if let Some((old, new)) = self.import.replaced() {
-            if self.view.samples.on == Some(samples::Row::File(old)) {
-                self.view.samples.on = Some(samples::Row::File(new));
+            for list in [&mut self.view.samples, &mut self.view.sample_picker] {
+                if list.on == Some(samples::Row::File(old)) {
+                    list.on = Some(samples::Row::File(new));
+                }
             }
             if self
                 .view
@@ -1175,8 +1267,8 @@ impl Control {
     }
 
     /// A button goes up. A tap of PADS/KEYS switches the current track's pad mode, and a tap of
-    /// CANCEL closes the picker without choosing, answers the question no, or on SAMPLES goes up
-    /// (`cancel_in_samples`).
+    /// CANCEL closes the picker without choosing, answers the question no, or on SAMPLES and in the
+    /// sample picker goes up (`cancel_in_samples`).
     fn release(
         &mut self,
         button: Button,
@@ -1190,6 +1282,11 @@ impl Control {
                     PadMode::Pads => PadMode::Keys,
                     PadMode::Keys => PadMode::Pads,
                 };
+            }
+            (Button::Cancel, Release::Tap)
+                if matches!(self.view.picker, Some((Picker::Sample(_), _))) =>
+            {
+                self.cancel_in_samples(sample, messages);
             }
             (Button::Cancel, Release::Tap) if self.view.picker.is_some() => {
                 self.view.picker = None;

@@ -91,7 +91,8 @@ impl Sound {
     /// Takes the start, the end, the loop points and the root note of `audio`, the file `file`
     /// names, and makes it the sound's sample. Every other value stays.
     pub fn take_file(&mut self, file: FileId, audio: &File) {
-        let last = audio.frames - 1;
+        // A file that is not loaded may have no frames.
+        let last = audio.frames.saturating_sub(1);
         let (loop_start, loop_end) = audio.loop_points.unwrap_or((0, last));
         for (id, value) in [
             (START.id, 0),
@@ -247,7 +248,7 @@ impl Pool {
 
     /// The number the next sound takes. Running out of numbers refuses like a full pool; the last
     /// number is never made, so counting on never overflows.
-    fn vacancy(&self) -> Result<SoundNumber, PoolFull> {
+    pub fn vacancy(&self) -> Result<SoundNumber, PoolFull> {
         if self.length < budget::POOL_SOUNDS && self.next < u32::MAX {
             Ok(SoundNumber(self.next))
         } else {

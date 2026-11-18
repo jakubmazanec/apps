@@ -109,7 +109,7 @@ impl<'a> Rig<'a> {
 
     /// Puts `files` at their paths in `tmp/`, as the platform copies a drop, and queues the drop's
     /// input at `sample`.
-    fn drop_files(&mut self, sample: u64, files: &[(&str, Vec<u8>)]) {
+    pub(super) fn drop_files(&mut self, sample: u64, files: &[(&str, Vec<u8>)]) {
         for (path, bytes) in files {
             self.storage.put(path, bytes.clone());
         }
@@ -119,7 +119,7 @@ impl<'a> Rig<'a> {
 
     /// Handles the events before `sample`, then serves every request at `sample` until none is
     /// out. Gives the requests.
-    fn settle(&mut self, sample: u64) -> Vec<Request> {
+    pub(super) fn settle(&mut self, sample: u64) -> Vec<Request> {
         self.step(sample);
         let mut requests = Vec::new();
         while self.control.request.is_some() {
@@ -132,12 +132,23 @@ impl<'a> Rig<'a> {
 
 /// A file as the device converts it: `frames` frames of silence in `channels` channels.
 fn converted(frames: u32, channels: u8) -> Vec<u8> {
+    converted_with(frames, channels, 60, None)
+}
+
+/// A file as the device converts it: `frames` frames of silence in `channels` channels, with the
+/// root note `root` and the loop `loop_points`.
+pub(super) fn converted_with(
+    frames: u32,
+    channels: u8,
+    root: u8,
+    loop_points: Option<(u32, u32)>,
+) -> Vec<u8> {
     let mut file = std::vec![0; 512];
     let ours = Ours {
         fingerprint: [7; 16],
         original: Label::new(),
     };
-    let head = wav::write_header(&mut file, channels, frames, 60, None, &ours);
+    let head = wav::write_header(&mut file, channels, frames, root, loop_points, &ours);
     file.truncate(head);
     file.resize(file.len() + frames as usize * usize::from(channels) * 2, 0);
     file
@@ -1273,7 +1284,7 @@ const SAMPLES_HEADER: [(&str, Color); 4] =
     [("Samples", ACCENT), ("T1", TEXT), ("1", DIM), ("Pads", DIM)];
 
 /// A row of SAMPLES in the usual colours: its text bright and its label dim.
-fn row<'a>(left: &'a str, right: Option<&'a str>) -> Row<'a> {
+pub(super) fn row<'a>(left: &'a str, right: Option<&'a str>) -> Row<'a> {
     Row {
         left,
         right,
@@ -1454,6 +1465,7 @@ fn ok_enters_and_dot_dot_and_cancel_go_up_onto_the_folder_left() {
         folder,
         cursor: Cursor { item, scroll: 0 },
         on: Some(on),
+        top_line: false,
     };
 
     for (sample, button, view) in [
@@ -1679,7 +1691,8 @@ fn the_cursor_stays_on_its_file_when_an_import_adds_rows_above() {
         SamplesView {
             folder: None,
             cursor: Cursor { item: 2, scroll: 0 },
-            on: Some(Line::File(FileId(0)))
+            on: Some(Line::File(FileId(0))),
+            top_line: false
         }
     );
     assert_eq!(rig.sent(), []);
@@ -1703,7 +1716,8 @@ fn a_cursor_whose_row_is_gone_moves_to_the_row_above() {
         SamplesView {
             folder: Some(FolderId(0)),
             cursor: Cursor { item: 1, scroll: 0 },
-            on: Some(Line::Folder(FolderId(1)))
+            on: Some(Line::Folder(FolderId(1))),
+            top_line: false
         }
     );
 }
@@ -1737,7 +1751,8 @@ fn samples_opens_on_its_first_row_after_a_listing_of_several_pages() {
         SamplesView {
             folder: None,
             cursor: TOP,
-            on: Some(Line::Folder(FolderId(0)))
+            on: Some(Line::Folder(FolderId(0))),
+            top_line: false
         }
     );
 }
@@ -2107,7 +2122,8 @@ fn deleting_the_last_file_of_a_folder_shows_the_folder_above() {
         SamplesView {
             folder: Some(FolderId(0)),
             cursor: TOP,
-            on: Some(Line::Up)
+            on: Some(Line::Up),
+            top_line: false
         }
     );
     assert!(shows(
@@ -2146,7 +2162,8 @@ fn deleting_the_last_file_of_a_folder_shows_the_folder_above() {
         SamplesView {
             folder: None,
             cursor: TOP,
-            on: Some(Line::Folder(FolderId(0)))
+            on: Some(Line::Folder(FolderId(0))),
+            top_line: false
         }
     );
 }
@@ -2559,7 +2576,8 @@ fn a_replace_closes_the_delete_picker_or_question_of_its_file() {
             SamplesView {
                 folder: None,
                 cursor: Cursor { item: 1, scroll: 0 },
-                on: Some(Line::File(FileId(3)))
+                on: Some(Line::File(FileId(3))),
+                top_line: false
             },
             "{question}"
         );

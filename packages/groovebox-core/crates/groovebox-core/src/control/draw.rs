@@ -1,6 +1,6 @@
 use super::pages::{ItemDef, ItemKind, LIBRARY_METER, Picture};
 use super::samples::{self, rows};
-use super::view::{Question, Screen};
+use super::view::{Picker, Question, Screen};
 use super::{Control, Entry, HeaderMessage};
 use crate::budget;
 use crate::font::ADVANCE;
@@ -49,10 +49,12 @@ impl Control {
     /// MENU or PAGE is held, or the picker while one is open. On STEP it stays empty, as its grid
     /// comes with the sequencer. SAMPLES shows its rows (`samples_row`) with the cursor, inside a
     /// folder under a dim line with the folder's path, which loses its start to a "…" when too wide
-    /// for the row, and the library meter above the strip. A question shows in a box in the middle
-    /// of the main area, over what the main area shows. The strip shows the items that the encoders
-    /// hold on the page they use, and nothing while MENU or PAGE is held, the picker is open or
-    /// SAMPLES shows.
+    /// for the row, and the library meter above the strip. The sample picker shows the same rows
+    /// under a dim top line at every level: the folder's path and two spaces inside a folder, then
+    /// "Library" and the meter's value, the line losing its start to a "…" when too wide for the
+    /// row. A question shows in a box in the middle of the main area, over what the main area
+    /// shows. The strip shows the items that the encoders hold on the page they use, and nothing
+    /// while MENU or PAGE is held, the picker is open or SAMPLES shows.
     ///
     /// The text under the cursor, the current tile's name and the selected pad's name scroll when
     /// they do not fit, as far as the samples since the cursor landed say; the strip never scrolls.
@@ -177,7 +179,8 @@ impl Control {
         let mut scrolls = false;
         if let Some(tiles) = self.tiles() {
             scrolls = draw_tiles(canvas, &tiles, elapsed);
-        } else if let Some((open, picker)) = self.view.picker {
+        } else if let Some((open @ (Picker::Sound | Picker::Delete(_)), picker)) = self.view.picker
+        {
             let shown = picker.scroll..self.picker_rows(open).min(picker.scroll + LIST_VISIBLE);
             let mut rows = [Row {
                 left: "",
@@ -188,6 +191,11 @@ impl Control {
                 *slot = match self.entry(open, row) {
                     Entry::Empty => Row {
                         left: "Empty",
+                        right: None,
+                        alert: false,
+                    },
+                    Entry::NewSample => Row {
+                        left: "New sample",
                         right: None,
                         alert: false,
                     },
@@ -220,17 +228,32 @@ impl Control {
                 Some(picker.item - picker.scroll),
                 elapsed,
             );
-        } else if screen == Screen::Samples {
-            let samples = self.view.samples;
-            let mut y = ROW_FIRST;
+        } else if self.view.picker.is_some() || screen == Screen::Samples {
+            let samples = if self.view.picker.is_some() {
+                self.view.sample_picker
+            } else {
+                self.view.samples
+            };
+            let mut line = Label::<{ 255 + 2 + 8 + 24 }>::new();
             if let Some(folder) = samples.folder {
                 let path = self.library.storage_path(library::Entry::Folder(folder));
+                line.push_str(&path.as_str()["samples/".len()..]);
+                if samples.top_line {
+                    line.push_str("  ");
+                }
+            }
+            if samples.top_line {
+                let meter = name::meter(self.library.used(), budget::SAMPLE_RAM as u64);
+                write!(line, "Library {}", meter.as_str()).expect("writing to a label never fails");
+            }
+            let mut y = ROW_FIRST;
+            if !line.as_str().is_empty() {
                 text::draw_end(
                     canvas,
                     ROW_X + TEXT_INSET,
                     y,
                     ROW_WIDTH - 2 * TEXT_INSET,
-                    &path.as_str()["samples/".len()..],
+                    line.as_str(),
                     DIM,
                 );
                 y += ROW_PITCH;
@@ -260,16 +283,18 @@ impl Control {
                 Some(samples.cursor.item - samples.cursor.scroll),
                 elapsed,
             );
-            let mut value = Label::new();
-            draw_item(
-                canvas,
-                ROW_X,
-                METER_Y,
-                ROW_WIDTH,
-                &self.item_view(&LIBRARY_METER, &mut value),
-                false,
-                None,
-            );
+            if !samples.top_line {
+                let mut value = Label::new();
+                draw_item(
+                    canvas,
+                    ROW_X,
+                    METER_Y,
+                    ROW_WIDTH,
+                    &self.item_view(&LIBRARY_METER, &mut value),
+                    false,
+                    None,
+                );
+            }
         } else {
             let cursor = self.cursor(screen);
             for (row, (index, item)) in (0..).zip(

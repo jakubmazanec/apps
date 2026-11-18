@@ -19,6 +19,7 @@ use std::boxed::Box;
 use std::vec::Vec;
 
 mod library;
+mod sample_sounds;
 mod sound;
 
 /// A control part with its own storage, I/O buffer, block tables and sample RAM. The control part
@@ -132,16 +133,13 @@ impl<'a> Rig<'a> {
         (0..64).filter(|bit| lights & 1 << bit != 0).collect()
     }
 
-    /// Sends `MESSAGE_QUEUE` messages by hitting and releasing pad 1, which must hold a sound,
-    /// and leaves them in the queue.
+    /// Fills the message queue with messages that the control part did not send, until it has
+    /// room for one message fewer than an event may send.
     fn fill_the_message_queue(&mut self) {
-        for round in 0..MESSAGE_QUEUE / INPUT_QUEUE {
-            for pair in 0..INPUT_QUEUE / 2 {
-                let sample = (round * INPUT_QUEUE + 2 * pair) as u64;
-                self.hit(sample, 0, 100);
-                self.release(sample + 1, 0);
-            }
-            self.step(u64::MAX);
+        while self.producer.free() >= MAX_MESSAGES_PER_EVENT {
+            self.producer
+                .push(message(u32::MAX, 0, MessageKind::StopPreview))
+                .unwrap();
         }
     }
 }
@@ -864,10 +862,10 @@ fn an_event_waits_while_the_message_queue_is_full() {
     assert!(rig.step(u64::MAX));
     assert_eq!(rig.lit(), [pad(0), track(1)]);
     let sent = rig.sent();
-    assert_eq!(sent.len(), MESSAGE_QUEUE - 1);
+    assert_eq!(sent.len(), MESSAGE_QUEUE - MAX_MESSAGES_PER_EVENT);
     assert_eq!(
         sent.last(),
-        Some(&message(256, 1_000, note_on(128, 0, sound, 60, 80)))
+        Some(&message(0, 1_000, note_on(0, 0, sound, 60, 80)))
     );
 }
 
@@ -877,7 +875,7 @@ fn a_stalled_step_keeps_the_replay_record_of_the_message_it_waits_to_send() {
     let mut rig = Rig::new(&queue);
     let sound = rig.synth_on(0);
     rig.fill_the_message_queue();
-    assert_eq!(rig.control.replay_applied(256, 9_000), Ok(()));
+    assert_eq!(rig.control.replay_applied(0, 9_000), Ok(()));
     rig.hit(1_000, 0, 90);
 
     rig.step(u64::MAX);
@@ -886,7 +884,7 @@ fn a_stalled_step_keeps_the_replay_record_of_the_message_it_waits_to_send() {
 
     assert_eq!(
         rig.sent(),
-        [message(256, 9_000, note_on(128, 0, sound, 60, 90))]
+        [message(0, 9_000, note_on(0, 0, sound, 60, 90))]
     );
 }
 
@@ -1500,6 +1498,7 @@ fn new_synth_and_copy_tell_the_audio_part() {
     rig.menu(0, 2);
     rig.tap(10, Button::Ok);
     rig.tap(20, Button::Down);
+    rig.tap(25, Button::Down);
     rig.tap(30, Button::Ok);
     rig.step(40);
     assert_eq!(
@@ -1689,7 +1688,7 @@ fn a_reply_goes_before_an_input_of_the_same_sample() {
     assert_eq!(rig.control.take_request(), Some((2, Request::Free)));
     rig.control.request = Some(Request::Commit);
     rig.fill_the_message_queue();
-    // Room for the hit's message only: an event after the hit waits.
+    // Room for one event only: an event after the hit waits.
     rig.consumer.pop();
     rig.hit(1_000, 0, 80);
     assert_eq!(rig.control.queue_reply(1_000, done(2)), Ok(()));
@@ -1699,7 +1698,7 @@ fn a_reply_goes_before_an_input_of_the_same_sample() {
     assert_eq!(rig.control.take_request(), Some((3, Request::Commit)));
     assert_eq!(
         rig.sent().last(),
-        Some(&message(256, 1_000, note_on(128, 0, sound, 60, 80)))
+        Some(&message(0, 1_000, note_on(0, 0, sound, 60, 80)))
     );
 }
 

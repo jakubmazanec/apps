@@ -51,8 +51,8 @@ pub struct Cursor {
     pub scroll: usize,
 }
 
-/// SAMPLES' folder and cursor. The cursor stays on its row while rows come or go above it
-/// (`Control::keep_samples_cursor`).
+/// The folder and cursor of SAMPLES or of the sample picker. The cursor stays on its row while rows
+/// come or go above it (`Control::keep_samples_cursor`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct SamplesView {
     /// The folder shown; none at the top level.
@@ -60,12 +60,31 @@ pub struct SamplesView {
     pub cursor: Cursor,
     /// The row under the cursor; none while the folder has no rows.
     pub on: Option<Row>,
+    /// Whether a line is above the rows at every level, as the sample picker's top line is, and
+    /// not only inside a folder, as SAMPLES' folder line is.
+    pub top_line: bool,
 }
 
 impl SamplesView {
-    /// How many rows fit: 15 at the top level and 14 inside a folder, under its line.
+    /// The top level with the cursor on its first row, before keeping it there names the row
+    /// (`Control::keep_samples_cursor`).
+    pub const fn top(top_line: bool) -> Self {
+        Self {
+            folder: None,
+            cursor: Cursor { item: 0, scroll: 0 },
+            on: None,
+            top_line,
+        }
+    }
+
+    /// How many rows fit: 15 under the sample picker's top line, and on SAMPLES 15 at the top
+    /// level and 14 inside a folder, under its line.
     pub fn fit(&self) -> usize {
-        SAMPLES_VISIBLE - usize::from(self.folder.is_some())
+        if self.top_line {
+            LIST_VISIBLE - 1
+        } else {
+            SAMPLES_VISIBLE - usize::from(self.folder.is_some())
+        }
     }
 
     /// Puts the cursor on row `item`, which is `on`, and scrolls the rows as far as they must to
@@ -79,11 +98,24 @@ impl SamplesView {
     }
 }
 
-/// A picker: the sound picker of the selected pad, or the Delete picker of a file of SAMPLES.
+/// A picker: the sound picker of the selected pad, the sample picker or the Delete picker of a file
+/// of SAMPLES.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Picker {
     Sound,
+    Sample(Pick),
     Delete(FileId),
+}
+
+/// What choosing a file in the sample picker does.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Pick {
+    /// Puts a new sample sound of the file on the selected pad (New sample).
+    NewSound,
+    /// Gives the selected sound the file and keeps its other values (the Sample item).
+    Change,
+    /// Switches the selected sound to the sample engine with the file (ENGINE).
+    Switch,
 }
 
 /// A question, which only OK and CANCEL answer.
@@ -93,9 +125,9 @@ pub enum Question {
     DeleteFile(FileId),
 }
 
-/// What the screen shows: the screen, the page each screen shows, the cursor of each page, SAMPLES'
-/// folder and cursor and a picker or a question while one is open. They are kept while the control
-/// part lives and are not saved.
+/// What the screen shows: the screen, the page each screen shows, the cursor of each page, the
+/// folder and cursor of SAMPLES and of the sample picker and a picker or a question while one is
+/// open. They are kept while the control part lives and are not saved.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct View {
     pub screen: Screen,
@@ -104,7 +136,10 @@ pub struct View {
     /// The cursor of each page, by screen and page.
     cursors: [[Cursor; PAGES]; SCREENS],
     pub samples: SamplesView,
-    /// The picker while it is open over the main area of `screen`, with its highlight.
+    /// The sample picker's folder, kept while it is closed, and its cursor.
+    pub sample_picker: SamplesView,
+    /// The picker while it is open over the main area of `screen`, with its highlight. The sample
+    /// picker's highlight is `sample_picker`'s cursor, and this one stays on its first row.
     pub picker: Option<(Picker, Cursor)>,
     /// The question while it is open over the middle of the main area of `screen`.
     pub question: Option<Question>,
@@ -112,19 +147,25 @@ pub struct View {
 
 impl View {
     /// STEP, where a new project opens, with every screen on its first page, every cursor on the
-    /// first item, SAMPLES at the top level and no picker or question open.
+    /// first item, SAMPLES and the sample picker at the top level and no picker or question open.
     pub const fn new() -> Self {
         Self {
             screen: Screen::Step,
             pages: [0; SCREENS],
             cursors: [[Cursor { item: 0, scroll: 0 }; PAGES]; SCREENS],
-            samples: SamplesView {
-                folder: None,
-                cursor: Cursor { item: 0, scroll: 0 },
-                on: None,
-            },
+            samples: SamplesView::top(false),
+            sample_picker: SamplesView::top(true),
             picker: None,
             question: None,
+        }
+    }
+
+    /// The folder and cursor that the arrows, OK and CANCEL move: the sample picker's while it is
+    /// open, else SAMPLES'.
+    pub fn list(&mut self) -> &mut SamplesView {
+        match self.picker {
+            Some((Picker::Sample(_), _)) => &mut self.sample_picker,
+            _ => &mut self.samples,
         }
     }
 

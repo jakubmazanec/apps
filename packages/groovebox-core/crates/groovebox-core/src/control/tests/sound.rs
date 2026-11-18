@@ -19,7 +19,7 @@ use std::string::String;
 use view::{Cursor, Picker};
 
 /// SOUND's header on T1 in PADS mode, with the sound as the header shows it.
-fn sound_header(sound: (&str, Color)) -> [(&str, Color); 5] {
+pub(super) fn sound_header(sound: (&str, Color)) -> [(&str, Color); 5] {
     [
         ("Sound", ACCENT),
         ("Pad", TEXT),
@@ -30,7 +30,7 @@ fn sound_header(sound: (&str, Color)) -> [(&str, Color); 5] {
 }
 
 /// The names of the sounds on the 12 pads: `pads` gives the pads that hold one.
-fn names<'a>(pads: &[(usize, &'a str)]) -> [Option<&'a str>; 12] {
+pub(super) fn names<'a>(pads: &[(usize, &'a str)]) -> [Option<&'a str>; 12] {
     let mut names = [None; 12];
     for &(pad, name) in pads {
         names[pad] = Some(name);
@@ -40,7 +40,7 @@ fn names<'a>(pads: &[(usize, &'a str)]) -> [Option<&'a str>; 12] {
 
 /// The Pad page under `header` and `message`: the `items` with the cursor on item `cursor`, the
 /// pad tiles with these names and pad `selected` selected, and the strip repeating the items.
-fn pad_page(
+pub(super) fn pad_page(
     header: &[(&str, Color)],
     message: Option<(&str, Color)>,
     items: &[ItemView],
@@ -81,12 +81,17 @@ fn synths(count: usize) -> Vec<String> {
     (1..=count).map(|number| format!("Syn {number}")).collect()
 }
 
-/// The sound picker's rows over a pool of synths with these names: Empty, New synth, then the
-/// sounds.
+/// The sound picker's rows over a pool of synths with these names: Empty, New sample, New synth,
+/// then the sounds.
 fn rows(names: &[String]) -> Vec<Row<'_>> {
     [
         Row {
             left: "Empty",
+            right: None,
+            alert: false,
+        },
+        Row {
+            left: "New sample",
             right: None,
             alert: false,
         },
@@ -136,6 +141,7 @@ fn new_synth_on_an_empty_pad_makes_syn_1_and_selects_it() {
     rig.menu(0, 2);
     rig.tap(10, Button::Ok);
     rig.tap(20, Button::Down);
+    rig.tap(25, Button::Down);
     rig.tap(30, Button::Ok);
 
     rig.step(40);
@@ -177,11 +183,11 @@ fn the_picker_opens_on_the_pads_current_entry() {
     rig.step(20);
     assert_eq!(
         rig.control.view.picker,
-        Some((Picker::Sound, Cursor { item: 4, scroll: 0 }))
+        Some((Picker::Sound, Cursor { item: 5, scroll: 0 }))
     );
     assert!(shows(
         &rig.control,
-        &picker(&sound_header(("Syn 3", TEXT)), &rows, 0, 4)
+        &picker(&sound_header(("Syn 3", TEXT)), &rows, 0, 5)
     ));
 
     // On an empty pad it opens on Empty.
@@ -199,7 +205,7 @@ fn the_picker_opens_on_the_pads_current_entry() {
         &picker(&sound_header(("2", DIM)), &rows, 0, 0)
     ));
 
-    // On Syn 25, row 27, it scrolls only as far as it must: the highlight is on the last row shown.
+    // On Syn 25, row 28, it scrolls only as far as it must: the highlight is on the last row shown.
     rig.tap(80, Button::Cancel);
     rig.hit(90, 2, 100);
     rig.release(100, 2);
@@ -210,14 +216,14 @@ fn the_picker_opens_on_the_pads_current_entry() {
         Some((
             Picker::Sound,
             Cursor {
-                item: 26,
-                scroll: 11
+                item: 27,
+                scroll: 12
             }
         ))
     );
     assert!(shows(
         &rig.control,
-        &picker(&sound_header(("Syn 25", TEXT)), &rows, 11, 26)
+        &picker(&sound_header(("Syn 25", TEXT)), &rows, 12, 27)
     ));
 }
 
@@ -229,12 +235,14 @@ fn a_pool_sound_is_shared_and_copy_counts_its_pads() {
     rig.menu(0, 2);
     rig.tap(10, Button::Ok);
     rig.tap(20, Button::Down);
+    rig.tap(25, Button::Down);
     rig.tap(30, Button::Ok);
     rig.hit(40, 1, 100);
     rig.release(50, 1);
     rig.tap(60, Button::Ok);
     rig.tap(70, Button::Down);
     rig.tap(80, Button::Down);
+    rig.tap(85, Button::Down);
     rig.tap(90, Button::Ok);
 
     rig.step(100);
@@ -305,6 +313,7 @@ fn empty_clears_the_pad_and_keeps_the_sound() {
     rig.tap(10, Button::Ok);
     rig.tap(20, Button::Up);
     rig.tap(30, Button::Up);
+    rig.tap(35, Button::Up);
     rig.tap(40, Button::Ok);
 
     rig.step(50);
@@ -445,13 +454,13 @@ fn cancel_closes_the_picker_on_a_short_release_only() {
     rig.step(101);
     assert_eq!(
         rig.control.view.picker,
-        Some((Picker::Sound, Cursor { item: 1, scroll: 0 }))
+        Some((Picker::Sound, Cursor { item: 2, scroll: 0 }))
     );
     rig.let_go(100 + HOLD, Button::Cancel);
     rig.step(100 + HOLD + 1);
     assert_eq!(
         rig.control.view.picker,
-        Some((Picker::Sound, Cursor { item: 1, scroll: 0 }))
+        Some((Picker::Sound, Cursor { item: 2, scroll: 0 }))
     );
 
     // Nor does a short one with another control used meanwhile.
@@ -461,7 +470,7 @@ fn cancel_closes_the_picker_on_a_short_release_only() {
     rig.step(20_030);
     assert_eq!(
         rig.control.view.picker,
-        Some((Picker::Sound, Cursor { item: 2, scroll: 0 }))
+        Some((Picker::Sound, Cursor { item: 3, scroll: 0 }))
     );
 
     // A tap closes it without choosing.
@@ -495,7 +504,7 @@ fn with_the_picker_open_pads_sound_but_do_not_select_and_menu_waits() {
     let open = picture(&rig.control);
     assert!(shows(
         &rig.control,
-        &picker(&sound_header(("Syn 1", TEXT)), &rows(&synths(2)), 0, 2)
+        &picker(&sound_header(("Syn 1", TEXT)), &rows(&synths(2)), 0, 3)
     ));
 
     // Pad 4 and a MIDI note on pad 4 sound, and select nothing.
@@ -532,7 +541,7 @@ fn with_the_picker_open_pads_sound_but_do_not_select_and_menu_waits() {
     assert_eq!(rig.control.view.screen, view::Screen::Sound);
     assert_eq!(
         rig.control.view.picker,
-        Some((Picker::Sound, Cursor { item: 2, scroll: 0 }))
+        Some((Picker::Sound, Cursor { item: 3, scroll: 0 }))
     );
     assert_eq!(rig.control.project.track, 0);
     assert_eq!(rig.track().mode, PadMode::Pads);
@@ -579,7 +588,7 @@ fn the_picker_keys_move_the_highlight_and_stop_at_the_ends() {
         }
     };
 
-    // Up, down, - and + move one row and left and right 16, all stopping at row 0 and row 31.
+    // Up, down, - and + move one row and left and right 16, all stopping at row 0 and row 32.
     check(
         &mut rig,
         &[
@@ -589,12 +598,12 @@ fn the_picker_keys_move_the_highlight_and_stop_at_the_ends() {
             (130, Button::Plus, 1),
             (140, Button::Down, 2),
             (150, Button::Right, 18),
-            (160, Button::Right, 31),
-            (170, Button::Down, 31),
-            (180, Button::Plus, 31),
-            (190, Button::Left, 15),
-            (200, Button::Minus, 14),
-            (210, Button::Up, 13),
+            (160, Button::Right, 32),
+            (170, Button::Down, 32),
+            (180, Button::Plus, 32),
+            (190, Button::Left, 16),
+            (200, Button::Minus, 15),
+            (210, Button::Up, 14),
         ],
     );
 
@@ -603,13 +612,13 @@ fn the_picker_keys_move_the_highlight_and_stop_at_the_ends() {
     check(
         &mut rig,
         &[
-            (310, Button::Up, 13),
-            (320, Button::Down, 13),
-            (330, Button::Left, 13),
-            (340, Button::Right, 13),
-            (350, Button::Minus, 13),
-            (360, Button::Plus, 13),
-            (370, Button::Ok, 13),
+            (310, Button::Up, 14),
+            (320, Button::Down, 14),
+            (330, Button::Left, 14),
+            (340, Button::Right, 14),
+            (350, Button::Minus, 14),
+            (360, Button::Plus, 14),
+            (370, Button::Ok, 14),
         ],
     );
     assert_eq!(rig.track().pads[0], None);
@@ -659,7 +668,7 @@ fn an_arrow_under_pads_keys_does_nothing_in_the_picker() {
     rig.control.project.put(0, Some(SoundNumber(20)));
     rig.tap(0, Button::PadsKeys);
     rig.menu(10, 2);
-    // PADS/KEYS is held from before OK opens the picker on Syn 20, row 21, where every arrow
+    // PADS/KEYS is held from before OK opens the picker on Syn 20, row 22, where every arrow
     // would move the highlight.
     rig.press(20, Button::PadsKeys);
     rig.tap(30, Button::Ok);
@@ -667,7 +676,7 @@ fn an_arrow_under_pads_keys_does_nothing_in_the_picker() {
     let open = picture(&rig.control);
     assert_eq!(
         rig.control.view.picker.map(|(_, picker)| picker.item),
-        Some(21)
+        Some(22)
     );
 
     // The arrows are taken at their press: in KEYS mode up and down leave the octave too, a held
@@ -685,7 +694,7 @@ fn an_arrow_under_pads_keys_does_nothing_in_the_picker() {
     rig.step(200 + 3 * REPEAT_DELAY);
     assert_eq!(
         rig.control.view.picker.map(|(_, picker)| picker.item),
-        Some(21)
+        Some(22)
     );
     assert_eq!(rig.control.buttons.next_repeat(), None);
     assert_eq!(rig.track().octave, 4);
@@ -698,7 +707,7 @@ fn an_arrow_under_pads_keys_does_nothing_in_the_picker() {
     rig.step(70_200);
     assert_eq!(
         rig.control.view.picker.map(|(_, picker)| picker.item),
-        Some(22)
+        Some(23)
     );
 }
 
@@ -922,8 +931,8 @@ fn the_result_does_not_depend_on_the_step_size() {
         Some((
             Picker::Sound,
             Cursor {
-                item: 31,
-                scroll: 16
+                item: 32,
+                scroll: 17
             }
         ))
     );
@@ -955,6 +964,7 @@ fn pool_full_shows_until_the_next_button_press() {
     rig.menu(0, 2);
     rig.tap(10, Button::Ok);
     rig.tap(20, Button::Down);
+    rig.tap(25, Button::Down);
     rig.press(30, Button::Ok);
     rig.step(31);
     assert_eq!(rig.control.view.picker, None);
@@ -1049,12 +1059,12 @@ fn encoders_on_step_act_on_sounds_page() {
     assert_eq!(rig.control.view.screen, view::Screen::Step);
     assert_eq!(
         rig.control.view.picker,
-        Some((Picker::Sound, Cursor { item: 2, scroll: 0 }))
+        Some((Picker::Sound, Cursor { item: 3, scroll: 0 }))
     );
     assert_eq!(sound_cursor(&rig), 0);
     assert!(shows(
         &rig.control,
-        &picker(&step_header("Syn 1"), &rows(&synths(1)), 0, 2)
+        &picker(&step_header("Syn 1"), &rows(&synths(1)), 0, 3)
     ));
 
     // OK chooses Syn 1 and STEP shows again.
@@ -1082,7 +1092,7 @@ fn encoders_on_step_act_on_sounds_page() {
     // Empty chosen from STEP: STEP shows again with an empty strip, as the encoders hold nothing
     // there while the selected pad is empty.
     rig.tap(500, Button::Push(0));
-    for sample in [510, 520, 530] {
+    for sample in [510, 515, 520, 530] {
         rig.tap(sample, Button::Up);
     }
     rig.tap(540, Button::Ok);
@@ -1181,11 +1191,12 @@ fn the_pad_page_and_picker_match_their_geometry() {
     rig.step(30);
     let screen = picture(&rig.control);
     assert_eq!(span(&screen, 2..=477, 20..=26, TEXT), Some((5, 33)));
-    assert_eq!(span(&screen, 2..=477, 34..=40, TEXT), Some((5, 57)));
-    assert_eq!(span(&screen, 2..=300, 48..=54, TEXT), Some((5, 33)));
-    assert_eq!(span(&screen, 300..=477, 48..=54, DIM), Some((446, 474)));
-    assert!(outlined(&screen, 1, 44, 478, 15, ACCENT));
-    assert!(filled(&screen, 0..=479, 59..=252, BACKGROUND));
+    assert_eq!(span(&screen, 2..=477, 34..=40, TEXT), Some((5, 63)));
+    assert_eq!(span(&screen, 2..=477, 48..=54, TEXT), Some((5, 57)));
+    assert_eq!(span(&screen, 2..=300, 62..=68, TEXT), Some((5, 33)));
+    assert_eq!(span(&screen, 300..=477, 62..=68, DIM), Some((446, 474)));
+    assert!(outlined(&screen, 1, 58, 478, 15, ACCENT));
+    assert!(filled(&screen, 0..=479, 73..=252, BACKGROUND));
     assert!(filled(&screen, 0..=479, 253..=253, LINE));
     assert!(filled(&screen, 0..=479, 254..=271, BACKGROUND));
 }
@@ -1226,7 +1237,7 @@ fn page_header<'a>(page: &'a str, sound: (&'a str, Color)) -> [(&'a str, Color);
 }
 
 /// The message that sets the entry `id` of `sound` to `value`.
-fn set_param(sound: SoundNumber, id: ParamId, value: i32) -> MessageKind {
+pub(super) fn set_param(sound: SoundNumber, id: ParamId, value: i32) -> MessageKind {
     MessageKind::SetParam {
         target: Target::Sound(sound),
         id,

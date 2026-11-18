@@ -4,9 +4,10 @@ use crate::project::pool::SoundNumber;
 
 pub const MESSAGE_QUEUE: usize = 256;
 pub const REPORT_QUEUE: usize = 256;
-/// The most messages the control part sends for one event, an input or a repeat. It handles an
-/// event only while the message queue has room for this many.
-pub const MAX_MESSAGES_PER_EVENT: usize = 1;
+/// The most messages the control part sends for one event, an input or a repeat: a new sample sound
+/// sends `NewSound` and up to seven values, and a switch to the synth up to eight values. It handles
+/// an event only while the message queue has room for this many.
+pub const MAX_MESSAGES_PER_EVENT: usize = 8;
 
 /// A control message for the audio part. The audio part applies it at the first chunk start at or
 /// after `at`.
