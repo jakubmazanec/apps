@@ -85,7 +85,7 @@ pub enum MessageKind {
     },
     /// The file the preview player plays fades out.
     StopPreview,
-    /// Whatever plays `file` fades out, and from this chunk on the audio part reads none of its
+    /// Whatever plays `file` fades out, and once this applies the audio part reads none of its
     /// blocks: its report says that the audio part let go of the file.
     ForgetSample {
         file: FileId,

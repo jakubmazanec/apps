@@ -152,6 +152,19 @@ impl Voice {
         }
     }
 
+    /// Whether `change` may move the note to one of `engine`: the voice plays that engine and,
+    /// when it restarts, the new file has the voice's channels, which its start fixed. A missing
+    /// sample sounds nothing, so it fits either.
+    pub fn can_change(&self, engine: NoteEngine, restart: bool) -> bool {
+        match (&self.engine, engine) {
+            (Engine::Synth(_), NoteEngine::Synth) => true,
+            (Engine::Sample(_), NoteEngine::Sample(sample)) => {
+                !restart || sample.is_none_or(|sample| sample.stereo == self.stereo)
+            }
+            _ => false,
+        }
+    }
+
     /// Starts a new note of `engine` with a copy of its sound's `values`, from silence: the
     /// engine, the filters and the envelopes start afresh. A sample note reads its first chunk of
     /// the file through `reader` now. Whether it is stereo is fixed now.
@@ -205,11 +218,11 @@ impl Voice {
         self.volume_envelope.start();
     }
 
-    /// Moves a mono voice to another note. With `glide` the pitch moves there in a line over Glide
-    /// time. With `restart` both envelopes start again from where they are and the new velocity
-    /// counts; a sample note then plays the file of `engine` from Start (End in reverse), or no
-    /// file when `engine` is the synth, reading its first chunk through `reader`. Without it, as
-    /// in Legato, only the pitch moves: a sample note keeps its place and its file.
+    /// Moves a mono voice to another note, of an `engine` that `can_change` allows. With `glide`
+    /// the pitch moves there in a line over Glide time. With `restart` both envelopes start again
+    /// from where they are and the new velocity counts; a sample note then plays the file of
+    /// `engine` from Start (End in reverse), reading its first chunk through `reader`. Without it,
+    /// as in Legato, only the pitch moves: a sample note keeps its place and its file.
     #[expect(
         clippy::too_many_arguments,
         reason = "a change brings the new note, how it moves there and what it plays"
@@ -243,11 +256,8 @@ impl Voice {
             self.filter_envelope.start();
             self.volume_envelope.start();
             let speed = rate(self.semitones(), self.values.read(ROOT_NOTE.id));
-            if let Engine::Sample(player) = &mut self.engine {
-                let sample = match engine {
-                    NoteEngine::Sample(sample) => sample,
-                    NoteEngine::Synth => None,
-                };
+            if let (Engine::Sample(player), NoteEngine::Sample(sample)) = (&mut self.engine, engine)
+            {
                 player.start(sample, |id| self.values.read(id), speed, reader);
             }
         }

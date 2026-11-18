@@ -60,8 +60,10 @@ impl Audio {
     /// `Tables::readers` allows: through the table that the latest `UseTable` named and only frames
     /// below the length of the latest `Preview`'s file and of each file a `NoteOn` named, which
     /// the note's voice reads until the note ends. It reads none of the preview's file from the
-    /// chunk at which a `StopPreview` or a newer `Preview` applies, and none of a file from the
-    /// chunk at which a `ForgetSample` of it applies.
+    /// chunk at which a `StopPreview` or a newer `Preview` applies, and none of a file once a
+    /// `ForgetSample` of it applies, in message order: a `NoteOn` of the file before it in the same
+    /// chunk reads the file's first chunk, which the forget then fades. The forget's report comes
+    /// after that read, and the control part takes the blocks back only after the report.
     pub fn render(
         &mut self,
         left: &mut [f32],
@@ -1276,6 +1278,131 @@ mod tests {
         let forget = MessageKind::ForgetSample { file: FileId(0) };
         for at_64 in [&[steal][..], &[steal, forget]] {
             assert_eq!(played(at_64, true), played(at_64, false), "{at_64:?}");
+        }
+    }
+
+    #[test]
+    fn a_note_and_the_forget_of_its_file_in_one_chunk_give_one_faded_chunk() {
+        let (messages, reports) = (Queue::new(), Queue::new());
+        let mut rig = Rig::with_sample_sound(&messages, &reports, &[]);
+        // The note reads the file's first chunk before the forget applies, which fades it.
+        rig.send(0, 64, note_of(0, 1, 60, plays(0)));
+        rig.send(1, 64, MessageKind::ForgetSample { file: FileId(0) });
+
+        let out = rig.render(160);
+
+        let fade = &out[64..96];
+        assert!(is_silent(&out[..64]));
+        assert!(!is_silent(fade));
+        assert_eq!(fade[CHUNK - 1], 0.0);
+        assert!(is_silent(&out[96..]));
+        assert_eq!(rig.audio.voices.sounding(), 0);
+    }
+
+    /// The engine of a note that plays file 2 of `played_by`, a stereo file of `LENGTH` frames.
+    fn plays_stereo() -> NoteEngine {
+        NoteEngine::Sample(Some(SampleFile {
+            file: FileId(2),
+            frames: LENGTH,
+            stereo: true,
+        }))
+    }
+
+    /// A note of sound 1 on track 1 that plays a missing sample: it sounds nothing and ends, and
+    /// takes a started note's place in the count of seeds.
+    fn silent_on_track_1(note: u32) -> MessageKind {
+        MessageKind::NoteOn {
+            note: NoteId(note),
+            track: 1,
+            sound: SoundNumber(1),
+            pitch: 60,
+            velocity: 127,
+            engine: NoteEngine::Sample(None),
+        }
+    }
+
+    /// Both channels of what a `Rig::with_sample_sound` with `changes`, which also holds file 2
+    /// (see `plays_stereo`), plays for `length` samples with `messages`, numbered from 0.
+    fn played_by(
+        changes: &[(&Entry, i32)],
+        messages: &[(u64, MessageKind)],
+        length: usize,
+    ) -> [Vec<u32>; 2] {
+        let (queue, reports) = (Queue::new(), Queue::new());
+        let mut rig = Rig::with_sample_sound(&queue, &reports, changes);
+        rig.add_file(2, true, &samples(2 * LENGTH as usize));
+        for (number, &(at, kind)) in (0..).zip(messages) {
+            rig.send(number, at, kind);
+        }
+        rig.render_stereo(length).map(|channel| bits(&channel))
+    }
+
+    /// Both channels of `played` from sample `from` on.
+    fn from(from: usize, played: [Vec<u32>; 2]) -> [Vec<u32>; 2] {
+        played.map(|channel| channel[from..].to_vec())
+    }
+
+    #[test]
+    fn a_mono_note_of_another_engine_takes_a_voice_of_its_own() {
+        // As after the sound's engine changed while its first note sounds.
+        let mono: &[(&Entry, i32)] = &[(&PLAY_MODE, MONO)];
+        for (first, second) in [(plays(0), NoteEngine::Synth), (NoteEngine::Synth, plays(0))] {
+            let next = (320, note_of(1, 1, 60, second));
+            let changed = played_by(mono, &[(0, note_of(0, 1, 60, first)), next], 640);
+
+            // The first note's voice fades in the chunk of the second, which then plays as a new
+            // note of its engine does.
+            let fresh = played_by(mono, &[(0, silent_on_track_1(0)), next], 640);
+            assert_eq!(from(352, changed), from(352, fresh), "{second:?}");
+        }
+    }
+
+    #[test]
+    fn a_mono_restart_onto_a_file_of_other_channels_takes_a_voice_of_its_own() {
+        let notes = [
+            (0, note_of(0, 1, 60, plays(0))),
+            (320, note_of(1, 1, 60, plays_stereo())),
+        ];
+        let mono: &[(&Entry, i32)] = &[(&PLAY_MODE, MONO)];
+
+        let changed = played_by(mono, &notes, 640);
+
+        // The mono voice fades and the stereo file plays in both channels as a new note of it.
+        assert_eq!(
+            from(352, changed),
+            from(352, played_by(mono, &notes[1..], 640))
+        );
+        // Legato keeps its file, and with it its channels.
+        let legato: &[(&Entry, i32)] = &[(&PLAY_MODE, LEGATO)];
+        assert_eq!(
+            played_by(legato, &notes, 640),
+            played_by(legato, &notes[..1], 640)
+        );
+    }
+
+    #[test]
+    fn a_mono_return_to_a_key_of_another_engine_or_channels_releases() {
+        let changes: &[(&Entry, i32)] = &[(&PLAY_MODE, MONO), (&TRIGGER, GATE)];
+        for (first, second) in [
+            (plays(0), NoteEngine::Synth),
+            (NoteEngine::Synth, plays(0)),
+            (plays(0), plays_stereo()),
+        ] {
+            let next = [(64, note_of(1, 1, 60, second)), (320, note_off(1))];
+            let returned = played_by(
+                changes,
+                &[[(0, note_of(0, 1, 60, first))].as_slice(), &next].concat(),
+                8_000,
+            );
+
+            // The second note takes a voice of its own and its key's release ends it, as for a
+            // note played alone, though the first key is still held.
+            let alone = played_by(
+                changes,
+                &[[(0, silent_on_track_1(0))].as_slice(), &next].concat(),
+                8_000,
+            );
+            assert_eq!(from(96, returned), from(96, alone), "{second:?}");
         }
     }
 }
