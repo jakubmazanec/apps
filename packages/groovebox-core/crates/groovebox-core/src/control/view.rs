@@ -98,11 +98,13 @@ impl SamplesView {
     }
 }
 
-/// A picker: the sound picker of the selected pad, the sample picker or the Delete picker of a file
-/// of SAMPLES.
+/// A picker: the sound picker of the selected pad, the Engine picker of the selected sound, the
+/// sample picker or the Delete picker of a file of SAMPLES.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Picker {
     Sound,
+    /// Sample, then Synth.
+    Engine,
     Sample(Pick),
     Delete(FileId),
 }

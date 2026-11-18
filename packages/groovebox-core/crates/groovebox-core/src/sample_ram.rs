@@ -178,7 +178,10 @@ impl Tables {
     ///
     /// The readers may read only the frames of files that the control side told the audio side
     /// about, in a `Preview` or a `NoteOn`, and has not yet heard it let go of, each within its
-    /// file's length: only those blocks are the audio side's (see `SampleRam::bytes`).
+    /// file's length: only those blocks are the audio side's (see `SampleRam::bytes`). The control
+    /// side may also read the frames of a file the library lists as loaded, within its length,
+    /// through the reader of the table the listing uses (`Listing::table`): no one writes a listed
+    /// file's blocks or its entries there (`Library::peaks`).
     pub unsafe fn readers<'a>(&'a self, ram: &'a SampleRam) -> [Reader<'a>; 2] {
         self.0.each_ref().map(|table| Reader { table, ram })
     }
@@ -308,6 +311,12 @@ impl Listing {
     /// back: the audio part reads only the table it named, so the other may be written again.
     pub unsafe fn applied(&mut self) {
         self.switching = false;
+    }
+
+    /// The table that every message sent from now on reads, where `add` writes no listed file's
+    /// entries.
+    pub fn table(&self) -> u8 {
+        self.table
     }
 
     /// Where the slice of `file` starts in the table that every message sent from now on reads,

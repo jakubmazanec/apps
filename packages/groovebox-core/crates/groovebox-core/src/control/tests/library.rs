@@ -333,7 +333,12 @@ fn before_the_project_opens_only_the_volume_acts() {
             &step_header("Syn 1"),
             None,
             |_| {},
-            &[Some(sound("Syn 1")), Some(copy("on 1 pad")), None, None],
+            &[
+                Some(sound("Syn 1")),
+                Some(copy("on 1 pad")),
+                Some(engine("Synth")),
+                None
+            ],
         )
     ));
 }

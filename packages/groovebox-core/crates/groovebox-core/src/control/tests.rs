@@ -256,6 +256,16 @@ fn copy(value: &str) -> ItemView<'_> {
     }
 }
 
+/// The Pad page's third item, Engine, showing `value`.
+fn engine(value: &str) -> ItemView<'_> {
+    ItemView {
+        encoder: Some(3),
+        name: "Engine",
+        value,
+        bar: Bar::Track,
+    }
+}
+
 /// STEP's header on T1 in PADS mode with `sound` selected.
 fn step_header(sound: &str) -> [(&str, Color); 4] {
     [("Step", ACCENT), ("T1", TEXT), (sound, TEXT), ("Pads", DIM)]
@@ -345,7 +355,12 @@ fn pads_mode_plays_the_pads_sound_at_c4_and_selects_it() {
             &step_header("Syn 1"),
             None,
             |_| {},
-            &[Some(sound("Syn 1")), Some(copy("on 1 pad")), None, None],
+            &[
+                Some(sound("Syn 1")),
+                Some(copy("on 1 pad")),
+                Some(engine("Synth")),
+                None
+            ],
         )
     ));
 }
@@ -1178,7 +1193,7 @@ fn the_first_of_menu_and_page_counts() {
         &rig.control,
         &tiles(
             &STEP_HEADER,
-            &page_tiles(pages(view::Screen::Sound, rig.track()), 0)
+            &page_tiles(pages(view::Screen::Sound, None), 0)
         )
     ));
     assert_eq!(rig.lit(), [pad(0), step(0), track(0)]);
@@ -1263,7 +1278,7 @@ fn page_on_settings_shows_playing_and_dev_and_lights_steps_1_and_2() {
     rig.press(100, Button::Page);
     rig.step(101);
 
-    let shown = page_tiles(pages(view::Screen::Settings, rig.track()), 0);
+    let shown = page_tiles(pages(view::Screen::Settings, None), 0);
     assert_eq!(
         shown[..2],
         [

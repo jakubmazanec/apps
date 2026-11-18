@@ -1,14 +1,14 @@
 use super::view::Screen;
 use crate::input::STEPS;
 use crate::param::{
-    ATTACK, CHOKE_GROUP, CUTOFF, DECAY, ENVELOPE_AMOUNT, Entry, FILTER_ATTACK, FILTER_DECAY,
+    ATTACK, CHOKE_GROUP, CUTOFF, DECAY, END, ENVELOPE_AMOUNT, Entry, FILTER_ATTACK, FILTER_DECAY,
     FILTER_RELEASE, FILTER_SUSTAIN, FILTER_TYPE, FILTER_VELOCITY, FINE_TUNE, GLIDE, GLIDE_TIME,
-    KEY_FOLLOW, LEVEL, MODE, NOISE_LEVEL, OSCILLATOR_2_FINE_TUNE, OSCILLATOR_2_INTERVAL,
-    OSCILLATOR_2_LEVEL, PAN, PLAY_MODE, ParamId, RELEASE, RESONANCE, SHAPE, SPREAD, SUB_LEVEL,
-    SUSTAIN, TRANSPOSE, TRIGGER, VELOCITY, VOLUME_VELOCITY, WAVE,
+    KEY_FOLLOW, LEVEL, LOOP, LOOP_END, LOOP_START, MODE, NOISE_LEVEL, OSCILLATOR_2_FINE_TUNE,
+    OSCILLATOR_2_INTERVAL, OSCILLATOR_2_LEVEL, PAN, PLAY_MODE, ParamId, RELEASE, RESONANCE,
+    REVERSE, ROOT_NOTE, SHAPE, SPREAD, START, SUB_LEVEL, SUSTAIN, TRANSPOSE, TRIGGER, VELOCITY,
+    VOLUME_VELOCITY, WAVE,
 };
-use crate::project::pool::Engine;
-use crate::project::track::Track;
+use crate::project::pool::{Engine, Sound};
 
 /// What an item of a page is.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -20,6 +20,11 @@ pub enum ItemKind {
     /// The Pad page's Copy: how many pads use the selected pad's sound. OK gives the pad its own
     /// copy of it.
     PadCopy,
+    /// The Pad page's Engine: the selected sound's engine, which OK changes in the Engine picker.
+    PadEngine,
+    /// The Sample page's Sample: the name of the sound's file, which OK changes in the sample
+    /// picker.
+    SampleFile,
     /// "Library": how much of the sample RAM the library takes, in text and in its bar. It is not
     /// set.
     LibraryMeter,
@@ -39,6 +44,8 @@ pub struct ItemDef {
 pub enum Picture {
     /// The current track's 12 pads, each with its sound's name.
     Pads,
+    /// The peaks of the sound's file about a faint middle line, with its Start and End marks.
+    Waveform,
     /// The filter's response at its mode, cutoff and resonance, with a faint line at the cutoff.
     FilterCurve,
     /// The shape of an envelope, from its four entries.
@@ -84,6 +91,11 @@ const PAD_COPY: ItemDef = ItemDef {
     kind: ItemKind::PadCopy,
     encoder: Some(1),
 };
+/// The Pad page's Engine, on encoder 3.
+const PAD_ENGINE: ItemDef = ItemDef {
+    kind: ItemKind::PadEngine,
+    encoder: Some(2),
+};
 
 /// The value `entry` as an item, on encoder `encoder` where it has one.
 const fn item(entry: Entry, encoder: Option<u8>) -> ItemDef {
@@ -96,8 +108,25 @@ const fn item(entry: Entry, encoder: Option<u8>) -> ItemDef {
 /// The Pad page while the selected pad has a sound.
 const PAD: PageDef = PageDef {
     name: "Pad",
-    items: &[PAD_SOUND, PAD_COPY],
+    items: &[PAD_SOUND, PAD_COPY, PAD_ENGINE],
     picture: Some(Picture::Pads),
+};
+const SAMPLE: PageDef = PageDef {
+    name: "Sample",
+    items: &[
+        ItemDef {
+            kind: ItemKind::SampleFile,
+            encoder: Some(0),
+        },
+        item(START, Some(1)),
+        item(END, Some(2)),
+        item(LOOP, Some(3)),
+        item(LOOP_START, None),
+        item(LOOP_END, None),
+        item(REVERSE, None),
+        item(ROOT_NOTE, None),
+    ],
+    picture: Some(Picture::Waveform),
 };
 const SYNTH: PageDef = PageDef {
     name: Engine::Synth.page_name(),
@@ -173,17 +202,21 @@ const VOICE: PageDef = PageDef {
     picture: None,
 };
 
-/// The pages of `screen` in the order of their steps under PAGE, while `track` is the current
-/// track. STEP has none of its own: PAGE there acts on SOUND's pages. SAMPLES has none.
+/// The pages of `screen` in the order of their steps under PAGE, while `sound` is the selected
+/// sound of the current track. STEP has none of its own: PAGE there acts on SOUND's pages. SAMPLES
+/// has none.
 ///
-/// SOUND works on the track's selected pad: its Pad page, then the pages of the sound's engine and
-/// its voice. While that pad is empty there is no sound to copy or to shape, and SOUND has only
-/// the Pad page with its Sound item.
-pub fn pages(screen: Screen, track: &Track) -> &'static [PageDef] {
+/// SOUND works on the track's selected pad: its Pad page, then the page of the sound's engine
+/// (Sample or Synth) and the pages of its chain and its voice. While that pad is empty there is no
+/// sound to copy or to shape, and SOUND has only the Pad page with its Sound item.
+pub fn pages(screen: Screen, sound: Option<&Sound>) -> &'static [PageDef] {
     match screen {
         Screen::Step | Screen::Samples => &[],
-        Screen::Sound => match track.selected_sound {
-            Some(_) => &[PAD, SYNTH, FILTER, FILTER_ENVELOPE, VOLUME_ENVELOPE, VOICE],
+        Screen::Sound => match sound.map(|sound| &sound.engine) {
+            Some(Engine::Sample(_)) => {
+                &[PAD, SAMPLE, FILTER, FILTER_ENVELOPE, VOLUME_ENVELOPE, VOICE]
+            }
+            Some(Engine::Synth) => &[PAD, SYNTH, FILTER, FILTER_ENVELOPE, VOLUME_ENVELOPE, VOICE],
             None => &[PageDef {
                 items: &[PAD_SOUND],
                 ..PAD
@@ -210,17 +243,30 @@ pub fn pages(screen: Screen, track: &Track) -> &'static [PageDef] {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::project::pool::SoundNumber;
+    use crate::label::Label;
+    use crate::library::FileId;
+    use crate::project::pool::{SOUND_DEFAULTS, Sample, SoundNumber};
 
     #[test]
     fn each_encoder_holds_at_most_one_item_of_a_page() {
-        let mut with_a_sound = Track::new();
-        with_a_sound.put(0, Some(SoundNumber(1)));
-        for (screen, track) in Screen::ALL
-            .into_iter()
-            .flat_map(|screen| [(screen, Track::new()), (screen, with_a_sound)])
-        {
-            for page in pages(screen, &track) {
+        let synth = Sound {
+            number: SoundNumber(1),
+            name: Label::new(),
+            engine: Engine::Synth,
+            values: SOUND_DEFAULTS,
+        };
+        let sample = Sound {
+            engine: Engine::Sample(Sample::File(FileId(0))),
+            ..synth
+        };
+        for (screen, sound) in Screen::ALL.into_iter().flat_map(|screen| {
+            [
+                (screen, None),
+                (screen, Some(&synth)),
+                (screen, Some(&sample)),
+            ]
+        }) {
+            for page in pages(screen, sound) {
                 for encoder in 0..4 {
                     let holding = page
                         .items

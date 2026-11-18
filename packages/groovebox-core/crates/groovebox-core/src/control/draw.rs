@@ -7,9 +7,11 @@ use crate::font::ADVANCE;
 use crate::input::Button;
 use crate::label::Label;
 use crate::library::{self, name};
-use crate::palette::{ACCENT, BACKGROUND, DIM, FAINT, TEXT};
-use crate::param::{self, BP, CUTOFF, Curve, HP, LP_12, LP_24, MODE, ParamId, RESONANCE};
-use crate::project::pool::{Engine, SoundNumber};
+use crate::palette::{ACCENT, BACKGROUND, DIM, FAINT, NOTE_MID, TEXT};
+use crate::param::{
+    self, BP, CUTOFF, Curve, END, HP, LP_12, LP_24, MODE, ParamId, RESONANCE, START,
+};
+use crate::project::pool::{Engine, Sample, SoundNumber};
 use crate::project::track::PadMode;
 use crate::screen::{Canvas, HEIGHT, WIDTH};
 use crate::ui::frame::{Piece, draw_header, draw_strip};
@@ -179,7 +181,8 @@ impl Control {
         let mut scrolls = false;
         if let Some(tiles) = self.tiles() {
             scrolls = draw_tiles(canvas, &tiles, elapsed);
-        } else if let Some((open @ (Picker::Sound | Picker::Delete(_)), picker)) = self.view.picker
+        } else if let Some((open @ (Picker::Sound | Picker::Engine | Picker::Delete(_)), picker)) =
+            self.view.picker
         {
             let shown = picker.scroll..self.picker_rows(open).min(picker.scroll + LIST_VISIBLE);
             let mut rows = [Row {
@@ -210,6 +213,16 @@ impl Control {
                             Engine::Synth => "synth",
                             Engine::Sample(_) => "sample",
                         }),
+                        alert: false,
+                    },
+                    Entry::SampleEngine => Row {
+                        left: "Sample",
+                        right: None,
+                        alert: false,
+                    },
+                    Entry::SynthEngine => Row {
+                        left: "Synth",
+                        right: None,
                         alert: false,
                     },
                     Entry::Delete(_) => Row {
@@ -330,6 +343,37 @@ impl Control {
                         elapsed,
                     );
                 }
+                Some(Picture::Waveform) => {
+                    let middle = PICTURE.1 + PICTURE.3 / 2;
+                    canvas.hline(PICTURE.0, middle, PICTURE.2 as u32, FAINT);
+                    if self.sample_file().is_some()
+                        && let Some((_, peaks)) = &self.waveform
+                    {
+                        for (x, &peak) in (PICTURE.0..).zip(peaks) {
+                            // Full scale reaches 2 pixels less than half the area, rounded half up.
+                            let half = (i32::from(peak) * (PICTURE.3 / 2 - 2) + 16_384) / 32_768;
+                            if half > 0 {
+                                canvas.vline(x, middle - half, 2 * half as u32 + 1, NOTE_MID);
+                            }
+                        }
+                    }
+                    let last = i64::from(self.frames().saturating_sub(1));
+                    for id in [START.id, END.id] {
+                        // The point's share of the last frame, rounded half up; a file of one
+                        // frame, or of none, has its marks on the first column.
+                        let column = if last > 0 {
+                            (2 * i64::from(self.value(id)) * i64::from(SPAN) + last) / (2 * last)
+                        } else {
+                            0
+                        };
+                        canvas.vline(
+                            PICTURE.0 + column as i32,
+                            PICTURE.1,
+                            PICTURE.3 as u32,
+                            ACCENT,
+                        );
+                    }
+                }
                 Some(Picture::FilterCurve) => {
                     let mode = self.value(MODE.id);
                     let cutoff = param::real(&CUTOFF, self.value(CUTOFF.id));
@@ -426,6 +470,20 @@ impl Control {
     /// What `item` shows, with its value written into `value` where it is not a name.
     fn item_view<'a>(&'a self, item: &ItemDef, value: &'a mut Label<16>) -> ItemView<'a> {
         let (name, value, bar) = match item.kind {
+            // A point of the sound's file shows its share of the file's last frame.
+            ItemKind::Param(id) if param::entry(id).curve == Curve::Frame => {
+                let current = self.value(id);
+                let frames = self.frames();
+                param::format_frame(current, frames, value);
+                (
+                    param::entry(id).name,
+                    value.as_str(),
+                    match frames.saturating_sub(1) {
+                        0 => Bar::Track,
+                        last => Bar::Fill(current as u64, u64::from(last)),
+                    },
+                )
+            }
             ItemKind::Param(id) => {
                 let entry = param::entry(id);
                 let current = self.value(id);
@@ -449,6 +507,32 @@ impl Control {
                     .expect("writing to a label never fails");
                 ("Copy", value.as_str(), Bar::Track)
             }
+            ItemKind::PadEngine => (
+                "Engine",
+                self.selected()
+                    .expect("Engine is on the Pad page only while the pad has a sound")
+                    .engine
+                    .page_name(),
+                Bar::Track,
+            ),
+            ItemKind::SampleFile => (
+                "Sample",
+                match &self
+                    .selected()
+                    .expect("the Sample page belongs to the selected sound")
+                    .engine
+                {
+                    Engine::Sample(Sample::File(file)) => self.library.file(*file).name.as_str(),
+                    // A missing file is named by the end of its path (S15).
+                    Engine::Sample(Sample::Missing(path)) => path
+                        .as_str()
+                        .rsplit('/')
+                        .next()
+                        .expect("a split gives at least one part"),
+                    Engine::Synth => unreachable!("the Sample page belongs to a sample sound"),
+                },
+                Bar::Track,
+            ),
             ItemKind::LibraryMeter => {
                 let (used, total) = (self.library.used(), budget::SAMPLE_RAM as u64);
                 value.push_str(name::meter(used, total).as_str());
@@ -509,6 +593,15 @@ impl Control {
                     alert: false,
                 }
             }
+        }
+    }
+
+    /// The frames of the selected sound's file as the library lists it, also while the audio part
+    /// may not read it, which its points are shown against; none for a missing file.
+    fn frames(&self) -> u32 {
+        match self.selected().map(|sound| &sound.engine) {
+            Some(Engine::Sample(Sample::File(file))) => self.library.file(*file).frames,
+            _ => 0,
         }
     }
 

@@ -77,7 +77,9 @@ impl Control {
     /// OK on SAMPLES or in the sample picker stops the preview. On a folder it shows that folder
     /// with the cursor on ".." and on ".." it goes up (`go_up`). On a file the sample picker
     /// closes and chooses it as its `Pick` says: New sample makes a sample sound of it (`NewSound`
-    /// and then its values that differ from every default) and puts it on the selected pad. On
+    /// and then its values that differ from every default) and puts it on the selected pad, the
+    /// Sample item gives the selected sound the file (`take_file`) and ENGINE switches the selected
+    /// sound to the sample engine with it (`start_sample`), each sending the values it changed. On
     /// SAMPLES a file opens its Delete picker, unless a delete runs or the import replaces a file:
     /// deletes run one at a time, and never with a replace.
     pub(super) fn ok_in_samples(

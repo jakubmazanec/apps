@@ -156,7 +156,7 @@ fn new_synth_on_an_empty_pad_makes_syn_1_and_selects_it() {
         &pad_page(
             &sound_header(("Syn 1", TEXT)),
             None,
-            &[sound("Syn 1"), copy("on 1 pad")],
+            &[sound("Syn 1"), copy("on 1 pad"), engine("Synth")],
             0,
             names(&[(0, "Syn 1")]),
             0,
@@ -253,7 +253,7 @@ fn a_pool_sound_is_shared_and_copy_counts_its_pads() {
         &pad_page(
             &sound_header(("Syn 1", TEXT)),
             None,
-            &[sound("Syn 1"), copy("on 2 pads")],
+            &[sound("Syn 1"), copy("on 2 pads"), engine("Synth")],
             0,
             names(&[(0, "Syn 1"), (1, "Syn 1")]),
             1,
@@ -272,7 +272,7 @@ fn a_pool_sound_is_shared_and_copy_counts_its_pads() {
         &pad_page(
             &sound_header(("Syn 2", TEXT)),
             None,
-            &[sound("Syn 2"), copy("on 1 pad")],
+            &[sound("Syn 2"), copy("on 1 pad"), engine("Synth")],
             1,
             names(&[(0, "Syn 1"), (1, "Syn 2")]),
             1,
@@ -296,7 +296,7 @@ fn a_pool_sound_is_shared_and_copy_counts_its_pads() {
         &pad_page(
             &sound_header(("Syn 1", TEXT)),
             None,
-            &[sound("Syn 1"), copy("on 1 pad")],
+            &[sound("Syn 1"), copy("on 1 pad"), engine("Synth")],
             1,
             names(&[(0, "Syn 1"), (1, "Syn 2")]),
             0,
@@ -386,7 +386,7 @@ fn an_empty_pad_shows_only_the_sound_item() {
         &pad_page(
             &sound_header(("Syn 1", TEXT)),
             None,
-            &[sound("Syn 1"), copy("on 1 pad")],
+            &[sound("Syn 1"), copy("on 1 pad"), engine("Synth")],
             0,
             names(&[(0, "Syn 1")]),
             0,
@@ -402,9 +402,11 @@ fn up_and_down_move_over_the_pad_page_and_stop_at_its_ends() {
     rig.menu(0, 2);
     for (sample, button, item) in [
         (10, Button::Down, 1),
-        (20, Button::Down, 1),
-        (30, Button::Up, 0),
-        (40, Button::Up, 0),
+        (20, Button::Down, 2),
+        (30, Button::Down, 2),
+        (40, Button::Up, 1),
+        (50, Button::Up, 0),
+        (60, Button::Up, 0),
     ] {
         rig.tap(sample, button);
         rig.step(sample + 2);
@@ -425,7 +427,7 @@ fn up_and_down_move_over_the_pad_page_and_stop_at_its_ends() {
         &pad_page(
             &sound_header(("Syn 1", TEXT)),
             None,
-            &[sound("Syn 1"), copy("on 1 pad")],
+            &[sound("Syn 1"), copy("on 1 pad"), engine("Synth")],
             1,
             names(&[(0, "Syn 1")]),
             0,
@@ -433,11 +435,11 @@ fn up_and_down_move_over_the_pad_page_and_stop_at_its_ends() {
     ));
     rig.let_go(30_000, Button::Down);
 
-    // SHIFT + up leaves it on Copy.
+    // The held down's repeats carried it on to Engine, and SHIFT + up leaves it there.
     rig.press(30_100, Button::Shift);
     rig.tap(30_200, Button::Up);
     rig.step(30_300);
-    assert_eq!(sound_cursor(&rig), 1);
+    assert_eq!(sound_cursor(&rig), 2);
 }
 
 #[test]
@@ -484,7 +486,7 @@ fn cancel_closes_the_picker_on_a_short_release_only() {
         &pad_page(
             &sound_header(("Syn 1", TEXT)),
             None,
-            &[sound("Syn 1"), copy("on 1 pad")],
+            &[sound("Syn 1"), copy("on 1 pad"), engine("Synth")],
             0,
             names(&[(0, "Syn 1")]),
             0,
@@ -564,7 +566,7 @@ fn with_the_picker_open_pads_sound_but_do_not_select_and_menu_waits() {
         &pad_page(
             &sound_header(("Syn 1", TEXT)),
             None,
-            &[sound("Syn 1"), copy("on 1 pad")],
+            &[sound("Syn 1"), copy("on 1 pad"), engine("Synth")],
             0,
             names(&[(0, "Syn 1"), (3, "Syn 2")]),
             0,
@@ -942,7 +944,7 @@ fn the_result_does_not_depend_on_the_step_size() {
             == pad_page(
                 &sound_header(("Syn 30", TEXT)),
                 None,
-                &[sound("Syn 30"), copy("on 1 pad")],
+                &[sound("Syn 30"), copy("on 1 pad"), engine("Synth")],
                 0,
                 names(&[(0, "Syn 30"), (3, "Syn 4")]),
                 0,
@@ -999,7 +1001,7 @@ fn pool_full_shows_until_the_next_button_press() {
         &pad_page(
             &sound_header(("Syn 1", TEXT)),
             pool_full,
-            &[sound("Syn 1"), copy("on 1 pad")],
+            &[sound("Syn 1"), copy("on 1 pad"), engine("Synth")],
             0,
             names(&[(1, "Syn 1")]),
             1,
@@ -1022,7 +1024,7 @@ fn pool_full_shows_until_the_next_button_press() {
         &pad_page(
             &sound_header(("Syn 1", TEXT)),
             pool_full,
-            &[sound("Syn 1"), copy("on 1 pad")],
+            &[sound("Syn 1"), copy("on 1 pad"), engine("Synth")],
             1,
             names(&[(1, "Syn 1")]),
             1,
@@ -1042,7 +1044,12 @@ fn encoders_on_step_act_on_sounds_page() {
             &step_header("Syn 1"),
             None,
             |_| {},
-            &[Some(sound("Syn 1")), Some(copy("on 1 pad")), None, None],
+            &[
+                Some(sound("Syn 1")),
+                Some(copy("on 1 pad")),
+                Some(engine("Synth")),
+                None
+            ],
         )
     ));
 
@@ -1085,7 +1092,12 @@ fn encoders_on_step_act_on_sounds_page() {
             &step_header("Syn 2"),
             None,
             |_| {},
-            &[Some(sound("Syn 2")), Some(copy("on 1 pad")), None, None],
+            &[
+                Some(sound("Syn 2")),
+                Some(copy("on 1 pad")),
+                Some(engine("Synth")),
+                None
+            ],
         )
     ));
 
@@ -1117,7 +1129,7 @@ fn page_shows_the_pad_tile_on_sound_and_on_step() {
     rig.press(0, Button::Page);
     rig.step(1);
 
-    let shown = page_tiles(pages(view::Screen::Sound, rig.track()), 0);
+    let shown = page_tiles(pages(view::Screen::Sound, None), 0);
     assert_eq!(
         shown[0],
         Tile {
@@ -1153,10 +1165,11 @@ fn the_pad_page_and_picker_match_their_geometry() {
     assert_eq!(span(&screen, 0..=479, 1..=13, ACCENT), Some((4, 32)));
     assert_eq!(span(&screen, 0..=479, 1..=13, TEXT), Some((39, 107)));
     assert_eq!(span(&screen, 0..=479, 1..=13, DIM), Some((114, 136)));
-    // The items at y 17 and 35: the dim digits, the values ending 3 pixels inside, the faint
+    // The items at y 17, 35 and 53: the dim digits, the values ending 3 pixels inside, the faint
     // tracks and the cursor 1 pixel outside the first.
     assert_eq!(span(&screen, 2..=15, 17..=29, DIM), Some((5, 9)));
     assert_eq!(span(&screen, 2..=15, 35..=47, DIM), Some((5, 9)));
+    assert_eq!(span(&screen, 2..=15, 53..=65, DIM), Some((5, 9)));
     assert_eq!(
         span(&screen, 2..=161, 17..=29, TEXT).map(|s| s.1),
         Some(158)
@@ -1165,16 +1178,21 @@ fn the_pad_page_and_picker_match_their_geometry() {
         span(&screen, 2..=161, 35..=47, TEXT).map(|s| s.1),
         Some(158)
     );
+    assert_eq!(
+        span(&screen, 2..=161, 53..=65, TEXT).map(|s| s.1),
+        Some(158)
+    );
     assert!(filled(&screen, 5..=158, 31..=32, FAINT));
     assert!(filled(&screen, 5..=158, 49..=50, FAINT));
+    assert!(filled(&screen, 5..=158, 67..=68, FAINT));
     assert!(outlined(&screen, 1, 16, 162, 19, ACCENT));
-    assert!(filled(&screen, 2..=161, 54..=252, BACKGROUND));
+    assert!(filled(&screen, 2..=161, 72..=252, BACKGROUND));
     // The pad tiles from x 164 and y 16, 79 pixels apart: pad 1 selected, the others empty.
     assert!(outlined(&screen, 164, 16, 78, 78, ACCENT));
     assert!(outlined(&screen, 243, 16, 78, 78, FAINT));
     assert!(outlined(&screen, 401, 174, 78, 78, FAINT));
     assert!(filled(&screen, 163..=163, 15..=252, BACKGROUND));
-    // The strip: Sound and Copy in cells 1 and 2.
+    // The strip: Sound, Copy and Engine in cells 1 to 3.
     assert_eq!(
         span(&screen, 1..=120, 258..=264, TEXT).map(|s| s.1),
         Some(117)
@@ -1183,7 +1201,11 @@ fn the_pad_page_and_picker_match_their_geometry() {
         span(&screen, 121..=240, 258..=264, TEXT).map(|s| s.1),
         Some(237)
     );
-    assert!(filled(&screen, 241..=478, 254..=271, BACKGROUND));
+    assert_eq!(
+        span(&screen, 241..=359, 258..=264, TEXT).map(|s| s.1),
+        Some(356)
+    );
+    assert!(filled(&screen, 360..=478, 254..=271, BACKGROUND));
 
     // The picker: rows at y 17 + 14 k, the text from x 5 and the dim label ending at x 474, the
     // cursor on Syn 1 1 pixel outside its row, and an empty strip.

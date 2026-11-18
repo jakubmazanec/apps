@@ -6,8 +6,9 @@ pub mod wav;
 
 use crate::budget;
 use crate::label::Label;
-use crate::sample_ram::{BLOCK, BLOCKS, Blocks, Listing, Tables};
+use crate::sample_ram::{BLOCK, BLOCKS, Blocks, Listing, SampleRam, Tables};
 use crate::storage::Path;
+use crate::ui::layout::PICTURE;
 use core::cmp::Ordering;
 
 /// A file's place in the library's table. It is reused only once the audio part let go of the
@@ -147,6 +148,45 @@ impl Library {
         // SAFETY: the caller promises that the audio part let go of the file or was never told
         // about it.
         unsafe { self.listing.forget(file) };
+    }
+
+    /// The waveform of `file` as the picture shows it (S19): for each of its columns the highest
+    /// absolute sample, of both channels, among up to 64 frames spread evenly over the column's
+    /// share of the file, or the frame under it when the share starts none. It reads them through a
+    /// reader of the table the listing uses, as no one writes a loaded file's blocks.
+    ///
+    /// # Panics
+    ///
+    /// When `file` is not loaded.
+    #[allow(unsafe_code)]
+    pub fn peaks(
+        &self,
+        file: FileId,
+        tables: &Tables,
+        ram: &SampleRam,
+    ) -> [u16; PICTURE.2 as usize] {
+        let audio = self.file(file);
+        assert!(audio.loaded, "file {} is not loaded", file.0);
+        // SAFETY: the reader reads frames of a loaded file below its length, through the table the
+        // listing uses.
+        let readers = unsafe { tables.readers(ram) };
+        let reader = &readers[usize::from(self.listing.table())];
+        let slice = reader.slice(file);
+        let (frames, columns) = (u64::from(audio.frames), PICTURE.2 as u64);
+        core::array::from_fn(|column| {
+            let from = column as u64 * frames / columns;
+            let share = (column as u64 + 1) * frames / columns - from;
+            // A loaded file has a frame at least, so `from` is one of its frames.
+            let reads = share.clamp(1, 64);
+            (0..reads)
+                .map(|read| {
+                    let frame = (from + read * share / reads) as u32;
+                    let (left, right) = reader.frame(slice, audio.channels == 2, frame);
+                    left.unsigned_abs().max(right.unsigned_abs())
+                })
+                .max()
+                .expect("a column reads a frame at least")
+        })
     }
 
     /// The bytes of the sample RAM that the files take: their blocks, whole.
