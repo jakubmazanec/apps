@@ -8,7 +8,7 @@ use crate::label::Label;
 use crate::library::{Entry, FileId, FolderId, Library};
 use crate::message::{MESSAGE_QUEUE, Message, MessageKind};
 use crate::palette::RECORD;
-use crate::project::pool::SOUND_DEFAULTS;
+use crate::project::pool::{Engine, SOUND_DEFAULTS, Sample};
 use crate::queue::Producer;
 use crate::sample_ram::Tables;
 use crate::storage::Status;
@@ -78,8 +78,9 @@ impl Control {
     /// with the cursor on ".." and on ".." it goes up (`go_up`). On a file the sample picker
     /// closes and chooses it as its `Pick` says: New sample makes a sample sound of it (`NewSound`
     /// and then its values that differ from every default) and puts it on the selected pad, the
-    /// Sample item gives the selected sound the file (`take_file`) and ENGINE switches the selected
-    /// sound to the sample engine with it (`start_sample`), each sending the values it changed. On
+    /// Sample item gives the selected sound the file (`take_file`), unless it plays that file
+    /// already, which changes nothing (S9), and ENGINE switches the selected sound to the sample
+    /// engine with it (`start_sample`), each sending the values it changed. On
     /// SAMPLES a file opens its Delete picker, unless a delete runs or the import replaces a file:
     /// deletes run one at a time, and never with a replace.
     pub(super) fn ok_in_samples(
@@ -128,10 +129,10 @@ impl Control {
                                 .get_mut(number)
                                 .expect("a selected sound is in the pool");
                             let before = sound.values;
-                            if pick == Pick::Change {
-                                sound.take_file(file, &audio);
-                            } else {
+                            if pick == Pick::Switch {
                                 sound.start_sample(file, &audio);
+                            } else if sound.engine != Engine::Sample(Sample::File(file)) {
+                                sound.take_file(file, &audio);
                             }
                             (number, before)
                         }
@@ -189,7 +190,7 @@ impl Control {
 
     /// The storage's reply to the `Delete` of `file`, which ends the delete. Once the storage no
     /// longer holds the file, SAMPLES leaves each folder that holds nothing but the file, as CANCEL
-    /// does, the file's sounds turn missing, keeping its path (S18), and the library unlists the
+    /// does; the file's sounds turn missing, keeping its path (S18), and the library unlists the
     /// file and those folders and frees its blocks: the cursor then moves from the row that is gone
     /// to the row above (`keep_samples_cursor`). The sample picker goes to the top level when its
     /// folder is one of those folders. Otherwise the file stays, in the sample RAM too, its sounds

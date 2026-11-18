@@ -20,7 +20,7 @@ use samples::Row as Line;
 use view::{Cursor, Pick, Picker, SamplesView};
 
 /// At the top level bass.wav, a second of stereo with a loop of its own and root note 36. In drums/
-/// kick.wav, a tenth of a second of mono with root note 48, and snare.wav; in drums/808/ boom.wav.
+/// kick.wav (a tenth of a second of mono with root note 48) and snare.wav; in drums/808/ boom.wav.
 /// They are files 0 to 3 in the order of their paths, and drums/ and 808/ are folders 0 and 1.
 fn library() -> [(&'static str, Vec<u8>); 4] {
     [
@@ -87,7 +87,7 @@ fn picker_at(folder: Option<FolderId>, item: usize, on: Line) -> SamplesView {
 }
 
 /// The sample picker over SOUND's Pad page of the empty pad 1: the dim `line`, then `rows` from
-/// row `cursor.scroll` with the cursor on row `cursor.item`, and an empty strip.
+/// row `cursor.scroll` with the cursor on row `cursor.item`; the strip is empty.
 fn sample_picker(line: &str, rows: &[Row], cursor: Cursor) -> Screen {
     drawn(
         &sound_header(("1", DIM)),
@@ -1133,6 +1133,31 @@ fn the_sample_item_changes_the_file_and_keeps_the_other_values() {
     ] {
         assert_eq!(sound.value(id), value);
     }
+}
+
+#[test]
+fn ok_on_the_sounds_own_file_in_the_sample_item_closes_the_picker_and_changes_nothing() {
+    let queue = Queue::new();
+    let mut rig = Rig::with_files(&queue, &library());
+    rig.open();
+    let kick = sample_on(&mut rig, 0, KICK.file);
+    let sound = rig.control.project.pool.get_mut(kick).unwrap();
+    sound.set(START.id, 37);
+    sound.set(END.id, 4_000);
+    let values = sound.values;
+    rig.menu(10, 2);
+    rig.page(20, 1);
+
+    // OK on the Sample item opens the picker on kick.wav, and OK on kick.wav closes it.
+    rig.tap(30, Button::Ok);
+    rig.tap(40, Button::Ok);
+    rig.step(50);
+
+    assert!(rig.control.view.picker.is_none());
+    let sound = rig.control.project.pool.get(kick).unwrap();
+    assert_eq!(sound.values, values);
+    assert_eq!(sound.engine, Engine::Sample(Sample::File(KICK.file)));
+    assert_eq!(rig.sent(), []);
 }
 
 #[test]
