@@ -7,8 +7,8 @@ use crate::sample_ram::Reader;
 /// A whole frame in the 32.32 fixed point of a position.
 const FRAME: u64 = 1 << 32;
 
-/// The output frames of the fade at the end of a sample that ends by itself: 1 ms.
-const FADE: u64 = (SAMPLE_RATE / 1_000) as u64;
+/// The output frames of the fade at the end of a sample or a preview that ends by itself: 1 ms.
+pub(super) const FADE: u64 = (SAMPLE_RATE / 1_000) as u64;
 
 /// The sample engine's source: it plays a file from Start to End and around its loop at any rate,
 /// in reverse from End back to Start. It reads one chunk ahead, as the preview does, so a fade

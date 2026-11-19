@@ -274,7 +274,9 @@ oscillator's level are 0. Every number is a constant tuned by ear.
   it from the picker with DELETE or from a question; not a delete that moves the cursor; not moving
   onto the file being deleted while its delete runs. OK, CANCEL, STOP while stopped and leaving the
   SAMPLES screen fade it out within one 32-sample chunk; holding MENU or PAGE without choosing a
-  screen does not. It works while the music plays.
+  screen does not. It works while the music plays. A file it plays to its end fades to silence over
+  its last 1 ms, a straight fade, so its end never clicks, as a sample sound's does **(owner's
+  choice)**; a stop keeps its own fade within one chunk.
 - **STOP pressed while stopped silences everything in one step (owner's choice):** every sounding
   note fades out within one 32-sample chunk, as a taken voice does, instead of playing its release,
   the preview stops and every effect slot's memory on all tracks is cleared, applied by the audio

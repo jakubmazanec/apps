@@ -1,4 +1,5 @@
 use super::CHUNK;
+use super::sample::FADE;
 use super::voice::{add_fading, level_gain, pan_gains};
 use crate::library::FileId;
 use crate::message::SampleFile;
@@ -22,7 +23,8 @@ struct Playing {
 }
 
 impl Playing {
-    /// The next chunk of the file at its gains; silent past the file's end.
+    /// The next chunk of the file at its gains, its last `FADE` frames fading out in a straight
+    /// line, so that its end never clicks; silent past the file's end.
     fn read(&mut self, reader: &Reader<'_>) -> [[f32; CHUNK]; 2] {
         // After a `UseTable` the file's slice lies elsewhere: it is looked up in the table in use.
         let slice = reader.slice(self.file);
@@ -30,8 +32,10 @@ impl Playing {
         let [lefts, rights] = &mut chunk;
         for ((left, right), frame) in lefts.iter_mut().zip(rights).zip(self.frame..self.frames) {
             let (from_left, from_right) = reader.frame(slice, self.stereo, frame);
-            *left = f32::from(from_left) / 32_768.0 * self.gains[0];
-            *right = f32::from(from_right) / 32_768.0 * self.gains[1];
+            // The frames left, counting this one, over `FADE`: a straight line to the last frame.
+            let fade = u64::from(self.frames - frame).min(FADE) as f32 / FADE as f32;
+            *left = f32::from(from_left) / 32_768.0 * self.gains[0] * fade;
+            *right = f32::from(from_right) / 32_768.0 * self.gains[1] * fade;
         }
         self.frame = self.frames.min(self.frame + CHUNK as u32);
         chunk

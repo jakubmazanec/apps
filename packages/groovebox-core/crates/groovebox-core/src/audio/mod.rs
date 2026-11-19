@@ -752,6 +752,16 @@ mod tests {
             .collect()
     }
 
+    /// `samples` of a file that ends right after them as the preview plays them: the last 48
+    /// frames, 1 ms, fade out in a straight line, the nth from the end scaled by n / 48.
+    fn fade_out(mut samples: Vec<f32>) -> Vec<f32> {
+        let frames = samples.len();
+        for (n, sample) in samples.iter_mut().enumerate() {
+            *sample *= (frames - n).min(48) as f32 / 48.0;
+        }
+        samples
+    }
+
     fn preview(file: u16, frames: u32, stereo: bool) -> MessageKind {
         MessageKind::Preview {
             sample: SampleFile {
@@ -787,8 +797,43 @@ mod tests {
         let out = previewed(&[(0, preview(0, FRAMES, false))], 1_216);
 
         let frames = FRAMES as usize;
-        assert_eq!(bits(&out[..frames]), bits(&played(&samples(frames))));
+        assert_eq!(
+            bits(&out[..frames]),
+            bits(&fade_out(played(&samples(frames))))
+        );
         assert!(is_silent(&out[frames..]));
+    }
+
+    #[test]
+    fn a_preview_fades_out_over_the_last_48_frames_of_its_file() {
+        let (messages, reports) = (Queue::new(), Queue::new());
+        let mut rig = Rig::new(&messages, &reports);
+        rig.full_volume();
+        // The last 48 of 1,100 frames span three chunks.
+        let file = played(&[i16::MAX; FRAMES as usize]);
+        rig.add_file(0, false, &[i16::MAX; FRAMES as usize]);
+        rig.send(0, 0, preview(0, FRAMES, false));
+
+        let out = rig.render(1_216);
+
+        let (frames, before) = (FRAMES as usize, FRAMES as usize - 48);
+        assert_eq!(bits(&out[..before]), bits(&file[..before]));
+        assert_eq!(bits(&out[..frames]), bits(&fade_out(file)));
+        assert!(is_silent(&out[frames..]));
+    }
+
+    #[test]
+    fn a_preview_of_fewer_than_48_frames_fades_out_over_its_whole_file() {
+        let (messages, reports) = (Queue::new(), Queue::new());
+        let mut rig = Rig::new(&messages, &reports);
+        rig.full_volume();
+        rig.add_file(0, false, &[i16::MAX; 20]);
+        rig.send(0, 0, preview(0, 20, false));
+
+        let out = rig.render(64);
+
+        assert_eq!(bits(&out[..20]), bits(&fade_out(played(&[i16::MAX; 20]))));
+        assert!(is_silent(&out[20..]));
     }
 
     #[test]
@@ -810,8 +855,8 @@ mod tests {
                 .copied()
                 .collect::<Vec<_>>()
         });
-        assert_eq!(bits(&left[..600]), bits(&played(&lefts)));
-        assert_eq!(bits(&right[..600]), bits(&played(&rights)));
+        assert_eq!(bits(&left[..600]), bits(&fade_out(played(&lefts))));
+        assert_eq!(bits(&right[..600]), bits(&fade_out(played(&rights))));
         assert!(is_silent(&left[600..]) && is_silent(&right[600..]));
     }
 
@@ -831,6 +876,21 @@ mod tests {
             assert_eq!(fade[CHUNK - 1], 0.0, "{stop:?}");
             assert!(is_silent(after), "{stop:?}");
         }
+    }
+
+    #[test]
+    fn a_stop_before_the_last_48_frames_fades_by_the_stop_alone() {
+        let stop = [
+            (0, preview(0, FRAMES, false)),
+            (64, MessageKind::StopPreview),
+        ];
+        // A rig of longer files plays the same first samples of file 0, with no end near.
+        let (queue, reports) = (Queue::new(), Queue::new());
+        let mut rig = Rig::with_two_files(&queue, &reports, 2 * FRAMES);
+        rig.send(0, 0, preview(0, 2 * FRAMES, false));
+        rig.send(1, 64, MessageKind::StopPreview);
+
+        assert_eq!(bits(&rig.render(160)), bits(&previewed(&stop, 160)));
     }
 
     #[test]
@@ -925,8 +985,8 @@ mod tests {
         let later = rig.render(2 * 1_024);
 
         let out = [before, after].concat();
-        assert_eq!(bits(&out[..2 * 1_024]), bits(&played(&file)));
-        assert_eq!(bits(&later), bits(&played(&other)));
+        assert_eq!(bits(&out[..2 * 1_024]), bits(&fade_out(played(&file))));
+        assert_eq!(bits(&later), bits(&fade_out(played(&other))));
         assert_eq!(rig.report(), applied(0, 0));
         assert_eq!(rig.report(), applied(1, 64));
         assert_eq!(rig.report(), applied(2, 2_112));
