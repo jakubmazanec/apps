@@ -1231,7 +1231,7 @@ mod tests {
         assert_eq!(legato, alone);
     }
 
-    /// The old and the new file, files 2 and 3 of `played_mono`, of `LENGTH` frames each. The
+    /// The old and the new file, files 2 and 3 of `played_in_mode`, of `LENGTH` frames each. The
     /// frames are all multiples of 31, so that the straight fade out of any of them over a chunk
     /// is a whole number.
     fn old_and_new_files() -> [Vec<i16>; 2] {
@@ -1241,8 +1241,8 @@ mod tests {
     }
 
     /// The frames of the one note that plays what a Mono voice does when `notes`, pairs of a
-    /// start in frames, a multiple of `CHUNK`, and a file, restart it in turn: from its start the
-    /// file plays, and the frames of the file before it fade out in a straight line over the
+    /// start (a multiple of `CHUNK`, in frames) and a file, restart it in turn: from its start
+    /// the file plays, and the frames of the file before it fade out in a straight line over the
     /// chunk in which it begins.
     fn restarted(notes: &[(usize, &[i16])]) -> Vec<i16> {
         let mut played: Vec<i16> = Vec::new();
@@ -1268,76 +1268,163 @@ mod tests {
         rig.audio
             .sounds
             .add(SoundNumber(1), sample_sound(frames, &[]));
-        let sample = SampleFile {
-            file: FileId(0),
-            frames,
-            stereo: false,
-        };
-        rig.send(0, 0, note_of(0, 1, 60, NoteEngine::Sample(Some(sample))));
+        rig.send(
+            0,
+            0,
+            note_of(
+                0,
+                1,
+                60,
+                NoteEngine::Sample(Some(SampleFile {
+                    file: FileId(0),
+                    frames,
+                    stereo: false,
+                })),
+            ),
+        );
         rig.render(length)
     }
 
-    /// What a Mono sample sound gives for `length` samples with `messages`, numbered from 0, and
-    /// how many voices sound after, when files 2 and 3 are `old_and_new_files`.
-    fn played_mono(messages: &[(u64, MessageKind)], length: usize) -> (Vec<f32>, usize) {
+    /// What a sample sound of play mode `mode` gives for `length` samples with `messages`,
+    /// numbered from 0, and how many voices sound after, when files 2 and 3 are
+    /// `old_and_new_files`.
+    fn played_in_mode(
+        mode: i32,
+        messages: &[(u64, MessageKind)],
+        length: usize,
+    ) -> (Vec<f32>, usize) {
         let (queue, reports) = (Queue::new(), Queue::new());
-        let mut rig = Rig::with_sample_sound(&queue, &reports, &[(&PLAY_MODE, MONO)]);
+        let mut rig = Rig::with_sample_sound(&queue, &reports, &[(&PLAY_MODE, mode)]);
         for (file, frames) in (2..).zip(old_and_new_files()) {
             rig.add_file(file, false, &frames);
         }
         for (number, &(at, kind)) in (0..).zip(messages) {
             rig.send(number, at, kind);
         }
-        let out = rig.render(length);
-        (out, rig.audio.voices.sounding())
+        (rig.render(length), rig.audio.voices.sounding())
     }
 
     #[test]
     fn a_mono_restart_fades_the_old_sample_out_as_the_new_one_starts() {
         let [old, new] = old_and_new_files();
-        let notes = [
-            (0, note_of(0, 1, 60, plays(2))),
-            (320, note_of(1, 1, 60, plays(3))),
-        ];
 
-        let (out, sounding) = played_mono(&notes, 320 + LENGTH as usize + CHUNK);
+        let (out, sounding) = played_in_mode(
+            MONO,
+            &[
+                (0, note_of(0, 1, 60, plays(2))),
+                (320, note_of(1, 1, 60, plays(3))),
+            ],
+            320 + LENGTH as usize + CHUNK,
+        );
 
         // The old sample's next chunk adds to the new sample's first and goes through the same
         // filter and envelopes, so one note that plays the sum of them gives the same output.
-        let one_note = restarted(&[(0, &old), (320, &new)]);
-        assert_eq!(bits(&out), bits(&plays_once(&one_note, out.len())));
+        assert_eq!(
+            bits(&out),
+            bits(&plays_once(
+                &restarted(&[(0, &old), (320, &new)]),
+                out.len()
+            ))
+        );
         assert_eq!(sounding, 0);
     }
 
     #[test]
     fn a_mono_return_to_a_held_key_fades_the_same_way() {
         let [old, new] = old_and_new_files();
-        let notes = [
-            (0, note_of(0, 1, 60, plays(2))),
-            (320, note_of(1, 1, 60, plays(3))),
-            (640, note_off(1)),
-        ];
 
-        let (out, sounding) = played_mono(&notes, 640 + LENGTH as usize + CHUNK);
+        let (out, sounding) = played_in_mode(
+            MONO,
+            &[
+                (0, note_of(0, 1, 60, plays(2))),
+                (320, note_of(1, 1, 60, plays(3))),
+                (640, note_off(1)),
+            ],
+            640 + LENGTH as usize + CHUNK,
+        );
 
         // The first key is still held, so the return restarts its file.
-        let one_note = restarted(&[(0, &old), (320, &new), (640, &old)]);
-        assert_eq!(bits(&out), bits(&plays_once(&one_note, out.len())));
+        assert_eq!(
+            bits(&out),
+            bits(&plays_once(
+                &restarted(&[(0, &old), (320, &new), (640, &old)]),
+                out.len()
+            ))
+        );
+        assert_eq!(sounding, 0);
+    }
+
+    #[test]
+    fn a_legato_note_after_its_key_was_let_go_restarts_and_fades_the_same_way() {
+        let [old, new] = old_and_new_files();
+
+        // One-shot ignores the letting go, so the sample sounds on, with its key up.
+        let (out, sounding) = played_in_mode(
+            LEGATO,
+            &[
+                (0, note_of(0, 1, 60, plays(2))),
+                (320, note_off(0)),
+                (352, note_of(1, 1, 60, plays(3))),
+            ],
+            352 + LENGTH as usize + CHUNK,
+        );
+
+        assert_eq!(
+            bits(&out),
+            bits(&plays_once(
+                &restarted(&[(0, &old), (352, &new)]),
+                out.len()
+            ))
+        );
+        assert_eq!(sounding, 0);
+    }
+
+    #[test]
+    fn two_mono_notes_in_one_chunk_fade_the_sound_that_was_heard() {
+        let [old, _] = old_and_new_files();
+
+        // The first note's file never sounds: both notes apply at the chunk of sample 352.
+        let (out, sounding) = played_in_mode(
+            MONO,
+            &[
+                (0, note_of(0, 1, 60, plays(2))),
+                (321, note_of(1, 1, 60, plays(3))),
+                (335, note_of(2, 1, 60, plays(2))),
+            ],
+            352 + LENGTH as usize + CHUNK,
+        );
+
+        // The output is that of a single restart onto the second note's file.
+        assert_eq!(
+            bits(&out),
+            bits(&plays_once(
+                &restarted(&[(0, &old), (352, &old)]),
+                out.len()
+            ))
+        );
         assert_eq!(sounding, 0);
     }
 
     #[test]
     fn a_mono_restart_onto_a_missing_sample_fades_the_old_one_and_sounds_nothing() {
         let [old, _] = old_and_new_files();
-        let notes = [
-            (0, note_of(0, 1, 60, plays(2))),
-            (320, note_of(1, 1, 60, NoteEngine::Sample(None))),
-        ];
 
-        let (out, sounding) = played_mono(&notes, 640);
+        let (out, sounding) = played_in_mode(
+            MONO,
+            &[
+                (0, note_of(0, 1, 60, plays(2))),
+                (320, note_of(1, 1, 60, NoteEngine::Sample(None))),
+            ],
+            640,
+        );
 
-        let one_note = restarted(&[(0, &old), (320, &[0; LENGTH as usize])]);
-        assert_eq!(bits(&out[..352]), bits(&plays_once(&one_note, 352)));
+        assert_eq!(
+            bits(&out[..352]),
+            bits(&plays_once(
+                &restarted(&[(0, &old), (320, &[0; LENGTH as usize])]),
+                352
+            ))
+        );
         assert!(is_silent(&out[352..]));
         assert_eq!(sounding, 0);
     }

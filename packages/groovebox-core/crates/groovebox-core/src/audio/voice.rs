@@ -106,8 +106,10 @@ pub struct Voice {
     filters: [Filter; 2],
     filter_envelope: Envelope,
     volume_envelope: Envelope,
-    /// The chunk a Mono restart took from the sample that sounded before it, which the next chunk
-    /// adds fading out to the new note's source.
+    /// The chunk a restart, a Mono one or a Legato one after the voice's key was let go, took from
+    /// the sample that sounded before it, which the next chunk adds fading out to the new note's
+    /// source. Of several restarts before that chunk the first keeps its chunk: the others took
+    /// chunks that never sounded.
     fading: Option<[[f32; CHUNK]; 2]>,
 }
 
@@ -227,8 +229,8 @@ impl Voice {
     /// from where they are and the new velocity counts; a sample note then plays the file of
     /// `engine` from Start (End in reverse), reading its first chunk through `reader`, while the
     /// chunk it had read ahead fades out in the new note's first, reading nothing more of its
-    /// file. Without it, as in Legato, only the pitch moves: a sample note keeps its place and its
-    /// file.
+    /// file. Without it, as in Legato while the voice's key is held, only the pitch moves: a
+    /// sample note keeps its place and its file.
     #[expect(
         clippy::too_many_arguments,
         reason = "a change brings the new note, how it moves there and what it plays"
@@ -264,7 +266,7 @@ impl Voice {
             let speed = rate(self.semitones(), self.values.read(ROOT_NOTE.id));
             if let (Engine::Sample(player), NoteEngine::Sample(sample)) = (&mut self.engine, engine)
             {
-                self.fading = Some(player.ahead());
+                self.fading.get_or_insert_with(|| player.ahead());
                 player.start(sample, |id| self.values.read(id), speed, reader);
             }
         }
