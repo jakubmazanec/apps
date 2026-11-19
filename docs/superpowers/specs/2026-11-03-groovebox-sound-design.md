@@ -77,8 +77,10 @@ Master:                  all 4 tracks mixed → master level → + sample previe
 3. **What an engine gets for each note:**
    - at the start: pitch, velocity, an accent mark, a seed number that makes any randomness repeat
      exactly, and the kind of start (new note, restart or legato). A sample restarts from Start
-     (from End in reverse) with the new note's file; in legato it keeps its place and its file and
-     only the pitch moves, as the EP-133's legato carries on from the same play position;
+     (from End in reverse) with the new note's file, and the old sound fades out within one
+     32-sample chunk while the new note starts, as a taken voice fades **(owner's choice)**; in
+     legato it keeps its place and its file and only the pitch moves, as the EP-133's legato carries
+     on from the same play position;
    - every 32-sample chunk: the current pitch with glide already applied, whether the note is held,
      and its parameter values, read through Foundation's single parameter-read step;
    - finally: release, or a stop when the voice is taken.

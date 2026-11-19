@@ -106,6 +106,9 @@ pub struct Voice {
     filters: [Filter; 2],
     filter_envelope: Envelope,
     volume_envelope: Envelope,
+    /// The chunk a Mono restart took from the sample that sounded before it, which the next chunk
+    /// adds fading out to the new note's source.
+    fading: Option<[[f32; CHUNK]; 2]>,
 }
 
 impl Voice {
@@ -125,6 +128,7 @@ impl Voice {
             filters: [Filter::new(), Filter::new()],
             filter_envelope: Envelope::new(),
             volume_envelope: Envelope::new(),
+            fading: None,
         }
     }
 
@@ -221,8 +225,10 @@ impl Voice {
     /// Moves a mono voice to another note, of an `engine` that `can_change` allows. With `glide`
     /// the pitch moves there in a line over Glide time. With `restart` both envelopes start again
     /// from where they are and the new velocity counts; a sample note then plays the file of
-    /// `engine` from Start (End in reverse), reading its first chunk through `reader`. Without it,
-    /// as in Legato, only the pitch moves: a sample note keeps its place and its file.
+    /// `engine` from Start (End in reverse), reading its first chunk through `reader`, while the
+    /// chunk it had read ahead fades out in the new note's first, reading nothing more of its
+    /// file. Without it, as in Legato, only the pitch moves: a sample note keeps its place and its
+    /// file.
     #[expect(
         clippy::too_many_arguments,
         reason = "a change brings the new note, how it moves there and what it plays"
@@ -258,6 +264,7 @@ impl Voice {
             let speed = rate(self.semitones(), self.values.read(ROOT_NOTE.id));
             if let (Engine::Sample(player), NoteEngine::Sample(sample)) = (&mut self.engine, engine)
             {
+                self.fading = Some(player.ahead());
                 player.start(sample, |id| self.values.read(id), speed, reader);
             }
         }
@@ -349,6 +356,9 @@ impl Voice {
                     }
                     None => player.ahead(),
                 };
+                if let Some(fading) = self.fading.take() {
+                    add_fading(&mut sources, fading);
+                }
             }
         }
 

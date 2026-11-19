@@ -59,11 +59,12 @@ impl Voices {
     /// Plays a note of `engine`, which reads a sample's file through `reader`. A note of a choke
     /// group first fades the voices of the group's other sounds on its track into `fades`. A Mono
     /// or Legato note then moves its sound's voice on the track to it, if that voice is not idle:
-    /// Mono restarts the envelopes and a sample, which then plays the note's file from Start,
-    /// Legato only when the voice's own key is not held any more. A voice of the other engine, or
-    /// on a restart of a file of other channels, fades into `fades` instead and the note starts
-    /// in it. Otherwise the note starts a voice: a finished one, or else the oldest released
-    /// voice, the oldest voice of its sound or the oldest voice, which fades into `fades` first.
+    /// Mono restarts the envelopes and a sample, which then plays the note's file from Start while
+    /// its old sound fades out in the voice's next chunk, Legato only when the voice's own key is
+    /// not held any more. A voice of the other engine, or on a restart of a file of other
+    /// channels, fades into `fades` instead and the note starts in it. Otherwise the note starts a
+    /// voice: a finished one, or else the oldest released voice, the oldest voice of its sound or
+    /// the oldest voice, which fades into `fades` first.
     ///
     /// # Panics
     ///
