@@ -48,8 +48,10 @@ impl Control {
                 return;
             }
             item => {
-                let sound = self.project.pool.sounds()[item - 1].number;
-                self.view.highlight(Picker::DeleteSound(sound), 0);
+                self.view.highlight(
+                    Picker::DeleteSound(self.project.pool.sounds()[item - 1].number),
+                    0,
+                );
             }
         }
         self.end_held_repeats();

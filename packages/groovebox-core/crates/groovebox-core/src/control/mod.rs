@@ -645,7 +645,7 @@ impl Control {
             .project
             .pool
             .get(sound)
-            .expect("a sound on a pad is in the pool");
+            .expect("a sound on a pad or selected is in the pool");
         let (engine, pitch) = match played.engine {
             Engine::Synth => (NoteEngine::Synth, key.unwrap_or(60)),
             Engine::Sample(sample) => (
@@ -741,11 +741,11 @@ impl Control {
     /// PADS/KEYS is held, even a PADS/KEYS dropped by the picker, is taken at its press, so it
     /// neither moves the highlight nor repeats, also once SHIFT or PADS/KEYS is let go. Opening and
     /// closing the picker take the arrows, - and + that are held, as a counted MENU or PAGE does
-    /// (`end_held_repeats`). While a question is open only OK and a tap of CANCEL answer it, OK
-    /// deleting the file (`delete_file`) unless the import replaces a file, or on POOL the sound,
-    /// with the cursor going to the row above (S16), or every sound unused at that moment
-    /// (`delete_sound`); the arrows, - and + are taken too, and the other controls act as with a
-    /// picker open.
+    /// (`end_held_repeats`). While a question is open only OK and a tap of CANCEL answer it. OK on
+    /// SAMPLES' DELETE deletes the file (`delete_file`) unless the import replaces a file; on
+    /// POOL's DELETE it deletes the sound (`delete_sound`) and moves the cursor to the row above
+    /// (S16); on Remove unused it deletes every sound unused at that moment. The arrows, - and +
+    /// are taken too, and the other controls act as with a picker open.
     ///
     /// Otherwise the arrows, - and + nudge (`nudge`), OK uses the item under the cursor, or acts on
     /// SAMPLES' row (`ok_in_samples`) or POOL's (`ok_in_pool`), and an encoder push the item its

@@ -76,7 +76,8 @@ pub const MENU: [Option<Screen>; STEPS as usize] = {
     menu
 };
 
-/// The library meter, which no encoder holds: the Dev page's item and SAMPLES' above the strip.
+/// The library meter, which no encoder holds: the Dev page's item, POOL's and SAMPLES' above the
+/// strip.
 pub const LIBRARY_METER: ItemDef = ItemDef {
     kind: ItemKind::LibraryMeter,
     encoder: None,

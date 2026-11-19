@@ -837,6 +837,36 @@ fn ok_deletes_the_sound_and_lands_on_the_row_above() {
 }
 
 #[test]
+fn a_deleted_sounds_note_off_still_goes_out() {
+    for keys in [false, true] {
+        let queue = Queue::new();
+        let mut rig = Rig::new(&queue);
+        let syn_1 = rig.synth_on(0);
+        if keys {
+            rig.tap(1, Button::PadsKeys);
+        }
+        rig.hit(5, 0, 100);
+        rig.menu(10, 5);
+        rig.tap(20, Button::Ok);
+        rig.tap(30, Button::Ok);
+        rig.tap(40, Button::Ok);
+
+        rig.release(50, 0);
+        rig.step(60);
+
+        assert_eq!(
+            rig.sent(),
+            [
+                message(0, 5, note_on(0, 0, syn_1, 60, 100)),
+                message(1, 40, delete(syn_1)),
+                message(2, 50, note_off(0))
+            ],
+            "keys: {keys}"
+        );
+    }
+}
+
+#[test]
 fn cancel_keeps_the_sound() {
     let queue = Queue::new();
     let mut rig = Rig::new(&queue);
@@ -911,6 +941,34 @@ fn a_track_that_selected_the_deleted_sound_on_no_pad_goes_back_to_pad_1() {
     assert!(shows(
         &rig.control,
         &pool(&rig, ("Syn 3", TEXT), &four_rows()[..3])
+    ));
+}
+
+#[test]
+fn deleting_the_first_sound_selected_on_no_pad_lands_on_pad_1s_sound() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    let syn_1 = rig.control.project.pool.new_synth().unwrap();
+    let syn_2 = rig.synth_on(0);
+    rig.menu(10, 5);
+    // Syn 1, on no pad, is selected on POOL.
+    rig.tap(20, Button::Up);
+    rig.step(25);
+    assert_eq!(rig.track().selected_pad, None);
+    assert_eq!(rig.track().selected_sound, Some(syn_1));
+    rig.tap(30, Button::Ok);
+    rig.tap(40, Button::Ok);
+
+    rig.tap(50, Button::Ok);
+    rig.step(60);
+
+    assert_eq!(rig.sent(), [message(0, 50, delete(syn_1))]);
+    assert_eq!(rig.control.view.pool.cursor.item, 1);
+    assert_eq!(rig.track().selected_pad, Some(0));
+    assert_eq!(rig.track().selected_sound, Some(syn_2));
+    assert!(shows(
+        &rig.control,
+        &pool(&rig, ("Syn 2", TEXT), &[row("Syn 2", Some("synth  pad 1"))])
     ));
 }
 

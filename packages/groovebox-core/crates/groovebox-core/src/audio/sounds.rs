@@ -51,9 +51,7 @@ impl Sounds {
     ///
     /// When the audio part does not hold `sound`, as `values` does.
     pub fn remove(&mut self, sound: SoundNumber) {
-        let index = self.find(sound);
-
-        self.removed[index] = true;
+        self.removed[self.find(sound)] = true;
     }
 
     /// The values of `sound`, in the order of the master list's `Sound` entries.

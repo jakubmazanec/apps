@@ -610,7 +610,7 @@ impl Control {
             ItemKind::PadEngine => (
                 "Engine",
                 self.selected()
-                    .expect("Engine is on the Pad page only while the pad has a sound")
+                    .expect("Engine is on the Pad page only while a sound is selected")
                     .engine
                     .page_name(),
                 Bar::Track,
@@ -786,7 +786,7 @@ impl Control {
         self.project
             .pool
             .get(sound)
-            .expect("a sound on a pad is in the pool")
+            .expect("a sound on a pad or selected is in the pool")
             .name
             .as_str()
     }

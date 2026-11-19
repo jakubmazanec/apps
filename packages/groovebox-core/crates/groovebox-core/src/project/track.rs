@@ -13,10 +13,10 @@ pub enum PadMode {
 
 /// What a track keeps: its 12 pads, what is selected, the pad mode and the octave.
 ///
-/// The selection rule: when `selected_pad` is `Some(p)`, `selected_sound` is `pads[p]`. `select` and
-/// `put` keep it, so a pad or the selected pad changes through them and never by writing the
-/// fields. When `selected_pad` is `None` the sound was selected some other way, as POOL does through
-/// `select_sound`, and putting a sound on a pad leaves `selected_sound` alone.
+/// The selection rule: when `selected_pad` is `Some(p)`, `selected_sound` is `pads[p]`. `select`,
+/// `select_sound` and `put` keep it, so a pad or the selection changes through them and never by
+/// writing the fields. When `selected_pad` is `None` the sound was selected on no pad, as POOL does
+/// through `select_sound`, and putting a sound on a pad leaves `selected_sound` alone.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Track {
     pub pads: [Option<SoundNumber>; 12],

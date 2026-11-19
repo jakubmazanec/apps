@@ -783,8 +783,10 @@ mod tests {
 
         rig.render(32);
 
-        let new = SoundNumber(POOL_SOUNDS as u32 + 1);
-        assert_eq!(*rig.audio.sounds.values(new), SOUND_DEFAULTS);
+        assert_eq!(
+            *rig.audio.sounds.values(SoundNumber(POOL_SOUNDS as u32 + 1)),
+            SOUND_DEFAULTS
+        );
     }
 
     #[test]
@@ -809,8 +811,10 @@ mod tests {
         assert_eq!(cutoff(&rig, 1), 1);
         assert_eq!(cutoff(&rig, deletes + 2), deletes as i32 + 2);
         assert_eq!(cutoff(&rig, POOL_SOUNDS as u32), POOL_SOUNDS as i32);
-        let new = SoundNumber(POOL_SOUNDS as u32 + 1);
-        assert_eq!(*rig.audio.sounds.values(new), SOUND_DEFAULTS);
+        assert_eq!(
+            *rig.audio.sounds.values(SoundNumber(POOL_SOUNDS as u32 + 1)),
+            SOUND_DEFAULTS
+        );
     }
 
     #[test]
