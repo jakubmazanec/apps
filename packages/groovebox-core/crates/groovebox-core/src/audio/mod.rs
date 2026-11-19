@@ -788,6 +788,32 @@ mod tests {
     }
 
     #[test]
+    fn a_chunk_of_deletes_then_a_new_sound_on_a_full_pool_keeps_the_others_found() {
+        let (messages, reports) = (Queue::new(), Queue::new());
+        let mut rig = Rig::new(&messages, &reports);
+        for sound in 1..=POOL_SOUNDS as u32 {
+            let mut values = SOUND_DEFAULTS;
+            values[Sound::place(CUTOFF.id)] = sound as i32;
+            rig.audio.sounds.add(SoundNumber(sound), values);
+        }
+        // The most the queue holds: the deletes of sounds 2 to 256, then a new sound.
+        let deletes = MESSAGE_QUEUE as u32 - 1;
+        for number in 0..deletes {
+            rig.send(number, 0, delete_sound(number + 2));
+        }
+        rig.send(deletes, 0, new_sound(POOL_SOUNDS as u32 + 1));
+
+        rig.render(32);
+
+        assert_eq!(rig.inbox.peek(), None);
+        assert_eq!(cutoff(&rig, 1), 1);
+        assert_eq!(cutoff(&rig, deletes + 2), deletes as i32 + 2);
+        assert_eq!(cutoff(&rig, POOL_SOUNDS as u32), POOL_SOUNDS as i32);
+        let new = SoundNumber(POOL_SOUNDS as u32 + 1);
+        assert_eq!(*rig.audio.sounds.values(new), SOUND_DEFAULTS);
+    }
+
+    #[test]
     fn the_loudest_mix_stays_within_one() {
         let (messages, reports) = (Queue::new(), Queue::new());
         let mut rig = Rig::new(&messages, &reports);
