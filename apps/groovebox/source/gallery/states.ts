@@ -121,7 +121,7 @@ export const STATES: ReadonlyArray<{title: string; frame: string; approved?: str
     approved: 'picker-sound.png',
   },
   {
-    title: 'POOL on snare-room, with hat missing',
+    title: 'POOL on snare-room, with hat missing (pool.png predates the file name in its row)',
     frame: 'pool/frame-217600.png',
     approved: 'pool.png',
   },

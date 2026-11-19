@@ -342,9 +342,10 @@ shows the filter's curve with a faint line at the cutoff. Richer graphics come l
   the sound on any track. A missing sound has its whole row in red and no size
   (`sample  missing kick.wav  no pad`); the file's name is the last part of its path, or the library
   file's name, and a long one is shortened with "…" so that the label takes at most half the row,
-  the name keeping at least its "…" **(owner's choice)**; `pool.png` shows a missing sound without
-  the file's name. The library meter is an item above the strip ("Library", "41.2 of 64 MB" and the
-  2 px bar), the same number as on SAMPLES and in the picker; the strip empty.
+  the name keeping at least its "…" **(owner's choice)**; `pool.png` and the POOL behind
+  `question.png` are older than that choice and show a missing sound without the file's name, which
+  the text overrules. The library meter is an item above the strip ("Library", "41.2 of 64 MB" and
+  the 2 px bar), the same number as on SAMPLES and in the picker; the strip empty.
 - **PROJECT**: New first, then the projects, the open one marked "open", an old-format one marked
   "old format" in red; the strip empty.
 - **PATTERN**: Timing and Bars as pages; the Patterns page lists New, then every pattern with its
