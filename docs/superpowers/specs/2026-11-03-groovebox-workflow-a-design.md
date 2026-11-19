@@ -104,7 +104,9 @@ Where the controls sit on the panel is the Look spec's job.
     track's selected sound, or on REMOVE UNUSED while an empty pad is selected. After that, whenever
     the current track or its selected sound changes by anything but a move on POOL, such as a pad
     hit or T1 to T4, the cursor lands on the new selection's row, so the cursor and the header
-    agree. A cursor on REMOVE UNUSED stays there until the selection changes.
+    agree. A cursor on REMOVE UNUSED stays there while only the cursor moves; a pad hit that selects
+    a pad, T1 to T4 or MENU + 6 lands it on the selection again, also when the selection did not
+    change.
 - **What follows the selection.** The encoders on sound pages edit the selected sound, and the step
   buttons enter its notes (how is Workflow B's).
 
@@ -454,8 +456,9 @@ They belonged to the per-project budget, which Foundation replaced with one libr
   do. The library and the sample RAM stay as they are.
 - **The cursor after a delete.** After DELETE it moves to the row above, as on SAMPLES, and that
   sound is selected as by any move onto it; when the row above is REMOVE UNUSED, the selection stays
-  as the delete left it. After REMOVE UNUSED it stays on REMOVE UNUSED, unless the delete changed
-  the current track's selection, which moves it as anywhere else (see "Selection").
+  as the delete left it. After REMOVE UNUSED it stays on REMOVE UNUSED. After either, a delete that
+  changed the current track's selection moves the cursor as anywhere else (see "Selection"): a sound
+  selected on no pad leaves pad 1 selected, and the cursor lands on pad 1's sound.
 
 ### Alternatives rejected
 

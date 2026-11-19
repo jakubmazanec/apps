@@ -285,9 +285,9 @@ start as long as the note; drums sit on their root row.
   losing its start to "…" when too wide; at the top level it reads "Library 41.2 of 64 MB". Under it
   are 15 rows at every level, folders and files with length and size; every file can be chosen.
 - **A question** is a box with a 1 px outline in the middle of the main area: the question, its
-  count, and what OK and Cancel do; the strip is empty while it is open. POOL's two questions:
+  count and what OK and Cancel do; the strip is empty while it is open. POOL's two questions:
   "Delete Kick?" (text), "On 2 pads, 24 notes" (dim; "On 1 pad" for one), counting every track and
-  left out when nothing uses the sound, and "OK deletes, Cancel keeps" (dim), as in `question.png`;
+  left out when nothing uses the sound; and "OK deletes, Cancel keeps" (dim), as in `question.png`;
   "Remove 3 unused sounds?" or "Remove 1 unused sound?" (text) and "OK removes, Cancel keeps" (dim).
   With no unused sound there is no question: the header says "No unused sounds" in the accent.
 - **The NOTE panel** is a box over STEP with the cell's four values as parameter items, the cursor
