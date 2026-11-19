@@ -46,7 +46,7 @@ impl Project {
     }
 
     /// The sounds nothing uses, in number order.
-    pub fn unused(&self) -> impl Iterator<Item = SoundNumber> + '_ {
+    pub fn unused(&self) -> impl DoubleEndedIterator<Item = SoundNumber> + '_ {
         self.pool
             .sounds()
             .iter()

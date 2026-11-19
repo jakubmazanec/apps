@@ -809,12 +809,19 @@ impl Control {
             }
             Button::Ok if self.view.question == Some(Question::RemoveUnused) => {
                 self.view.question = None;
-                // A delete leaves every other sound as used as it was.
+                for sound in self.project.unused() {
+                    self.unsent
+                        .push(sound)
+                        .expect("`unsent` holds a full pool and is empty when an event deletes");
+                }
+                self.unsent_at = sample;
+                // A delete leaves every other sound as used as it was. From the highest number
+                // down, each delete moves only the used sounds above it in the pool.
                 loop {
-                    let Some(sound) = self.project.unused().next() else {
+                    let Some(sound) = self.project.unused().next_back() else {
                         break;
                     };
-                    self.delete_sound(sound, sample);
+                    self.project.delete_sound(sound);
                 }
             }
             Button::Ok if matches!(self.view.picker, Some((Picker::Sample(_), _))) => {
@@ -1192,7 +1199,7 @@ impl Control {
             Scope::Sound => Target::Sound(
                 self.track()
                     .selected_sound
-                    .expect("a sound's value is on a page only while the pad has a sound"),
+                    .expect("a sound's value is on a page only while a sound is selected"),
             ),
             Scope::Project | Scope::Track => unreachable!("no page shows a project or track value"),
         }
