@@ -120,6 +120,23 @@ export const STATES: ReadonlyArray<{title: string; frame: string; approved?: str
     frame: 'sample-delete/frame-108800.png',
     approved: 'picker-sound.png',
   },
+  {
+    title: 'POOL on snare-room, with hat missing',
+    frame: 'pool/frame-217600.png',
+    approved: 'pool.png',
+  },
+  {
+    title: 'SOUND Pad page of Syn 1 on no pad, with Engine alone',
+    frame: 'pool/frame-259200.png',
+    approved: 'sound-pad.png',
+  },
+  {
+    title: 'Question before deleting kick, on 2 pads',
+    frame: 'pool/frame-288000.png',
+    approved: 'question.png',
+  },
+  {title: 'Question before removing 1 unused sound', frame: 'pool/frame-326400.png'},
+  {title: 'POOL saying "No unused sounds"', frame: 'pool/frame-336000.png'},
   {title: 'SETTINGS Dev page', frame: 'samples-screen/frame-190464.png'},
   {
     title: 'STEP while importing 3 files',
