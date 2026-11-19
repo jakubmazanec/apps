@@ -127,16 +127,23 @@ metronome level, count-in, and which project was open last.
 
 **(owner's choice)**
 
-DELETE on a sound shows a question that counts every pad on every track and every note in every
-pattern that use it, such as "DELETE KICK? ON 2 PADS, 24 NOTES". OK removes all of it: the pads go
-empty and the notes are gone. The project therefore never contains a note whose sound does not
-exist, STEP never needs a lane for a sound that is gone, and nothing can play silence by mistake.
-The sample file stays in the library for other projects. Deleting a sound also empties the undo and
-redo versions, and empties the clipboard when it holds any note of the sound, so neither an undo nor
-a paste can bring back a note of a sound that is gone; REMOVE UNUSED follows the same rule for the
-sounds it removes, which have no notes in any pattern but may still have some in undo or the
-clipboard **(owner's choice)**. Undo does not cover it, and undo and redo are emptied by it; the
-question is the safeguard, as Workflow B decided for sounds.
+DELETE on a sound shows a question, "Delete Kick?", then a dim line that counts every pad on every
+track and every note in every pattern that use it, such as "On 2 pads, 24 notes", then "OK deletes,
+Cancel keeps". A sound nothing uses has no count line, as the question on SAMPLES leaves out its
+count when no sound uses the file: "Delete Syn 4?", then "OK deletes, Cancel keeps". OK removes all
+of it: the pads go empty and the notes are gone. The sound leaves the pool and its number is never
+reused. A track that had selected it on no pad selects pad 1, its default, as every remembered item
+does when its target is gone (see "What a project remembers"). Its voices fade within one 32-sample
+chunk, as a deleted file's voices do. The project therefore never contains a note whose sound does
+not exist, STEP never needs a lane for a sound that is gone, and nothing can play silence by
+mistake. The sample file stays in the library for other projects, and the library and the sample RAM
+stay as they are. Deleting a sound also empties the undo and redo versions, and empties the
+clipboard when it holds any note of the sound, so neither an undo nor a paste can bring back a note
+of a sound that is gone. REMOVE UNUSED removes every unused sound at once, a sound selected on POOL
+that sits on no pad included, by the one definition of used (see "The project and its parts"), and
+follows the same rule for the sounds it removes, which have no notes in any pattern but may still
+have some in undo or the clipboard **(owner's choice)**. Undo does not cover it, and undo and redo
+are emptied by it; the question is the safeguard, as Workflow B decided for sounds.
 
 Of the nine devices researched, none refuses to delete an in-use sound; the MPC lists the tracks
 that use a sample before asking, the Deluge guidebook says it "will not notify you", and all leave
@@ -176,18 +183,19 @@ Which project was open last is a device setting, so starting up opens it (Workfl
 **(owner's choice)** The project opens and plays. A sound whose file is gone keeps every setting and
 plays silence: its note takes a voice that sounds nothing and ends. On opening, one line reports the
 total, such as "2 SAMPLES MISSING"; on POOL the sound is marked MISSING with the file's name, and so
-are its lane on STEP, its row in the sound picker and its name in the header, all in red (Look). Its
-Sample item shows the file's name; its waveform area shows only the middle line and the marks; and
-turning Start, End, Loop start or Loop end does nothing until a file is chosen, since those points
-are frames of a file. The repair is what Workflow A already has: the Sample item on the sound's
-engine page opens the sample picker, and choosing a file fixes the sound everywhere it is used. A
-missing sound keeps its file's path. A file listed under that path, ignoring case, by an import
-makes it play again; a file replaced by a drop of its name keeps its sounds, which play the new
-audio (see "The library"). There is no other way for a sound to lack its sample: the whole library
-is in RAM, so a file that is in the library always plays. The one exception is a library bigger than
-the sample RAM after a hardware change or a lowered budget; the files start-up could not load count
-as missing until something is deleted (see "Starting up"). The sample picker lists them in red as
-"not loaded" and never previews them, and choosing one makes the sound MISSING.
+are its lane on STEP, its row in the sound picker and its name in the header, all in red (Look). On
+POOL a long file name is shortened with "…" so that the label takes at most half the row. Its Sample
+item shows the file's name; its waveform area shows only the middle line and the marks; and turning
+Start, End, Loop start or Loop end does nothing until a file is chosen, since those points are
+frames of a file. The repair is what Workflow A already has: the Sample item on the sound's engine
+page opens the sample picker, and choosing a file fixes the sound everywhere it is used. A missing
+sound keeps its file's path. A file listed under that path, ignoring case, by an import makes it
+play again; a file replaced by a drop of its name keeps its sounds, which play the new audio (see
+"The library"). There is no other way for a sound to lack its sample: the whole library is in RAM,
+so a file that is in the library always plays. The one exception is a library bigger than the sample
+RAM after a hardware change or a lowered budget; the files start-up could not load count as missing
+until something is deleted (see "Starting up"). The sample picker lists them in red as "not loaded"
+and never previews them, and choosing one makes the sound MISSING.
 
 Every device researched that points at files (Deluge, Digitakt II, M8, OP-XY) opens the project and
 plays silence; the Deluge keeps the broken reference and writes it back on save, and the M8 offers a

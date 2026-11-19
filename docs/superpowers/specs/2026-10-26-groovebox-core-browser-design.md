@@ -490,8 +490,6 @@ settles it with the owner.
   tempo or not. Proposed: named constants counted in samples; the speeds: none yet.
 - **An empty pad selected.** Whether its lane is highlighted on STEP; what OK does and where the
   view opens on ROLL. Proposed: none yet.
-- **DELETE for an unused sound.** What the question reads when no pad or note uses the sound.
-  Proposed: none yet.
 
 ### Sound and settings
 

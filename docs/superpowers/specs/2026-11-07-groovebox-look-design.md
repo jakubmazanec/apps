@@ -202,7 +202,8 @@ the owner "for now", expected to change with testing.
   muted.
 - **A message** replaces the transport group, in red for errors (Storage full. Not saved; kick.wav
   not imported: library full; Library can't be read) and in the accent for notices (2 samples
-  missing; Loading library), until a later press of a button clears it **(owner's choice)**:
+  missing; Loading library; No unused sounds), until a later press of a button clears it **(owner's
+  choice)**:
   - The presses that clear it are the 22 function buttons, a step and an encoder push. The press
     that caused the message does not count, and the clearing press still acts. Pads, MIDI notes,
     turns and the volume do not clear it.
@@ -284,7 +285,11 @@ start as long as the note; drums sit on their root row.
   losing its start to "…" when too wide; at the top level it reads "Library 41.2 of 64 MB". Under it
   are 15 rows at every level, folders and files with length and size; every file can be chosen.
 - **A question** is a box with a 1 px outline in the middle of the main area: the question, its
-  count, and what OK and Cancel do; the strip is empty while it is open.
+  count, and what OK and Cancel do; the strip is empty while it is open. POOL's two questions:
+  "Delete Kick?" (text), "On 2 pads, 24 notes" (dim; "On 1 pad" for one), counting every track and
+  left out when nothing uses the sound, and "OK deletes, Cancel keeps" (dim), as in `question.png`;
+  "Remove 3 unused sounds?" or "Remove 1 unused sound?" (text) and "OK removes, Cancel keeps" (dim).
+  With no unused sound there is no question: the header says "No unused sounds" in the accent.
 - **The NOTE panel** is a box over STEP with the cell's four values as parameter items, the cursor
   on one; the strip shows the same four, since the encoders hold them while the panel is open.
 
@@ -329,9 +334,17 @@ shows the filter's curve with a faint line at the cutoff. Richer graphics come l
   choice)**; and a **Dev page** (tile "2 Dev") with library and note memory as items with bars, so
   the device itself has them and the hardware later shows them in the same place; meters are not
   set, so the encoders hold nothing there and the strip is empty **(owner's choice)**.
-- **POOL**: Remove unused first, then every sound with its engine, pads and its sample's size, a
-  missing sound in red; the library meter as an item above the strip ("Library", "41.2 of 64 MB" and
-  the 2 px bar), the same number as on SAMPLES and in the picker; the strip empty.
+- **POOL**: Remove unused first, with no label; then every sound in number order, its name at the
+  left and a dim label at the right: the engine word (for a missing sample "missing" and the file's
+  name), the pads and a loaded sample's size, two spaces apart (`sample  pads 1, 12  38 KB`,
+  `synth  pad 9`; `pool.png`). The pads are the current track's pads that hold the sound, in pad
+  order ("pad 2", "pads 1, 12"), "no pad" when none does and "no pad, no notes" when nothing uses
+  the sound on any track. A missing sound has its whole row in red and no size
+  (`sample  missing kick.wav  no pad`); the file's name is the last part of its path, or the library
+  file's name, and a long one is shortened with "…" so that the label takes at most half the row,
+  the name keeping at least its "…" **(owner's choice)**; `pool.png` shows a missing sound without
+  the file's name. The library meter is an item above the strip ("Library", "41.2 of 64 MB" and the
+  2 px bar), the same number as on SAMPLES and in the picker; the strip empty.
 - **PROJECT**: New first, then the projects, the open one marked "open", an old-format one marked
   "old format" in red; the strip empty.
 - **PATTERN**: Timing and Bars as pages; the Patterns page lists New, then every pattern with its

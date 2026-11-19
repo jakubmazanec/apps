@@ -96,7 +96,15 @@ Where the controls sit on the panel is the Look spec's job.
 - **KEYS mode.** The pads play the selected sound chromatically, and nothing while there is none. To
   play another sound, go back to PADS, hit its pad and switch to KEYS again **(owner's choice)**.
 - **POOL.** Highlighting a sound on the POOL screen selects it too, including a sound that is on no
-  pad of the track **(owner's choice)**. There is then no selected pad.
+  pad of the track **(owner's choice)**. It also selects the first pad of the current track that
+  holds the sound, pad 1 for Kick on pads 1 and 12; only a sound on none of the track's pads leaves
+  no pad selected **(owner's choice)**. Nothing sounds. Highlighting REMOVE UNUSED selects nothing
+  and the selection stays as it was.
+  - **The cursor follows the selection (owner's choice).** POOL opens with its cursor on the current
+    track's selected sound, or on REMOVE UNUSED while an empty pad is selected. After that, whenever
+    the current track or its selected sound changes by anything but a move on POOL, such as a pad
+    hit or T1 to T4, the cursor lands on the new selection's row, so the cursor and the header
+    agree. A cursor on REMOVE UNUSED stays there until the selection changes.
 - **What follows the selection.** The encoders on sound pages edit the selected sound, and the step
   buttons enter its notes (how is Workflow B's).
 
@@ -303,8 +311,8 @@ from here **(owner's choice)**. Its items, held by encoders 1 to 3:
   - Switching back does not restore the old engine's settings; a sound holds one engine's settings.
     The old engine's entries are never read again and are reset when that engine comes back.
 - Encoder 4 holds nothing, so its strip cell is empty.
-- When the sound was selected on POOL, there is no selected pad and the page shows only ENGINE,
-  still on encoder 3.
+- When the sound was selected on POOL and sits on none of the track's pads, there is no selected pad
+  and the page shows only ENGINE, still on encoder 3.
 - **An empty pad (owner's choice).** While the selected pad is empty there is no selected sound.
   SOUND shows only the PAD page, and the page only item 1, which reads EMPTY; OK on it opens the
   sound picker as above. COPY and ENGINE are not shown, and encoders 2 and 3 hold nothing. PAGE
@@ -409,21 +417,45 @@ They belonged to the per-project budget, which Foundation replaced with one libr
 
 ### POOL
 
-- Lists every sound with its engine, the pads it sits on and its sample's size, above the library
-  meter, the same number as on SAMPLES and in the picker **(owner's choice)**. The list's first
-  entry is REMOVE UNUSED.
-- A sound whose sample is not in the library is marked MISSING, with the file's name. It plays
-  silence until its sample parameter picks a file (Project model).
+- Lists every sound in number order with its engine, the pads it sits on and its sample's size,
+  above the library meter, the same number as on SAMPLES and in the picker **(owner's choice)**. The
+  list's first entry is REMOVE UNUSED, with no label.
+- **Moving.** Up, down, − and + move the cursor one row and left and right 15, stopping at the ends,
+  as on SAMPLES. SHIFT with them does nothing, and CANCEL does nothing, since POOL has no folders.
+- **The pads** a row lists are the current track's pads that hold the sound, in pad order, as the
+  PAD page and STEP's lanes show them: "pad 2" or "pads 1, 12", and "no pad" when none does
+  **(owner's choice)**. A sound that nothing uses, on no pad of any track and in no note, reads "no
+  pad, no notes", which is what REMOVE UNUSED removes.
+- A sound whose sample is not in the library, or was not loaded, is marked MISSING, with the file's
+  name: its row is red, with the file's name in place of the size, and a long name is shortened with
+  "…" so that the label takes at most half the row **(owner's choice)**. It plays silence until its
+  sample parameter picks a file (Project model).
 - Highlighting a sound selects it (see "Selection").
-- **OK on a sound** opens a picker with DELETE, which removes it. **OK on REMOVE UNUSED** removes
-  every sound that no pad and no note uses. Both ask a question first; DELETE's counts the pads and
-  notes that use the sound, such as "DELETE KICK? ON 2 PADS, 24 NOTES". Both tidy the pool only: a
-  sample stays in the library, and in RAM, until it is deleted on the SAMPLES screen (Project
-  model), so neither frees sample RAM **(owner's choice)**.
+- **OK on a sound** opens a picker of one row, "Delete", as SAMPLES' file picker does; OK on it
+  opens the question, and CANCEL closes either. **OK on REMOVE UNUSED** removes every sound that no
+  pad and no note uses, a sound selected on POOL that sits on no pad included. Both tidy the pool
+  only: a sample stays in the library, and in RAM, until it is deleted on the SAMPLES screen
+  (Project model), so neither frees sample RAM **(owner's choice)**. Both ask a question first:
+  - DELETE's reads "Delete Kick?", then, dim, how many pads and notes use the sound, counting every
+    track, such as "On 2 pads, 24 notes", with "On 1 pad" for one, then, dim, "OK deletes, Cancel
+    keeps". For a sound nothing uses the count line is left out, as SAMPLES' question leaves out its
+    count when no sound uses the file **(owner's choice)**.
+  - REMOVE UNUSED's reads "Remove 3 unused sounds?" or "Remove 1 unused sound?", then, dim, "OK
+    removes, Cancel keeps". The count is taken when the question is drawn and the sounds when OK is
+    pressed. With no unused sound there is no question: the header says "No unused sounds" in the
+    accent until the next button press **(owner's choice)**.
 - POOL is a list, so the encoders hold nothing and the strip is empty. DELETE is reached only
   through the sound's picker, REMOVE UNUSED only as the list's first entry.
 - Deleting a sound that is in use removes its notes and empties its pads too. A sound is used when
   it is on any pad of any track or played by any note of any pattern (Project model).
+- **What a delete does.** The sound leaves the pool, and its number is never reused. Every pad that
+  holds it, on every track, goes empty. A track that had selected it on no pad selects pad 1, its
+  default (Project model). Its voices fade within one 32-sample chunk, as a deleted file's voices
+  do. The library and the sample RAM stay as they are.
+- **The cursor after a delete.** After DELETE it moves to the row above, as on SAMPLES, and that
+  sound is selected as by any move onto it; when the row above is REMOVE UNUSED, the selection stays
+  as the delete left it. After REMOVE UNUSED it stays on REMOVE UNUSED, unless the delete changed
+  the current track's selection, which moves it as anywhere else (see "Selection").
 
 ### Alternatives rejected
 
