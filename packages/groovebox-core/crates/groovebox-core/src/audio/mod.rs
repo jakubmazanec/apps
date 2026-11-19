@@ -53,8 +53,8 @@ impl Audio {
     /// Renders `left.len()` samples, which must be a multiple of `CHUNK`. At each chunk start it
     /// applies every message that is due and reports the sample at which it applied it. It then
     /// adds up the voices, the last chunk of each voice a new note took or choked or a
-    /// `ForgetSample` faded and the preview, soft-clips the sum and multiplies it by the output
-    /// volume, which moves in a line across the chunk.
+    /// `ForgetSample` or `DeleteSound` faded and the preview, soft-clips the sum and multiplies it
+    /// by the output volume, which moves in a line across the chunk.
     ///
     /// It reads the files' blocks through `readers[v]`, the reader of block table `v`, as
     /// `Tables::readers` allows: through the table that the latest `UseTable` named and only frames
@@ -88,6 +88,10 @@ impl Audio {
                     MessageKind::NewSound { sound } => self.sounds.add(sound, SOUND_DEFAULTS),
                     MessageKind::CopySound { sound, of } => {
                         self.sounds.add(sound, *self.sounds.values(of));
+                    }
+                    MessageKind::DeleteSound { sound } => {
+                        self.voices.delete(sound, &mut fades);
+                        self.sounds.remove(sound);
                     }
                     MessageKind::SetParam {
                         target: Target::Sound(sound),
@@ -167,6 +171,7 @@ impl Default for Audio {
 #[cfg(all(test, not(feature = "loom")))]
 mod tests {
     use super::*;
+    use crate::budget::POOL_SOUNDS;
     use crate::library::FileId;
     use crate::message::{
         MESSAGE_QUEUE, Message, MessageKind, NoteEngine, NoteId, REPORT_QUEUE, Report, SampleFile,
@@ -174,7 +179,8 @@ mod tests {
     };
     use crate::param::{
         CHOKE_GROUP, CUTOFF, DECAY, END, Entry, GATE, LEGATO, LEVEL, LOOP, LOOP_END, MONO,
-        ONE_SHOT, OUTPUT_VOLUME, PLAY_MODE, RESONANCE, SPREAD, SUPERSAW, SUSTAIN, TRIGGER, WAVE,
+        ONE_SHOT, OUTPUT_VOLUME, PLAY_MODE, POLY, RESONANCE, SPREAD, SUPERSAW, SUSTAIN, TRIGGER,
+        WAVE,
     };
     use crate::project::pool::{SOUND_DEFAULTS, SOUND_VALUES, Sound, SoundNumber};
     use crate::queue::{Consumer, Producer, Queue};
@@ -682,6 +688,103 @@ mod tests {
         assert!(fade.iter().any(|&x| x != 0.0));
         assert_eq!(fade[CHUNK - 1], 0.0);
         assert!(after.iter().all(|&x| x == 0.0));
+    }
+
+    fn delete_sound(sound: u32) -> MessageKind {
+        MessageKind::DeleteSound {
+            sound: SoundNumber(sound),
+        }
+    }
+
+    #[test]
+    fn a_deleted_sounds_voices_fade_within_one_chunk() {
+        let played = |notes: &[(u32, u32)], delete: bool| {
+            let (messages, reports) = (Queue::new(), Queue::new());
+            let mut rig = Rig::new(&messages, &reports);
+            rig.send(0, 0, new_sound(1));
+            rig.send(1, 0, new_sound(2));
+            for (number, &(note, sound)) in (2..).zip(notes) {
+                rig.send(number, 0, note_of(note, sound, 60, NoteEngine::Synth));
+            }
+            if delete {
+                rig.send(notes.len() as u32 + 2, 64, delete_sound(1));
+            }
+            let out = rig.render(160);
+            (out, rig.audio.voices.sounding())
+        };
+
+        let (deleted, sounding) = played(&[(0, 1)], true);
+
+        let fade = &deleted[64..96];
+        assert!(!is_silent(fade));
+        assert_eq!(fade[CHUNK - 1], 0.0);
+        assert!(is_silent(&deleted[96..]));
+        assert_eq!(sounding, 0);
+        // The voice of the other sound plays on, and the fade ends at 0 within the chunk.
+        let (both, sounding) = played(&[(0, 1), (1, 2)], true);
+        let (alone, _) = played(&[(1, 2)], false);
+        assert_ne!(bits(&both[64..95]), bits(&alone[64..95]));
+        assert_eq!(bits(&both[95..]), bits(&alone[95..]));
+        assert_eq!(sounding, 1);
+    }
+
+    #[test]
+    fn a_note_off_after_its_sound_is_deleted_does_nothing() {
+        for mode in [POLY, MONO, LEGATO] {
+            let (messages, reports) = (Queue::new(), Queue::new());
+            let mut rig = Rig::new(&messages, &reports);
+            rig.send(0, 0, new_sound(1));
+            rig.send(1, 0, new_sound(2));
+            rig.send(2, 0, set_sound(1, &PLAY_MODE, mode));
+            // Two held keys of sound 1, as a pad and a KEYS note, or as two keys.
+            rig.send(3, 0, note_of(0, 1, 60, NoteEngine::Synth));
+            rig.send(4, 0, note_of(1, 1, 64, NoteEngine::Synth));
+            rig.send(5, 64, delete_sound(1));
+            rig.send(6, 128, note_off(1));
+            rig.send(7, 128, note_off(0));
+            rig.send(8, 160, note_of(2, 2, 60, NoteEngine::Synth));
+
+            rig.render(128);
+            assert_eq!(rig.audio.voices.sounding(), 0, "{mode}");
+            rig.render(32);
+            assert_eq!(rig.audio.voices.sounding(), 0, "{mode}");
+            rig.render(64);
+            assert_eq!(rig.audio.voices.sounding(), 1, "{mode}");
+        }
+    }
+
+    #[test]
+    fn a_choke_note_after_a_delete_reads_no_deleted_sound() {
+        let (messages, reports) = (Queue::new(), Queue::new());
+        let mut rig = Rig::new(&messages, &reports);
+        rig.send(0, 0, new_sound(1));
+        rig.send(1, 0, new_sound(2));
+        rig.send(2, 0, set_sound(1, &CHOKE_GROUP, 1));
+        rig.send(3, 0, set_sound(2, &CHOKE_GROUP, 1));
+        rig.send(4, 0, note_of(0, 1, 60, NoteEngine::Synth));
+        rig.send(5, 64, delete_sound(1));
+        rig.send(6, 128, note_of(1, 2, 60, NoteEngine::Synth));
+        rig.send(7, 160, note_off(0));
+
+        rig.render(192);
+
+        assert_eq!(rig.audio.voices.sounding(), 1);
+    }
+
+    #[test]
+    fn the_audio_part_has_room_for_a_new_sound_after_a_delete_on_a_full_pool() {
+        let (messages, reports) = (Queue::new(), Queue::new());
+        let mut rig = Rig::new(&messages, &reports);
+        for sound in 1..=POOL_SOUNDS as u32 {
+            rig.audio.sounds.add(SoundNumber(sound), SOUND_DEFAULTS);
+        }
+        rig.send(0, 0, delete_sound(1));
+        rig.send(1, 0, new_sound(POOL_SOUNDS as u32 + 1));
+
+        rig.render(32);
+
+        let new = SoundNumber(POOL_SOUNDS as u32 + 1);
+        assert_eq!(*rig.audio.sounds.values(new), SOUND_DEFAULTS);
     }
 
     #[test]

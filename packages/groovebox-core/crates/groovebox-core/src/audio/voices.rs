@@ -235,6 +235,18 @@ impl Voices {
         }
     }
 
+    /// Fades every voice of `sound` that is not idle into `fades`. Its held keys stay: their
+    /// `NoteOff`s still come and clear them, and no voice of the sound is left to return to them.
+    pub fn delete(&mut self, sound: SoundNumber, fades: &mut [[f32; CHUNK]; 2]) {
+        for voice in self
+            .voices
+            .iter_mut()
+            .filter(|voice| voice.state() != State::Idle && voice.sound() == sound)
+        {
+            voice.fade(fades);
+        }
+    }
+
     /// Changes the value of `id` in every voice of `sound`.
     pub fn set(&mut self, sound: SoundNumber, id: ParamId, value: i32) {
         for voice in self

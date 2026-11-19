@@ -75,6 +75,10 @@ pub enum MessageKind {
         sound: SoundNumber,
         of: SoundNumber,
     },
+    /// `sound` was deleted: its voices fade out and the audio part forgets its values.
+    DeleteSound {
+        sound: SoundNumber,
+    },
     /// From this chunk on the audio part reads blocks through block table `version`, 0 or 1.
     UseTable {
         version: u8,

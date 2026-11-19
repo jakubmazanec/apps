@@ -28,6 +28,18 @@ impl Sounds {
         self.length += 1;
     }
 
+    /// Forgets `sound`; the others stay in number order.
+    ///
+    /// # Panics
+    ///
+    /// When the audio part does not hold `sound`, as `values` does.
+    pub fn remove(&mut self, sound: SoundNumber) {
+        let index = self.find(sound);
+
+        self.sounds.copy_within(index + 1..self.length, index);
+        self.length -= 1;
+    }
+
     /// The values of `sound`, in the order of the master list's `Sound` entries.
     ///
     /// # Panics
@@ -61,6 +73,26 @@ impl Default for Sounds {
 #[cfg(all(test, not(feature = "loom")))]
 mod tests {
     use super::*;
+
+    #[test]
+    fn removing_a_sound_keeps_the_others_found_by_number() {
+        let mut sounds = Sounds::new();
+        let with = |value| {
+            let mut values = SOUND_DEFAULTS;
+            values[0] = value;
+            values
+        };
+        for number in 1..=3 {
+            sounds.add(SoundNumber(number), with(number as i32));
+        }
+
+        sounds.remove(SoundNumber(2));
+        sounds.add(SoundNumber(4), with(4));
+
+        for number in [1, 3, 4] {
+            assert_eq!(sounds.values(SoundNumber(number)), &with(number as i32));
+        }
+    }
 
     #[test]
     #[should_panic]
