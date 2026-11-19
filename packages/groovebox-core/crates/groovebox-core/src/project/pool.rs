@@ -222,6 +222,21 @@ impl Pool {
         }))
     }
 
+    /// Takes a sound out of the pool. The others keep their numbers and order, and the next number
+    /// stays, so the number of a deleted sound is never used again.
+    ///
+    /// # Panics
+    ///
+    /// When `number` is not in the pool.
+    pub fn delete(&mut self, number: SoundNumber) {
+        let index = self
+            .find(number)
+            .expect("the sound to delete is in the pool");
+        self.sounds.copy_within(index + 1..self.length, index);
+        self.length -= 1;
+        self.sounds[self.length] = Sound::UNUSED;
+    }
+
     /// The sound with this number, found by a search over the numbers.
     pub fn get(&self, number: SoundNumber) -> Option<&Sound> {
         Some(&self.sounds[self.find(number)?])
@@ -391,6 +406,53 @@ mod tests {
     #[should_panic(expected = "the sound to copy is in the pool")]
     fn copying_a_sound_that_is_not_in_the_pool_panics() {
         let _ = Pool::new().copy(SoundNumber(1));
+    }
+
+    #[test]
+    fn deleting_a_sound_keeps_the_others_in_number_order() {
+        let mut pool = Pool::new();
+        for _ in 0..3 {
+            pool.new_synth().unwrap();
+        }
+
+        pool.delete(SoundNumber(2));
+
+        assert!(pool.sounds().iter().map(|sound| sound.number.0).eq([1, 3]));
+        assert!(pool.get(SoundNumber(2)).is_none());
+        assert_eq!(pool.get(SoundNumber(3)).unwrap().name.as_str(), "Syn 3");
+        assert_eq!(pool.sounds[2], Sound::UNUSED);
+    }
+
+    #[test]
+    fn a_deleted_number_is_never_reused_but_its_name_may_be() {
+        let mut pool = Pool::new();
+        for _ in 0..3 {
+            pool.new_synth().unwrap();
+        }
+        pool.delete(SoundNumber(3));
+
+        let number = pool.new_synth().unwrap();
+
+        assert_eq!(number, SoundNumber(4));
+        assert_eq!(pool.get(number).unwrap().name.as_str(), "Syn 3");
+    }
+
+    #[test]
+    fn a_full_pool_has_room_again_after_a_delete() {
+        let mut pool = Box::new(Pool::new());
+        for _ in 0..1_024 {
+            pool.new_synth().unwrap();
+        }
+
+        pool.delete(SoundNumber(1));
+
+        assert_eq!(pool.new_synth(), Ok(SoundNumber(1_025)));
+    }
+
+    #[test]
+    #[should_panic(expected = "the sound to delete is in the pool")]
+    fn deleting_a_sound_that_is_not_in_the_pool_panics() {
+        Pool::new().delete(SoundNumber(1));
     }
 
     #[test]

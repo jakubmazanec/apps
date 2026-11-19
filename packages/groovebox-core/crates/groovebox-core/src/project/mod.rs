@@ -39,6 +39,32 @@ impl Project {
             .filter(|&&pad| pad == Some(sound))
             .count()
     }
+
+    /// Whether a pad of any track holds `sound`.
+    pub fn is_used(&self, sound: SoundNumber) -> bool {
+        self.pads_using(sound) > 0
+    }
+
+    /// The sounds nothing uses, in number order.
+    pub fn unused(&self) -> impl Iterator<Item = SoundNumber> + '_ {
+        self.pool
+            .sounds()
+            .iter()
+            .map(|sound| sound.number)
+            .filter(|&number| !self.is_used(number))
+    }
+
+    /// Empties the pads that hold `sound` on every track, then takes it out of the pool.
+    ///
+    /// # Panics
+    ///
+    /// When `sound` is not in the pool.
+    pub fn delete_sound(&mut self, sound: SoundNumber) {
+        for track in &mut self.tracks {
+            track.remove(sound);
+        }
+        self.pool.delete(sound);
+    }
 }
 
 impl Default for Project {
@@ -100,6 +126,58 @@ mod tests {
         assert_eq!(project.pads_using(sound), 3);
         assert_eq!(project.pads_using(other), 1);
         assert_eq!(project.pads_using(SoundNumber(99)), 0);
+    }
+
+    #[test]
+    fn a_sound_is_used_while_a_pad_of_any_track_holds_it() {
+        let mut project = Box::new(NEW);
+        let sound = project.pool.new_synth().unwrap();
+        assert!(!project.is_used(sound));
+        project.track = 2;
+        project.put(3, Some(sound));
+
+        assert!(project.is_used(sound));
+
+        project.put(3, None);
+        assert!(!project.is_used(sound));
+    }
+
+    #[test]
+    fn unused_lists_the_sounds_on_no_pad_in_number_order() {
+        let mut project = Box::new(NEW);
+        for _ in 0..4 {
+            project.pool.new_synth().unwrap();
+        }
+        project.put(0, Some(SoundNumber(1)));
+        project.track = 2;
+        project.put(11, Some(SoundNumber(3)));
+
+        assert!(project.unused().map(|sound| sound.0).eq([2, 4]));
+    }
+
+    #[test]
+    fn deleting_a_sound_empties_its_pads_on_every_track_and_leaves_the_pool() {
+        let mut project = Box::new(NEW);
+        let sound = project.pool.new_synth().unwrap();
+        project.put(0, Some(sound));
+        project.track = 1;
+        project.put(4, Some(sound));
+        project.tracks[1].select(4);
+        project.tracks[3].select_sound(sound);
+
+        project.delete_sound(sound);
+
+        assert!(
+            project
+                .tracks
+                .iter()
+                .all(|track| !track.pads.contains(&Some(sound)))
+        );
+        assert_eq!(project.tracks[1].selected_pad, Some(4));
+        assert_eq!(project.tracks[1].selected_sound, None);
+        assert_eq!(project.tracks[3].selected_pad, Some(0));
+        assert_eq!(project.tracks[3].selected_sound, None);
+        assert!(project.pool.get(sound).is_none());
     }
 
     #[test]

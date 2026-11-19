@@ -15,8 +15,8 @@ pub enum PadMode {
 ///
 /// The selection rule: when `selected_pad` is `Some(p)`, `selected_sound` is `pads[p]`. `select` and
 /// `put` keep it, so a pad or the selected pad changes through them and never by writing the
-/// fields. When `selected_pad` is `None` the sound was selected some other way, as POOL will, and
-/// putting a sound on a pad leaves `selected_sound` alone.
+/// fields. When `selected_pad` is `None` the sound was selected some other way, as POOL does through
+/// `select_sound`, and putting a sound on a pad leaves `selected_sound` alone.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Track {
     pub pads: [Option<SoundNumber>; 12],
@@ -49,6 +49,24 @@ impl Track {
     pub fn select(&mut self, pad: u8) {
         self.selected_pad = Some(pad);
         self.selected_sound = self.pads[usize::from(pad)];
+    }
+
+    /// Selects `sound` and the first pad that holds it, or no pad when none does.
+    pub fn select_sound(&mut self, sound: SoundNumber) {
+        self.selected_pad = (0..12).find(|&pad| self.pads[usize::from(pad)] == Some(sound));
+        self.selected_sound = Some(sound);
+    }
+
+    /// Empties every pad that holds `sound`. A selection of `sound` on no pad goes back to pad 1.
+    pub fn remove(&mut self, sound: SoundNumber) {
+        for pad in 0..12 {
+            if self.pads[usize::from(pad)] == Some(sound) {
+                self.put(pad, None);
+            }
+        }
+        if self.selected_pad.is_none() && self.selected_sound == Some(sound) {
+            self.select(0);
+        }
     }
 
     /// Puts `sound` on pad `pad` (0 to 11), or empties the pad. When the pad is the selected pad,
@@ -161,7 +179,7 @@ mod tests {
     #[test]
     fn putting_a_sound_without_a_selected_pad_leaves_the_selected_sound_alone() {
         let mut track = Track::new();
-        // A sound selected somewhere other than a pad, as POOL will do.
+        // A sound selected somewhere other than a pad, as POOL does.
         track.selected_pad = None;
         track.selected_sound = Some(SoundNumber(1));
 
@@ -169,6 +187,73 @@ mod tests {
 
         assert_eq!(track.pads[0], Some(SoundNumber(2)));
         assert_eq!(track.selected_sound, Some(SoundNumber(1)));
+    }
+
+    #[test]
+    fn selecting_a_sound_selects_the_first_pad_that_holds_it() {
+        let mut track = Track::new();
+        track.put(7, Some(SoundNumber(5)));
+        track.put(3, Some(SoundNumber(5)));
+
+        track.select_sound(SoundNumber(5));
+
+        assert_eq!(track.selected_pad, Some(3));
+        assert_eq!(track.selected_sound, Some(SoundNumber(5)));
+    }
+
+    #[test]
+    fn selecting_a_sound_on_no_pad_leaves_no_pad_selected() {
+        let mut track = Track::new();
+        track.put(0, Some(SoundNumber(1)));
+
+        track.select_sound(SoundNumber(9));
+
+        assert_eq!(track.selected_pad, None);
+        assert_eq!(track.selected_sound, Some(SoundNumber(9)));
+    }
+
+    #[test]
+    fn removing_a_sound_empties_its_pads_and_keeps_the_selected_pad() {
+        let mut track = Track::new();
+        track.put(0, Some(SoundNumber(4)));
+        track.put(2, Some(SoundNumber(4)));
+
+        track.remove(SoundNumber(4));
+
+        assert_eq!(track.pads, [None; 12]);
+        assert_eq!(track.selected_pad, Some(0));
+        assert_eq!(track.selected_sound, None);
+    }
+
+    #[test]
+    fn removing_a_sound_selected_on_no_pad_selects_pad_1() {
+        let mut track = Track::new();
+        track.put(0, Some(SoundNumber(1)));
+        track.select_sound(SoundNumber(2));
+
+        track.remove(SoundNumber(2));
+
+        assert_eq!(track.selected_pad, Some(0));
+        assert_eq!(track.selected_sound, Some(SoundNumber(1)));
+    }
+
+    #[test]
+    fn removing_another_sound_keeps_the_selection() {
+        let mut track = Track::new();
+        track.put(0, Some(SoundNumber(1)));
+        track.put(4, Some(SoundNumber(3)));
+
+        track.remove(SoundNumber(3));
+
+        assert_eq!(track.pads[4], None);
+        assert_eq!(track.selected_pad, Some(0));
+        assert_eq!(track.selected_sound, Some(SoundNumber(1)));
+
+        track.select_sound(SoundNumber(2));
+        track.remove(SoundNumber(1));
+
+        assert_eq!(track.selected_pad, None);
+        assert_eq!(track.selected_sound, Some(SoundNumber(2)));
     }
 
     #[test]
