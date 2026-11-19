@@ -591,3 +591,43 @@ fn following_a_sound_far_down_scrolls_it_into_view() {
         }
     );
 }
+
+#[test]
+fn every_pad_hit_and_track_button_lands_a_parked_cursor_on_the_selection() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    let [syn_1, ..] = four_synths(&mut rig);
+    rig.control.project.tracks[2].put(0, Some(syn_1));
+    rig.menu(10, 5);
+    let park = |rig: &mut Rig<'_>, sample: u64| {
+        rig.tap(sample, Button::Left);
+        rig.step(sample + 2);
+        assert_eq!(rig.control.view.pool.cursor.item, 0, "parked at {sample}");
+    };
+
+    // A hit on the selected pad 1, then on pad 12, which holds the same Syn 1.
+    for (sample, pad) in [(100, 0), (200, 11)] {
+        park(&mut rig, sample);
+        rig.hit(sample + 10, pad, 100);
+        rig.release(sample + 20, pad);
+        rig.step(sample + 30);
+
+        assert_eq!(rig.track().selected_pad, Some(pad));
+        assert_eq!(rig.control.view.pool.cursor.item, 1, "pad {pad}");
+        assert!(shows(
+            &rig.control,
+            &pool(&rig, ("Syn 1", TEXT), &four_rows())
+        ));
+    }
+
+    // T1 on T1, then T3, whose pad 1 holds Syn 1 too.
+    for (sample, button, track) in [(300, Button::T1, 0), (400, Button::T3, 2)] {
+        park(&mut rig, sample);
+        rig.tap(sample + 10, button);
+        rig.step(sample + 20);
+
+        assert_eq!(rig.control.project.track, track);
+        assert_eq!(rig.track().selected_sound, Some(syn_1));
+        assert_eq!(rig.control.view.pool.cursor.item, 1, "{button:?}");
+    }
+}

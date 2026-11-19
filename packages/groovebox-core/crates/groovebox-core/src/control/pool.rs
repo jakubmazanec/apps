@@ -33,10 +33,14 @@ impl Control {
         }
     }
 
-    /// Puts POOL's cursor on the row of the current track's selected sound, or on Remove unused
-    /// while an empty pad is selected, scrolled as far as it must, and records the selection it
-    /// shows (S8).
+    /// While POOL shows, puts its cursor on the row of the current track's selected sound, or on
+    /// Remove unused while an empty pad is selected, scrolled as far as it must, and records the
+    /// selection it shows (S8). Opening POOL, every pad hit that selects a pad and T1 to T4 land
+    /// it, also on the sound it shows already, so the cursor and the header agree (answer 1).
     pub(super) fn land_on_selection(&mut self) {
+        if self.view.screen != Screen::Pool {
+            return;
+        }
         let selected = self.track().selected_sound;
         let item = selected.map_or(0, |sound| {
             1 + self
@@ -55,12 +59,9 @@ impl Control {
     }
 
     /// While POOL shows, lands its cursor on the selection when the current track or its selected
-    /// sound changed since the cursor last landed: by a pad hit, T1 to T4 or anything else but a
-    /// move on POOL (S8).
+    /// sound changed since the cursor last landed by anything but a move on POOL (S8).
     pub(super) fn follow_selection(&mut self) {
-        if self.view.screen == Screen::Pool
-            && self.view.pool.shows != (self.project.track, self.track().selected_sound)
-        {
+        if self.view.pool.shows != (self.project.track, self.track().selected_sound) {
             self.land_on_selection();
         }
     }

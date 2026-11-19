@@ -588,11 +588,11 @@ impl Control {
     /// A hit from `source`. In PADS mode it hits `pad`: it plays the pad's sound at its own pitch,
     /// C4 for a synth, where it sounds unchanged, and its Root note for a sample sound, where it
     /// sounds as recorded (S2), and selects the pad and its sound unless a picker or a question is
-    /// open, as a new selection would change what it is for. In KEYS mode it is the key of the
-    /// pitch `key`: that becomes the last key played, and it plays the selected sound at that
-    /// pitch. With no sound it plays nothing, and neither does a source that has a note on
-    /// already. A sample sound's note carries its file while the audio part may read it
-    /// (`playable`), and no file otherwise.
+    /// open, as a new selection would change what it is for; a selected pad lands POOL's cursor
+    /// (`land_on_selection`). In KEYS mode it is the key of the pitch `key`: that becomes the last
+    /// key played, and it plays the selected sound at that pitch. With no sound it plays nothing,
+    /// and neither does a source that has a note on already. A sample sound's note carries its
+    /// file while the audio part may read it (`playable`), and no file otherwise.
     fn hit(
         &mut self,
         source: Source,
@@ -616,6 +616,9 @@ impl Control {
                 (None, Some(key), track.selected_sound)
             }
         };
+        if pad.is_some() && !open {
+            self.land_on_selection();
+        }
         let Some(sound) = sound else {
             return;
         };
@@ -698,8 +701,8 @@ impl Control {
     ///   nothing; leaving SAMPLES for another screen stops the preview (`stop_preview`), and POOL
     ///   opens on the selection (`land_on_selection`). The arrows, OK, CANCEL, - and +, the encoder
     ///   pushes, ROLL, PADS/KEYS and COPY are dropped, and so taken too.
-    /// - T1 to T4 select the track. With SHIFT held they do nothing until muting comes with the
-    ///   sequencer.
+    /// - T1 to T4 select the track and land POOL's cursor (`land_on_selection`). With SHIFT held
+    ///   they do nothing until muting comes with the sequencer.
     /// - SHIFT + OK and SHIFT + an encoder push do nothing.
     /// - PADS/KEYS held + up or down moves the octave in KEYS mode, stopping at C0 and C8, and in
     ///   PADS mode does nothing. PADS/KEYS held + left or right does nothing. Each arrow under
@@ -893,10 +896,15 @@ impl Control {
             {
                 self.buttons.take(button);
             }
-            Button::T1 => self.project.track = 0,
-            Button::T2 => self.project.track = 1,
-            Button::T3 => self.project.track = 2,
-            Button::T4 => self.project.track = 3,
+            Button::T1 | Button::T2 | Button::T3 | Button::T4 => {
+                self.project.track = match button {
+                    Button::T1 => 0,
+                    Button::T2 => 1,
+                    Button::T3 => 2,
+                    _ => 3,
+                };
+                self.land_on_selection();
+            }
             Button::Up | Button::Down | Button::Left | Button::Right if pads_keys => {
                 self.buttons.take(button);
                 let track = self.track_mut();
