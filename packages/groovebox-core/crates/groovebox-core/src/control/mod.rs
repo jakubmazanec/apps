@@ -6,6 +6,7 @@ mod pool;
 pub mod samples;
 pub mod view;
 
+use crate::budget;
 use crate::input::{Button, Input, PADS, Stamped, VOLUME};
 use crate::label::Label;
 use crate::library::import::Import;
@@ -66,6 +67,8 @@ enum Entry<'a> {
     SynthEngine,
     /// Asks whether to delete this file of the library.
     Delete(FileId),
+    /// Asks whether to delete this sound of the pool.
+    DeleteSound(SoundNumber),
 }
 
 /// An event of `step`, in this order on equal samples.
@@ -149,6 +152,10 @@ pub struct Control {
     /// The sample of the event at which the import listed a file, and the file, while missing
     /// sounds of its path wait to take it (`relink`).
     relinking: Option<(u64, FileId)>,
+    /// The deleted sounds whose `DeleteSound` is still to be sent, oldest first, and the sample of
+    /// the event that deleted them: `step` sends them before any later event (S17).
+    unsent: Ring<SoundNumber, { budget::POOL_SOUNDS }>,
+    unsent_at: u64,
     library: Library,
     project: Project,
     settings: DeviceSettings,
@@ -192,6 +199,8 @@ impl Control {
             import: Import::new(),
             delete: None,
             relinking: None,
+            unsent: Ring::new(),
+            unsent_at: 0,
             library: Library::new(),
             project: Project::new(),
             settings: DeviceSettings::new(),
@@ -267,7 +276,9 @@ impl Control {
     /// queue has room for `MAX_MESSAGES_PER_EVENT` messages. Otherwise the step stops before it
     /// and leaves it and every later event for a later step, which goes on exactly where this one
     /// stopped. Before any later event the missing sounds of a file the import listed take it, one
-    /// sound at a time with the same room (`relink`).
+    /// sound at a time with the same room (`relink`). Before both, the `DeleteSound`s of deleted
+    /// sounds go out, oldest first, as far as the queue has room for them (`delete_sound`, S17);
+    /// while any is left the step handles no event and stops there.
     ///
     /// The first step starts the start-up's job, and a reply goes to it with `io`, the I/O buffer,
     /// as its request left it. When the job ends the project opens, with the job's result as the
@@ -302,7 +313,15 @@ impl Control {
             self.request = Some(startup.request(&self.library));
         }
         let mut redraw = first;
-        while messages.free() >= MAX_MESSAGES_PER_EVENT {
+        loop {
+            while messages.free() > 0
+                && let Some(sound) = self.unsent.pop()
+            {
+                self.send(self.unsent_at, MessageKind::DeleteSound { sound }, messages);
+            }
+            if self.unsent.peek().is_some() || messages.free() < MAX_MESSAGES_PER_EVENT {
+                break;
+            }
             if self.relinking.is_some() {
                 self.relink(messages);
                 redraw = true;
@@ -723,11 +742,14 @@ impl Control {
     /// neither moves the highlight nor repeats, also once SHIFT or PADS/KEYS is let go. Opening and
     /// closing the picker take the arrows, - and + that are held, as a counted MENU or PAGE does
     /// (`end_held_repeats`). While a question is open only OK and a tap of CANCEL answer it, OK
-    /// deleting the file (`delete_file`) unless the import replaces a file; the arrows, - and + are
-    /// taken too, and the other controls act as with a picker open.
+    /// deleting the file (`delete_file`) unless the import replaces a file, or on POOL the sound,
+    /// with the cursor going to the row above (S16), or every sound unused at that moment
+    /// (`delete_sound`); the arrows, - and + are taken too, and the other controls act as with a
+    /// picker open.
     ///
     /// Otherwise the arrows, - and + nudge (`nudge`), OK uses the item under the cursor, or acts on
-    /// SAMPLES' row (`ok_in_samples`), and an encoder push the item its encoder holds.
+    /// SAMPLES' row (`ok_in_samples`) or POOL's (`ok_in_pool`), and an encoder push the item its
+    /// encoder holds.
     fn press(
         &mut self,
         button: Button,
@@ -779,6 +801,22 @@ impl Control {
                     self.delete_file(file, sample, messages);
                 }
             }
+            Button::Ok if let Some(Question::DeleteSound(sound)) = self.view.question => {
+                self.view.question = None;
+                self.delete_sound(sound, sample);
+                // The cursor is still on the deleted sound's row, and goes to the row above (S16).
+                self.move_in_pool(Button::Up);
+            }
+            Button::Ok if self.view.question == Some(Question::RemoveUnused) => {
+                self.view.question = None;
+                // A delete leaves every other sound as used as it was.
+                loop {
+                    let Some(sound) = self.project.unused().next() else {
+                        break;
+                    };
+                    self.delete_sound(sound, sample);
+                }
+            }
             Button::Ok if matches!(self.view.picker, Some((Picker::Sample(_), _))) => {
                 self.ok_in_samples(sample, messages);
             }
@@ -788,6 +826,10 @@ impl Control {
                 let sound = match self.entry(open, highlight.item) {
                     Entry::Delete(file) => {
                         self.view.question = Some(Question::DeleteFile(file));
+                        return;
+                    }
+                    Entry::DeleteSound(sound) => {
+                        self.view.question = Some(Question::DeleteSound(sound));
                         return;
                     }
                     // A full pool refuses at once, so the sample picker never opens (answer 4).
@@ -925,6 +967,7 @@ impl Control {
             Button::Ok if self.view.screen == Screen::Samples => {
                 self.ok_in_samples(sample, messages);
             }
+            Button::Ok if self.view.screen == Screen::Pool => self.ok_in_pool(),
             Button::Ok => {
                 let screen = self.view.screen;
                 if let Some(&item) = self.items(screen).get(self.cursor(screen).item) {
@@ -1220,7 +1263,7 @@ impl Control {
     }
 
     /// Row `row` of `picker`: in the sound picker Empty, New sample, New synth, then the sounds of
-    /// the pool in number order; in the Engine picker Sample, then Synth; in the Delete picker,
+    /// the pool in number order; in the Engine picker Sample, then Synth; in a Delete picker,
     /// Delete. The sample picker's rows are the library's (`samples::rows`).
     fn entry(&self, picker: Picker, row: usize) -> Entry<'_> {
         match (picker, row) {
@@ -1231,6 +1274,7 @@ impl Control {
             (Picker::Engine, 0) => Entry::SampleEngine,
             (Picker::Engine, _) => Entry::SynthEngine,
             (Picker::Delete(file), _) => Entry::Delete(file),
+            (Picker::DeleteSound(sound), _) => Entry::DeleteSound(sound),
             (Picker::Sample(_), _) => unreachable!("the sample picker's rows are the library's"),
         }
     }
@@ -1241,7 +1285,7 @@ impl Control {
             Picker::Sound => FIRST_SOUND_ROW + self.project.pool.sounds().len(),
             Picker::Engine => 2,
             Picker::Sample(_) => unreachable!("the sample picker's rows are the library's"),
-            Picker::Delete(_) => 1,
+            Picker::Delete(_) | Picker::DeleteSound(_) => 1,
         }
     }
 
@@ -1282,11 +1326,16 @@ impl Control {
     /// Shows "Pool full" in red: New synth, New sample or Copy made nothing, as the pool holds as
     /// many sounds as it can.
     fn pool_full(&mut self) {
-        let mut text = Label::new();
-        text.push_str("Pool full");
+        self.say("Pool full", RECORD);
+    }
+
+    /// Shows `text` in `color` as the header's message, which names no file.
+    fn say(&mut self, text: &str, color: Color) {
+        let mut label = Label::new();
+        label.push_str(text);
         self.message = Some(HeaderMessage {
-            text,
-            color: RECORD,
+            text: label,
+            color,
             name: (0, 0),
         });
     }

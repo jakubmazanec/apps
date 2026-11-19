@@ -13,16 +13,27 @@ use crate::sample_ram::BLOCK;
 use crate::storage::Path;
 use crate::ui::layout::{ROW_WIDTH, TEXT_INSET};
 use crate::ui::list::{Row, draw_rows};
+use crate::ui::question::draw_question;
 use crate::ui::test_pixels::MOVED;
 use crate::ui::text;
 use crate::ui::tiles::{PadTile, draw_pad_tiles};
 use std::format;
 use std::string::String;
-use view::Cursor;
+use view::{Cursor, Picker, Question};
 
 /// POOL on T1 in PADS mode with `sound` in the header: Remove unused and then `rows`, with the
 /// cursor where POOL's view has it, and the library meter above an empty strip.
 fn pool(rig: &Rig<'_>, sound: (&str, Color), rows: &[Row]) -> Screen {
+    pool_saying(rig, sound, None, rows)
+}
+
+/// `pool` with `message` on the right of the header.
+fn pool_saying(
+    rig: &Rig<'_>,
+    sound: (&str, Color),
+    message: Option<(&str, Color)>,
+    rows: &[Row],
+) -> Screen {
     let cursor = rig.control.view.pool.cursor;
     let used = rig.control.library.used();
     let value = name::meter(used, budget::SAMPLE_RAM as u64);
@@ -32,7 +43,7 @@ fn pool(rig: &Rig<'_>, sound: (&str, Color), rows: &[Row]) -> Screen {
         .collect();
     drawn(
         &[("Pool", ACCENT), ("T1", TEXT), sound, ("Pads", DIM)],
-        None,
+        message,
         |screen| {
             draw_rows(screen, 17, 15, &rows, cursor.scroll, Some(cursor.item), 0);
             draw_item(
@@ -47,6 +58,17 @@ fn pool(rig: &Rig<'_>, sound: (&str, Color), rows: &[Row]) -> Screen {
         },
         &[None; 4],
     )
+}
+
+/// `pool` under the question of these `lines`.
+fn asking(rig: &Rig<'_>, sound: (&str, Color), rows: &[Row], lines: &[(&str, Color)]) -> Screen {
+    let mut screen = pool(rig, sound, rows);
+    draw_question(&mut screen, lines);
+    screen
+}
+
+fn delete(sound: SoundNumber) -> MessageKind {
+    MessageKind::DeleteSound { sound }
 }
 
 /// The row of a missing sound named `name`, with `label`.
@@ -630,4 +652,437 @@ fn every_pad_hit_and_track_button_lands_a_parked_cursor_on_the_selection() {
         assert_eq!(rig.track().selected_sound, Some(syn_1));
         assert_eq!(rig.control.view.pool.cursor.item, 1, "{button:?}");
     }
+}
+
+#[test]
+fn ok_on_a_sound_opens_its_delete_picker() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    let [syn_1, ..] = four_synths(&mut rig);
+    rig.menu(10, 5);
+
+    rig.tap(20, Button::Ok);
+    rig.step(30);
+
+    assert_eq!(
+        rig.control.view.picker,
+        Some((Picker::DeleteSound(syn_1), Cursor { item: 0, scroll: 0 }))
+    );
+    assert!(shows(
+        &rig.control,
+        &drawn(
+            &[
+                ("Pool", ACCENT),
+                ("T1", TEXT),
+                ("Syn 1", TEXT),
+                ("Pads", DIM)
+            ],
+            None,
+            |screen| {
+                draw_rows(screen, 17, 16, &[row("Delete", None)], 0, Some(0), 0);
+            },
+            &[None; 4],
+        )
+    ));
+
+    rig.tap(40, Button::Cancel);
+    rig.step(50);
+
+    assert_eq!(rig.control.view.picker, None);
+    assert!(shows(
+        &rig.control,
+        &pool(&rig, ("Syn 1", TEXT), &four_rows())
+    ));
+}
+
+#[test]
+fn a_hit_while_pools_picker_is_open_moves_nothing() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    let [syn_1, syn_2, ..] = four_synths(&mut rig);
+    rig.menu(10, 5);
+    rig.tap(20, Button::Ok);
+
+    // Pad 2 sounds but does not select, and T1 to T4 do nothing.
+    rig.hit(30, 1, 100);
+    rig.release(40, 1);
+    for (sample, button) in [
+        (50, Button::T1),
+        (60, Button::T2),
+        (70, Button::T3),
+        (80, Button::T4),
+    ] {
+        rig.tap(sample, button);
+    }
+    rig.step(90);
+
+    assert_eq!(
+        rig.sent(),
+        [
+            message(0, 30, note_on(0, 0, syn_2, 60, 100)),
+            message(1, 40, note_off(0))
+        ]
+    );
+    assert_eq!(rig.control.project.track, 0);
+    assert_eq!(rig.track().selected_pad, Some(0));
+    assert_eq!(rig.track().selected_sound, Some(syn_1));
+    assert_eq!(rig.control.view.pool.cursor.item, 1);
+    assert_eq!(
+        rig.control.view.picker,
+        Some((Picker::DeleteSound(syn_1), Cursor { item: 0, scroll: 0 }))
+    );
+}
+
+#[test]
+fn the_delete_question_counts_the_pads_on_every_track() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    let [syn_1, ..] = four_synths(&mut rig);
+    rig.control.project.tracks[1].put(2, Some(syn_1));
+    rig.menu(10, 5);
+
+    rig.tap(20, Button::Ok);
+    rig.tap(30, Button::Ok);
+    rig.step(40);
+
+    assert_eq!(
+        rig.control.view.question,
+        Some(Question::DeleteSound(syn_1))
+    );
+    assert!(shows(
+        &rig.control,
+        &asking(
+            &rig,
+            ("Syn 1", TEXT),
+            &four_rows(),
+            &[
+                ("Delete Syn 1?", TEXT),
+                ("On 3 pads", DIM),
+                ("OK deletes, Cancel keeps", DIM),
+            ]
+        )
+    ));
+
+    // Syn 2 is on pad 2 alone.
+    rig.tap(50, Button::Cancel);
+    rig.tap(60, Button::Down);
+    rig.tap(70, Button::Ok);
+    rig.tap(80, Button::Ok);
+    rig.step(90);
+
+    assert!(shows(
+        &rig.control,
+        &asking(
+            &rig,
+            ("Syn 2", TEXT),
+            &four_rows(),
+            &[
+                ("Delete Syn 2?", TEXT),
+                ("On 1 pad", DIM),
+                ("OK deletes, Cancel keeps", DIM),
+            ]
+        )
+    ));
+}
+
+#[test]
+fn the_delete_question_of_an_unused_sound_has_no_count() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    four_synths(&mut rig);
+    rig.menu(10, 5);
+    rig.tap(20, Button::Right);
+
+    rig.tap(30, Button::Ok);
+    rig.tap(40, Button::Ok);
+    rig.step(50);
+
+    assert!(shows(
+        &rig.control,
+        &asking(
+            &rig,
+            ("Syn 4", TEXT),
+            &four_rows(),
+            &[("Delete Syn 4?", TEXT), ("OK deletes, Cancel keeps", DIM)]
+        )
+    ));
+}
+
+#[test]
+fn ok_deletes_the_sound_and_lands_on_the_row_above() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    let syn_1 = rig.synth_on(0);
+    let syn_2 = rig.synth_on(1);
+    rig.control.project.tracks[1].put(0, Some(syn_2));
+    rig.menu(10, 5);
+    rig.tap(20, Button::Down);
+    rig.tap(30, Button::Ok);
+    rig.tap(40, Button::Ok);
+
+    rig.tap(50, Button::Ok);
+    rig.step(60);
+
+    assert_eq!(rig.sent(), [message(0, 50, delete(syn_2))]);
+    assert_eq!(rig.control.view.question, None);
+    assert_eq!(rig.track().pads[1], None);
+    assert_eq!(rig.control.project.tracks[1].pads[0], None);
+    assert_eq!(rig.control.view.pool.cursor.item, 1);
+    assert_eq!(rig.track().selected_pad, Some(0));
+    assert_eq!(rig.track().selected_sound, Some(syn_1));
+    assert!(shows(
+        &rig.control,
+        &pool(&rig, ("Syn 1", TEXT), &[row("Syn 1", Some("synth  pad 1"))])
+    ));
+}
+
+#[test]
+fn cancel_keeps_the_sound() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    four_synths(&mut rig);
+    rig.menu(10, 5);
+    rig.tap(20, Button::Ok);
+    rig.tap(30, Button::Ok);
+
+    rig.tap(40, Button::Cancel);
+    rig.step(50);
+
+    assert_eq!(rig.sent(), []);
+    assert_eq!(rig.control.view.question, None);
+    assert_eq!(rig.control.project.pool.sounds().len(), 4);
+    assert!(shows(
+        &rig.control,
+        &pool(&rig, ("Syn 1", TEXT), &four_rows())
+    ));
+}
+
+#[test]
+fn deleting_the_first_sound_lands_on_remove_unused() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    let [syn_1, ..] = four_synths(&mut rig);
+    rig.menu(10, 5);
+    rig.tap(20, Button::Ok);
+    rig.tap(30, Button::Ok);
+
+    rig.tap(40, Button::Ok);
+    rig.step(50);
+
+    assert_eq!(rig.sent(), [message(0, 40, delete(syn_1))]);
+    assert_eq!(rig.control.view.pool.cursor.item, 0);
+    // The track keeps the empty pad the delete left.
+    assert_eq!(rig.track().selected_pad, Some(0));
+    assert_eq!(rig.track().selected_sound, None);
+    assert!(shows(
+        &rig.control,
+        &pool(&rig, ("1", DIM), &four_rows()[1..])
+    ));
+}
+
+#[test]
+fn a_track_that_selected_the_deleted_sound_on_no_pad_goes_back_to_pad_1() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    let [_, _, syn_3, syn_4] = four_synths(&mut rig);
+    rig.menu(10, 5);
+    // T2 selects Syn 4, which is on none of its pads, and so does T1.
+    rig.tap(20, Button::T2);
+    rig.tap(30, Button::Down);
+    rig.tap(40, Button::T1);
+    rig.tap(50, Button::Right);
+    rig.step(60);
+    assert_eq!(rig.control.project.tracks[1].selected_pad, None);
+    assert_eq!(rig.control.project.tracks[1].selected_sound, Some(syn_4));
+
+    rig.tap(70, Button::Ok);
+    rig.tap(80, Button::Ok);
+    rig.tap(90, Button::Ok);
+    rig.step(100);
+
+    assert_eq!(rig.sent(), [message(0, 90, delete(syn_4))]);
+    // T2's pad 1 holds Syn 3.
+    assert_eq!(rig.control.project.tracks[1].selected_pad, Some(0));
+    assert_eq!(rig.control.project.tracks[1].selected_sound, Some(syn_3));
+    // On T1 the cursor goes to Syn 3, the row above, and selects it on no pad.
+    assert_eq!(rig.control.view.pool.cursor.item, 3);
+    assert_eq!(rig.track().selected_pad, None);
+    assert_eq!(rig.track().selected_sound, Some(syn_3));
+    assert!(shows(
+        &rig.control,
+        &pool(&rig, ("Syn 3", TEXT), &four_rows()[..3])
+    ));
+}
+
+#[test]
+fn remove_unused_asks_with_the_count_and_removes_every_unused_sound() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    let syn_1 = rig.synth_on(0);
+    let syn_2 = rig.control.project.pool.new_synth().unwrap();
+    rig.control.project.tracks[1].put(0, Some(syn_2));
+    let syn_3 = rig.control.project.pool.new_synth().unwrap();
+    let syn_4 = rig.control.project.pool.new_synth().unwrap();
+    rig.menu(10, 5);
+    rig.tap(20, Button::Left);
+
+    rig.tap(30, Button::Ok);
+    rig.step(40);
+
+    let rows = [
+        row("Syn 1", Some("synth  pad 1")),
+        row("Syn 2", Some("synth  no pad")),
+        row("Syn 3", Some("synth  no pad, no notes")),
+        row("Syn 4", Some("synth  no pad, no notes")),
+    ];
+    assert_eq!(rig.control.view.question, Some(Question::RemoveUnused));
+    assert!(shows(
+        &rig.control,
+        &asking(
+            &rig,
+            ("Syn 1", TEXT),
+            &rows,
+            &[
+                ("Remove 2 unused sounds?", TEXT),
+                ("OK removes, Cancel keeps", DIM)
+            ]
+        )
+    ));
+
+    rig.tap(50, Button::Ok);
+    rig.step(60);
+
+    assert_eq!(
+        rig.sent(),
+        [message(0, 50, delete(syn_3)), message(1, 50, delete(syn_4))]
+    );
+    assert_eq!(rig.control.view.question, None);
+    assert_eq!(rig.control.view.pool.cursor.item, 0);
+    assert_eq!(rig.track().selected_sound, Some(syn_1));
+    assert!(shows(
+        &rig.control,
+        &pool(&rig, ("Syn 1", TEXT), &rows[..2])
+    ));
+}
+
+#[test]
+fn remove_unused_with_one_unused_sound_says_sound() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    four_synths(&mut rig);
+    rig.menu(10, 5);
+    rig.tap(20, Button::Left);
+
+    rig.tap(30, Button::Ok);
+    rig.step(40);
+
+    assert!(shows(
+        &rig.control,
+        &asking(
+            &rig,
+            ("Syn 1", TEXT),
+            &four_rows(),
+            &[
+                ("Remove 1 unused sound?", TEXT),
+                ("OK removes, Cancel keeps", DIM)
+            ]
+        )
+    ));
+}
+
+#[test]
+fn remove_unused_with_none_unused_says_so_in_the_header() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    rig.synth_on(0);
+    rig.menu(10, 5);
+    rig.tap(20, Button::Left);
+
+    rig.tap(30, Button::Ok);
+    rig.step(40);
+
+    let rows = [row("Syn 1", Some("synth  pad 1"))];
+    assert_eq!(rig.control.view.question, None);
+    assert!(shows(
+        &rig.control,
+        &pool_saying(
+            &rig,
+            ("Syn 1", TEXT),
+            Some(("No unused sounds", ACCENT)),
+            &rows
+        )
+    ));
+
+    // The next button press clears it.
+    rig.tap(50, Button::Cancel);
+    rig.step(60);
+
+    assert!(shows(&rig.control, &pool(&rig, ("Syn 1", TEXT), &rows)));
+}
+
+#[test]
+fn remove_unused_removes_a_sound_selected_on_no_pad_and_the_cursor_follows_pad_1() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    let [syn_1, .., syn_4] = four_synths(&mut rig);
+    rig.menu(10, 5);
+    // Syn 4, on no pad, stays selected on Remove unused.
+    rig.tap(20, Button::Right);
+    rig.tap(30, Button::Left);
+
+    rig.tap(40, Button::Ok);
+    rig.tap(50, Button::Ok);
+    rig.step(60);
+
+    assert_eq!(rig.sent(), [message(0, 50, delete(syn_4))]);
+    assert_eq!(rig.track().selected_pad, Some(0));
+    assert_eq!(rig.track().selected_sound, Some(syn_1));
+    assert_eq!(rig.control.view.pool.cursor.item, 1);
+    assert!(shows(
+        &rig.control,
+        &pool(&rig, ("Syn 1", TEXT), &four_rows()[..3])
+    ));
+}
+
+#[test]
+fn remove_unused_on_a_full_pool_sends_every_delete_before_the_next_new_sound() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    rig.synth_on(0);
+    while rig.control.project.pool.new_synth().is_ok() {}
+    rig.menu(10, 5);
+    rig.tap(20, Button::Left);
+    rig.tap(30, Button::Ok);
+    rig.tap(40, Button::Ok);
+    // SOUND's Sound item opens the sound picker on Syn 1, and Up highlights New synth.
+    rig.menu(50, 2);
+    rig.tap(60, Button::Ok);
+    rig.tap(70, Button::Up);
+    rig.tap(80, Button::Ok);
+
+    // The audio part empties the queue before each step.
+    rig.step(100);
+    let mut sent = rig.sent();
+    assert!(sent.len() < 1_023);
+    while rig.control.unsent.peek().is_some() {
+        // No event is handled while a delete waits, so MENU + 2 waits too.
+        assert_eq!(rig.control.view.screen, view::Screen::Pool);
+        rig.step(100);
+        sent.extend(rig.sent());
+    }
+    rig.step(100);
+    sent.extend(rig.sent());
+
+    let mut expected: Vec<Message> = (2..=1_024)
+        .zip(0..)
+        .map(|(sound, number)| message(number, 40, delete(SoundNumber(sound))))
+        .collect();
+    expected.push(message(
+        1_023,
+        80,
+        MessageKind::NewSound {
+            sound: SoundNumber(1_025),
+        },
+    ));
+    assert_eq!(sent, expected);
 }

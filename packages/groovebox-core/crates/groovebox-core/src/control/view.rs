@@ -116,7 +116,7 @@ pub struct PoolView {
 }
 
 /// A picker: the sound picker of the selected pad, the Engine picker of the selected sound, the
-/// sample picker or the Delete picker of a file of SAMPLES.
+/// sample picker or the Delete picker of a file of SAMPLES or of a sound of POOL.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Picker {
     Sound,
@@ -124,6 +124,7 @@ pub enum Picker {
     Engine,
     Sample(Pick),
     Delete(FileId),
+    DeleteSound(SoundNumber),
 }
 
 /// What choosing a file in the sample picker does.
@@ -142,6 +143,10 @@ pub enum Pick {
 pub enum Question {
     /// "Delete clap.wav?"
     DeleteFile(FileId),
+    /// "Delete Kick?"
+    DeleteSound(SoundNumber),
+    /// "Remove 3 unused sounds?"
+    RemoveUnused,
 }
 
 /// What the screen shows: the screen, the page each screen shows, the cursor of each page, the

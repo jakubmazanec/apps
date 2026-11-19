@@ -57,8 +57,10 @@ impl Control {
     /// row. POOL shows Remove unused, then a row of each sound of the pool (`pool_row`), with the
     /// cursor and the library meter above the strip. The sound picker shows a MISSING sound's row
     /// in red. A question shows in a box in the middle of the main area, over what the main area
-    /// shows: DELETE's names the file, then counts the sounds that use it, if any, as "2 sounds use
-    /// it" (S17). The strip shows the items that the encoders hold on the page they use, and
+    /// shows: SAMPLES' DELETE names the file, then counts the sounds that use it, if any, as "2
+    /// sounds use it" (S17); POOL's DELETE names the sound, then counts the pads that hold it on
+    /// every track, if any, as "On 2 pads" (S12); Remove unused counts the unused sounds as it is
+    /// drawn (S13). The strip shows the items that the encoders hold on the page they use, and
     /// nothing while MENU or PAGE is held, the picker is open or SAMPLES or POOL shows.
     ///
     /// The text under the cursor, the current tile's name and the selected pad's name scroll when
@@ -188,8 +190,10 @@ impl Control {
         let mut scrolls = false;
         if let Some(tiles) = self.tiles() {
             scrolls = draw_tiles(canvas, &tiles, elapsed);
-        } else if let Some((open @ (Picker::Sound | Picker::Engine | Picker::Delete(_)), picker)) =
-            self.view.picker
+        } else if let Some((
+            open @ (Picker::Sound | Picker::Engine | Picker::Delete(_) | Picker::DeleteSound(_)),
+            picker,
+        )) = self.view.picker
         {
             let shown = picker.scroll..self.picker_rows(open).min(picker.scroll + LIST_VISIBLE);
             let mut rows = [Row {
@@ -229,7 +233,7 @@ impl Control {
                         right: None,
                         alert: false,
                     },
-                    Entry::Delete(_) => Row {
+                    Entry::Delete(_) | Entry::DeleteSound(_) => Row {
                         left: "Delete",
                         right: None,
                         alert: false,
@@ -479,38 +483,66 @@ impl Control {
                     .map(|item| self.item_view(item, value));
             }
         }
-        if let Some(Question::DeleteFile(file)) = self.view.question {
+        if let Some(open) = self.view.question {
             let mut question = Label::<{ 7 + 64 + 1 }>::new();
-            write!(
-                question,
-                "Delete {}?",
-                self.library.file(file).name.as_str()
-            )
-            .expect("writing to a label never fails");
-            let sounds = self
-                .project
-                .pool
-                .sounds()
-                .iter()
-                .filter(|sound| sound.engine == Engine::Sample(Sample::File(file)))
-                .count();
             let mut count = Label::<24>::new();
-            write!(
-                count,
-                "{sounds} {}",
-                if sounds == 1 {
-                    "sound uses it"
-                } else {
-                    "sounds use it"
+            let answers = match open {
+                Question::DeleteFile(file) => {
+                    write!(
+                        question,
+                        "Delete {}?",
+                        self.library.file(file).name.as_str()
+                    )
+                    .expect("writing to a label never fails");
+                    let sounds = self
+                        .project
+                        .pool
+                        .sounds()
+                        .iter()
+                        .filter(|sound| sound.engine == Engine::Sample(Sample::File(file)))
+                        .count();
+                    if sounds > 0 {
+                        write!(
+                            count,
+                            "{sounds} {}",
+                            if sounds == 1 {
+                                "sound uses it"
+                            } else {
+                                "sounds use it"
+                            }
+                        )
+                        .expect("writing to a label never fails");
+                    }
+                    "OK deletes, Cancel keeps"
                 }
-            )
-            .expect("writing to a label never fails");
+                Question::DeleteSound(sound) => {
+                    write!(question, "Delete {}?", self.name(sound))
+                        .expect("writing to a label never fails");
+                    let pads = self.project.pads_using(sound);
+                    if pads > 0 {
+                        write!(count, "On {pads} pad{}", if pads == 1 { "" } else { "s" })
+                            .expect("writing to a label never fails");
+                    }
+                    "OK deletes, Cancel keeps"
+                }
+                Question::RemoveUnused => {
+                    let sounds = self.project.unused().count();
+                    write!(
+                        question,
+                        "Remove {sounds} unused sound{}?",
+                        if sounds == 1 { "" } else { "s" }
+                    )
+                    .expect("writing to a label never fails");
+                    "OK removes, Cancel keeps"
+                }
+            };
             let lines = [
                 (question.as_str(), TEXT),
                 (count.as_str(), DIM),
-                ("OK deletes, Cancel keeps", DIM),
+                (answers, DIM),
             ];
-            let shown: &[_] = if sounds == 0 {
+            // A question with nothing to count leaves its count line out.
+            let shown: &[_] = if count.as_str().is_empty() {
                 &[lines[0], lines[2]]
             } else {
                 &lines
