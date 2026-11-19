@@ -2,6 +2,7 @@ pub mod buttons;
 mod draw;
 pub mod notes;
 pub mod pages;
+mod pool;
 pub mod samples;
 pub mod view;
 
@@ -102,6 +103,8 @@ struct Focus {
     question: Option<Question>,
     /// The row under the cursor of SAMPLES or of the sample picker while it shows.
     samples: Option<samples::Row>,
+    /// The row of POOL's cursor while POOL shows (S18).
+    pool: Option<usize>,
     track: u8,
     pad: Option<u8>,
     sound: Option<SoundNumber>,
@@ -439,6 +442,7 @@ impl Control {
                         .on
                         .filter(|_| self.view.screen == Screen::Samples),
                 },
+                pool: (self.view.screen == Screen::Pool).then_some(self.view.pool.cursor.item),
                 track: self.project.track,
                 pad: track.selected_pad,
                 sound: track.selected_sound,
@@ -925,13 +929,13 @@ impl Control {
 
     /// An arrow, - or + at its press and at each of its repeats, which reads SHIFT anew. In the
     /// picker up, down, - and + move the highlight one row and left and right a picker page of 16
-    /// rows, stopping at the ends, and on SAMPLES and in the sample picker they move its cursor the
-    /// same way by as many rows as fit (`move_in_samples`); with SHIFT held none of them does
-    /// anything there. On a page up and down move the cursor one item, stopping at the ends, and -
-    /// and + move the value under it by a click, a fine one while SHIFT is held. SHIFT + an arrow
-    /// does nothing outside STEP, and left and right do nothing on a page of one column. None of
-    /// them gets here while MENU or PAGE is held (`press`). STEP has no page, and its own arrows, -
-    /// and + come with the sequencer.
+    /// rows, stopping at the ends, and on SAMPLES, in the sample picker and on POOL they move its
+    /// cursor the same way by as many rows as fit (`move_in_samples`, `move_in_pool`); with SHIFT
+    /// held none of them does anything there. On a page up and down move the cursor one item,
+    /// stopping at the ends, and - and + move the value under it by a click, a fine one while SHIFT
+    /// is held. SHIFT + an arrow does nothing outside STEP, and left and right do nothing on a page
+    /// of one column. None of them gets here while MENU or PAGE is held (`press`). STEP has no
+    /// page, and its own arrows, - and + come with the sequencer.
     fn nudge(
         &mut self,
         button: Button,
@@ -956,9 +960,11 @@ impl Control {
             return;
         }
         let screen = self.view.screen;
-        if screen == Screen::Samples {
-            if !shift {
-                self.move_in_samples(button, sample, messages);
+        if matches!(screen, Screen::Samples | Screen::Pool) {
+            match screen {
+                _ if shift => {}
+                Screen::Samples => self.move_in_samples(button, sample, messages),
+                _ => self.move_in_pool(button),
             }
             return;
         }

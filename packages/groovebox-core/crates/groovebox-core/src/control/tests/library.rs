@@ -1299,7 +1299,7 @@ pub(super) fn row<'a>(left: &'a str, right: Option<&'a str>) -> Row<'a> {
 
 /// The library meter showing `value`, its bar filled by `blocks` of 2,048 bytes of the sample RAM's
 /// 64,000,000.
-fn meter(value: &str, blocks: u64) -> ItemView<'_> {
+pub(super) fn meter(value: &str, blocks: u64) -> ItemView<'_> {
     ItemView {
         encoder: None,
         name: "Library",

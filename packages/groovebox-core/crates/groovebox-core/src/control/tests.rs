@@ -19,6 +19,7 @@ use std::boxed::Box;
 use std::vec::Vec;
 
 mod library;
+mod pool;
 mod sample_sounds;
 mod sound;
 
@@ -1092,7 +1093,15 @@ fn menu_with_step_8_shows_settings_at_the_steps_press() {
     ));
     assert_eq!(
         rig.lit(),
-        [pad(0), step(0), step(2), step(7), step(9), track(0)]
+        [
+            pad(0),
+            step(0),
+            step(2),
+            step(5),
+            step(7),
+            step(9),
+            track(0)
+        ]
     );
 
     rig.step(101);
@@ -1103,7 +1112,15 @@ fn menu_with_step_8_shows_settings_at_the_steps_press() {
     ));
     assert_eq!(
         rig.lit(),
-        [pad(0), step(0), step(2), step(7), step(9), track(0)]
+        [
+            pad(0),
+            step(0),
+            step(2),
+            step(5),
+            step(7),
+            step(9),
+            track(0)
+        ]
     );
 
     rig.let_go(200, Button::Step(7));

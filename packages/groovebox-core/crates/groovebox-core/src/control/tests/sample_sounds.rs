@@ -22,7 +22,7 @@ use view::{Cursor, Pick, Picker, SamplesView};
 /// At the top level bass.wav, a second of stereo with a loop of its own and root note 36. In drums/
 /// kick.wav (a tenth of a second of mono with root note 48) and snare.wav; in drums/808/ boom.wav.
 /// They are files 0 to 3 in the order of their paths, and drums/ and 808/ are folders 0 and 1.
-fn library() -> [(&'static str, Vec<u8>); 4] {
+pub(super) fn library() -> [(&'static str, Vec<u8>); 4] {
     [
         (
             "samples/bass.wav",
@@ -50,7 +50,7 @@ const BOOM: SampleFile = SampleFile {
     frames: 2_400,
     stereo: false,
 };
-const KICK: SampleFile = SampleFile {
+pub(super) const KICK: SampleFile = SampleFile {
     file: FileId(2),
     frames: 4_800,
     stereo: false,
@@ -122,7 +122,7 @@ fn sample_note(
 }
 
 /// Makes a sample sound of `file` and puts it on `pad` of the current track.
-fn sample_on(rig: &mut Rig<'_>, pad: u8, file: FileId) -> SoundNumber {
+pub(super) fn sample_on(rig: &mut Rig<'_>, pad: u8, file: FileId) -> SoundNumber {
     let audio = *rig.control.library.file(file);
     let sound = rig.control.project.pool.new_sample(file, &audio).unwrap();
     rig.control.project.put(pad, Some(sound));
@@ -1384,7 +1384,7 @@ fn ask_to_delete_kick(rig: &mut Rig<'_>, sample: u64) {
 
 /// From `sample` on, asks to delete kick.wav and answers OK at `sample` + 60. Gives the
 /// `ForgetSample` that the delete sent, after taking every message sent.
-fn delete_kick(rig: &mut Rig<'_>, sample: u64) -> Message {
+pub(super) fn delete_kick(rig: &mut Rig<'_>, sample: u64) -> Message {
     ask_to_delete_kick(rig, sample);
     rig.tap(sample + 60, Button::Ok);
     rig.step(sample + 70);

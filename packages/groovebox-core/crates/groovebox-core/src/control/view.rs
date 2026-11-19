@@ -2,6 +2,7 @@ use super::pages::{MENU, PageDef};
 use super::samples::Row;
 use crate::input::{Button, STEPS};
 use crate::library::{FileId, FolderId};
+use crate::project::pool::SoundNumber;
 use crate::ui::layout::{LIST_VISIBLE, PAGE_VISIBLE, SAMPLES_VISIBLE};
 use crate::ui::tiles::{Tile, TileState};
 
@@ -10,6 +11,7 @@ use crate::ui::tiles::{Tile, TileState};
 pub enum Screen {
     Step,
     Sound,
+    Pool,
     Settings,
     Samples,
 }
@@ -21,13 +23,20 @@ const PAGES: usize = STEPS as usize;
 
 impl Screen {
     /// Every screen, in the order of their steps under MENU.
-    pub const ALL: [Self; SCREENS] = [Self::Step, Self::Sound, Self::Settings, Self::Samples];
+    pub const ALL: [Self; SCREENS] = [
+        Self::Step,
+        Self::Sound,
+        Self::Pool,
+        Self::Settings,
+        Self::Samples,
+    ];
 
     /// The name the header starts with.
     pub fn name(self) -> &'static str {
         match self {
             Self::Step => "Step",
             Self::Sound => "Sound",
+            Self::Pool => "Pool",
             Self::Settings => "Settings",
             Self::Samples => "Samples",
         }
@@ -98,6 +107,14 @@ impl SamplesView {
     }
 }
 
+/// POOL's cursor: row 0 is Remove unused, row `n` the pool's sound `n - 1` in number order.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct PoolView {
+    pub cursor: Cursor,
+    /// The current track and its selected sound when the cursor last landed (S8).
+    pub shows: (u8, Option<SoundNumber>),
+}
+
 /// A picker: the sound picker of the selected pad, the Engine picker of the selected sound, the
 /// sample picker or the Delete picker of a file of SAMPLES.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -128,8 +145,8 @@ pub enum Question {
 }
 
 /// What the screen shows: the screen, the page each screen shows, the cursor of each page, the
-/// folder and cursor of SAMPLES and of the sample picker and a picker or a question while one is
-/// open. They are kept while the control part lives and are not saved.
+/// folder and cursor of SAMPLES and of the sample picker, POOL's cursor and a picker or a question
+/// while one is open. They are kept while the control part lives and are not saved.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct View {
     pub screen: Screen,
@@ -140,6 +157,7 @@ pub struct View {
     pub samples: SamplesView,
     /// The sample picker's folder, kept while it is closed, and its cursor.
     pub sample_picker: SamplesView,
+    pub pool: PoolView,
     /// The picker while it is open over the main area of `screen`, with its highlight. The sample
     /// picker's highlight is `sample_picker`'s cursor, and this one stays on its first row.
     pub picker: Option<(Picker, Cursor)>,
@@ -149,7 +167,8 @@ pub struct View {
 
 impl View {
     /// STEP, where a new project opens, with every screen on its first page, every cursor on the
-    /// first item, SAMPLES and the sample picker at the top level and no picker or question open.
+    /// first item, SAMPLES and the sample picker at the top level, POOL's cursor on Remove unused
+    /// for T1 with no sound selected and no picker or question open.
     pub const fn new() -> Self {
         Self {
             screen: Screen::Step,
@@ -157,6 +176,10 @@ impl View {
             cursors: [[Cursor { item: 0, scroll: 0 }; PAGES]; SCREENS],
             samples: SamplesView::top(false),
             sample_picker: SamplesView::top(true),
+            pool: PoolView {
+                cursor: Cursor { item: 0, scroll: 0 },
+                shows: (0, None),
+            },
             picker: None,
             question: None,
         }
@@ -241,7 +264,7 @@ pub fn scrolled(cursor: usize, scroll: usize, visible: usize) -> usize {
 
 /// The row an arrow, - or + moves a list's highlight to from row `row`, when `last` is its last row
 /// and `visible` rows fit: up, down, - and + move one row and left and right `visible` rows,
-/// stopping at the ends. Pickers and SAMPLES move this way.
+/// stopping at the ends. Pickers, SAMPLES and POOL move this way.
 pub fn moved(button: Button, row: usize, last: usize, visible: usize) -> usize {
     match button {
         Button::Up | Button::Minus => row.saturating_sub(1),
@@ -322,7 +345,7 @@ mod tests {
     }
 
     #[test]
-    fn the_menu_tiles_show_step_sound_settings_and_samples() {
+    fn the_menu_tiles_show_step_sound_pool_settings_and_samples() {
         let tiles = menu_tiles(Screen::Settings);
 
         assert_eq!(
@@ -340,6 +363,13 @@ mod tests {
             }
         );
         assert_eq!(
+            tiles[5],
+            Tile {
+                name: Some("Pool"),
+                state: TileState::Exists
+            }
+        );
+        assert_eq!(
             tiles[7],
             Tile {
                 name: Some("Settings"),
@@ -353,8 +383,9 @@ mod tests {
                 state: TileState::Exists
             }
         );
-        assert_eq!(tiles.iter().filter(|&&tile| tile == EMPTY).count(), 12);
+        assert_eq!(tiles.iter().filter(|&&tile| tile == EMPTY).count(), 11);
         assert_eq!(menu_tiles(Screen::Step)[0].state, TileState::Current);
+        assert_eq!(menu_tiles(Screen::Pool)[5].state, TileState::Current);
     }
 
     #[test]

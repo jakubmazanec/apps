@@ -40,12 +40,12 @@ impl Control {
     /// before.
     ///
     /// The header names the screen and, on a screen with pages, its page; then the track, the
-    /// selected sound, in red while it is MISSING (`missing`), and the pad mode with the octave in
-    /// KEYS mode. While an empty pad is selected there is no sound to name, and the pad's dim
-    /// number stands in its place. While MENU is held the header names MENU in place of the screen
-    /// and its page. The message is on the right, or while there is none the import's progress, in
-    /// the room right of the pieces; a file's name in it is shortened with "…" so that the rest of
-    /// the text fits there, and a message still too wide for it loses its end to a "…".
+    /// selected sound, in red while it is MISSING (`missing_file`), and the pad mode with the
+    /// octave in KEYS mode. While an empty pad is selected there is no sound to name, and the pad's
+    /// dim number stands in its place. While MENU is held the header names MENU in place of the
+    /// screen and its page. The message is on the right, or while there is none the import's
+    /// progress, in the room right of the pieces; a file's name in it is shortened with "…" so that
+    /// the rest of the text fits there, and a message still too wide for it loses its end to a "…".
     ///
     /// The main area shows the page's items with the cursor and the page's picture, the tiles while
     /// MENU or PAGE is held, or the picker while one is open. On STEP it stays empty, as its grid
@@ -54,11 +54,12 @@ impl Control {
     /// for the row, and the library meter above the strip. The sample picker shows the same rows
     /// under a dim top line at every level: the folder's path and two spaces inside a folder, then
     /// "Library" and the meter's value, the line losing its start to a "…" when too wide for the
-    /// row. The sound picker shows a MISSING sound's row in red. A question shows in a box in the
-    /// middle of the main area, over what the main area shows: DELETE's names the file, then counts
-    /// the sounds that use it, if any, as "2 sounds use it" (S17). The strip shows the items that
-    /// the encoders hold on the page they use, and nothing while MENU or PAGE is held, the picker
-    /// is open or SAMPLES shows.
+    /// row. POOL shows Remove unused, then a row of each sound of the pool (`pool_row`), with the
+    /// cursor and the library meter above the strip. The sound picker shows a MISSING sound's row
+    /// in red. A question shows in a box in the middle of the main area, over what the main area
+    /// shows: DELETE's names the file, then counts the sounds that use it, if any, as "2 sounds use
+    /// it" (S17). The strip shows the items that the encoders hold on the page they use, and
+    /// nothing while MENU or PAGE is held, the picker is open or SAMPLES or POOL shows.
     ///
     /// The text under the cursor, the current tile's name and the selected pad's name scroll when
     /// they do not fit, as far as the samples since the cursor landed say; the strip never scrolls.
@@ -86,7 +87,11 @@ impl Control {
         let sound = match self.selected() {
             Some(sound) => Piece {
                 text: sound.name.as_str(),
-                color: if self.missing(sound) { RECORD } else { TEXT },
+                color: if self.missing_file(sound).is_some() {
+                    RECORD
+                } else {
+                    TEXT
+                },
             },
             None => {
                 write!(
@@ -211,11 +216,8 @@ impl Control {
                     },
                     Entry::Sound(sound) => Row {
                         left: sound.name.as_str(),
-                        right: Some(match sound.engine {
-                            Engine::Synth => "synth",
-                            Engine::Sample(_) => "sample",
-                        }),
-                        alert: self.missing(sound),
+                        right: Some(engine_word(&sound.engine)),
+                        alert: self.missing_file(sound).is_some(),
                     },
                     Entry::SampleEngine => Row {
                         left: "Sample",
@@ -299,17 +301,42 @@ impl Control {
                 elapsed,
             );
             if !samples.top_line {
-                let mut value = Label::new();
-                draw_item(
-                    canvas,
-                    ROW_X,
-                    METER_Y,
-                    ROW_WIDTH,
-                    &self.item_view(&LIBRARY_METER, &mut value),
-                    false,
-                    None,
-                );
+                self.draw_library_meter(canvas);
             }
+        } else if screen == Screen::Pool {
+            let cursor = self.view.pool.cursor;
+            let mut labels = [Label::new(); SAMPLES_VISIBLE];
+            let mut shown = [Row {
+                left: "",
+                right: None,
+                alert: false,
+            }; SAMPLES_VISIBLE];
+            let mut count = 0;
+            for ((slot, label), sound) in shown.iter_mut().zip(&mut labels).zip(
+                core::iter::once(None)
+                    .chain(self.project.pool.sounds().iter().map(Some))
+                    .skip(cursor.scroll),
+            ) {
+                *slot = match sound {
+                    None => Row {
+                        left: "Remove unused",
+                        right: None,
+                        alert: false,
+                    },
+                    Some(sound) => self.pool_row(sound, label),
+                };
+                count += 1;
+            }
+            scrolls = draw_rows(
+                canvas,
+                ROW_FIRST,
+                SAMPLES_VISIBLE,
+                &shown[..count],
+                0,
+                Some(cursor.item - cursor.scroll),
+                elapsed,
+            );
+            self.draw_library_meter(canvas);
         } else {
             let cursor = self.cursor(screen);
             for (row, (index, item)) in (0..).zip(
@@ -494,6 +521,20 @@ impl Control {
         self.scrolling.set(scrolls);
     }
 
+    /// Draws the library meter above the strip, as SAMPLES and POOL show it.
+    fn draw_library_meter(&self, canvas: &mut impl Canvas) {
+        let mut value = Label::new();
+        draw_item(
+            canvas,
+            ROW_X,
+            METER_Y,
+            ROW_WIDTH,
+            &self.item_view(&LIBRARY_METER, &mut value),
+            false,
+            None,
+        );
+    }
+
     /// What `item` shows, with its value written into `value` where it is not a name.
     fn item_view<'a>(&'a self, item: &ItemDef, value: &'a mut Label<16>) -> ItemView<'a> {
         let (name, value, bar) = match item.kind {
@@ -542,24 +583,23 @@ impl Control {
                     .page_name(),
                 Bar::Track,
             ),
-            ItemKind::SampleFile => (
-                "Sample",
-                match &self
+            ItemKind::SampleFile => {
+                let sound = self
                     .selected()
-                    .expect("the Sample page belongs to the selected sound")
-                    .engine
-                {
-                    Engine::Sample(Sample::File(file)) => self.library.file(*file).name.as_str(),
-                    // A missing file is named by the end of its path (S15).
-                    Engine::Sample(Sample::Missing(path)) => path
-                        .as_str()
-                        .rsplit('/')
-                        .next()
-                        .expect("a split gives at least one part"),
-                    Engine::Synth => unreachable!("the Sample page belongs to a sample sound"),
-                },
-                Bar::Track,
-            ),
+                    .expect("the Sample page belongs to the selected sound");
+                (
+                    "Sample",
+                    match sound.engine {
+                        Engine::Sample(Sample::File(file)) => self.library.file(file).name.as_str(),
+                        // A missing file is named by the end of its path (S15).
+                        Engine::Sample(Sample::Missing(_)) => self
+                            .missing_file(sound)
+                            .expect("a sound whose sample is missing is MISSING"),
+                        Engine::Synth => unreachable!("the Sample page belongs to a sample sound"),
+                    },
+                    Bar::Track,
+                )
+            }
             ItemKind::LibraryMeter => {
                 let (used, total) = (self.library.used(), budget::SAMPLE_RAM as u64);
                 value.push_str(name::meter(used, total).as_str());
@@ -623,6 +663,64 @@ impl Control {
         }
     }
 
+    /// What POOL's row of `sound` shows (S1 to S5): its name, and a dim label written into `label`
+    /// of its engine, "missing" and its file's name for a MISSING sound, the current track's pads
+    /// that hold it and a loaded sample's size, two spaces apart. The pads read "pad 2" or "pads 1,
+    /// 12"; "no pad" when none of them holds it and "no pad, no notes" when nothing uses it. A
+    /// MISSING sound's row is red, and its file's name is shortened with "…" so that the label
+    /// takes at most half the row, but keeps at least the "…" (answer 5).
+    fn pool_row<'a>(&'a self, sound: &'a Sound, label: &'a mut Label<160>) -> Row<'a> {
+        let number = sound.number;
+        let holding = || {
+            (1..)
+                .zip(self.track().pads)
+                .filter(move |&(_, pad)| pad == Some(number))
+                .map(|(pad, _)| pad)
+        };
+        // All 12 pads take "pads 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12".
+        let mut pads = Label::<42>::new();
+        match holding().count() {
+            0 if self.project.is_used(number) => pads.push_str("no pad"),
+            0 => pads.push_str("no pad, no notes"),
+            count => {
+                pads.push_str(if count == 1 { "pad" } else { "pads" });
+                for (index, pad) in holding().enumerate() {
+                    write!(pads, "{}{pad}", if index == 0 { " " } else { ", " })
+                        .expect("writing to a label never fails");
+                }
+            }
+        }
+        let engine = engine_word(&sound.engine);
+        let missing = self.missing_file(sound);
+        if let Some(file) = missing {
+            // All of the label but the file's name.
+            let mut rest = Label::<160>::new();
+            write!(rest, "{engine}  missing   {}", pads.as_str())
+                .expect("writing to a label never fails");
+            let name = text::fit(
+                file,
+                ((ROW_WIDTH - 2 * TEXT_INSET) / 2 - text::width(rest.as_str())).max(ADVANCE),
+            );
+            write!(label, "{engine}  missing {name}  {}", pads.as_str())
+                .expect("writing to a label never fails");
+        } else {
+            write!(label, "{engine}  {}", pads.as_str()).expect("writing to a label never fails");
+            if let Engine::Sample(Sample::File(file)) = sound.engine {
+                write!(
+                    label,
+                    "  {}",
+                    name::size(u64::from(self.library.file(file).bytes())).as_str()
+                )
+                .expect("writing to a label never fails");
+            }
+        }
+        Row {
+            left: sound.name.as_str(),
+            right: Some(label.as_str()),
+            alert: missing.is_some(),
+        }
+    }
+
     /// The frames of the selected sound's file as the library lists it, also while the audio part
     /// may not read it, which its points are shown against; none for a missing file.
     fn frames(&self) -> u32 {
@@ -632,12 +730,22 @@ impl Control {
         }
     }
 
-    /// Whether `sound` is MISSING (S15): its sample is missing or its file is not loaded.
-    fn missing(&self, sound: &Sound) -> bool {
-        match sound.engine {
-            Engine::Sample(Sample::Missing(_)) => true,
-            Engine::Sample(Sample::File(file)) => !self.library.file(file).loaded,
-            Engine::Synth => false,
+    /// The name of the file of `sound` while the sound is MISSING (S15): its sample is missing, and
+    /// the end of its path names it, or its file is not loaded, and the library names it. None for
+    /// any other sound.
+    fn missing_file<'a>(&'a self, sound: &'a Sound) -> Option<&'a str> {
+        match &sound.engine {
+            Engine::Sample(Sample::Missing(path)) => Some(
+                path.as_str()
+                    .rsplit('/')
+                    .next()
+                    .expect("a split gives at least one part"),
+            ),
+            Engine::Sample(Sample::File(file)) => {
+                let file = self.library.file(*file);
+                (!file.loaded).then_some(file.name.as_str())
+            }
+            Engine::Synth => None,
         }
     }
 
@@ -649,6 +757,14 @@ impl Control {
             .expect("a sound on a pad is in the pool")
             .name
             .as_str()
+    }
+}
+
+/// The dim word that names `engine` in the sound picker and on POOL.
+fn engine_word(engine: &Engine) -> &'static str {
+    match engine {
+        Engine::Synth => "synth",
+        Engine::Sample(_) => "sample",
     }
 }
 

@@ -70,6 +70,7 @@ pub const MENU: [Option<Screen>; STEPS as usize] = {
     let mut menu = [None; STEPS as usize];
     menu[0] = Some(Screen::Step);
     menu[2] = Some(Screen::Sound);
+    menu[5] = Some(Screen::Pool);
     menu[7] = Some(Screen::Settings);
     menu[9] = Some(Screen::Samples);
     menu
@@ -204,14 +205,14 @@ const VOICE: PageDef = PageDef {
 
 /// The pages of `screen` in the order of their steps under PAGE, while `sound` is the selected
 /// sound of the current track. STEP has none of its own: PAGE there acts on SOUND's pages. SAMPLES
-/// has none.
+/// and POOL have none.
 ///
 /// SOUND works on the track's selected pad: its Pad page, then the page of the sound's engine
 /// (Sample or Synth) and the pages of its chain and its voice. While that pad is empty there is no
 /// sound to copy or to shape, and SOUND has only the Pad page with its Sound item.
 pub fn pages(screen: Screen, sound: Option<&Sound>) -> &'static [PageDef] {
     match screen {
-        Screen::Step | Screen::Samples => &[],
+        Screen::Step | Screen::Pool | Screen::Samples => &[],
         Screen::Sound => match sound.map(|sound| &sound.engine) {
             Some(Engine::Sample(_)) => {
                 &[PAD, SAMPLE, FILTER, FILTER_ENVELOPE, VOLUME_ENVELOPE, VOICE]
