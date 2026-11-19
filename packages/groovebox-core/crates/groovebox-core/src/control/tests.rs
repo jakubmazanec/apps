@@ -1210,7 +1210,7 @@ fn the_first_of_menu_and_page_counts() {
         &rig.control,
         &tiles(
             &STEP_HEADER,
-            &page_tiles(pages(view::Screen::Sound, None), 0)
+            &page_tiles(pages(view::Screen::Sound, None, true), 0)
         )
     ));
     assert_eq!(rig.lit(), [pad(0), step(0), track(0)]);
@@ -1295,7 +1295,7 @@ fn page_on_settings_shows_playing_and_dev_and_lights_steps_1_and_2() {
     rig.press(100, Button::Page);
     rig.step(101);
 
-    let shown = page_tiles(pages(view::Screen::Settings, None), 0);
+    let shown = page_tiles(pages(view::Screen::Settings, None, true), 0);
     assert_eq!(
         shown[..2],
         [

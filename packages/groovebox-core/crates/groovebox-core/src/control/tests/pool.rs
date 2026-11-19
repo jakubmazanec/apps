@@ -2,6 +2,7 @@
 
 use super::library::{meter, row};
 use super::sample_sounds::{KICK, delete_kick, library, sample_on};
+use super::sound::{names, sound_header};
 use super::*;
 use crate::budget;
 use crate::font::ADVANCE;
@@ -14,6 +15,7 @@ use crate::ui::layout::{ROW_WIDTH, TEXT_INSET};
 use crate::ui::list::{Row, draw_rows};
 use crate::ui::test_pixels::MOVED;
 use crate::ui::text;
+use crate::ui::tiles::{PadTile, draw_pad_tiles};
 use std::format;
 use std::string::String;
 use view::Cursor;
@@ -56,17 +58,38 @@ fn missing<'a>(name: &'a str, label: &'a str) -> Row<'a> {
     }
 }
 
+/// Syn 1 on pads 1 and 12 and Syn 2 on pad 2 of T1, Syn 3 on pad 1 of T2 and Syn 4 on no pad,
+/// with T1 current and its pad 1 selected.
+fn four_synths(rig: &mut Rig<'_>) -> [SoundNumber; 4] {
+    let syn_1 = rig.synth_on(0);
+    rig.control.project.put(11, Some(syn_1));
+    let syn_2 = rig.synth_on(1);
+    rig.control.project.track = 1;
+    let syn_3 = rig.synth_on(0);
+    rig.control.project.track = 0;
+    [
+        syn_1,
+        syn_2,
+        syn_3,
+        rig.control.project.pool.new_synth().unwrap(),
+    ]
+}
+
+/// POOL's rows of `four_synths` on T1, after Remove unused.
+fn four_rows() -> [Row<'static>; 4] {
+    [
+        row("Syn 1", Some("synth  pads 1, 12")),
+        row("Syn 2", Some("synth  pad 2")),
+        row("Syn 3", Some("synth  no pad")),
+        row("Syn 4", Some("synth  no pad, no notes")),
+    ]
+}
+
 #[test]
 fn menu_6_shows_pool_with_remove_unused_and_every_sound() {
     let queue = Queue::new();
     let mut rig = Rig::new(&queue);
-    let syn_1 = rig.synth_on(0);
-    rig.control.project.put(11, Some(syn_1));
-    rig.synth_on(1);
-    rig.control.project.track = 1;
-    rig.synth_on(0);
-    rig.control.project.track = 0;
-    rig.control.project.pool.new_synth().unwrap();
+    four_synths(&mut rig);
 
     rig.menu(10, 5);
     rig.step(20);
@@ -74,16 +97,7 @@ fn menu_6_shows_pool_with_remove_unused_and_every_sound() {
     assert_eq!(rig.control.view.screen, view::Screen::Pool);
     assert!(shows(
         &rig.control,
-        &pool(
-            &rig,
-            ("Syn 1", TEXT),
-            &[
-                row("Syn 1", Some("synth  pads 1, 12")),
-                row("Syn 2", Some("synth  pad 2")),
-                row("Syn 3", Some("synth  no pad")),
-                row("Syn 4", Some("synth  no pad, no notes")),
-            ]
-        )
+        &pool(&rig, ("Syn 1", TEXT), &four_rows())
     ));
     // The meter as on SAMPLES: its name from x 5 with its capitals on rows 238 to 244, its bar on
     // rows 249 and 250.
@@ -253,7 +267,8 @@ fn the_arrows_move_pools_cursor_and_left_and_right_jump_15_rows() {
         .iter()
         .map(|name| row(name, Some("synth  no pad, no notes")))
         .collect();
-    assert!(shows(&rig.control, &pool(&rig, ("1", DIM), &rows)));
+    // Moving onto a sound selects it.
+    assert!(shows(&rig.control, &pool(&rig, ("Syn 40", TEXT), &rows)));
 }
 
 #[test]
@@ -303,7 +318,7 @@ fn the_name_under_pools_cursor_scrolls_from_where_it_landed() {
     assert!(shows(
         &rig.control,
         &drawn(
-            &[("Pool", ACCENT), ("T1", TEXT), ("1", DIM), ("Pads", DIM)],
+            &[("Pool", ACCENT), ("T1", TEXT), (&long, TEXT), ("Pads", DIM)],
             None,
             |screen| {
                 draw_rows(screen, 17, 15, &rows, 0, Some(1), MOVED);
@@ -312,4 +327,267 @@ fn the_name_under_pools_cursor_scrolls_from_where_it_landed() {
             &[None; 4],
         )
     ));
+}
+
+#[test]
+fn pool_opens_on_the_selected_sound() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    four_synths(&mut rig);
+    rig.control.project.tracks[0].select(1);
+
+    rig.menu(10, 5);
+    rig.step(20);
+
+    assert_eq!(rig.control.view.pool.cursor.item, 2);
+    assert!(shows(
+        &rig.control,
+        &pool(&rig, ("Syn 2", TEXT), &four_rows())
+    ));
+
+    // It lands there every time POOL opens, also after its cursor was moved onto Remove unused.
+    rig.tap(30, Button::Left);
+    rig.menu(40, 0);
+    rig.menu(50, 5);
+    rig.step(60);
+
+    assert_eq!(rig.control.view.pool.cursor.item, 2);
+}
+
+#[test]
+fn pool_opens_on_remove_unused_while_an_empty_pad_is_selected() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    four_synths(&mut rig);
+    rig.menu(10, 5);
+    rig.tap(20, Button::Down);
+    rig.menu(30, 0);
+    rig.hit(40, 2, 100);
+    rig.release(50, 2);
+
+    rig.menu(60, 5);
+    rig.step(70);
+
+    assert_eq!(rig.control.view.pool.cursor.item, 0);
+    assert!(shows(&rig.control, &pool(&rig, ("3", DIM), &four_rows())));
+}
+
+#[test]
+fn moving_onto_a_sound_selects_it_and_its_first_pad() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    let syn_1 = rig.synth_on(0);
+    rig.control.project.put(11, Some(syn_1));
+    rig.control.project.tracks[0].select(11);
+    rig.menu(10, 5);
+
+    // Down on the last row moves nothing, so pad 12 stays selected.
+    rig.tap(20, Button::Down);
+    rig.step(30);
+    assert_eq!(rig.track().selected_pad, Some(11));
+
+    rig.tap(40, Button::Up);
+    rig.tap(50, Button::Down);
+    rig.step(60);
+
+    assert_eq!(rig.track().selected_pad, Some(0));
+    assert_eq!(rig.track().selected_sound, Some(syn_1));
+    assert!(shows(
+        &rig.control,
+        &pool(
+            &rig,
+            ("Syn 1", TEXT),
+            &[row("Syn 1", Some("synth  pads 1, 12"))]
+        )
+    ));
+    assert_eq!(rig.lit(), [pad(0), track(0)]);
+    assert_eq!(rig.sent(), []);
+}
+
+#[test]
+fn moving_onto_a_sound_on_no_pad_leaves_no_pad_selected() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    let [.., syn_4] = four_synths(&mut rig);
+    rig.menu(10, 5);
+    for sample in [20, 30, 40] {
+        rig.tap(sample, Button::Down);
+    }
+
+    rig.step(50);
+
+    assert_eq!(rig.track().selected_pad, None);
+    assert_eq!(rig.track().selected_sound, Some(syn_4));
+    assert!(shows(
+        &rig.control,
+        &pool(&rig, ("Syn 4", TEXT), &four_rows())
+    ));
+    assert_eq!(rig.lit(), [track(0)]);
+
+    // SOUND's Pad page holds Engine alone, on encoder 3, and the pads picture marks no pad.
+    rig.menu(60, 2);
+    rig.step(70);
+    let pads = names(&[(0, "Syn 1"), (1, "Syn 2"), (11, "Syn 1")]);
+    assert!(shows(
+        &rig.control,
+        &drawn(
+            &sound_header(("Syn 4", TEXT)),
+            None,
+            |screen| {
+                draw_item(screen, 2, 17, 160, &engine("Synth"), true, None);
+                draw_cursor(screen, 2, 17, 160, 17);
+                draw_pad_tiles(
+                    screen,
+                    &core::array::from_fn(|pad| PadTile {
+                        name: pads[pad],
+                        selected: false,
+                    }),
+                    0,
+                );
+            },
+            &[None, None, Some(engine("Synth")), None],
+        )
+    ));
+
+    // PAGE lights all six of SOUND's pages.
+    rig.press(80, Button::Page);
+    rig.step(81);
+    assert_eq!(
+        rig.lit(),
+        [
+            step(0),
+            step(1),
+            step(2),
+            step(3),
+            step(4),
+            step(5),
+            track(0)
+        ]
+    );
+}
+
+#[test]
+fn keys_mode_plays_a_sound_selected_on_no_pad() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    let [.., syn_4] = four_synths(&mut rig);
+    rig.menu(10, 5);
+    rig.tap(20, Button::Right);
+    rig.tap(30, Button::PadsKeys);
+
+    rig.hit(40, 4, 100);
+    rig.step(50);
+
+    assert_eq!(rig.sent(), [message(0, 40, note_on(0, 0, syn_4, 64, 100))]);
+}
+
+#[test]
+fn moving_onto_remove_unused_keeps_the_selection_and_the_cursor_stays() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    let [_, syn_2, ..] = four_synths(&mut rig);
+    rig.control.project.tracks[0].select(1);
+    rig.menu(10, 5);
+    rig.step(20);
+    assert_eq!(rig.control.view.pool.cursor.item, 2);
+
+    rig.tap(30, Button::Left);
+    rig.step(40);
+
+    assert_eq!(rig.control.view.pool.cursor.item, 0);
+    assert_eq!(rig.track().selected_sound, Some(syn_2));
+    assert!(shows(
+        &rig.control,
+        &pool(&rig, ("Syn 2", TEXT), &four_rows())
+    ));
+
+    // Another event leaves it there, as the selection stays.
+    rig.tap(50, Button::Cancel);
+    rig.step(60);
+
+    assert_eq!(rig.control.view.pool.cursor.item, 0);
+}
+
+#[test]
+fn a_pad_hit_on_pool_moves_the_cursor_to_its_sound() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    let [syn_1, syn_2, ..] = four_synths(&mut rig);
+    rig.menu(10, 5);
+    rig.tap(20, Button::Right);
+
+    // From Syn 4, which is on no pad, a hit on pad 2 selects that pad again.
+    rig.hit(30, 1, 100);
+    rig.step(40);
+
+    assert_eq!(rig.track().selected_pad, Some(1));
+    assert_eq!(rig.track().selected_sound, Some(syn_2));
+    assert_eq!(rig.control.view.pool.cursor.item, 2);
+    assert!(shows(
+        &rig.control,
+        &pool(&rig, ("Syn 2", TEXT), &four_rows())
+    ));
+
+    // From Remove unused alike.
+    rig.tap(50, Button::Left);
+    rig.hit(60, 11, 100);
+    rig.step(70);
+
+    assert_eq!(rig.track().selected_sound, Some(syn_1));
+    assert_eq!(rig.control.view.pool.cursor.item, 1);
+
+    // A hit on an empty pad moves it to Remove unused.
+    rig.hit(80, 2, 100);
+    rig.step(90);
+
+    assert_eq!(rig.control.view.pool.cursor.item, 0);
+    assert!(shows(&rig.control, &pool(&rig, ("3", DIM), &four_rows())));
+}
+
+#[test]
+fn a_track_button_on_pool_moves_the_cursor_to_that_tracks_selection() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    let [syn_1, _, syn_3, _] = four_synths(&mut rig);
+    rig.menu(10, 5);
+
+    // T2's pad 1 holds Syn 3.
+    rig.tap(20, Button::T2);
+    rig.step(30);
+    assert_eq!(rig.track().selected_sound, Some(syn_3));
+    assert_eq!(rig.control.view.pool.cursor.item, 3);
+
+    // T3's pad 1 is empty.
+    rig.tap(40, Button::T3);
+    rig.step(50);
+    assert_eq!(rig.control.view.pool.cursor.item, 0);
+
+    rig.tap(60, Button::T1);
+    rig.step(70);
+    assert_eq!(rig.track().selected_sound, Some(syn_1));
+    assert_eq!(rig.control.view.pool.cursor.item, 1);
+}
+
+#[test]
+fn following_a_sound_far_down_scrolls_it_into_view() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    for _ in 0..40 {
+        rig.control.project.pool.new_synth().unwrap();
+    }
+    let syn_40 = rig.control.project.pool.sounds()[39].number;
+    rig.control.project.put(0, Some(syn_40));
+    rig.control.project.tracks[0].select(1);
+    rig.menu(10, 5);
+
+    rig.hit(20, 0, 100);
+    rig.step(30);
+
+    assert_eq!(
+        rig.control.view.pool.cursor,
+        Cursor {
+            item: 40,
+            scroll: 26
+        }
+    );
 }

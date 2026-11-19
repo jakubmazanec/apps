@@ -282,8 +282,9 @@ impl Control {
     /// After a reply or a report SAMPLES' cursor is kept on its row (`keep_samples_cursor`), as
     /// only the jobs they drive change the library; from the reply that opens the project on, so
     /// that start-up, which lists the library page by page in another order, leaves it on the
-    /// first row. When the cursor has then landed on something new (`Focus`), the text under it
-    /// scrolls from that event's sample.
+    /// first row. While POOL shows, its cursor follows the current track's selection
+    /// (`follow_selection`). When the cursor has then landed on something new (`Focus`), the text
+    /// under it scrolls from that event's sample.
     ///
     /// Last, while the screen's page shows the waveform and the audio part may read the selected
     /// sound's file (`sample_file`), it reads that file's peaks through `tables` from `ram` unless
@@ -421,10 +422,11 @@ impl Control {
                 self.keep_samples_cursor();
             }
             for screen in Screen::ALL {
-                for (page, def) in pages(screen, self.selected()).iter().enumerate() {
+                for (page, def) in self.pages(screen).iter().enumerate() {
                     self.view.keep_cursor(screen, page, def.items.len());
                 }
             }
+            self.follow_selection();
             let paged = self.view.screen.paged();
             let track = self.track();
             let focus = Some(Focus {
@@ -693,9 +695,9 @@ impl Control {
     /// - Of MENU and PAGE the first one pressed counts, and the other is taken. The one that counts
     ///   takes the arrows, - and + that are held, so they stop repeating and act again only when
     ///   pressed again. While it is held, a step shows its screen or page, and a dark step does
-    ///   nothing; leaving SAMPLES for another screen stops the preview (`stop_preview`). The
-    ///   arrows, OK, CANCEL, - and +, the encoder pushes, ROLL, PADS/KEYS and COPY are dropped,
-    ///   and so taken too.
+    ///   nothing; leaving SAMPLES for another screen stops the preview (`stop_preview`), and POOL
+    ///   opens on the selection (`land_on_selection`). The arrows, OK, CANCEL, - and +, the encoder
+    ///   pushes, ROLL, PADS/KEYS and COPY are dropped, and so taken too.
     /// - T1 to T4 select the track. With SHIFT held they do nothing until muting comes with the
     ///   sequencer.
     /// - SHIFT + OK and SHIFT + an encoder push do nothing.
@@ -863,12 +865,15 @@ impl Control {
                         self.stop_preview(sample, messages);
                     }
                     self.view.screen = screen;
+                    if screen == Screen::Pool {
+                        self.land_on_selection();
+                    }
                 }
             }
             Button::Step(step) if overlay == Some(Button::Page) => {
                 self.buttons.take(button);
                 let screen = self.view.screen.paged();
-                if usize::from(step) < pages(screen, self.selected()).len() {
+                if usize::from(step) < self.pages(screen).len() {
                     self.view.show_page(screen, usize::from(step));
                 }
             }
@@ -1404,14 +1409,19 @@ impl Control {
             Button::Menu => menu_tiles(self.view.screen),
             _ => {
                 let screen = self.view.screen.paged();
-                page_tiles(pages(screen, self.selected()), self.shown_page(screen))
+                page_tiles(self.pages(screen), self.shown_page(screen))
             }
         })
     }
 
+    /// The pages of `screen` for the current track's selection (`pages`).
+    fn pages(&self, screen: Screen) -> &'static [PageDef] {
+        pages(screen, self.selected(), self.track().selected_pad.is_some())
+    }
+
     /// The page `screen` shows; none on a screen without pages.
     fn page(&self, screen: Screen) -> Option<&'static PageDef> {
-        pages(screen, self.selected()).get(self.shown_page(screen))
+        self.pages(screen).get(self.shown_page(screen))
     }
 
     /// The page `screen` shows: the page it remembers while the screen has that page, else the
@@ -1419,7 +1429,7 @@ impl Control {
     /// remembers again once a pad with a sound is selected.
     fn shown_page(&self, screen: Screen) -> usize {
         let remembered = self.view.page(screen);
-        if remembered < pages(screen, self.selected()).len() {
+        if remembered < self.pages(screen).len() {
             remembered
         } else {
             0

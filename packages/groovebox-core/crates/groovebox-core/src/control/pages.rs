@@ -112,6 +112,11 @@ const PAD: PageDef = PageDef {
     items: &[PAD_SOUND, PAD_COPY, PAD_ENGINE],
     picture: Some(Picture::Pads),
 };
+/// The Pad page of a sound selected on no pad, as POOL selects it: Engine alone (S10).
+const NO_PAD: PageDef = PageDef {
+    items: &[PAD_ENGINE],
+    ..PAD
+};
 const SAMPLE: PageDef = PageDef {
     name: "Sample",
     items: &[
@@ -203,22 +208,29 @@ const VOICE: PageDef = PageDef {
     picture: None,
 };
 
+/// SOUND's pages for a sound: `pad`, the page of its engine, then those of its chain and voice.
+const fn sound_pages(pad: PageDef, engine: PageDef) -> [PageDef; 6] {
+    [pad, engine, FILTER, FILTER_ENVELOPE, VOLUME_ENVELOPE, VOICE]
+}
+
 /// The pages of `screen` in the order of their steps under PAGE, while `sound` is the selected
-/// sound of the current track. STEP has none of its own: PAGE there acts on SOUND's pages. SAMPLES
-/// and POOL have none.
+/// sound of the current track and `pad` says whether the track has a selected pad. STEP has none
+/// of its own: PAGE there acts on SOUND's pages. SAMPLES and POOL have none.
 ///
 /// SOUND works on the track's selected pad: its Pad page, then the page of the sound's engine
 /// (Sample or Synth) and the pages of its chain and its voice. While that pad is empty there is no
-/// sound to copy or to shape, and SOUND has only the Pad page with its Sound item.
-pub fn pages(screen: Screen, sound: Option<&Sound>) -> &'static [PageDef] {
+/// sound to copy or to shape, and SOUND has only the Pad page with its Sound item. A sound
+/// selected on no pad has no pad to put a sound on or to copy to, so its Pad page holds Engine
+/// alone, on encoder 3.
+pub fn pages(screen: Screen, sound: Option<&Sound>, pad: bool) -> &'static [PageDef] {
     match screen {
         Screen::Step | Screen::Pool | Screen::Samples => &[],
-        Screen::Sound => match sound.map(|sound| &sound.engine) {
-            Some(Engine::Sample(_)) => {
-                &[PAD, SAMPLE, FILTER, FILTER_ENVELOPE, VOLUME_ENVELOPE, VOICE]
-            }
-            Some(Engine::Synth) => &[PAD, SYNTH, FILTER, FILTER_ENVELOPE, VOLUME_ENVELOPE, VOICE],
-            None => &[PageDef {
+        Screen::Sound => match (sound.map(|sound| &sound.engine), pad) {
+            (Some(Engine::Sample(_)), true) => &const { sound_pages(PAD, SAMPLE) },
+            (Some(Engine::Sample(_)), false) => &const { sound_pages(NO_PAD, SAMPLE) },
+            (Some(Engine::Synth), true) => &const { sound_pages(PAD, SYNTH) },
+            (Some(Engine::Synth), false) => &const { sound_pages(NO_PAD, SYNTH) },
+            (None, _) => &[PageDef {
                 items: &[PAD_SOUND],
                 ..PAD
             }],
@@ -267,7 +279,10 @@ mod tests {
                 (screen, Some(&sample)),
             ]
         }) {
-            for page in pages(screen, sound) {
+            for page in [true, false]
+                .into_iter()
+                .flat_map(|pad| pages(screen, sound, pad))
+            {
                 for encoder in 0..4 {
                     let holding = page
                         .items
@@ -283,6 +298,37 @@ mod tests {
                     page.name
                 );
             }
+        }
+    }
+
+    #[test]
+    fn the_pad_page_of_a_sound_on_no_pad_holds_engine_only() {
+        let synth = Sound {
+            number: SoundNumber(1),
+            name: Label::new(),
+            engine: Engine::Synth,
+            values: SOUND_DEFAULTS,
+        };
+        let sample = Sound {
+            engine: Engine::Sample(Sample::File(FileId(0))),
+            ..synth
+        };
+        for sound in [&synth, &sample] {
+            let on_a_pad = pages(Screen::Sound, Some(sound), true);
+            let on_no_pad = pages(Screen::Sound, Some(sound), false);
+
+            assert_eq!(
+                on_no_pad[0],
+                PageDef {
+                    items: &[ItemDef {
+                        kind: ItemKind::PadEngine,
+                        encoder: Some(2),
+                    }],
+                    ..on_a_pad[0]
+                }
+            );
+            // The other five pages stay.
+            assert_eq!(on_no_pad[1..], on_a_pad[1..]);
         }
     }
 }
