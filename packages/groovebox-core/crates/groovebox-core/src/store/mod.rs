@@ -1,5 +1,8 @@
 #![allow(unsafe_code)]
 
+pub mod note;
+pub mod tree;
+
 use crate::budget;
 use crate::message::VERSION_QUEUE;
 use core::cell::UnsafeCell;
