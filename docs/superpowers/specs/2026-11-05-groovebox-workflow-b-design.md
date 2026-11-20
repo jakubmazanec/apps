@@ -160,7 +160,7 @@ Rejected:
 **(owner's choice)**
 
 - The 16 step buttons always show one bar, one sixteenth each, for the selected sound; with no
-  selected sound they are all dark (Workflow A).
+  selected sound no note lights; the step under the music still does (Workflow A).
 - Every bar starts on button 1. A bar shorter than 16 sixteenths leaves the buttons after its end
   dark: 3/4 uses 12.
 - A bar longer than 16 sixteenths continues on a short second page: 5/4 is 16 + 4 and 12/8 is 16 +
@@ -225,13 +225,18 @@ Rejected:
 
 ### PLAY and STOP
 
-- **PLAY** starts the pattern from its first bar. While playing it never touches the music, so a
-  stray press cannot restart or pause the loop; it only makes the view follow again (see "Following
-  the music").
+- **PLAY** starts the pattern from its first bar. Tick 0 of the run is the sample of the press, with
+  no edit lead (Project model), so PLAY answers as fast as a pad; notes due before the audio part
+  applies the message start in the chunk where it applies it. While playing it never touches the
+  music, so a stray press cannot restart or pause the loop; it only makes the view follow again (see
+  "Following the music").
 - **SHIFT + PLAY** starts from the beginning of the cursor's bar. While playing it jumps there at
-  once.
+  once, with a new run anchored at the press. With a picker or a question open it does nothing:
+  PLAY, STOP and REC work there, and every other combination waits (Workflow A).
 - **STOP** stops playback and recording, and disarms recording. Sounding notes fade with their own
-  release, and echoes and reverb ring out, as when muting. The next PLAY starts from the first bar.
+  release, and echoes and reverb ring out, as when muting. Pads and keys held by hand sound on, and
+  so does the sample preview: only STOP while stopped stops the preview (Sound). The next PLAY
+  starts from the first bar.
 - **STOP while stopped** silences everything at once, echoes, reverb and the sample preview
   included.
 
@@ -394,8 +399,9 @@ row per pitch. Everything else in this section works the same on both.
 
 - **Always the 12 pad lanes** of the current track, in pad order. An empty pad is an empty lane, so
   lane 3 is always pad 3. On an empty lane OK and the step buttons do nothing; the PAD page can put
-  a sound on the pad. While an empty pad is selected there is no selected sound (Workflow A), so the
-  step buttons are dark and the strip under STEP and ROLL is empty.
+  a sound on the pad. While an empty pad is selected there is no selected sound (Workflow A), so no
+  note lights on the step buttons (the step under the music still does) and the strip under STEP and
+  ROLL is empty.
 - **Below them, an extra lane** for each sound that has notes on this track but sits on none of its
   pads, in pool order. That happens after a pad's sound is swapped, or when notes are entered for a
   sound selected on POOL. The extra lanes scroll into view.
@@ -460,9 +466,11 @@ there. A step is lit when the selected sound has a note starting in its sixteent
 
 **(owner's choice)**
 
+- the current pattern and track, and the bar the cursor is in;
 - the selected sound;
-- the first grid position in the button's sixteenth, one grid step long;
-- full velocity, as with the VELOCITY switch off, so the sound plays exactly as set;
+- the first grid position in the button's sixteenth, one grid step long: with the grid at 1/16 its
+  place in the bar is the sixteenth, counted from 0, times 480 ticks, and its length is 480 ticks;
+- full velocity, as with the VELOCITY switch off, so the sound plays exactly as set: 127;
 - no pressure;
 - its pitch:
   - in PADS mode, the pitch where the sound plays unchanged: the root note of a sample and C4 for a
@@ -470,6 +478,9 @@ there. A step is lit when the selected sound has a note starting in its sixteent
   - in KEYS mode on a plain tap, the last key played, or the C of the current octave before any key
     has been played;
   - when the step is held, the keys hit.
+
+A short tap on a lit step removes every note of the selected sound that starts in that sixteenth,
+whatever its pitch.
 
 ### The NOTE strip
 

@@ -194,12 +194,13 @@ the owner "for now", expected to change with testing.
   when its sample is missing; while an empty pad is selected there is no sound to name, and the
   pad's dim number stands in its place, as in STEP's names column **(my call)**), and the pad mode
   (Pads, or Keys C4 with the octave). STEP and ROLL name the screen only, not the SOUND page their
-  strip shows.
-- **The transport**, pushed to the right edge, right to left: the pattern (P3; P3→4 while pattern 4
-  is queued), the bar the step buttons show over the pattern's length (2/4) with ▶1 for the bar
-  playing, the tempo (120.0); then only while they apply: a record dot, dim while armed and red
-  while recording; a small metronome icon while the metronome is on; "Mute 2 4" while tracks are
-  muted.
+  strip shows. While the transport shows, a sound name that would bring this group closer than 6 px
+  to the transport loses its end to "…".
+- **The transport**, pushed to the right edge, from the left: the pattern (P3; P3→4 while pattern 4
+  is queued), the bar the step buttons show over the pattern's length (2/4; "2/4 ▶1" while playing,
+  the bar playing after ▶), the tempo with one decimal (120.0); then only while they apply: a record
+  dot, dim while armed and red while recording; a small metronome icon while the metronome is on;
+  "Mute 2 4" while tracks are muted. The items are 6 px apart and the last one ends at x 475.
 - **A message** replaces the transport group, in red for errors (Storage full. Not saved; kick.wav
   not imported: library full; Library can't be read) and in the accent for notices (2 samples
   missing; Loading library; No unused sounds), until a later press of a button clears it **(owner's
@@ -333,7 +334,9 @@ shows the filter's curve with a faint line at the cutoff. Richer graphics come l
   Velocity, Metronome, Metronome level, Count-in as items, all four on the encoders **(owner's
   choice)**; and a **Dev page** (tile "2 Dev") with library and note memory as items with bars, so
   the device itself has them and the hardware later shows them in the same place; meters are not
-  set, so the encoders hold nothing there and the strip is empty **(owner's choice)**.
+  set, so the encoders hold nothing there and the strip is empty **(owner's choice)**. The "Note
+  memory" item sits under Library and reads "0.0 of 8 MB" when empty, in the library meter's format,
+  with its bar; it counts 520 bytes for each block in use, the block and its bookkeeping.
 - **POOL**: Remove unused first, with no label; then every sound in number order, its name at the
   left and a dim label at the right: the engine word (for a missing sample "missing" and the file's
   name), the pads and a loaded sample's size, two spaces apart (`sample  pads 1, 12  38 KB`,

@@ -88,6 +88,8 @@ controls do. What part 1 teaches then decides the physical layout and look (part
   its preview and delete; then sample sounds, which are the sample engine, the Sample page, NEW
   SAMPLE, the sample picker, the ENGINE item and what deleting a sample does to its sounds; then
   POOL.
+- **Milestone 3 is planned in four plans (decided):** playing a pattern; timing and bars; the STEP
+  view; then mix, mute and track effects.
 
 ## Subparts
 
@@ -471,10 +473,6 @@ settles it with the owner.
 
 ### On the device
 
-- **The first STOP and the preview.** With the sample picker open while the music plays, does STOP
-  end the preview? Proposed: no; a second STOP silences it.
-- **SHIFT + PLAY in a picker or question.** PLAY works there and "every other combination" waits;
-  SHIFT + PLAY is named in neither. Proposed: it waits.
 - **Two hold buttons at once.** CANCEL and COPY held, then a pad. Proposed: the one pressed first
   counts; the other is ignored until both are let go.
 - **CANCEL or COPY held + a step button.** No meaning is given. Proposed: nothing happens and the
@@ -527,15 +525,8 @@ settles it with the owner.
 
 - **Timers.** The autosave and view-file delays name no clock. Proposed: every delay counts samples
   of the audio clock, as the hold and repeat times do.
-- **What the audio part reports.** Foundation lists the playhead and meters; no screen has a meter.
-  Proposed: the playhead and the browser wake-up. The report that a message was applied at a sample
-  is settled: it is the "sample let go" that frees a deleted file's RAM (Project model).
-- **Edit lead.** No number, and not in Foundation's spike list. Proposed: provisionally 1,024
-  samples, set just above the longest delay the spike measures.
-- **Numbers not yet set.** The version queue's size and the reserve for versions in flight.
-  Proposed: none yet.
 - **Fixed table sizes.** How many projects and queue entries; the message when one is full.
   Proposed: none yet; each is a budget-profile entry. The library's 4,096 files and 1,024 folders
   are settled (Foundation).
-- **Effect memory and note pool.** Sound's "large memory class" is not one of Foundation's two
-  kinds. Proposed: both sit beside the sample RAM, each with its own budget number.
+- **Effect memory.** Sound's "large memory class" is not one of Foundation's two kinds. Proposed: it
+  sits beside the sample RAM, with its own budget number.

@@ -54,10 +54,12 @@ The core has two parts, separated by deadline:
 - **Control part.** Everything else: control events, the workflow state, drawing the screen, loading
   samples, saving projects. Its deadline is soft: a screen update may slip a frame, audio may not.
 - **How they talk.** Only through lock-free one-way queues. Control to audio: notes played on pads,
-  parameter changes, edits. Audio to control: playhead position and meters. Notes are recorded by
-  the control part, from each input's timestamp with the formula under "Musical time" (Project
-  model). Large data such as a loaded sample is handed over as memory the control part has finished
-  filling; nothing is shared while it is being written.
+  parameter changes, edits; the versions of notes that edits publish have a queue of their own.
+  Audio to control: the reports that a message or a version was applied, and nothing more; the
+  playhead and the lights come from the control part's own sequencer (Project model). Notes are
+  recorded by the control part, from each input's timestamp with the formula under "Musical time"
+  (Project model). Large data such as a loaded sample is handed over as memory the control part has
+  finished filling; nothing is shared while it is being written.
 
 Why: audio has to be ready every few milliseconds whatever else is happening, while drawing, loading
 and saving take varying time. Mixed together, audio drops out. In the browser the split is forced
@@ -165,9 +167,10 @@ and gave the picker a refusal; the EP-133 has one library, one limit and one pla
 - The profile also holds what the other specs set: the voice count (provisionally 32, plus the
   preview player), the effect slots' memory (about 9 MB, outside the library's budget) and the
   worst-case operation count recorded by a test scene (Sound); the pool of sounds, 1,024 per project
-  and held in working memory (Workflow A) **(owner's choice)**; the note pool (provisionally 8 MB),
-  the undo budget (provisionally a quarter of the pool), the edit lead and the size of the version
-  queue (Project model); the frame buffer (8-bit indexed, 128 KB, 255 KB for two) (Look).
+  and held in working memory (Workflow A) **(owner's choice)**; the note pool, `note_ram`
+  (provisionally 8,000,000 bytes, beside the sample RAM), the undo budget (provisionally a quarter
+  of the pool), the edit lead, `edit_lead` (1,024 samples) and the size of the version queue
+  (Project model); the frame buffer (8-bit indexed, 128 KB, 255 KB for two) (Look).
 
 ## Time, audio and numbers
 

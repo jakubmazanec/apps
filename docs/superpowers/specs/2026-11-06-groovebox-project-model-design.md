@@ -129,21 +129,22 @@ metronome level, count-in, and which project was open last.
 
 DELETE on a sound shows a question, "Delete Kick?", then a dim line that counts every pad on every
 track and every note in every pattern that use it, such as "On 2 pads, 24 notes", then "OK deletes,
-Cancel keeps". A sound nothing uses has no count line, as the question on SAMPLES leaves out its
-count when no sound uses the file: "Delete Syn 4?", then "OK deletes, Cancel keeps". OK removes all
-of it: the pads go empty and the notes are gone. The sound leaves the pool and its number is never
-reused. A track that had selected it on no pad selects pad 1, its default, as every remembered item
-does when its target is gone (see "What a project remembers"). Its voices fade within one 32-sample
-chunk, as a deleted file's voices do. The project therefore never contains a note whose sound does
-not exist, STEP never needs a lane for a sound that is gone, and nothing can play silence by
-mistake. The sample file stays in the library for other projects, and the library and the sample RAM
-stay as they are. Deleting a sound also empties the undo and redo versions, and empties the
-clipboard when it holds any note of the sound, so neither an undo nor a paste can bring back a note
-of a sound that is gone. REMOVE UNUSED removes every unused sound at once, a sound selected on POOL
-that sits on no pad included, by the one definition of used (see "The project and its parts"), and
-follows the same rule for the sounds it removes, which have no notes in any pattern but may still
-have some in undo or the clipboard **(owner's choice)**. Undo does not cover it, and undo and redo
-are emptied by it; the question is the safeguard, as Workflow B decided for sounds.
+Cancel keeps". A part whose count is 0 is left out ("24 notes", "On 1 pad") and one note reads "1
+note". A sound nothing uses has no count line, as the question on SAMPLES leaves out its count when
+no sound uses the file: "Delete Syn 4?", then "OK deletes, Cancel keeps". OK removes all of it: the
+pads go empty and the notes are gone from every pattern and track. The sound leaves the pool and its
+number is never reused. A track that had selected it on no pad selects pad 1, its default, as every
+remembered item does when its target is gone (see "What a project remembers"). Its voices fade
+within one 32-sample chunk, as a deleted file's voices do. The project therefore never contains a
+note whose sound does not exist, STEP never needs a lane for a sound that is gone, and nothing can
+play silence by mistake. The sample file stays in the library for other projects, and the library
+and the sample RAM stay as they are. Deleting a sound also empties the undo and redo versions, and
+empties the clipboard when it holds any note of the sound, so neither an undo nor a paste can bring
+back a note of a sound that is gone. REMOVE UNUSED removes every unused sound at once, a sound
+selected on POOL that sits on no pad included, by the one definition of used (see "The project and
+its parts"), and follows the same rule for the sounds it removes, which have no notes in any pattern
+but may still have some in undo or the clipboard **(owner's choice)**. Undo does not cover it, and
+undo and redo are emptied by it; the question is the safeguard, as Workflow B decided for sounds.
 
 Of the nine devices researched, none refuses to delete an in-use sound; the MPC lists the tracks
 that use a sample before asking, the Deluge guidebook says it "will not notify you", and all leave
@@ -258,9 +259,11 @@ All note data lives in one pool of fixed half-kilobyte blocks **(my call)**: blo
 index blocks that order them, pressure-curve blocks, pattern records and the clipboard's holdings.
 The pool's size is a budget-profile number, provisionally **8 MB, about 500,000 notes** **(my
 call)**: 300 bars of all four tracks playing twelve sounds on every sixteenth, with room over. It is
-read a few blocks at a time, so on a device it can live in slow external RAM, like the samples.
-Pattern length costs nothing: an empty 1,000-bar pattern uses no block, patterns 1 to 16 together
-use half a block while empty, and a bar number runs to 65,535 (about 36 hours at 120 BPM in 4/4).
+read a few blocks at a time, so on a device it can live in slow external RAM, like the samples. The
+budget profile states it as `note_ram`, 8,000,000 bytes beside the sample RAM: 15,384 blocks of 512
+bytes, each with 8 bytes of bookkeeping. Pattern length costs nothing: an empty 1,000-bar pattern
+uses no block, patterns 1 to 16 together use half a block while empty, and a bar number runs to
+65,535 (about 36 hours at 120 BPM in 4/4).
 
 ### How notes are arranged
 
@@ -293,18 +296,23 @@ note).
 ### One version per edit, at its own moment
 
 The moment is computed from the timestamp of the input that caused the edit, plus a fixed lead, a
-budget-profile number measured in Foundation's spike. Every message is numbered; the sound side
-records the sample at which it applied each one, and these records belong to the session log, so a
-replay applies every edit at the same sample as the live session, late ones included. This is
-Foundation's own rule ("the delay used is recorded with the input") applied to edits; without it, a
-late browser would make a live session differ from its replay.
+budget-profile number measured in Foundation's spike: `edit_lead`, 1,024 samples (21 ms), since the
+spike measured deliveries up to 512 samples late and one step of the screen side is added. A moment
+is never earlier than the moment before it, so versions apply in the order they were made. Every
+message is numbered; the sound side records the sample at which it applied each one, and these
+records belong to the session log, so a replay applies every edit at the same sample as the live
+session, late ones included. This is Foundation's own rule ("the delay used is recorded with the
+input") applied to edits; without it, a late browser would make a live session differ from its
+replay.
 
 The screen side never decides anything about notes from what the sound side reports: which pattern
 was playing when a pad was hit, which pass, which tempo anchor all come from its own transport
-model, a pure function of the inputs. Reports only drive the playhead on screen and the reuse of
-memory. Versions are not sent for a pattern the sound side neither plays nor has queued; queueing a
-pattern sends its versions. If the version queue is full, the screen side stops taking inputs until
-there is room; the sound side never waits.
+model, a pure function of the inputs. Reports drive only the reuse of memory: the sound side reports
+one thing, that a message or a version was applied. The playhead, the lights and the header come
+from the screen side's own sequencer, so every frame is a pure function of the inputs. Versions are
+not sent for a pattern the sound side neither plays nor has queued; queueing a pattern sends its
+versions. The version queue holds 64 versions, `VERSION_QUEUE`. While it is full the screen side's
+step handles no event until there is room; the sound side never waits.
 
 In the browser, the sound side's per-batch wake-up paces the screen side, so "a step" means "all
 inputs stamped before this batch", a pure function of the log.
@@ -344,6 +352,10 @@ past a new shorter length wraps to bar 1 at the next bar line **(my call)**.
 
 Notes already sounding keep their own end, copied at the moment they start: versions decide only
 when notes start.
+
+The sound side starts no note of a sound it does not hold. So a version that still has the notes of
+a deleted sound plays nothing in the chunks before the version that removes them takes over, and it
+never panics.
 
 ## Pressure curves
 
@@ -390,11 +402,15 @@ and if memory runs out during the pass its undo is dropped first and the header 
 was copied, so copying a whole pattern costs nothing until the original is edited. One clipboard,
 replaced by the next copy, never saved.
 
-**Counting memory.** Decisions use what is free once the sound side has let go of superseded
-versions, even if the report has not arrived yet, so they depend only on the inputs; the actual
-reuse of a block waits for the report, with a small reserve for versions in flight. Everything in
-the pool is one of: the live versions, versions on their way to the sound side, the undo and redo
-versions, the clipboard, the autosave snapshot and free blocks.
+**Counting memory.** Blocks wait after a release until the sound side reports the version that let
+go of them. Decisions use what is free once the sound side has let go of superseded versions, even
+if the report has not arrived yet, so they depend only on the inputs; the actual reuse of a block
+waits for the report. No reserve is kept for versions in flight: while fewer than 256 blocks are
+ready for reuse and some wait, the screen side's step handles no event until their reports arrive. A
+tap on a step that would leave fewer than 256 blocks free (`RESERVE`) adds nothing and shows "Not
+enough memory" in red; removals may use the reserve. Everything in the pool is one of: the live
+versions, versions on their way to the sound side, the undo and redo versions, the clipboard, the
+autosave snapshot and free blocks.
 
 **When an action does not fit,** things give way in this order, each shown in the header: the redo
 version; then the undo version, with the question for a deliberate action and UNDO LOST during
