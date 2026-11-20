@@ -19,26 +19,17 @@ untagged is new in this discussion.
 
 - This is gathering, not choosing: ideas are developed, not narrowed to options.
 - Ideas come as whole loops with a night played through them, not as lists of parts.
+- What lands (my reading of the kept loops): cards made of the body and of real things carried,
+  built on what the night already has, adding tension rather than progress.
 
 ## Questions and answers
 
 1. Which job do cards and traits do: make the next night differ, make choices inside a night harder,
    or give the player an identity? **All three.**
+2. Which of seven loops fit? **Two faces and pockets.** The repertoire, the agenda, habits and
+   reputation, the ending pays and the night's deal are not a fit.
 
 ## Loops
-
-### The repertoire: found stories become what you tell
-
-- Every found story becomes an anecdote in your repertoire, kept across nights.
-- A person can be told a story; telling takes 10 to 20 minutes.
-- People like different stories: the bartender likes trains, the birthday crowd likes embarrassing
-  ones.
-- The right story opens them (a tip, a free drink, where the friend went, a new story); a wrong one
-  wastes the minutes.
-- A person remembers what you told them; the same story twice fails.
-- Embellish when telling: the story lands harder and the odds of being called out rise. (Clashes
-  with the note's "story cards are never upgraded".)
-- The first night you only listen; later nights you tell. The reward is the tool.
 
 ### Two faces: drunkenness turns the cards over
 
@@ -49,51 +40,76 @@ untagged is new in this discussion.
 - A face opens different choices; it is never simply better.
 - The night has an arc: sober hand early, turned hand at midnight, turned back at dawn as the hours
   lower the level.
+- Up and down differ: at the same level a card reads "Brave" on the way up and "Sluggish" on the way
+  down.
+- Tiredness is a second axis after 03:00; coffee pushes one way, drinks the other.
+- The room has a level too: a bar gets drunker through the night, "Brave" works on a drunk room,
+  "Shy" on a sober one.
+- Sober you chooses, drunk you draws: past a level, reaching into a pocket brings out whatever is
+  there.
 
-### The agenda: cards with a time on them
-
-- Invitations, rumours and appointments are cards with a window: "Birthday at Rotor 20:00–01:00",
-  "Last tram 23:40".
-- The hand is the night's schedule; routing between them on the map is the resource management.
-- Windows overlap, so taking one means missing another; a missed card expires.
-- The phone brings many of them; people you know bring more, so the deck decides what can arrive.
-
-### You become what you do: habits and reputation
-
-- The game watches across nights: three nights on foot give "Walker", always buying first gives
-  "Generous".
-- The city gives reputation cards you did not pick: "The one who put ice in the red wine" gets you
-  refused at one bar and loved at another.
-- The deck is a portrait of how you play; acting against a habit for a night loses it.
-- Identity without a stat sheet: the perk tree grows from what you did, not from points.
-
-### Pockets: everything carried takes room
+### Pockets and hands: everything carried takes room
 
 - Cards, the bottle, the keys and bought things share the pockets.
 - The outfit sets the room: a bathrobe 2, a jacket 4, a backpack 6 (bouncers dislike backpacks).
-- The birthday bottle takes two pockets all evening, so the quest crowds out the night's finds.
+- The birthday bottle takes room all evening, so the quest crowds out the night's finds.
+- The two hands are the hand: only what is in a hand can be used now; pockets hold the rest.
+- Taking something out takes a minute; putting a drink down frees a hand.
+- Pockets differ: front is quick, back is quick and easy to pick, inside is a minute slower and safe
+  from theft and rain, a bag is roomy and takes a hand.
+- Drunk fumbling: past a level, reaching brings out a random thing from that pocket, with shown odds
+  of dropping it.
+- A dropped thing stays on that place's floor for the night; someone may take it, by the seed.
+- Loss and theft stay hidden until you reach for the thing or check your pockets (a minute).
 - A full hand forces a drop when something new is offered.
+- The Whisky Shop's paper bag: more room, one hand less.
+- Junk fills pockets: flyers, receipts, a coaster. Some junk is useful: a napkin with a number, a
+  flyer that is an invitation.
+- Rain soaks paper in outside pockets: a ticket, the napkin.
 
-### The ending pays
+### Body cards: needs that take a hand
 
-- How the night ends decides what is kept: leaving by train keeps one card from tonight, staying
-  with the keys keeps two, stranded keeps one plus a hangover.
-- The quest matters to the long run without becoming the main reward.
+- The body puts cards in your hands: "Need the toilet" after drinks, "Hungry" hours after eating,
+  "Hot" in the heat with the jacket on, "Cold" at dawn without it, "Tired" after 03:00.
+- A body card holds a hand, your attention, until it is dealt with: the station's paid toilet, a
+  kebab for 15 minutes.
+- They are the night's bad cards, made of the body, and they leave when dealt with.
 
-### The night's deal
+### The outfit over the night
 
-- On the train the seed deals three reasons to be in Brno; you pick one.
-- It also deals the night's condition, fixed: a heatwave, a tram strike, a festival.
-- Each night starts with a real decision, and more quests have to be written.
+- The jacket's worth changes with the hour: too hot at 19:00, needed at 04:00.
+- Taken off, it is carried (a hand) or tied round the waist (its pockets out of reach).
+- Left on a chair, it frees you and is at risk.
 
-### How they stack
+### Room traded for money and time
 
-- Repertoire and two faces: a drunk telling embellishes by itself.
-- Agenda and pockets: an invitation takes no pocket, the gift you buy for it does.
-- Habits and repertoire: telling many stories gives "Storyteller".
-- One scene, the door of Rotor at 01:30, full: "Wait in the line (30 min)", "[Regular at Rotor] Nod
-  at the doorman", "[Brave] Talk your way past", "[Story: The guitarist] Say you're with the band",
-  "[Lighter] Offer him a light".
+- A tab against the jacket: the bar keeps it, and its pockets, until you pay before closing.
+- The main station's luggage lockers: pay, leave the bottle, fetch it before the birthday; a detour
+  each way.
+- Pawn the phone for cash: no phone and no messages until it is bought back.
+
+### Cash and paying by phone
+
+- Money splits: cash in a pocket, and paying by phone.
+- Some places take cash only.
+- Cash can be dropped or stolen; paying by phone needs battery and a free hand.
+- The cash machine costs a fee and the walk to it.
+- The battery is a second clock: the map, payments and messages drain it; a power bank takes a
+  pocket.
+
+### A night through these loops
+
+- 16:40, the train, in a jacket: phone and lighter in front, cash inside, tram ticket at the back.
+- 17:30, The Whisky Shop: the bottle comes in a bag, one hand gone.
+- 19:00, the heat: "Hot" takes the other hand, and the phone buzzes unanswered. Off with the jacket,
+  or the bottle into a station locker.
+- 22:00, Rotor: the bottle is given, a hand frees; three drinks turn "Careful with money" into
+  "Buying rounds".
+- 01:30, Rotor's door: at 4.5 drinks, reaching for the lighter brings out the tram ticket, which
+  falls to the floor.
+- 04:00, the level falling: "Cold" arrives, and the jacket is on a chair in Rotor, closed since
+  03:00.
+- 07:30, the hall: the cash was in the inside pocket, so the ticket can be bought.
 
 ## Ideas
 
@@ -194,6 +210,7 @@ untagged is new in this discussion.
 - Every card needs a name that makes sense in the fiction. (note)
 - Content cost: a key card needs text in every scene that answers it; a number modifier needs none.
 - The checker: every hand multiplies the states, so a scene should read few cards.
+- Two hands and a few pockets have to fit a phone screen about 32 letters across.
 - A card that lowers a cost takes away tension; one that opens something adds text to write. A card
   that improves one number and worsens another turns into a resource decision itself.
 
@@ -206,4 +223,3 @@ Clashes with `direction.md`:
 - Drugs are never romanticised, so a weed card with a bonus needs a written cost.
 - Money never goes below zero, and a debt card works around that on purpose.
 - Drunkenness, "written, not ruled": a card that turns over at a level is a rule.
-- Goal, one quest a night: the night's deal offers three, which means writing more quests.
