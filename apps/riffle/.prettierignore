@@ -9,7 +9,6 @@
 .cache/
 .react-router/
 .turbo/
-CHANGELOG.md
 LICENSE.md
 build/
 coverage/
