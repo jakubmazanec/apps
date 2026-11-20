@@ -5,7 +5,7 @@ it moves into `direction.md`.
 
 Tags: **(note)** from the Notion page
 [Deck-building and RPG elements](https://app.notion.com/p/Deck-building-and-RPG-elements-4088713d285680378607decea796c83c);
-**(Oct)** from the 2026-10-28 explorations; untagged is new in this discussion.
+untagged is new in this discussion.
 
 ## Starting point
 
@@ -14,17 +14,6 @@ Tags: **(note)** from the Notion page
 - Across nights the game keeps the collection, past nights and texts read. None of it changes how
   the next night plays.
 - The shelved "long arc across nights" reopens after phase 8, which is built.
-- Earlier passes: branch `foam-rpg-deck-building` maps readings of "RPG" and "deck"; branch
-  `foam-rpg-and-deck-building` holds the givens below.
-
-## Givens (Oct)
-
-- Foam stays a resource management adventure game.
-- The clock, drunkenness and money stay numbers.
-- Cards may be resources, but only special ones, such as unique items.
-- Cards can be skills or acquired knowledge.
-- Cards are upgradable.
-- A card can be a key (definitely in), spent in a run, passive, or an item.
 
 ## Questions and answers
 
@@ -39,7 +28,6 @@ Tags: **(note)** from the Notion page
 - An item with a few uses: phone, lighter, bag of weed. (note)
 - A story card for every found story. (note)
 - A regular's card for a bar. (note)
-- A skill or a piece of knowledge. (Oct)
 - A person you know: played to bring them into a scene or call in a favour.
 - A memory from a past night: played where it happened, it opens a flashback.
 - A rumour heard tonight ("Rotor's back door is open after 02:00"): true or not by the seed, gone at
@@ -71,11 +59,11 @@ Tags: **(note)** from the Notion page
 
 ### Playing cards in a night
 
-- A key: holding the card adds a choice to a scene. (Oct)
+- A key: holding the card adds a choice to a scene. (note)
 - An override: the card unlocks a choice you are otherwise barred from (too drunk, too poor, a shut
   door). (note)
 - Dice: a card raises the odds or rerolls. (note)
-- Spent: uses run out. Passive: a bonus while held. (note, Oct)
+- Spent: uses run out. Passive: a bonus while held. (note)
 - A hand limit: pockets hold a few cards, so a new one means dropping one.
 - Combos: two cards open what neither does alone (the guitarist's number plus Rotor's regular card
   gets you invited to play).
@@ -105,7 +93,6 @@ Tags: **(note)** from the Notion page
 ### Traits
 
 - A perk tree instead of many stats, or a few core traits raised by perks. (note)
-- The deck is the character: no stat sheet, only cards. (Oct)
 - Tags instead of numbers ("Smoker", "Talks too much"), read by content as drunkenness is.
 - Double-edged traits: "Talks too much" opens more dialogue but every talk costs 10 more minutes.
 - A flashback decides who you were and sets a trait.
