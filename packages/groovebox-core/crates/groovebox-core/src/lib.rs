@@ -30,4 +30,5 @@ pub mod ring;
 pub mod sample_ram;
 pub mod screen;
 pub mod storage;
+pub mod store;
 pub mod ui;

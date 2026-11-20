@@ -4,6 +4,9 @@ use crate::project::pool::SoundNumber;
 
 pub const MESSAGE_QUEUE: usize = 256;
 pub const REPORT_QUEUE: usize = 256;
+/// The most versions of the note memory that the control part has sent and not yet heard the audio
+/// part report. The note memory's waiting blocks are grouped by version in a ring this long.
+pub const VERSION_QUEUE: usize = 64;
 /// The most messages the control part sends for one event, an input or a repeat: ENGINE to Sample
 /// sends `StopPreview` and up to seven values, and ENGINE to Synth up to eight values. It handles
 /// an event only while the message queue has room for this many.

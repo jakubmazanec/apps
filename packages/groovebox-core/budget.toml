@@ -11,3 +11,7 @@ library_files = 4_096
 library_folders = 1_024
 storage_reserve = 9_000_000
 io_buffer = 65_536
+# The note memory beside the sample RAM: blocks and their bookkeeping.
+note_ram = 8_000_000
+# Samples from an edit's input to the moment its version plays.
+edit_lead = 1_024
