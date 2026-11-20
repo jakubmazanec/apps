@@ -15,11 +15,85 @@ untagged is new in this discussion.
   the next night plays.
 - The shelved "long arc across nights" reopens after phase 8, which is built.
 
+## How this is worked
+
+- This is gathering, not choosing: ideas are developed, not narrowed to options.
+- Ideas come as whole loops with a night played through them, not as lists of parts.
+
 ## Questions and answers
 
-1. Which job do cards and traits do first: make the next night differ, make choices inside a night
-   harder, or give the player an identity? **All three.**
-2. Do cards change numbers (power) or open things (breadth)? Open.
+1. Which job do cards and traits do: make the next night differ, make choices inside a night harder,
+   or give the player an identity? **All three.**
+
+## Loops
+
+### The repertoire: found stories become what you tell
+
+- Every found story becomes an anecdote in your repertoire, kept across nights.
+- A person can be told a story; telling takes 10 to 20 minutes.
+- People like different stories: the bartender likes trains, the birthday crowd likes embarrassing
+  ones.
+- The right story opens them (a tip, a free drink, where the friend went, a new story); a wrong one
+  wastes the minutes.
+- A person remembers what you told them; the same story twice fails.
+- Embellish when telling: the story lands harder and the odds of being called out rise. (Clashes
+  with the note's "story cards are never upgraded".)
+- The first night you only listen; later nights you tell. The reward is the tool.
+
+### Two faces: drunkenness turns the cards over
+
+- Some cards have a sober face and a drunk face; past a level the other face counts.
+- "Shy" notices more; "Brave" talks to anyone and is taken seriously by nobody.
+- "Careful with money" turns into "Buying rounds".
+- Drunkenness becomes a dial: one drink before the bouncer, a coffee before the ticket machine.
+- A face opens different choices; it is never simply better.
+- The night has an arc: sober hand early, turned hand at midnight, turned back at dawn as the hours
+  lower the level.
+
+### The agenda: cards with a time on them
+
+- Invitations, rumours and appointments are cards with a window: "Birthday at Rotor 20:00–01:00",
+  "Last tram 23:40".
+- The hand is the night's schedule; routing between them on the map is the resource management.
+- Windows overlap, so taking one means missing another; a missed card expires.
+- The phone brings many of them; people you know bring more, so the deck decides what can arrive.
+
+### You become what you do: habits and reputation
+
+- The game watches across nights: three nights on foot give "Walker", always buying first gives
+  "Generous".
+- The city gives reputation cards you did not pick: "The one who put ice in the red wine" gets you
+  refused at one bar and loved at another.
+- The deck is a portrait of how you play; acting against a habit for a night loses it.
+- Identity without a stat sheet: the perk tree grows from what you did, not from points.
+
+### Pockets: everything carried takes room
+
+- Cards, the bottle, the keys and bought things share the pockets.
+- The outfit sets the room: a bathrobe 2, a jacket 4, a backpack 6 (bouncers dislike backpacks).
+- The birthday bottle takes two pockets all evening, so the quest crowds out the night's finds.
+- A full hand forces a drop when something new is offered.
+
+### The ending pays
+
+- How the night ends decides what is kept: leaving by train keeps one card from tonight, staying
+  with the keys keeps two, stranded keeps one plus a hangover.
+- The quest matters to the long run without becoming the main reward.
+
+### The night's deal
+
+- On the train the seed deals three reasons to be in Brno; you pick one.
+- It also deals the night's condition, fixed: a heatwave, a tram strike, a festival.
+- Each night starts with a real decision, and more quests have to be written.
+
+### How they stack
+
+- Repertoire and two faces: a drunk telling embellishes by itself.
+- Agenda and pockets: an invitation takes no pocket, the gift you buy for it does.
+- Habits and repertoire: telling many stories gives "Storyteller".
+- One scene, the door of Rotor at 01:30, full: "Wait in the line (30 min)", "[Regular at Rotor] Nod
+  at the doorman", "[Brave] Talk your way past", "[Story: The guitarist] Say you're with the band",
+  "[Lighter] Offer him a light".
 
 ## Ideas
 
@@ -120,7 +194,8 @@ untagged is new in this discussion.
 - Every card needs a name that makes sense in the fiction. (note)
 - Content cost: a key card needs text in every scene that answers it; a number modifier needs none.
 - The checker: every hand multiplies the states, so a scene should read few cards.
-- A card that lowers a cost takes away tension; one that opens something adds text to write.
+- A card that lowers a cost takes away tension; one that opens something adds text to write. A card
+  that improves one number and worsens another turns into a resource decision itself.
 
 Clashes with `direction.md`:
 
@@ -130,3 +205,5 @@ Clashes with `direction.md`:
 - Meta jokes are used sparingly, and an index-card frame keeps the meta on screen.
 - Drugs are never romanticised, so a weed card with a bonus needs a written cost.
 - Money never goes below zero, and a debt card works around that on purpose.
+- Drunkenness, "written, not ruled": a card that turns over at a level is a rule.
+- Goal, one quest a night: the night's deal offers three, which means writing more quests.
