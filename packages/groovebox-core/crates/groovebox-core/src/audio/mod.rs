@@ -67,7 +67,8 @@ impl Audio {
     /// line across the chunk.
     ///
     /// It takes a message or a version only while the report queue has room for its report and
-    /// never waits: one it leaves stays in its queue, in order, for a later chunk start.
+    /// never waits: one it leaves stays in its queue, in order, for a later chunk start. It counts
+    /// the room once per chunk start, so a version never goes ahead of a message left waiting.
     ///
     /// It reads the files' blocks through `readers[v]`, the reader of block table `v`, as
     /// `Tables::readers` allows: through the table that the latest `UseTable` named and only frames
@@ -100,12 +101,14 @@ impl Audio {
         let (right, _) = right.as_chunks_mut::<CHUNK>();
         for (left, right) in left.iter_mut().zip(right) {
             let mut fades = [[0.0; CHUNK]; 2];
-            while reports.free() > 0
+            let mut room = reports.free();
+            while room > 0
                 && let Some(message) = messages
                     .peek()
                     .filter(|message| message.at <= self.position)
             {
                 messages.pop();
+                room -= 1;
                 let reader = &readers[usize::from(self.table)];
                 match message.kind {
                     MessageKind::NewSound { sound } => self.sounds.add(sound, SOUND_DEFAULTS),
@@ -182,12 +185,13 @@ impl Audio {
                     sample: self.position,
                 });
             }
-            while reports.free() > 0
+            while room > 0
                 && let Some(version) = versions
                     .peek()
                     .filter(|version| version.moment <= self.position)
             {
                 versions.pop();
+                room -= 1;
                 self.sequencer.switch(version.track, version.tree, notes);
                 let _ = reports.push(Report::Applied {
                     number: version.number,
