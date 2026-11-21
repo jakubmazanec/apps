@@ -1386,9 +1386,11 @@ fn a_removal_short_of_ready_blocks_publishes_and_waits() {
     rig.step(220);
     rig.sent();
     versions(&mut rig);
-    // The taps' versions 1 to 4 are not reported, so the one-block trees before versions 2 to 4
-    // wait. By hand exactly `RESERVE` blocks are ready: the first removal, which copies the
-    // track's leaf, leaves fewer.
+    for number in 1..=4 {
+        rig.applied(number, 1_300);
+    }
+    // Nothing waits, and by hand exactly `RESERVE` blocks are free: the first removal, which
+    // copies the track's leaf, leaves fewer.
     fill_until(&rig, RESERVE);
     choose(&mut rig, 300, 1, &[Button::Up]);
     rig.tap(400, Button::Ok);
@@ -1397,7 +1399,8 @@ fn a_removal_short_of_ready_blocks_publishes_and_waits() {
 
     rig.step(600);
 
-    // Bar 1's tail is gone and published while bar 2's waits; STOP is not handled.
+    // Bar 1's tail is gone and published while bar 2's waits: fewer than `RESERVE` blocks are
+    // ready and the old leaf waits for version 6. STOP is not handled.
     assert_eq!(rig.sent(), [message(5, 400, meter(0, 0, 2, THREE_FOUR))]);
     let bar_2 = |sixteenth| Note {
         bar: 1,
@@ -1418,9 +1421,7 @@ fn a_removal_short_of_ready_blocks_publishes_and_waits() {
     assert_eq!(rig.sent(), []);
     assert_eq!(versions(&mut rig), []);
 
-    for number in [1, 2, 3, 4, 6] {
-        rig.applied(number, 1_500);
-    }
+    rig.applied(6, 1_500);
     rig.step(800);
 
     assert_eq!(
@@ -1434,6 +1435,57 @@ fn a_removal_short_of_ready_blocks_publishes_and_waits() {
     );
     assert_eq!(rig.sent(), [message(8, 500, MessageKind::Silence)]);
     assert_eq!(count(&rig, synth), 0);
+}
+
+#[test]
+fn a_removal_sends_the_same_whenever_the_reports_come() {
+    /// The versions, each with its notes in place of its tree, whose blocks may differ, and the
+    /// messages of 3/4 chosen over 2 bars of tails that taps entered, with exactly `RESERVE`
+    /// blocks ready by hand while the trees before the taps' versions 2 to 4 wait. Their reports
+    /// come before the step that runs the removal or after it.
+    fn sent(reported_first: bool) -> (Vec<(Version, Vec<Note>)>, Vec<Message>) {
+        let queue = Queue::new();
+        let mut rig = Rig::new(&queue);
+        rig.synth_on(0);
+        on_bars(&mut rig, 0);
+        choose(&mut rig, 60, 0, &[Button::Down]);
+        rig.tap(100, Button::Step(12));
+        rig.tap(110, Button::Step(14));
+        rig.step(120);
+        rig.control.view.steps.bar = 1;
+        rig.tap(200, Button::Step(12));
+        rig.tap(210, Button::Step(14));
+        rig.step(220);
+        versions(&mut rig);
+        fill_until(&rig, RESERVE);
+        choose(&mut rig, 300, 1, &[Button::Up]);
+        rig.step(310);
+        rig.sent();
+        rig.tap(400, Button::Ok);
+        rig.tap(500, Button::Stop);
+        let (mut versions_sent, mut messages) = (Vec::new(), Vec::new());
+        for until in [600, 700] {
+            if reported_first == (until == 600) {
+                for number in 1..=4 {
+                    rig.applied(number, 1_300);
+                }
+            }
+            rig.step(until);
+            for version in versions(&mut rig) {
+                versions_sent.push((
+                    Version {
+                        tree: Tree(None),
+                        ..version
+                    },
+                    notes_in(&rig, version.tree),
+                ));
+            }
+            messages.extend(rig.sent());
+        }
+        (versions_sent, messages)
+    }
+
+    assert_eq!(sent(false), sent(true));
 }
 
 #[test]

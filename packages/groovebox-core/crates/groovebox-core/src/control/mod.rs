@@ -317,11 +317,12 @@ impl Control {
     /// (`delete_sound`, S17); while any is left the step handles no event and stops there. After
     /// them and before any later event, the removal of the notes a LENGTH or SIGNATURE change no
     /// longer fits makes its moves while the version queue has room for `MAX_VERSIONS_PER_EVENT`
-    /// versions (`next_removal`, S15); with fewer than `RESERVE` blocks ready it publishes what it
-    /// has and the step stops while blocks wait for reports. While it runs the step handles no
-    /// event. The control part's own sequencer (`player`) advances to each event's sample before
-    /// the event, and to `until` once no event is left before it; a step that stops early leaves
-    /// it at the last event it handled. Its events go nowhere, and it keeps the notes that sound.
+    /// versions (`next_removal`, S15); with fewer than `RESERVE` blocks free it publishes what it
+    /// has, and before a removal the step stops while fewer than `RESERVE` are ready and blocks
+    /// wait for reports. While it runs the step handles no event. The control part's own
+    /// sequencer (`player`) advances to each event's sample before the event, and to `until` once
+    /// no event is left before it; a step that stops early leaves it at the last event it
+    /// handled. Its events go nowhere, and it keeps the notes that sound.
     ///
     /// The first step starts the start-up's job, and a reply goes to it with `io`, the I/O buffer,
     /// as its request left it. When the job ends the project opens, with the job's result as the

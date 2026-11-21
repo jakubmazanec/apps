@@ -133,29 +133,30 @@ impl Control {
         });
     }
 
-    /// The removal's next move (S15), or `Break` with nothing done while fewer than `RESERVE`
-    /// blocks are ready, some wait for a version's report and it holds no tree of its own: the
-    /// step then waits for reports.
+    /// The removal's next move (S15), or `Break` with nothing done when a removal is due while
+    /// fewer than `RESERVE` blocks are ready and some wait for a version's report: the step then
+    /// waits for reports.
     ///
-    /// Unless fewer than `RESERVE` are ready while it holds a tree of its own, it removes the
-    /// track's next range from its tree, or from the track's: the bars past a new length, or the
-    /// tail of a bar past a new bar's end. Each note goes off its sound's count. `remove` gives a
-    /// root nobody holds, so it holds the new tree before it lets go of the one it replaces. Once
-    /// the track is done, or with fewer than `RESERVE` ready, its tree takes the track's place
-    /// (`edit`): the current pattern's is published, another's is swapped at once. Then it goes
-    /// on to the next track, of the current pattern for a length and of every pattern for a
-    /// signature, or ends.
+    /// Its decisions count the free blocks (`Store::free`), which reports do not change, so when
+    /// they come changes nothing it sends. Unless fewer than `RESERVE` are free while it holds a
+    /// tree of its own, it removes the track's next range from its tree, or from the track's: the
+    /// bars past a new length, or the tail of a bar past a new bar's end. Each note goes off its
+    /// sound's count. `remove` gives a root nobody holds, so it holds the new tree before it lets
+    /// go of the one it replaces. Once the track is done, or with fewer than `RESERVE` free, its
+    /// tree takes the track's place (`edit`): the current pattern's is published, another's is
+    /// swapped at once. Then it goes on to the next track, of the current pattern for a length and
+    /// of every pattern for a signature, or ends.
     pub(super) fn next_removal(
         &mut self,
         versions: &mut Producer<'_, Version, VERSION_QUEUE>,
         store: &mut Store<'_>,
     ) -> ControlFlow<()> {
         let mut trim = self.trim.expect("`step` removes only while a removal runs");
-        let short = store.ready() < RESERVE;
-        if short && trim.tree.is_none() && store.waiting() {
-            return ControlFlow::Break(());
-        }
+        let short = store.free() < RESERVE;
         if !short || trim.tree.is_none() {
+            if store.ready() < RESERVE && store.waiting() {
+                return ControlFlow::Break(());
+            }
             let (from, to) = match trim.change {
                 Change::Length(bars) => (Key::at(bars, 0), Key::MAX),
                 // A bar has 30,720 ticks at most, which fits.
