@@ -80,7 +80,8 @@ Master:                  all 4 tracks mixed → master level → + sample previe
      (from End in reverse) with the new note's file, and the old sound fades out at its own volume
      within one 32-sample chunk while the new note starts, as a taken voice fades **(owner's
      choice)**; in legato it keeps its place and its file and only the pitch moves, as the EP-133's
-     legato carries on from the same play position;
+     legato carries on from the same play position. A synth restart moves from the old note's volume
+     to the new one's within one 32-sample chunk, so the level never steps **(owner's choice)**;
    - every 32-sample chunk: the current pitch with glide already applied, whether the note is held,
      and its parameter values, read through Foundation's single parameter-read step;
    - finally: release, or a stop when the voice is taken.

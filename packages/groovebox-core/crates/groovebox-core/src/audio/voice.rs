@@ -112,6 +112,9 @@ pub struct Voice {
     /// the old note; the filter's tuning and the envelopes are the new note's. Of several restarts
     /// before that chunk the first keeps its chunk: the others took chunks that never sounded.
     fading: Option<([[f32; CHUNK]; 2], u8)>,
+    /// The velocity a synth note sounded at before a restart changed it: the next chunk's volume
+    /// moves from it to the new velocity's in a line, so the level never steps.
+    old_velocity: Option<u8>,
 }
 
 impl Voice {
@@ -132,6 +135,7 @@ impl Voice {
             filter_envelope: Envelope::new(),
             volume_envelope: Envelope::new(),
             fading: None,
+            old_velocity: None,
         }
     }
 
@@ -227,7 +231,8 @@ impl Voice {
 
     /// Moves a mono voice to another note, of an `engine` that `can_change` allows. With `glide`
     /// the pitch moves there in a line over Glide time. With `restart` both envelopes start again
-    /// from where they are and the new velocity counts; a sample note then plays the file of
+    /// from where they are and the new velocity counts, a synth note's volume moving to it in a
+    /// line over the next chunk; a sample note then plays the file of
     /// `engine` from Start (End in reverse), reading its first chunk through `reader`, while the
     /// chunk it had read ahead fades out at its own volume in the new note's first, reading nothing
     /// more of its file. Without it, as in Legato while the voice's key is held, only the pitch
@@ -269,6 +274,8 @@ impl Voice {
                 self.fading
                     .get_or_insert_with(|| (player.ahead(), self.velocity));
                 player.start(sample, |id| self.values.read(id), speed, reader);
+            } else {
+                self.old_velocity.get_or_insert(self.velocity);
             }
             self.velocity = velocity;
         }
@@ -405,6 +412,10 @@ impl Voice {
         };
 
         let gain = level_gain(read, self.velocity);
+        let before = self
+            .old_velocity
+            .take()
+            .map_or(gain, |velocity| level_gain(read, velocity));
         let (to_left, to_right) = pan_gains(read);
         let (attack, decay, level, release) = (
             samples(&ATTACK),
@@ -413,7 +424,8 @@ impl Voice {
             samples(&RELEASE),
         );
         for n in 0..CHUNK {
-            let gain = gain * self.volume_envelope.next(attack, decay, level, release);
+            let gain = (before + (gain - before) * (n + 1) as f32 / CHUNK as f32)
+                * self.volume_envelope.next(attack, decay, level, release);
             let left = self.filters[0].process(mode, sources[0][n]) * gain;
             let right = if self.stereo {
                 self.filters[1].process(mode, sources[1][n]) * gain

@@ -1637,6 +1637,45 @@ mod tests {
     }
 
     #[test]
+    fn a_mono_synth_restart_at_another_velocity_moves_its_volume_in_a_line() {
+        // What a Mono synth sound plays when a note at velocity 127 is restarted at sample 320 by
+        // one of the same pitch at `velocity`.
+        let played = |velocity| {
+            let (messages, reports) = (Queue::new(), Queue::new());
+            let mut rig = Rig::new(&messages, &reports);
+            rig.send(0, 0, new_sound(1));
+            rig.send(1, 0, set_sound(1, &PLAY_MODE, MONO));
+            rig.send(2, 0, note_of(0, 1, 60, NoteEngine::Synth));
+            let restart = MessageKind::NoteOn {
+                note: NoteId(1),
+                track: 0,
+                sound: SoundNumber(1),
+                pitch: 60,
+                velocity,
+                engine: NoteEngine::Synth,
+            };
+            rig.send(3, 320, restart);
+            rig.render(384)
+        };
+        let (soft, loud) = (played(32), played(127));
+        let read = |id| SOUND_DEFAULTS[Sound::place(id)];
+        let ratio = voice::level_gain(read, 32) / voice::level_gain(read, 127);
+        assert!(ratio < 0.9 && !is_silent(&loud[320..]));
+
+        // The oscillator and the envelopes go on the same either way: only the volume moves, from
+        // the old note's to the new one's across the restart chunk.
+        for n in 320..384 {
+            let step = ((n - 319) as f32 / CHUNK as f32).min(1.0);
+            let expected = loud[n] * (1.0 + (ratio - 1.0) * step);
+            assert!(
+                libm::fabsf(soft[n] - expected) < 1e-6,
+                "{n}: {} and {expected}",
+                soft[n]
+            );
+        }
+    }
+
+    #[test]
     fn a_mono_return_to_a_held_key_fades_the_same_way() {
         let [old, new] = old_and_new_files();
 
