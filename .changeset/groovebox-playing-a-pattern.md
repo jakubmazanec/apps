@@ -1,6 +1,7 @@
 ---
 'groovebox': minor
+'groovebox-core': minor
 ---
 
-Added pattern playback to the groovebox: PLAY and STOP, a looping pattern, notes entered and removed
-with the step buttons and the transport in the header.
+Added pattern playback to the groovebox: PLAY and STOP, a looping pattern, the transport in the
+header and step buttons that enter and remove notes.
