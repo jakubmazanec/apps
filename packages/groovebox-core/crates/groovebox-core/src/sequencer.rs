@@ -242,10 +242,11 @@ impl Sequencer {
 
     /// Every event due by `until`, in sample order: at one sample ends before starts (S14), and
     /// tracks in order, with the beat between them (S7). A waiting meter takes over at its tick
-    /// before the events there, and a waiting run maps the ticks from its own on. Then nothing at
-    /// `until` or before is due again, and an `until` earlier than the one before leaves due what
-    /// was. Each start takes the next number with the top bit set (S24); a full table first ends
-    /// the note that ends soonest.
+    /// before the events there, and a waiting run maps the ticks from its own on; a note's end goes
+    /// by the run of its start, so a note sounding when a run takes over keeps its end. Then
+    /// nothing at `until` or before is due again, and an `until` earlier than the one before leaves
+    /// due what was. Each start takes the next number with the top bit set (S24); a full table
+    /// first ends the note that ends soonest.
     pub fn advance(&mut self, until: u64, notes: &NoteReader<'_>, mut out: impl FnMut(Event)) {
         let Some(run) = self.run else { return };
         loop {
@@ -300,7 +301,7 @@ impl Sequencer {
                         .find(|slot| slot.is_none())
                         .expect("a full table has just ended a note") = Some(Sounding {
                         id,
-                        end: self.sample(run, tick + u64::from(note.length)),
+                        end: self.run_at(run, tick).sample(tick + u64::from(note.length)),
                         track: t as u8,
                         sound: note.sound,
                         pitch: note.pitch,
@@ -347,10 +348,14 @@ impl Sequencer {
 
     /// The sample of `tick`, `run`'s tick or later, with a waiting run from its tick on.
     fn sample(&self, run: Run, tick: u64) -> u64 {
+        self.run_at(run, tick).sample(tick)
+    }
+
+    /// The run that times `tick`, `run`'s tick or later: a waiting run from its tick on.
+    fn run_at(&self, run: Run, tick: u64) -> Run {
         self.waiting_run
             .filter(|waiting| waiting.tick <= tick)
             .unwrap_or(run)
-            .sample(tick)
     }
 
     /// The first tick whose sample is later than `sample`, with a waiting run from its tick on.
@@ -943,6 +948,19 @@ mod tests {
 
         assert_eq!(rig.heard(44_986), [Heard::End(12_000)]);
         assert_eq!(rig.heard(44_987), [Heard::Start(0, 1_920)]);
+    }
+
+    #[test]
+    fn a_note_starting_before_a_waiting_run_keeps_its_end() {
+        let ram = NoteRam::boxed();
+        let mut rig = Rig::with(&ram, FOUR_BARS, [step(1)]);
+        rig.heard(5_984);
+
+        // As the audio part does: the run arrives at a chunk start before the note starts.
+        rig.sequencer.retime(rig.sequencer.retimed(6_005, 6_000));
+
+        assert_eq!(rig.heard(6_016), [Heard::Start(0, 480)]);
+        assert_eq!(rig.heard(17_986), [Heard::End(12_000)]);
     }
 
     #[test]
