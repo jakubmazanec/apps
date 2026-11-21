@@ -679,7 +679,7 @@ impl Control {
             }
             Input::PadRelease { pad } => self.end(Source::Pad(pad), sample, messages),
             Input::NoteOff { note } => self.end(Source::Midi(note), sample, messages),
-            Input::ButtonPress { button } => self.press(button, sample, messages, store),
+            Input::ButtonPress { button } => self.press(button, sample, messages, versions, store),
             Input::ButtonRelease { button } => {
                 self.release(button, sample, messages, versions, store)
             }
@@ -866,7 +866,8 @@ impl Control {
         button: Button,
         sample: u64,
         messages: &mut Producer<'_, Message, MESSAGE_QUEUE>,
-        store: &Store<'_>,
+        versions: &mut Producer<'_, Version, VERSION_QUEUE>,
+        store: &mut Store<'_>,
     ) {
         if self.buttons.is_held(button) {
             return;
@@ -921,7 +922,7 @@ impl Control {
             }
             Button::Ok if let Some(Question::DeleteSound(sound)) = self.view.question => {
                 self.view.question = None;
-                self.delete_sound(sound, sample);
+                self.delete_sound(sound, sample, versions, store);
                 // The cursor is still on the deleted sound's row, and goes to the row above (S16).
                 self.move_in_pool(Button::Up);
             }

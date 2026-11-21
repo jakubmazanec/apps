@@ -3,8 +3,12 @@
 use super::Control;
 use super::view::{Cursor, Picker, Question, Screen, moved, scrolled};
 use crate::input::Button;
+use crate::message::{VERSION_QUEUE, Version};
 use crate::palette::ACCENT;
 use crate::project::pool::SoundNumber;
+use crate::queue::Producer;
+use crate::store::Store;
+use crate::store::note::Key;
 use crate::ui::layout::SAMPLES_VISIBLE;
 
 impl Control {
@@ -58,8 +62,27 @@ impl Control {
     }
 
     /// Deletes `sound` from the project (S14) and keeps its number, so that `step` sends its
-    /// `DeleteSound`, stamped with `sample`, before any later event (S17).
-    pub(super) fn delete_sound(&mut self, sound: SoundNumber, sample: u64) {
+    /// `DeleteSound`, stamped with `sample`, before any later event (S17). First every track of
+    /// every pattern loses the sound's notes, each changed track through `edit` (S21), whose
+    /// versions play `EDIT_LEAD` later: the audio part forgets the sound before they apply (S22).
+    pub(super) fn delete_sound(
+        &mut self,
+        sound: SoundNumber,
+        sample: u64,
+        versions: &mut Producer<'_, Version, VERSION_QUEUE>,
+        store: &mut Store<'_>,
+    ) {
+        for pattern in 0..16 {
+            for track in 0..4 {
+                let tree = self.project.patterns[usize::from(pattern)].tracks[usize::from(track)];
+                // shortcut: a delete whose copies need more blocks than are free panics; Milestone
+                // 4's give-way order replaces it
+                let kept = store.remove(tree, Key::at(0, 0), Key::MAX, |note| note.sound == sound);
+                if kept != tree {
+                    self.edit(pattern, track, kept, sample, versions, store);
+                }
+            }
+        }
         self.project.delete_sound(sound);
         self.unsent
             .push(sound)

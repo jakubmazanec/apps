@@ -65,9 +65,9 @@ impl Project {
             .count()
     }
 
-    /// Whether a pad of any track holds `sound`.
+    /// Whether a pad of any track holds `sound` or a pattern has a note of it (S21).
     pub fn is_used(&self, sound: SoundNumber) -> bool {
-        self.pads_using(sound) > 0
+        self.pads_using(sound) > 0 || self.pool.get(sound).is_some_and(|sound| sound.notes > 0)
     }
 
     /// The sounds nothing uses, in number order.
@@ -186,6 +186,16 @@ mod tests {
 
         project.put(3, None);
         assert!(!project.is_used(sound));
+    }
+
+    #[test]
+    fn a_sound_with_notes_is_used() {
+        let mut project = Box::new(NEW);
+        let sound = project.pool.new_synth().unwrap();
+        project.pool.get_mut(sound).unwrap().notes = 1;
+
+        assert!(project.is_used(sound));
+        assert!(project.unused().next().is_none());
     }
 
     #[test]

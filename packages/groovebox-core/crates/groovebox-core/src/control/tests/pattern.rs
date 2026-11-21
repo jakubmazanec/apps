@@ -53,7 +53,7 @@ fn sounding(rig: &Rig<'_>) -> Vec<Sounding> {
 
 /// Takes every version that was sent.
 #[allow(unsafe_code)]
-fn versions(rig: &mut Rig<'_>) -> Vec<Version> {
+pub(super) fn versions(rig: &mut Rig<'_>) -> Vec<Version> {
     // SAFETY: the rig has no audio part, so this is the only consumer.
     let mut versions = unsafe { rig.versions.consumer() };
     core::iter::from_fn(|| versions.pop()).collect()
@@ -61,7 +61,7 @@ fn versions(rig: &mut Rig<'_>) -> Vec<Version> {
 
 /// The notes of `tree`.
 #[allow(unsafe_code)]
-fn notes_in(rig: &Rig<'_>, tree: Tree) -> Vec<Note> {
+pub(super) fn notes_in(rig: &Rig<'_>, tree: Tree) -> Vec<Note> {
     // SAFETY: the reader lives while no step runs.
     unsafe { rig.notes.reader() }
         .notes(tree, Key::at(0, 0))
@@ -74,12 +74,12 @@ fn track_1(rig: &Rig<'_>) -> Tree {
 }
 
 /// How many notes `sound` has in every pattern.
-fn count(rig: &Rig<'_>, sound: SoundNumber) -> u32 {
+pub(super) fn count(rig: &Rig<'_>, sound: SoundNumber) -> u32 {
     rig.control.project.pool.get(sound).unwrap().notes
 }
 
 /// A note of `sound` at `pitch` as a tap enters it in sixteenth `sixteenth` of bar 1.
-fn entered(sixteenth: u16, sound: SoundNumber, pitch: u8) -> Note {
+pub(super) fn entered(sixteenth: u16, sound: SoundNumber, pitch: u8) -> Note {
     Note {
         bar: 0,
         place: sixteenth * 480,
@@ -91,16 +91,17 @@ fn entered(sixteenth: u16, sound: SoundNumber, pitch: u8) -> Note {
     }
 }
 
-/// Puts a tree of `notes` on track 1 of pattern 1 by hand and counts them in their sounds.
+/// Puts a tree of `notes` on track `track` of pattern `pattern`, both from 0, by hand and counts
+/// them in their sounds.
 #[allow(unsafe_code)]
-fn put(rig: &mut Rig<'_>, notes: &[Note]) {
+pub(super) fn put(rig: &mut Rig<'_>, pattern: usize, track: usize, notes: &[Note]) {
     // SAFETY: the store lives while no step runs.
     let mut store = unsafe { rig.notes.store() };
     let tree = notes
         .iter()
         .fold(Tree(None), |tree, &note| store.insert(tree, note).0);
     store.hold(tree);
-    rig.control.project.patterns[0].tracks[0] = tree;
+    rig.control.project.patterns[pattern].tracks[track] = tree;
     for note in notes {
         rig.control.project.pool.get_mut(note.sound).unwrap().notes += 1;
     }
@@ -503,6 +504,8 @@ fn a_short_tap_on_a_lit_step_removes_every_note_of_the_sound_in_it() {
     // another in the third sixteenth.
     put(
         &mut rig,
+        0,
+        0,
         &[
             entered(2, synth, 64),
             entered(2, synth, 67),
@@ -760,7 +763,12 @@ fn a_step_past_the_bars_end_stays_dark_and_does_nothing() {
     // A bar of 3/4 has 12 sixteenths. By hand: nothing makes a signature or a note past the bar's
     // end before plan 2.
     rig.control.project.signature = Signature { beats: 3, unit: 4 };
-    put(&mut rig, &[entered(11, synth, 60), entered(12, synth, 60)]);
+    put(
+        &mut rig,
+        0,
+        0,
+        &[entered(11, synth, 60), entered(12, synth, 60)],
+    );
 
     rig.tap(100, Button::Step(12));
     rig.step(200);

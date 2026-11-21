@@ -61,7 +61,8 @@ impl Control {
     /// in red. A question shows in a box in the middle of the main area, over what the main area
     /// shows: SAMPLES' DELETE names the file, then counts the sounds that use it, if any, as "2
     /// sounds use it" (S17); POOL's DELETE names the sound, then counts the pads that hold it on
-    /// every track, if any, as "On 2 pads" (S12); Remove unused counts the unused sounds as it is
+    /// every track, if any, as "On 2 pads" (S12), and its notes in every pattern, if any, as "On 2
+    /// pads, 24 notes" or "24 notes" (S21); Remove unused counts the unused sounds as it is
     /// drawn (S13). The strip shows the items that the encoders hold on the page they use, and
     /// nothing while MENU or PAGE is held, the picker is open or SAMPLES or POOL shows.
     ///
@@ -516,7 +517,8 @@ impl Control {
         }
         if let Some(open) = self.view.question {
             let mut question = Label::<{ 7 + 64 + 1 }>::new();
-            let mut count = Label::<24>::new();
+            // "On 48 pads, 4294967295 notes" at most.
+            let mut count = Label::<28>::new();
             let answers = match open {
                 Question::DeleteFile(file) => {
                     write!(
@@ -553,6 +555,21 @@ impl Control {
                     if pads > 0 {
                         write!(count, "On {pads} pad{}", if pads == 1 { "" } else { "s" })
                             .expect("writing to a label never fails");
+                    }
+                    let notes = self
+                        .project
+                        .pool
+                        .get(sound)
+                        .expect("the sound of the question is in the pool")
+                        .notes;
+                    if notes > 0 {
+                        write!(
+                            count,
+                            "{}{notes} note{}",
+                            if pads > 0 { ", " } else { "" },
+                            if notes == 1 { "" } else { "s" }
+                        )
+                        .expect("writing to a label never fails");
                     }
                     "OK deletes, Cancel keeps"
                 }
