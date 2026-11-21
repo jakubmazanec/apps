@@ -29,7 +29,7 @@ describe('the gallery', () => {
     let shown = new Set(STATES.map((state) => state.frame));
     let left = (
       await Promise.all(
-        ['menu-and-pages/', 'new-synth/', 'picker-while-playing/', 'synth-pages/'].map(
+        ['menu-and-pages/', 'new-synth/', 'picker-while-playing/', 'steps/', 'synth-pages/'].map(
           async (scene) => (await readdir(new URL(scene, SCENES))).map((name) => `${scene}${name}`),
         ),
       )

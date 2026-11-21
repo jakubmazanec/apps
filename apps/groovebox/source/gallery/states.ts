@@ -153,6 +153,17 @@ export const STATES: ReadonlyArray<{title: string; frame: string; approved?: str
     frame: 'library-import/frame-19200.png',
     approved: 'step-message.png',
   },
+  {
+    title: 'Header stopped: P1 1/1 120.0',
+    frame: 'steps/frame-35200.png',
+    approved: 'sound-pad.png',
+  },
+  {
+    title: 'Header playing: 1/1 ▶1',
+    frame: 'steps/frame-64000.png',
+    approved: 'sound-pad.png',
+  },
+  {title: 'Header after STOP', frame: 'steps/frame-300800.png', approved: 'sound-pad.png'},
   {title: 'Every glyph of the font', frame: 'gallery/font.png', approved: 'font.png'},
   {
     title: 'Every named colour of the palette',
