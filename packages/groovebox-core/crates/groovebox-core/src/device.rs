@@ -238,7 +238,7 @@ impl ControlSide<'_> {
         while let Some(report) = self.reports.pop() {
             let Report::Applied { number, sample } = report;
             self.control.applied(number, sample, &mut self.store);
-            // A host that leaves reports untaken loses the newest, as a full report queue does.
+            // A host that leaves reports untaken loses the newest.
             let _ = self.taken.push(report);
         }
         if self.control.step(

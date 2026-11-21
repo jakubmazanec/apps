@@ -66,6 +66,9 @@ impl Audio {
     /// and the preview, soft-clips the sum and multiplies it by the output volume, which moves in a
     /// line across the chunk.
     ///
+    /// It takes a message or a version only while the report queue has room for its report and
+    /// never waits: one it leaves stays in its queue, in order, for a later chunk start.
+    ///
     /// It reads the files' blocks through `readers[v]`, the reader of block table `v`, as
     /// `Tables::readers` allows: through the table that the latest `UseTable` named and only frames
     /// below the length of the latest `Preview`'s file and of each file a `NoteOn` or a
@@ -97,9 +100,10 @@ impl Audio {
         let (right, _) = right.as_chunks_mut::<CHUNK>();
         for (left, right) in left.iter_mut().zip(right) {
             let mut fades = [[0.0; CHUNK]; 2];
-            while let Some(message) = messages
-                .peek()
-                .filter(|message| message.at <= self.position)
+            while reports.free() > 0
+                && let Some(message) = messages
+                    .peek()
+                    .filter(|message| message.at <= self.position)
             {
                 messages.pop();
                 let reader = &readers[usize::from(self.table)];
@@ -172,15 +176,16 @@ impl Audio {
                     // Another device value is not the audio part's.
                     MessageKind::SetParam { .. } => {}
                 }
-                // A full queue drops the report: the audio part never waits.
+                // The report has room: the audio part takes a message only while it does.
                 let _ = reports.push(Report::Applied {
                     number: message.number,
                     sample: self.position,
                 });
             }
-            while let Some(version) = versions
-                .peek()
-                .filter(|version| version.moment <= self.position)
+            while reports.free() > 0
+                && let Some(version) = versions
+                    .peek()
+                    .filter(|version| version.moment <= self.position)
             {
                 versions.pop();
                 self.sequencer.switch(version.track, version.tree, notes);
@@ -547,24 +552,36 @@ mod tests {
     }
 
     #[test]
-    fn a_full_report_queue_drops_the_report_without_waiting() {
+    fn a_full_report_queue_leaves_messages_and_versions_for_later_chunks() {
         let (messages, reports) = (Queue::new(), Queue::new());
         let mut rig = Rig::new(&messages, &reports);
-        rig.add_sound();
         for number in 0..REPORT_QUEUE as u32 {
             assert_eq!(
                 rig.outbox.push(Report::Applied { number, sample: 0 }),
                 Ok(())
             );
         }
-        rig.send(999, 0, note_on(0));
+        rig.send(999, 0, play(0));
+        rig.version(1_000, 0, 0, &[step(0)]);
 
-        rig.render(32);
+        // The audio part renders on without waiting and takes neither.
+        rig.render(64);
+        assert_eq!(rig.audio.sequencer.run(), None);
+        assert_eq!(rig.audio.sequencer.tree(0), Tree(None));
 
-        assert_eq!(rig.inbox.peek(), None);
-        for number in 0..REPORT_QUEUE as u32 {
+        // Each report read makes room for one more, taken in its turn at the next chunk start.
+        assert_eq!(rig.report(), applied(0, 0));
+        rig.render(CHUNK);
+        assert_ne!(rig.audio.sequencer.run(), None);
+        assert_eq!(rig.audio.sequencer.tree(0), Tree(None));
+        assert_eq!(rig.report(), applied(1, 0));
+        rig.render(CHUNK);
+        assert_ne!(rig.audio.sequencer.tree(0), Tree(None));
+        for number in 2..REPORT_QUEUE as u32 {
             assert_eq!(rig.report(), applied(number, 0));
         }
+        assert_eq!(rig.report(), applied(999, 64));
+        assert_eq!(rig.report(), applied(1_000, 96));
         assert_eq!(rig.report(), None);
     }
 
