@@ -4,7 +4,7 @@ pub mod note;
 pub mod tree;
 
 use crate::budget;
-use crate::message::VERSION_QUEUE;
+use crate::message::{REPORT_QUEUE, VERSION_QUEUE};
 use core::cell::UnsafeCell;
 
 pub const BLOCK: usize = 512;
@@ -13,6 +13,9 @@ const BLOCK_COST: usize = BLOCK + 8;
 pub const NOTE_BLOCKS: usize = budget::NOTE_RAM / BLOCK_COST;
 pub const RESERVE: usize = 256;
 pub type Block = u16;
+/// The most versions whose waiting blocks wait at once: those in the version queue and those the
+/// audio part took whose reports the control part has not read, which the report queue bounds.
+const WAITING_VERSIONS: usize = VERSION_QUEUE + REPORT_QUEUE;
 
 const _: () = assert!(
     size_of::<NoteRam>() <= budget::NOTE_RAM,
@@ -49,7 +52,7 @@ impl NoteRam {
                 waiting: [0; NOTE_BLOCKS],
                 waiting_start: 0,
                 waiting_len: 0,
-                versions: [(0, 0); VERSION_QUEUE],
+                versions: [(0, 0); WAITING_VERSIONS],
                 versions_start: 0,
                 versions_len: 0,
             }),
@@ -116,7 +119,7 @@ struct Books {
     waiting_len: usize,
     /// The versions whose reports free the waiting blocks, oldest first, as a ring: a version's
     /// number and how many of the waiting blocks it let go of.
-    versions: [(u32, u16); VERSION_QUEUE],
+    versions: [(u32, u16); WAITING_VERSIONS],
     versions_start: usize,
     versions_len: usize,
 }
@@ -168,7 +171,7 @@ impl Store<'_> {
     ///
     /// # Panics
     ///
-    /// When more versions wait than `VERSION_QUEUE`.
+    /// When more versions wait than `VERSION_QUEUE + REPORT_QUEUE`.
     pub fn release(&mut self, tree: Tree, after: Option<u32>) {
         let Some(root) = tree.0 else { return };
         let holders = &mut self.books.holders[usize::from(root)];
@@ -187,15 +190,15 @@ impl Store<'_> {
         books.waiting[(books.waiting_start + books.waiting_len) % NOTE_BLOCKS] = root;
         books.waiting_len += 1;
         let newest =
-            (books.versions_start + books.versions_len + VERSION_QUEUE - 1) % VERSION_QUEUE;
+            (books.versions_start + books.versions_len + WAITING_VERSIONS - 1) % WAITING_VERSIONS;
         if books.versions_len > 0 && books.versions[newest].0 == number {
             books.versions[newest].1 += 1;
         } else {
             assert!(
-                books.versions_len < VERSION_QUEUE,
-                "the version queue is full"
+                books.versions_len < WAITING_VERSIONS,
+                "too many versions wait"
             );
-            books.versions[(newest + 1) % VERSION_QUEUE] = (number, 1);
+            books.versions[(newest + 1) % WAITING_VERSIONS] = (number, 1);
             books.versions_len += 1;
         }
     }
@@ -212,7 +215,7 @@ impl Store<'_> {
             books.waiting_start = (books.waiting_start + 1) % NOTE_BLOCKS;
             books.waiting_len -= 1;
         }
-        books.versions_start = (books.versions_start + 1) % VERSION_QUEUE;
+        books.versions_start = (books.versions_start + 1) % WAITING_VERSIONS;
         books.versions_len -= 1;
     }
 

@@ -46,10 +46,12 @@ impl<'a> Rig<'a> {
             control,
             producer,
             consumer,
+            versions: Queue::new(),
             storage,
             io: std::vec![0; budget::IO_BUFFER],
             tables: Box::new(Tables::new()),
             ram: SampleRam::boxed(),
+            notes: NoteRam::boxed(),
         }
     }
 
@@ -782,7 +784,7 @@ fn an_identical_redrop_replaces_the_file() {
     assert_eq!(rig.control.request, None);
     assert_eq!(rig.control.library.used(), 2 * used);
 
-    rig.control.applied(0, 64);
+    rig.applied(0, 64);
     let requests = rig.settle(100);
 
     assert_eq!(
@@ -825,7 +827,7 @@ fn a_name_taken_but_for_case_is_replaced_under_its_own_spelling() {
     assert_eq!(rig.sent(), [message(0, 40, forget(0))]);
     assert_eq!(entries(&rig), [Entry::File(FileId(0))]);
 
-    rig.control.applied(0, 64);
+    rig.applied(0, 64);
     rig.settle(100);
 
     assert_eq!(stored(&rig), ["samples/KICK.wav"]);
@@ -884,7 +886,7 @@ fn an_old_spelling_the_storage_keeps_stays_listed_until_a_drop_of_that_spelling_
     let requests = rig.settle(70);
     assert_eq!(begun(&requests), ["samples/kick.wav"]);
     assert_eq!(rig.sent(), [message(0, 70, forget(0))]);
-    rig.control.applied(0, 90);
+    rig.applied(0, 90);
     rig.settle(100);
 
     assert_eq!(stored(&rig), ["samples/KICK.wav", "samples/kick.wav"]);
@@ -1713,7 +1715,7 @@ fn a_cursor_whose_row_is_gone_moves_to_the_row_above() {
     assert_eq!(rig.control.view.samples.on, Some(Line::File(FileId(2))));
 
     delete_under_cursor(&mut rig, 200);
-    rig.control.applied(2, 224);
+    rig.applied(2, 224);
     rig.settle(300);
 
     assert_eq!(
@@ -2053,7 +2055,7 @@ fn ok_deletes_after_the_audio_part_let_go() {
     assert_eq!(rig.sent(), []);
     assert_eq!(rig.control.view.picker, None);
 
-    rig.control.applied(2, 224);
+    rig.applied(2, 224);
     rig.step(400);
 
     assert_eq!(
@@ -2099,7 +2101,7 @@ fn blocks_are_reused_only_after_the_audio_part_let_go() {
     let requests = rig.settle(310);
     assert_eq!(into(&requests), Some(67));
 
-    rig.control.applied(2, 224);
+    rig.applied(2, 224);
     rig.settle(400);
     rig.drop_files(500, &[("tmp/2/Bell.wav", short(200.0, 0.01))]);
     let requests = rig.settle(510);
@@ -2117,7 +2119,7 @@ fn deleting_the_last_file_of_a_folder_shows_the_folder_above() {
     rig.tap(130, Button::Down);
 
     delete_under_cursor(&mut rig, 200);
-    rig.control.applied(2, 224);
+    rig.applied(2, 224);
     rig.settle(300);
 
     // 808/ is gone, so SAMPLES shows drums/ with the cursor on "..", the row above where 808/ was.
@@ -2158,7 +2160,7 @@ fn deleting_the_last_file_of_a_folder_shows_the_folder_above() {
     rig.tap(140, Button::Down);
 
     delete_under_cursor(&mut rig, 200);
-    rig.control.applied(2, 224);
+    rig.applied(2, 224);
     rig.settle(300);
 
     assert_eq!(stored(&rig), ["samples/a/b.wav"]);
@@ -2209,7 +2211,7 @@ fn the_meter_drops_once_the_blocks_are_free() {
     rig.tap(100, Button::Down);
     delete_under_cursor(&mut rig, 200);
 
-    rig.control.applied(2, 224);
+    rig.applied(2, 224);
     rig.step(300);
 
     // The audio part let go of Bass.wav, but the storage still holds it.
@@ -2235,7 +2237,7 @@ fn a_failed_delete_keeps_the_file_and_says_so() {
     rig.tap(100, Button::Ok);
     rig.tap(110, Button::Right);
     delete_under_cursor(&mut rig, 200);
-    rig.control.applied(2, 224);
+    rig.applied(2, 224);
     rig.step(300);
 
     assert_eq!(
@@ -2273,7 +2275,7 @@ fn a_file_the_storage_no_longer_holds_is_deleted_all_the_same() {
     let mut rig = on_samples(&queue, &three_files());
     rig.tap(100, Button::Down);
     delete_under_cursor(&mut rig, 200);
-    rig.control.applied(2, 224);
+    rig.applied(2, 224);
     rig.step(300);
 
     let (number, _) = rig.control.take_request().expect("a request is out");
@@ -2307,7 +2309,7 @@ fn a_delete_during_an_import_goes_out_between_its_requests() {
     );
 
     delete_under_cursor(&mut rig, 200);
-    rig.control.applied(2, 224);
+    rig.applied(2, 224);
     rig.step(300);
     assert_eq!(rig.control.take_request(), None);
     rig.step(401);
@@ -2352,7 +2354,7 @@ fn an_import_after_a_delete_packs_the_tables_before_its_preview() {
     let queue = Queue::new();
     let mut rig = on_samples(&queue, &two_files_filling_the_ram());
     delete_under_cursor(&mut rig, 100);
-    rig.control.applied(0, 128);
+    rig.applied(0, 128);
     rig.settle(200);
 
     // c.wav takes one of a.wav's blocks, but its slice does not fit after b.wav's, which ends at
@@ -2377,7 +2379,7 @@ fn only_the_report_of_a_use_table_ends_the_switch_of_tables() {
     let queue = Queue::new();
     let mut rig = on_samples(&queue, &two_files_filling_the_ram());
     delete_under_cursor(&mut rig, 100);
-    rig.control.applied(0, 128);
+    rig.applied(0, 128);
     rig.settle(200);
     // b.wav's `ForgetSample` goes before c.wav packs the tables, and d.wav waits for the switch.
     delete_under_cursor(&mut rig, 300);
@@ -2400,7 +2402,7 @@ fn only_the_report_of_a_use_table_ends_the_switch_of_tables() {
     assert_eq!(rig.control.request, None);
 
     // The report of b.wav's `ForgetSample` lets its delete go on, but d.wav still waits.
-    rig.control.applied(1, 416);
+    rig.applied(1, 416);
     let requests = rig.settle(500);
     assert_eq!(
         requests,
@@ -2410,7 +2412,7 @@ fn only_the_report_of_a_use_table_ends_the_switch_of_tables() {
     );
     assert_eq!(rig.control.request, None);
 
-    rig.control.applied(2, 416);
+    rig.applied(2, 416);
     let requests = rig.settle(600);
 
     assert_eq!(requests.first(), Some(&Request::Free));
@@ -2465,7 +2467,7 @@ fn a_replace_while_the_old_file_previews_reuses_its_blocks_only_after_the_let_go
     assert_eq!(rig.sent(), [message(2, 300, MessageKind::StopPreview)]);
     assert_eq!(rig.control.view.picker, None);
 
-    rig.control.applied(1, 240);
+    rig.applied(1, 240);
     let requests = rig.settle(400);
 
     assert_eq!(begun(&requests), ["samples/Arp.wav"]);
@@ -2567,7 +2569,7 @@ fn a_replace_closes_the_delete_picker_or_question_of_its_file() {
             "{question}"
         );
 
-        rig.control.applied(2, 330);
+        rig.applied(2, 330);
         rig.settle(500);
 
         assert_eq!(stored(&rig)[0], "samples/BASS.wav");
@@ -2613,7 +2615,7 @@ fn a_replace_waits_for_the_delete_that_runs() {
     // Converted, the file waits until the delete of clap.wav is done, and then takes a free name.
     assert!(begun(&requests).is_empty());
     assert_eq!(rig.control.take_request(), None);
-    rig.control.applied(2, 224);
+    rig.applied(2, 224);
     let requests = rig.settle(400);
 
     assert_eq!(

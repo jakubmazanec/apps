@@ -10,7 +10,7 @@ use crate::ring::Ring;
 use crate::sample_ram::{Reader, SampleRam, Tables};
 use crate::screen::Screen;
 use crate::storage::{Reply, Request};
-use crate::store::{NoteRam, NoteReader};
+use crate::store::{NoteRam, NoteReader, Store};
 use core::cell::UnsafeCell;
 use core::sync::atomic::{AtomicU32, Ordering};
 
@@ -116,20 +116,26 @@ impl Device {
     /// # Safety
     ///
     /// At most one control side may exist at a time, on any thread.
-    pub unsafe fn control_side<'a>(&'a self, ram: &'a SampleRam) -> ControlSide<'a> {
+    pub unsafe fn control_side<'a>(
+        &'a self,
+        ram: &'a SampleRam,
+        notes: &'a NoteRam,
+    ) -> ControlSide<'a> {
         // SAFETY: the caller promises that this is the only control side, so it is the only user
-        // of `control`, of the producer of `messages`, of the consumer of `reports` and of
-        // `taken`. Nothing else touches `io` while a control side exists: see the note on `Sync`
-        // for `Device`.
+        // of `control`, of the producers of `messages` and `versions`, of the consumer of
+        // `reports`, of `taken` and of the store of `notes`. Nothing else touches `io` while a
+        // control side exists: see the note on `Sync` for `Device`.
         unsafe {
             ControlSide {
                 device: self,
                 control: &mut *self.control.get(),
                 messages: self.messages.producer(),
+                versions: self.versions.producer(),
                 reports: self.reports.consumer(),
                 taken: &mut *self.taken.get(),
                 io: &mut *self.io.get(),
                 ram,
+                store: notes.store(),
             }
         }
     }
@@ -194,10 +200,12 @@ pub struct ControlSide<'a> {
     device: &'a Device,
     control: &'a mut Control,
     messages: Producer<'a, Message, MESSAGE_QUEUE>,
+    versions: Producer<'a, Version, VERSION_QUEUE>,
     reports: Consumer<'a, Report, REPORT_QUEUE>,
     taken: &'a mut Ring<Report, REPORT_QUEUE>,
     io: &'a mut [u8; budget::IO_BUFFER],
     ram: &'a SampleRam,
+    store: Store<'a>,
 }
 
 impl ControlSide<'_> {
@@ -222,23 +230,25 @@ impl ControlSide<'_> {
         self.io
     }
 
-    /// Takes every report off the report queue and gives each to the control part, and later to
-    /// the host through `take_report`. Then it handles the events before `until`. When the picture
-    /// changes, it draws it into the back screen and makes that the front one. Then it stores the
-    /// lights.
+    /// Takes every report off the report queue and gives each to the control part with the note
+    /// memory's store, and later to the host through `take_report`. Then it handles the events
+    /// before `until`. When the picture changes, it draws it into the back screen and makes that
+    /// the front one. Then it stores the lights.
     pub fn step(&mut self, until: u64) {
         while let Some(report) = self.reports.pop() {
             let Report::Applied { number, sample } = report;
-            self.control.applied(number, sample);
+            self.control.applied(number, sample, &mut self.store);
             // A host that leaves reports untaken loses the newest, as a full report queue does.
             let _ = self.taken.push(report);
         }
         if self.control.step(
             until,
             &mut self.messages,
+            &mut self.versions,
             &mut self.io[..],
             &self.device.tables,
             self.ram,
+            &mut self.store,
         ) {
             // Only this side stores `front`, so a relaxed load sees its last store.
             let back = 1 - self.device.front.load(Ordering::Relaxed);
@@ -338,9 +348,9 @@ mod tests {
     #[test]
     fn step_draws_into_the_back_screen_and_flips() {
         static DEVICE: Device = Device::new();
-        let ram = SampleRam::boxed();
+        let (ram, notes) = (SampleRam::boxed(), NoteRam::boxed());
         // SAFETY: this test takes the only control side of its own device.
-        let mut control = unsafe { DEVICE.control_side(&ram) };
+        let mut control = unsafe { DEVICE.control_side(&ram, &notes) };
         assert_eq!(DEVICE.front.load(Ordering::Acquire), 0);
 
         control.step(128);
@@ -359,9 +369,9 @@ mod tests {
     #[test]
     fn a_step_without_a_change_does_not_flip() {
         static DEVICE: Device = Device::new();
-        let ram = SampleRam::boxed();
+        let (ram, notes) = (SampleRam::boxed(), NoteRam::boxed());
         // SAFETY: this test takes the only control side of its own device.
-        let mut control = unsafe { DEVICE.control_side(&ram) };
+        let mut control = unsafe { DEVICE.control_side(&ram, &notes) };
         control.step(128);
 
         control.step(256);
@@ -372,9 +382,9 @@ mod tests {
     #[test]
     fn the_front_screen_shows_only_the_current_state() {
         static DEVICE: Device = Device::new();
-        let ram = SampleRam::boxed();
+        let (ram, notes) = (SampleRam::boxed(), NoteRam::boxed());
         // SAFETY: this test takes the only control side of its own device.
-        let mut control = unsafe { DEVICE.control_side(&ram) };
+        let mut control = unsafe { DEVICE.control_side(&ram, &notes) };
         open(&mut control, &ram);
         // KEYS mode draws the longer "Keys C4" into the screen that is drawn again last.
         assert_eq!(control.queue_input(press(1, Button::PadsKeys)), Ok(()));
@@ -396,9 +406,9 @@ mod tests {
     #[test]
     fn the_pointers_reach_the_front_flag_and_the_pixels() {
         static DEVICE: Device = Device::new();
-        let ram = SampleRam::boxed();
+        let (ram, notes) = (SampleRam::boxed(), NoteRam::boxed());
         // SAFETY: this test takes the only control side of its own device.
-        let mut control = unsafe { DEVICE.control_side(&ram) };
+        let mut control = unsafe { DEVICE.control_side(&ram, &notes) };
         control.step(128);
 
         // SAFETY: the pointer is valid for the life of the device.
@@ -426,9 +436,9 @@ mod tests {
     #[test]
     fn the_lights_reach_the_lights_words_after_a_step() {
         static DEVICE: Device = Device::new();
-        let ram = SampleRam::boxed();
+        let (ram, notes) = (SampleRam::boxed(), NoteRam::boxed());
         // SAFETY: this test takes the only control side of its own device.
-        let mut control = unsafe { DEVICE.control_side(&ram) };
+        let mut control = unsafe { DEVICE.control_side(&ram, &notes) };
         assert_eq!(loaded(&DEVICE), 0);
         open(&mut control, &ram);
 
@@ -448,9 +458,9 @@ mod tests {
     #[test]
     fn the_high_lights_are_in_the_second_word() {
         static DEVICE: Device = Device::new();
-        let ram = SampleRam::boxed();
+        let (ram, notes) = (SampleRam::boxed(), NoteRam::boxed());
         // SAFETY: this test takes the only control side of its own device.
-        let mut control = unsafe { DEVICE.control_side(&ram) };
+        let mut control = unsafe { DEVICE.control_side(&ram, &notes) };
         open(&mut control, &ram);
         assert_eq!(control.queue_input(press(0, Button::PadsKeys)), Ok(()));
         assert_eq!(control.queue_input(release(1, Button::PadsKeys)), Ok(()));
@@ -471,8 +481,12 @@ mod tests {
         static DEVICE: Device = Device::new();
         let (ram, notes) = (SampleRam::boxed(), NoteRam::boxed());
         // SAFETY: this test takes the only control side and the only audio side of its own device.
-        let (mut control, mut audio) =
-            unsafe { (DEVICE.control_side(&ram), DEVICE.audio_side(&ram, &notes)) };
+        let (mut control, mut audio) = unsafe {
+            (
+                DEVICE.control_side(&ram, &notes),
+                DEVICE.audio_side(&ram, &notes),
+            )
+        };
         let kind = MessageKind::NoteOn {
             note: NoteId(0),
             track: 0,
@@ -524,8 +538,12 @@ mod tests {
         static DEVICE: Device = Device::new();
         let (ram, notes) = (SampleRam::boxed(), NoteRam::boxed());
         // SAFETY: this test takes the only control side and the only audio side of its own device.
-        let (mut control, mut audio) =
-            unsafe { (DEVICE.control_side(&ram), DEVICE.audio_side(&ram, &notes)) };
+        let (mut control, mut audio) = unsafe {
+            (
+                DEVICE.control_side(&ram, &notes),
+                DEVICE.audio_side(&ram, &notes),
+            )
+        };
         let (mut listing, mut blocks) = (Listing::new(), Blocks::new());
         let mut add = |file, count| {
             let taken = blocks.take(count).expect("enough blocks are free");
@@ -597,9 +615,9 @@ mod tests {
     #[test]
     fn the_io_pointer_reaches_the_io_buffer() {
         static DEVICE: Device = Device::new();
-        let ram = SampleRam::boxed();
+        let (ram, notes) = (SampleRam::boxed(), NoteRam::boxed());
         // SAFETY: this test takes the only control side of its own device.
-        let mut control = unsafe { DEVICE.control_side(&ram) };
+        let mut control = unsafe { DEVICE.control_side(&ram, &notes) };
         assert_eq!(control.io().len(), budget::IO_BUFFER);
         control.io()[budget::IO_BUFFER - 1] = 7;
 
@@ -624,9 +642,9 @@ mod tests {
     #[test]
     fn replay_records_reach_the_control_part() {
         static DEVICE: Device = Device::new();
-        let ram = SampleRam::boxed();
+        let (ram, notes) = (SampleRam::boxed(), NoteRam::boxed());
         // SAFETY: this test takes the only control side of its own device.
-        let mut control = unsafe { DEVICE.control_side(&ram) };
+        let mut control = unsafe { DEVICE.control_side(&ram, &notes) };
 
         for number in 0..REPLAY_QUEUE as u32 {
             assert_eq!(control.replay_applied(number, 64), Ok(()));

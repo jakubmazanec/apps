@@ -4,6 +4,7 @@ pub mod notes;
 pub mod pages;
 mod pool;
 pub mod samples;
+mod transport;
 pub mod view;
 
 use crate::budget;
@@ -14,7 +15,8 @@ use crate::library::startup::StartUp;
 use crate::library::{FileId, Library, name};
 use crate::lights::Lights;
 use crate::message::{
-    MAX_MESSAGES_PER_EVENT, MESSAGE_QUEUE, Message, MessageKind, NoteEngine, SampleFile, Target,
+    MAX_MESSAGES_PER_EVENT, MAX_VERSIONS_PER_EVENT, MESSAGE_QUEUE, Message, MessageKind,
+    NoteEngine, SampleFile, Target, VERSION_QUEUE, Version,
 };
 use crate::palette::RECORD;
 use crate::param::{
@@ -29,7 +31,9 @@ use crate::queue::Producer;
 use crate::ring::Ring;
 use crate::sample_ram::{SampleRam, Tables};
 use crate::screen::Color;
+use crate::sequencer::Sequencer;
 use crate::storage::{Reply, Request};
+use crate::store::{RESERVE, Store};
 use crate::ui::layout::{LIST_VISIBLE, PICTURE};
 use crate::ui::text::SCROLL_PIXEL;
 use crate::ui::tiles::{Tile, TileState};
@@ -115,8 +119,8 @@ struct Focus {
 
 /// The control part: it turns stamped inputs into numbered messages for the audio part. It keeps
 /// the project, the device settings, the library, the held buttons, the notes that are on, whether
-/// a preview plays, what the screen shows and the header's message, works out the lights and draws
-/// the picture.
+/// a preview plays, where the pattern plays, what the screen shows and the header's message, works
+/// out the lights and draws the picture.
 ///
 /// The control part does not check the inputs: the browser export and the scene parser keep them
 /// in range (`Input`). They are queued in sample order, so for live play and for a complete replay
@@ -163,6 +167,9 @@ pub struct Control {
     notes: Notes,
     /// Whether a preview was started since the last stop, which a stop fades out.
     previewing: bool,
+    /// The control part's own sequencer, which plays and stops with the audio part's runs and whose
+    /// events go nowhere: the lights and the header read the pattern's playing from it (S20).
+    player: Sequencer,
     /// The fingerprint and the peaks (`Library::peaks`) of the latest file whose waveform showed
     /// while the audio part could read it. `step` reads them again for a file of another
     /// fingerprint, so a file listed in the place of another never shows that one's picture.
@@ -207,6 +214,7 @@ impl Control {
             buttons: Buttons::new(),
             notes: Notes::new(),
             previewing: false,
+            player: Sequencer::new(),
             waveform: None,
             view: View::new(),
             message: None,
@@ -250,9 +258,12 @@ impl Control {
             .map_err(|(_, reply)| reply)
     }
 
-    /// Hears that the audio part applied the message with this number at `sample`. The report of
-    /// a message the control part waits for becomes an event at that sample; others are dropped.
-    pub fn applied(&mut self, number: u32, sample: u64) {
+    /// Hears that the audio part applied the message or version with this number at `sample`. The
+    /// blocks of the note memory that the version let go of are free once its group is the oldest
+    /// that waits (`Store::applied`). The report of a message the control part waits for becomes
+    /// an event at that sample; others are dropped.
+    pub fn applied(&mut self, number: u32, sample: u64, store: &mut Store<'_>) {
+        store.applied(number);
         if self
             .awaited
             .iter()
@@ -273,12 +284,16 @@ impl Control {
     /// On equal samples a reply goes first, then a report, then an input and then a repeat, so a
     /// release at the sample of a repeat ends the hold before it. A reply ends the wait for its
     /// request; one to another request does nothing. An event is handled only while the message
-    /// queue has room for `MAX_MESSAGES_PER_EVENT` messages. Otherwise the step stops before it
-    /// and leaves it and every later event for a later step, which goes on exactly where this one
-    /// stopped. Before any later event the missing sounds of a file the import listed take it, one
-    /// sound at a time with the same room (`relink`). Before both, the `DeleteSound`s of deleted
-    /// sounds go out, oldest first, as far as the queue has room for them (`delete_sound`, S17);
-    /// while any is left the step handles no event and stops there.
+    /// queue has room for `MAX_MESSAGES_PER_EVENT` messages and the version queue for
+    /// `MAX_VERSIONS_PER_EVENT` versions (S18), and not while fewer than `RESERVE` blocks of the
+    /// note memory in `store` are ready and some wait for a version's report (S19). Otherwise the
+    /// step stops before it and leaves it and every later event for a later step, which goes on
+    /// exactly where this one stopped. Before any later event the missing sounds of a file the
+    /// import listed take it, one sound at a time with the same room (`relink`). Before both, the
+    /// `DeleteSound`s of deleted sounds go out, oldest first, as far as the queue has room for them
+    /// (`delete_sound`, S17); while any is left the step handles no event and stops there. After
+    /// the events the control part's own sequencer (`player`) advances to `until`: its events go
+    /// nowhere, and it keeps the notes that sound.
     ///
     /// The first step starts the start-up's job, and a reply goes to it with `io`, the I/O buffer,
     /// as its request left it. When the job ends the project opens, with the job's result as the
@@ -300,13 +315,19 @@ impl Control {
     /// Last, while the screen's page shows the waveform and the audio part may read the selected
     /// sound's file (`sample_file`), it reads that file's peaks through `tables` from `ram` unless
     /// it holds them already (`waveform`).
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "the control part writes two queues and reads and writes three memories"
+    )]
     pub fn step(
         &mut self,
         until: u64,
         messages: &mut Producer<'_, Message, MESSAGE_QUEUE>,
+        versions: &mut Producer<'_, Version, VERSION_QUEUE>,
         io: &mut [u8],
         tables: &Tables,
         ram: &SampleRam,
+        store: &mut Store<'_>,
     ) -> bool {
         let first = !core::mem::replace(&mut self.started, true);
         if first && let Some(startup) = &self.startup {
@@ -319,7 +340,11 @@ impl Control {
             {
                 self.send(self.unsent_at, MessageKind::DeleteSound { sound }, messages);
             }
-            if self.unsent.peek().is_some() || messages.free() < MAX_MESSAGES_PER_EVENT {
+            if self.unsent.peek().is_some()
+                || messages.free() < MAX_MESSAGES_PER_EVENT
+                || versions.free() < MAX_VERSIONS_PER_EVENT
+                || store.ready() < RESERVE && store.waiting()
+            {
                 break;
             }
             if self.relinking.is_some() {
@@ -428,7 +453,7 @@ impl Control {
                             } | Input::Dropped { .. }
                         )
                     {
-                        self.input(stamped, messages);
+                        self.input(stamped, messages, store);
                     }
                 }
                 Event::Repeat(button) => {
@@ -474,6 +499,7 @@ impl Control {
             }
             redraw = true;
         }
+        self.player.advance(until, &store.reader(), |_| {});
         if self.page(self.view.screen).and_then(|page| page.picture) == Some(Picture::Waveform)
             && let Some(audio) = self.sample_file()
         {
@@ -501,7 +527,8 @@ impl Control {
     /// pad is lit and so is every pad a MIDI note on was hit as. In KEYS mode pad 1, the C, is lit
     /// and so is every pad whose pitch in the current octave has a MIDI note on. T1 to T4 light the
     /// current track and PADS/KEYS lights in KEYS mode. While MENU or PAGE is held, the steps of
-    /// the screens or pages that exist light: the steps whose tiles are not empty.
+    /// the screens or pages that exist light: the steps whose tiles are not empty. PLAY lights
+    /// while playing (S10).
     pub fn lights(&self) -> Lights {
         let track = self.track();
         let midi = self
@@ -537,6 +564,9 @@ impl Control {
                 lights.light(Lights::STEP + step as u32);
             }
         }
+        if self.player.run().is_some() {
+            lights.light(Lights::PLAY);
+        }
         lights
     }
 
@@ -545,6 +575,7 @@ impl Control {
         &mut self,
         Stamped { sample, input }: Stamped,
         messages: &mut Producer<'_, Message, MESSAGE_QUEUE>,
+        store: &Store<'_>,
     ) {
         match input {
             Input::PadHit { pad, velocity } => {
@@ -574,7 +605,7 @@ impl Control {
             }
             Input::PadRelease { pad } => self.end(Source::Pad(pad), sample, messages),
             Input::NoteOff { note } => self.end(Source::Midi(note), sample, messages),
-            Input::ButtonPress { button } => self.press(button, sample, messages),
+            Input::ButtonPress { button } => self.press(button, sample, messages, store),
             Input::ButtonRelease { button } => self.release(button, sample, messages),
             Input::EncoderTurn { encoder, clicks } => {
                 self.buttons.used();
@@ -754,12 +785,14 @@ impl Control {
     ///
     /// Otherwise the arrows, - and + nudge (`nudge`), OK uses the item under the cursor, or acts on
     /// SAMPLES' row (`ok_in_samples`) or POOL's (`ok_in_pool`), and an encoder push the item its
-    /// encoder holds.
+    /// encoder holds. PLAY and SHIFT + PLAY start or jump (`play`) and STOP stops (`stop`), also
+    /// while MENU or PAGE is held.
     fn press(
         &mut self,
         button: Button,
         sample: u64,
         messages: &mut Producer<'_, Message, MESSAGE_QUEUE>,
+        store: &Store<'_>,
     ) {
         if self.buttons.is_held(button) {
             return;
@@ -919,6 +952,11 @@ impl Control {
             {
                 self.buttons.take(button);
             }
+            Button::Play if (picker || question) && self.buttons.is_held(Button::Shift) => {
+                self.buttons.take(button);
+            }
+            Button::Play => self.play(sample, messages, store),
+            Button::Stop => self.stop(sample, messages),
             Button::Menu | Button::Page if overlay != Some(button) => self.buttons.take(button),
             Button::Menu | Button::Page => self.end_held_repeats(),
             Button::Step(step) if overlay == Some(Button::Menu) => {
@@ -1583,8 +1621,8 @@ impl Control {
         }
     }
 
-    /// Sends the next message, stamped with `sample` or with the sample of its replay record. The
-    /// control part waits for the report of a `UseTable` and of a `ForgetSample`.
+    /// Sends the next message, stamped with `sample` or with the sample of its replay record
+    /// (`stamped`). The control part waits for the report of a `UseTable` and of a `ForgetSample`.
     fn send(
         &mut self,
         sample: u64,
@@ -1592,17 +1630,10 @@ impl Control {
         messages: &mut Producer<'_, Message, MESSAGE_QUEUE>,
     ) {
         let number = self.next_number;
-        while self.replay.peek().is_some_and(|(head, _)| head < number) {
-            self.replay.pop();
-        }
-        let record = self.replay.peek().filter(|&(head, _)| head == number);
-        if record.is_some() {
-            self.replay.pop();
-        }
         messages
             .push(Message {
                 number,
-                at: record.map_or(sample, |(_, sample)| sample),
+                at: self.stamped(number, sample),
                 kind,
             })
             .expect("the step leaves room for every message of an event");
@@ -1618,6 +1649,19 @@ impl Control {
                 Some((number, kind));
         }
         self.next_number += 1;
+    }
+
+    /// The sample of the replay record of the message or version `number`, or `sample` when it has
+    /// none. Records of lower numbers have nothing left to stamp and are dropped.
+    fn stamped(&mut self, number: u32, sample: u64) -> u64 {
+        while self.replay.peek().is_some_and(|(head, _)| head < number) {
+            self.replay.pop();
+        }
+        let record = self.replay.peek().filter(|&(head, _)| head == number);
+        if record.is_some() {
+            self.replay.pop();
+        }
+        record.map_or(sample, |(_, sample)| sample)
     }
 
     /// The current track.

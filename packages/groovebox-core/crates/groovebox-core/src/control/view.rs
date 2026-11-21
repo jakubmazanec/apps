@@ -149,9 +149,18 @@ pub enum Question {
     RemoveUnused,
 }
 
+/// STEP and ROLL's shared cursor, from 0: a bar and a step of it (S5).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct StepCursor {
+    pub bar: u16,
+    /// Sixteenths from the bar's start.
+    pub step: u8,
+}
+
 /// What the screen shows: the screen, the page each screen shows, the cursor of each page, the
-/// folder and cursor of SAMPLES and of the sample picker, POOL's cursor and a picker or a question
-/// while one is open. They are kept while the control part lives and are not saved.
+/// folder and cursor of SAMPLES and of the sample picker, POOL's cursor, the step cursor and a
+/// picker or a question while one is open. They are kept while the control part lives and are not
+/// saved.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct View {
     pub screen: Screen,
@@ -163,6 +172,7 @@ pub struct View {
     /// The sample picker's folder, kept while it is closed, and its cursor.
     pub sample_picker: SamplesView,
     pub pool: PoolView,
+    pub steps: StepCursor,
     /// The picker while it is open over the main area of `screen`, with its highlight. The sample
     /// picker's highlight is `sample_picker`'s cursor, and this one stays on its first row.
     pub picker: Option<(Picker, Cursor)>,
@@ -173,7 +183,8 @@ pub struct View {
 impl View {
     /// STEP, where a new project opens, with every screen on its first page, every cursor on the
     /// first item, SAMPLES and the sample picker at the top level, POOL's cursor on Remove unused
-    /// for T1 with no sound selected and no picker or question open.
+    /// for T1 with no sound selected, the step cursor on bar 1, step 1 and no picker or question
+    /// open.
     pub const fn new() -> Self {
         Self {
             screen: Screen::Step,
@@ -185,6 +196,7 @@ impl View {
                 cursor: Cursor { item: 0, scroll: 0 },
                 shows: (0, None),
             },
+            steps: StepCursor { bar: 0, step: 0 },
             picker: None,
             question: None,
         }

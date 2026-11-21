@@ -271,7 +271,7 @@ fn a_remembered_folder_that_is_gone_opens_the_top_level() {
     rig.step(280);
     let forget = rig.sent().pop().unwrap();
     assert_eq!(forget.kind, MessageKind::ForgetSample { file: FileId(1) });
-    rig.control.applied(forget.number, 288);
+    rig.applied(forget.number, 288);
     rig.settle(300);
     // SAMPLES left 808/, which is gone.
     assert_eq!(rig.control.view.samples.folder, Some(FolderId(0)));
@@ -560,7 +560,7 @@ fn an_import_while_the_picker_is_open_keeps_its_cursor_on_its_row() {
     rig.settle(310);
     let forget = rig.sent().pop().unwrap();
     assert_eq!(forget.kind, MessageKind::ForgetSample { file: BASS.file });
-    rig.control.applied(forget.number, 320);
+    rig.applied(forget.number, 320);
     rig.settle(400);
     assert_eq!(
         rig.control.view.sample_picker,
@@ -1333,7 +1333,7 @@ fn a_file_in_a_deleted_files_place_shows_its_own_waveform() {
     rig.step(140);
     let forget = rig.sent().pop().unwrap();
     assert_eq!(forget.kind, MessageKind::ForgetSample { file: FileId(0) });
-    rig.control.applied(forget.number, 150);
+    rig.applied(forget.number, 150);
     rig.settle(160);
     rig.drop_files(200, &[("tmp/1/quiet.wav", audio(1, &[0; 630], 2))]);
     rig.settle(210);
@@ -1524,7 +1524,7 @@ fn deleting_a_used_file_fades_its_voices_and_leaves_its_sounds_missing() {
 
     // The `ForgetSample` fades every voice reading kick.wav.
     let forget = delete_kick(&mut rig, 10);
-    rig.control.applied(forget.number, 90);
+    rig.applied(forget.number, 90);
     rig.settle(100);
 
     assert_eq!(
@@ -1588,7 +1588,7 @@ fn a_hit_during_a_delete_sends_no_file() {
     // While the audio part lets go of kick.wav, and then while its `Delete` is out.
     rig.hit(100, 0, 100);
     rig.release(110, 0);
-    rig.control.applied(forget.number, 120);
+    rig.applied(forget.number, 120);
     rig.step(130);
     assert!(matches!(
         rig.control.take_request(),
@@ -1615,7 +1615,7 @@ fn a_failed_delete_leaves_the_sounds_playing_the_file() {
     rig.open();
     let kick = sample_on(&mut rig, 0, KICK.file);
     let forget = delete_kick(&mut rig, 10);
-    rig.control.applied(forget.number, 90);
+    rig.applied(forget.number, 90);
     rig.step(100);
 
     let (number, _) = rig.control.take_request().expect("a request is out");
@@ -1649,7 +1649,7 @@ fn a_file_dropped_again_under_its_path_revives_its_sounds() {
     rig.open();
     let kick = sample_on(&mut rig, 0, KICK.file);
     let forget = delete_kick(&mut rig, 10);
-    rig.control.applied(forget.number, 90);
+    rig.applied(forget.number, 90);
     rig.settle(100);
 
     // KICK.wav goes into drums/, kick.wav's path but for case, in kick.wav's place. The sound's
@@ -1692,7 +1692,7 @@ fn a_relink_tells_the_audio_part_the_file() {
     rig.open();
     let kick = sample_on(&mut rig, 0, KICK.file);
     let forget = delete_kick(&mut rig, 10);
-    rig.control.applied(forget.number, 90);
+    rig.applied(forget.number, 90);
     rig.settle(100);
 
     // KICK.wav goes into drums/, kick.wav's path but for case, in kick.wav's place.
@@ -1722,7 +1722,7 @@ fn a_new_file_in_a_deleted_files_place_does_not_revive_its_sounds() {
     rig.open();
     let kick = sample_on(&mut rig, 0, KICK.file);
     let forget = delete_kick(&mut rig, 10);
-    rig.control.applied(forget.number, 90);
+    rig.applied(forget.number, 90);
     rig.settle(100);
 
     // clap.wav takes kick.wav's place in the library.
@@ -1761,7 +1761,7 @@ fn a_replaced_file_keeps_its_sounds_on_the_new_audio() {
     rig.settle(20);
     let forget = rig.sent().pop().unwrap();
     assert_eq!(forget.kind, MessageKind::ForgetSample { file: KICK.file });
-    rig.control.applied(forget.number, 30);
+    rig.applied(forget.number, 30);
     rig.settle(40);
     rig.hit(100, 0, 100);
     rig.hit(110, 1, 100);
@@ -1834,7 +1834,7 @@ fn a_missing_sound_plays_and_shows_without_its_file() {
     rig.open();
     let kick = sample_on(&mut rig, 0, KICK.file);
     let forget = delete_kick(&mut rig, 10);
-    rig.control.applied(forget.number, 90);
+    rig.applied(forget.number, 90);
     rig.settle(100);
 
     rig.hit(200, 0, 100);
@@ -2002,7 +2002,7 @@ fn a_replace_by_a_shorter_file_keeps_the_points_held_within_it() {
     rig.drop_files(10, &[("tmp/1/drums/kick.wav", short())]);
     rig.settle(20);
     let forget = rig.sent().pop().unwrap();
-    rig.control.applied(forget.number, 30);
+    rig.applied(forget.number, 30);
     rig.settle(40);
 
     let number = forget.number;
@@ -2040,7 +2040,7 @@ fn a_relink_waits_for_room_for_each_sounds_values() {
 
     // The report lists the new file with room for one event: the first sound takes it and sends
     // its two values and its engine, and the second waits, missing.
-    rig.control.applied(forget.number, 30);
+    rig.applied(forget.number, 30);
     rig.step(40);
     let engine = |rig: &Rig<'_>, sound| rig.control.project.pool.get(sound).unwrap().engine;
     assert_eq!(engine(&rig, kick), Engine::Sample(Sample::File(FileId(4))));

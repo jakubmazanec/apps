@@ -42,7 +42,7 @@ impl NativeRunner {
     fn control(&mut self) -> ControlSide<'_> {
         // SAFETY: the side borrows this runner mutably, so no other side of its device exists
         // while it lives.
-        unsafe { self.device.control_side(&self.ram) }
+        unsafe { self.device.control_side(&self.ram, &self.notes) }
     }
 }
 
@@ -78,7 +78,7 @@ impl Runner for NativeRunner {
     fn carry_out(&mut self, storage: &mut MemoryStorage, request: &Request) -> Reply {
         // SAFETY: the side lives only for this call, which borrows this runner mutably, so no
         // other side of its device exists while it lives.
-        let mut control = unsafe { self.device.control_side(&self.ram) };
+        let mut control = unsafe { self.device.control_side(&self.ram, &self.notes) };
         // SAFETY: no render runs while this call does, and the core loads into and appends from
         // only blocks of its control side that the audio part was never told about.
         unsafe { storage.carry_out(request, control.io(), &self.ram) }

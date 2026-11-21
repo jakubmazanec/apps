@@ -156,7 +156,7 @@ fn a_missing_sound_is_red_with_its_files_name() {
     rig.open();
     sample_on(&mut rig, 0, KICK.file);
     let forget = delete_kick(&mut rig, 10);
-    rig.control.applied(forget.number, 90);
+    rig.applied(forget.number, 90);
     rig.settle(100);
 
     rig.menu(200, 5);

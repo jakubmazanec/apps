@@ -8,8 +8,9 @@ pub const MESSAGE_QUEUE: usize = 256;
 /// Room for a report of every message and every version in flight, so that none is ever dropped:
 /// a version's blocks wait for its report (S26). A queue's length is a power of two.
 pub const REPORT_QUEUE: usize = (MESSAGE_QUEUE + VERSION_QUEUE).next_power_of_two();
-/// The most versions of the note memory that the control part has sent and not yet heard the audio
-/// part report. The note memory's waiting blocks are grouped by version in a ring this long.
+/// The most versions of the note memory that the control part has sent and the audio part has not
+/// yet taken. The note memory's waiting blocks are grouped by version in a ring this long, plus
+/// `REPORT_QUEUE` for the versions taken whose reports the control part has not read.
 pub const VERSION_QUEUE: usize = 64;
 /// The most messages the control part sends for one event, an input or a repeat: ENGINE to Sample
 /// sends `StopPreview`, up to seven values and `SoundEngine`, and ENGINE to Synth up to eight values

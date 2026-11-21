@@ -100,7 +100,7 @@ static mut AUDIO_STACK: Stack = Stack {
 fn control_side() -> ControlSide<'static> {
     // SAFETY: only the worker calls the exports that use this, one at a time, and each of them
     // drops its side before it returns, so at most one control side exists.
-    unsafe { DEVICE.control_side(&SAMPLE_RAM) }
+    unsafe { DEVICE.control_side(&SAMPLE_RAM, &NOTE_RAM) }
 }
 
 /// Queues an input stamped with `sample`. `kind`, `a` and `b` are the wire format of

@@ -1,3 +1,4 @@
+use crate::store::Tree;
 use pool::{Pool, SoundNumber};
 use track::Track;
 
@@ -6,23 +7,47 @@ pub mod pool;
 pub mod settings;
 pub mod track;
 
-/// What a project holds in memory: the pool of sounds and the four tracks, and which track is
-/// current.
+/// A new project's tempo: 120.00 BPM (S16).
+pub const NEW_TEMPO: u32 = 12_000;
+
+/// A pattern: its length in bars and the notes of each track.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Pattern {
+    pub bars: u16,
+    pub tracks: [Tree; 4],
+}
+
+/// What a project holds in memory: the pool of sounds, the four tracks and the 16 patterns, which
+/// track and which pattern are current, the tempo and the signature.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Project {
     pub pool: Pool,
     pub tracks: [Track; 4],
     /// The current track, 0 to 3.
     pub track: u8,
+    pub patterns: [Pattern; 16],
+    /// The current pattern, 0 to 15, shown "P1" to "P16".
+    pub pattern: u8,
+    /// In hundredths of a BPM.
+    pub tempo: u32,
+    pub signature: Signature,
 }
 
 impl Project {
-    /// A project with an empty pool, track 1 current and every track new.
+    /// A project with an empty pool, track 1 current and every track new, and patterns 1 to 16
+    /// empty and 1 bar long, pattern 1 current, at 120 BPM in 4/4 (S16).
     pub const fn new() -> Self {
         Self {
             pool: Pool::new(),
             tracks: [Track::new(); 4],
             track: 0,
+            patterns: [Pattern {
+                bars: 1,
+                tracks: [Tree(None); 4],
+            }; 16],
+            pattern: 0,
+            tempo: NEW_TEMPO,
+            signature: FOUR_FOUR,
         }
     }
 

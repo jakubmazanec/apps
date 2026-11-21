@@ -11,6 +11,7 @@ use crate::queue::{Consumer, Queue};
 use crate::sample_ram::SampleRam;
 use crate::screen::{Canvas, Color, HEIGHT, Rect, Screen, WIDTH};
 use crate::storage::Status;
+use crate::store::NoteRam;
 use crate::ui::frame::{Piece, draw_header, draw_strip};
 use crate::ui::item::{Bar, ItemView, draw_cursor, draw_item};
 use crate::ui::test_pixels::{filled, outlined, span};
@@ -19,21 +20,24 @@ use std::boxed::Box;
 use std::vec::Vec;
 
 mod library;
+mod pattern;
 mod pool;
 mod sample_sounds;
 mod sound;
 
-/// A control part with its own storage, I/O buffer, block tables and sample RAM. The control part
-/// is copied straight onto the heap: a debug build of `Control::new()` builds it on the stack, and
-/// its copies there overflow a test thread's 2 MiB.
+/// A control part with its own storage, I/O buffer, block tables, sample RAM, version queue and
+/// note memory. The control part is copied straight onto the heap: a debug build of
+/// `Control::new()` builds it on the stack, and its copies there overflow a test thread's 2 MiB.
 struct Rig<'a> {
     control: Box<Control>,
     producer: Producer<'a, Message, MESSAGE_QUEUE>,
     consumer: Consumer<'a, Message, MESSAGE_QUEUE>,
+    versions: Queue<Version, VERSION_QUEUE>,
     storage: MemoryStorage,
     io: Vec<u8>,
     tables: Box<Tables>,
     ram: Box<SampleRam>,
+    notes: Box<NoteRam>,
 }
 
 impl<'a> Rig<'a> {
@@ -98,14 +102,28 @@ impl<'a> Rig<'a> {
         self.let_go(sample + 3, Button::Page);
     }
 
+    #[allow(unsafe_code)]
     fn step(&mut self, until: u64) -> bool {
+        // SAFETY: the version producer and the store live only for this call, and the rig has no
+        // audio part, so they are the only ones.
+        let (mut versions, mut store) = unsafe { (self.versions.producer(), self.notes.store()) };
         self.control.step(
             until,
             &mut self.producer,
+            &mut versions,
             &mut self.io,
             &self.tables,
             &self.ram,
+            &mut store,
         )
+    }
+
+    /// Hears the report of the message or version `number` at `sample` (`Control::applied`).
+    #[allow(unsafe_code)]
+    fn applied(&mut self, number: u32, sample: u64) {
+        // SAFETY: the store lives only for this call, so it is the only one.
+        self.control
+            .applied(number, sample, &mut unsafe { self.notes.store() });
     }
 
     /// Takes every message that was sent.
@@ -1747,8 +1765,8 @@ fn the_control_part_hears_when_its_awaited_message_applied() {
     assert!(rig.control.awaited.contains(&awaited));
 
     // The hit's report is not awaited, so it is no event at 32.
-    rig.control.applied(0, 32);
-    rig.control.applied(1, 96);
+    rig.applied(0, 32);
+    rig.applied(1, 96);
     assert!(!rig.step(96));
     assert!(rig.control.awaited.contains(&awaited));
 
