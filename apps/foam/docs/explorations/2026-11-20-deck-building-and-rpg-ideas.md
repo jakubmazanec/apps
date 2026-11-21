@@ -139,6 +139,77 @@ untagged is new in this discussion.
 - The gambler: "Coin flip" (one reroll a place), "Lucky shirt" (the first lost roll of the night
   counts as won), "All in" (a roll's stakes doubled both ways).
 
+## Deck-building, iteration 2
+
+### Counting kinds
+
+- Some cards scale with how many cards of a kind you hold: "Chatterbox: talks +5% per Talk card".
+- Pockets are few, so every hand is a choice between specialising and spreading.
+
+### Rarity
+
+- Common: one plain effect, Open or Bend.
+- Uncommon: a Trigger or a condition, the glue of a style.
+- Rare: Transform or Generate; it changes how the night plays.
+- Signature: one per person, only from getting to know them.
+- The later the hour, the rarer the offers: staying out pays in better cards.
+
+### Offers
+
+- Pick one of three: two from the place's pool, one that shares a kind with your hand.
+- Skipping an offer gives one practice to a card you hold.
+
+### Stamps: how they are earned
+
+- A found story stamps the card played in the scene that found it.
+- How the story happened decides the stamp: after midnight Night, through a won roll Lucky, with a
+  person Shared, for almost nothing Cheap, on a second visit Echo.
+- One stamp per card; a new one replaces the old, which is a decision.
+- New stamps: Early (stronger before 20:00), Loud (works on everyone in the scene), Quiet (a bypass
+  nobody notices), Twin (counts as two of its kind), Wild (counts as every kind), Sticky (not lost
+  at dawn; rare).
+
+### More cards
+
+- Talk: "Ask around" (common, Open: learn one thing about the place), "Name-dropper" (uncommon,
+  Trigger: a talk with someone you know tonight opens one with someone they know), "Storyteller"
+  (rare, Transform: your stories count as Talk cards), "The last word" (rare, Tilt: retry one lost
+  talk a night).
+- Move: "Good shoes" (common, Bend: every walk 10 minutes less), "Window seat" (uncommon, Trigger: a
+  tram ride gives +10% on the next Look), "Wanderlust" (rare, Transform: journeys count as practice,
+  so cards level while you travel).
+- Drink: "Shots for the table" (common, Open), "Tab" (uncommon, Bypass: buy now, pay at the next
+  place), "Patron" (rare, Generate: every round you buy brings someone from the table along as a
+  one-use People card).
+- Luck: "Hot streak" (uncommon, Trigger: +5% for every roll won in a row, reset on a loss), "Loaded
+  dice" (rare, Tilt: always the better of two rolls, each roll 5 minutes longer).
+- Look: "People-watching" (common, Open: notice one thing in any crowded place), "Eavesdrop"
+  (uncommon, Generate: listening to a table gives a one-use rumour), "Read the room" (rare, Tilt:
+  the first roll in each place takes the better of two).
+- Night: "After hours" (uncommon, Bypass: one shut door after midnight opens), "Sunrise" (rare,
+  Trigger: from 05:00 every card costs nothing).
+
+### People and burdens
+
+- A person joins for three places, lends their signature card and leaves at their hour.
+- A person met on several nights becomes a friend card, who stays longer.
+- Burdens: "Hangover" (starts the next night in a pocket), "Debt" (clears when paid), "Said too
+  much" (one place won't talk to you until you apologise).
+- Some cards feed on burdens: "Hair of the dog" (rare, Transform: a hangover counts as a Drink
+  card).
+
+### The long run: what a kept card becomes
+
+- A kept card gains a notch each night it is played; notches open a second stamp slot, then a
+  signature effect.
+- Its name grows with its history: "Lighter", "Old lighter", "The lighter from the night of the
+  fire", after the story that stamped it.
+- Retiring: a kept card leaves the hand for good and adds its kind to every place's pool, turning
+  power into breadth.
+- The starting hand grows slowly with stories found, from 1 to 5.
+- Against power creep: old cards compete with new ones for few pockets, wear stops one card from
+  carrying every night, and rarity follows the hour, not progress.
+
 ## Ideas
 
 ### What a card is
