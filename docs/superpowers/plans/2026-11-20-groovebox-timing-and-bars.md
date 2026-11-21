@@ -94,7 +94,7 @@ feature comes with that feature (see "Not in this plan").
 | S16 | Following              | PLAY, SHIFT + PLAY (also a jump: it starts the music from the cursor's bar) and PLAY while playing follow (Workflow B). While following and playing, the cursor's bar is the bar playing at that sample, or the last bar while a bar past a new shorter length plays out; the step buttons, their lights and the header's first bar number use it. STOP leaves the cursor on the bar that played. PLAY while playing sends nothing. Nothing ends following in this plan: plan 3's arrows do                                                                                                                                                                                                                                                                     |
 | S17 | A step's tap           | Acts on the bar shown when the step went down (`Buttons::pressed_at`), so a bar line between press and release never moves the note into the next bar                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | S18 | Long and short bars    | Plan 1's step rules with signatures: 3/4 leaves steps 13 to 16 dark and doing nothing; 5/4 is a page of 16 and one of 4; 16/4 is four pages (Workflow B). No control in this plan moves the cursor's step to a later page; plan 3's arrows do                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| S19 | The player             | The control part's `player` advances to each event's sample before the event, as well as to `until` after the events                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| S19 | The player             | The control part's `player` advances to each event's sample before the event, as well as to `until` after the events. Built in plan 1 (its Task 6 ruling), which also leaves the player at the last event it handled when the step stops early on a gate, and keeps `Sequencer::advance` from moving its next tick back (`play` still resets it)                                                                                                                                                                                                                                                                                                                                                                                                                |
 | S20 | Messages               | `Tempo { run }` and `Meter { meter }`; `MAX_MESSAGES_PER_EVENT` stays 9 and `MAX_VERSIONS_PER_EVENT` 4                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 
 ### Overview open points this plan settles
@@ -117,8 +117,8 @@ part stays open for plan 3, ROLL's for Milestone 4).
 - Time: 1,920 ticks a beat; `sample = anchor + (tick − anchor_tick) × 150_000 / tempo` in 64-bit
   integers, rounded down, tempo in hundredths of a BPM (Foundation). At 120 BPM a tick is 12.5
   samples, a sixteenth 6,000 samples and a 4/4 bar 96,000.
-- Working memory stays within `budget.toml`'s 2 MB, checked when the core builds; plan 1 ends near
-  2,015,000 bytes and this plan adds well under a kilobyte. If it outgrows the budget, report the
+- Working memory stays within `budget.toml`'s 2 MB, checked when the core builds; plan 1 ended at
+  2,019,904 bytes and this plan adds well under a kilobyte. If it outgrows the budget, report the
   size and stop: the budget is the owner's.
 - Plan 1's note memory rules hold: the audio part never waits and never writes note memory; the
   control part writes only blocks no version it sent can reach.
@@ -485,8 +485,8 @@ Docs only, stated as the current design.
 **Files:**
 
 - Modify: `src/control/view.rs` (`Screen::Pattern`), `src/control/pages.rs` (`MENU[8]`, `TIMING`,
-  `ItemKind::Grid`), `src/control/mod.rs` (the project scope in `value` and `set`; the step's
-  player, S19), `src/control/draw.rs` (Grid's item). Create: `src/control/tests/timing.rs`.
+  `ItemKind::Grid`), `src/control/mod.rs` (the project scope in `value` and `set`),
+  `src/control/draw.rs` (Grid's item). Create: `src/control/tests/timing.rs`.
 
 **Interfaces:**
 
@@ -499,7 +499,8 @@ Docs only, stated as the current design.
   - `value(TEMPO.id)` reads `project.tempo`. `set(TEMPO.id, ..)` stores it and, while the player
     plays, sends `Tempo { run: player.retimed(sample, value) }` and gives the player the same
     `retime`; a project value sends no `SetParam`.
-  - `step` advances the `player` to each event's sample before handling it (S19).
+  - S19 is built (plan 1): `an_event_reads_the_music_at_its_own_sample` pins it with the tempo and
+    passes from the start.
 
 - [ ] **Step 1: Write the failing tests** (`control/tests/timing.rs`)
 
@@ -525,7 +526,7 @@ Docs only, stated as the current design.
 
   Run: `cargo test -p groovebox-core --lib control::tests::timing`. Expected: FAIL to compile.
 
-- [ ] **Step 3: Implement the screen, the page, the tempo and the player's steps**
+- [ ] **Step 3: Implement the screen, the page and the tempo**
 - [ ] **Step 4: Run them to verify they pass**
 
   Run: `cargo test -p groovebox-core --lib`. Expected: PASS; tests that spell MENU's tiles gain "9
@@ -699,7 +700,8 @@ Docs only, stated as the current design.
   - The ranges: `Length(bars)`: `Key::at(bars, 0)..Key::MAX` once per track of the current pattern.
     `Signature(signature)`: per track of each pattern, for every bar `b` below its length,
     `Key::at(b, signature.bar_ticks())..Key::at(b + 1, 0)`. `take` counts each note off its sound's
-    `notes`. The job holds its latest tree and lets go of each one it replaces with `after` none.
+    `notes`. `remove` returns a root nobody holds, so the job holds each new tree before it lets go
+    of the one it replaces (with `after` none), and holds only its latest.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -758,6 +760,9 @@ Docs only, stated as the current design.
     header's first bar number at `now`.
   - PLAY and SHIFT + PLAY set `following`, playing or not; STOP while playing first stores
     `shown_bar(sample)` in `view.steps.bar`.
+  - `step` asks for a redraw when the header's bar numbers change with time: the playing bar or,
+    while following, `shown_bar(now)`. Plan 1's `step` redraws only on events and scrolling, so
+    without it "▶N" stays on the old bar until an input.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -776,6 +781,9 @@ Docs only, stated as the current design.
 }
 #[test] fn a_bar_playing_past_a_shorter_length_shows_the_last_bar() {
     /* bar 3 of 4 plays, "2 bars": header "2/2 ▶3" until 288_000, then "1/2 ▶1" */
+}
+#[test] fn the_header_redraws_when_the_playing_bar_changes() {
+    /* 4 bars playing, no input after PLAY: the first step past 96_000 asks for a redraw and its frame shows "2/4 ▶2" */
 }
 #[test] fn in_3_4_and_7_8_the_steps_past_the_bar_are_dark_and_do_nothing() {}
 #[test] fn a_5_4_bar_goes_on_over_a_short_second_page() {
@@ -820,7 +828,9 @@ Docs only, stated as the current design.
   previewing file; TEMPO held with encoder 1 turned, with and without SHIFT; Signature "7/8" for
   eighths; STOP while a click rings; STOP. Frames: the timing strip, SETTINGS' Playing page with
   Metronome On, the header with the icon, PATTERN's Timing page.
-- **`worst-case`:** the metronome on before its busiest batches.
+- **`worst-case`:** the metronome on before its busiest batches. Its PLAY moves from 256,000 to
+  257,200, so a sequencer start lands in the busiest batch at 275,200, as plan 1 meant (at 256,000
+  the starts fall at 274,000 and 280,000).
 
 - [ ] **Step 1: Write the two scenes and extend `worst-case.scene`**
 - [ ] **Step 2: Build and re-bless**
