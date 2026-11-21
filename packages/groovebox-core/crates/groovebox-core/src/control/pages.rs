@@ -268,6 +268,7 @@ mod tests {
             name: Label::new(),
             engine: Engine::Synth,
             values: SOUND_DEFAULTS,
+            notes: 0,
         };
         let sample = Sound {
             engine: Engine::Sample(Sample::File(FileId(0))),
@@ -309,6 +310,7 @@ mod tests {
             name: Label::new(),
             engine: Engine::Synth,
             values: SOUND_DEFAULTS,
+            notes: 0,
         };
         let sample = Sound {
             engine: Engine::Sample(Sample::File(FileId(0))),

@@ -65,6 +65,8 @@ pub struct Sound {
     pub name: Label<NAME_BYTES>,
     pub engine: Engine,
     pub values: [i32; SOUND_VALUES],
+    /// Its notes in every pattern, which every edit keeps counted.
+    pub notes: u32,
 }
 
 impl Sound {
@@ -80,6 +82,15 @@ impl Sound {
     /// The value of the `Sound` entry `id`.
     pub fn value(&self, id: ParamId) -> i32 {
         self.values[Self::place(id)]
+    }
+
+    /// The pitch at which the sound plays unchanged: C4 for a synth and the Root note for a sample
+    /// sound, where it sounds as recorded (S2).
+    pub fn unchanged_pitch(&self) -> u8 {
+        match self.engine {
+            Engine::Synth => 60,
+            Engine::Sample(_) => self.value(ROOT_NOTE.id) as u8,
+        }
     }
 
     /// Stores the value, stopping it at the entry's lowest or highest value.
@@ -138,6 +149,7 @@ impl Sound {
         name: Label::new(),
         engine: Engine::Synth,
         values: SOUND_DEFAULTS,
+        notes: 0,
     };
 }
 
@@ -176,6 +188,7 @@ impl Pool {
             name,
             engine: Engine::Synth,
             values: SOUND_DEFAULTS,
+            notes: 0,
         }))
     }
 
@@ -218,6 +231,7 @@ impl Pool {
         Ok(self.append(Sound {
             number,
             name,
+            notes: 0,
             ..original
         }))
     }
@@ -300,6 +314,7 @@ impl Pool {
             name: label,
             engine: Engine::Synth,
             values: SOUND_DEFAULTS,
+            notes: 0,
         })
     }
 }
@@ -350,6 +365,7 @@ mod tests {
         let mut pool = Pool::new();
         let original = pool.new_synth().unwrap();
         pool.sounds[0].values = [7; SOUND_VALUES];
+        pool.sounds[0].notes = 3;
 
         let copy = pool.copy(original).unwrap();
 
@@ -358,6 +374,8 @@ mod tests {
         assert_eq!(copy.name.as_str(), "Syn 2");
         assert_eq!(copy.engine, original.engine);
         assert_eq!(copy.values, [7; SOUND_VALUES]);
+        // A copy has no notes in any pattern.
+        assert_eq!(copy.notes, 0);
         assert_eq!(original.name.as_str(), "Syn 1");
     }
 

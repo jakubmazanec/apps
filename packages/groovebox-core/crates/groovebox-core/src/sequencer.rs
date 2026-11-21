@@ -121,8 +121,9 @@ impl Sequencer {
     }
 
     /// Every event due by `until`, in sample order: at one sample ends before starts (S14), and
-    /// tracks in order. Then nothing at `until` or before is due again. Each start takes the next
-    /// number with the top bit set (S24); a full table first ends the note that ends soonest.
+    /// tracks in order. Then nothing at `until` or before is due again, and an `until` earlier than
+    /// the one before leaves due what was. Each start takes the next number with the top bit set
+    /// (S24); a full table first ends the note that ends soonest.
     pub fn advance(&mut self, until: u64, notes: &NoteReader<'_>, mut out: impl FnMut(Event)) {
         let Some(run) = self.run else { return };
         loop {
@@ -177,11 +178,16 @@ impl Sequencer {
                 _ => break,
             }
         }
-        self.due = run.first_tick_after(until);
+        self.due = self.due.max(run.first_tick_after(until));
     }
 
     pub fn run(&self) -> Option<Run> {
         self.run
+    }
+
+    /// The tree track `track` plays.
+    pub fn tree(&self, track: u8) -> Tree {
+        self.tracks[usize::from(track)].tree
     }
 
     pub fn sounding(&self) -> impl Iterator<Item = &Sounding> {
@@ -451,6 +457,22 @@ mod tests {
                 Heard::End(30_000),
                 Heard::Start(0, 3_840)
             ]
+        );
+    }
+
+    #[test]
+    fn an_advance_to_an_earlier_sample_leaves_a_switch_starting_nothing_twice() {
+        let ram = NoteRam::boxed();
+        let mut rig = Rig::new(&ram, [step(0), step(1)]);
+        rig.heard(7_000);
+        // An input stamped before the step before's end.
+        assert_eq!(rig.heard(3_000), []);
+
+        rig.switch(0, [step(0), step(1), step(2)]);
+
+        assert_eq!(
+            rig.heard(12_000),
+            [Heard::End(12_000), Heard::Start(0, 960)]
         );
     }
 

@@ -4,6 +4,7 @@ pub mod notes;
 pub mod pages;
 mod pool;
 pub mod samples;
+mod steps;
 mod transport;
 pub mod view;
 
@@ -20,8 +21,7 @@ use crate::message::{
 };
 use crate::palette::RECORD;
 use crate::param::{
-    self, Curve, END, ENTRIES, LOOP_END, LOOP_START, OUTPUT_VOLUME, ParamId, ROOT_NOTE, START,
-    Scope, VELOCITY,
+    self, Curve, END, ENTRIES, LOOP_END, LOOP_START, OUTPUT_VOLUME, ParamId, START, Scope, VELOCITY,
 };
 use crate::project::Project;
 use crate::project::pool::{Engine, PoolFull, SOUND_VALUES, Sample, Sound, SoundNumber};
@@ -33,6 +33,7 @@ use crate::sample_ram::{SampleRam, Tables};
 use crate::screen::Color;
 use crate::sequencer::Sequencer;
 use crate::storage::{Reply, Request};
+use crate::store::note::Key;
 use crate::store::{RESERVE, Store};
 use crate::ui::layout::{LIST_VISIBLE, PICTURE};
 use crate::ui::text::SCROLL_PIXEL;
@@ -167,9 +168,15 @@ pub struct Control {
     notes: Notes,
     /// Whether a preview was started since the last stop, which a stop fades out.
     previewing: bool,
-    /// The control part's own sequencer, which plays and stops with the audio part's runs and whose
-    /// events go nowhere: the lights and the header read the pattern's playing from it (S20).
+    /// The control part's own sequencer, which plays and stops with the audio part's runs, plays
+    /// the trees of the versions sent and whose events go nowhere: the lights and the header read
+    /// the pattern's playing from it (S20).
     player: Sequencer,
+    /// The moment of the latest version, before which no later version's comes (S18).
+    moment: u64,
+    /// A bit for each step of the page the step buttons show whose sixteenth a note of the
+    /// selected sound starts in, from step 1's bit 0, as the latest step left them (S6).
+    step_notes: u16,
     /// The fingerprint and the peaks (`Library::peaks`) of the latest file whose waveform showed
     /// while the audio part could read it. `step` reads them again for a file of another
     /// fingerprint, so a file listed in the place of another never shows that one's picture.
@@ -215,6 +222,8 @@ impl Control {
             notes: Notes::new(),
             previewing: false,
             player: Sequencer::new(),
+            moment: 0,
+            step_notes: 0,
             waveform: None,
             view: View::new(),
             message: None,
@@ -315,7 +324,8 @@ impl Control {
     ///
     /// Last, while the screen's page shows the waveform and the audio part may read the selected
     /// sound's file (`sample_file`), it reads that file's peaks through `tables` from `ram` unless
-    /// it holds them already (`waveform`).
+    /// it holds them already (`waveform`), and it works out which steps of the page the step
+    /// buttons show start a note of the selected sound (`step_notes`).
     #[expect(
         clippy::too_many_arguments,
         reason = "the control part writes two queues and reads and writes three memories"
@@ -456,7 +466,7 @@ impl Control {
                             } | Input::Dropped { .. }
                         )
                     {
-                        self.input(stamped, messages, store);
+                        self.input(stamped, messages, versions, store);
                     }
                 }
                 Event::Repeat(button) => {
@@ -514,6 +524,28 @@ impl Control {
                 self.waveform = Some((fingerprint, self.library.peaks(audio.file, tables, ram)));
             }
         }
+        let (bar, first) = (
+            self.view.steps.bar,
+            u16::from(self.view.steps.step / 16) * 16,
+        );
+        self.step_notes = self.track().selected_sound.map_or(0, |sound| {
+            store
+                .reader()
+                .notes(
+                    self.project.patterns[usize::from(self.project.pattern)].tracks
+                        [usize::from(self.project.track)],
+                    Key::at(bar, first * 480),
+                )
+                .take_while(|note| {
+                    note.key()
+                        < Key::at(
+                            bar,
+                            (first + 16).min(self.project.signature.sixteenths() as u16) * 480,
+                        )
+                })
+                .filter(|note| note.sound == sound)
+                .fold(0, |steps, note| steps | 1 << (note.place / 480 - first))
+        });
         // shortcut: a scrolling text also redraws each pixel time during its pause, an identical
         // picture; compare offsets if the hardware's redraw cost matters.
         let pixels = |sample: u64| sample.saturating_sub(self.landed) / SCROLL_PIXEL;
@@ -529,8 +561,10 @@ impl Control {
     /// pad is lit and so is every pad a MIDI note on was hit as. In KEYS mode pad 1, the C, is lit
     /// and so is every pad whose pitch in the current octave has a MIDI note on. T1 to T4 light the
     /// current track and PADS/KEYS lights in KEYS mode. While MENU or PAGE is held, the steps of
-    /// the screens or pages that exist light: the steps whose tiles are not empty. PLAY lights
-    /// while playing (S10).
+    /// the screens or pages that exist light: the steps whose tiles are not empty. Otherwise the
+    /// steps of the page the step buttons show light where a note of the selected sound starts
+    /// (`step_notes`), and while playing the step the music is in, on that page of the cursor's
+    /// bar, is flipped (S6). PLAY lights while playing (S10).
     pub fn lights(&self) -> Lights {
         let track = self.track();
         let midi = self
@@ -561,10 +595,24 @@ impl Control {
                 }
             }
         }
-        for (step, tile) in self.tiles().iter().flatten().enumerate() {
-            if tile.state != TileState::Empty {
-                lights.light(Lights::STEP + step as u32);
+        if let Some(tiles) = self.tiles() {
+            for (step, tile) in tiles.iter().enumerate() {
+                if tile.state != TileState::Empty {
+                    lights.light(Lights::STEP + step as u32);
+                }
             }
+        } else {
+            let steps = self.view.steps;
+            lights.0 |= u64::from(
+                self.step_notes
+                    ^ self
+                        .player
+                        .at(self.now)
+                        .filter(|&(bar, place)| {
+                            bar == steps.bar && place / 480 / 16 == u32::from(steps.step / 16)
+                        })
+                        .map_or(0, |(_, place)| 1 << (place / 480 % 16)),
+            ) << Lights::STEP;
         }
         if self.player.run().is_some() {
             lights.light(Lights::PLAY);
@@ -577,7 +625,8 @@ impl Control {
         &mut self,
         Stamped { sample, input }: Stamped,
         messages: &mut Producer<'_, Message, MESSAGE_QUEUE>,
-        store: &Store<'_>,
+        versions: &mut Producer<'_, Version, VERSION_QUEUE>,
+        store: &mut Store<'_>,
     ) {
         match input {
             Input::PadHit { pad, velocity } => {
@@ -608,7 +657,9 @@ impl Control {
             Input::PadRelease { pad } => self.end(Source::Pad(pad), sample, messages),
             Input::NoteOff { note } => self.end(Source::Midi(note), sample, messages),
             Input::ButtonPress { button } => self.press(button, sample, messages, store),
-            Input::ButtonRelease { button } => self.release(button, sample, messages),
+            Input::ButtonRelease { button } => {
+                self.release(button, sample, messages, versions, store)
+            }
             Input::EncoderTurn { encoder, clicks } => {
                 self.buttons.used();
                 // Under MENU or PAGE and while a picker or a question is open a turn of encoders 1
@@ -680,10 +731,7 @@ impl Control {
             .get(sound)
             .expect("a sound on a pad or selected is in the pool");
         let engine = self.note_engine(played);
-        let pitch = key.unwrap_or(match played.engine {
-            Engine::Synth => 60,
-            Engine::Sample(_) => played.value(ROOT_NOTE.id) as u8,
-        });
+        let pitch = key.unwrap_or(played.unchanged_pitch());
         let track = self.project.track;
         let Some(note) = self.notes.start(source, track, pad, pitch) else {
             return;
@@ -760,7 +808,8 @@ impl Control {
     ///   pushes, ROLL, PADS/KEYS and COPY are dropped, and so taken too.
     /// - T1 to T4 select the track and land POOL's cursor (`land_on_selection`). With SHIFT held
     ///   they do nothing until muting comes with the sequencer.
-    /// - SHIFT + OK, SHIFT + STOP and SHIFT + an encoder push do nothing.
+    /// - SHIFT + OK, SHIFT + STOP, SHIFT + an encoder push and SHIFT + a step do nothing, though a
+    ///   step under MENU or PAGE still shows its screen or page.
     /// - PADS/KEYS held + up or down moves the octave in KEYS mode, stopping at C0 and C8, and in
     ///   PADS mode does nothing. PADS/KEYS held + left or right does nothing. Each arrow under
     ///   PADS/KEYS is taken, so it does not repeat, and like any press it still counts as another
@@ -788,7 +837,7 @@ impl Control {
     /// Otherwise the arrows, - and + nudge (`nudge`), OK uses the item under the cursor, or acts on
     /// SAMPLES' row (`ok_in_samples`) or POOL's (`ok_in_pool`), and an encoder push the item its
     /// encoder holds. PLAY and SHIFT + PLAY start or jump (`play`) and STOP stops (`stop`), also
-    /// while MENU or PAGE is held.
+    /// while MENU or PAGE is held. A step acts when it is let go (`release`).
     fn press(
         &mut self,
         button: Button,
@@ -986,6 +1035,7 @@ impl Control {
                     self.view.show_page(screen, usize::from(step));
                 }
             }
+            Button::Step(_) if self.buttons.is_held(Button::Shift) => self.buttons.take(button),
             Button::Up
             | Button::Down
             | Button::Left
@@ -1584,14 +1634,17 @@ impl Control {
         self.page(screen).map_or(&[], |page| page.items)
     }
 
-    /// A button goes up. A tap of PADS/KEYS switches the current track's pad mode, and a tap of
-    /// CANCEL closes the picker without choosing, answers the question no, or on SAMPLES and in the
-    /// sample picker goes up (`cancel_in_samples`).
+    /// A button goes up. A tap of PADS/KEYS switches the current track's pad mode, a tap of a step
+    /// enters or removes notes (`tap_step`), and a tap of CANCEL closes the picker without
+    /// choosing, answers the question no, or on SAMPLES and in the sample picker goes up
+    /// (`cancel_in_samples`).
     fn release(
         &mut self,
         button: Button,
         sample: u64,
         messages: &mut Producer<'_, Message, MESSAGE_QUEUE>,
+        versions: &mut Producer<'_, Version, VERSION_QUEUE>,
+        store: &mut Store<'_>,
     ) {
         match (button, self.buttons.release(button, sample)) {
             (Button::PadsKeys, Release::Tap) => {
@@ -1601,6 +1654,7 @@ impl Control {
                     PadMode::Keys => PadMode::Pads,
                 };
             }
+            (Button::Step(step), Release::Tap) => self.tap_step(step, sample, versions, store),
             (Button::Cancel, Release::Tap)
                 if matches!(self.view.picker, Some((Picker::Sample(_), _))) =>
             {

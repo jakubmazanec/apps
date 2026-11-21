@@ -1,11 +1,12 @@
-//! Patterns, PLAY, SHIFT + PLAY and STOP.
+//! Patterns, PLAY, SHIFT + PLAY and STOP, and the steps that enter and remove notes.
 
 use super::library::converted_with;
+use super::sample_sounds::{KICK, library, sample_on};
 use super::*;
-use crate::project::{FOUR_FOUR, Pattern};
+use crate::project::{FOUR_FOUR, Pattern, Signature};
 use crate::sequencer::{Run, Sounding};
-use crate::store::Tree;
-use crate::store::note::Note;
+use crate::store::note::{Key, Note};
+use crate::store::{NOTE_BLOCKS, Tree};
 use view::{Picker, StepCursor};
 
 /// A `Play` of the current pattern from bar 1, anchored at `anchor`, at 120 BPM.
@@ -45,6 +46,78 @@ fn two_notes(queue: &Queue<Message, MESSAGE_QUEUE>) -> Rig<'_> {
 /// The notes that the control part's own sequencer has sounding.
 fn sounding(rig: &Rig<'_>) -> Vec<Sounding> {
     rig.control.player.sounding().copied().collect()
+}
+
+/// Takes every version that was sent.
+#[allow(unsafe_code)]
+fn versions(rig: &mut Rig<'_>) -> Vec<Version> {
+    // SAFETY: the rig has no audio part, so this is the only consumer.
+    let mut versions = unsafe { rig.versions.consumer() };
+    core::iter::from_fn(|| versions.pop()).collect()
+}
+
+/// The notes of `tree`.
+#[allow(unsafe_code)]
+fn notes_in(rig: &Rig<'_>, tree: Tree) -> Vec<Note> {
+    // SAFETY: the reader lives while no step runs.
+    unsafe { rig.notes.reader() }
+        .notes(tree, Key::at(0, 0))
+        .collect()
+}
+
+/// The tree of track 1 of pattern 1.
+fn track_1(rig: &Rig<'_>) -> Tree {
+    rig.control.project.patterns[0].tracks[0]
+}
+
+/// How many notes `sound` has in every pattern.
+fn count(rig: &Rig<'_>, sound: SoundNumber) -> u32 {
+    rig.control.project.pool.get(sound).unwrap().notes
+}
+
+/// A note of `sound` at `pitch` as a tap enters it in sixteenth `sixteenth` of bar 1.
+fn entered(sixteenth: u16, sound: SoundNumber, pitch: u8) -> Note {
+    Note {
+        bar: 0,
+        place: sixteenth * 480,
+        length: 480,
+        sound,
+        pitch,
+        velocity: 127,
+        curve: None,
+    }
+}
+
+/// Puts a tree of `notes` on track 1 of pattern 1 by hand and counts them in their sounds.
+#[allow(unsafe_code)]
+fn put(rig: &mut Rig<'_>, notes: &[Note]) {
+    // SAFETY: the store lives while no step runs.
+    let mut store = unsafe { rig.notes.store() };
+    let tree = notes
+        .iter()
+        .fold(Tree(None), |tree, &note| store.insert(tree, note).0);
+    store.hold(tree);
+    rig.control.project.patterns[0].tracks[0] = tree;
+    for note in notes {
+        rig.control.project.pool.get_mut(note.sound).unwrap().notes += 1;
+    }
+}
+
+/// How many blocks of the note memory are ready.
+#[allow(unsafe_code)]
+fn ready(rig: &Rig<'_>) -> usize {
+    // SAFETY: the store lives while no step runs.
+    unsafe { rig.notes.store() }.ready()
+}
+
+/// Takes blocks of the note memory by hand until `ready` are ready.
+#[allow(unsafe_code)]
+fn fill_until(rig: &Rig<'_>, ready: usize) {
+    // SAFETY: the store lives while no step runs.
+    let mut store = unsafe { rig.notes.store() };
+    while store.ready() > ready {
+        store.take();
+    }
 }
 
 /// A rig on SAMPLES, which MENU + 10 opened from sample 10 to 13, whose preview plays b.wav from
@@ -108,7 +181,8 @@ fn play_starts_bar_1_at_the_press_and_lights() {
     rig.step(9_728);
 
     assert_eq!(rig.sent(), [message(0, 9_600, play(9_600))]);
-    assert_eq!(rig.lit(), [pad(0), track(0), Lights::PLAY]);
+    // The empty pad 1 lights no note, and the music's step 1 still lights (answer 2).
+    assert_eq!(rig.lit(), [pad(0), step(0), track(0), Lights::PLAY]);
 }
 
 #[test]
@@ -341,4 +415,379 @@ fn a_full_queue_leaves_the_player_at_the_last_event_it_handled() {
             .map(|note| note.end)
             .eq([97_000, 146_000])
     );
+}
+
+#[test]
+fn a_tap_on_an_unlit_step_adds_the_selected_sounds_note_when_let_go() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    let synth = rig.synth_on(0);
+
+    rig.press(9_600, Button::Step(4));
+    rig.step(9_601);
+    assert_eq!(versions(&mut rig), []);
+
+    rig.let_go(9_601, Button::Step(4));
+    rig.step(9_700);
+
+    let tree = track_1(&rig);
+    assert_eq!(
+        versions(&mut rig),
+        [Version {
+            number: 0,
+            moment: 9_601 + 1_024,
+            track: 0,
+            tree
+        }]
+    );
+    assert_eq!(notes_in(&rig, tree), [entered(4, synth, 60)]);
+    assert_eq!(count(&rig, synth), 1);
+    assert_eq!(rig.sent(), []);
+}
+
+#[test]
+fn a_sample_sound_steps_at_its_root_note() {
+    let queue = Queue::new();
+    let mut rig = Rig::with_files(&queue, &library());
+    rig.open();
+    // kick.wav's root note is 48.
+    let kick = sample_on(&mut rig, 0, KICK.file);
+
+    rig.tap(9_600, Button::Step(0));
+    rig.step(9_700);
+
+    assert_eq!(notes_in(&rig, track_1(&rig)), [entered(0, kick, 48)]);
+}
+
+#[test]
+fn in_keys_mode_a_tap_adds_the_last_key_or_the_c_of_the_octave() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    let synth = rig.synth_on(0);
+    rig.tap(0, Button::PadsKeys);
+    // No key was played yet: the C of octave 4.
+    rig.tap(100, Button::Step(0));
+    // E4.
+    rig.hit(200, 4, 100);
+    rig.release(300, 4);
+    rig.tap(400, Button::Step(1));
+    // Octave 5 keeps the last key.
+    rig.press(500, Button::PadsKeys);
+    rig.tap(510, Button::Up);
+    rig.let_go(520, Button::PadsKeys);
+    rig.tap(600, Button::Step(2));
+
+    rig.step(700);
+
+    assert_eq!(rig.track().octave, 5);
+    assert_eq!(
+        notes_in(&rig, track_1(&rig)),
+        [
+            entered(0, synth, 60),
+            entered(1, synth, 64),
+            entered(2, synth, 64)
+        ]
+    );
+}
+
+#[test]
+fn a_short_tap_on_a_lit_step_removes_every_note_of_the_sound_in_it() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    let synth = rig.synth_on(0);
+    let other = rig.synth_on(1);
+    // By hand, as a tap enters one note at a time: two pitches of the selected sound and a note of
+    // another in the third sixteenth.
+    put(
+        &mut rig,
+        &[
+            entered(2, synth, 64),
+            entered(2, synth, 67),
+            entered(2, other, 60),
+        ],
+    );
+    rig.tap(0, Button::PadsKeys);
+
+    rig.tap(100, Button::Step(2));
+    rig.step(200);
+
+    let tree = track_1(&rig);
+    assert_eq!(
+        versions(&mut rig),
+        [Version {
+            number: 0,
+            moment: 101 + 1_024,
+            track: 0,
+            tree
+        }]
+    );
+    assert_eq!(notes_in(&rig, tree), [entered(2, other, 60)]);
+    assert_eq!((count(&rig, synth), count(&rig, other)), (0, 1));
+}
+
+#[test]
+fn a_long_press_or_a_used_hold_does_nothing() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    rig.synth_on(0);
+    rig.press(100, Button::Step(4));
+    rig.let_go(100 + HOLD, Button::Step(4));
+    rig.press(20_000, Button::Step(4));
+    rig.hit(20_010, 0, 100);
+    rig.release(20_020, 0);
+    rig.let_go(20_030, Button::Step(4));
+
+    rig.step(30_000);
+
+    assert_eq!(versions(&mut rig), []);
+    assert_eq!(track_1(&rig), Tree(None));
+    assert_eq!(rig.control.view.steps.step, 0);
+
+    // A short tap of the same step adds its note.
+    rig.tap(30_000, Button::Step(4));
+    rig.step(30_100);
+    assert_eq!(versions(&mut rig).len(), 1);
+}
+
+#[test]
+fn shift_menu_page_or_a_picker_take_the_step() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    rig.synth_on(0);
+    rig.press(100, Button::Shift);
+    rig.tap(110, Button::Step(4));
+    rig.let_go(120, Button::Shift);
+    // Under MENU step 2 is ROLL's, which does not exist yet; under PAGE step 1 shows the page
+    // shown already.
+    rig.menu(200, 1);
+    rig.page(300, 0);
+    // The sound picker, from SOUND's Pad page.
+    rig.menu(400, 2);
+    rig.tap(410, Button::Ok);
+    rig.tap(420, Button::Step(4));
+    rig.tap(430, Button::Cancel);
+
+    rig.step(500);
+
+    assert_eq!(versions(&mut rig), []);
+    assert_eq!(track_1(&rig), Tree(None));
+    assert_eq!(rig.control.view.steps.step, 0);
+    assert_eq!(rig.control.view.picker, None);
+
+    // A tap on its own adds the note.
+    rig.tap(600, Button::Step(4));
+    rig.step(700);
+    assert_eq!(versions(&mut rig).len(), 1);
+}
+
+#[test]
+fn with_an_empty_pad_a_tap_does_nothing() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+
+    rig.tap(100, Button::Step(4));
+    rig.step(200);
+
+    assert_eq!(versions(&mut rig), []);
+    assert_eq!(track_1(&rig), Tree(None));
+    assert_eq!(rig.control.view.steps, StepCursor { bar: 0, step: 4 });
+}
+
+#[test]
+fn a_tap_moves_the_cursors_step() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    rig.synth_on(0);
+
+    rig.tap(100, Button::Step(8));
+    rig.step(200);
+    assert_eq!(rig.control.view.steps, StepCursor { bar: 0, step: 8 });
+
+    rig.tap(300, Button::Step(2));
+    rig.step(400);
+    assert_eq!(rig.control.view.steps, StepCursor { bar: 0, step: 2 });
+}
+
+#[test]
+fn the_steps_light_the_sounds_notes_and_the_music_flips_its_step() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    rig.synth_on(0);
+    rig.tap(100, Button::Step(0));
+    rig.tap(200, Button::Step(4));
+    rig.step(300);
+    assert_eq!(rig.lit(), [pad(0), step(0), step(4), track(0)]);
+
+    rig.press(9_600, Button::Play);
+    // The music is in step 1, which it darkens.
+    rig.step(9_601);
+    assert_eq!(rig.lit(), [pad(0), step(4), track(0), Lights::PLAY]);
+    // Then in step 2, which it lights.
+    rig.step(9_600 + 6_000);
+    assert_eq!(
+        rig.lit(),
+        [pad(0), step(0), step(1), step(4), track(0), Lights::PLAY]
+    );
+
+    // With an empty pad selected only the music's step lights.
+    rig.hit(16_000, 5, 100);
+    rig.release(16_010, 5);
+    rig.step(16_100);
+    assert_eq!(rig.lit(), [pad(5), step(1), track(0), Lights::PLAY]);
+}
+
+#[test]
+fn a_step_past_the_bars_end_stays_dark_and_does_nothing() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    let synth = rig.synth_on(0);
+    // A bar of 3/4 has 12 sixteenths. By hand: nothing makes a signature or a note past the bar's
+    // end before plan 2.
+    rig.control.project.signature = Signature { beats: 3, unit: 4 };
+    put(&mut rig, &[entered(11, synth, 60), entered(12, synth, 60)]);
+
+    rig.tap(100, Button::Step(12));
+    rig.step(200);
+
+    assert_eq!(versions(&mut rig), []);
+    assert_eq!(rig.control.view.steps.step, 0);
+    assert_eq!(rig.lit(), [pad(0), step(11), track(0)]);
+}
+
+#[test]
+fn moments_never_go_backward_and_take_replay_records() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    rig.synth_on(0);
+    // The recorded session applied version 0 late, at 50,000.
+    assert_eq!(rig.control.replay_applied(0, 50_000), Ok(()));
+    rig.tap(9_600, Button::Step(0));
+    rig.tap(20_000, Button::Step(1));
+    rig.tap(60_000, Button::Step(2));
+
+    rig.step(60_100);
+
+    assert_eq!(
+        versions(&mut rig)
+            .iter()
+            .map(|version| (version.number, version.moment))
+            .collect::<Vec<_>>(),
+        [(0, 50_000), (1, 50_000), (2, 60_001 + 1_024)]
+    );
+}
+
+#[test]
+#[allow(unsafe_code)]
+fn two_quick_taps_free_the_first_trees_blocks_only_after_both_reports() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    rig.synth_on(0);
+    rig.tap(100, Button::Step(0));
+    rig.step(150);
+    let first = track_1(&rig);
+    rig.tap(200, Button::Step(1));
+    rig.step(300);
+    // Each tree is one block, and both versions are in flight.
+    assert_eq!(versions(&mut rig).len(), 2);
+    assert_eq!(ready(&rig), NOTE_BLOCKS - 2);
+
+    rig.applied(0, 1_152);
+    assert_eq!(ready(&rig), NOTE_BLOCKS - 2);
+
+    rig.applied(1, 1_248);
+    assert_eq!(ready(&rig), NOTE_BLOCKS - 1);
+    // SAFETY: the store lives while no step runs.
+    assert_eq!(Tree(Some(unsafe { rig.notes.store() }.take())), first);
+}
+
+#[test]
+fn the_step_waits_for_reports_while_the_reserve_waits() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    let synth = rig.synth_on(0);
+    rig.tap(100, Button::Step(0));
+    rig.tap(200, Button::Step(1));
+    rig.step(300);
+    versions(&mut rig);
+    // The first tree's block waits for version 1's report, and one block fewer than the reserve is
+    // ready.
+    fill_until(&rig, RESERVE - 1);
+
+    rig.tap(400, Button::Step(2));
+    rig.step(500);
+    assert_eq!(versions(&mut rig), []);
+
+    // Version 0 let go of no block.
+    rig.applied(0, 1_152);
+    rig.step(600);
+    assert_eq!(versions(&mut rig), []);
+
+    rig.applied(1, 1_248);
+    rig.step(700);
+    let tree = track_1(&rig);
+    assert_eq!(
+        versions(&mut rig),
+        [Version {
+            number: 2,
+            moment: 401 + 1_024,
+            track: 0,
+            tree
+        }]
+    );
+    assert_eq!(
+        notes_in(&rig, tree),
+        [
+            entered(0, synth, 60),
+            entered(1, synth, 60),
+            entered(2, synth, 60)
+        ]
+    );
+}
+
+#[test]
+fn a_tap_without_room_says_not_enough_memory() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    let synth = rig.synth_on(0);
+    rig.tap(100, Button::Step(0));
+    rig.step(200);
+    let one = track_1(&rig);
+    versions(&mut rig);
+    // No block waits, so the free blocks are the ready ones.
+    fill_until(&rig, RESERVE - 1);
+
+    rig.tap(300, Button::Step(4));
+    rig.step(400);
+
+    assert_eq!(versions(&mut rig), []);
+    assert_eq!(track_1(&rig), one);
+    assert_eq!(count(&rig, synth), 1);
+    assert!(shows(
+        &rig.control,
+        &drawn(
+            &step_header("Syn 1"),
+            Some(("Not enough memory", RECORD)),
+            |_| {},
+            &[
+                Some(sound("Syn 1")),
+                Some(copy("on 1 pad")),
+                Some(engine("Synth")),
+                None
+            ],
+        )
+    ));
+
+    // A removal may use the reserve.
+    rig.tap(500, Button::Step(0));
+    rig.step(600);
+    assert_eq!(
+        versions(&mut rig),
+        [Version {
+            number: 1,
+            moment: 501 + 1_024,
+            track: 0,
+            tree: Tree(None)
+        }]
+    );
+    assert_eq!(count(&rig, synth), 0);
 }
