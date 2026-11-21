@@ -1,11 +1,11 @@
 use crate::{
-    palette::LINE,
+    palette::{DIM, LINE},
     screen::{Canvas, Color, WIDTH},
     ui::{
         item::{ItemView, draw_item},
         layout::{
-            HEADER_LINE, HEADER_RIGHT, HEADER_ROW, PIECE_GAP, STRIP_CELLS, STRIP_ITEM, STRIP_LINE,
-            TEXT_X,
+            HEADER_LINE, HEADER_RIGHT, HEADER_ROW, METRONOME_WIDTH, PIECE_GAP, STRIP_CELLS,
+            STRIP_ITEM, STRIP_LINE, TEXT_X,
         },
         text,
     },
@@ -20,13 +20,30 @@ pub struct Piece<'a> {
 
 /// Draws the header: the `left` pieces from the left edge 6 pixels apart, the `right` pieces in
 /// their order 6 pixels apart with the last against the right edge, and the line under them all.
-pub fn draw_header(canvas: &mut impl Canvas, left: &[Piece], right: &[Piece]) {
+/// With `metronome` the metronome's icon ends the right group 6 pixels after its last piece: a dim
+/// triangle on the capitals' rows (S9).
+pub fn draw_header(canvas: &mut impl Canvas, left: &[Piece], right: &[Piece], metronome: bool) {
     let mut x = TEXT_X;
     for piece in left {
         text::draw(canvas, x, HEADER_ROW, piece.text, piece.color);
         x += text::width(piece.text) + PIECE_GAP;
     }
     x = HEADER_RIGHT;
+    if metronome {
+        // Its sides spread a column every 2 rows from the apex down to its base.
+        for spread in 0..3 {
+            for side in [HEADER_RIGHT - 3 - spread, HEADER_RIGHT - 3 + spread] {
+                canvas.vline(side, HEADER_ROW + 3 + 2 * spread, 2, DIM);
+            }
+        }
+        canvas.hline(
+            HEADER_RIGHT + 1 - METRONOME_WIDTH,
+            HEADER_ROW + 9,
+            METRONOME_WIDTH as u32,
+            DIM,
+        );
+        x -= METRONOME_WIDTH + PIECE_GAP;
+    }
     for piece in right.iter().rev() {
         text::draw_right(canvas, x, HEADER_ROW, piece.text, piece.color);
         x -= text::width(piece.text) + PIECE_GAP;
@@ -50,7 +67,7 @@ mod tests {
     use crate::palette::{ACCENT, BACKGROUND, DIM, FAINT, LINE, RECORD, TEXT};
     use crate::screen::Screen;
     use crate::ui::item::{Bar, ItemView};
-    use crate::ui::test_pixels::{filled, ink, span};
+    use crate::ui::test_pixels::{filled, ink, picture, span};
 
     fn piece(text: &str, color: Color) -> Piece<'_> {
         Piece { text, color }
@@ -70,6 +87,7 @@ mod tests {
                 piece("Pads", DIM),
             ],
             &[],
+            false,
         );
 
         // The line under the header, across the whole screen.
@@ -92,6 +110,7 @@ mod tests {
             &mut screen,
             &[piece("Step", ACCENT)],
             &[piece("Storage full. Not saved", RECORD)],
+            false,
         );
 
         assert_eq!(span(&screen, 0..=479, 4..=10, ACCENT), Some((4, 26)));
@@ -106,12 +125,36 @@ mod tests {
             &mut screen,
             &[piece("Step", ACCENT)],
             &[piece("P1", TEXT), piece("1/1", TEXT), piece("120.0", TEXT)],
+            false,
         );
 
         // step-stopped.png: the tempo last, ending at x 475.
         assert_eq!(span(&screen, 300..=420, 4..=10, TEXT), Some((407, 417)));
         assert_eq!(span(&screen, 421..=443, 4..=10, TEXT), Some((424, 440)));
         assert_eq!(span(&screen, 444..=479, 4..=10, TEXT), Some((447, 475)));
+    }
+
+    #[test]
+    fn the_metronome_icon_ends_the_transport() {
+        let mut screen = Screen::new();
+
+        draw_header(
+            &mut screen,
+            &[piece("Step", ACCENT)],
+            &[piece("P1", TEXT), piece("1/1", TEXT), piece("120.0", TEXT)],
+            true,
+        );
+
+        // A dim triangle on the capitals' rows 4 to 10, ending at x 475, and nothing else dim.
+        assert_eq!(
+            picture(&screen, 469..=475, 4..=10, DIM),
+            [
+                "...#...", "...#...", "..#.#..", "..#.#..", ".#...#.", ".#...#.", "#######"
+            ]
+        );
+        assert_eq!(ink(&screen, DIM), 17);
+        // The tempo ends 6 pixels before it.
+        assert_eq!(span(&screen, 431..=479, 4..=10, TEXT), Some((434, 462)));
     }
 
     #[test]

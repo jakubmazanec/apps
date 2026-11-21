@@ -21,8 +21,8 @@ use crate::message::{
 };
 use crate::palette::RECORD;
 use crate::param::{
-    self, Curve, END, ENTRIES, LOOP_END, LOOP_START, OUTPUT_VOLUME, ParamId, START, Scope, TEMPO,
-    VELOCITY,
+    self, Curve, END, ENTRIES, LOOP_END, LOOP_START, METRONOME, OUTPUT_VOLUME, ParamId, START,
+    Scope, TEMPO, VELOCITY,
 };
 use crate::project::Project;
 use crate::project::pool::{Engine, PoolFull, SOUND_VALUES, Sample, Sound, SoundNumber};
@@ -43,7 +43,7 @@ use buttons::{Buttons, REPEATING, Release};
 use core::cell::Cell;
 use core::ops::ControlFlow;
 use notes::{Notes, Source};
-use pages::{ItemDef, ItemKind, MENU, PageDef, Picture, pages};
+use pages::{ItemDef, ItemKind, MENU, PageDef, Picture, TIMING, pages};
 use samples::Deleting;
 use view::{Cursor, Pick, Picker, Question, Screen, View, menu_tiles, moved, page_tiles};
 
@@ -573,7 +573,8 @@ impl Control {
     /// the screens or pages that exist light: the steps whose tiles are not empty. Otherwise the
     /// steps of the page the step buttons show light where a note of the selected sound starts
     /// (`step_notes`), and while playing the step the music is in, on that page of the cursor's
-    /// bar, is flipped (S6). PLAY lights while playing (S10).
+    /// bar, is flipped (S6). PLAY lights while playing (S10), and TEMPO while the metronome is on
+    /// (S9).
     pub fn lights(&self) -> Lights {
         let track = self.track();
         let midi = self
@@ -640,6 +641,9 @@ impl Control {
         }
         if self.player.run().is_some() {
             lights.light(Lights::PLAY);
+        }
+        if self.settings.get(METRONOME.id) == 1 {
+            lights.light(Lights::TEMPO);
         }
         lights
     }
@@ -861,7 +865,7 @@ impl Control {
     /// Otherwise the arrows, - and + nudge (`nudge`), OK uses the item under the cursor, or acts on
     /// SAMPLES' row (`ok_in_samples`) or POOL's (`ok_in_pool`), and an encoder push the item its
     /// encoder holds. PLAY and SHIFT + PLAY start or jump (`play`) and STOP stops (`stop`), also
-    /// while MENU or PAGE is held. A step acts when it is let go (`release`).
+    /// while MENU or PAGE is held. A step and TEMPO act when they are let go (`release`).
     fn press(
         &mut self,
         button: Button,
@@ -1400,21 +1404,31 @@ impl Control {
     }
 
     /// The item that encoder `encoder` holds on the page the encoders use, with that page's
-    /// cursor put on it; none when the encoder holds nothing there.
+    /// cursor put on it where the screen shows that page: under TEMPO only on the Timing page, as
+    /// elsewhere the item is not there to move to (S5). None when the encoder holds nothing there.
     fn reach(&mut self, encoder: u8) -> Option<ItemDef> {
         let items = self.encoder_items();
         let item = items
             .iter()
             .position(|item| item.encoder == Some(encoder))?;
-        self.move_cursor(self.view.screen.paged(), item);
+        let screen = self.view.screen.paged();
+        if items == self.items(screen) {
+            self.move_cursor(screen, item);
+        }
         Some(items[item])
     }
 
-    /// The items of the page the encoders use, of which each encoder holds the one that names it.
+    /// The items of the page the encoders use, of which each encoder holds the one that names it:
+    /// on every screen Timing's while TEMPO is held, unless a picker or a question is open (S5).
     /// A screen that uses SOUND's page, as STEP does, has none while the selected pad is empty.
     fn encoder_items(&self) -> &'static [ItemDef] {
         let screen = self.view.screen;
-        if screen.paged() != screen && self.track().selected_sound.is_none() {
+        if self.buttons.first_held(&[Button::Tempo]).is_some()
+            && self.view.picker.is_none()
+            && self.view.question.is_none()
+        {
+            TIMING.items
+        } else if screen.paged() != screen && self.track().selected_sound.is_none() {
             &[]
         } else {
             self.items(screen.paged())
@@ -1680,9 +1694,9 @@ impl Control {
     }
 
     /// A button goes up. A tap of PADS/KEYS switches the current track's pad mode, a tap of a step
-    /// enters or removes notes (`tap_step`), and a tap of CANCEL closes the picker without
-    /// choosing, answers the question no, or on SAMPLES and in the sample picker goes up
-    /// (`cancel_in_samples`).
+    /// enters or removes notes (`tap_step`), a tap of TEMPO turns the metronome on or off, also
+    /// while MENU or PAGE is held, and a tap of CANCEL closes the picker without choosing, answers
+    /// the question no, or on SAMPLES and in the sample picker goes up (`cancel_in_samples`).
     fn release(
         &mut self,
         button: Button,
@@ -1700,6 +1714,12 @@ impl Control {
                 };
             }
             (Button::Step(step), Release::Tap) => self.tap_step(step, sample, versions, store),
+            (Button::Tempo, Release::Tap) => self.set(
+                METRONOME.id,
+                i32::from(self.value(METRONOME.id) == 0),
+                sample,
+                messages,
+            ),
             (Button::Cancel, Release::Tap)
                 if matches!(self.view.picker, Some((Picker::Sample(_), _))) =>
             {

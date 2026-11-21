@@ -27,6 +27,9 @@ pub const HEADER_LINE: i32 = 14;
 pub const TEXT_X: i32 = 4;
 /// The last column of the header's right group.
 pub const HEADER_RIGHT: i32 = 475;
+/// The width of the metronome's icon, which ends the header's right group while the metronome is
+/// on.
+pub const METRONOME_WIDTH: i32 = 7;
 
 /// The first and the last row of the main area.
 pub const MAIN_TOP: i32 = 15;

@@ -220,7 +220,7 @@ fn drawn(
             .collect()
     });
     let mut screen = Screen::new();
-    draw_header(&mut screen, &left, &right);
+    draw_header(&mut screen, &left, &right, false);
     main(&mut screen);
     draw_strip(&mut screen, strip);
     screen
@@ -294,14 +294,14 @@ fn step_header(sound: &str) -> [(&str, Color); 4] {
 }
 
 /// SETTINGS' Playing page under `message`: Velocity at `value` under the cursor, then the
-/// metronome off at its starting level, each in its row and in its cell of the strip.
-fn playing_under(message: Option<(&str, Color)>, value: &str) -> Screen {
+/// metronome at `metronome` and its starting level, each in its row and in its cell of the strip.
+fn playing_under(message: Option<(&str, Color)>, value: &str, metronome: &str) -> Screen {
     let items = [
         velocity(value),
         ItemView {
             encoder: Some(2),
             name: "Metronome",
-            value: "Off",
+            value: metronome,
             bar: Bar::Track,
         },
         ItemView {
@@ -326,7 +326,7 @@ fn playing_under(message: Option<(&str, Color)>, value: &str) -> Screen {
 
 /// SETTINGS' Playing page with Velocity at `value`.
 fn playing(value: &str) -> Screen {
-    playing_under(None, value)
+    playing_under(None, value, "Off")
 }
 
 /// The tiles of MENU or PAGE under this header, over an empty strip.
@@ -1503,7 +1503,7 @@ fn a_message_stays_until_a_later_button_press() {
     assert_eq!(rig.velocity(), 0);
     assert!(shows(
         &rig.control,
-        &playing_under(Some(("Pool full", RECORD)), "Off")
+        &playing_under(Some(("Pool full", RECORD)), "Off", "Off")
     ));
 
     // A later press clears it and still acts.

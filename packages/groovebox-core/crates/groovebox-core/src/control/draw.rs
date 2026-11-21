@@ -9,7 +9,7 @@ use crate::label::Label;
 use crate::library::{self, name};
 use crate::palette::{ACCENT, BACKGROUND, DIM, FAINT, NOTE_MID, RECORD, TEXT};
 use crate::param::{
-    self, BP, CUTOFF, Curve, END, HP, LP_12, LP_24, MODE, ParamId, RESONANCE, START,
+    self, BP, CUTOFF, Curve, END, HP, LP_12, LP_24, METRONOME, MODE, ParamId, RESONANCE, START,
 };
 use crate::project::pool::{Engine, NAME_BYTES, Sample, Sound, SoundNumber};
 use crate::project::track::PadMode;
@@ -17,8 +17,8 @@ use crate::screen::{Canvas, HEIGHT, WIDTH};
 use crate::ui::frame::{Piece, draw_header, draw_strip};
 use crate::ui::item::{Bar, ItemView, draw_cursor, draw_item};
 use crate::ui::layout::{
-    HEADER_RIGHT, ITEM_HEIGHT, ITEM_PITCH, LIST_VISIBLE, METER_Y, PAGE_FIRST, PAGE_VISIBLE,
-    PAGE_WIDTH, PAGE_X, PICTURE, PIECE_GAP, ROW_FIRST, ROW_PITCH, ROW_WIDTH, ROW_X,
+    HEADER_RIGHT, ITEM_HEIGHT, ITEM_PITCH, LIST_VISIBLE, METER_Y, METRONOME_WIDTH, PAGE_FIRST,
+    PAGE_VISIBLE, PAGE_WIDTH, PAGE_X, PICTURE, PIECE_GAP, ROW_FIRST, ROW_PITCH, ROW_WIDTH, ROW_X,
     SAMPLES_VISIBLE, TEXT_INSET, TEXT_X, rect,
 };
 use crate::ui::list::{Row, draw_rows};
@@ -46,8 +46,9 @@ impl Control {
     /// screen and its page. The message is on the right, or while there is none the import's
     /// progress, in the room right of the pieces; a file's name in it is shortened with "…" so that
     /// the rest of the text fits there, and a message still too wide for it loses its end to a "…".
-    /// While neither shows, the transport is on the right (`transport`, S11), and the sound's name
-    /// loses its end to a "…" where the pieces would come closer than 6 pixels to it (S12).
+    /// While neither shows, the transport is on the right (`transport`, S11), ending with the
+    /// metronome's icon while the metronome is on (S9), and the sound's name loses its end to a "…"
+    /// where the pieces would come closer than 6 pixels to that group (S12).
     ///
     /// The main area shows the page's items with the cursor and the page's picture, the tiles while
     /// MENU or PAGE is held, or the picker while one is open. On STEP it stays empty, as its grid
@@ -63,8 +64,9 @@ impl Control {
     /// sounds use it" (S17); POOL's DELETE names the sound, then counts the pads that hold it on
     /// every track, if any, as "On 2 pads" (S12), and its notes in every pattern, if any, as "On 2
     /// pads, 24 notes" or "24 notes" (S21); Remove unused counts the unused sounds as it is
-    /// drawn (S13). The strip shows the items that the encoders hold on the page they use, and
-    /// nothing while MENU or PAGE is held, the picker is open or SAMPLES or POOL shows.
+    /// drawn (S13). The strip shows the items that the encoders hold (`encoder_items`), also on
+    /// SAMPLES and POOL while TEMPO is held, and nothing while MENU or PAGE is held or the picker is
+    /// open.
     ///
     /// The text under the cursor, the current tile's name and the selected pad's name scroll when
     /// they do not fit, as far as the samples since the cursor landed say; the strip never scrolls.
@@ -81,6 +83,7 @@ impl Control {
                     text: "Loading library",
                     color: ACCENT,
                 }],
+                false,
             );
             draw_strip(canvas, &[None; 4]);
             return;
@@ -184,6 +187,7 @@ impl Control {
             text: piece.as_str(),
             color: TEXT,
         });
+        let metronome = self.settings.get(METRONOME.id) == 1;
         // The "…" takes the place of at least one character, so two bytes more at most.
         let mut cut = Label::<{ NAME_BYTES + 2 }>::new();
         if message.is_none() {
@@ -199,6 +203,11 @@ impl Control {
                             .iter()
                             .map(|piece| text::width(piece.text) + PIECE_GAP)
                             .sum::<i32>()
+                        - if metronome {
+                            METRONOME_WIDTH + PIECE_GAP
+                        } else {
+                            0
+                        }
                 )
             )
             .expect("writing to a label never fails");
@@ -214,6 +223,7 @@ impl Control {
             message
                 .as_ref()
                 .map_or(transport.as_slice(), core::slice::from_ref),
+            message.is_none() && metronome,
         );
 
         let elapsed = self.now - self.landed;
@@ -507,6 +517,8 @@ impl Control {
                 }
                 None => {}
             }
+        }
+        if self.overlay().is_none() && self.view.picker.is_none() {
             for ((encoder, cell), value) in (0..).zip(&mut cells).zip(&mut values) {
                 *cell = self
                     .encoder_items()
