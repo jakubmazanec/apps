@@ -19,8 +19,10 @@ untagged is new in this discussion.
 
 - This is gathering, not choosing: ideas are developed, not narrowed to options.
 - Ideas come as whole loops with a night played through them, not as lists of parts.
-- What lands (my reading of the kept loops): cards made of the body and of real things carried,
-  built on what the night already has, adding tension rather than progress.
+- A rule earns its place by the decisions it creates. Chores (the toilet, the locker) and random
+  penalties (fumbling, rain, theft) create none.
+- The kept loops are each one simple rule on what the night already has, with many decisions behind
+  it (my reading).
 
 ## Questions and answers
 
@@ -28,6 +30,9 @@ untagged is new in this discussion.
    or give the player an identity? **All three.**
 2. Which of seven loops fit? **Two faces and pockets.** The repertoire, the agenda, habits and
    reputation, the ending pays and the night's deal are not a fit.
+3. Two faces and pockets grown into fumbling, hands, pocket kinds, junk, rain, body cards, the
+   outfit over the night, a tab against the jacket, lockers, pawning, cash and battery? **Awful, all
+   of it.**
 
 ## Loops
 
@@ -35,81 +40,57 @@ untagged is new in this discussion.
 
 - Some cards have a sober face and a drunk face; past a level the other face counts.
 - "Shy" notices more; "Brave" talks to anyone and is taken seriously by nobody.
-- "Careful with money" turns into "Buying rounds".
 - Drunkenness becomes a dial: one drink before the bouncer, a coffee before the ticket machine.
 - A face opens different choices; it is never simply better.
 - The night has an arc: sober hand early, turned hand at midnight, turned back at dawn as the hours
   lower the level.
-- Up and down differ: at the same level a card reads "Brave" on the way up and "Sluggish" on the way
-  down.
-- Tiredness is a second axis after 03:00; coffee pushes one way, drinks the other.
-- The room has a level too: a bar gets drunker through the night, "Brave" works on a drunk room,
-  "Shy" on a sober one.
-- Sober you chooses, drunk you draws: past a level, reaching into a pocket brings out whatever is
-  there.
 
-### Pockets and hands: everything carried takes room
+### Pockets: the hand has a size
 
-- Cards, the bottle, the keys and bought things share the pockets.
-- The outfit sets the room: a bathrobe 2, a jacket 4, a backpack 6 (bouncers dislike backpacks).
+- Cards and the quest's things share the pockets.
+- The outfit sets how many: a bathrobe 2, a jacket 4, a backpack 6 (bouncers dislike backpacks).
 - The birthday bottle takes room all evening, so the quest crowds out the night's finds.
-- The two hands are the hand: only what is in a hand can be used now; pockets hold the rest.
-- Taking something out takes a minute; putting a drink down frees a hand.
-- Pockets differ: front is quick, back is quick and easy to pick, inside is a minute slower and safe
-  from theft and rain, a bag is roomy and takes a hand.
-- Drunk fumbling: past a level, reaching brings out a random thing from that pocket, with shown odds
-  of dropping it.
-- A dropped thing stays on that place's floor for the night; someone may take it, by the seed.
-- Loss and theft stay hidden until you reach for the thing or check your pockets (a minute).
-- A full hand forces a drop when something new is offered.
-- The Whisky Shop's paper bag: more room, one hand less.
-- Junk fills pockets: flyers, receipts, a coaster. Some junk is useful: a napkin with a number, a
-  flyer that is an invitation.
-- Rain soaks paper in outside pockets: a ticket, the napkin.
+- With full pockets, taking something new means letting something go.
 
-### Body cards: needs that take a hand
+## A core: qualities that drink turns over
 
-- The body puts cards in your hands: "Need the toilet" after drinks, "Hungry" hours after eating,
-  "Hot" in the heat with the jacket on, "Cold" at dawn without it, "Tired" after 03:00.
-- A body card holds a hand, your attention, until it is dealt with: the station's paid toilet, a
-  kebab for 15 minutes.
-- They are the night's bad cards, made of the body, and they leave when dealt with.
+Two faces and pockets joined into one system of four rules.
 
-### The outfit over the night
+- A card lends a quality: Nerve, Charm or Eye (names provisional). Its sober face and its drunk face
+  can lend different ones.
+- The pockets are the hand: the outfit sets 2 to 5, and the quest's things take pockets too.
+- Content reads qualities, not cards: a rolled choice names a quality, and every card in the hand
+  lending it raises the odds; some choices need two or three of a quality.
+- Places and people offer cards. Buying something at a place offers one of two of its cards; a drink
+  also pushes the faces, a coffee does not.
 
-- The jacket's worth changes with the hour: too hot at 19:00, needed at 04:00.
-- Taken off, it is carried (a hand) or tied round the waist (its pockets out of reach).
-- Left on a chair, it frees you and is at risk.
+How it plays:
 
-### Room traded for money and time
+- 19:00, sober: "Shy" lends Eye. "Look for the friend in the crowd, Eye: 35% + 15%".
+- 01:30, three drinks in: "Shy" reads "Brave" and lends Nerve. "Talk your way past the doorman,
+  Nerve: 40% + 2 × 15%".
+- One hand, two different nights: drink trades Eye for Nerve, the detective for the daredevil.
 
-- A tab against the jacket: the bar keeps it, and its pockets, until you pay before closing.
-- The main station's luggage lockers: pay, leave the bottle, fetch it before the birthday; a detour
-  each way.
-- Pawn the phone for cash: no phone and no messages until it is bought back.
+The decisions it creates:
 
-### Cash and paying by phone
+- What to carry in: the outfit and which kept cards fill its pockets.
+- What to pick up, and what to let go for it.
+- When to drink, to turn the faces towards the next scene's quality.
+- Which choices to try with tonight's strengths.
+- Builds: cards whose both faces lend one quality hold steady; cards that turn are flexible.
 
-- Money splits: cash in a pocket, and paying by phone.
-- Some places take cash only.
-- Cash can be dropped or stolen; paying by phone needs battery and a free hand.
-- The cash machine costs a fee and the walk to it.
-- The battery is a second clock: the map, payments and messages drain it; a power bank takes a
-  pocket.
+Why it fits:
 
-### A night through these loops
+- It stands on drunkenness, the dice's shown odds and the quest's things, which all exist.
+- A new card needs no new text, because content reads qualities; only a few cards are keys to a
+  scene of their own.
+- Qualities are the few core traits the note asks for, raised by cards instead of points.
 
-- 16:40, the train, in a jacket: phone and lighter in front, cash inside, tram ticket at the back.
-- 17:30, The Whisky Shop: the bottle comes in a bag, one hand gone.
-- 19:00, the heat: "Hot" takes the other hand, and the phone buzzes unanswered. Off with the jacket,
-  or the bottle into a station locker.
-- 22:00, Rotor: the bottle is given, a hand frees; three drinks turn "Careful with money" into
-  "Buying rounds".
-- 01:30, Rotor's door: at 4.5 drinks, reaching for the lighter brings out the tram ticket, which
-  falls to the floor.
-- 04:00, the level falling: "Cold" arrives, and the jacket is on a chair in Rotor, closed since
-  03:00.
-- 07:30, the hall: the cash was in the inside pocket, so the ticket can be bought.
+Open edges:
+
+- How many qualities, and their names.
+- What carries across nights, and how a card is upgraded.
+- The faces are a rule, against "written, not ruled".
 
 ## Ideas
 
@@ -210,7 +191,7 @@ untagged is new in this discussion.
 - Every card needs a name that makes sense in the fiction. (note)
 - Content cost: a key card needs text in every scene that answers it; a number modifier needs none.
 - The checker: every hand multiplies the states, so a scene should read few cards.
-- Two hands and a few pockets have to fit a phone screen about 32 letters across.
+- The hand has to fit a phone screen about 32 letters across.
 - A card that lowers a cost takes away tension; one that opens something adds text to write. A card
   that improves one number and worsens another turns into a resource decision itself.
 
