@@ -108,9 +108,9 @@ pub struct Voice {
     volume_envelope: Envelope,
     /// The chunk a restart, a Mono one or a Legato one after the voice's key was let go, took from
     /// the sample that sounded before it, and the velocity it sounded at. The next chunk adds it
-    /// fading out to the new note's source at its own volume; the filter and the envelopes are the
-    /// new note's. Of several restarts before that chunk the first keeps its chunk: the others
-    /// took chunks that never sounded.
+    /// fading out to the new note's source at its own volume, as is what the filter still holds of
+    /// the old note; the filter's tuning and the envelopes are the new note's. Of several restarts
+    /// before that chunk the first keeps its chunk: the others took chunks that never sounded.
     fading: Option<([[f32; CHUNK]; 2], u8)>,
 }
 
@@ -369,6 +369,9 @@ impl Voice {
                         level_gain(read, velocity) / gain
                     };
                     add_fading(&mut sources, fading.map(|chunk| chunk.map(|x| x * scale)));
+                    for filter in &mut self.filters {
+                        filter.scale(scale);
+                    }
                 }
             }
         }

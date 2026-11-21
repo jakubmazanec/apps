@@ -69,6 +69,15 @@ impl Filter {
         libm::atanf(self.a2 / self.a1) * SAMPLE_RATE as f32 / PI
     }
 
+    /// Scales what the filter holds of the samples before by `factor`. The filter is linear, so
+    /// they then come out as if they had come in `factor` times as loud.
+    pub fn scale(&mut self, factor: f32) {
+        for stage in &mut self.stages {
+            stage.first *= factor;
+            stage.second *= factor;
+        }
+    }
+
     /// Filters one sample. The band-pass is scaled by the damping so that it peaks at 0 dB at the
     /// cutoff whatever the resonance, as the Filter page draws it.
     pub fn process(&mut self, mode: Mode, x: f32) -> f32 {

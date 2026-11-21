@@ -1592,13 +1592,13 @@ mod tests {
     #[test]
     fn a_mono_restart_at_another_velocity_fades_the_old_sample_at_its_own_volume() {
         // What a Mono sample sound plays with `messages`, numbered from 0, when file 2 is the old
-        // file silent until sample 320, so that at a restart there the filter holds nothing of it,
+        // file, sounding from its start so that at a restart the filter still holds some of it,
         // and file 3 is the new file.
         let played = |messages: &[(u64, MessageKind)]| {
             let (queue, reports) = (Queue::new(), Queue::new());
             let mut rig = Rig::with_sample_sound(&queue, &reports, &[(&PLAY_MODE, MONO)]);
             let [old, new] = old_and_new_files();
-            rig.add_file(2, false, &[&[0; 320][..], &old[320..]].concat());
+            rig.add_file(2, false, &old);
             rig.add_file(3, false, &new);
             for (number, &(at, kind)) in (0..).zip(messages) {
                 rig.send(number, at, kind);
@@ -1617,8 +1617,8 @@ mod tests {
 
         let out = played(&[old, (320, new)]);
 
-        // The old sample fades as a restart at its own velocity onto a missing sample fades it, and
-        // the new note's first chunk adds to that.
+        // The old sample fades as a restart at its own velocity onto a missing sample fades it, what
+        // the filter still holds of it included, and the new note's first chunk adds to that.
         let faded = played(&[old, (320, note_of(1, 1, 60, NoteEngine::Sample(None)))]);
         let first = played(&[(320, new)]);
         assert!(!is_silent(&faded[320..]) && !is_silent(&first[320..]));
