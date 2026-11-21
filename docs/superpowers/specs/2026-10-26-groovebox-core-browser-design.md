@@ -477,9 +477,9 @@ settles it with the owner.
   counts; the other is ignored until both are let go.
 - **CANCEL or COPY held + a step button.** No meaning is given. Proposed: nothing happens and the
   step's own tap does not fire.
-- **An encoder whose item is not on the screen.** On ROLL, and on STEP while a step or TEMPO is held
-  (the NOTE and timing strips), the cursor cannot move to the item. On STEP's own strip the encoders
-  act in full (Workflow A). Proposed: the value changes; the cursor stays.
+- **An encoder whose item is not on the screen.** On ROLL, and on STEP while a step is held (the
+  NOTE strip), the cursor cannot move to the item. On STEP's own strip the encoders act in full
+  (Workflow A). Proposed: the value changes; the cursor stays.
 - **The CANCEL + pad question.** When it appears and what letting go of CANCEL does. Proposed: it
   appears on the hit and waits for OK or a new tap of CANCEL; no notes, no question.
 - **REC during the count-in.** What the light and the header dot do. Proposed: the light blinks and
@@ -493,8 +493,8 @@ settles it with the owner.
 
 - **Delay time on the strip.** How dotted and triplet values are written, their order in the list
   and whether "1/1 (1/2)" fits a strip cell. Proposed: none yet.
-- **LENGTH limits.** What the pattern's picker lists; a note's shortest and longest. Proposed: 1, 2,
-  4, 8, 16, 32 and 64 bars; a note from one fine step (30 ticks) to the pattern's length.
+- **A note's LENGTH limits.** A note's shortest and longest. Proposed: a note from one fine step (30
+  ticks) to the pattern's length.
 - **Counted or smooth.** Unmarked for note pitch and velocity. Proposed: note PITCH and VELOCITY
   move one per click, with SHIFT too.
 - **Tuning a range in part 1.** New ID, new format version or just the number? Proposed: just the

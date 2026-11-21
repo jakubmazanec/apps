@@ -199,8 +199,9 @@ the owner "for now", expected to change with testing.
 - **The transport**, pushed to the right edge, from the left: the pattern (P3; P3→4 while pattern 4
   is queued), the bar the step buttons show over the pattern's length (2/4; "2/4 ▶1" while playing,
   the bar playing after ▶), the tempo with one decimal (120.0); then only while they apply: a record
-  dot, dim while armed and red while recording; a small metronome icon while the metronome is on;
-  "Mute 2 4" while tracks are muted. The items are 6 px apart and the last one ends at x 475.
+  dot, dim while armed and red while recording; a small metronome icon while the metronome is on,
+  dim, 7 px wide and drawn on the capitals' rows 4 to 10; "Mute 2 4" while tracks are muted. The
+  items are 6 px apart and the last one ends at x 475.
 - **A message** replaces the transport group, in red for errors (Storage full. Not saved; kick.wav
   not imported: library full; Library can't be read) and in the accent for notices (2 samples
   missing; Loading library; No unused sounds), until a later press of a button clears it **(owner's
@@ -331,12 +332,13 @@ shows the filter's curve with a faint line at the cutoff. Richer graphics come l
 - **MIX**: one page: the four track levels as items, a muted track named in red, then Master; the
   encoders hold the four track levels **(owner's choice)**.
 - **SETTINGS**: a first page named **Playing** (header "Settings Playing", tile "1 Playing") with
-  Velocity, Metronome, Metronome level, Count-in as items, all four on the encoders **(owner's
-  choice)**; and a **Dev page** (tile "2 Dev") with library and note memory as items with bars, so
-  the device itself has them and the hardware later shows them in the same place; meters are not
-  set, so the encoders hold nothing there and the strip is empty **(owner's choice)**. The "Note
-  memory" item sits under Library and reads "0.0 of 8 MB" when empty, in the library meter's format,
-  with its bar; it counts 520 bytes for each block in use, the block and its bookkeeping.
+  Velocity, Metronome and Metronome level as items, and Count-in once the count-in is built, each on
+  the encoder of its place, 1 to 4 **(owner's choice)**; and a **Dev page** (tile "2 Dev") with
+  library and note memory as items with bars, so the device itself has them and the hardware later
+  shows them in the same place; meters are not set, so the encoders hold nothing there and the strip
+  is empty **(owner's choice)**. The "Note memory" item sits under Library and reads "0.0 of 8 MB"
+  when empty, in the library meter's format, with its bar; it counts 520 bytes for each block in
+  use, the block and its bookkeeping.
 - **POOL**: Remove unused first, with no label; then every sound in number order, its name at the
   left and a dim label at the right: the engine word (for a missing sample "missing" and the file's
   name), the pads and a loaded sample's size, two spaces apart (`sample  pads 1, 12  38 KB`,
@@ -351,8 +353,10 @@ shows the filter's curve with a faint line at the cutoff. Richer graphics come l
   the 2 px bar), the same number as on SAMPLES and in the picker; the strip empty.
 - **PROJECT**: New first, then the projects, the open one marked "open", an old-format one marked
   "old format" in red; the strip empty.
-- **PATTERN**: Timing and Bars as pages; the Patterns page lists New, then every pattern with its
-  bars and note count, playing and queued marked, empty ones dim; the strip empty.
+- **PATTERN**: Timing and Bars as pages (headers "Pattern Timing" and "Pattern Bars"); Timing,
+  PAGE + 1, holds Tempo on encoder 1 and Grid on 2 until Swing and Quantize are built, and Bars,
+  PAGE + 2, holds Length on 1 and Signature on 2; the Patterns page lists New, then every pattern
+  with its bars and note count, playing and queued marked, empty ones dim; the strip empty.
 - **SAMPLES**: the library by folder, in the sample picker's order, with a folder as its name and
   "/" and a file as its stored name with ".wav", its length and size dim at the right; a file
   start-up could not load in red with "not loaded". Inside a folder a dim line names the folder and

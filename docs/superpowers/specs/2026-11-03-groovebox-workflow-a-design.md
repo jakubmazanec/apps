@@ -620,8 +620,8 @@ buttons (Workflow B).
 **Other controls under MENU or PAGE (owner's choice).**
 
 - Steps switch to their screen or page. A dark step does nothing, and neither does its release.
-- Pads play and select. T1–T4, SHIFT + T1–T4, PLAY, STOP, REC, TEMPO and the volume act as usual.
-- The arrows, OK, CANCEL, − and +, encoders 1–4 (turn and push), ROLL, PADS/KEYS and COPY are
+- Pads play and select. T1–T4, SHIFT + T1–T4, PLAY, STOP, REC and the volume act as usual.
+- The arrows, OK, CANCEL, − and +, encoders 1–4 (turn and push), ROLL, PADS/KEYS, COPY and TEMPO are
   dropped, press and release alike.
 - Of MENU and PAGE the first one pressed counts; the other works only after its own release and a
   new press.

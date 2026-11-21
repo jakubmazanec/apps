@@ -178,8 +178,10 @@ Rejected:
   - later, the rate of note repeat and the arpeggiator, and what swing works on.
 - Changing it never moves a stored note.
 - Grid positions are counted from the start of each bar.
-- Version 1 fixes it at 1/16. Later it ranges from 1/1 to 1/64, triplets included; every value is a
-  whole number of ticks (1/16 is 480, 1/8 triplets 640, 1/64 120).
+- Version 1 fixes it at 1/16. GRID is an item that reads "Grid" and "1/16" with its bar unfilled,
+  and turns, − and + and OK leave it alone. It becomes an entry of the master list (Foundation) when
+  it can change; until then there is nothing to store. Later it ranges from 1/1 to 1/64, triplets
+  included; every value is a whole number of ticks (1/16 is 480, 1/8 triplets 640, 1/64 120).
 - Once it can change, buttons whose sixteenth holds no grid position are dark and do nothing: at 1/4
   only buttons 1, 5, 9 and 13 work, and at 1/8 triplets buttons 4, 8, 12 and 16 are dark. With a
   grid finer than 1/16 a button holds several positions. A press uses the first; the others are
@@ -193,16 +195,27 @@ Rejected:
   4 bars, and every bar loses its fourth beat.
 - **Notes that no longer fit are deleted:** notes past the end of a shorter bar, and notes in bars
   past the end of a shorter pattern.
-- **LENGTH and SIGNATURE open a picker,** like ENGINE in Workflow A. Turning their encoder or
-  pressing − or + does nothing, so a stray turn cannot delete notes.
-- **A choice that would delete notes asks first,** such as "DELETE 24 NOTES?". A choice that deletes
-  nothing applies at once. Shortening from 8 bars to 2 asks once, not once per click.
+- **LENGTH and SIGNATURE open a picker,** like ENGINE in Workflow A: OK, or a push of the item's
+  encoder, opens it on the current value. Turning their encoder or pressing − or + does nothing, so
+  a stray turn cannot delete notes. Their items read "Length" and "4 bars", "Signature" and "7/8",
+  with the bar unfilled.
+  - **LENGTH's picker lists** 1 bar, 2 bars, 4 bars and on to 64 bars: 1, 2, 4, 8, 16, 32 and 64
+    **(owner's choice)**. The EP-133 has every length to 99.
+  - **SIGNATURE's picker lists** 1/4 to 16/4, then 1/8 to 16/8.
+- **A choice that would delete notes asks first.** Choosing the current value changes nothing.
+  Otherwise the notes the choice no longer fits are counted over the four tracks: for LENGTH those
+  of the current pattern in bars past the new length, for SIGNATURE those of every pattern past each
+  bar's new end. With none, the choice applies at once. With some, the question reads "Delete 24
+  notes?" ("Delete 1 note?") over "OK deletes, Cancel keeps", with no count line (Look's questions).
+  OK applies the choice, and a tap of CANCEL keeps everything. Shortening from 8 bars to 2 asks
+  once, not once per click.
 - **Lengthening adds empty bars.**
 - **A note that starts inside a bar and lasts past its end** keeps its length and rings into the
   next bar.
 - **While playing,** a new signature takes hold at the next bar line, so the bar being played never
   changes under the playhead, and a playhead past a new shorter length wraps to bar 1 at the next
-  bar line **(the Project model's call)**.
+  bar line **(the Project model's call)**. A change made while another still waits for its bar line
+  takes that same bar line and replaces it, so at most one change waits.
 - **Hidden notes come later.** Shrinking would then keep the notes that no longer fit, silent, and
   play them again when the bar or the pattern grows. A note hidden past a bar's end sits inside the
   pattern, where its tick time would overlap the next bar, so the note store would have to keep its
@@ -258,8 +271,12 @@ stray press stop the music, and SHIFT + PLAY covers listening from a bar.
 **(owner's choice)**
 
 - **Held:** the strip shows TEMPO, GRID, SWING and QUANTIZE, the PATTERN screen's TIMING page, from
-  any screen. Letting go brings back the strip that was there. In version 1 GRID shows 1/16 and does
+  any screen, and the encoders hold those items there. Letting go brings back what was there. A turn
+  moves the value; the cursor moves to the item where the screen shows the TIMING page and stays
+  everywhere else, since the item is not there to move to. In version 1 GRID shows 1/16 and does
   nothing, and SWING is empty.
+- **Dropped,** press and release alike, while a picker or a question is open and while MENU or PAGE
+  is held, as COPY is: it neither turns the metronome on or off nor brings the timing strip.
 - **A tap** turns the metronome on or off. It acts when you let go, and only if the press was short
   and no encoder was turned while TEMPO was held.
 
@@ -280,10 +297,14 @@ Rejected:
 - **The click** is a short sound made by the core, at the METRONOME LEVEL set on SETTINGS. It joins
   the master after the master level and before the soft clipper, like the sample preview in Workflow
   A (Sound): track effects, mutes and the master level do not touch it, and the volume knob does.
-  METRONOME LEVEL starts at a moderate level, picked by ear while building and kept as a named
-  constant; no number is set now.
+  METRONOME LEVEL starts at 32,768 of 65,535 (Foundation's range for smooth values), a number tuned
+  by ear while building and kept as a named constant. The click's starting sound is a sine from
+  phase 0 at 1,000 Hz, and at 2,000 Hz on a bar's first beat, fading with a 5 ms time constant and
+  30 ms long; each beat restarts it. It too is tuned by ear while building.
 - **It clicks** whenever it is on and the pattern plays, on every beat as the signature counts them:
-  every quarter note in x/4, every eighth note in x/8. The first beat of each bar clicks higher.
+  every quarter note (1,920 ticks) in x/4, every eighth note (960) in x/8, counted from each bar's
+  start. The first beat of each bar clicks higher. At one sample, notes end first, then the click
+  sounds, then notes start.
 - **The header** shows when it is on.
 
 Rejected:
@@ -362,7 +383,11 @@ row per pitch. Everything else in this section works the same on both.
 - **Moving the cursor into another bar,** with the arrows or SHIFT + left or right, stops following.
 - **Pressing PLAY while playing** follows again **(owner's choice)**: the cursor and view return to
   the bar that is playing and keep following, whatever screen is shown. The music, the playhead,
-  recording and the count-in are untouched. Starting playback also follows.
+  recording and the count-in are untouched. Starting playback also follows, with PLAY or with
+  SHIFT + PLAY, and SHIFT + PLAY while playing jumps to the cursor's bar and follows from there.
+- **A bar past a new shorter length** that is still playing out shows the pattern's last bar.
+- **A step's tap acts on the bar the buttons showed when the step went down,** so a bar line between
+  the press and the release never moves the note into the next bar.
 - **When a queued pattern takes over** while following, the view moves to the new pattern.
 - **The header** shows the bar the buttons show and the bar playing, such as "BAR 2/4 ▶3".
 

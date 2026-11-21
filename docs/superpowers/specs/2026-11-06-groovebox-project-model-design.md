@@ -348,11 +348,16 @@ since each note's sound number changes. A clear publishes an empty version.
 
 **A length or signature change publishes only a new pattern record.** Notes past a bar's new end or
 past the pattern's new end are skipped by the sound side, not drawn and not saved, so to the user
-they are deleted; their blocks are reclaimed in the background once undo has moved on. Copying every
-block instead would need old and new to fit at once, so a pattern over half the pool could never be
-changed. This is also the substrate Workflow B's later hidden notes need. The new signature takes
-hold at the next bar line, so the bar being played never changes under the playhead, and a playhead
-past a new shorter length wraps to bar 1 at the next bar line **(my call)**.
+they are deleted; their blocks are reclaimed in the background once undo has moved on, and until
+undo is built they are reclaimed before the next event is handled. Copying every block instead would
+need old and new to fit at once, so a pattern over half the pool could never be changed. This is
+also the substrate Workflow B's later hidden notes need. While stopped, a new length or signature
+applies at once. While playing it takes hold at the next bar line from the input's moment plus the
+edit lead, so the bar being played never changes under the playhead, and a playhead past a new
+shorter length wraps to bar 1 at that bar line **(my call)**. A change made while another still
+waits for its bar line takes that same bar line and replaces it, so at most one waits; one that
+reaches the sound side after its bar line has passed takes hold at once, from where the music is,
+and starts nothing that has started already.
 
 Notes already sounding keep their own end, copied at the moment they start: versions decide only
 when notes start.
