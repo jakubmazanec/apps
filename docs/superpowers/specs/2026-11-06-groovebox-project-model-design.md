@@ -309,10 +309,14 @@ The screen side never decides anything about notes from what the sound side repo
 was playing when a pad was hit, which pass, which tempo anchor all come from its own transport
 model, a pure function of the inputs. Reports drive only the reuse of memory: the sound side reports
 one thing, that a message or a version was applied. The playhead, the lights and the header come
-from the screen side's own sequencer, so every frame is a pure function of the inputs. Versions are
-not sent for a pattern the sound side neither plays nor has queued; queueing a pattern sends its
-versions. The version queue holds 64 versions, `VERSION_QUEUE`. While it is full the screen side's
-step handles no event until there is room; the sound side never waits.
+from the screen side's own sequencer, so every frame is a pure function of the inputs. That
+sequencer takes an edit at once, while the sound side takes it at its moment, so a note added in the
+21 ms just ahead of the music lights its pad on that pass without sounding, and one removed there
+sounds with its pad dark **(owner's choice)**. Versions are not sent for a pattern the sound side
+neither plays nor has queued; queueing a pattern sends its versions. The version queue holds 64
+versions, `VERSION_QUEUE`. While it is full the screen side's step handles no event until there is
+room; the sound side never waits. The sound side takes a message or a version only while its report
+has room, so no report is ever lost; one it leaves is taken in a later chunk **(owner's choice)**.
 
 In the browser, the sound side's per-batch wake-up paces the screen side, so "a step" means "all
 inputs stamped before this batch", a pure function of the log.
@@ -407,10 +411,10 @@ go of them. Decisions use what is free once the sound side has let go of superse
 if the report has not arrived yet, so they depend only on the inputs; the actual reuse of a block
 waits for the report. No reserve is kept for versions in flight: while fewer than 256 blocks are
 ready for reuse and some wait, the screen side's step handles no event until their reports arrive. A
-tap on a step that would leave fewer than 256 blocks free (`RESERVE`) adds nothing and shows "Not
-enough memory" in red; removals may use the reserve. Everything in the pool is one of: the live
-versions, versions on their way to the sound side, the undo and redo versions, the clipboard, the
-autosave snapshot and free blocks.
+tap on a step adds nothing while fewer than 256 blocks are free (`RESERVE`) and shows "Not enough
+memory" in red; removals may use the reserve. Everything in the pool is one of: the live versions,
+versions on their way to the sound side, the undo and redo versions, the clipboard, the autosave
+snapshot and free blocks.
 
 **When an action does not fit,** things give way in this order, each shown in the header: the redo
 version; then the undo version, with the question for a deliberate action and UNDO LOST during
