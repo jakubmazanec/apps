@@ -19,6 +19,7 @@ untagged is new in this discussion.
 
 - This is gathering, not choosing: ideas are developed, not narrowed to options.
 - Ideas come as whole loops with a night played through them, not as lists of parts.
+- Think outside the prototype: its places, quest and numbers are not the frame.
 - A rule earns its place by the decisions it creates. Chores (the toilet, the locker) and random
   penalties (fumbling, rain, theft) create none.
 - The kept loops are each one simple rule on what the night already has, with many decisions behind
@@ -33,6 +34,8 @@ untagged is new in this discussion.
 3. Two faces and pockets grown into fumbling, hands, pocket kinds, junk, rain, body cards, the
    outfit over the night, a tab against the jacket, lockers, pawning, cash and battery? **Awful, all
    of it.**
+4. Two faces and pockets joined into one core (cards lend Nerve, Charm or Eye)? **No: too tied to
+   the prototype.** Each round brings new concepts, not extensions of agreed ones.
 
 ## Loops
 
@@ -52,45 +55,39 @@ untagged is new in this discussion.
 - The birthday bottle takes room all evening, so the quest crowds out the night's finds.
 - With full pockets, taking something new means letting something go.
 
-## A core: qualities that drink turns over
+## New concepts (round 4)
 
-Two faces and pockets joined into one system of four rules.
-
-- A card lends a quality: Nerve, Charm or Eye (names provisional). Its sober face and its drunk face
-  can lend different ones.
-- The pockets are the hand: the outfit sets 2 to 5, and the quest's things take pockets too.
-- Content reads qualities, not cards: a rolled choice names a quality, and every card in the hand
-  lending it raises the odds; some choices need two or three of a quality.
-- Places and people offer cards. Buying something at a place offers one of two of its cards; a drink
-  also pushes the faces, a coffee does not.
-
-How it plays:
-
-- 19:00, sober: "Shy" lends Eye. "Look for the friend in the crowd, Eye: 35% + 15%".
-- 01:30, three drinks in: "Shy" reads "Brave" and lends Nerve. "Talk your way past the doorman,
-  Nerve: 40% + 2 × 15%".
-- One hand, two different nights: drink trades Eye for Nerve, the detective for the daredevil.
-
-The decisions it creates:
-
-- What to carry in: the outfit and which kept cards fill its pockets.
-- What to pick up, and what to let go for it.
-- When to drink, to turn the faces towards the next scene's quality.
-- Which choices to try with tonight's strengths.
-- Builds: cards whose both faces lend one quality hold steady; cards that turn are flexible.
-
-Why it fits:
-
-- It stands on drunkenness, the dice's shown odds and the quest's things, which all exist.
-- A new card needs no new text, because content reads qualities; only a few cards are keys to a
-  scene of their own.
-- Qualities are the few core traits the note asks for, raised by cards instead of points.
-
-Open edges:
-
-- How many qualities, and their names.
-- What carries across nights, and how a card is upgraded.
-- The faces are a rule, against "written, not ruled".
+1. You keep only what you remember: at dawn the deck is your memories; drink makes cards stronger
+   tonight, and a blackout erases cards before morning.
+2. The night is a story you compose: cards are beats (a meeting, a conflict, a secret, an escape);
+   played in a good order they make a chapter, and a great chapter is a found story.
+3. Impulses play themselves: "Text your ex", "One more", "Start a fight" cannot be held and fire at
+   bad moments; across nights you thin them out or feed them.
+4. Friends are the deck: you text the group and who comes is drawn; each has a skill and a want, and
+   they get drunk, fight, fall in love and leave.
+5. People show their intent: every stranger's next move is face up ("Ask for a cigarette", "Leave in
+   10 minutes", "Pick a fight"), and a talk becomes a small duel you can plan.
+6. A different person each night, the same Friday: each run is another passenger on the same train;
+   their nights cross, one finds what another lost, you meet your last character in a bar.
+7. Personas: the Tourist, the Local, the Ex, the Musician, each with its own starting deck and one
+   rule of its own; unlocked over nights.
+8. The fortune deck: no dice; the night's luck is a deck whose top you can see, and you pay to peek,
+   reorder or burn a bad fortune.
+9. Every "no" becomes a "maybe": a declined offer goes into the deck as "Maybe later", playable
+   hours later at a price.
+10. Promises: "I'll be there at midnight" is a card; kept it pays, broken it turns into guilt that
+    stays until made right.
+11. The playlist is the deck: a song card sets a rule while it plays; a set that rises to a peak is
+    built like a deck, and the game's music plays it.
+12. Your younger self has a deck: in a flashback you play young you, reckless and cash only, and
+    what young you does rewrites present you's deck.
+13. The city levels up, not you: nights change Brno (a bar kept open, a street made famous), and
+    progress is the city's state.
+14. Dignity is your health: rejection, embarrassment and being thrown out cost it; at zero you go
+    home whatever the clock says.
+15. Dares from the author: each night opens with one ("No phone tonight", "Only on foot"); harder
+    nights, rarer stories.
+16. Notes for other players: leave a card at a place for whoever plays the same seed next.
 
 ## Ideas
 
