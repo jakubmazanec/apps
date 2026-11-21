@@ -292,17 +292,40 @@ fn step_header(sound: &str) -> [(&str, Color); 4] {
     [("Step", ACCENT), ("T1", TEXT), (sound, TEXT), ("Pads", DIM)]
 }
 
-/// SETTINGS' Playing page: Velocity at `value` under the cursor and in the strip's first cell.
-fn playing(value: &str) -> Screen {
+/// SETTINGS' Playing page under `message`: Velocity at `value` under the cursor, then the
+/// metronome off at its starting level, each in its row and in its cell of the strip.
+fn playing_under(message: Option<(&str, Color)>, value: &str) -> Screen {
+    let items = [
+        velocity(value),
+        ItemView {
+            encoder: Some(2),
+            name: "Metronome",
+            value: "Off",
+            bar: Bar::Track,
+        },
+        ItemView {
+            encoder: Some(3),
+            name: "Metronome level",
+            value: "50%",
+            bar: Bar::Fill(32_768, 65_535),
+        },
+    ];
     drawn(
         &SETTINGS_HEADER,
-        None,
+        message,
         |screen| {
-            draw_item(screen, 2, 17, 160, &velocity(value), true, None);
+            for (y, item) in (17..).step_by(18).zip(&items) {
+                draw_item(screen, 2, y, 160, item, true, None);
+            }
             draw_cursor(screen, 2, 17, 160, 17);
         },
-        &[Some(velocity(value)), None, None, None],
+        &[Some(items[0]), Some(items[1]), Some(items[2]), None],
     )
+}
+
+/// SETTINGS' Playing page with Velocity at `value`.
+fn playing(value: &str) -> Screen {
+    playing_under(None, value)
 }
 
 /// The tiles of MENU or PAGE under this header, over an empty strip.
@@ -1372,7 +1395,7 @@ fn velocity_flips_with_ok_and_moves_with_minus_plus_and_encoder_1() {
 
     // CANCEL does nothing on a page, and neither does an encoder that holds no item.
     rig.tap(500, Button::Cancel);
-    rig.turn(510, 1, 5);
+    rig.turn(510, 3, 5);
     rig.tap(520, Button::Push(3));
     rig.turn(530, VOLUME, 5);
     rig.step(540);
@@ -1413,9 +1436,10 @@ fn menu_or_page_ends_the_repeats_of_held_arrows_minus_and_plus() {
     let queue = Queue::new();
     let mut rig = Rig::new(&queue);
     rig.menu(0, 7);
-    // - turns Velocity off at its press and OK on again. MENU takes the held down and -, so
-    // neither repeats once MENU is let go.
-    rig.press(1_000, Button::Down);
+    // - turns Velocity off at its press and OK on again. MENU takes the held up and -, so
+    // neither repeats once MENU is let go. Up leaves the cursor on Velocity, where down would
+    // move it to the metronome.
+    rig.press(1_000, Button::Up);
     rig.press(1_000, Button::Minus);
     rig.tap(2_000, Button::Ok);
     rig.tap(3_000, Button::Menu);
@@ -1424,7 +1448,7 @@ fn menu_or_page_ends_the_repeats_of_held_arrows_minus_and_plus() {
     assert_eq!(rig.control.buttons.next_repeat(), None);
 
     // Their releases do nothing, and a new press acts again.
-    rig.let_go(100_000, Button::Down);
+    rig.let_go(100_000, Button::Up);
     rig.let_go(100_000, Button::Minus);
     rig.press(100_010, Button::Minus);
     rig.step(100_020);
@@ -1435,8 +1459,8 @@ fn menu_or_page_ends_the_repeats_of_held_arrows_minus_and_plus() {
     );
     rig.let_go(100_020, Button::Minus);
 
-    // + turns it on at its press and OK off again. PAGE takes the held down and +.
-    rig.press(200_000, Button::Down);
+    // + turns it on at its press and OK off again. PAGE takes the held up and +.
+    rig.press(200_000, Button::Up);
     rig.press(200_000, Button::Plus);
     rig.tap(201_000, Button::Ok);
     rig.tap(202_000, Button::Page);
@@ -1476,15 +1500,7 @@ fn a_message_stays_until_a_later_button_press() {
     assert_eq!(rig.velocity(), 0);
     assert!(shows(
         &rig.control,
-        &drawn(
-            &SETTINGS_HEADER,
-            Some(("Pool full", RECORD)),
-            |screen| {
-                draw_item(screen, 2, 17, 160, &velocity("Off"), true, None);
-                draw_cursor(screen, 2, 17, 160, 17);
-            },
-            &[Some(velocity("Off")), None, None, None],
-        )
+        &playing_under(Some(("Pool full", RECORD)), "Off")
     ));
 
     // A later press clears it and still acts.
@@ -1515,12 +1531,15 @@ fn the_settings_page_matches_its_geometry() {
     assert_eq!(span(&screen, 2..=161, 17..=29, TEXT), Some((148, 158)));
     assert!(filled(&screen, 5..=158, 31..=32, FAINT));
     assert!(outlined(&screen, 1, 16, 162, 19, ACCENT));
-    assert!(filled(&screen, 0..=479, 36..=252, BACKGROUND));
+    // Items 2 and 3 follow 18 pixels apart, and nothing is under them.
+    assert_eq!(span(&screen, 10..=100, 35..=47, DIM).map(|s| s.0), Some(16));
+    assert_eq!(span(&screen, 10..=100, 53..=65, DIM).map(|s| s.0), Some(16));
+    assert!(filled(&screen, 0..=479, 70..=252, BACKGROUND));
     // Strip cell 1: the name from x 4, the value ending at 117 and the faint track under them.
     assert_eq!(span(&screen, 1..=120, 258..=264, DIM).map(|s| s.0), Some(4));
     assert_eq!(span(&screen, 1..=120, 258..=264, TEXT), Some((107, 117)));
     assert!(filled(&screen, 4..=117, 269..=270, FAINT));
-    assert!(filled(&screen, 121..=478, 254..=271, BACKGROUND));
+    assert!(filled(&screen, 360..=478, 254..=271, BACKGROUND));
 }
 
 #[test]

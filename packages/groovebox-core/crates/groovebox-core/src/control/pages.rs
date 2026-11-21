@@ -3,10 +3,10 @@ use crate::input::STEPS;
 use crate::param::{
     ATTACK, CHOKE_GROUP, CUTOFF, DECAY, END, ENVELOPE_AMOUNT, Entry, FILTER_ATTACK, FILTER_DECAY,
     FILTER_RELEASE, FILTER_SUSTAIN, FILTER_TYPE, FILTER_VELOCITY, FINE_TUNE, GLIDE, GLIDE_TIME,
-    KEY_FOLLOW, LEVEL, LOOP, LOOP_END, LOOP_START, MODE, NOISE_LEVEL, OSCILLATOR_2_FINE_TUNE,
-    OSCILLATOR_2_INTERVAL, OSCILLATOR_2_LEVEL, PAN, PLAY_MODE, ParamId, RELEASE, RESONANCE,
-    REVERSE, ROOT_NOTE, SHAPE, SPREAD, START, SUB_LEVEL, SUSTAIN, TRANSPOSE, TRIGGER, VELOCITY,
-    VOLUME_VELOCITY, WAVE,
+    KEY_FOLLOW, LEVEL, LOOP, LOOP_END, LOOP_START, METRONOME, METRONOME_LEVEL, MODE, NOISE_LEVEL,
+    OSCILLATOR_2_FINE_TUNE, OSCILLATOR_2_INTERVAL, OSCILLATOR_2_LEVEL, PAN, PLAY_MODE, ParamId,
+    RELEASE, RESONANCE, REVERSE, ROOT_NOTE, SHAPE, SPREAD, START, SUB_LEVEL, SUSTAIN, TRANSPOSE,
+    TRIGGER, VELOCITY, VOLUME_VELOCITY, WAVE,
 };
 use crate::project::pool::{Engine, Sound};
 
@@ -247,10 +247,20 @@ pub fn pages(screen: Screen, sound: Option<&Sound>, pad: bool) -> &'static [Page
         Screen::Settings => &[
             PageDef {
                 name: "Playing",
-                items: &[ItemDef {
-                    kind: ItemKind::Param(VELOCITY.id),
-                    encoder: Some(0),
-                }],
+                items: &[
+                    ItemDef {
+                        kind: ItemKind::Param(VELOCITY.id),
+                        encoder: Some(0),
+                    },
+                    ItemDef {
+                        kind: ItemKind::Param(METRONOME.id),
+                        encoder: Some(1),
+                    },
+                    ItemDef {
+                        kind: ItemKind::Param(METRONOME_LEVEL.id),
+                        encoder: Some(2),
+                    },
+                ],
                 picture: None,
             },
             PageDef {
@@ -309,6 +319,18 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn settings_playing_holds_velocity_metronome_and_its_level() {
+        assert_eq!(
+            pages(Screen::Settings, None, true)[0].items,
+            [
+                item(VELOCITY, Some(0)),
+                item(METRONOME, Some(1)),
+                item(METRONOME_LEVEL, Some(2)),
+            ]
+        );
     }
 
     #[test]

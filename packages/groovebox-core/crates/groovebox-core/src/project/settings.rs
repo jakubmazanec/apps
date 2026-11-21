@@ -48,7 +48,15 @@ impl Default for DeviceSettings {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::param::{ParamId, VELOCITY};
+    use crate::param::{METRONOME, METRONOME_LEVEL, METRONOME_LEVEL_DEFAULT, ParamId, VELOCITY};
+
+    #[test]
+    fn the_metronome_starts_off_at_its_level() {
+        let settings = DeviceSettings::new();
+
+        assert_eq!(settings.get(METRONOME.id), 0);
+        assert_eq!(settings.get(METRONOME_LEVEL.id), METRONOME_LEVEL_DEFAULT);
+    }
 
     #[test]
     fn a_new_set_of_settings_holds_every_default() {

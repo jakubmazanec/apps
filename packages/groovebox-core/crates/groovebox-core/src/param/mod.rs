@@ -38,6 +38,8 @@ pub enum Curve {
     /// A frame of a sample file, from 0 to `i32::MAX`. The control part holds it within its file,
     /// moves it with `moved_frame` and shows it with `format_frame`; it is never modulated.
     Frame,
+    /// Hundredths of a BPM: moved 100 a click and 10 with SHIFT, shown with one decimal.
+    Tempo,
 }
 
 /// How a value is shown.
@@ -109,6 +111,57 @@ pub const OUTPUT_VOLUME: Entry = Entry {
     modulated: false,
 };
 
+/// Whether the metronome clicks on the beats while the music plays.
+pub const METRONOME: Entry = Entry {
+    id: ParamId(3),
+    name: "Metronome",
+    scope: Scope::Device,
+    low: 0,
+    high: 1,
+    default: 0,
+    curve: Curve::Switch,
+    unit: Unit::None,
+    click: 0,
+    choices: &[],
+    glide: 0,
+    modulated: false,
+};
+
+/// The metronome's click level at the start, tuned by ear.
+pub const METRONOME_LEVEL_DEFAULT: i32 = 32_768;
+
+/// How loud the metronome clicks.
+pub const METRONOME_LEVEL: Entry = Entry {
+    id: ParamId(4),
+    name: "Metronome level",
+    scope: Scope::Device,
+    low: 0,
+    high: 65_535,
+    default: METRONOME_LEVEL_DEFAULT,
+    curve: Curve::Level,
+    unit: Unit::Percent,
+    click: 512,
+    choices: &[],
+    glide: 128,
+    modulated: false,
+};
+
+/// The project's tempo in hundredths of a BPM, from 30 to 300.
+pub const TEMPO: Entry = Entry {
+    id: ParamId(100),
+    name: "Tempo",
+    scope: Scope::Project,
+    low: 3_000,
+    high: 30_000,
+    default: 12_000,
+    curve: Curve::Tempo,
+    unit: Unit::None,
+    click: 0,
+    choices: &[],
+    glide: 0,
+    modulated: false,
+};
+
 /// What the smooth sound entries share. An entry of the list names its ID and name, and what
 /// differs.
 const SMOOTH_SOUND: Entry = Entry {
@@ -172,6 +225,9 @@ pub use synth::*;
 pub const ENTRIES: &[Entry] = &[
     VELOCITY,
     OUTPUT_VOLUME,
+    METRONOME,
+    METRONOME_LEVEL,
+    TEMPO,
     MODE,
     CUTOFF,
     RESONANCE,
@@ -219,10 +275,11 @@ const _: () = assert!(check(ENTRIES).is_ok());
 /// The rules the list keeps, checked when the core builds. They apply in this order: IDs are
 /// unique; each ID lies in its scope's block (device 1 to 99, project 100 to 199, track 200 to 299
 /// or from 10,000, sound 1,000 to 9,999); the default lies between the lowest and the highest
-/// value; a frame entry has no click and runs 0 to `i32::MAX`; a smooth entry (click above 0) runs
-/// 0 to 65,535 and its click divides by 16, so a fine click is a whole sixteenth; a switch runs 0
-/// to 1; a list has choices with unique keys, its default among them and no click; a count has no
-/// click; a fraction, a bipolar value, a time, a cutoff and a level are smooth.
+/// value; a frame entry has no click and runs 0 to `i32::MAX`; a tempo has no click and no choices;
+/// a smooth entry (click above 0) runs 0 to 65,535 and its click divides by 16, so a fine click is
+/// a whole sixteenth; a switch runs 0 to 1; a list has choices with unique keys, its default among
+/// them and no click; a count has no click; a fraction, a bipolar value, a time, a cutoff and a
+/// level are smooth.
 pub const fn check(entries: &[Entry]) -> Result<(), &'static str> {
     let mut first = 0;
     while first < entries.len() {
@@ -255,6 +312,9 @@ pub const fn check(entries: &[Entry]) -> Result<(), &'static str> {
             && (entry.click != 0 || entry.low != 0 || entry.high != i32::MAX)
         {
             return Err("a frame entry has a click or does not run from 0 to 2,147,483,647");
+        }
+        if matches!(entry.curve, Curve::Tempo) && (entry.click != 0 || !entry.choices.is_empty()) {
+            return Err("a tempo has a click or choices");
         }
         if entry.click > 0 {
             if entry.low != 0 || entry.high != 65_535 {
@@ -370,16 +430,19 @@ fn place(entry: &Entry, value: i32) -> usize {
 
 /// The value after `clicks` encoder clicks (negative is down): a list moves that many places along
 /// its choices and gives that choice's key, a counted value moves 1 per click and a smooth one by
-/// its click, or a sixteenth of it when `fine`. It stops at the ends.
+/// its click, or a sixteenth of it when `fine`; a tempo moves 100 a click and 10 when `fine`. It
+/// stops at the ends.
 pub fn moved(entry: &Entry, value: i32, clicks: i32, fine: bool) -> i32 {
     if entry.curve == Curve::List {
         let target = place(entry, value).saturating_add_signed(clicks as isize);
         return i32::from(entry.choices[target.min(entry.choices.len() - 1)].key);
     }
-    let step = match (entry.click, fine) {
-        (0, _) => 1,
-        (click, true) => click / 16,
-        (click, false) => click,
+    let step = match (entry.curve, entry.click, fine) {
+        (Curve::Tempo, _, true) => 10,
+        (Curve::Tempo, _, false) => 100,
+        (_, 0, _) => 1,
+        (_, click, true) => click / 16,
+        (_, click, false) => click,
     };
     let target = i64::from(value) + i64::from(clicks) * i64::from(step);
 
@@ -396,7 +459,7 @@ fn offset(value: i32) -> i32 {
 pub fn real(entry: &Entry, value: i32) -> f32 {
     let p = value as f32 / 65_535.0;
     match entry.curve {
-        Curve::Switch | Curve::List | Curve::Count | Curve::Frame => value as f32,
+        Curve::Switch | Curve::List | Curve::Count | Curve::Frame | Curve::Tempo => value as f32,
         Curve::Fraction => p,
         Curve::Bipolar => offset(value) as f32 / 32_767.0,
         Curve::Time { max_ms } => max_ms as f32 / 1_000.0 * p * p * p,
@@ -453,6 +516,10 @@ pub fn format(entry: &Entry, value: i32, out: &mut Label<16>) {
         }
         Curve::Count => signed(value, out),
         Curve::Frame => unreachable!("a frame is shown by `format_frame`"),
+        Curve::Tempo => {
+            let tenths = (value + 5) / 10;
+            write!(out, "{}.{}", tenths / 10, tenths % 10)
+        }
         Curve::Bipolar => {
             let from_middle = offset(value);
             signed(
@@ -562,8 +629,12 @@ mod tests {
         assert_eq!(count(&MIXED, Scope::Project), 0);
         assert_eq!(SOUND, [11, 7]);
         assert_eq!(defaults::<0>(&MIXED, Scope::Project), []);
-        assert_eq!(count(ENTRIES, Scope::Device), 2);
-        assert_eq!(defaults::<2>(ENTRIES, Scope::Device), [1, 45_875]);
+        assert_eq!(count(ENTRIES, Scope::Device), 4);
+        assert_eq!(
+            defaults::<4>(ENTRIES, Scope::Device),
+            [1, 45_875, 0, METRONOME_LEVEL_DEFAULT]
+        );
+        assert_eq!(defaults::<1>(ENTRIES, Scope::Project), [12_000]);
     }
 
     #[test]
@@ -705,10 +776,11 @@ mod tests {
     };
 
     #[test]
-    fn the_list_passes_its_check_with_40_sound_and_2_device_entries() {
+    fn the_list_passes_its_check_with_40_sound_4_device_and_1_project_entries() {
         assert_eq!(check(ENTRIES), Ok(()));
         assert_eq!(count(ENTRIES, Scope::Sound), 40);
-        assert_eq!(count(ENTRIES, Scope::Device), 2);
+        assert_eq!(count(ENTRIES, Scope::Device), 4);
+        assert_eq!(count(ENTRIES, Scope::Project), 1);
     }
 
     #[test]
@@ -843,6 +915,58 @@ mod tests {
         assert_eq!(default(&LEVEL), 52_428);
         assert_eq!(default(&PLAY_MODE), POLY);
         assert_eq!(default(&TRIGGER), GATE);
+    }
+
+    #[test]
+    fn tempo_moves_1_bpm_a_click_and_0_1_with_shift_within_30_and_300() {
+        assert_eq!(moved(&TEMPO, 12_000, 1, false), 12_100);
+        assert_eq!(moved(&TEMPO, 12_000, -3, true), 11_970);
+        assert_eq!(moved(&TEMPO, 29_950, 1, false), 30_000);
+        assert_eq!(moved(&TEMPO, 3_005, -1, true), 3_000);
+    }
+
+    #[test]
+    fn tempo_shows_one_decimal() {
+        assert_eq!(text(&TEMPO, 12_000).as_str(), "120.0");
+        assert_eq!(text(&TEMPO, 3_000).as_str(), "30.0");
+        assert_eq!(text(&TEMPO, 30_000).as_str(), "300.0");
+        assert_eq!(text(&TEMPO, 12_345).as_str(), "123.5");
+        assert_eq!(text(&TEMPO, 12_344).as_str(), "123.4");
+        assert_eq!(real(&TEMPO, 12_345), 12_345.0);
+    }
+
+    #[test]
+    fn the_list_refuses_a_tempo_with_a_click_or_choices() {
+        const WITH_CHOICES: Entry = Entry {
+            choices: &[choice(12_000, "Normal")],
+            ..TEMPO
+        };
+
+        assert_eq!(check(&[TEMPO]), Ok(()));
+        assert_eq!(
+            check(&[Entry {
+                click: 512,
+                ..TEMPO
+            }]),
+            Err("a tempo has a click or choices")
+        );
+        assert_eq!(
+            check(&[WITH_CHOICES]),
+            Err("a tempo has a click or choices")
+        );
+    }
+
+    #[test]
+    fn the_metronome_entries_are_device_entries_numbered_3_and_4() {
+        assert_eq!((METRONOME.id, METRONOME.scope), (ParamId(3), Scope::Device));
+        assert_eq!(METRONOME.default, 0);
+        assert_eq!(
+            (METRONOME_LEVEL.id, METRONOME_LEVEL.scope),
+            (ParamId(4), Scope::Device)
+        );
+        assert_eq!(METRONOME_LEVEL.default, METRONOME_LEVEL_DEFAULT);
+        assert_eq!((TEMPO.id, TEMPO.scope), (ParamId(100), Scope::Project));
+        assert_eq!(TEMPO.default, 12_000);
     }
 
     #[test]
