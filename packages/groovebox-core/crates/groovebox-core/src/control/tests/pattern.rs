@@ -637,6 +637,119 @@ fn the_steps_light_the_sounds_notes_and_the_music_flips_its_step() {
 }
 
 #[test]
+fn a_pad_lights_while_its_pattern_note_sounds() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    rig.synth_on(0);
+    rig.synth_on(2);
+    // Pad 3's note in step 1, with pad 1 selected again.
+    rig.hit(100, 2, 100);
+    rig.release(110, 2);
+    rig.tap(120, Button::Step(0));
+    rig.hit(130, 0, 100);
+    rig.release(140, 0);
+    rig.press(9_600, Button::Play);
+
+    rig.step(9_601);
+    assert_eq!(rig.lit(), [pad(0), pad(2), step(0), track(0), Lights::PLAY]);
+    // The note, a sixteenth long, sounds until sample 15,600.
+    rig.step(15_599);
+    assert_eq!(rig.lit(), [pad(0), pad(2), step(0), track(0), Lights::PLAY]);
+    rig.step(15_600);
+    assert_eq!(rig.lit(), [pad(0), step(1), track(0), Lights::PLAY]);
+}
+
+#[test]
+fn a_sound_on_two_pads_lights_both() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    rig.synth_on(0);
+    let twice = rig.synth_on(2);
+    rig.control.project.put(6, Some(twice));
+    rig.hit(100, 2, 100);
+    rig.release(110, 2);
+    rig.tap(120, Button::Step(0));
+    rig.hit(130, 0, 100);
+    rig.release(140, 0);
+    rig.press(9_600, Button::Play);
+
+    rig.step(9_601);
+
+    assert_eq!(
+        rig.lit(),
+        [pad(0), pad(2), pad(6), step(0), track(0), Lights::PLAY]
+    );
+}
+
+#[test]
+fn in_keys_mode_the_key_of_a_sounding_pitch_lights() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    rig.synth_on(0);
+    rig.tap(0, Button::PadsKeys);
+    // E4 in step 1 and E5 in step 2, with octave 4 shown again.
+    rig.hit(100, 4, 100);
+    rig.release(110, 4);
+    rig.tap(120, Button::Step(0));
+    rig.press(200, Button::PadsKeys);
+    rig.tap(210, Button::Up);
+    rig.let_go(220, Button::PadsKeys);
+    rig.hit(300, 4, 100);
+    rig.release(310, 4);
+    rig.tap(320, Button::Step(1));
+    rig.press(400, Button::PadsKeys);
+    rig.tap(410, Button::Down);
+    rig.let_go(420, Button::PadsKeys);
+    rig.press(9_600, Button::Play);
+
+    rig.step(9_601);
+    assert_eq!(rig.track().octave, 4);
+    assert_eq!(
+        rig.lit(),
+        [
+            pad(0),
+            pad(4),
+            step(1),
+            track(0),
+            Lights::PADS_KEYS,
+            Lights::PLAY
+        ]
+    );
+    // Pitch 76 is in octave 5, so no key of octave 4 lights.
+    rig.step(15_601);
+    assert_eq!(
+        rig.lit(),
+        [pad(0), step(0), track(0), Lights::PADS_KEYS, Lights::PLAY]
+    );
+}
+
+#[test]
+fn notes_of_another_track_light_nothing() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    rig.synth_on(0);
+    let shared = rig.synth_on(2);
+    rig.tap(10, Button::T2);
+    rig.step(20);
+    rig.control.project.put(0, Some(shared));
+    rig.tap(30, Button::Step(0));
+    rig.tap(40, Button::T1);
+    rig.press(9_600, Button::Play);
+
+    rig.step(9_601);
+
+    // T2's note sounds, and its sound sits on T1's pad 3.
+    assert_eq!(
+        sounding(&rig)
+            .iter()
+            .map(|note| note.track)
+            .collect::<Vec<_>>(),
+        [1]
+    );
+    assert_eq!(rig.lit(), [pad(0), step(0), track(0), Lights::PLAY]);
+}
+
+#[test]
 fn a_step_past_the_bars_end_stays_dark_and_does_nothing() {
     let queue = Queue::new();
     let mut rig = Rig::new(&queue);
