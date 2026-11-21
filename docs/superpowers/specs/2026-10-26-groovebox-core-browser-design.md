@@ -304,7 +304,7 @@ patterns should work, so everything here is a starting point and expected to cha
   done **(decided)**.
 - **A pattern is its notes and its length;** the tempo, the time signature, the effects and the mix
   belong to the project **(decided)**. Patterns are unlimited, and 1 to 16 always exist
-  **(decided)**. Pattern length has no fixed limit; it is bounded only by the generous note memory
+  **(decided)**. A pattern is 1, 2, 4, 8, 16, 32 or 64 bars long, chosen in LENGTH's picker
   **(decided)**.
 - **Time signatures** from 1 to 16 over 4 or 8, per project; lengths in whole bars; tempo in quarter
   notes **(decided)**. Changing the signature or the length keeps each note's place in its bar and

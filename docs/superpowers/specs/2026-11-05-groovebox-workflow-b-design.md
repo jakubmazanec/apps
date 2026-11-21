@@ -275,8 +275,8 @@ stray press stop the music, and SHIFT + PLAY covers listening from a bar.
   moves the value; the cursor moves to the item where the screen shows the TIMING page and stays
   everywhere else, since the item is not there to move to. In version 1 GRID shows 1/16 and does
   nothing, and SWING is empty.
-- **Dropped,** press and release alike, while a picker or a question is open and while MENU or PAGE
-  is held, as COPY is: it neither turns the metronome on or off nor brings the timing strip.
+- **Dropped,** press and release alike, while a picker or a question is open: it neither turns the
+  metronome on or off nor brings the timing strip.
 - **A tap** turns the metronome on or off. It acts when you let go, and only if the press was short
   and no encoder was turned while TEMPO was held.
 
