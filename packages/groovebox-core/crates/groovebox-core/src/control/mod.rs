@@ -40,7 +40,7 @@ use crate::store::{RESERVE, Store};
 use crate::ui::layout::{LIST_VISIBLE, PICTURE};
 use crate::ui::text::SCROLL_PIXEL;
 use crate::ui::tiles::{Tile, TileState};
-use bars::{Change, LENGTHS};
+use bars::{Change, LENGTHS, Trim};
 use buttons::{Buttons, REPEATING, Release};
 use core::cell::Cell;
 use core::ops::ControlFlow;
@@ -167,6 +167,9 @@ pub struct Control {
     /// the event that deleted them: `step` sends them before any later event (S17).
     unsent: Ring<SoundNumber, { budget::POOL_SOUNDS }>,
     unsent_at: u64,
+    /// The removal of the notes a LENGTH or SIGNATURE change no longer fits while it runs: `step`
+    /// runs it before any later event (S15).
+    trim: Option<Trim>,
     library: Library,
     project: Project,
     settings: DeviceSettings,
@@ -224,6 +227,7 @@ impl Control {
             relinking: None,
             unsent: Ring::new(),
             unsent_at: 0,
+            trim: None,
             library: Library::new(),
             project: Project::new(),
             settings: DeviceSettings::new(),
@@ -310,10 +314,14 @@ impl Control {
     /// exactly where this one stopped. Before any later event the missing sounds of a file the
     /// import listed take it, one sound at a time with the same room (`relink`). Before both, the
     /// `DeleteSound`s of deleted sounds go out, oldest first, as far as the queue has room for them
-    /// (`delete_sound`, S17); while any is left the step handles no event and stops there. The
-    /// control part's own sequencer (`player`) advances to each event's sample before the event,
-    /// and to `until` once no event is left before it; a step that stops early leaves it at the
-    /// last event it handled. Its events go nowhere, and it keeps the notes that sound.
+    /// (`delete_sound`, S17); while any is left the step handles no event and stops there. After
+    /// them and before any later event, the removal of the notes a LENGTH or SIGNATURE change no
+    /// longer fits makes its moves while the version queue has room for `MAX_VERSIONS_PER_EVENT`
+    /// versions (`next_removal`, S15); with fewer than `RESERVE` blocks ready it publishes what it
+    /// has and the step stops while blocks wait for reports. While it runs the step handles no
+    /// event. The control part's own sequencer (`player`) advances to each event's sample before
+    /// the event, and to `until` once no event is left before it; a step that stops early leaves
+    /// it at the last event it handled. Its events go nowhere, and it keeps the notes that sound.
     ///
     /// The first step starts the start-up's job, and a reply goes to it with `io`, the I/O buffer,
     /// as its request left it. When the job ends the project opens, with the job's result as the
@@ -361,6 +369,15 @@ impl Control {
                 && let Some(sound) = self.unsent.pop()
             {
                 self.send(self.unsent_at, MessageKind::DeleteSound { sound }, messages);
+            }
+            if self.trim.is_some() {
+                if versions.free() < MAX_VERSIONS_PER_EVENT
+                    || self.next_removal(versions, store).is_break()
+                {
+                    break;
+                }
+                redraw = true;
+                continue;
             }
             if self.unsent.peek().is_some()
                 || messages.free() < MAX_MESSAGES_PER_EVENT

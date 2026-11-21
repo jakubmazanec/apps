@@ -116,7 +116,7 @@ fn ready(rig: &Rig<'_>) -> usize {
 
 /// Takes blocks of the note memory by hand until `ready` are ready.
 #[allow(unsafe_code)]
-fn fill_until(rig: &Rig<'_>, ready: usize) {
+pub(super) fn fill_until(rig: &Rig<'_>, ready: usize) {
     // SAFETY: the store lives while no step runs.
     let mut store = unsafe { rig.notes.store() };
     while store.ready() > ready {

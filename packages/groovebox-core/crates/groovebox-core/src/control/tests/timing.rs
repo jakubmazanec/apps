@@ -1,11 +1,12 @@
 //! The PATTERN screen's Timing page, the tempo, TEMPO and the metronome; its Bars page with LENGTH
-//! and SIGNATURE.
+//! and SIGNATURE; the removal of the notes they no longer fit.
 
 use super::library::row;
-use super::pattern::{entered, put};
+use super::pattern::{count, entered, fill_until, notes_in, put, versions};
 use super::*;
 use crate::project::{FOUR_FOUR, Signature};
 use crate::sequencer::{Meter, Run};
+use crate::store::Tree;
 use crate::store::note::Note;
 use crate::ui::layout::{HEADER_LINE, STRIP_LINE, rect};
 use crate::ui::list::{Row, draw_rows};
@@ -1114,4 +1115,391 @@ fn the_cursor_stays_inside_the_new_bar_and_length() {
     choose(&mut rig, 400, 1, &[Button::Up]);
     rig.step(410);
     assert_eq!(rig.control.view.steps, StepCursor { bar: 1, step: 11 });
+}
+
+/// The tree of track `track` of pattern `pattern`, both from 0.
+fn tree(rig: &Rig<'_>, pattern: usize, track: usize) -> Tree {
+    rig.control.project.patterns[pattern].tracks[track]
+}
+
+#[test]
+fn the_notes_a_change_no_longer_fits_are_gone_before_the_next_event() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    let synth = rig.synth_on(0);
+    rig.tap(0, Button::Step(0));
+    rig.tap(10, Button::Step(12));
+    rig.tap(20, Button::Step(14));
+    on_bars(&mut rig, 30);
+    choose(&mut rig, 100, 1, &[Button::Up]);
+    rig.step(110);
+    versions(&mut rig);
+
+    rig.tap(200, Button::Ok);
+    // The next event: STOP while stopped.
+    rig.tap(202, Button::Stop);
+    rig.step(300);
+
+    // The taps' versions took numbers 0 to 2 and the `Meter` 3: the removal's version comes
+    // before STOP's `Silence`.
+    assert_eq!(
+        rig.sent(),
+        [
+            message(3, 200, meter(0, 0, 1, THREE_FOUR)),
+            message(5, 202, MessageKind::Silence)
+        ]
+    );
+    let tree = tree(&rig, 0, 0);
+    assert_eq!(
+        versions(&mut rig),
+        [Version {
+            number: 4,
+            moment: 200 + 1_024,
+            track: 0,
+            tree
+        }]
+    );
+    assert_eq!(notes_in(&rig, tree), [entered(0, synth, 60)]);
+    assert_eq!(count(&rig, synth), 1);
+    assert_eq!(rig.lit(), [pad(0), step(0), track(0)]);
+}
+
+#[test]
+fn a_length_change_removes_every_bar_past_the_end_on_every_track() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    let synth = rig.synth_on(0);
+    on_bars(&mut rig, 0);
+    choose(&mut rig, 100, 0, &[Button::Down, Button::Down]);
+    rig.step(110);
+    // By hand, as a tap reaches bar 1 only in this plan: a note in each of bars 1 to 4 on tracks
+    // 1, 2 and 4, and one in bar 4 of pattern 2, which a length leaves alone.
+    let in_bar = |bar| Note {
+        bar,
+        ..entered(0, synth, 60)
+    };
+    for track in [0, 1, 3] {
+        put(
+            &mut rig,
+            0,
+            track,
+            &[in_bar(0), in_bar(1), in_bar(2), in_bar(3)],
+        );
+    }
+    put(&mut rig, 1, 0, &[in_bar(3)]);
+
+    // 2 bars, the row above 4 bars.
+    choose(&mut rig, 200, 0, &[Button::Up]);
+    rig.tap(300, Button::Ok);
+    rig.step(310);
+
+    for track in [0, 1, 3] {
+        assert_eq!(
+            notes_in(&rig, tree(&rig, 0, track)),
+            [in_bar(0), in_bar(1)],
+            "track {}",
+            track + 1
+        );
+    }
+    assert_eq!(tree(&rig, 0, 2), Tree(None));
+    assert_eq!(notes_in(&rig, tree(&rig, 1, 0)), [in_bar(3)]);
+    assert_eq!(count(&rig, synth), 3 * 2 + 1);
+}
+
+#[test]
+fn a_signature_change_removes_each_bars_tail_in_every_pattern() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    let synth = rig.synth_on(0);
+    on_bars(&mut rig, 0);
+    choose(&mut rig, 100, 0, &[Button::Down, Button::Down]);
+    rig.step(110);
+    // By hand, as no control reaches another pattern before Milestone 5: in bars 1 and 3 of
+    // pattern 1 on track 1 and of pattern 2, of 4 bars too, on track 4, a note past 3/4 and one
+    // inside it.
+    rig.control.project.patterns[1].bars = 4;
+    let at = |bar, sixteenth| Note {
+        bar,
+        ..entered(sixteenth, synth, 60)
+    };
+    put(&mut rig, 0, 0, &[at(0, 4), at(0, 12), at(2, 11), at(2, 15)]);
+    put(&mut rig, 1, 3, &[at(0, 0), at(0, 13), at(2, 11), at(2, 12)]);
+
+    choose(&mut rig, 200, 1, &[Button::Up]);
+    rig.tap(300, Button::Ok);
+    rig.step(310);
+
+    assert_eq!(notes_in(&rig, tree(&rig, 0, 0)), [at(0, 4), at(2, 11)]);
+    assert_eq!(notes_in(&rig, tree(&rig, 1, 3)), [at(0, 0), at(2, 11)]);
+    assert_eq!(count(&rig, synth), 4);
+}
+
+#[test]
+fn lengthening_after_a_shrink_brings_nothing_back() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    let synth = rig.synth_on(0);
+    rig.tap(0, Button::Step(12));
+    rig.tap(10, Button::Step(14));
+    // By hand, the same notes on track 2 and on track 4 of pattern 2, which the removal reaches
+    // last.
+    let tail = [entered(12, synth, 60), entered(14, synth, 60)];
+    put(&mut rig, 0, 1, &tail);
+    put(&mut rig, 1, 3, &tail);
+    on_bars(&mut rig, 20);
+    choose(&mut rig, 100, 1, &[Button::Up]);
+
+    // OK on "Delete 6 notes?", then 4/4 from the next sample: the push of encoder 2, Down and OK.
+    rig.tap(200, Button::Ok);
+    rig.tap(201, Button::Push(1));
+    rig.tap(202, Button::Down);
+    rig.tap(203, Button::Ok);
+    rig.step(300);
+
+    assert_eq!(rig.control.project.signature, FOUR_FOUR);
+    for (pattern, track) in [(0, 0), (0, 1), (1, 3)] {
+        assert_eq!(tree(&rig, pattern, track), Tree(None), "{pattern} {track}");
+    }
+    assert_eq!(count(&rig, synth), 0);
+    // Steps 13 and 15 stay dark.
+    assert_eq!(rig.lit(), [pad(0), track(0)]);
+
+    // The same with 1 bar, then 4 bars.
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    let synth = rig.synth_on(0);
+    on_bars(&mut rig, 0);
+    choose(&mut rig, 100, 0, &[Button::Down, Button::Down]);
+    rig.step(110);
+    let in_bar = |bar| Note {
+        bar,
+        ..entered(0, synth, 60)
+    };
+    put(&mut rig, 0, 0, &[in_bar(0), in_bar(1), in_bar(3)]);
+    put(&mut rig, 0, 2, &[in_bar(2)]);
+    choose(&mut rig, 200, 0, &[Button::Up, Button::Up]);
+
+    rig.tap(300, Button::Ok);
+    rig.tap(301, Button::Push(0));
+    rig.tap(302, Button::Down);
+    rig.tap(303, Button::Down);
+    rig.tap(304, Button::Ok);
+    rig.step(400);
+
+    assert_eq!(rig.control.project.patterns[0].bars, 4);
+    assert_eq!(notes_in(&rig, tree(&rig, 0, 0)), [in_bar(0)]);
+    assert_eq!(tree(&rig, 0, 2), Tree(None));
+    assert_eq!(count(&rig, synth), 1);
+}
+
+#[test]
+fn a_sound_left_with_no_notes_is_unused() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    // A synth on no pad, whose only notes are past 3/4.
+    let synth = rig.control.project.pool.new_synth().unwrap();
+    put(
+        &mut rig,
+        0,
+        0,
+        &[entered(12, synth, 60), entered(15, synth, 60)],
+    );
+    on_bars(&mut rig, 0);
+    rig.step(20);
+    assert_eq!(rig.control.project.unused().collect::<Vec<_>>(), []);
+
+    choose(&mut rig, 100, 1, &[Button::Up]);
+    rig.tap(200, Button::Ok);
+    rig.step(210);
+
+    assert_eq!(count(&rig, synth), 0);
+    assert_eq!(rig.control.project.unused().collect::<Vec<_>>(), [synth]);
+}
+
+#[test]
+fn each_current_track_is_published_once_when_memory_is_plenty() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    let synth = rig.synth_on(0);
+    on_bars(&mut rig, 0);
+    choose(&mut rig, 100, 0, &[Button::Down, Button::Down]);
+    rig.step(110);
+    rig.sent();
+    // By hand: a note past 3/4 in each of the 4 bars of tracks 1 and 3, and on track 2 notes
+    // inside the bars only.
+    let at = |bar, sixteenth| Note {
+        bar,
+        ..entered(sixteenth, synth, 60)
+    };
+    let tails = [at(0, 13), at(1, 12), at(2, 15), at(3, 14)];
+    put(
+        &mut rig,
+        0,
+        0,
+        &[at(0, 0), at(0, 13), at(1, 12), at(2, 15), at(3, 14)],
+    );
+    put(&mut rig, 0, 1, &[at(1, 0), at(3, 11)]);
+    put(&mut rig, 0, 2, &tails);
+
+    choose(&mut rig, 200, 1, &[Button::Up]);
+    rig.tap(300, Button::Ok);
+    rig.step(310);
+
+    // The first `Meter` took number 0.
+    assert_eq!(rig.sent(), [message(1, 300, meter(0, 0, 4, THREE_FOUR))]);
+    assert_eq!(
+        versions(&mut rig),
+        [
+            Version {
+                number: 2,
+                moment: 300 + 1_024,
+                track: 0,
+                tree: tree(&rig, 0, 0)
+            },
+            Version {
+                number: 3,
+                moment: 300 + 1_024,
+                track: 2,
+                tree: Tree(None)
+            }
+        ]
+    );
+    assert_eq!(notes_in(&rig, tree(&rig, 0, 0)), [at(0, 0)]);
+    assert_eq!(notes_in(&rig, tree(&rig, 0, 1)), [at(1, 0), at(3, 11)]);
+}
+
+#[test]
+fn a_removal_short_of_ready_blocks_publishes_and_waits() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    let synth = rig.synth_on(0);
+    on_bars(&mut rig, 0);
+    // 2 bars, the row below 1 bar.
+    choose(&mut rig, 60, 0, &[Button::Down]);
+    rig.tap(100, Button::Step(12));
+    rig.tap(110, Button::Step(14));
+    rig.step(120);
+    // By hand, as no control moves the cursor's bar before plan 3's arrows.
+    rig.control.view.steps.bar = 1;
+    rig.tap(200, Button::Step(12));
+    rig.tap(210, Button::Step(14));
+    rig.step(220);
+    rig.sent();
+    versions(&mut rig);
+    // The taps' versions 1 to 4 are not reported, so the one-block trees before versions 2 to 4
+    // wait. By hand exactly `RESERVE` blocks are ready: the first removal, which copies the
+    // track's leaf, leaves fewer.
+    fill_until(&rig, RESERVE);
+    choose(&mut rig, 300, 1, &[Button::Up]);
+    rig.tap(400, Button::Ok);
+    // The next event: STOP while stopped.
+    rig.tap(500, Button::Stop);
+
+    rig.step(600);
+
+    // Bar 1's tail is gone and published while bar 2's waits; STOP is not handled.
+    assert_eq!(rig.sent(), [message(5, 400, meter(0, 0, 2, THREE_FOUR))]);
+    let bar_2 = |sixteenth| Note {
+        bar: 1,
+        ..entered(sixteenth, synth, 60)
+    };
+    let tree = tree(&rig, 0, 0);
+    assert_eq!(
+        versions(&mut rig),
+        [Version {
+            number: 6,
+            moment: 400 + 1_024,
+            track: 0,
+            tree
+        }]
+    );
+    assert_eq!(notes_in(&rig, tree), [bar_2(12), bar_2(14)]);
+    rig.step(700);
+    assert_eq!(rig.sent(), []);
+    assert_eq!(versions(&mut rig), []);
+
+    for number in [1, 2, 3, 4, 6] {
+        rig.applied(number, 1_500);
+    }
+    rig.step(800);
+
+    assert_eq!(
+        versions(&mut rig),
+        [Version {
+            number: 7,
+            moment: 400 + 1_024,
+            track: 0,
+            tree: Tree(None)
+        }]
+    );
+    assert_eq!(rig.sent(), [message(8, 500, MessageKind::Silence)]);
+    assert_eq!(count(&rig, synth), 0);
+}
+
+#[test]
+fn a_removal_short_of_ready_blocks_with_none_waiting_goes_on() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    rig.synth_on(0);
+    rig.tap(0, Button::Step(12));
+    rig.tap(10, Button::Step(14));
+    rig.step(20);
+    versions(&mut rig);
+    rig.applied(0, 1_100);
+    rig.applied(1, 1_100);
+    // Nothing waits, and fewer than `RESERVE` blocks are ready, as an insert may leave them: there
+    // is no report to wait for.
+    fill_until(&rig, RESERVE - 1);
+    on_bars(&mut rig, 30);
+    choose(&mut rig, 100, 1, &[Button::Up]);
+    rig.tap(200, Button::Ok);
+    rig.tap(202, Button::Stop);
+
+    rig.step(300);
+
+    // The removal uses the reserve and publishes at once, then waits for that version's report.
+    assert_eq!(rig.sent(), [message(2, 200, meter(0, 0, 1, THREE_FOUR))]);
+    assert_eq!(
+        versions(&mut rig),
+        [Version {
+            number: 3,
+            moment: 200 + 1_024,
+            track: 0,
+            tree: Tree(None)
+        }]
+    );
+
+    rig.applied(3, 1_300);
+    rig.step(400);
+    assert_eq!(rig.sent(), [message(4, 202, MessageKind::Silence)]);
+}
+
+#[test]
+fn note_memory_falls_after_a_change_that_deletes() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    rig.synth_on(0);
+    on_bars(&mut rig, 0);
+    // 2 bars, the row below 1 bar.
+    choose(&mut rig, 60, 0, &[Button::Down]);
+    for step in 0..16 {
+        rig.tap(100 + 10 * u64::from(step), Button::Step(step));
+    }
+    rig.step(300);
+    // By hand, as no control moves the cursor's bar before plan 3's arrows.
+    rig.control.view.steps.bar = 1;
+    for step in 0..16 {
+        rig.tap(300 + 10 * u64::from(step), Button::Step(step));
+    }
+    rig.step(500);
+    // 32 notes pass a leaf's 31: two leaves of 16 and their root, which the Dev page shows.
+    assert_eq!(rig.control.note_memory, 3 * 520);
+
+    // 1 bar, the row above 2 bars.
+    choose(&mut rig, 600, 0, &[Button::Up]);
+    rig.tap(700, Button::Ok);
+    rig.step(710);
+
+    // Bar 1's leaf alone.
+    assert_eq!(rig.control.note_memory, 520);
 }
