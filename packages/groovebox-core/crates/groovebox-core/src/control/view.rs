@@ -13,6 +13,7 @@ pub enum Screen {
     Sound,
     Pool,
     Settings,
+    Pattern,
     Samples,
 }
 
@@ -28,6 +29,7 @@ impl Screen {
         Self::Sound,
         Self::Pool,
         Self::Settings,
+        Self::Pattern,
         Self::Samples,
     ];
 
@@ -38,6 +40,7 @@ impl Screen {
             Self::Sound => "Sound",
             Self::Pool => "Pool",
             Self::Settings => "Settings",
+            Self::Pattern => "Pattern",
             Self::Samples => "Samples",
         }
     }
@@ -362,7 +365,7 @@ mod tests {
     }
 
     #[test]
-    fn the_menu_tiles_show_step_sound_pool_settings_and_samples() {
+    fn the_menu_tiles_show_step_sound_pool_settings_pattern_and_samples() {
         let tiles = menu_tiles(Screen::Settings);
 
         assert_eq!(
@@ -394,13 +397,20 @@ mod tests {
             }
         );
         assert_eq!(
+            tiles[8],
+            Tile {
+                name: Some("Pattern"),
+                state: TileState::Exists
+            }
+        );
+        assert_eq!(
             tiles[9],
             Tile {
                 name: Some("Samples"),
                 state: TileState::Exists
             }
         );
-        assert_eq!(tiles.iter().filter(|&&tile| tile == EMPTY).count(), 11);
+        assert_eq!(tiles.iter().filter(|&&tile| tile == EMPTY).count(), 10);
         assert_eq!(menu_tiles(Screen::Step)[0].state, TileState::Current);
         assert_eq!(menu_tiles(Screen::Pool)[5].state, TileState::Current);
     }

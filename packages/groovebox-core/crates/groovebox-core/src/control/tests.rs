@@ -24,6 +24,7 @@ mod pattern;
 mod pool;
 mod sample_sounds;
 mod sound;
+mod timing;
 
 /// A control part with its own storage, I/O buffer, block tables, sample RAM, version queue and
 /// note memory. The control part is copied straight onto the heap: a debug build of
@@ -1142,6 +1143,7 @@ fn menu_with_step_8_shows_settings_at_the_steps_press() {
             step(2),
             step(5),
             step(7),
+            step(8),
             step(9),
             track(0)
         ]
@@ -1161,6 +1163,7 @@ fn menu_with_step_8_shows_settings_at_the_steps_press() {
             step(2),
             step(5),
             step(7),
+            step(8),
             step(9),
             track(0)
         ]

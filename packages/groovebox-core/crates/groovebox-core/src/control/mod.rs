@@ -21,7 +21,8 @@ use crate::message::{
 };
 use crate::palette::RECORD;
 use crate::param::{
-    self, Curve, END, ENTRIES, LOOP_END, LOOP_START, OUTPUT_VOLUME, ParamId, START, Scope, VELOCITY,
+    self, Curve, END, ENTRIES, LOOP_END, LOOP_START, OUTPUT_VOLUME, ParamId, START, Scope, TEMPO,
+    VELOCITY,
 };
 use crate::project::Project;
 use crate::project::pool::{Engine, PoolFull, SOUND_VALUES, Sample, Sound, SoundNumber};
@@ -1186,7 +1187,8 @@ impl Control {
     /// OK on `item`: a switch flips. The pad's sound opens the sound picker on the pad's entry,
     /// and Copy puts a copy of the pad's sound on the pad, unless the pool is full. Engine opens
     /// the Engine picker on the sound's engine, and the Sample item the sample picker on the
-    /// sound's file, or as New sample does for a missing one (S13). The library meter only shows.
+    /// sound's file, or as New sample does for a missing one (S13). The meters only show, and Grid
+    /// stays (S3).
     fn use_item(
         &mut self,
         item: ItemDef,
@@ -1262,7 +1264,7 @@ impl Control {
                 };
                 self.open_sample_picker(Pick::Change, on);
             }
-            ItemKind::LibraryMeter | ItemKind::NoteMeter => {}
+            ItemKind::LibraryMeter | ItemKind::NoteMeter | ItemKind::Grid => {}
         }
     }
 
@@ -1271,7 +1273,7 @@ impl Control {
     /// stops a frame short of its partner (answer 3): Start below End and Loop start below Loop
     /// end. It stays while the audio part may not read the file (`sample_file`, S15) and when no
     /// frame is left to move to. The Pad page's items and the Sample item have no value to move,
-    /// so a stray turn never changes what a pad plays, and the meters have none either.
+    /// so a stray turn never changes what a pad plays, and the meters and Grid have none either.
     fn change(
         &mut self,
         item: ItemDef,
@@ -1306,7 +1308,8 @@ impl Control {
             | ItemKind::PadEngine
             | ItemKind::SampleFile
             | ItemKind::LibraryMeter
-            | ItemKind::NoteMeter => {}
+            | ItemKind::NoteMeter
+            | ItemKind::Grid => {}
         }
     }
 
@@ -1324,7 +1327,7 @@ impl Control {
     }
 
     /// What holds the value of the entry `id`: the device, or the selected sound of the current
-    /// track.
+    /// track. The project holds the tempo (`value`, `set`).
     fn target(&self, id: ParamId) -> Target {
         match param::entry(id).scope {
             Scope::Device => Target::Device,
@@ -1333,12 +1336,18 @@ impl Control {
                     .selected_sound
                     .expect("a sound's value is on a page only while a sound is selected"),
             ),
-            Scope::Project | Scope::Track => unreachable!("no page shows a project or track value"),
+            Scope::Project | Scope::Track => {
+                unreachable!("no page shows a track value or a project value but the tempo")
+            }
         }
     }
 
     /// The value of the entry `id`, read where its scope keeps it.
     fn value(&self, id: ParamId) -> i32 {
+        if id == TEMPO.id {
+            // At most 30,000, so it fits.
+            return self.project.tempo as i32;
+        }
         match self.target(id) {
             Target::Device => self.settings.get(id),
             Target::Sound(sound) => self
@@ -1351,7 +1360,8 @@ impl Control {
     }
 
     /// Stores `value` for the entry `id` and tells the audio part, unless the entry holds it
-    /// already.
+    /// already. The tempo sends no `SetParam`: while playing the music goes on at it from the first
+    /// tick after `sample`, in both parts, and while stopped the next PLAY carries it (S2).
     fn set(
         &mut self,
         id: ParamId,
@@ -1360,6 +1370,16 @@ impl Control {
         messages: &mut Producer<'_, Message, MESSAGE_QUEUE>,
     ) {
         if value == self.value(id) {
+            return;
+        }
+        if id == TEMPO.id {
+            // At least 3,000, so it fits.
+            self.project.tempo = value as u32;
+            if self.player.run().is_some() {
+                let run = self.player.retimed(sample, self.project.tempo);
+                self.send(sample, MessageKind::Tempo { run }, messages);
+                self.player.retime(run);
+            }
             return;
         }
         let target = self.target(id);

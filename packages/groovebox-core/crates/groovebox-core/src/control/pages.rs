@@ -5,8 +5,8 @@ use crate::param::{
     FILTER_RELEASE, FILTER_SUSTAIN, FILTER_TYPE, FILTER_VELOCITY, FINE_TUNE, GLIDE, GLIDE_TIME,
     KEY_FOLLOW, LEVEL, LOOP, LOOP_END, LOOP_START, METRONOME, METRONOME_LEVEL, MODE, NOISE_LEVEL,
     OSCILLATOR_2_FINE_TUNE, OSCILLATOR_2_INTERVAL, OSCILLATOR_2_LEVEL, PAN, PLAY_MODE, ParamId,
-    RELEASE, RESONANCE, REVERSE, ROOT_NOTE, SHAPE, SPREAD, START, SUB_LEVEL, SUSTAIN, TRANSPOSE,
-    TRIGGER, VELOCITY, VOLUME_VELOCITY, WAVE,
+    RELEASE, RESONANCE, REVERSE, ROOT_NOTE, SHAPE, SPREAD, START, SUB_LEVEL, SUSTAIN, TEMPO,
+    TRANSPOSE, TRIGGER, VELOCITY, VOLUME_VELOCITY, WAVE,
 };
 use crate::project::pool::{Engine, Sound};
 
@@ -31,6 +31,9 @@ pub enum ItemKind {
     /// "Note memory": how much of the note memory the blocks in use take, in text and in its bar.
     /// It is not set.
     NoteMeter,
+    /// "Grid": the length of a step, "1/16". Turns, - and + and OK leave it alone until it can
+    /// change (S3).
+    Grid,
 }
 
 /// An item of a page and the encoder that holds it.
@@ -75,6 +78,7 @@ pub const MENU: [Option<Screen>; STEPS as usize] = {
     menu[2] = Some(Screen::Sound);
     menu[5] = Some(Screen::Pool);
     menu[7] = Some(Screen::Settings);
+    menu[8] = Some(Screen::Pattern);
     menu[9] = Some(Screen::Samples);
     menu
 };
@@ -217,6 +221,19 @@ const VOICE: PageDef = PageDef {
     picture: None,
 };
 
+/// PATTERN's Timing page: Tempo on encoder 1 and Grid on 2 (S4).
+pub(super) const TIMING: PageDef = PageDef {
+    name: "Timing",
+    items: &[
+        item(TEMPO, Some(0)),
+        ItemDef {
+            kind: ItemKind::Grid,
+            encoder: Some(1),
+        },
+    ],
+    picture: None,
+};
+
 /// SOUND's pages for a sound: `pad`, the page of its engine, then those of its chain and voice.
 const fn sound_pages(pad: PageDef, engine: PageDef) -> [PageDef; 6] {
     [pad, engine, FILTER, FILTER_ENVELOPE, VOLUME_ENVELOPE, VOICE]
@@ -230,7 +247,7 @@ const fn sound_pages(pad: PageDef, engine: PageDef) -> [PageDef; 6] {
 /// (Sample or Synth) and the pages of its chain and its voice. While that pad is empty there is no
 /// sound to copy or to shape, and SOUND has only the Pad page with its Sound item. A sound
 /// selected on no pad has no pad to put a sound on or to copy to, so its Pad page holds Engine
-/// alone, on encoder 3.
+/// alone, on encoder 3. PATTERN has its Timing page.
 pub fn pages(screen: Screen, sound: Option<&Sound>, pad: bool) -> &'static [PageDef] {
     match screen {
         Screen::Step | Screen::Pool | Screen::Samples => &[],
@@ -269,6 +286,7 @@ pub fn pages(screen: Screen, sound: Option<&Sound>, pad: bool) -> &'static [Page
                 picture: None,
             },
         ],
+        Screen::Pattern => &[TIMING],
     }
 }
 

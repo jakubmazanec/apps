@@ -710,6 +710,7 @@ impl Control {
                 value.push_str(name::meter(used, total).as_str());
                 ("Note memory", value.as_str(), Bar::Fill(used, total))
             }
+            ItemKind::Grid => ("Grid", "1/16", Bar::Track),
         };
         ItemView {
             encoder: item.encoder.map(|encoder| encoder + 1),
