@@ -73,6 +73,27 @@ impl Default for Project {
     }
 }
 
+/// A time signature: `beats` notes of a `unit`th a bar.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Signature {
+    pub beats: u8,
+    pub unit: u8,
+}
+
+pub const FOUR_FOUR: Signature = Signature { beats: 4, unit: 4 };
+
+impl Signature {
+    /// A bar's ticks: a whole note is 7,680.
+    pub fn bar_ticks(&self) -> u32 {
+        u32::from(self.beats) * 7_680 / u32::from(self.unit)
+    }
+
+    /// A bar's sixteenths, 480 ticks each.
+    pub fn sixteenths(&self) -> u32 {
+        self.bar_ticks() / 480
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::pool::SoundNumber;

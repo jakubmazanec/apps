@@ -29,6 +29,7 @@ pub mod queue;
 pub mod ring;
 pub mod sample_ram;
 pub mod screen;
+pub mod sequencer;
 pub mod storage;
 pub mod store;
 pub mod ui;

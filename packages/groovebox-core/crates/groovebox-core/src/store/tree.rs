@@ -14,13 +14,18 @@ pub struct Cursor {
     depth: u8,
 }
 
+impl Cursor {
+    /// Past the last note of any tree.
+    pub const END: Self = Self {
+        path: [(0, 0); DEPTH],
+        depth: 0,
+    };
+}
+
 impl NoteReader<'_> {
     /// At the first note whose key is `from` or later.
     pub fn seek(&self, tree: Tree, from: Key) -> Cursor {
-        let mut cursor = Cursor {
-            path: [(0, 0); DEPTH],
-            depth: 0,
-        };
+        let mut cursor = Cursor::END;
         let mut next = tree.0;
         while let Some(b) = next {
             let block = self.block(b);
