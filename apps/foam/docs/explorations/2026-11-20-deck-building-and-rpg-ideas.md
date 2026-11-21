@@ -22,8 +22,8 @@ untagged is new in this discussion.
 - Think outside the prototype: its places, quest and numbers are not the frame.
 - A rule earns its place by the decisions it creates. Chores (the toilet, the locker) and random
   penalties (fumbling, rain, theft) create none.
-- The kept loops are each one simple rule on what the night already has, with many decisions behind
-  it (my reading).
+- What works: deck-building proper (cards, upgrades, combinations) from one stated worldview, with
+  example cards.
 
 ## Questions and answers
 
@@ -39,6 +39,8 @@ untagged is new in this discussion.
 5. Sixteen high concepts (memories as the deck, friends as the deck, dignity as health, and more)?
    **Incoherent, no good ideas.** Wanted: deck-building itself, meaning cards, upgrades and
    combinations, from one coherent view of the design.
+6. The deck-building design (worldview, what a card can do, kinds, getting, upgrades, losing, across
+   nights, styles)? **Good.**
 
 ## Loops
 
