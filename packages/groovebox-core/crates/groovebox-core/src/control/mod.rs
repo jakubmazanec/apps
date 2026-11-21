@@ -291,9 +291,10 @@ impl Control {
     /// exactly where this one stopped. Before any later event the missing sounds of a file the
     /// import listed take it, one sound at a time with the same room (`relink`). Before both, the
     /// `DeleteSound`s of deleted sounds go out, oldest first, as far as the queue has room for them
-    /// (`delete_sound`, S17); while any is left the step handles no event and stops there. After
-    /// the events the control part's own sequencer (`player`) advances to `until`: its events go
-    /// nowhere, and it keeps the notes that sound.
+    /// (`delete_sound`, S17); while any is left the step handles no event and stops there. The
+    /// control part's own sequencer (`player`) advances to each event's sample before the event,
+    /// and to `until` once no event is left before it; a step that stops early leaves it at the
+    /// last event it handled. Its events go nowhere, and it keeps the notes that sound.
     ///
     /// The first step starts the start-up's job, and a reply goes to it with `io`, the I/O buffer,
     /// as its request left it. When the job ends the project opens, with the job's result as the
@@ -373,8 +374,10 @@ impl Control {
                 .filter(|&(sample, _)| sample < until)
                 .min_by_key(|&(sample, _)| sample)
             else {
+                self.player.advance(until, &store.reader(), |_| {});
                 break;
             };
+            self.player.advance(sample, &store.reader(), |_| {});
             match event {
                 Event::Reply(reply) => {
                     self.replies.pop();
@@ -499,7 +502,6 @@ impl Control {
             }
             redraw = true;
         }
-        self.player.advance(until, &store.reader(), |_| {});
         if self.page(self.view.screen).and_then(|page| page.picture) == Some(Picture::Waveform)
             && let Some(audio) = self.sample_file()
         {
@@ -758,7 +760,7 @@ impl Control {
     ///   pushes, ROLL, PADS/KEYS and COPY are dropped, and so taken too.
     /// - T1 to T4 select the track and land POOL's cursor (`land_on_selection`). With SHIFT held
     ///   they do nothing until muting comes with the sequencer.
-    /// - SHIFT + OK and SHIFT + an encoder push do nothing.
+    /// - SHIFT + OK, SHIFT + STOP and SHIFT + an encoder push do nothing.
     /// - PADS/KEYS held + up or down moves the octave in KEYS mode, stopping at C0 and C8, and in
     ///   PADS mode does nothing. PADS/KEYS held + left or right does nothing. Each arrow under
     ///   PADS/KEYS is taken, so it does not repeat, and like any press it still counts as another
@@ -804,7 +806,13 @@ impl Control {
         let question = self.view.question.is_some();
         let pads_keys = self.buttons.first_held(&[Button::PadsKeys]).is_some();
         match button {
-            Button::T1 | Button::T2 | Button::T3 | Button::T4 | Button::Ok | Button::Push(_)
+            Button::T1
+            | Button::T2
+            | Button::T3
+            | Button::T4
+            | Button::Ok
+            | Button::Stop
+            | Button::Push(_)
                 if self.buttons.is_held(Button::Shift) =>
             {
                 self.buttons.take(button);
