@@ -616,7 +616,7 @@ impl Control {
     }
 
     /// The header's transport (S11): the current pattern ("P1"), the cursor's bar over the
-    /// pattern's length ("1/1"), with "▶" and the bar the music is in while playing ("1/1 ▶1"), and
+    /// pattern's length ("1/1"), with "▶" and the bar the music is in while playing ("1/1 ▶1") and
     /// the tempo with one decimal ("120.0").
     fn transport(&self, out: &mut [Label<24>; 3]) {
         let [pattern, bar, tempo] = out;

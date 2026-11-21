@@ -1,4 +1,4 @@
-//! Patterns, PLAY, SHIFT + PLAY and STOP, and the steps that enter and remove notes.
+//! Patterns, PLAY, SHIFT + PLAY and STOP and the steps that enter and remove notes.
 
 use super::library::{converted_with, meter};
 use super::sample_sounds::{KICK, library, sample_on};

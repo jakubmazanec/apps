@@ -564,7 +564,7 @@ impl Control {
     ///
     /// A pad is lit from its own hit to its release, whatever changes meanwhile: the mode, the
     /// octave or the track. Otherwise the pads show the current track. In PADS mode the selected
-    /// pad is lit and so is every pad a MIDI note on was hit as, and every pad whose sound has a
+    /// pad is lit and so is every pad a MIDI note on was hit as and every pad whose sound has a
     /// note of the current track sounding in the pattern (S13). In KEYS mode pad 1, the C, is lit
     /// and so is every pad whose pitch in the current octave has a MIDI note on or is a pitch the
     /// pattern sounds on the current track in the selected sound (S13). T1 to T4 light the
