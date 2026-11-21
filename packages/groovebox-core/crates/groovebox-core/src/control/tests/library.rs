@@ -2245,7 +2245,7 @@ fn the_meter_drops_once_the_blocks_are_free() {
 }
 
 #[test]
-fn a_failed_delete_keeps_the_file_and_says_so() {
+fn a_refused_delete_deletes_the_file_all_the_same() {
     let queue = Queue::new();
     let mut rig = on_samples(&queue, &three_files());
     rig.tap(100, Button::Ok);
@@ -2262,25 +2262,11 @@ fn a_failed_delete_keeps_the_file_and_says_so() {
     );
     rig.step(301);
 
-    let mut text = Label::new();
-    text.push_str("clap.wav not deleted");
-    assert_eq!(
-        rig.control.message,
-        Some(HeaderMessage {
-            text,
-            color: RECORD,
-            name: (0, 8)
-        })
-    );
+    assert_eq!(rig.control.message, None);
     let drums: Vec<_> = rig.control.library.entries(Some(FolderId(0))).collect();
-    assert_eq!(drums, [Entry::Folder(FolderId(1)), Entry::File(FileId(2))]);
-    assert_eq!(rig.control.library.used(), 67 * 2_048);
-    // It plays again from the next preview.
-    rig.sent();
-    rig.tap(400, Button::Up);
-    rig.tap(410, Button::Down);
-    rig.step(420);
-    assert_eq!(rig.sent(), [message(3, 410, preview(2, 4_800))]);
+    assert_eq!(drums, [Entry::Folder(FolderId(1))]);
+    // clap.wav's blocks 15 to 19 are free.
+    assert_eq!(rig.control.library.used(), 62 * 2_048);
 }
 
 #[test]

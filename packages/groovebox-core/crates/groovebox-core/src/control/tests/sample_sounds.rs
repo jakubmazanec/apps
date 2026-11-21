@@ -1609,7 +1609,7 @@ fn a_hit_during_a_delete_sends_no_file() {
 }
 
 #[test]
-fn a_failed_delete_leaves_the_sounds_playing_the_file() {
+fn a_refused_delete_leaves_the_sounds_missing_all_the_same() {
     let queue = Queue::new();
     let mut rig = Rig::with_files(&queue, &library());
     rig.open();
@@ -1630,14 +1630,14 @@ fn a_failed_delete_leaves_the_sounds_playing_the_file() {
 
     assert_eq!(
         rig.control.project.pool.get(kick).unwrap().engine,
-        Engine::Sample(Sample::File(KICK.file))
+        missing_kick()
     );
     assert_eq!(
         rig.sent(),
         [message(
             forget.number + 1,
             200,
-            sample_note(0, kick, 48, Some(KICK))
+            sample_note(0, kick, 48, None)
         )]
     );
 }

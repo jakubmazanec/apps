@@ -1,17 +1,14 @@
 //! SAMPLES and the sample picker: the library by folder, listed and moved through alike (Workflow
 //! A).
 
+use super::Control;
 use super::view::{Cursor, Pick, Picker, SamplesView, moved};
-use super::{Control, HeaderMessage};
 use crate::input::Button;
-use crate::label::Label;
 use crate::library::{Entry, FileId, FolderId, Library};
 use crate::message::{MESSAGE_QUEUE, Message, MessageKind, NoteEngine};
-use crate::palette::RECORD;
 use crate::project::pool::{Engine, SOUND_DEFAULTS, Sample};
 use crate::queue::Producer;
 use crate::sample_ram::Tables;
-use crate::storage::Status;
 
 /// A row of SAMPLES.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -190,45 +187,33 @@ impl Control {
         }
     }
 
-    /// The storage's reply to the `Delete` of `file`, which ends the delete. Once the storage no
-    /// longer holds the file, SAMPLES leaves each folder that holds nothing but the file, as CANCEL
-    /// does; the file's sounds turn missing, keeping its path (S18), and the library unlists the
-    /// file and those folders and frees its blocks: the cursor then moves from the row that is gone
-    /// to the row above (`keep_samples_cursor`). The sample picker goes to the top level when its
-    /// folder is one of those folders. Otherwise the file stays, in the sample RAM too, its sounds
-    /// play it and the header says in red "clap.wav not deleted".
+    /// The storage's reply to the `Delete` of `file`, which ends the delete. Whatever the storage
+    /// answers, SAMPLES leaves each folder that holds nothing but the file, as CANCEL does; the
+    /// file's sounds turn missing, keeping its path (S18), and the library unlists the file and
+    /// those folders and frees its blocks: the cursor then moves from the row that is gone to the
+    /// row above (`keep_samples_cursor`). The sample picker goes to the top level when its folder
+    /// is one of those folders. A file the storage refused to delete stays there and comes back at
+    /// the next start-up (owner's choice): the audio part has let go of it already.
     #[allow(unsafe_code)]
-    pub(super) fn deleted(&mut self, file: FileId, status: Status, tables: &Tables) {
+    pub(super) fn deleted(&mut self, file: FileId, tables: &Tables) {
         self.delete = None;
-        // A file the storage no longer holds is gone all the same.
-        if matches!(status, Status::Done | Status::Missing) {
-            let emptied = |shown| {
-                self.library
-                    .emptied_by(file)
-                    .any(|emptied| emptied == shown)
-            };
-            while self.view.samples.folder.is_some_and(emptied) {
-                go_up(&self.library, &mut self.view.samples);
-            }
-            // A folder that is gone gives the sample picker the top level (S13).
-            if self.view.sample_picker.folder.is_some_and(emptied) {
-                self.view.sample_picker = SamplesView::top(true);
-            }
-            self.project.pool.lose(file, self.library.path(file));
-            // SAFETY: the applied report of the file's `ForgetSample` came back, or the file is
-            // not loaded, so the audio part was never told about it.
-            unsafe { self.library.remove(file, tables) };
-        } else {
-            let mut text = Label::new();
-            text.push_str(self.library.file(file).name.as_str());
-            let name = (0, text.as_str().len());
-            text.push_str(" not deleted");
-            self.message = Some(HeaderMessage {
-                text,
-                color: RECORD,
-                name,
-            });
+        // A file the storage no longer holds, or refused to delete, is gone all the same.
+        let emptied = |shown| {
+            self.library
+                .emptied_by(file)
+                .any(|emptied| emptied == shown)
+        };
+        while self.view.samples.folder.is_some_and(emptied) {
+            go_up(&self.library, &mut self.view.samples);
         }
+        // A folder that is gone gives the sample picker the top level (S13).
+        if self.view.sample_picker.folder.is_some_and(emptied) {
+            self.view.sample_picker = SamplesView::top(true);
+        }
+        self.project.pool.lose(file, self.library.path(file));
+        // SAFETY: the applied report of the file's `ForgetSample` came back, or the file is
+        // not loaded, so the audio part was never told about it.
+        unsafe { self.library.remove(file, tables) };
         self.put_request();
     }
 

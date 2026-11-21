@@ -413,7 +413,7 @@ impl Control {
                                 }
                             }
                         } else if let Some((file, Deleting::Reply)) = self.delete {
-                            self.deleted(file, reply.status, tables);
+                            self.deleted(file, tables);
                         } else if self.import.running() {
                             if let ControlFlow::Break(result) =
                                 self.import.reply(reply, io, ram, &mut self.library, tables)

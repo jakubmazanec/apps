@@ -605,11 +605,12 @@ the file from storage and from RAM: voices reading it fade out within one 32-sam
 a taken voice does, and the preview player stops the same way; the file's RAM is reused, and the
 meter drops, only after the sound side reports, the handshake the note store uses **(owner's
 choice)**; sounds of the open project that use it turn MISSING when the delete ends, and other
-projects find out when they are opened. A delete that fails leaves them playing the file. Deletes
-run one at a time: while one runs, OK on a file opens nothing and moving onto the file being deleted
-plays nothing, with no message **(owner's choice)**. If storage says the file is already gone, the
-delete counts as done **(owner's choice)**. REMOVE UNUSED on POOL removes sounds from the project
-and never touches a file or sample RAM.
+projects find out when they are opened. A delete the storage refuses counts as done all the same:
+the file leaves the library and the RAM but comes back at the next start-up **(owner's choice)**.
+Deletes run one at a time: while one runs, OK on a file opens nothing and moving onto the file being
+deleted plays nothing, with no message **(owner's choice)**. If storage says the file is already
+gone, the delete counts as done **(owner's choice)**. REMOVE UNUSED on POOL removes sounds from the
+project and never touches a file or sample RAM.
 
 **The library meter** is one number, how full the library is: the converted size of every file in
 the library against the sample RAM, such as "41.2 of 64 MB", where a MB is 1,000,000 bytes and the
