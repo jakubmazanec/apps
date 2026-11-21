@@ -215,7 +215,7 @@ impl Audio {
                             &mut fades,
                         );
                     }
-                    Event::Start { .. } => {}
+                    Event::Start { .. } | Event::Beat { .. } => {}
                     Event::End(sounding) => self.voices.note_off(sounding.id, &self.sounds, reader),
                 });
             let mut mix = [[0.0; CHUNK]; 2];
