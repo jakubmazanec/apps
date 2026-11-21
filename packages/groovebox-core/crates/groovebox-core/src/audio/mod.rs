@@ -2,17 +2,19 @@ use crate::dsp::clip::soft_clip;
 use crate::message::{
     MESSAGE_QUEUE, Message, MessageKind, REPORT_QUEUE, Report, Target, VERSION_QUEUE, Version,
 };
-use crate::param::{self, OUTPUT_VOLUME};
+use crate::param::{self, METRONOME, METRONOME_LEVEL, OUTPUT_VOLUME};
 use crate::project::pool::SOUND_DEFAULTS;
 use crate::queue::{Consumer, Producer};
 use crate::sample_ram::Reader;
 use crate::sequencer::{Event, Sequencer};
 use crate::store::NoteReader;
+use click::Click;
 use preview::Preview;
 use sounds::Sounds;
 use voice::Glide;
 use voices::Voices;
 
+pub mod click;
 pub mod preview;
 pub mod sample;
 pub mod sounds;
@@ -37,6 +39,11 @@ pub struct Audio {
     table: u8,
     /// Plays the trees of the versions.
     sequencer: Sequencer,
+    /// Whether a beat starts the click: METRONOME is on.
+    metronome: bool,
+    click: Click,
+    /// The click's level, gliding as the output volume does.
+    metronome_level: Glide,
 }
 
 impl Audio {
@@ -49,6 +56,9 @@ impl Audio {
             volume: Glide::at(OUTPUT_VOLUME.default),
             table: 0,
             sequencer: Sequencer::new(),
+            metronome: false,
+            click: Click::new(),
+            metronome_level: Glide::at(METRONOME_LEVEL.default),
         }
     }
 
@@ -61,10 +71,11 @@ impl Audio {
     /// applies every message that is due, then every version whose moment is due, and reports the
     /// sample at which it applied each. Then the sequencer starts and ends the pattern's notes due
     /// by the chunk start: a note of a sound the audio part does not hold starts nothing (S22),
-    /// and the others play their sound's engine. It then adds up the voices, the last chunk of
-    /// each voice a new note took or choked or a `ForgetSample`, `DeleteSound` or `Silence` faded
-    /// and the preview, soft-clips the sum and multiplies it by the output volume, which moves in a
-    /// line across the chunk.
+    /// and the others play their sound's engine; a beat starts the click while the metronome is on.
+    /// It then adds up the voices, the last chunk of each voice a new note took or choked or a
+    /// `ForgetSample`, `DeleteSound` or `Silence` faded, the preview and the click at the
+    /// metronome level, soft-clips the sum and multiplies it by the output volume; both levels move
+    /// in a line across the chunk.
     ///
     /// It takes a message or a version only while the report queue has room for its report and
     /// never waits: one it leaves stays in its queue, in order, for a later chunk start. It counts
@@ -134,6 +145,18 @@ impl Audio {
                         id,
                         value,
                     } if id == OUTPUT_VOLUME.id => self.volume.set(value, OUTPUT_VOLUME.glide),
+                    MessageKind::SetParam {
+                        target: Target::Device,
+                        id,
+                        value,
+                    } if id == METRONOME.id => self.metronome = value != 0,
+                    MessageKind::SetParam {
+                        target: Target::Device,
+                        id,
+                        value,
+                    } if id == METRONOME_LEVEL.id => {
+                        self.metronome_level.set(value, METRONOME_LEVEL.glide);
+                    }
                     MessageKind::NoteOn {
                         note,
                         track,
@@ -172,10 +195,13 @@ impl Audio {
                     MessageKind::Silence => {
                         self.voices.silence(&mut fades);
                         self.preview.stop();
+                        self.click.silence();
                     }
                     MessageKind::SoundEngine { sound, engine } => {
                         self.sounds.set_engine(sound, engine);
                     }
+                    MessageKind::Tempo { run } => self.sequencer.retime(run),
+                    MessageKind::Meter { meter } => self.sequencer.meter(meter, notes),
                     // Another device value is not the audio part's.
                     MessageKind::SetParam { .. } => {}
                 }
@@ -215,6 +241,7 @@ impl Audio {
                             &mut fades,
                         );
                     }
+                    Event::Beat { first } if self.metronome => self.click.start(first),
                     Event::Start { .. } | Event::Beat { .. } => {}
                     Event::End(sounding) => self.voices.note_off(sounding.id, &self.sounds, reader),
                 });
@@ -222,13 +249,22 @@ impl Audio {
             self.voices.render(reader, &mut mix);
             let mut preview = [[0.0; CHUNK]; 2];
             self.preview.render(reader, &mut preview);
+            let mut click = [0.0; CHUNK];
+            self.click.render(&mut click);
             let before = param::real(&OUTPUT_VOLUME, self.volume.value);
             self.volume.step();
             let after = param::real(&OUTPUT_VOLUME, self.volume.value);
+            let level_before = param::real(&METRONOME_LEVEL, self.metronome_level.value);
+            self.metronome_level.step();
+            let level_after = param::real(&METRONOME_LEVEL, self.metronome_level.value);
             for n in 0..CHUNK {
                 let gain = before + (after - before) * (n + 1) as f32 / CHUNK as f32;
-                left[n] = soft_clip(mix[0][n] + fades[0][n] + preview[0][n]) * gain;
-                right[n] = soft_clip(mix[1][n] + fades[1][n] + preview[1][n]) * gain;
+                let level =
+                    level_before + (level_after - level_before) * (n + 1) as f32 / CHUNK as f32;
+                left[n] =
+                    soft_clip(mix[0][n] + fades[0][n] + preview[0][n] + click[n] * level) * gain;
+                right[n] =
+                    soft_clip(mix[1][n] + fades[1][n] + preview[1][n] + click[n] * level) * gain;
             }
             self.position += CHUNK as u64;
         }
@@ -251,16 +287,17 @@ mod tests {
         Target, VERSION_QUEUE, Version,
     };
     use crate::param::{
-        CHOKE_GROUP, CUTOFF, DECAY, END, Entry, GATE, LEGATO, LEVEL, LOOP, LOOP_END, MONO,
-        ONE_SHOT, OUTPUT_VOLUME, PLAY_MODE, POLY, RESONANCE, SPREAD, SUPERSAW, SUSTAIN, TRIGGER,
-        WAVE,
+        CHOKE_GROUP, CUTOFF, DECAY, END, Entry, GATE, LEGATO, LEVEL, LOOP, LOOP_END, METRONOME,
+        METRONOME_LEVEL, MONO, ONE_SHOT, OUTPUT_VOLUME, PLAY_MODE, POLY, RESONANCE, SPREAD,
+        SUPERSAW, SUSTAIN, TRIGGER, WAVE,
     };
+    use crate::project::Signature;
     use crate::project::pool::{SOUND_DEFAULTS, SOUND_VALUES, Sound, SoundNumber};
     use crate::queue::{Consumer, Producer, Queue};
     use crate::sample_ram::{
         BLOCK, BLOCKS, Blocks, Listed, Listing, SampleRam, Tables, blocks_for,
     };
-    use crate::sequencer::Run;
+    use crate::sequencer::{Meter, Run};
     use crate::store::note::Note;
     use crate::store::{NoteRam, Tree};
     use std::boxed::Box;
@@ -2259,5 +2296,165 @@ mod tests {
 
         // Sound 2's pattern note plays file 0, as a note of it that names the file does.
         assert_eq!(played(true), played(false));
+    }
+
+    fn set_device(entry: &Entry, value: i32) -> MessageKind {
+        MessageKind::SetParam {
+            target: Target::Device,
+            id: entry.id,
+            value,
+        }
+    }
+
+    /// The first `length` samples of a click started on a bar's first beat or on another.
+    pub(super) fn clicked(first: bool, length: usize) -> Vec<f32> {
+        let mut click = Click::new();
+        click.start(first);
+        let mut out = std::vec![0.0; length];
+        for chunk in out.as_chunks_mut::<CHUNK>().0 {
+            click.render(chunk);
+        }
+        out
+    }
+
+    /// A rig with the metronome on that plays an empty pattern from sample 0, with `messages`
+    /// at their samples after the `Play`, rendered for `length` samples.
+    fn clicking(messages: &[(u64, MessageKind)], length: usize) -> Vec<f32> {
+        let (queue, reports) = (Queue::new(), Queue::new());
+        let mut rig = Rig::new(&queue, &reports);
+        rig.send(0, 0, set_device(&METRONOME, 1));
+        rig.send(1, 0, play(0));
+        for (number, &(at, kind)) in (2..).zip(messages) {
+            rig.send(number, at, kind);
+        }
+        rig.render(length)
+    }
+
+    #[test]
+    fn while_the_metronome_is_on_each_beat_clicks() {
+        let out = clicking(&[], 72_000);
+
+        for beat in [0, 24_000, 48_000] {
+            assert!(!is_silent(&out[beat..beat + CHUNK]), "{beat}");
+            assert!(is_silent(&out[beat + 1_440..beat + 24_000]), "{beat}");
+        }
+        // The bar's first beat clicks higher than the others.
+        assert_ne!(bits(&out[..1_440]), bits(&out[24_000..25_440]));
+        assert_eq!(bits(&out[24_000..25_440]), bits(&out[48_000..49_440]));
+    }
+
+    #[test]
+    fn off_or_stopped_nothing_clicks() {
+        let silent = |metronome, playing| {
+            let (messages, reports) = (Queue::new(), Queue::new());
+            let mut rig = Rig::new(&messages, &reports);
+            rig.send(0, 0, set_device(&METRONOME, metronome));
+            if playing {
+                rig.send(1, 0, play(0));
+            }
+            is_silent(&rig.render(48_032))
+        };
+
+        assert!(silent(0, true));
+        assert!(silent(1, false));
+        assert!(!silent(1, true));
+    }
+
+    #[test]
+    fn the_click_joins_before_the_soft_clipper_at_its_level() {
+        let at_level = |level| clicking(&[(0, set_device(&METRONOME_LEVEL, level))], 1_440);
+        let click = clicked(true, 1_440);
+        let volume = param::real(&OUTPUT_VOLUME, OUTPUT_VOLUME.default);
+
+        // The level glides over 128 samples.
+        let (full, quarter) = (at_level(65_535), at_level(32_768));
+        let clipped: Vec<f32> = click.iter().map(|&x| soft_clip(x) * volume).collect();
+
+        // The click is loud enough for the clipper to bend it.
+        assert!(peak(&click) > 0.5, "peak {}", peak(&click));
+        assert_eq!(bits(&full[128..]), bits(&clipped[128..]));
+        for (quarter, x) in quarter[128..].iter().zip(&click[128..]) {
+            assert!(
+                libm::fabsf(quarter - x / 4.0 * volume) < 1e-4,
+                "{x} and {quarter}"
+            );
+        }
+    }
+
+    #[test]
+    fn stop_lets_a_click_finish_and_silence_cuts_it() {
+        let clicks = clicking(&[], 2_048);
+        let stopped = clicking(&[(100, MessageKind::Stop)], 2_048);
+        let silenced = clicking(
+            &[(100, MessageKind::Stop), (100, MessageKind::Silence)],
+            2_048,
+        );
+
+        assert_eq!(bits(&stopped), bits(&clicks));
+        assert!(!is_silent(&stopped[1_408..1_440]));
+        assert!(is_silent(&stopped[1_440..]));
+        assert_eq!(bits(&silenced[..128]), bits(&clicks[..128]));
+        let fade = &silenced[128..160];
+        assert!(!is_silent(fade));
+        assert_eq!(fade[CHUNK - 1], 0.0);
+        assert!(is_silent(&silenced[160..]));
+    }
+
+    /// Sound 1's notes `starts` from the pad, each held one step at 120 BPM, rendered for
+    /// `length` samples.
+    fn played_at(starts: &[u64], length: usize) -> Vec<u32> {
+        let (messages, reports) = (Queue::new(), Queue::new());
+        let mut rig = Rig::new(&messages, &reports);
+        rig.send(0, 0, new_sound(1));
+        for (note, &start) in (0..).zip(starts) {
+            rig.send(2 * note + 1, start, note_on(note));
+            rig.send(2 * note + 2, start + 6_000, note_off(note));
+        }
+        bits(&rig.render(length))
+    }
+
+    #[test]
+    fn a_tempo_message_moves_the_notes_not_yet_started() {
+        let (messages, reports) = (Queue::new(), Queue::new());
+        let mut rig = Rig::new(&messages, &reports);
+        rig.send(0, 0, new_sound(1));
+        rig.send(1, 0, play(0));
+        rig.version(2, 0, 0, &[step(0), step(4)]);
+        let run = Run {
+            anchor: 3_012,
+            tick: 241,
+            tempo: 6_000,
+        };
+        rig.send(3, 3_000, MessageKind::Tempo { run });
+
+        let out = rig.render(45_024);
+
+        assert_eq!(
+            bits(&out),
+            played_at(&[0, 3_012 + (1_920 - 241) * 150_000 / 6_000], 45_024)
+        );
+    }
+
+    #[test]
+    fn a_meter_message_takes_hold_at_its_bar_line() {
+        let (messages, reports) = (Queue::new(), Queue::new());
+        let mut rig = Rig::new(&messages, &reports);
+        rig.send(0, 0, new_sound(1));
+        rig.send(1, 0, play(0));
+        rig.version(2, 0, 0, &[step(0)]);
+        let meter = Meter {
+            tick: 7_680,
+            bar: 0,
+            bars: 1,
+            signature: Signature { beats: 3, unit: 4 },
+        };
+        rig.send(3, 50_000, MessageKind::Meter { meter });
+
+        let out = rig.render(168_032);
+
+        assert_eq!(
+            bits(&out),
+            played_at(&[0, 96_000, 96_000 + 72_000], 168_032)
+        );
     }
 }

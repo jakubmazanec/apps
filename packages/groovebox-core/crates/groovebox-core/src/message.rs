@@ -1,7 +1,7 @@
 use crate::library::FileId;
 use crate::param::ParamId;
 use crate::project::pool::SoundNumber;
-use crate::sequencer::Run;
+use crate::sequencer::{Meter, Run};
 use crate::store::Tree;
 
 pub const MESSAGE_QUEUE: usize = 256;
@@ -129,6 +129,16 @@ pub enum MessageKind {
     SoundEngine {
         sound: SoundNumber,
         engine: NoteEngine,
+    },
+    /// While playing, the music goes on at `run`'s tempo from its tick: notes sounding keep their
+    /// end and the others follow the new tempo (S2).
+    Tempo {
+        run: Run,
+    },
+    /// The pattern takes `meter`'s bars and signature: while playing at its tick, while stopped at
+    /// once (S13).
+    Meter {
+        meter: Meter,
     },
 }
 
