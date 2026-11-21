@@ -652,16 +652,16 @@ impl Control {
         );
     }
 
-    /// The header's transport (S11): the current pattern ("P1"), the cursor's bar over the
-    /// pattern's length ("1/1"), with "▶" and the bar the music is in while playing ("1/1 ▶1") and
-    /// the tempo with one decimal ("120.0").
+    /// The header's transport (S11): the current pattern ("P1"), the bar the step buttons show
+    /// (`shown_bar`) over the pattern's length ("1/1"), with "▶" and the bar the music is in while
+    /// playing ("1/1 ▶1") and the tempo with one decimal ("120.0").
     fn transport(&self, out: &mut [Label<24>; 3]) {
         let [pattern, bar, tempo] = out;
         write!(pattern, "P{}", self.project.pattern + 1).expect("writing to a label never fails");
         write!(
             bar,
             "{}/{}",
-            self.view.steps.bar + 1,
+            self.shown_bar(self.now) + 1,
             self.project.patterns[usize::from(self.project.pattern)].bars
         )
         .expect("writing to a label never fails");

@@ -1,5 +1,6 @@
 //! The PATTERN screen's Timing page, the tempo, TEMPO and the metronome; its Bars page with LENGTH
-//! and SIGNATURE; the removal of the notes they no longer fit.
+//! and SIGNATURE; the removal of the notes they no longer fit; following the music, and long and
+//! short bars on the step buttons.
 
 use super::library::row;
 use super::pattern::{count, entered, fill_until, notes_in, put, versions};
@@ -589,10 +590,9 @@ const SYN_1: (&str, Color) = ("Syn 1", TEXT);
 
 const THREE_FOUR: Signature = Signature { beats: 3, unit: 4 };
 
-/// The header of PATTERN's Bars page on T1 in PADS mode with `sound` selected, over a pattern of
-/// `length` with the cursor in bar 1 and `playing` after the bar while playing, at 120 BPM.
-fn bars_header(sound: (&str, Color), length: &str, playing: &str) -> Screen {
-    let bar = format!("1/{}{playing}", length.split(' ').next().unwrap());
+/// The header of PATTERN's Bars page on T1 in PADS mode with `sound` selected, with `bar` as the
+/// transport's bar ("1/4" or "2/4 ▶3"), at 120 BPM.
+fn bars_header(sound: (&str, Color), bar: &str) -> Screen {
     let [left, right]: [Vec<Piece>; 2] = [
         &[
             ("Pattern", ACCENT),
@@ -601,7 +601,7 @@ fn bars_header(sound: (&str, Color), length: &str, playing: &str) -> Screen {
             sound,
             ("Pads", DIM),
         ][..],
-        &[("P1", TEXT), (&bar, TEXT), ("120.0", TEXT)],
+        &[("P1", TEXT), (bar, TEXT), ("120.0", TEXT)],
     ]
     .map(|pieces| {
         pieces
@@ -612,6 +612,13 @@ fn bars_header(sound: (&str, Color), length: &str, playing: &str) -> Screen {
     let mut screen = Screen::new();
     draw_header(&mut screen, &left, &right, false);
     screen
+}
+
+/// Whether the control part draws the header of PATTERN's Bars page with `sound` selected and
+/// `bar` as the transport's bar.
+fn bars_header_shows(control: &Control, sound: (&str, Color), bar: &str) -> bool {
+    let rows = WIDTH * (HEADER_LINE as usize + 1);
+    picture(control).pixels()[..rows] == bars_header(sound, bar).pixels()[..rows]
 }
 
 /// PATTERN's Bars page of a stopped project with `sound` selected and the cursor on item `cursor`,
@@ -638,7 +645,7 @@ fn bars_page(
             bar: Bar::Track,
         },
     ];
-    let mut screen = bars_header(sound, length, "");
+    let mut screen = bars_header(sound, &format!("1/{}", length.split(' ').next().unwrap()));
     for (y, item) in (17..).step_by(18).zip(&items) {
         draw_item(&mut screen, 2, y, 160, item, true, None);
     }
@@ -659,7 +666,7 @@ fn bars_page(
 /// A new project's PATTERN Bars page under a picker of `rows`, which shows row `scroll` first,
 /// with its highlight on row `item`, over an empty strip.
 fn bars_picker(rows: &[&str], scroll: usize, item: usize) -> Screen {
-    let mut screen = bars_header(PAD_1, "1 bar", "");
+    let mut screen = bars_header(PAD_1, "1/1");
     let rows: Vec<Row> = rows.iter().map(|left| row(left, None)).collect();
     draw_rows(&mut screen, 17, 16, &rows, scroll, Some(item), 0);
     draw_strip(&mut screen, &[None; 4]);
@@ -1050,9 +1057,7 @@ fn a_shorter_length_while_playing_wraps_to_bar_1_at_the_next_bar_line() {
         [message(2, 200_000, meter(23_040, 0, 2, FOUR_FOUR))]
     );
     // The header has the new length at once, and bar 3 plays out, then bar 1.
-    let header = bars_header(PAD_1, "2 bars", " ▶3");
-    let rows = WIDTH * (HEADER_LINE as usize + 1);
-    assert!(picture(&rig.control).pixels()[..rows] == header.pixels()[..rows]);
+    assert!(bars_header_shows(&rig.control, PAD_1, "2/2 ▶3"));
     assert_eq!(bar_at(&mut rig, 288_099), Some(2));
     assert_eq!(bar_at(&mut rig, 288_100), Some(0));
 }
@@ -1554,4 +1559,286 @@ fn note_memory_falls_after_a_change_that_deletes() {
 
     // Bar 1's leaf alone.
     assert_eq!(rig.control.note_memory, 520);
+}
+
+/// A `Play` of a run from tick `tick` anchored at `anchor`, at 120 BPM.
+fn play_from(anchor: u64, tick: u64) -> MessageKind {
+    MessageKind::Play {
+        run: Run {
+            anchor,
+            tick,
+            tempo: 12_000,
+        },
+    }
+}
+
+#[test]
+fn while_playing_the_steps_and_the_header_follow_the_bar() {
+    let queue = Queue::new();
+    let mut rig = playing_4_bars(&queue);
+    let synth = rig.synth_on(0);
+    put(
+        &mut rig,
+        0,
+        0,
+        &[
+            entered(0, synth, 60),
+            Note {
+                bar: 1,
+                ..entered(4, synth, 60)
+            },
+        ],
+    );
+
+    // Bar 1's note in step 1, and the music in step 2.
+    rig.step(10_000);
+    assert_eq!(
+        rig.lit(),
+        [pad(0), step(0), step(1), track(0), Lights::PLAY]
+    );
+    assert!(bars_header_shows(&rig.control, SYN_1, "1/4 ▶1"));
+
+    // Bar 2's note in step 5, and the music in step 2 again.
+    rig.step(103_000);
+    assert_eq!(
+        rig.lit(),
+        [pad(0), step(1), step(4), track(0), Lights::PLAY]
+    );
+    assert!(bars_header_shows(&rig.control, SYN_1, "2/4 ▶2"));
+}
+
+#[test]
+fn stop_leaves_the_cursor_on_the_bar_that_played() {
+    let queue = Queue::new();
+    let mut rig = playing_4_bars(&queue);
+
+    rig.tap(200_000, Button::Stop);
+    rig.step(200_010);
+    assert_eq!(rig.control.view.steps.bar, 2);
+    assert!(bars_header_shows(&rig.control, PAD_1, "3/4"));
+
+    rig.press(300_000, Button::Shift);
+    rig.tap(300_010, Button::Play);
+    rig.step(300_020);
+    assert_eq!(
+        rig.sent(),
+        [
+            message(2, 200_000, MessageKind::Stop),
+            message(3, 300_010, play_from(300_010, 15_360))
+        ]
+    );
+}
+
+#[test]
+fn shift_play_follows_from_the_cursors_bar() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    on_bars(&mut rig, 0);
+    choose(&mut rig, 60, 0, &[Button::Down, Button::Down]);
+    rig.step(70);
+    rig.sent();
+    // By hand, as no control moves the cursor's bar before plan 3's arrows.
+    rig.control.view.steps.bar = 2;
+
+    rig.press(100, Button::Shift);
+    rig.tap(110, Button::Play);
+    rig.step(120);
+    assert_eq!(rig.sent(), [message(1, 110, play_from(110, 15_360))]);
+    assert!(rig.control.view.following);
+    assert!(bars_header_shows(&rig.control, PAD_1, "3/4 ▶3"));
+    rig.step(110 + 96_000);
+    assert!(bars_header_shows(&rig.control, PAD_1, "4/4 ▶4"));
+
+    // While playing it jumps to the start of the bar the buttons show, and follows from there.
+    rig.tap(150_000, Button::Play);
+    rig.step(150_010);
+    assert_eq!(
+        rig.sent(),
+        [message(2, 150_000, play_from(150_000, 23_040))]
+    );
+    rig.step(150_000 + 96_000);
+    assert!(bars_header_shows(&rig.control, PAD_1, "1/4 ▶1"));
+}
+
+#[test]
+fn play_while_playing_follows_again_and_sends_nothing() {
+    let queue = Queue::new();
+    let mut rig = playing_4_bars(&queue);
+    rig.step(200_000);
+    // By hand, as nothing ends following before plan 3's arrows.
+    rig.control.view.following = false;
+    rig.control.view.steps.bar = 0;
+    assert!(bars_header_shows(&rig.control, PAD_1, "1/4 ▶3"));
+
+    rig.tap(200_100, Button::Play);
+    rig.step(200_200);
+
+    assert_eq!(rig.sent(), []);
+    assert!(rig.control.view.following);
+    assert!(bars_header_shows(&rig.control, PAD_1, "3/4 ▶3"));
+}
+
+#[test]
+fn a_tap_lands_in_the_bar_shown_when_the_step_went_down() {
+    let queue = Queue::new();
+    let mut rig = playing_4_bars(&queue);
+    let synth = rig.synth_on(0);
+
+    // Down in bar 1, up once bar 2 plays.
+    rig.press(95_000, Button::Step(4));
+    rig.let_go(97_000, Button::Step(4));
+    rig.step(97_010);
+
+    assert_eq!(notes_in(&rig, tree(&rig, 0, 0)), [entered(4, synth, 60)]);
+    assert_eq!(entered(4, synth, 60).place, 1_920);
+}
+
+#[test]
+fn a_meter_taking_hold_between_a_steps_press_and_release_keeps_the_tap_in_its_bar() {
+    let queue = Queue::new();
+    let mut rig = playing_4_bars(&queue);
+    let synth = rig.synth_on(0);
+    // 3/4 in bar 1 takes hold at the bar line at 96,100.
+    choose(&mut rig, 50_000, 1, &[Button::Up]);
+
+    rig.press(96_000, Button::Step(4));
+    rig.let_go(96_200, Button::Step(4));
+    rig.step(96_210);
+
+    assert_eq!(notes_in(&rig, tree(&rig, 0, 0)), [entered(4, synth, 60)]);
+}
+
+#[test]
+fn a_bar_playing_past_a_shorter_length_shows_the_last_bar() {
+    let queue = Queue::new();
+    let mut rig = playing_4_bars(&queue);
+
+    // In bar 3: 2 bars, the row above 4 bars.
+    choose(&mut rig, 200_000, 0, &[Button::Up]);
+    rig.step(288_000);
+    assert!(bars_header_shows(&rig.control, PAD_1, "2/2 ▶3"));
+
+    rig.step(288_100);
+    assert!(bars_header_shows(&rig.control, PAD_1, "1/2 ▶1"));
+}
+
+#[test]
+fn the_header_redraws_when_the_playing_bar_changes() {
+    let queue = Queue::new();
+    let mut rig = playing_4_bars(&queue);
+
+    for until in (128..=96_000).step_by(128) {
+        assert!(!rig.step(until), "step to {until}");
+    }
+    assert!(rig.step(96_128));
+    assert!(bars_header_shows(&rig.control, PAD_1, "2/4 ▶2"));
+}
+
+#[test]
+fn in_3_4_and_7_8_the_steps_past_the_bar_are_dark_and_do_nothing() {
+    for (moves, sixteenths) in [
+        (&[Button::Up][..], 12),
+        (
+            &[Button::Right, Button::Down, Button::Down, Button::Down][..],
+            14,
+        ),
+    ] {
+        let queue = Queue::new();
+        let mut rig = Rig::new(&queue);
+        rig.synth_on(0);
+        on_bars(&mut rig, 0);
+        choose(&mut rig, 100, 1, moves);
+        for button in sixteenths..16 {
+            rig.tap(200 + 10 * u64::from(button), Button::Step(button));
+        }
+        rig.step(400);
+        assert_eq!(versions(&mut rig), [], "{sixteenths}");
+        assert_eq!(rig.control.view.steps.step, 0, "{sixteenths}");
+        assert_eq!(rig.lit(), [pad(0), track(0)], "{sixteenths}");
+
+        // The music lights the bar's last step, then bar 1's first.
+        rig.tap(1_000, Button::Play);
+        let last = u32::from(sixteenths) - 1;
+        rig.step(1_000 + 6_000 * u64::from(last));
+        assert_eq!(
+            rig.lit(),
+            [pad(0), step(last), track(0), Lights::PLAY],
+            "{sixteenths}"
+        );
+        rig.step(1_000 + 6_000 * u64::from(sixteenths));
+        assert_eq!(
+            rig.lit(),
+            [pad(0), step(0), track(0), Lights::PLAY],
+            "{sixteenths}"
+        );
+    }
+}
+
+#[test]
+fn a_5_4_bar_goes_on_over_a_short_second_page() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    let synth = rig.synth_on(0);
+    on_bars(&mut rig, 0);
+    choose(&mut rig, 100, 1, &[Button::Down]);
+    rig.step(110);
+    // By hand, as no control moves the cursor to a later page before plan 3's arrows.
+    rig.control.view.steps.step = 17;
+
+    rig.tap(200, Button::Step(1));
+    for button in 4..16 {
+        rig.tap(300 + 10 * u64::from(button), Button::Step(button));
+    }
+    rig.step(500);
+
+    assert_eq!(notes_in(&rig, tree(&rig, 0, 0)), [entered(17, synth, 60)]);
+    assert_eq!(entered(17, synth, 60).place, 8_160);
+    assert_eq!(rig.control.view.steps.step, 17);
+    assert_eq!(rig.lit(), [pad(0), step(1), track(0)]);
+
+    // On the first page the music lights nothing here, and on the second its step.
+    rig.tap(1_000, Button::Play);
+    rig.step(1_000 + 6_000 * 5);
+    assert_eq!(rig.lit(), [pad(0), step(1), track(0), Lights::PLAY]);
+    rig.step(1_000 + 6_000 * 18);
+    assert_eq!(
+        rig.lit(),
+        [pad(0), step(1), step(2), track(0), Lights::PLAY]
+    );
+}
+
+#[test]
+fn a_16_4_bar_takes_four_pages() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    let synth = rig.synth_on(0);
+    on_bars(&mut rig, 0);
+    choose(&mut rig, 200, 1, &[Button::Down; 12]);
+    rig.step(210);
+    assert_eq!(
+        rig.control.project.signature,
+        Signature { beats: 16, unit: 4 }
+    );
+
+    // By hand, as no control moves the cursor to a later page before plan 3's arrows.
+    for page in 0..4 {
+        rig.control.view.steps.step = page * 16;
+        rig.tap(300 + 10 * u64::from(page), Button::Step(15));
+        rig.step(305 + 10 * u64::from(page));
+    }
+
+    assert_eq!(
+        notes_in(&rig, tree(&rig, 0, 0)),
+        [15, 31, 47, 63].map(|sixteenth| entered(sixteenth, synth, 60))
+    );
+    assert_eq!(rig.control.view.steps.step, 63);
+    assert_eq!(rig.lit(), [pad(0), step(15), track(0)]);
+
+    // The music in sixteenth 51 lights step 3 of the fourth page.
+    rig.tap(1_000, Button::Play);
+    rig.step(1_000 + 6_000 * 50);
+    assert_eq!(
+        rig.lit(),
+        [pad(0), step(2), step(15), track(0), Lights::PLAY]
+    );
 }

@@ -9,22 +9,23 @@ use crate::store::Store;
 
 impl Control {
     /// PLAY at its press starts the current pattern from bar 1, with tick 0 at the press's sample
-    /// and no lead, and while playing changes nothing (S7). SHIFT + PLAY starts from the start of
-    /// the cursor's bar, and while playing jumps there at once with a new run anchored at the press
-    /// (S8). The control part's own sequencer plays the same run.
+    /// and no lead, and while playing changes nothing but following (S7). SHIFT + PLAY starts from
+    /// the start of the bar the step buttons show (`shown_bar`), and while playing jumps there at
+    /// once with a new run anchored at the press (S8). Both follow the music from then on (S16).
+    /// The control part's own sequencer plays the same run.
     pub(super) fn play(
         &mut self,
         sample: u64,
         messages: &mut Producer<'_, Message, MESSAGE_QUEUE>,
         store: &Store<'_>,
     ) {
-        let bar = if self.buttons.is_held(Button::Shift) {
-            self.view.steps.bar
-        } else if self.player.run().is_none() {
-            0
+        let start = if self.buttons.is_held(Button::Shift) {
+            Some(self.shown_bar(sample))
         } else {
-            return;
+            self.player.run().is_none().then_some(0)
         };
+        self.view.following = true;
+        let Some(bar) = start else { return };
         let run = Run {
             anchor: sample,
             tick: u64::from(bar) * u64::from(self.project.signature.bar_ticks()),
@@ -34,15 +35,17 @@ impl Control {
         self.player.play(run, &store.reader());
     }
 
-    /// STOP at its press: while playing the pattern stops and its sounding notes end with their
-    /// own release, and the preview plays on; while stopped every voice fades within one chunk and
-    /// the preview stops (S9). The control part's own sequencer stops too.
+    /// STOP at its press: while playing the cursor stays on the bar the step buttons show
+    /// (`shown_bar`, S16), the pattern stops and its sounding notes end with their own release, and
+    /// the preview plays on; while stopped every voice fades within one chunk and the preview stops
+    /// (S9). The control part's own sequencer stops too.
     pub(super) fn stop(
         &mut self,
         sample: u64,
         messages: &mut Producer<'_, Message, MESSAGE_QUEUE>,
     ) {
         if self.player.run().is_some() {
+            self.view.steps.bar = self.shown_bar(sample);
             self.send(sample, MessageKind::Stop, messages);
             self.player.stop(|_| {});
         } else {

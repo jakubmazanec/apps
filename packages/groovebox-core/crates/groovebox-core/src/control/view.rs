@@ -169,9 +169,9 @@ pub struct StepCursor {
 }
 
 /// What the screen shows: the screen, the page each screen shows, the cursor of each page, the
-/// folder and cursor of SAMPLES and of the sample picker, POOL's cursor, the step cursor and a
-/// picker or a question while one is open. They are kept while the control part lives and are not
-/// saved.
+/// folder and cursor of SAMPLES and of the sample picker, POOL's cursor, the step cursor, whether
+/// it follows the music and a picker or a question while one is open. They are kept while the
+/// control part lives and are not saved.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct View {
     pub screen: Screen,
@@ -184,6 +184,9 @@ pub struct View {
     pub sample_picker: SamplesView,
     pub pool: PoolView,
     pub steps: StepCursor,
+    /// Whether the step buttons and the header show the bar playing while the music plays (S16).
+    /// PLAY and SHIFT + PLAY set it.
+    pub following: bool,
     /// The picker while it is open over the main area of `screen`, with its highlight. The sample
     /// picker's highlight is `sample_picker`'s cursor, and this one stays on its first row.
     pub picker: Option<(Picker, Cursor)>,
@@ -194,8 +197,8 @@ pub struct View {
 impl View {
     /// STEP, where a new project opens, with every screen on its first page, every cursor on the
     /// first item, SAMPLES and the sample picker at the top level, POOL's cursor on Remove unused
-    /// for T1 with no sound selected, the step cursor on bar 1, step 1 and no picker or question
-    /// open.
+    /// for T1 with no sound selected, the step cursor on bar 1, step 1, not following and no picker
+    /// or question open.
     pub const fn new() -> Self {
         Self {
             screen: Screen::Step,
@@ -208,6 +211,7 @@ impl View {
                 shows: (0, None),
             },
             steps: StepCursor { bar: 0, step: 0 },
+            following: false,
             picker: None,
             question: None,
         }

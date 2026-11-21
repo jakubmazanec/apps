@@ -11,8 +11,9 @@ use crate::store::note::{Key, Note};
 use crate::store::{RESERVE, Store, Tree};
 
 impl Control {
-    /// A tap of step `button` (0 to 15) on the page the step buttons show (S1 to S5): the cursor's
-    /// step goes to its sixteenth of the cursor's bar, and a step past the bar's end does nothing.
+    /// A tap of step `button` (0 to 15) on the page the step buttons show (S1 to S5) acts on its
+    /// sixteenth of the bar they showed when the step went down (`pressed_bars`, S17): the cursor's
+    /// step goes to the sixteenth, and a step past the bar's end does nothing.
     /// With a selected sound, the sound's notes that start in the sixteenth are removed, whatever
     /// their pitch, and with none there a note of the sound goes in at the sixteenth's start, a
     /// sixteenth long, at velocity 127 and with no pressure curve. Its pitch is the one where the
@@ -35,7 +36,7 @@ impl Control {
             return;
         };
         let note = Note {
-            bar: self.view.steps.bar,
+            bar: self.pressed_bars[usize::from(button)],
             place: u16::from(sixteenth) * 480,
             length: 480,
             sound: sound.number,

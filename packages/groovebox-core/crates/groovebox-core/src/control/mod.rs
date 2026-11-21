@@ -186,6 +186,8 @@ pub struct Control {
     /// A bit for each step of the page the step buttons show whose sixteenth a note of the
     /// selected sound starts in, from step 1's bit 0, as the latest step left them (S6).
     step_notes: u16,
+    /// The bar the step buttons showed when each step last went down, on which its tap acts (S17).
+    pressed_bars: [u16; 16],
     /// The bytes that the blocks of the note memory in use cost (`Store::used`), as the latest step
     /// left them: the Dev page shows them.
     note_memory: u64,
@@ -237,6 +239,7 @@ impl Control {
             player: Sequencer::new(),
             moment: 0,
             step_notes: 0,
+            pressed_bars: [0; 16],
             note_memory: 0,
             waveform: None,
             view: View::new(),
@@ -302,7 +305,9 @@ impl Control {
     /// Handles the events before `until` in sample order, the storage's replies, the reports of
     /// awaited messages, the queued inputs and the repeats of held buttons, and returns whether
     /// the screen must be redrawn. That is the case on the first step, whenever it handled an
-    /// event and, while a text scrolls, whenever a pixel's time has passed since the step before.
+    /// event, while a text scrolls whenever a pixel's time has passed since the step before, and
+    /// whenever the header's bar numbers changed since the step before: the bar the step buttons
+    /// show (`shown_bar`) and the bar playing.
     ///
     /// On equal samples a reply goes first, then a report, then an input and then a repeat, so a
     /// release at the sample of a repeat ends the hold before it. A reply ends the wait for its
@@ -343,9 +348,9 @@ impl Control {
     ///
     /// Last, while the screen's page shows the waveform and the audio part may read the selected
     /// sound's file (`sample_file`), it reads that file's peaks through `tables` from `ram` unless
-    /// it holds them already (`waveform`), it works out which steps of the page the step buttons
-    /// show start a note of the selected sound (`step_notes`) and it notes how much of the note
-    /// memory is in use (`note_memory`).
+    /// it holds them already (`waveform`), it works out which steps of the page and bar the step
+    /// buttons show (`shown_bar`) start a note of the selected sound (`step_notes`) and it notes
+    /// how much of the note memory is in use (`note_memory`).
     #[expect(
         clippy::too_many_arguments,
         reason = "the control part writes two queues and reads and writes three memories"
@@ -365,6 +370,13 @@ impl Control {
             self.request = Some(startup.request(&self.library));
         }
         let mut redraw = first;
+        let header_bars = |control: &Self, sample| {
+            (
+                control.shown_bar(sample),
+                control.player.at(sample).map(|(bar, _)| bar),
+            )
+        };
+        let shown = header_bars(self, self.now);
         loop {
             while messages.free() > 0
                 && let Some(sound) = self.unsent.pop()
@@ -554,7 +566,7 @@ impl Control {
             }
         }
         let (bar, first) = (
-            self.view.steps.bar,
+            self.shown_bar(until),
             u16::from(self.view.steps.step / 16) * 16,
         );
         self.step_notes = self.track().selected_sound.map_or(0, |sound| {
@@ -580,6 +592,7 @@ impl Control {
         // picture; compare offsets if the hardware's redraw cost matters.
         let pixels = |sample: u64| sample.saturating_sub(self.landed) / SCROLL_PIXEL;
         redraw |= self.scrolling.get() && pixels(until) != pixels(self.now);
+        redraw |= header_bars(self, until) != shown;
         self.now = until;
         redraw
     }
@@ -595,9 +608,9 @@ impl Control {
     /// current track and PADS/KEYS lights in KEYS mode. While MENU or PAGE is held, the steps of
     /// the screens or pages that exist light: the steps whose tiles are not empty. Otherwise the
     /// steps of the page the step buttons show light where a note of the selected sound starts
-    /// (`step_notes`), and while playing the step the music is in, on that page of the cursor's
-    /// bar, is flipped (S6). PLAY lights while playing (S10), and TEMPO while the metronome is on
-    /// (S9).
+    /// (`step_notes`), and while playing the step the music is in, on that page of the bar the
+    /// buttons show (`shown_bar`), is flipped (S6). PLAY lights while playing (S10), and TEMPO
+    /// while the metronome is on (S9).
     pub fn lights(&self) -> Lights {
         let track = self.track();
         let midi = self
@@ -650,14 +663,14 @@ impl Control {
                 }
             }
         } else {
-            let steps = self.view.steps;
             lights.0 |= u64::from(
                 self.step_notes
                     ^ self
                         .player
                         .at(self.now)
                         .filter(|&(bar, place)| {
-                            bar == steps.bar && place / 480 / 16 == u32::from(steps.step / 16)
+                            bar == self.shown_bar(self.now)
+                                && place / 480 / 16 == u32::from(self.view.steps.step / 16)
                         })
                         .map_or(0, |(_, place)| 1 << (place / 480 % 16)),
             ) << Lights::STEP;
@@ -891,7 +904,8 @@ impl Control {
     /// Otherwise the arrows, - and + nudge (`nudge`), OK uses the item under the cursor, or acts on
     /// SAMPLES' row (`ok_in_samples`) or POOL's (`ok_in_pool`), and an encoder push the item its
     /// encoder holds. PLAY and SHIFT + PLAY start or jump (`play`) and STOP stops (`stop`), also
-    /// while MENU or PAGE is held. A step and TEMPO act when they are let go (`release`).
+    /// while MENU or PAGE is held. A step and TEMPO act when they are let go (`release`), a step on
+    /// the bar the buttons show at its press (`pressed_bars`, S17).
     fn press(
         &mut self,
         button: Button,
@@ -1170,6 +1184,7 @@ impl Control {
                     self.use_item(item, sample, messages);
                 }
             }
+            Button::Step(step) => self.pressed_bars[usize::from(step)] = self.shown_bar(sample),
             _ => {}
         }
     }
@@ -1770,6 +1785,18 @@ impl Control {
     /// The items of the page `screen` shows; none on a screen without pages.
     fn items(&self, screen: Screen) -> &'static [ItemDef] {
         self.page(screen).map_or(&[], |page| page.items)
+    }
+
+    /// The bar the step buttons show at `sample`, as their lights, their taps and the header's
+    /// first bar number use it (S16): while following and playing the bar playing then, or the
+    /// pattern's last bar while a bar past a new shorter length plays out; otherwise the cursor's.
+    fn shown_bar(&self, sample: u64) -> u16 {
+        self.player
+            .at(sample)
+            .filter(|_| self.view.following)
+            .map_or(self.view.steps.bar, |(bar, _)| {
+                bar.min(self.project.patterns[usize::from(self.project.pattern)].bars - 1)
+            })
     }
 
     /// A button goes up. A tap of PADS/KEYS switches the current track's pad mode, a tap of a step
