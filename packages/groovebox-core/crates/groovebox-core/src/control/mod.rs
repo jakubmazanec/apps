@@ -610,8 +610,8 @@ impl Control {
     /// open, as a new selection would change what it is for; a selected pad lands POOL's cursor
     /// (`land_on_selection`). In KEYS mode it is the key of the pitch `key`: that becomes the last
     /// key played, and it plays the selected sound at that pitch. With no sound it plays nothing,
-    /// and neither does a source that has a note on already. A sample sound's note carries its
-    /// file while the audio part may read it (`playable`), and no file otherwise.
+    /// and neither does a source that has a note on already. Its note plays the sound's
+    /// `note_engine`.
     fn hit(
         &mut self,
         source: Source,
@@ -646,16 +646,11 @@ impl Control {
             .pool
             .get(sound)
             .expect("a sound on a pad or selected is in the pool");
-        let (engine, pitch) = match played.engine {
-            Engine::Synth => (NoteEngine::Synth, key.unwrap_or(60)),
-            Engine::Sample(sample) => (
-                NoteEngine::Sample(match sample {
-                    Sample::File(file) => self.playable(file),
-                    Sample::Missing(_) => None,
-                }),
-                key.unwrap_or(played.value(ROOT_NOTE.id) as u8),
-            ),
-        };
+        let engine = self.note_engine(played);
+        let pitch = key.unwrap_or(match played.engine {
+            Engine::Synth => 60,
+            Engine::Sample(_) => played.value(ROOT_NOTE.id) as u8,
+        });
         let track = self.project.track;
         let Some(note) = self.notes.start(source, track, pad, pitch) else {
             return;
@@ -678,6 +673,16 @@ impl Control {
             },
             messages,
         );
+    }
+
+    /// What a note of `sound` plays: the synth, or a sample sound's file while the audio part may
+    /// read it (`playable`), and no file otherwise.
+    fn note_engine(&self, sound: &Sound) -> NoteEngine {
+        match &sound.engine {
+            Engine::Synth => NoteEngine::Synth,
+            Engine::Sample(Sample::File(file)) => NoteEngine::Sample(self.playable(*file)),
+            Engine::Sample(Sample::Missing(_)) => NoteEngine::Sample(None),
+        }
     }
 
     /// `file` as the audio part may read it: none while it is not loaded or is being deleted or
@@ -867,9 +872,15 @@ impl Control {
                             .get_mut(number)
                             .expect("a selected sound is in the pool");
                         if sound.engine != Engine::Synth {
-                            let before = sound.values;
+                            let before = *sound;
                             sound.start_synth();
-                            self.send_values(number, &before, sample, messages);
+                            self.send_values(
+                                number,
+                                &before.values,
+                                self.note_engine(&before),
+                                sample,
+                                messages,
+                            );
                         }
                         return;
                     }
@@ -1296,20 +1307,22 @@ impl Control {
         }
     }
 
-    /// Sends a `SetParam` for each value of `sound` that differs from `before`, in list order.
+    /// Sends a `SetParam` for each value of `sound` that differs from `before`, in list order, and
+    /// then a `SoundEngine` when its `note_engine` differs from `before_engine` (S23).
     fn send_values(
         &mut self,
         sound: SoundNumber,
         before: &[i32; SOUND_VALUES],
+        before_engine: NoteEngine,
         sample: u64,
         messages: &mut Producer<'_, Message, MESSAGE_QUEUE>,
     ) {
-        let values = self
+        let changed = self
             .project
             .pool
             .get(sound)
-            .expect("the sound is in the pool")
-            .values;
+            .expect("the sound is in the pool");
+        let (values, engine) = (changed.values, self.note_engine(changed));
         for ((entry, value), old) in ENTRIES
             .iter()
             .filter(|entry| entry.scope == Scope::Sound)
@@ -1327,6 +1340,9 @@ impl Control {
                     messages,
                 );
             }
+        }
+        if engine != before_engine {
+            self.send(sample, MessageKind::SoundEngine { sound, engine }, messages);
         }
     }
 
@@ -1393,7 +1409,8 @@ impl Control {
     }
 
     /// The first missing sound whose path is that of the file the import listed, but for case,
-    /// takes the file (S16) and sends each value it changed; when none is left the relink ends. A
+    /// takes the file (S16) and sends each value it changed and what its notes play
+    /// (`send_values`); when none is left the relink ends. A
     /// sound whose End is 0, as its file had one frame at most or the library knew no frame count
     /// of it, takes the file's points as a sound changing its file does (`take_file`, S8). Any other keeps its points
     /// within the file: End and Loop end at most its last frame, then Start before End and Loop
@@ -1422,7 +1439,7 @@ impl Control {
             .pool
             .get_mut(number)
             .expect("a sound of the pool is in the pool");
-        let before = sound.values;
+        let before = *sound;
         if sound.value(END.id) == 0 {
             sound.take_file(file, &audio);
         } else {
@@ -1436,7 +1453,13 @@ impl Control {
             }
             sound.engine = Engine::Sample(Sample::File(file));
         }
-        self.send_values(number, &before, sample, messages);
+        self.send_values(
+            number,
+            &before.values,
+            self.note_engine(&before),
+            sample,
+            messages,
+        );
     }
 
     /// Puts out the next storage request unless one is out: the delete's `Delete` once its turn

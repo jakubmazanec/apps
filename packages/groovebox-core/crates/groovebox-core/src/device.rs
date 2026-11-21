@@ -4,18 +4,20 @@ use crate::audio::Audio;
 use crate::budget;
 use crate::control::Control;
 use crate::input::Stamped;
-use crate::message::{MESSAGE_QUEUE, Message, REPORT_QUEUE, Report};
+use crate::message::{MESSAGE_QUEUE, Message, REPORT_QUEUE, Report, VERSION_QUEUE, Version};
 use crate::queue::{Consumer, Producer, Queue};
 use crate::ring::Ring;
 use crate::sample_ram::{Reader, SampleRam, Tables};
 use crate::screen::Screen;
 use crate::storage::{Reply, Request};
+use crate::store::{NoteRam, NoteReader};
 use core::cell::UnsafeCell;
 use core::sync::atomic::{AtomicU32, Ordering};
 
-/// The whole core in one struct: both parts, both queues, two screens, the lights, the block tables
-/// and the I/O buffer. A host puts it in a `static`, keeps a `SampleRam` beside it and gives the
-/// control side to one thread and the audio side to another, each with that sample RAM.
+/// The whole core in one struct: both parts, the three queues, two screens, the lights, the block
+/// tables and the I/O buffer. A host puts it in a `static`, keeps a `SampleRam` and a `NoteRam`
+/// beside it and gives the control side to one thread and the audio side to another, each with
+/// that sample RAM and note memory.
 ///
 /// The control side draws into the back screen and then makes it the front one by storing its
 /// index in `front`. A reader of the picture loads `front` and reads that screen. After every step
@@ -24,6 +26,7 @@ pub struct Device {
     control: UnsafeCell<Control>,
     audio: UnsafeCell<Audio>,
     messages: Queue<Message, MESSAGE_QUEUE>,
+    versions: Queue<Version, VERSION_QUEUE>,
     reports: Queue<Report, REPORT_QUEUE>,
     screens: [UnsafeCell<Screen>; 2],
     /// The index of the screen to show, 0 or 1. Only the control side stores it.
@@ -47,9 +50,10 @@ const _: () = assert!(
 // SAFETY: every part of the device belongs to exactly one side, except `front`, `lights`, `tables`,
 // `io` and the front screen, and `control_side` and `audio_side` promise that at most one of each
 // side exists.
-// - The control side owns `control`, the producer of `messages`, the consumer of `reports`, `taken`
-//   and the back screen, which is `screens[1 - front]`.
-// - The audio side owns `audio`, the consumer of `messages` and the producer of `reports`.
+// - The control side owns `control`, the producer of `messages` and of `versions`, the consumer of
+//   `reports`, `taken` and the back screen, which is `screens[1 - front]`.
+// - The audio side owns `audio`, the consumer of `messages` and of `versions` and the producer of
+//   `reports`.
 // - `front` is the only handoff of screens between threads. Only the control side stores it, and
 //   it does so with Release after it has drawn the back screen, so a thread that loads `front`
 //   with Acquire sees every pixel of that screen. Nothing writes that screen until the control
@@ -72,6 +76,10 @@ const _: () = assert!(
 //   reaches the control side; only then does the control side give those blocks back. The queues
 //   hand the blocks over: the Release of a push and the Acquire of its pop order every byte
 //   written before it.
+// - The note memory beside the device is split the same way. The audio side reads, and never
+//   writes, the blocks of the trees of the versions it applied, until the report of the version
+//   that replaced each tree reaches the control side; the control side writes only blocks that no
+//   version it sent can reach. The version queue hands the blocks over as the message queue does.
 // - `tables` are atomics, so either side may touch any entry. The control side writes an entry or
 //   a directory slot only where the audio side does not read: after the last slice of the table
 //   that the audio side uses, or in the other table once the latest `UseTable` has applied. So the
@@ -91,6 +99,7 @@ impl Device {
             control: UnsafeCell::new(Control::new()),
             audio: UnsafeCell::new(Audio::new()),
             messages: Queue::new(),
+            versions: Queue::new(),
             reports: Queue::new(),
             screens: [
                 UnsafeCell::new(Screen::new()),
@@ -128,16 +137,23 @@ impl Device {
     /// # Safety
     ///
     /// At most one audio side may exist at a time, on any thread.
-    pub unsafe fn audio_side<'a>(&'a self, ram: &'a SampleRam) -> AudioSide<'a> {
+    pub unsafe fn audio_side<'a>(
+        &'a self,
+        ram: &'a SampleRam,
+        notes: &'a NoteRam,
+    ) -> AudioSide<'a> {
         // SAFETY: the caller promises that this is the only audio side, so it is the only user of
-        // `audio`, of the consumer of `messages` and of the producer of `reports`. The audio part
-        // reads only the files it was told about: see the note on `Sync` for `Device`.
+        // `audio`, of the consumers of `messages` and `versions` and of the producer of `reports`.
+        // The audio part reads only the files it was told about and the trees of the versions it
+        // applied: see the note on `Sync` for `Device`.
         unsafe {
             AudioSide {
                 audio: &mut *self.audio.get(),
                 messages: self.messages.consumer(),
+                versions: self.versions.consumer(),
                 reports: self.reports.producer(),
                 readers: self.tables.readers(ram),
+                notes: notes.reader(),
             }
         }
     }
@@ -257,8 +273,10 @@ impl ControlSide<'_> {
 pub struct AudioSide<'a> {
     audio: &'a mut Audio,
     messages: Consumer<'a, Message, MESSAGE_QUEUE>,
+    versions: Consumer<'a, Version, VERSION_QUEUE>,
     reports: Producer<'a, Report, REPORT_QUEUE>,
     readers: [Reader<'a>; 2],
+    notes: NoteReader<'a>,
 }
 
 impl AudioSide<'_> {
@@ -268,7 +286,9 @@ impl AudioSide<'_> {
             left,
             right,
             &self.readers,
+            &self.notes,
             &mut self.messages,
+            &mut self.versions,
             &mut self.reports,
         );
     }
@@ -449,10 +469,10 @@ mod tests {
     #[test]
     fn messages_reach_the_audio_part_and_reports_come_back() {
         static DEVICE: Device = Device::new();
-        let ram = SampleRam::boxed();
+        let (ram, notes) = (SampleRam::boxed(), NoteRam::boxed());
         // SAFETY: this test takes the only control side and the only audio side of its own device.
         let (mut control, mut audio) =
-            unsafe { (DEVICE.control_side(&ram), DEVICE.audio_side(&ram)) };
+            unsafe { (DEVICE.control_side(&ram), DEVICE.audio_side(&ram, &notes)) };
         let kind = MessageKind::NoteOn {
             note: NoteId(0),
             track: 0,
@@ -502,10 +522,10 @@ mod tests {
     #[test]
     fn the_audio_part_switches_tables_at_the_chunk_of_use_table() {
         static DEVICE: Device = Device::new();
-        let ram = SampleRam::boxed();
+        let (ram, notes) = (SampleRam::boxed(), NoteRam::boxed());
         // SAFETY: this test takes the only control side and the only audio side of its own device.
         let (mut control, mut audio) =
-            unsafe { (DEVICE.control_side(&ram), DEVICE.audio_side(&ram)) };
+            unsafe { (DEVICE.control_side(&ram), DEVICE.audio_side(&ram, &notes)) };
         let (mut listing, mut blocks) = (Listing::new(), Blocks::new());
         let mut add = |file, count| {
             let taken = blocks.take(count).expect("enough blocks are free");

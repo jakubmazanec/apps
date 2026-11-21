@@ -9,9 +9,11 @@ use crate::message::{NoteEngine, NoteId};
 use crate::param::{ALWAYS, CHOKE_GROUP, Entry, GLIDE, GLIDE_TIME, MONO, PLAY_MODE, POLY, ParamId};
 use crate::project::pool::{Sound, SoundNumber};
 use crate::sample_ram::Reader;
+use crate::sequencer::SOUNDING;
 
-/// The most notes held at once: the control part holds one for each pad and each MIDI note.
-const HELD: usize = PADS as usize + 128;
+/// The most notes held at once: the control part holds one for each pad and each MIDI note, and
+/// the sequencer one for each pattern note sounding (S24).
+const HELD: usize = PADS as usize + 128 + SOUNDING;
 
 /// A note whose key is held, as its `NoteOn` brought it: a Mono return plays its engine.
 #[derive(Clone, Copy)]
@@ -242,6 +244,18 @@ impl Voices {
             .voices
             .iter_mut()
             .filter(|voice| voice.state() != State::Idle && voice.sound() == sound)
+        {
+            voice.fade(fades);
+        }
+    }
+
+    /// Fades every voice that is not idle into `fades`. The held keys stay: their `NoteOff`s still
+    /// come and clear them.
+    pub fn silence(&mut self, fades: &mut [[f32; CHUNK]; 2]) {
+        for voice in self
+            .voices
+            .iter_mut()
+            .filter(|voice| voice.state() != State::Idle)
         {
             voice.fade(fades);
         }

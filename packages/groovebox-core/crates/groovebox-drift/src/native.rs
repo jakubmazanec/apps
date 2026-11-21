@@ -5,12 +5,14 @@ use groovebox_core::memory_storage::MemoryStorage;
 use groovebox_core::message::Report;
 use groovebox_core::sample_ram::SampleRam;
 use groovebox_core::storage::{Reply, Request};
+use groovebox_core::store::NoteRam;
 use std::sync::atomic::{AtomicU32, Ordering};
 
 /// The core built for this machine.
 pub struct NativeRunner {
     device: Box<Device>,
     ram: Box<SampleRam>,
+    notes: Box<NoteRam>,
     /// The reports that the last step took, as the browser export stashes them.
     applied: Vec<(u32, u64)>,
 }
@@ -30,6 +32,7 @@ impl Default for NativeRunner {
         Self {
             device,
             ram: SampleRam::boxed(),
+            notes: NoteRam::boxed(),
             applied: Vec::new(),
         }
     }
@@ -92,7 +95,7 @@ impl Runner for NativeRunner {
     fn render(&mut self, left: &mut [f32], right: &mut [f32]) {
         // SAFETY: the side lives only for this call, which borrows this runner mutably, so no
         // other side of its device exists while it lives.
-        unsafe { self.device.audio_side(&self.ram) }.render(left, right);
+        unsafe { self.device.audio_side(&self.ram, &self.notes) }.render(left, right);
     }
 
     fn front_screen(&mut self) -> Vec<u8> {

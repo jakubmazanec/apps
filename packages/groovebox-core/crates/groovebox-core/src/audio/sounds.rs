@@ -1,11 +1,14 @@
 use crate::budget;
+use crate::library::FileId;
+use crate::message::NoteEngine;
 use crate::param::ParamId;
 use crate::project::pool::{SOUND_DEFAULTS, SOUND_VALUES, Sound, SoundNumber};
 
-/// The audio part's own copy of every sound's values, in number order like the pool, so the audio
-/// thread reads them without sharing anything with the control part.
+/// The audio part's own copy of every sound's values and of what its pattern notes play, in number
+/// order like the pool, so the audio thread reads them without sharing anything with the control
+/// part.
 pub struct Sounds {
-    sounds: [(SoundNumber, [i32; SOUND_VALUES]); budget::POOL_SOUNDS],
+    sounds: [(SoundNumber, [i32; SOUND_VALUES], NoteEngine); budget::POOL_SOUNDS],
     /// Which slots hold a sound that was removed: it stays where it is until `add` needs the room.
     removed: [bool; budget::POOL_SOUNDS],
     /// The slots in use, removed ones included.
@@ -15,14 +18,15 @@ pub struct Sounds {
 impl Sounds {
     pub const fn new() -> Self {
         Self {
-            sounds: [(SoundNumber(0), SOUND_DEFAULTS); budget::POOL_SOUNDS],
+            sounds: [(SoundNumber(0), SOUND_DEFAULTS, NoteEngine::Synth); budget::POOL_SOUNDS],
             removed: [false; budget::POOL_SOUNDS],
             length: 0,
         }
     }
 
-    /// Adds a sound. Numbers only grow, so it goes last. When every slot is in use, the sounds
-    /// that were removed give theirs back first, in one pass that keeps the others in number order.
+    /// Adds a sound, whose pattern notes play the synth. Numbers only grow, so it goes last. When
+    /// every slot is in use, the sounds that were removed give theirs back first, in one pass that
+    /// keeps the others in number order.
     ///
     /// # Panics
     ///
@@ -40,7 +44,7 @@ impl Sounds {
             self.length = kept;
             self.removed = [false; budget::POOL_SOUNDS];
         }
-        self.sounds[self.length] = (sound, values);
+        self.sounds[self.length] = (sound, values, NoteEngine::Synth);
         self.length += 1;
     }
 
@@ -52,6 +56,11 @@ impl Sounds {
     /// When the audio part does not hold `sound`, as `values` does.
     pub fn remove(&mut self, sound: SoundNumber) {
         self.removed[self.find(sound)] = true;
+    }
+
+    /// Whether the audio part holds `sound`: it was added and not removed.
+    pub fn holds(&self, sound: SoundNumber) -> bool {
+        self.slot(sound).is_some()
     }
 
     /// The values of `sound`, in the order of the master list's `Sound` entries.
@@ -71,12 +80,38 @@ impl Sounds {
         self.sounds[index].1[Sound::place(id)] = value;
     }
 
+    /// What the pattern notes of `sound` play.
+    ///
+    /// # Panics
+    ///
+    /// When the audio part does not hold `sound`, as `values` does.
+    pub fn engine(&self, sound: SoundNumber) -> NoteEngine {
+        self.sounds[self.find(sound)].2
+    }
+
+    pub fn set_engine(&mut self, sound: SoundNumber, engine: NoteEngine) {
+        self.sounds[self.find(sound)].2 = engine;
+    }
+
+    /// The pattern notes of every sound of `file` play no file.
+    pub fn forget(&mut self, file: FileId) {
+        for (_, _, engine) in &mut self.sounds[..self.length] {
+            if matches!(engine, NoteEngine::Sample(Some(sample)) if sample.file == file) {
+                *engine = NoteEngine::Sample(None);
+            }
+        }
+    }
+
     fn find(&self, sound: SoundNumber) -> usize {
+        self.slot(sound)
+            .expect("the control part uses only a sound it added and did not delete")
+    }
+
+    fn slot(&self, sound: SoundNumber) -> Option<usize> {
         self.sounds[..self.length]
-            .binary_search_by_key(&sound, |&(number, _)| number)
+            .binary_search_by_key(&sound, |&(number, ..)| number)
             .ok()
             .filter(|&index| !self.removed[index])
-            .expect("the control part uses only a sound it added and did not delete")
     }
 }
 

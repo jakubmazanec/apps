@@ -104,6 +104,10 @@ fn preview(sample: SampleFile) -> MessageKind {
     MessageKind::Preview { sample }
 }
 
+fn sound_engine(sound: SoundNumber, engine: NoteEngine) -> MessageKind {
+    MessageKind::SoundEngine { sound, engine }
+}
+
 /// A note of `sound` on track 1 at `pitch`, playing `sample`.
 fn sample_note(
     note: u32,
@@ -346,6 +350,7 @@ fn ok_on_a_file_puts_a_new_sample_sound_on_the_pad() {
             message(4, 130, set_param(kick, END.id, 4_799)),
             message(5, 130, set_param(kick, LOOP_END.id, 4_799)),
             message(6, 130, set_param(kick, ROOT_NOTE.id, 48)),
+            message(7, 130, sound_engine(kick, NoteEngine::Sample(Some(KICK)))),
         ]
     );
     assert_eq!(rig.control.view.picker, None);
@@ -367,6 +372,31 @@ fn ok_on_a_file_puts_a_new_sample_sound_on_the_pad() {
 }
 
 #[test]
+fn a_new_sample_sound_tells_the_audio_part_its_file() {
+    let queue = Queue::new();
+    let mut rig = picking(&queue);
+    rig.tap(100, Button::Ok);
+    rig.tap(110, Button::Down);
+    rig.tap(120, Button::Down);
+
+    rig.tap(130, Button::Ok);
+    rig.step(140);
+
+    // After the `NewSound` and its values.
+    let kick = SoundNumber(1);
+    let sent = rig.sent();
+    assert_eq!(sent[2].kind, MessageKind::NewSound { sound: kick });
+    assert_eq!(
+        sent.last(),
+        Some(&message(
+            7,
+            130,
+            sound_engine(kick, NoteEngine::Sample(Some(KICK)))
+        ))
+    );
+}
+
+#[test]
 fn a_new_sample_sound_waits_for_room_for_its_messages() {
     let queue = Queue::new();
     let mut rig = picking(&queue);
@@ -374,9 +404,9 @@ fn a_new_sample_sound_waits_for_room_for_its_messages() {
     rig.step(110);
     rig.sent();
     rig.fill_the_message_queue();
-    assert_eq!(rig.producer.free(), 7);
+    assert_eq!(rig.producer.free(), 8);
 
-    // OK on bass.wav sends seven messages, and an event waits for room for eight.
+    // OK on bass.wav sends eight messages, and an event waits for room for nine.
     rig.tap(200, Button::Ok);
     assert!(!rig.step(300));
     assert!(rig.control.view.picker.is_some());
@@ -388,7 +418,7 @@ fn a_new_sample_sound_waits_for_room_for_its_messages() {
     let bass = SoundNumber(1);
     let sent = rig.sent();
     assert_eq!(
-        sent[sent.len() - 7..],
+        sent[sent.len() - 8..],
         [
             message(1, 200, MessageKind::StopPreview),
             message(2, 200, MessageKind::NewSound { sound: bass }),
@@ -397,6 +427,7 @@ fn a_new_sample_sound_waits_for_room_for_its_messages() {
             message(5, 200, set_param(bass, LOOP_START.id, 1_000)),
             message(6, 200, set_param(bass, LOOP_END.id, 39_999)),
             message(7, 200, set_param(bass, ROOT_NOTE.id, 36)),
+            message(8, 200, sound_engine(bass, NoteEngine::Sample(Some(BASS)))),
         ]
     );
 }
@@ -597,7 +628,8 @@ fn a_not_loaded_file_is_red_never_previewed_and_can_be_chosen() {
             message(2, 200, MessageKind::NewSound { sound: plain }),
             message(3, 200, set_param(plain, TRIGGER.id, ONE_SHOT)),
             message(4, 200, set_param(plain, ROOT_NOTE.id, 0)),
-            message(5, 300, sample_note(0, plain, 0, None)),
+            message(5, 200, sound_engine(plain, NoteEngine::Sample(None))),
+            message(6, 300, sample_note(0, plain, 0, None)),
         ]
     );
     let made = rig.control.project.pool.get(plain).unwrap();
@@ -800,7 +832,10 @@ fn switching_to_synth_resets_the_synths_values_and_keeps_the_chain() {
 
     assert_eq!(
         rig.sent(),
-        [message(0, 40, set_param(syn, WAVE.id, WAVE.default))]
+        [
+            message(0, 40, set_param(syn, WAVE.id, WAVE.default)),
+            message(1, 40, sound_engine(syn, NoteEngine::Synth)),
+        ]
     );
     let sound = rig.control.project.pool.get(syn).unwrap();
     assert_eq!(sound.engine, Engine::Synth);
@@ -814,6 +849,27 @@ fn switching_to_synth_resets_the_synths_values_and_keeps_the_chain() {
     assert_eq!(
         pages(view::Screen::Sound, rig.control.selected(), true)[1].name,
         "Synth"
+    );
+}
+
+#[test]
+fn engine_to_synth_tells_the_audio_part() {
+    let queue = Queue::new();
+    let mut rig = Rig::with_files(&queue, &library());
+    rig.open();
+    let kick = sample_on(&mut rig, 0, KICK.file);
+    rig.menu(10, 2);
+
+    // Engine's picker opens on Sample; down onto Synth and OK. The synth's values are all defaults
+    // already.
+    rig.tap(20, Button::Push(2));
+    rig.tap(30, Button::Down);
+    rig.tap(40, Button::Ok);
+    rig.step(50);
+
+    assert_eq!(
+        rig.sent(),
+        [message(0, 40, sound_engine(kick, NoteEngine::Synth))]
     );
 }
 
@@ -867,6 +923,7 @@ fn switching_to_sample_happens_only_when_a_file_is_chosen() {
             message(4, 140, set_param(syn, LOOP_START.id, 1_000)),
             message(5, 140, set_param(syn, LOOP_END.id, 39_999)),
             message(6, 140, set_param(syn, ROOT_NOTE.id, 36)),
+            message(7, 140, sound_engine(syn, NoteEngine::Sample(Some(BASS)))),
         ]
     );
     let sound = rig.control.project.pool.get(syn).unwrap();
@@ -876,7 +933,7 @@ fn switching_to_sample_happens_only_when_a_file_is_chosen() {
 }
 
 #[test]
-fn a_switch_to_sample_waits_for_room_for_its_eight_messages() {
+fn a_switch_to_sample_waits_for_room_for_its_nine_messages() {
     let queue = Queue::new();
     let mut rig = Rig::with_files(&queue, &library());
     rig.open();
@@ -910,7 +967,7 @@ fn a_switch_to_sample_waits_for_room_for_its_eight_messages() {
 
     let sent = rig.sent();
     assert_eq!(
-        sent[sent.len() - 8..],
+        sent[sent.len() - 9..],
         [
             message(1, 100, MessageKind::StopPreview),
             message(2, 100, set_param(syn, START.id, 0)),
@@ -920,6 +977,7 @@ fn a_switch_to_sample_waits_for_room_for_its_eight_messages() {
             message(6, 100, set_param(syn, LOOP_END.id, 39_999)),
             message(7, 100, set_param(syn, REVERSE.id, 0)),
             message(8, 100, set_param(syn, ROOT_NOTE.id, 36)),
+            message(9, 100, sound_engine(syn, NoteEngine::Sample(Some(BASS)))),
         ]
     );
 }
@@ -1120,6 +1178,7 @@ fn the_sample_item_changes_the_file_and_keeps_the_other_values() {
             message(3, 50, set_param(kick, END.id, 9_599)),
             message(4, 50, set_param(kick, LOOP_END.id, 9_599)),
             message(5, 50, set_param(kick, ROOT_NOTE.id, 60)),
+            message(6, 50, sound_engine(kick, NoteEngine::Sample(Some(SNARE)))),
         ]
     );
     let sound = rig.control.project.pool.get(kick).unwrap();
@@ -1616,8 +1675,43 @@ fn a_file_dropped_again_under_its_path_revives_its_sounds() {
         [
             message(number + 1, 210, set_param(kick, END.id, 479)),
             message(number + 2, 210, set_param(kick, LOOP_END.id, 479)),
-            message(number + 3, 300, sample_note(0, kick, 48, Some(new))),
+            message(
+                number + 3,
+                210,
+                sound_engine(kick, NoteEngine::Sample(Some(new)))
+            ),
+            message(number + 4, 300, sample_note(0, kick, 48, Some(new))),
         ]
+    );
+}
+
+#[test]
+fn a_relink_tells_the_audio_part_the_file() {
+    let queue = Queue::new();
+    let mut rig = Rig::with_files(&queue, &library());
+    rig.open();
+    let kick = sample_on(&mut rig, 0, KICK.file);
+    let forget = delete_kick(&mut rig, 10);
+    rig.control.applied(forget.number, 90);
+    rig.settle(100);
+
+    // KICK.wav goes into drums/, kick.wav's path but for case, in kick.wav's place.
+    rig.drop_files(200, &[("tmp/1/drums/KICK.wav", short())]);
+    rig.settle(210);
+
+    let new = SampleFile {
+        file: FileId(2),
+        frames: 480,
+        stereo: false,
+    };
+    // After its two values.
+    assert_eq!(
+        rig.sent().last(),
+        Some(&message(
+            forget.number + 3,
+            210,
+            sound_engine(kick, NoteEngine::Sample(Some(new)))
+        ))
     );
 }
 
@@ -1691,10 +1785,20 @@ fn a_replaced_file_keeps_its_sounds_on_the_new_audio() {
         [
             message(number + 1, 30, set_param(kick, END.id, 479)),
             message(number + 2, 30, set_param(kick, LOOP_END.id, 479)),
-            message(number + 3, 30, set_param(copy, END.id, 479)),
-            message(number + 4, 30, set_param(copy, LOOP_END.id, 479)),
-            message(number + 5, 100, sample_note(0, kick, 48, Some(new))),
-            message(number + 6, 110, sample_note(1, copy, 48, Some(new))),
+            message(
+                number + 3,
+                30,
+                sound_engine(kick, NoteEngine::Sample(Some(new)))
+            ),
+            message(number + 4, 30, set_param(copy, END.id, 479)),
+            message(number + 5, 30, set_param(copy, LOOP_END.id, 479)),
+            message(
+                number + 6,
+                30,
+                sound_engine(copy, NoteEngine::Sample(Some(new)))
+            ),
+            message(number + 7, 100, sample_note(0, kick, 48, Some(new))),
+            message(number + 8, 110, sample_note(1, copy, 48, Some(new))),
         ]
     );
 }
@@ -1859,11 +1963,21 @@ fn a_sound_of_a_file_that_was_not_loaded_takes_the_new_files_points() {
             message(0, 110, set_param(plain_sound, END.id, 479)),
             message(1, 110, set_param(plain_sound, LOOP_END.id, 479)),
             message(2, 110, set_param(plain_sound, ROOT_NOTE.id, 60)),
-            message(3, 110, set_param(other, END.id, 479)),
-            message(4, 110, set_param(other, LOOP_END.id, 479)),
-            message(5, 110, set_param(other, ROOT_NOTE.id, 60)),
-            message(6, 200, sample_note(0, other, 60, Some(new_other))),
-            message(7, 210, sample_note(1, plain_sound, 60, Some(new_plain))),
+            message(
+                3,
+                110,
+                sound_engine(plain_sound, NoteEngine::Sample(Some(new_plain)))
+            ),
+            message(4, 110, set_param(other, END.id, 479)),
+            message(5, 110, set_param(other, LOOP_END.id, 479)),
+            message(6, 110, set_param(other, ROOT_NOTE.id, 60)),
+            message(
+                7,
+                110,
+                sound_engine(other, NoteEngine::Sample(Some(new_other)))
+            ),
+            message(8, 200, sample_note(0, other, 60, Some(new_other))),
+            message(9, 210, sample_note(1, plain_sound, 60, Some(new_plain))),
         ]
     );
 }
@@ -1892,11 +2006,17 @@ fn a_replace_by_a_shorter_file_keeps_the_points_held_within_it() {
     rig.settle(40);
 
     let number = forget.number;
+    let new = NoteEngine::Sample(Some(SampleFile {
+        file: FileId(4),
+        frames: 480,
+        stereo: false,
+    }));
     assert_eq!(
         rig.sent(),
         [
             message(number + 1, 30, set_param(kick, START.id, 478)),
             message(number + 2, 30, set_param(kick, END.id, 479)),
+            message(number + 3, 30, sound_engine(kick, new)),
         ]
     );
     let sound = rig.control.project.pool.get(kick).unwrap();
@@ -1919,7 +2039,7 @@ fn a_relink_waits_for_room_for_each_sounds_values() {
     rig.consumer.pop();
 
     // The report lists the new file with room for one event: the first sound takes it and sends
-    // its two values, and the second waits, missing.
+    // its two values and its engine, and the second waits, missing.
     rig.control.applied(forget.number, 30);
     rig.step(40);
     let engine = |rig: &Rig<'_>, sound| rig.control.project.pool.get(sound).unwrap().engine;
@@ -1929,11 +2049,17 @@ fn a_relink_waits_for_room_for_each_sounds_values() {
         Engine::Sample(Sample::Missing(_))
     ));
     let sent = rig.sent();
+    let new = NoteEngine::Sample(Some(SampleFile {
+        file: FileId(4),
+        frames: 480,
+        stereo: false,
+    }));
     assert_eq!(
-        sent[sent.len() - 2..],
+        sent[sent.len() - 3..],
         [
             message(forget.number + 1, 30, set_param(kick, END.id, 479)),
             message(forget.number + 2, 30, set_param(kick, LOOP_END.id, 479)),
+            message(forget.number + 3, 30, sound_engine(kick, new)),
         ]
     );
 
@@ -1942,8 +2068,9 @@ fn a_relink_waits_for_room_for_each_sounds_values() {
     assert_eq!(
         rig.sent(),
         [
-            message(forget.number + 3, 30, set_param(copy, END.id, 479)),
-            message(forget.number + 4, 30, set_param(copy, LOOP_END.id, 479)),
+            message(forget.number + 4, 30, set_param(copy, END.id, 479)),
+            message(forget.number + 5, 30, set_param(copy, LOOP_END.id, 479)),
+            message(forget.number + 6, 30, sound_engine(copy, new)),
         ]
     );
 }

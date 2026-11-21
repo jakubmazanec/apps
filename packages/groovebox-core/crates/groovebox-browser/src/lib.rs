@@ -15,6 +15,7 @@ use groovebox_core::message::{REPORT_QUEUE, Report};
 use groovebox_core::palette;
 use groovebox_core::sample_ram::SampleRam;
 use groovebox_core::storage::{Path, Reply, Request, Status};
+use groovebox_core::store::NoteRam;
 
 #[cfg(target_arch = "wasm32")]
 #[panic_handler]
@@ -71,6 +72,7 @@ const EMPTY_REQUEST: RequestRecord = RequestRecord {
 
 static DEVICE: Device = Device::new();
 static SAMPLE_RAM: SampleRam = SampleRam::new();
+static NOTE_RAM: NoteRam = NoteRam::new();
 /// The sample at which the next `audio_render` starts. Only the audio side stores it.
 static POSITION: AtomicU64 = AtomicU64::new(0);
 /// Counts the batches rendered. Only the page uses it: the AudioWorklet adds to it and wakes the
@@ -340,7 +342,7 @@ pub extern "C" fn audio_render(frames: u32) -> u32 {
     // exists; and only this call touches the output, which the worklet reads after it returns.
     let (mut audio, [left, right]) = unsafe {
         (
-            DEVICE.audio_side(&SAMPLE_RAM),
+            DEVICE.audio_side(&SAMPLE_RAM, &NOTE_RAM),
             (&raw mut OUTPUT).as_mut_unchecked(),
         )
     };

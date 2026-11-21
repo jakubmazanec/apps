@@ -6,7 +6,7 @@ use super::{Control, HeaderMessage};
 use crate::input::Button;
 use crate::label::Label;
 use crate::library::{Entry, FileId, FolderId, Library};
-use crate::message::{MESSAGE_QUEUE, Message, MessageKind};
+use crate::message::{MESSAGE_QUEUE, Message, MessageKind, NoteEngine};
 use crate::palette::RECORD;
 use crate::project::pool::{Engine, SOUND_DEFAULTS, Sample};
 use crate::queue::Producer;
@@ -80,7 +80,8 @@ impl Control {
     /// and then its values that differ from every default) and puts it on the selected pad, the
     /// Sample item gives the selected sound the file (`take_file`), unless it plays that file
     /// already, which changes nothing (S9), and ENGINE switches the selected sound to the sample
-    /// engine with it (`start_sample`), each sending the values it changed. On
+    /// engine with it (`start_sample`), each sending the values it changed and what its notes play
+    /// when that changed (`send_values`). On
     /// SAMPLES a file opens its Delete picker, unless a delete runs or the import replaces a file:
     /// deletes run one at a time, and never with a replace.
     pub(super) fn ok_in_samples(
@@ -105,7 +106,7 @@ impl Control {
                     self.view.picker = None;
                     self.end_held_repeats();
                     let audio = *self.library.file(file);
-                    let (sound, before) = match pick {
+                    let (sound, before, before_engine) = match pick {
                         Pick::NewSound => {
                             let sound = self.project.pool.new_sample(file, &audio).expect(
                                 "New sample opens the sample picker only while the pool has room",
@@ -116,7 +117,8 @@ impl Control {
                                 .selected_pad
                                 .expect("New sample belongs to the selected pad");
                             self.project.put(pad, Some(sound));
-                            (sound, SOUND_DEFAULTS)
+                            // As a new sound starts in the audio part.
+                            (sound, SOUND_DEFAULTS, NoteEngine::Synth)
                         }
                         Pick::Change | Pick::Switch => {
                             let number = self
@@ -128,16 +130,16 @@ impl Control {
                                 .pool
                                 .get_mut(number)
                                 .expect("a selected sound is in the pool");
-                            let before = sound.values;
+                            let before = *sound;
                             if pick == Pick::Switch {
                                 sound.start_sample(file, &audio);
                             } else if sound.engine != Engine::Sample(Sample::File(file)) {
                                 sound.take_file(file, &audio);
                             }
-                            (number, before)
+                            (number, before.values, self.note_engine(&before))
                         }
                     };
-                    self.send_values(sound, &before, sample, messages);
+                    self.send_values(sound, &before, before_engine, sample, messages);
                 }
                 _ if self.delete.is_none() && self.import.replacing().is_none() => {
                     self.view.highlight(Picker::Delete(file), 0);
