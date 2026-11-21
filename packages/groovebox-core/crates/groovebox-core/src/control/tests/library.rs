@@ -594,6 +594,20 @@ fn the_dev_page_shows_the_library_meter() {
         |screen| {
             draw_item(screen, 2, 17, 160, &meter, true, None);
             draw_cursor(screen, 2, 17, 160, 17);
+            draw_item(
+                screen,
+                2,
+                35,
+                160,
+                &ItemView {
+                    encoder: None,
+                    name: "Note memory",
+                    value: "0.0 of 8 MB",
+                    bar: Bar::Fill(0, 8_000_000),
+                },
+                true,
+                None,
+            );
         },
         &[None; 4],
     );

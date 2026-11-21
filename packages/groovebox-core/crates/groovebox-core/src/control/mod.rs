@@ -177,6 +177,9 @@ pub struct Control {
     /// A bit for each step of the page the step buttons show whose sixteenth a note of the
     /// selected sound starts in, from step 1's bit 0, as the latest step left them (S6).
     step_notes: u16,
+    /// The bytes that the blocks of the note memory in use cost (`Store::used`), as the latest step
+    /// left them: the Dev page shows them.
+    note_memory: u64,
     /// The fingerprint and the peaks (`Library::peaks`) of the latest file whose waveform showed
     /// while the audio part could read it. `step` reads them again for a file of another
     /// fingerprint, so a file listed in the place of another never shows that one's picture.
@@ -224,6 +227,7 @@ impl Control {
             player: Sequencer::new(),
             moment: 0,
             step_notes: 0,
+            note_memory: 0,
             waveform: None,
             view: View::new(),
             message: None,
@@ -324,8 +328,9 @@ impl Control {
     ///
     /// Last, while the screen's page shows the waveform and the audio part may read the selected
     /// sound's file (`sample_file`), it reads that file's peaks through `tables` from `ram` unless
-    /// it holds them already (`waveform`), and it works out which steps of the page the step
-    /// buttons show start a note of the selected sound (`step_notes`).
+    /// it holds them already (`waveform`), it works out which steps of the page the step buttons
+    /// show start a note of the selected sound (`step_notes`) and it notes how much of the note
+    /// memory is in use (`note_memory`).
     #[expect(
         clippy::too_many_arguments,
         reason = "the control part writes two queues and reads and writes three memories"
@@ -546,6 +551,7 @@ impl Control {
                 .filter(|note| note.sound == sound)
                 .fold(0, |steps, note| steps | 1 << (note.place / 480 - first))
         });
+        self.note_memory = store.used();
         // shortcut: a scrolling text also redraws each pixel time during its pause, an identical
         // picture; compare offsets if the hardware's redraw cost matters.
         let pixels = |sample: u64| sample.saturating_sub(self.landed) / SCROLL_PIXEL;
@@ -1255,7 +1261,7 @@ impl Control {
                 };
                 self.open_sample_picker(Pick::Change, on);
             }
-            ItemKind::LibraryMeter => {}
+            ItemKind::LibraryMeter | ItemKind::NoteMeter => {}
         }
     }
 
@@ -1264,7 +1270,7 @@ impl Control {
     /// stops a frame short of its partner (answer 3): Start below End and Loop start below Loop
     /// end. It stays while the audio part may not read the file (`sample_file`, S15) and when no
     /// frame is left to move to. The Pad page's items and the Sample item have no value to move,
-    /// so a stray turn never changes what a pad plays, and the library meter has none either.
+    /// so a stray turn never changes what a pad plays, and the meters have none either.
     fn change(
         &mut self,
         item: ItemDef,
@@ -1298,7 +1304,8 @@ impl Control {
             | ItemKind::PadCopy
             | ItemKind::PadEngine
             | ItemKind::SampleFile
-            | ItemKind::LibraryMeter => {}
+            | ItemKind::LibraryMeter
+            | ItemKind::NoteMeter => {}
         }
     }
 

@@ -1163,7 +1163,7 @@ fn the_pad_page_and_picker_match_their_geometry() {
 
     // The header: "Sound" from x 4, then "Pad", "T1" and "Syn 1", then the dim "Pads".
     assert_eq!(span(&screen, 0..=479, 1..=13, ACCENT), Some((4, 32)));
-    assert_eq!(span(&screen, 0..=479, 1..=13, TEXT), Some((39, 107)));
+    assert_eq!(span(&screen, 0..=406, 1..=13, TEXT), Some((39, 107)));
     assert_eq!(span(&screen, 0..=479, 1..=13, DIM), Some((114, 136)));
     // The items at y 17, 35 and 53: the dim digits, the values ending 3 pixels inside, the faint
     // tracks and the cursor 1 pixel outside the first.

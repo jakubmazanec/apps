@@ -200,24 +200,26 @@ fn picture(control: &Control) -> Screen {
     screen
 }
 
-/// The picture of these header pieces and message, what `main` draws and the strip with these
-/// cells.
+/// The picture of these header pieces and message, or while there is no message a new project's
+/// stopped transport, what `main` draws and the strip with these cells.
 fn drawn(
     header: &[(&str, Color)],
     message: Option<(&str, Color)>,
     main: impl FnOnce(&mut Screen),
     strip: &[Option<ItemView>; 4],
 ) -> Screen {
-    let pieces: Vec<Piece> = header
-        .iter()
-        .map(|&(text, color)| Piece { text, color })
-        .collect();
-    let mut screen = Screen::new();
-    draw_header(
-        &mut screen,
-        &pieces,
-        message.map(|(text, color)| Piece { text, color }),
+    let right = message.as_ref().map_or(
+        &[("P1", TEXT), ("1/1", TEXT), ("120.0", TEXT)][..],
+        core::slice::from_ref,
     );
+    let [left, right]: [Vec<Piece>; 2] = [header, right].map(|pieces| {
+        pieces
+            .iter()
+            .map(|&(text, color)| Piece { text, color })
+            .collect()
+    });
+    let mut screen = Screen::new();
+    draw_header(&mut screen, &left, &right);
     main(&mut screen);
     draw_strip(&mut screen, strip);
     screen
@@ -329,7 +331,7 @@ fn a_new_project_draws_step_t1_pad_1_pads() {
     let screen = picture(&rig.control);
     // Each piece 6 pixels after the one before it, ink from x 4, on the capitals' rows 4 to 10.
     assert_eq!(span(&screen, 0..=479, 4..=10, ACCENT), Some((4, 26)));
-    assert_eq!(span(&screen, 0..=479, 4..=10, TEXT), Some((33, 43)));
+    assert_eq!(span(&screen, 0..=406, 4..=10, TEXT), Some((33, 43)));
     assert_eq!(span(&screen, 0..=479, 4..=10, DIM), Some((50, 83)));
     assert!(filled(&screen, 0..=479, 14..=14, LINE));
     assert!(filled(&screen, 0..=479, 15..=252, BACKGROUND));
@@ -1504,7 +1506,7 @@ fn the_settings_page_matches_its_geometry() {
     assert!(shows(&rig.control, &playing("On")));
     // The header: "Settings" from x 4, then "Playing" and "T1", then the dim "1" and "Pads".
     assert_eq!(span(&screen, 0..=479, 1..=13, ACCENT), Some((4, 50)));
-    assert_eq!(span(&screen, 0..=479, 1..=13, TEXT), Some((57, 114)));
+    assert_eq!(span(&screen, 0..=406, 1..=13, TEXT), Some((57, 114)));
     assert_eq!(span(&screen, 0..=479, 1..=13, DIM), Some((121, 154)));
     // Item 1 at (2, 17): the dim digit and name, the value ending 3 pixels inside, the faint
     // track and the cursor 1 pixel outside.

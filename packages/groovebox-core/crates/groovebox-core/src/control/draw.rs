@@ -11,7 +11,7 @@ use crate::palette::{ACCENT, BACKGROUND, DIM, FAINT, NOTE_MID, RECORD, TEXT};
 use crate::param::{
     self, BP, CUTOFF, Curve, END, HP, LP_12, LP_24, MODE, ParamId, RESONANCE, START,
 };
-use crate::project::pool::{Engine, Sample, Sound, SoundNumber};
+use crate::project::pool::{Engine, NAME_BYTES, Sample, Sound, SoundNumber};
 use crate::project::track::PadMode;
 use crate::screen::{Canvas, HEIGHT, WIDTH};
 use crate::ui::frame::{Piece, draw_header, draw_strip};
@@ -46,6 +46,8 @@ impl Control {
     /// screen and its page. The message is on the right, or while there is none the import's
     /// progress, in the room right of the pieces; a file's name in it is shortened with "…" so that
     /// the rest of the text fits there, and a message still too wide for it loses its end to a "…".
+    /// While neither shows, the transport is on the right (`transport`, S11), and the sound's name
+    /// loses its end to a "…" where the pieces would come closer than 6 pixels to it (S12).
     ///
     /// The main area shows the page's items with the cursor and the page's picture, the tiles while
     /// MENU or PAGE is held, or the picker while one is open. On STEP it stays empty, as its grid
@@ -74,10 +76,10 @@ impl Control {
             draw_header(
                 canvas,
                 &[],
-                Some(Piece {
+                &[Piece {
                     text: "Loading library",
                     color: ACCENT,
-                }),
+                }],
             );
             draw_strip(canvas, &[None; 4]);
             return;
@@ -124,7 +126,7 @@ impl Control {
         } else {
             (screen.name(), self.page(screen).map(|page| page.name))
         };
-        let header = [
+        let mut header = [
             Piece {
                 text: name,
                 color: ACCENT,
@@ -143,10 +145,10 @@ impl Control {
                 color: DIM,
             },
         ];
-        let left: &[Piece] = if page.is_some() {
-            &header
+        let left: &mut [Piece] = if page.is_some() {
+            &mut header
         } else {
-            &[header[0], header[2], header[3], header[4]]
+            &mut [header[0], header[2], header[3], header[4]]
         };
         let room = HEADER_RIGHT + 1
             - TEXT_X
@@ -175,13 +177,42 @@ impl Control {
                 (message, color)
             },
         );
+        let mut transport = [Label::new(); 3];
+        self.transport(&mut transport);
+        let transport = transport.each_ref().map(|piece| Piece {
+            text: piece.as_str(),
+            color: TEXT,
+        });
+        // The "…" takes the place of at least one character, so two bytes more at most.
+        let mut cut = Label::<{ NAME_BYTES + 2 }>::new();
+        if message.is_none() {
+            // The sound is the piece before the pad mode.
+            let sound = &mut left[left.len() - 2];
+            write!(
+                cut,
+                "{}",
+                text::fit(
+                    sound.text,
+                    text::width(sound.text) + room + PIECE_GAP
+                        - transport
+                            .iter()
+                            .map(|piece| text::width(piece.text) + PIECE_GAP)
+                            .sum::<i32>()
+                )
+            )
+            .expect("writing to a label never fails");
+            sound.text = cut.as_str();
+        }
+        let message = message.as_ref().map(|(text, color)| Piece {
+            text: text.as_str(),
+            color: *color,
+        });
         draw_header(
             canvas,
             left,
-            message.as_ref().map(|(text, color)| Piece {
-                text: text.as_str(),
-                color: *color,
-            }),
+            message
+                .as_ref()
+                .map_or(transport.as_slice(), core::slice::from_ref),
         );
 
         let elapsed = self.now - self.landed;
@@ -567,6 +598,26 @@ impl Control {
         );
     }
 
+    /// The header's transport (S11): the current pattern ("P1"), the cursor's bar over the
+    /// pattern's length ("1/1"), with "▶" and the bar the music is in while playing ("1/1 ▶1"), and
+    /// the tempo with one decimal ("120.0").
+    fn transport(&self, out: &mut [Label<24>; 3]) {
+        let [pattern, bar, tempo] = out;
+        write!(pattern, "P{}", self.project.pattern + 1).expect("writing to a label never fails");
+        write!(
+            bar,
+            "{}/{}",
+            self.view.steps.bar + 1,
+            self.project.patterns[usize::from(self.project.pattern)].bars
+        )
+        .expect("writing to a label never fails");
+        if let Some((playing, _)) = self.player.at(self.now) {
+            write!(bar, " ▶{}", playing + 1).expect("writing to a label never fails");
+        }
+        let tenths = (self.project.tempo + 5) / 10;
+        write!(tempo, "{}.{}", tenths / 10, tenths % 10).expect("writing to a label never fails");
+    }
+
     /// What `item` shows, with its value written into `value` where it is not a name.
     fn item_view<'a>(&'a self, item: &ItemDef, value: &'a mut Label<16>) -> ItemView<'a> {
         let (name, value, bar) = match item.kind {
@@ -636,6 +687,11 @@ impl Control {
                 let (used, total) = (self.library.used(), budget::SAMPLE_RAM as u64);
                 value.push_str(name::meter(used, total).as_str());
                 ("Library", value.as_str(), Bar::Fill(used, total))
+            }
+            ItemKind::NoteMeter => {
+                let (used, total) = (self.note_memory, budget::NOTE_RAM as u64);
+                value.push_str(name::meter(used, total).as_str());
+                ("Note memory", value.as_str(), Bar::Fill(used, total))
             }
         };
         ItemView {

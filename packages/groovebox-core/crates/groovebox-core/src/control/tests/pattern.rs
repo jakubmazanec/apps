@@ -1,12 +1,15 @@
 //! Patterns, PLAY, SHIFT + PLAY and STOP, and the steps that enter and remove notes.
 
-use super::library::converted_with;
+use super::library::{converted_with, meter};
 use super::sample_sounds::{KICK, library, sample_on};
 use super::*;
 use crate::project::{FOUR_FOUR, Pattern, Signature};
 use crate::sequencer::{Run, Sounding};
 use crate::store::note::{Key, Note};
 use crate::store::{NOTE_BLOCKS, Tree};
+use crate::ui::layout::HEADER_LINE;
+use std::format;
+use std::string::String;
 use view::{Picker, StepCursor};
 
 /// A `Play` of the current pattern from bar 1, anchored at `anchor`, at 120 BPM.
@@ -903,4 +906,168 @@ fn a_tap_without_room_says_not_enough_memory() {
         }]
     );
     assert_eq!(count(&rig, synth), 0);
+}
+
+#[test]
+fn the_header_shows_the_pattern_the_bar_and_the_tempo() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+
+    rig.step(128);
+
+    assert!(shows_step(&rig.control, &STEP_HEADER));
+    // step-stopped.png: "P1", "1/1" and "120.0" 6 pixels apart, the tempo ending at x 475.
+    let screen = picture(&rig.control);
+    assert_eq!(span(&screen, 300..=420, 4..=10, TEXT), Some((407, 417)));
+    assert_eq!(span(&screen, 421..=443, 4..=10, TEXT), Some((424, 440)));
+    assert_eq!(span(&screen, 444..=479, 4..=10, TEXT), Some((447, 475)));
+}
+
+#[test]
+fn while_playing_the_bar_names_the_playing_bar() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    rig.press(9_600, Button::Play);
+
+    rig.step(9_728);
+
+    let mut expected = Screen::new();
+    draw_header(
+        &mut expected,
+        &STEP_HEADER.map(|(text, color)| Piece { text, color }),
+        &["P1", "1/1 ▶1", "120.0"].map(|text| Piece { text, color: TEXT }),
+    );
+    draw_strip(&mut expected, &[None; 4]);
+    assert!(shows(&rig.control, &expected));
+
+    rig.press(20_000, Button::Stop);
+    rig.step(20_128);
+    assert!(shows_step(&rig.control, &STEP_HEADER));
+}
+
+#[test]
+fn a_message_replaces_the_transport() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    rig.synth_on(0);
+    fill_until(&rig, RESERVE - 1);
+
+    rig.tap(100, Button::Step(0));
+    rig.step(200);
+
+    let screen = picture(&rig.control);
+    assert_eq!(span(&screen, 0..=479, 4..=10, RECORD), Some((375, 475)));
+    // Of the bright texts only "T1" and "Syn 1" show.
+    assert_eq!(span(&screen, 0..=479, 4..=10, TEXT), Some((33, 78)));
+
+    // STOP clears the message, and the transport is back.
+    rig.tap(300, Button::Stop);
+    rig.step(400);
+    assert!(shows(
+        &rig.control,
+        &drawn(
+            &step_header("Syn 1"),
+            None,
+            |_| {},
+            &[
+                Some(sound("Syn 1")),
+                Some(copy("on 1 pad")),
+                Some(engine("Synth")),
+                None
+            ],
+        )
+    ));
+}
+
+#[test]
+fn a_long_sound_name_stops_short_of_the_transport() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    let synth = rig.synth_on(0);
+    let long: String = ('a'..='z').cycle().take(40).collect();
+    let name = &mut rig.control.project.pool.get_mut(synth).unwrap().name;
+    *name = Label::new();
+    name.push_str(&long);
+    // SOUND's Volume envelope page, whose name is among the longest.
+    rig.menu(10, 2);
+    rig.page(20, 4);
+
+    rig.step(30);
+
+    // 36 characters and the "…" bring "Pads" to x 400, 6 pixels left of "P1"; one more character
+    // would bring it closer.
+    let cut = format!("{}…", &long[..36]);
+    let header = drawn(
+        &[
+            ("Sound", ACCENT),
+            ("Volume envelope", TEXT),
+            ("T1", TEXT),
+            (&cut, TEXT),
+            ("Pads", DIM),
+        ],
+        None,
+        |_| {},
+        &[None; 4],
+    );
+    let rows = WIDTH * (HEADER_LINE as usize + 1);
+    assert!(picture(&rig.control).pixels()[..rows] == header.pixels()[..rows]);
+    assert_eq!(span(&header, 300..=479, 4..=10, DIM), Some((378, 400)));
+    assert_eq!(span(&header, 401..=420, 4..=10, TEXT), Some((407, 417)));
+}
+
+#[test]
+fn the_dev_page_shows_note_memory() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    rig.menu(10, 7);
+    rig.page(20, 1);
+
+    rig.step(30);
+
+    let note_memory = ItemView {
+        encoder: None,
+        name: "Note memory",
+        value: "0.0 of 8 MB",
+        bar: Bar::Fill(0, 8_000_000),
+    };
+    assert!(shows(
+        &rig.control,
+        &drawn(
+            &[
+                ("Settings", ACCENT),
+                ("Dev", TEXT),
+                ("T1", TEXT),
+                ("1", DIM),
+                ("Pads", DIM),
+            ],
+            None,
+            |screen| {
+                draw_item(screen, 2, 17, 160, &meter("0.0 of 64 MB", 0), true, None);
+                draw_cursor(screen, 2, 17, 160, 17);
+                draw_item(screen, 2, 35, 160, &note_memory, true, None);
+            },
+            &[None; 4],
+        )
+    ));
+
+    // A tree's first note takes a block of 512 bytes and 8 of bookkeeping.
+    rig.synth_on(0);
+    let other = rig.synth_on(1);
+    rig.tap(100, Button::Step(0));
+    rig.step(200);
+    assert_eq!(rig.control.note_memory, 520);
+
+    // 32 notes of two sounds pass a leaf's 31: two leaves and their root.
+    for step in 1..16 {
+        rig.tap(200 + 10 * u64::from(step), Button::Step(step));
+    }
+    rig.hit(400, 1, 100);
+    rig.release(410, 1);
+    rig.step(500);
+    for step in 0..16 {
+        rig.tap(500 + 10 * u64::from(step), Button::Step(step));
+    }
+    rig.step(700);
+    assert_eq!(count(&rig, other), 16);
+    assert_eq!(rig.control.note_memory, 3 * 520);
 }

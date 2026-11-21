@@ -28,6 +28,9 @@ pub enum ItemKind {
     /// "Library": how much of the sample RAM the library takes, in text and in its bar. It is not
     /// set.
     LibraryMeter,
+    /// "Note memory": how much of the note memory the blocks in use take, in text and in its bar.
+    /// It is not set.
+    NoteMeter,
 }
 
 /// An item of a page and the encoder that holds it.
@@ -80,6 +83,11 @@ pub const MENU: [Option<Screen>; STEPS as usize] = {
 /// strip.
 pub const LIBRARY_METER: ItemDef = ItemDef {
     kind: ItemKind::LibraryMeter,
+    encoder: None,
+};
+/// The note memory meter, the Dev page's item under the library meter, which no encoder holds.
+const NOTE_METER: ItemDef = ItemDef {
+    kind: ItemKind::NoteMeter,
     encoder: None,
 };
 
@@ -247,7 +255,7 @@ pub fn pages(screen: Screen, sound: Option<&Sound>, pad: bool) -> &'static [Page
             },
             PageDef {
                 name: "Dev",
-                items: &[LIBRARY_METER],
+                items: &[LIBRARY_METER, NOTE_METER],
                 picture: None,
             },
         ],

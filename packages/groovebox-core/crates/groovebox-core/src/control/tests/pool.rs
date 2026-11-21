@@ -205,9 +205,11 @@ fn a_long_missing_file_name_is_cut_to_keep_the_label_within_half_the_row() {
     let label = format!("sample  missing {}…  pad 1", "x".repeat(15));
     assert!(text::width(&label) <= half);
     assert!(text::width(&label) + ADVANCE > half);
+    // The header keeps 52 characters of the name and a "…" short of the transport.
+    let cut = format!("{}…", "y".repeat(52));
     assert!(shows(
         &rig.control,
-        &pool(&rig, (&long, RECORD), &[missing(&long, &label)])
+        &pool(&rig, (&cut, RECORD), &[missing(&long, &label)])
     ));
 
     // On all 12 pads the rest of the label passes half the row alone, and the name keeps its "…".
@@ -218,7 +220,7 @@ fn a_long_missing_file_name_is_cut_to_keep_the_label_within_half_the_row() {
     let label = "sample  missing …  pads 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12";
     assert!(shows(
         &rig.control,
-        &pool(&rig, (&long, RECORD), &[missing(&long, label)])
+        &pool(&rig, (&cut, RECORD), &[missing(&long, label)])
     ));
 }
 
@@ -337,10 +339,12 @@ fn the_name_under_pools_cursor_scrolls_from_where_it_landed() {
         row(&long, Some("synth  no pad, no notes")),
         row(&long, Some("synth  no pad, no notes")),
     ];
+    // The header keeps 52 characters of the name and a "…" short of the transport.
+    let cut = format!("{}…", &long[..52]);
     assert!(shows(
         &rig.control,
         &drawn(
-            &[("Pool", ACCENT), ("T1", TEXT), (&long, TEXT), ("Pads", DIM)],
+            &[("Pool", ACCENT), ("T1", TEXT), (&cut, TEXT), ("Pads", DIM)],
             None,
             |screen| {
                 draw_rows(screen, 17, 15, &rows, 0, Some(1), MOVED);

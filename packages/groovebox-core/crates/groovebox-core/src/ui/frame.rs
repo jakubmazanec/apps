@@ -18,16 +18,18 @@ pub struct Piece<'a> {
     pub color: Color,
 }
 
-/// Draws the header: the `left` pieces from the left edge 6 pixels apart, `right` against the right
-/// edge and the line under them all.
-pub fn draw_header(canvas: &mut impl Canvas, left: &[Piece], right: Option<Piece>) {
+/// Draws the header: the `left` pieces from the left edge 6 pixels apart, the `right` pieces in
+/// their order 6 pixels apart with the last against the right edge, and the line under them all.
+pub fn draw_header(canvas: &mut impl Canvas, left: &[Piece], right: &[Piece]) {
     let mut x = TEXT_X;
     for piece in left {
         text::draw(canvas, x, HEADER_ROW, piece.text, piece.color);
         x += text::width(piece.text) + PIECE_GAP;
     }
-    if let Some(piece) = right {
-        text::draw_right(canvas, HEADER_RIGHT, HEADER_ROW, piece.text, piece.color);
+    x = HEADER_RIGHT;
+    for piece in right.iter().rev() {
+        text::draw_right(canvas, x, HEADER_ROW, piece.text, piece.color);
+        x -= text::width(piece.text) + PIECE_GAP;
     }
     canvas.hline(0, HEADER_LINE, WIDTH as u32, LINE);
 }
@@ -67,7 +69,7 @@ mod tests {
                 piece("Snare", TEXT),
                 piece("Pads", DIM),
             ],
-            None,
+            &[],
         );
 
         // The line under the header, across the whole screen.
@@ -89,11 +91,27 @@ mod tests {
         draw_header(
             &mut screen,
             &[piece("Step", ACCENT)],
-            Some(piece("Storage full. Not saved", RECORD)),
+            &[piece("Storage full. Not saved", RECORD)],
         );
 
         assert_eq!(span(&screen, 0..=479, 4..=10, ACCENT), Some((4, 26)));
         assert_eq!(span(&screen, 0..=479, 4..=10, RECORD), Some((339, 475)));
+    }
+
+    #[test]
+    fn right_pieces_end_at_the_right_edge_6_pixels_apart() {
+        let mut screen = Screen::new();
+
+        draw_header(
+            &mut screen,
+            &[piece("Step", ACCENT)],
+            &[piece("P1", TEXT), piece("1/1", TEXT), piece("120.0", TEXT)],
+        );
+
+        // step-stopped.png: the tempo last, ending at x 475.
+        assert_eq!(span(&screen, 300..=420, 4..=10, TEXT), Some((407, 417)));
+        assert_eq!(span(&screen, 421..=443, 4..=10, TEXT), Some((424, 440)));
+        assert_eq!(span(&screen, 444..=479, 4..=10, TEXT), Some((447, 475)));
     }
 
     #[test]
