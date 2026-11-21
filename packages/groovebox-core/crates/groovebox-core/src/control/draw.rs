@@ -1,3 +1,4 @@
+use super::bars::Change;
 use super::pages::{ItemDef, ItemKind, LIBRARY_METER, Picture};
 use super::samples::{self, rows};
 use super::view::{Picker, Question, Screen};
@@ -64,9 +65,10 @@ impl Control {
     /// sounds use it" (S17); POOL's DELETE names the sound, then counts the pads that hold it on
     /// every track, if any, as "On 2 pads" (S12), and its notes in every pattern, if any, as "On 2
     /// pads, 24 notes" or "24 notes" (S21); Remove unused counts the unused sounds as it is
-    /// drawn (S13). The strip shows the items that the encoders hold (`encoder_items`), also on
-    /// SAMPLES and POOL while TEMPO is held, and nothing while MENU or PAGE is held or the picker is
-    /// open.
+    /// drawn (S13); Delete notes counts the notes a length or signature no longer fits, as "Delete
+    /// 24 notes?", with no count line (S12). The strip shows the items that the encoders hold
+    /// (`encoder_items`), also on SAMPLES and POOL while TEMPO is held, and nothing while MENU or
+    /// PAGE is held or a picker or a question is open.
     ///
     /// The text under the cursor, the current tile's name and the selected pad's name scroll when
     /// they do not fit, as far as the samples since the cursor landed say; the strip never scrolls.
@@ -233,17 +235,23 @@ impl Control {
         if let Some(tiles) = self.tiles() {
             scrolls = draw_tiles(canvas, &tiles, elapsed);
         } else if let Some((
-            open @ (Picker::Sound | Picker::Engine | Picker::Delete(_) | Picker::DeleteSound(_)),
+            open @ (Picker::Sound
+            | Picker::Engine
+            | Picker::Delete(_)
+            | Picker::DeleteSound(_)
+            | Picker::Length
+            | Picker::Signature),
             picker,
         )) = self.view.picker
         {
             let shown = picker.scroll..self.picker_rows(open).min(picker.scroll + LIST_VISIBLE);
+            let mut labels = [Label::<16>::new(); LIST_VISIBLE];
             let mut rows = [Row {
                 left: "",
                 right: None,
                 alert: false,
             }; LIST_VISIBLE];
-            for (slot, row) in rows.iter_mut().zip(shown.clone()) {
+            for ((slot, row), label) in rows.iter_mut().zip(shown.clone()).zip(&mut labels) {
                 *slot = match self.entry(open, row) {
                     Entry::Empty => Row {
                         left: "Empty",
@@ -280,6 +288,14 @@ impl Control {
                         right: None,
                         alert: false,
                     },
+                    Entry::Change(change) => {
+                        write!(label, "{change}").expect("writing to a label never fails");
+                        Row {
+                            left: label.as_str(),
+                            right: None,
+                            alert: false,
+                        }
+                    }
                 };
             }
             scrolls = draw_rows(
@@ -518,7 +534,7 @@ impl Control {
                 None => {}
             }
         }
-        if self.overlay().is_none() && self.view.picker.is_none() {
+        if self.overlay().is_none() && self.view.picker.is_none() && self.view.question.is_none() {
             for ((encoder, cell), value) in (0..).zip(&mut cells).zip(&mut values) {
                 *cell = self
                     .encoder_items()
@@ -594,6 +610,15 @@ impl Control {
                     )
                     .expect("writing to a label never fails");
                     "OK removes, Cancel keeps"
+                }
+                Question::DeleteNotes { count, .. } => {
+                    write!(
+                        question,
+                        "Delete {count} note{}?",
+                        if count == 1 { "" } else { "s" }
+                    )
+                    .expect("writing to a label never fails");
+                    "OK deletes, Cancel keeps"
                 }
             };
             let lines = [
@@ -723,6 +748,20 @@ impl Control {
                 ("Note memory", value.as_str(), Bar::Fill(used, total))
             }
             ItemKind::Grid => ("Grid", "1/16", Bar::Track),
+            ItemKind::Length => {
+                write!(
+                    value,
+                    "{}",
+                    Change::Length(self.project.patterns[usize::from(self.project.pattern)].bars)
+                )
+                .expect("writing to a label never fails");
+                ("Length", value.as_str(), Bar::Track)
+            }
+            ItemKind::Signature => {
+                write!(value, "{}", Change::Signature(self.project.signature))
+                    .expect("writing to a label never fails");
+                ("Signature", value.as_str(), Bar::Track)
+            }
         };
         ItemView {
             encoder: item.encoder.map(|encoder| encoder + 1),

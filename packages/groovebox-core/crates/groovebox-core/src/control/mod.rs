@@ -1,3 +1,4 @@
+mod bars;
 pub mod buttons;
 mod draw;
 pub mod notes;
@@ -24,10 +25,10 @@ use crate::param::{
     self, Curve, END, ENTRIES, LOOP_END, LOOP_START, METRONOME, OUTPUT_VOLUME, ParamId, START,
     Scope, TEMPO, VELOCITY,
 };
-use crate::project::Project;
 use crate::project::pool::{Engine, PoolFull, SOUND_VALUES, Sample, Sound, SoundNumber};
 use crate::project::settings::DeviceSettings;
 use crate::project::track::{MAX_OCTAVE, PadMode, Track};
+use crate::project::{Project, Signature};
 use crate::queue::Producer;
 use crate::ring::Ring;
 use crate::sample_ram::{SampleRam, Tables};
@@ -39,6 +40,7 @@ use crate::store::{RESERVE, Store};
 use crate::ui::layout::{LIST_VISIBLE, PICTURE};
 use crate::ui::text::SCROLL_PIXEL;
 use crate::ui::tiles::{Tile, TileState};
+use bars::{Change, LENGTHS};
 use buttons::{Buttons, REPEATING, Release};
 use core::cell::Cell;
 use core::ops::ControlFlow;
@@ -75,6 +77,9 @@ enum Entry<'a> {
     Delete(FileId),
     /// Asks whether to delete this sound of the pool.
     DeleteSound(SoundNumber),
+    /// Changes the current pattern's length or the signature, asking first when notes no longer
+    /// fit (S12).
+    Change(Change),
 }
 
 /// An event of `step`, in this order on equal samples.
@@ -856,11 +861,14 @@ impl Control {
     /// PADS/KEYS is held, even a PADS/KEYS dropped by the picker, is taken at its press, so it
     /// neither moves the highlight nor repeats, also once SHIFT or PADS/KEYS is let go. Opening and
     /// closing the picker take the arrows, - and + that are held, as a counted MENU or PAGE does
-    /// (`end_held_repeats`). While a question is open only OK and a tap of CANCEL answer it. OK on
-    /// SAMPLES' DELETE deletes the file (`delete_file`) unless the import replaces a file; on
-    /// POOL's DELETE it deletes the sound (`delete_sound`) and moves the cursor to the row above
-    /// (S16); on Remove unused it deletes every sound unused at that moment. The arrows, - and +
-    /// are taken too, and the other controls act as with a picker open.
+    /// (`end_held_repeats`). In the Length and Signature pickers the current value changes nothing,
+    /// and another applies at once (`reshape`) unless it no longer fits some notes (`doomed`),
+    /// which opens the Delete notes question (S12). While a question is open only OK and a tap of
+    /// CANCEL answer it. OK on SAMPLES' DELETE deletes the file (`delete_file`) unless the import
+    /// replaces a file; on POOL's DELETE it deletes the sound (`delete_sound`) and moves the cursor
+    /// to the row above (S16); on Remove unused it deletes every sound unused at that moment; on
+    /// Delete notes it applies the change (`reshape`). The arrows, - and + are taken too, and the
+    /// other controls act as with a picker open.
     ///
     /// Otherwise the arrows, - and + nudge (`nudge`), OK uses the item under the cursor, or acts on
     /// SAMPLES' row (`ok_in_samples`) or POOL's (`ok_in_pool`), and an encoder push the item its
@@ -948,6 +956,10 @@ impl Control {
                     self.project.delete_sound(sound);
                 }
             }
+            Button::Ok if let Some(Question::DeleteNotes { change, .. }) = self.view.question => {
+                self.view.question = None;
+                self.reshape(change, sample, messages, store);
+            }
             Button::Ok if matches!(self.view.picker, Some((Picker::Sample(_), _))) => {
                 self.ok_in_samples(sample, messages);
             }
@@ -961,6 +973,24 @@ impl Control {
                     }
                     Entry::DeleteSound(sound) => {
                         self.view.question = Some(Question::DeleteSound(sound));
+                        return;
+                    }
+                    Entry::Change(change) => {
+                        let bars = self.project.patterns[usize::from(self.project.pattern)].bars;
+                        if ![
+                            Change::Length(bars),
+                            Change::Signature(self.project.signature),
+                        ]
+                        .contains(&change)
+                        {
+                            match self.doomed(change, store) {
+                                0 => self.reshape(change, sample, messages, store),
+                                count => {
+                                    self.view.question =
+                                        Some(Question::DeleteNotes { count, change });
+                                }
+                            }
+                        }
                         return;
                     }
                     // A full pool refuses at once, so the sample picker never opens (answer 4).
@@ -1191,8 +1221,8 @@ impl Control {
     /// OK on `item`: a switch flips. The pad's sound opens the sound picker on the pad's entry,
     /// and Copy puts a copy of the pad's sound on the pad, unless the pool is full. Engine opens
     /// the Engine picker on the sound's engine, and the Sample item the sample picker on the
-    /// sound's file, or as New sample does for a missing one (S13). The meters only show, and Grid
-    /// stays (S3).
+    /// sound's file, or as New sample does for a missing one (S13). Length and Signature open
+    /// their pickers on the current value (S10, S11). The meters only show, and Grid stays (S3).
     fn use_item(
         &mut self,
         item: ItemDef,
@@ -1268,6 +1298,25 @@ impl Control {
                 };
                 self.open_sample_picker(Pick::Change, on);
             }
+            ItemKind::Length => {
+                let bars = self.project.patterns[usize::from(self.project.pattern)].bars;
+                self.view.highlight(
+                    Picker::Length,
+                    LENGTHS
+                        .iter()
+                        .position(|&length| length == bars)
+                        .expect("a pattern's length is one of `LENGTHS`"),
+                );
+                self.end_held_repeats();
+            }
+            ItemKind::Signature => {
+                let Signature { beats, unit } = self.project.signature;
+                self.view.highlight(
+                    Picker::Signature,
+                    usize::from(beats - 1) + if unit == 8 { 16 } else { 0 },
+                );
+                self.end_held_repeats();
+            }
             ItemKind::LibraryMeter | ItemKind::NoteMeter | ItemKind::Grid => {}
         }
     }
@@ -1278,6 +1327,7 @@ impl Control {
     /// end. It stays while the audio part may not read the file (`sample_file`, S15) and when no
     /// frame is left to move to. The Pad page's items and the Sample item have no value to move,
     /// so a stray turn never changes what a pad plays, and the meters and Grid have none either.
+    /// Nor do Length and Signature, so a stray turn cannot delete notes (S10).
     fn change(
         &mut self,
         item: ItemDef,
@@ -1313,7 +1363,9 @@ impl Control {
             | ItemKind::SampleFile
             | ItemKind::LibraryMeter
             | ItemKind::NoteMeter
-            | ItemKind::Grid => {}
+            | ItemKind::Grid
+            | ItemKind::Length
+            | ItemKind::Signature => {}
         }
     }
 
@@ -1437,7 +1489,8 @@ impl Control {
 
     /// Row `row` of `picker`: in the sound picker Empty, New sample, New synth, then the sounds of
     /// the pool in number order; in the Engine picker Sample, then Synth; in a Delete picker,
-    /// Delete. The sample picker's rows are the library's (`samples::rows`).
+    /// Delete; in the Length picker the lengths of `LENGTHS`; in the Signature picker 1/4 to 16/4,
+    /// then 1/8 to 16/8 (S11). The sample picker's rows are the library's (`samples::rows`).
     fn entry(&self, picker: Picker, row: usize) -> Entry<'_> {
         match (picker, row) {
             (Picker::Sound, 0) => Entry::Empty,
@@ -1448,6 +1501,12 @@ impl Control {
             (Picker::Engine, _) => Entry::SynthEngine,
             (Picker::Delete(file), _) => Entry::Delete(file),
             (Picker::DeleteSound(sound), _) => Entry::DeleteSound(sound),
+            (Picker::Length, _) => Entry::Change(Change::Length(LENGTHS[row])),
+            // The picker's 32 rows.
+            (Picker::Signature, _) => Entry::Change(Change::Signature(Signature {
+                beats: row as u8 % 16 + 1,
+                unit: if row < 16 { 4 } else { 8 },
+            })),
             (Picker::Sample(_), _) => unreachable!("the sample picker's rows are the library's"),
         }
     }
@@ -1459,6 +1518,8 @@ impl Control {
             Picker::Engine => 2,
             Picker::Sample(_) => unreachable!("the sample picker's rows are the library's"),
             Picker::Delete(_) | Picker::DeleteSound(_) => 1,
+            Picker::Length => LENGTHS.len(),
+            Picker::Signature => 32,
         }
     }
 

@@ -1,10 +1,18 @@
-//! The PATTERN screen's Timing page, the tempo, TEMPO and the metronome.
+//! The PATTERN screen's Timing page, the tempo, TEMPO and the metronome; its Bars page with LENGTH
+//! and SIGNATURE.
 
+use super::library::row;
+use super::pattern::{entered, put};
 use super::*;
-use crate::sequencer::Run;
+use crate::project::{FOUR_FOUR, Signature};
+use crate::sequencer::{Meter, Run};
+use crate::store::note::Note;
 use crate::ui::layout::{HEADER_LINE, STRIP_LINE, rect};
+use crate::ui::list::{Row, draw_rows};
+use crate::ui::question::draw_question;
 use std::format;
 use std::string::String;
+use view::StepCursor;
 
 /// The header of PATTERN's Timing page on T1 in PADS mode with pad 1 empty.
 const TIMING_HEADER: [(&str, Color); 5] = [
@@ -572,4 +580,538 @@ fn a_long_sound_name_stops_short_of_the_metronome() {
     assert!(picture(&rig.control).pixels()[..rows] == header.pixels()[..rows]);
     assert_eq!(span(&header, 300..=393, 4..=10, DIM), Some((360, 382)));
     assert_eq!(span(&header, 383..=405, 4..=10, TEXT), Some((394, 404)));
+}
+
+/// The selected pad's piece of the header: pad 1 empty, or Syn 1 on it.
+const PAD_1: (&str, Color) = ("1", DIM);
+const SYN_1: (&str, Color) = ("Syn 1", TEXT);
+
+const THREE_FOUR: Signature = Signature { beats: 3, unit: 4 };
+
+/// The header of PATTERN's Bars page on T1 in PADS mode with `sound` selected, over a pattern of
+/// `length` with the cursor in bar 1 and `playing` after the bar while playing, at 120 BPM.
+fn bars_header(sound: (&str, Color), length: &str, playing: &str) -> Screen {
+    let bar = format!("1/{}{playing}", length.split(' ').next().unwrap());
+    let [left, right]: [Vec<Piece>; 2] = [
+        &[
+            ("Pattern", ACCENT),
+            ("Bars", TEXT),
+            ("T1", TEXT),
+            sound,
+            ("Pads", DIM),
+        ][..],
+        &[("P1", TEXT), (&bar, TEXT), ("120.0", TEXT)],
+    ]
+    .map(|pieces| {
+        pieces
+            .iter()
+            .map(|&(text, color)| Piece { text, color })
+            .collect()
+    });
+    let mut screen = Screen::new();
+    draw_header(&mut screen, &left, &right, false);
+    screen
+}
+
+/// PATTERN's Bars page of a stopped project with `sound` selected and the cursor on item `cursor`,
+/// with Length at `length` and Signature at `signature`: the strip shows both, or while `question`
+/// is open it is empty and the question shows over the page.
+fn bars_page(
+    sound: (&str, Color),
+    length: &str,
+    signature: &str,
+    cursor: i32,
+    question: Option<&str>,
+) -> Screen {
+    let items = [
+        ItemView {
+            encoder: Some(1),
+            name: "Length",
+            value: length,
+            bar: Bar::Track,
+        },
+        ItemView {
+            encoder: Some(2),
+            name: "Signature",
+            value: signature,
+            bar: Bar::Track,
+        },
+    ];
+    let mut screen = bars_header(sound, length, "");
+    for (y, item) in (17..).step_by(18).zip(&items) {
+        draw_item(&mut screen, 2, y, 160, item, true, None);
+    }
+    draw_cursor(&mut screen, 2, 17 + 18 * cursor, 160, 17);
+    match question {
+        None => draw_strip(&mut screen, &[Some(items[0]), Some(items[1]), None, None]),
+        Some(question) => {
+            draw_strip(&mut screen, &[None; 4]);
+            draw_question(
+                &mut screen,
+                &[(question, TEXT), ("OK deletes, Cancel keeps", DIM)],
+            );
+        }
+    }
+    screen
+}
+
+/// A new project's PATTERN Bars page under a picker of `rows`, which shows row `scroll` first,
+/// with its highlight on row `item`, over an empty strip.
+fn bars_picker(rows: &[&str], scroll: usize, item: usize) -> Screen {
+    let mut screen = bars_header(PAD_1, "1 bar", "");
+    let rows: Vec<Row> = rows.iter().map(|left| row(left, None)).collect();
+    draw_rows(&mut screen, 17, 16, &rows, scroll, Some(item), 0);
+    draw_strip(&mut screen, &[None; 4]);
+    screen
+}
+
+/// Opens PATTERN's Bars page with MENU + 9 and PAGE + 2, from `sample` to 13 samples later.
+fn on_bars(rig: &mut Rig<'_>, sample: u64) {
+    rig.menu(sample, 8);
+    rig.page(sample + 10, 1);
+}
+
+/// On the Bars page, opens the picker of encoder `encoder`'s item with its push, moves its
+/// highlight with `moves` and chooses with OK at `sample`, the taps 10 samples apart.
+fn choose(rig: &mut Rig<'_>, sample: u64, encoder: u8, moves: &[Button]) {
+    let first = sample - 10 * (moves.len() as u64 + 1);
+    rig.tap(first, Button::Push(encoder));
+    for (at, &button) in (first + 10..).step_by(10).zip(moves) {
+        rig.tap(at, button);
+    }
+    rig.tap(sample, Button::Ok);
+}
+
+/// A rig on PATTERN's Bars page whose pattern of 4 bars of 4/4, chosen there, plays from bar 1 at
+/// sample 100: its bar lines are at 96,100 and every 96,000 samples on. Its messages are taken.
+fn playing_4_bars(queue: &Queue<Message, MESSAGE_QUEUE>) -> Rig<'_> {
+    let mut rig = Rig::new(queue);
+    on_bars(&mut rig, 0);
+    choose(&mut rig, 60, 0, &[Button::Down, Button::Down]);
+    rig.tap(100, Button::Play);
+    rig.step(110);
+    assert_eq!(rig.sent().len(), 2);
+    rig
+}
+
+/// The bar the control part's own sequencer has the music in at `sample`, once stepped there.
+fn bar_at(rig: &mut Rig<'_>, sample: u64) -> Option<u16> {
+    rig.step(sample);
+    rig.control.player.at(sample).map(|(bar, _)| bar)
+}
+
+/// A `Meter` from tick `tick`, the start of bar `bar`, of `bars` bars of `signature`.
+fn meter(tick: u64, bar: u16, bars: u16, signature: Signature) -> MessageKind {
+    MessageKind::Meter {
+        meter: Meter {
+            tick,
+            bar,
+            bars,
+            signature,
+        },
+    }
+}
+
+#[test]
+fn the_bars_page_holds_length_and_signature_and_turns_leave_them() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    on_bars(&mut rig, 0);
+    rig.step(20);
+    assert!(shows(
+        &rig.control,
+        &bars_page(PAD_1, "1 bar", "4/4", 0, None)
+    ));
+
+    // A turn of encoder 2 puts the cursor on Signature.
+    rig.turn(100, 0, 3);
+    rig.turn(110, 1, -2);
+    rig.tap(120, Button::Minus);
+    rig.tap(130, Button::Plus);
+    rig.step(200);
+
+    assert_eq!(rig.sent(), []);
+    assert_eq!(rig.control.view.picker, None);
+    assert!(shows(
+        &rig.control,
+        &bars_page(PAD_1, "1 bar", "4/4", 1, None)
+    ));
+}
+
+#[test]
+fn ok_on_length_opens_its_list_on_the_current_length() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    on_bars(&mut rig, 0);
+    rig.tap(100, Button::Ok);
+    rig.step(110);
+
+    let opened = Some((Picker::Length, Cursor { item: 0, scroll: 0 }));
+    assert_eq!(rig.control.view.picker, opened);
+    assert!(shows(
+        &rig.control,
+        &bars_picker(
+            &[
+                "1 bar", "2 bars", "4 bars", "8 bars", "16 bars", "32 bars", "64 bars"
+            ],
+            0,
+            0
+        )
+    ));
+
+    // The push of encoder 1 opens it too.
+    rig.tap(200, Button::Cancel);
+    rig.tap(300, Button::Push(0));
+    rig.step(310);
+    assert_eq!(rig.control.view.picker, opened);
+    assert_eq!(rig.sent(), []);
+
+    // On 4 bars once the pattern has them.
+    rig.tap(400, Button::Down);
+    rig.tap(410, Button::Down);
+    rig.tap(420, Button::Ok);
+    rig.tap(500, Button::Ok);
+    rig.step(510);
+    assert_eq!(
+        rig.control.view.picker,
+        Some((Picker::Length, Cursor { item: 2, scroll: 0 }))
+    );
+}
+
+#[test]
+fn the_signature_list_runs_through_x_4_then_x_8() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    on_bars(&mut rig, 0);
+    rig.tap(100, Button::Push(1));
+    rig.step(110);
+
+    let rows: Vec<String> = [4, 8]
+        .into_iter()
+        .flat_map(|unit| (1..=16).map(move |beats| format!("{beats}/{unit}")))
+        .collect();
+    let rows: Vec<&str> = rows.iter().map(String::as_str).collect();
+    assert_eq!(
+        rig.control.view.picker,
+        Some((Picker::Signature, Cursor { item: 3, scroll: 0 }))
+    );
+    assert!(shows(&rig.control, &bars_picker(&rows, 0, 3)));
+
+    // Right moves a picker page of 16 rows, and the 32nd row is the last.
+    rig.tap(200, Button::Right);
+    rig.tap(210, Button::Right);
+    rig.tap(220, Button::Down);
+    rig.step(230);
+    assert_eq!(
+        rig.control.view.picker,
+        Some((
+            Picker::Signature,
+            Cursor {
+                item: 31,
+                scroll: 16
+            }
+        ))
+    );
+    // Row 16 "1/8" on top, row 31 "16/8" under the highlight.
+    assert!(shows(&rig.control, &bars_picker(&rows, 16, 31)));
+}
+
+#[test]
+fn a_choice_that_deletes_nothing_applies_at_once() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    on_bars(&mut rig, 0);
+
+    choose(&mut rig, 100, 0, &[Button::Down, Button::Down]);
+    rig.step(110);
+
+    assert_eq!(rig.sent(), [message(0, 100, meter(0, 0, 4, FOUR_FOUR))]);
+    assert_eq!(rig.control.project.patterns[0].bars, 4);
+    assert_eq!(rig.control.view.picker, None);
+    assert!(shows(
+        &rig.control,
+        &bars_page(PAD_1, "4 bars", "4/4", 0, None)
+    ));
+
+    // 7/8, four rows into x/8.
+    choose(
+        &mut rig,
+        200,
+        1,
+        &[Button::Right, Button::Down, Button::Down, Button::Down],
+    );
+    rig.step(210);
+
+    let seven_eight = Signature { beats: 7, unit: 8 };
+    assert_eq!(rig.sent(), [message(1, 200, meter(0, 0, 4, seven_eight))]);
+    assert_eq!(rig.control.project.signature, seven_eight);
+    assert!(shows(
+        &rig.control,
+        &bars_page(PAD_1, "4 bars", "7/8", 1, None)
+    ));
+}
+
+#[test]
+fn choosing_the_current_value_changes_nothing() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    on_bars(&mut rig, 0);
+
+    choose(&mut rig, 100, 0, &[]);
+    choose(&mut rig, 200, 1, &[]);
+    rig.step(210);
+
+    assert_eq!(rig.sent(), []);
+    assert_eq!(rig.control.view.picker, None);
+    assert_eq!(rig.control.view.question, None);
+    assert!(shows(
+        &rig.control,
+        &bars_page(PAD_1, "1 bar", "4/4", 1, None)
+    ));
+}
+
+#[test]
+fn a_choice_that_would_delete_notes_asks_first() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    rig.synth_on(0);
+    rig.tap(0, Button::Step(12));
+    rig.tap(10, Button::Step(14));
+    on_bars(&mut rig, 20);
+
+    // 3/4, the row above 4/4.
+    choose(&mut rig, 100, 1, &[Button::Up]);
+    rig.step(110);
+
+    assert_eq!(
+        rig.control.view.question,
+        Some(Question::DeleteNotes {
+            count: 2,
+            change: Change::Signature(THREE_FOUR)
+        })
+    );
+    assert!(shows(
+        &rig.control,
+        &bars_page(SYN_1, "1 bar", "4/4", 1, Some("Delete 2 notes?"))
+    ));
+    // The strip is empty while the question is open (Look).
+    assert!(strip_shows(&rig.control, &[None; 4]));
+
+    rig.tap(200, Button::Cancel);
+    rig.step(210);
+    assert_eq!(rig.control.view.question, None);
+    assert_eq!(rig.control.project.signature, FOUR_FOUR);
+    assert_eq!(rig.sent(), []);
+    assert!(shows(
+        &rig.control,
+        &bars_page(SYN_1, "1 bar", "4/4", 1, None)
+    ));
+
+    choose(&mut rig, 300, 1, &[Button::Up]);
+    rig.tap(400, Button::Ok);
+    rig.step(410);
+
+    assert_eq!(rig.control.view.question, None);
+    assert_eq!(rig.control.project.signature, THREE_FOUR);
+    // The two taps' versions took numbers 0 and 1.
+    assert_eq!(rig.sent(), [message(2, 400, meter(0, 0, 1, THREE_FOUR))]);
+    assert!(shows(
+        &rig.control,
+        &bars_page(SYN_1, "1 bar", "3/4", 1, None)
+    ));
+}
+
+#[test]
+fn one_note_asks_for_1_note() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    rig.synth_on(0);
+    rig.tap(0, Button::Step(12));
+    on_bars(&mut rig, 20);
+
+    choose(&mut rig, 100, 1, &[Button::Up]);
+    rig.step(110);
+
+    assert_eq!(
+        rig.control.view.question,
+        Some(Question::DeleteNotes {
+            count: 1,
+            change: Change::Signature(THREE_FOUR)
+        })
+    );
+    assert!(shows(
+        &rig.control,
+        &bars_page(SYN_1, "1 bar", "4/4", 1, Some("Delete 1 note?"))
+    ));
+}
+
+#[test]
+fn a_signature_change_counts_the_notes_of_every_pattern() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    let synth = rig.synth_on(0);
+    // By hand, as no control reaches another pattern before Milestone 5: pattern 2 of 2 bars, with
+    // a note past 3/4 on track 4 in each bar and one inside it.
+    rig.control.project.patterns[1].bars = 2;
+    put(
+        &mut rig,
+        1,
+        3,
+        &[
+            entered(11, synth, 60),
+            entered(12, synth, 60),
+            Note {
+                bar: 1,
+                ..entered(15, synth, 60)
+            },
+        ],
+    );
+    on_bars(&mut rig, 0);
+
+    choose(&mut rig, 100, 1, &[Button::Up]);
+    rig.step(110);
+
+    assert_eq!(
+        rig.control.view.question,
+        Some(Question::DeleteNotes {
+            count: 2,
+            change: Change::Signature(THREE_FOUR)
+        })
+    );
+}
+
+#[test]
+fn a_length_change_counts_the_current_patterns_bars_past_the_end() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    let synth = rig.synth_on(0);
+    on_bars(&mut rig, 0);
+    choose(&mut rig, 100, 0, &[Button::Down, Button::Down]);
+    rig.step(110);
+    rig.sent();
+    // By hand, as a tap reaches bar 1 only in this plan: notes in bars 2 to 4 of pattern 1 on
+    // tracks 1 and 3, and one in bar 4 of pattern 2.
+    let in_bar = |bar| Note {
+        bar,
+        ..entered(0, synth, 60)
+    };
+    put(&mut rig, 0, 0, &[in_bar(1), in_bar(2), in_bar(3)]);
+    put(&mut rig, 0, 2, &[in_bar(3)]);
+    put(&mut rig, 1, 0, &[in_bar(3)]);
+
+    // 2 bars, the row above 4 bars.
+    choose(&mut rig, 200, 0, &[Button::Up]);
+    rig.step(210);
+
+    assert_eq!(
+        rig.control.view.question,
+        Some(Question::DeleteNotes {
+            count: 3,
+            change: Change::Length(2)
+        })
+    );
+    assert_eq!(rig.sent(), []);
+}
+
+#[test]
+fn while_playing_a_change_takes_hold_at_the_next_bar_line() {
+    for (sample, tick, bar, line) in [(50_000, 7_680, 1, 96_100), (95_500, 15_360, 2, 192_100)] {
+        let queue = Queue::new();
+        let mut rig = playing_4_bars(&queue);
+
+        choose(&mut rig, sample, 1, &[Button::Up]);
+        rig.step(sample + 10);
+
+        assert_eq!(
+            rig.sent(),
+            [message(2, sample, meter(tick, bar, 4, THREE_FOUR))],
+            "{sample}"
+        );
+        assert_eq!(rig.control.project.signature, THREE_FOUR, "{sample}");
+        // The control part's own sequencer takes the same meter: a bar of 3/4, 72,000 samples,
+        // follows the bar line.
+        assert_eq!(bar_at(&mut rig, line + 71_999), Some(bar), "{sample}");
+        assert_eq!(bar_at(&mut rig, line + 72_000), Some(bar + 1), "{sample}");
+    }
+}
+
+#[test]
+fn a_shorter_length_while_playing_wraps_to_bar_1_at_the_next_bar_line() {
+    let queue = Queue::new();
+    let mut rig = playing_4_bars(&queue);
+
+    // In bar 3: 2 bars, the row above 4 bars.
+    choose(&mut rig, 200_000, 0, &[Button::Up]);
+    rig.step(200_010);
+
+    assert_eq!(
+        rig.sent(),
+        [message(2, 200_000, meter(23_040, 0, 2, FOUR_FOUR))]
+    );
+    // The header has the new length at once, and bar 3 plays out, then bar 1.
+    let header = bars_header(PAD_1, "2 bars", " ▶3");
+    let rows = WIDTH * (HEADER_LINE as usize + 1);
+    assert!(picture(&rig.control).pixels()[..rows] == header.pixels()[..rows]);
+    assert_eq!(bar_at(&mut rig, 288_099), Some(2));
+    assert_eq!(bar_at(&mut rig, 288_100), Some(0));
+}
+
+#[test]
+fn a_longer_length_while_playing_goes_on_to_the_next_bar() {
+    let queue = Queue::new();
+    let mut rig = playing_4_bars(&queue);
+
+    // In bar 4: 8 bars, the row below 4 bars.
+    choose(&mut rig, 300_000, 0, &[Button::Down]);
+    rig.step(300_010);
+
+    assert_eq!(
+        rig.sent(),
+        [message(2, 300_000, meter(30_720, 4, 8, FOUR_FOUR))]
+    );
+    assert_eq!(bar_at(&mut rig, 384_099), Some(3));
+    assert_eq!(bar_at(&mut rig, 384_100), Some(4));
+}
+
+#[test]
+fn a_second_change_in_the_bar_takes_the_same_bar_line() {
+    let queue = Queue::new();
+    let mut rig = playing_4_bars(&queue);
+
+    choose(&mut rig, 50_000, 1, &[Button::Up]);
+    choose(&mut rig, 95_500, 0, &[Button::Up]);
+    rig.step(95_510);
+
+    assert_eq!(
+        rig.sent(),
+        [
+            message(2, 50_000, meter(7_680, 1, 4, THREE_FOUR)),
+            message(3, 95_500, meter(7_680, 1, 2, THREE_FOUR))
+        ]
+    );
+    // The second replaced the first: from the bar line 2 bars of 3/4 loop.
+    assert_eq!(bar_at(&mut rig, 96_100), Some(1));
+    assert_eq!(bar_at(&mut rig, 168_100), Some(0));
+}
+
+#[test]
+fn the_cursor_stays_inside_the_new_bar_and_length() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    on_bars(&mut rig, 0);
+    choose(&mut rig, 100, 0, &[Button::Down, Button::Down]);
+    rig.tap(200, Button::Step(14));
+    rig.step(210);
+    // By hand, as no control moves the cursor's bar before plan 3's arrows.
+    rig.control.view.steps.bar = 3;
+
+    // 2 bars.
+    choose(&mut rig, 300, 0, &[Button::Up]);
+    rig.step(310);
+    assert_eq!(rig.control.view.steps, StepCursor { bar: 1, step: 14 });
+
+    // 3/4.
+    choose(&mut rig, 400, 1, &[Button::Up]);
+    rig.step(410);
+    assert_eq!(rig.control.view.steps, StepCursor { bar: 1, step: 11 });
 }

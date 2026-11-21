@@ -34,6 +34,10 @@ pub enum ItemKind {
     /// "Grid": the length of a step, "1/16". Turns, - and + and OK leave it alone until it can
     /// change (S3).
     Grid,
+    /// "Length": the current pattern's length, which OK changes in the Length picker (S10).
+    Length,
+    /// "Signature": the project's time signature, which OK changes in the Signature picker (S11).
+    Signature,
 }
 
 /// An item of a page and the encoder that holds it.
@@ -234,6 +238,22 @@ pub(super) const TIMING: PageDef = PageDef {
     picture: None,
 };
 
+/// PATTERN's Bars page: Length on encoder 1 and Signature on 2 (S4).
+const BARS: PageDef = PageDef {
+    name: "Bars",
+    items: &[
+        ItemDef {
+            kind: ItemKind::Length,
+            encoder: Some(0),
+        },
+        ItemDef {
+            kind: ItemKind::Signature,
+            encoder: Some(1),
+        },
+    ],
+    picture: None,
+};
+
 /// SOUND's pages for a sound: `pad`, the page of its engine, then those of its chain and voice.
 const fn sound_pages(pad: PageDef, engine: PageDef) -> [PageDef; 6] {
     [pad, engine, FILTER, FILTER_ENVELOPE, VOLUME_ENVELOPE, VOICE]
@@ -247,7 +267,7 @@ const fn sound_pages(pad: PageDef, engine: PageDef) -> [PageDef; 6] {
 /// (Sample or Synth) and the pages of its chain and its voice. While that pad is empty there is no
 /// sound to copy or to shape, and SOUND has only the Pad page with its Sound item. A sound
 /// selected on no pad has no pad to put a sound on or to copy to, so its Pad page holds Engine
-/// alone, on encoder 3. PATTERN has its Timing page.
+/// alone, on encoder 3. PATTERN has its Timing and Bars pages.
 pub fn pages(screen: Screen, sound: Option<&Sound>, pad: bool) -> &'static [PageDef] {
     match screen {
         Screen::Step | Screen::Pool | Screen::Samples => &[],
@@ -286,7 +306,7 @@ pub fn pages(screen: Screen, sound: Option<&Sound>, pad: bool) -> &'static [Page
                 picture: None,
             },
         ],
-        Screen::Pattern => &[TIMING],
+        Screen::Pattern => &[TIMING, BARS],
     }
 }
 

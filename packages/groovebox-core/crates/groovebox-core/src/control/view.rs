@@ -1,3 +1,4 @@
+use super::bars::Change;
 use super::pages::{MENU, PageDef};
 use super::samples::Row;
 use crate::input::{Button, STEPS};
@@ -119,7 +120,8 @@ pub struct PoolView {
 }
 
 /// A picker: the sound picker of the selected pad, the Engine picker of the selected sound, the
-/// sample picker or the Delete picker of a file of SAMPLES or of a sound of POOL.
+/// sample picker or the Delete picker of a file of SAMPLES or of a sound of POOL; or PATTERN's
+/// Length or Signature picker.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Picker {
     Sound,
@@ -128,6 +130,10 @@ pub enum Picker {
     Sample(Pick),
     Delete(FileId),
     DeleteSound(SoundNumber),
+    /// The lengths of `LENGTHS`.
+    Length,
+    /// 1/4 to 16/4, then 1/8 to 16/8.
+    Signature,
 }
 
 /// What choosing a file in the sample picker does.
@@ -150,6 +156,8 @@ pub enum Question {
     DeleteSound(SoundNumber),
     /// "Remove 3 unused sounds?"
     RemoveUnused,
+    /// "Delete 24 notes?": the `count` notes that `change` no longer fits (S12).
+    DeleteNotes { count: u32, change: Change },
 }
 
 /// STEP and ROLL's shared cursor, from 0: a bar and a step of it (S5).
