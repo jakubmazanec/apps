@@ -36,6 +36,9 @@ untagged is new in this discussion.
    of it.**
 4. Two faces and pockets joined into one core (cards lend Nerve, Charm or Eye)? **No: too tied to
    the prototype.** Each round brings new concepts, not extensions of agreed ones.
+5. Sixteen high concepts (memories as the deck, friends as the deck, dignity as health, and more)?
+   **Incoherent, no good ideas.** Wanted: deck-building itself, meaning cards, upgrades and
+   combinations, from one coherent view of the design.
 
 ## Loops
 
@@ -55,39 +58,84 @@ untagged is new in this discussion.
 - The birthday bottle takes room all evening, so the quest crowds out the night's finds.
 - With full pockets, taking something new means letting something go.
 
-## New concepts (round 4)
+## A deck-building design
 
-1. You keep only what you remember: at dawn the deck is your memories; drink makes cards stronger
-   tonight, and a blackout erases cards before morning.
-2. The night is a story you compose: cards are beats (a meeting, a conflict, a secret, an escape);
-   played in a good order they make a chapter, and a great chapter is a found story.
-3. Impulses play themselves: "Text your ex", "One more", "Start a fight" cannot be held and fire at
-   bad moments; across nights you thin them out or feed them.
-4. Friends are the deck: you text the group and who comes is drawn; each has a skill and a want, and
-   they get drunk, fight, fall in love and leave.
-5. People show their intent: every stranger's next move is face up ("Ask for a cigarette", "Leave in
-   10 minutes", "Pick a fight"), and a talk becomes a small duel you can plan.
-6. A different person each night, the same Friday: each run is another passenger on the same train;
-   their nights cross, one finds what another lost, you meet your last character in a bar.
-7. Personas: the Tourist, the Local, the Ex, the Musician, each with its own starting deck and one
-   rule of its own; unlocked over nights.
-8. The fortune deck: no dice; the night's luck is a deck whose top you can see, and you pay to peek,
-   reorder or burn a bad fortune.
-9. Every "no" becomes a "maybe": a declined offer goes into the deck as "Maybe later", playable
-   hours later at a price.
-10. Promises: "I'll be there at midnight" is a card; kept it pays, broken it turns into guilt that
-    stays until made right.
-11. The playlist is the deck: a song card sets a rule while it plays; a set that rises to a peak is
-    built like a deck, and the game's music plays it.
-12. Your younger self has a deck: in a flashback you play young you, reckless and cash only, and
-    what young you does rewrites present you's deck.
-13. The city levels up, not you: nights change Brno (a bar kept open, a street made famous), and
-    progress is the city's state.
-14. Dignity is your health: rejection, embarrassment and being thrown out cost it; at zero you go
-    home whatever the clock says.
-15. Dares from the author: each night opens with one ("No phone tonight", "Only on foot"); harder
-    nights, rarer stories.
-16. Notes for other players: leave a card at a place for whoever plays the same seed next.
+### Worldview
+
+- The deck is how you go out: your moves, habits, people and things. Not stats.
+- You hold your cards; you do not draw them. A night has few cards (start 1 to 5, gain 3 to 5), so
+  each one matters, and a text game has no turns to draw on.
+- Pockets limit how many you hold.
+- Every card does one of seven things (below), so content tags its choices by kind and never names a
+  card.
+- Upgrades change what a card does, not only its numbers.
+- Cards combine, so each night's hand becomes a style.
+- Playing a card writes a line in the night's journal.
+
+### Card anatomy
+
+- Name, kind (Talk, Drink, Move, Look, Night, People), effect, uses (always, once a place, once a
+  night), cost when played (minutes, Kč or a drink), level.
+
+### What a card can do
+
+- Open: adds a choice to every scene of a kind ("[Lighter] Offer a light" wherever people smoke).
+- Bend: changes a number on a kind of choice (every talk takes 10 minutes less).
+- Bypass: lets you take a choice you are barred from (a shut door, an empty wallet).
+- Tilt: odds up, a reroll, or the better of two rolls.
+- Trigger: when something happens, something else does ("Each tram ride: +10% on your next talk").
+- Transform: changes your other cards ("Wingman: your Talk cards count as People too").
+- Generate: makes one-use cards ("Party animal: every bar you enter gives a Dance card").
+
+### Kinds of card
+
+- Moves: active, played into a scene.
+- Habits: passive rule benders, always on.
+- Things: charges that run out (a lighter, 3 uses).
+- People: join you for a few places and lend their cards while they stay.
+- Burdens: bad cards that take a pocket (a hangover, a debt) until cleared.
+- Stories: every found story is a passive card in the collection, never upgraded. (note)
+
+### Getting cards
+
+- After a notable scene: pick one of three, from that place's own pool, so the route shapes the
+  hand.
+- A person you get to know gives you their signature move.
+- Buy one at a place: a bar teaches a toast.
+- A bad outcome gives a burden.
+
+### Upgrades
+
+- Practice: a card played often enough in one night levels up ("Small talk" becomes "Good talk").
+- Branching: level 2 picks a direction ("Small talk" becomes "Gossip" or "Flirt").
+- Stamps: a reward stamps one card with a rider: Night (stronger after midnight), Echo (comes back
+  once), Cheap (costs less), Lucky (odds up), Shared (works for a person with you too).
+- Merge: two copies become one stronger card and free a pocket.
+- Places that teach: a place upgrades its own kind (a music bar, the Music cards).
+- Wear: the same trick in the same place dulls; people have heard the joke.
+
+### Losing cards
+
+- At dawn the night's cards go; you keep one, with its level and stamps.
+- Give a card away: it leaves the hand and buys a favour.
+- Burdens clear by the act that fits them.
+
+### Across nights
+
+- The collection holds kept cards and stories; you choose the starting hand from it. (note)
+- A found story adds new cards to the places' pools.
+- A kept card is the long run's progress.
+
+### Styles that come out of combinations
+
+- The talker: "Small talk" (opens a talk with anyone), "Second wind" (after three talks in one
+  place, the next is free), "Wingman" (a person: talks +15% while they stay).
+- The wanderer: "Shortcut" (walks take a quarter less), "First time" (a place new tonight gives one
+  card from its pool), "Night bus" (a tram ride after the last tram).
+- The generous one: "Buy a round" (150 Kč, the whole table warms up), "Big tipper" (each payment
+  over 100 Kč: +10% on the next roll), "Broke but happy" (at 0 Kč talks cost no minutes).
+- The gambler: "Coin flip" (one reroll a place), "Lucky shirt" (the first lost roll of the night
+  counts as won), "All in" (a roll's stakes doubled both ways).
 
 ## Ideas
 
