@@ -546,8 +546,9 @@ whatever its pitch.
 **(owner's choice)**, like Maschine, MC-707 and Elektron.
 
 While a step is held, the strip shows PITCH, VELOCITY, LENGTH and POSITION on encoders 1 to 4
-instead of the sound's page, drawn on screen like the timing strip. Letting go brings the sound's
-page back.
+instead of the sound's page, drawn on screen like the timing strip. Like the timing strip it shows
+on every screen, the encoders then changing the held notes there too **(owner's choice)**. Letting
+go brings back what the strip showed before.
 
 - **A held step** is a step held down on its own, not as part of a combination (SHIFT + step, or a
   step under MENU or PAGE) and with no picker or question open, whose sixteenth, the one it showed
