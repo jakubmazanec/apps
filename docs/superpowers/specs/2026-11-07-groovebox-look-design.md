@@ -259,9 +259,10 @@ sixteenths leaves dark cells after its end, a longer bar continues on a second p
 and 4 dark; 7/8 is 14 and 2 dark; 5/4 is a full page, then 4 cells and 12 dark. Dark cells are
 filled faint. The page the step buttons show is tinted. Bar lines in the line grey, beat lines and
 page starts faint, faint separators between lanes, a brighter line above the extra lanes. The grid
-ends with the pattern: nothing is drawn past the last bar's last page, and the bar line where the
-next bar would start closes it, so a pattern too short to fill the grid leaves the rest of the row
-empty.
+ends with the pattern: no cell or grid line is drawn past the last bar's last page, and the bar line
+where the next bar would start closes it, so a pattern too short to fill the grid leaves the rest of
+the row empty but for the lines between lanes, which run on to the grid's right end **(owner's
+choice)**.
 
 **Notes.** A light block 5 px wide in the 8 px cell, 1 px from the grid lines on both sides, 11 px
 tall in the 13 px row; three greys by velocity; a 2 px tail for the note's length; a chord's count
