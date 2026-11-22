@@ -102,6 +102,8 @@ pub struct Sequencer {
     meter: Meter,
     /// Takes over from its tick: none while stopped.
     waiting_meter: Option<Meter>,
+    /// Waits in the waiting meter's place when that one takes over: none unless one waits.
+    queued_meter: Option<Meter>,
     tracks: [Track; 4],
     /// The tick of the next beat.
     beat: u64,
@@ -125,6 +127,7 @@ impl Sequencer {
                 signature: FOUR_FOUR,
             },
             waiting_meter: None,
+            queued_meter: None,
             tracks: [Track {
                 tree: Tree(None),
                 cursor: Cursor::END,
@@ -139,25 +142,31 @@ impl Sequencer {
     }
 
     /// Plays from `run`, starting or jumping: every note whose sample is the run's anchor or later
-    /// is due. Notes sounding keep sounding. A waiting meter takes over at once and a waiting run
-    /// is dropped; tick 0 of the run is the start of bar 0.
+    /// is due. Notes sounding keep sounding. The latest waiting meter takes over at once and a
+    /// waiting run is dropped; tick 0 of the run is the start of bar 0.
     pub fn play(&mut self, run: Run, notes: &NoteReader<'_>) {
         self.run = Some(run);
         self.waiting_run = None;
         self.due = run.tick;
+        // A let, as the call borrows the whole sequencer.
+        let latest = self
+            .queued_meter
+            .take()
+            .or(self.waiting_meter)
+            .unwrap_or(self.meter);
         self.take(
             Meter {
                 tick: 0,
                 bar: 0,
-                ..self.waiting_meter.unwrap_or(self.meter)
+                ..latest
             },
             run.tick,
             notes,
         );
     }
 
-    /// Ends every sounding note, then stops. A waiting meter takes over at once and a waiting run
-    /// is dropped.
+    /// Ends every sounding note, then stops. The latest waiting meter takes over at once and a
+    /// waiting run is dropped.
     pub fn stop(&mut self, mut out: impl FnMut(Event)) {
         for sounding in self.table.iter_mut().filter_map(Option::take) {
             out(Event::End(sounding));
@@ -167,7 +176,12 @@ impl Sequencer {
         self.meter = Meter {
             tick: 0,
             bar: 0,
-            ..self.waiting_meter.take().unwrap_or(self.meter)
+            // Both are taken: `or`'s argument runs in any case.
+            ..self
+                .queued_meter
+                .take()
+                .or(self.waiting_meter.take())
+                .unwrap_or(self.meter)
         };
     }
 
@@ -178,9 +192,9 @@ impl Sequencer {
     }
 
     /// Stopped, the pattern takes `meter`'s bars and signature at once. Playing, `meter` waits for
-    /// its tick, replacing a waiting one, and every track then goes on from its bar; one whose
-    /// tick has passed takes over at once from where the music is, so nothing before that starts
-    /// (S14).
+    /// its tick, replacing a waiting one with the same tick or queueing behind one with an earlier
+    /// tick, and every track then goes on from its bar; one whose tick has passed takes over at
+    /// once from where the music is, so nothing before that starts (S14).
     pub fn meter(&mut self, meter: Meter, notes: &NoteReader<'_>) {
         if self.run.is_none() {
             self.meter = Meter {
@@ -190,6 +204,13 @@ impl Sequencer {
             };
         } else if meter.tick < self.due {
             self.take(meter, self.due, notes);
+        } else if self
+            .waiting_meter
+            .is_some_and(|waiting| waiting.tick < meter.tick)
+        {
+            // The player took the waiting one at its sample, which the audio part has not reached
+            // (S19).
+            self.queued_meter = Some(meter);
         } else {
             self.waiting_meter = Some(meter);
         }
@@ -219,9 +240,10 @@ impl Sequencer {
         }
     }
 
-    /// While playing, the tick of the bar line where a change from `sample` takes hold, and the
-    /// bar that ends there: a waiting meter's tick, else the first bar line whose sample is
-    /// `sample` or later (S13, S14).
+    /// The tick of the bar line where a change from `sample` takes hold, and the bar that ends
+    /// there: the latest waiting meter's tick, else the first bar line whose sample is `sample` or
+    /// later (S13, S14). Only while playing, and that bar line must be past the tick of the meter
+    /// in force.
     pub fn next_bar_line(&self, sample: u64) -> (u64, u16) {
         let run = self
             .run
@@ -230,14 +252,14 @@ impl Sequencer {
             tick, signature, ..
         } = self.meter;
         let bar_ticks = u64::from(signature.bar_ticks());
-        let line = self.waiting_meter.map_or_else(
+        let line = self.queued_meter.or(self.waiting_meter).map_or_else(
             || {
                 let since = self.first_tick_after(run, sample - 1) - tick;
                 tick + since.div_ceil(bar_ticks) * bar_ticks
             },
             |meter| meter.tick,
         );
-        (line, self.meter.locate(line - 1).1)
+        (line, self.meter_at(line - 1).locate(line - 1).1)
     }
 
     /// Every event due by `until`, in sample order: at one sample ends before starts (S14), and
@@ -335,15 +357,21 @@ impl Sequencer {
     }
 
     /// While playing, the bar and the place in it where the music is at `sample`: the tick before
-    /// the first after `sample`, within the pattern, counting a waiting meter and run.
+    /// the first after `sample`, within the pattern, counting the waiting meters and run.
+    /// `sample` is that of the last advance or later, so the meter in force holds it.
     pub fn at(&self, sample: u64) -> Option<(u16, u32)> {
         let tick = self.first_tick_after(self.run?, sample).saturating_sub(1);
-        let (_, bar, place) = self
-            .waiting_meter
-            .filter(|meter| meter.tick <= tick)
-            .unwrap_or(self.meter)
-            .locate(tick);
+        let (_, bar, place) = self.meter_at(tick).locate(tick);
         Some((bar, place))
+    }
+
+    /// The meter that holds `tick`, the meter in force's tick or later, counting the waiting ones.
+    fn meter_at(&self, tick: u64) -> Meter {
+        [self.queued_meter, self.waiting_meter]
+            .into_iter()
+            .flatten()
+            .find(|meter| meter.tick <= tick)
+            .unwrap_or(self.meter)
     }
 
     /// The sample of `tick`, `run`'s tick or later, with a waiting run from its tick on.
@@ -373,11 +401,11 @@ impl Sequencer {
         }
     }
 
-    /// `meter` takes over with no meter waiting, and the tracks and the beats go on from tick
-    /// `from`, the meter's tick or later.
+    /// `meter` takes over, the queued meter waits in place of the waiting one, and the tracks and
+    /// the beats go on from tick `from`, the meter's tick or later.
     fn take(&mut self, meter: Meter, from: u64, notes: &NoteReader<'_>) {
         self.meter = meter;
-        self.waiting_meter = None;
+        self.waiting_meter = self.queued_meter.take();
         self.beat = meter.tick + (from - meter.tick).div_ceil(meter.beat()) * meter.beat();
         for track in 0..self.tracks.len() {
             self.seek(track, from, notes);
@@ -1082,6 +1110,40 @@ mod tests {
     }
 
     #[test]
+    fn a_meter_coming_while_another_waits_for_an_earlier_bar_line_plays_as_the_player_has_it() {
+        // The player advances to each input's sample before its meter, so it has taken the first
+        // meter at its bar line; the audio part is still at the chunk start before (S19).
+        let heard = |behind: u64| {
+            let ram = NoteRam::boxed();
+            let mut rig = Rig::with(&ram, FOUR_BARS, (0..4).map(|bar| Note { bar, ..step(0) }));
+            let mut events = rig.events(200_000 - behind);
+            rig.sequencer.meter(
+                Meter {
+                    tick: 23_040,
+                    bar: 0,
+                    bars: 2,
+                    signature: FOUR_FOUR,
+                },
+                &rig.notes,
+            );
+            events.extend(rig.events(288_000 - behind));
+            rig.sequencer.meter(
+                Meter {
+                    tick: 30_720,
+                    bar: 1,
+                    bars: 2,
+                    signature: THREE_FOUR.signature,
+                },
+                &rig.notes,
+            );
+            events.extend(rig.events(600_000));
+            events
+        };
+
+        assert_eq!(heard(32), heard(0));
+    }
+
+    #[test]
     fn a_late_meter_takes_over_where_the_music_is() {
         let ram = NoteRam::boxed();
         let mut rig = Rig::with(
@@ -1137,6 +1199,29 @@ mod tests {
     }
 
     #[test]
+    fn play_takes_the_latest_waiting_meter_and_leaves_none_waiting() {
+        let ram = NoteRam::boxed();
+        let mut rig = Rig::with(&ram, FOUR_BARS, [Note { bar: 1, ..step(0) }]);
+        rig.sequencer.meter(THREE_FOUR, &rig.notes);
+        rig.sequencer.meter(
+            Meter {
+                tick: 19_200,
+                bar: 3,
+                signature: Signature { beats: 7, unit: 8 },
+                ..THREE_FOUR
+            },
+            &rig.notes,
+        );
+
+        rig.sequencer.play(RUN, &rig.notes);
+
+        assert_eq!(rig.heard(83_999), []);
+        assert_eq!(rig.heard(84_000), [Heard::Start(0, 0)]);
+        assert_eq!(rig.heard(419_999), [Heard::End(90_000)]);
+        assert_eq!(rig.heard(420_000), [Heard::Start(0, 0)]);
+    }
+
+    #[test]
     fn stop_takes_a_waiting_meter_at_once() {
         let ram = NoteRam::boxed();
         let mut rig = Rig::with(&ram, FOUR_BARS, []);
@@ -1184,6 +1269,19 @@ mod tests {
         assert_eq!(rig.sequencer.at(100_000), Some((1, 320)));
         // In bar 2 of the waiting 3/4, still bar 1 of the 4/4.
         assert_eq!(rig.sequencer.at(170_000), Some((2, 160)));
+        // A meter queued behind it, from the 3/4's fourth bar line on.
+        rig.sequencer.meter(
+            Meter {
+                tick: 30_720,
+                bar: 1,
+                bars: 4,
+                signature: FOUR_FOUR,
+            },
+            &rig.notes,
+        );
+        assert_eq!(rig.sequencer.next_bar_line(96_524), (30_720, 0));
+        assert_eq!(rig.sequencer.at(170_000), Some((2, 160)));
+        assert_eq!(rig.sequencer.at(459_000), Some((1, 6_000)));
         // A waiting run.
         rig.sequencer.retime(Run {
             anchor: 3_012,
