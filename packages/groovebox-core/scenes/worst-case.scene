@@ -56,9 +56,7 @@ input 68800 press plus
 input 201800 release plus
 # Taps of steps 1 to 16 put a note of pad on every sixteenth of bar 1, at C4 in KEYS mode before
 # any key. A tap of TEMPO turns the metronome on, which clicks on each beat while the pattern
-# plays. PLAY at 257,328 starts the pattern, so the sequencer starts notes during the busiest
-# batches, one of them at 275,328, where the MIDI notes below apply: they come at 275,200 and reach
-# the audio part with the next step.
+# plays.
 input 204800 press step-1
 input 206400 release step-1
 input 208000 press step-2
@@ -93,8 +91,6 @@ input 252800 press step-16
 input 254400 release step-16
 input 256000 press tempo
 input 256800 release tempo
-input 257328 press play
-input 258800 release play
 # Sample page: push 1 opens the sample picker on pad.wav, playing nothing. Up onto kick.wav and
 # down onto pad.wav preview it through to the end.
 input 259200 press page
@@ -107,7 +103,11 @@ input 268800 press up
 input 270400 release up
 input 272000 press down
 input 273600 release down
-# 32 MIDI notes at once, one for each voice, held for a second.
+# PLAY and 32 MIDI notes at once, one for each voice, the notes held for a second. They come at
+# 275,200 and reach the audio part with the next step, at 275,328: in that batch, the busiest, the
+# bar's first beat starts the click and the sequencer starts step 1's note, as PLAY starts the
+# pattern there.
+input 275200 press play
 input 275200 note-on 36 127
 input 275200 note-on 37 127
 input 275200 note-on 38 127
@@ -140,6 +140,7 @@ input 275200 note-on 64 127
 input 275200 note-on 65 127
 input 275200 note-on 66 127
 input 275200 note-on 67 127
+input 276800 release play
 input 323200 note-off 36
 input 323200 note-off 37
 input 323200 note-off 38
