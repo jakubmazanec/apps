@@ -600,7 +600,7 @@ The starting bindings, written in code (Foundation) and expected to change:
 | Step buttons                | Workflow B's, unless MENU or PAGE is held                                                                       |
 | REC, PLAY, STOP, TEMPO      | Workflow B's                                                                                                    |
 
-Workflow B uses SHIFT + left or right to jump a bar, SHIFT + CANCEL to undo, SHIFT + step to switch
+Workflow B uses SHIFT + left or right to jump a page, SHIFT + CANCEL to undo, SHIFT + step to switch
 patterns and SHIFT + COPY to paste. SHIFT + OK, SHIFT + pad and SHIFT + encoder press stay free:
 SHIFT + OK and SHIFT + an encoder press do nothing, and a pad hit with SHIFT held plays like any
 other, since pads always play (Workflow B).
