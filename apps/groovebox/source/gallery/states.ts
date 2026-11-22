@@ -170,6 +170,17 @@ export const STATES: ReadonlyArray<{title: string; frame: string; approved?: str
   {title: 'Header playing in 3/4', frame: 'bars/frame-265600.png'},
   {title: 'Header after the wrap to bar 1', frame: 'bars/frame-336000.png'},
   {title: 'Header after STOP on bar 1', frame: 'bars/frame-345600.png'},
+  {title: 'NOTE strip', frame: 'step-view/frame-179200.png', approved: 'note-strip.png'},
+  {title: 'STEP following', frame: 'step-view/frame-441600.png', approved: 'step-playing.png'},
+  {title: 'STEP after an arrow stopped following', frame: 'step-view/frame-454400.png'},
+  {title: 'STEP stopped', frame: 'step-view/frame-460800.png', approved: 'step-stopped.png'},
+  {title: 'STEP in 3/4', frame: 'step-view/frame-496000.png'},
+  {title: 'STEP in 7/8', frame: 'step-view/frame-540800.png', approved: 'step-7-8.png'},
+  {
+    title: 'STEP in 5/4 on its short page',
+    frame: 'step-view/frame-585600.png',
+    approved: 'step-5-4.png',
+  },
   {title: 'Settings Playing with the metronome', frame: 'metronome/frame-35200.png'},
   {
     title: 'Header with the metronome',

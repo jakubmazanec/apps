@@ -1,0 +1,254 @@
+groovebox-scene 1
+# The STEP view, driven through the panel only. Syn 1 on pad 1: MENU + step 3 shows SOUND's Pad
+# page and OK opens the sound picker on Empty; down twice to New synth and OK choose it.
+input 1600 press menu
+input 3200 press step-3
+input 4800 release step-3
+input 6400 release menu
+input 8000 press ok
+input 9600 release ok
+input 11200 press down
+input 12800 release down
+input 14400 press down
+input 16000 release down
+input 17600 press ok
+input 19200 release ok
+# The hit on pad 2 selects it, and the same choice makes Syn 2 on it.
+input 20800 pad-hit 1 100
+input 22400 pad-release 1
+input 24000 press ok
+input 25600 release ok
+input 27200 press down
+input 28800 release down
+input 30400 press down
+input 32000 release down
+input 33600 press ok
+input 35200 release ok
+# The hit on pad 12 selects it; down four times onto Syn 2 and OK put Syn 2 there as well, so pad
+# 12 is a copy lane of pad 2.
+input 36800 pad-hit 11 100
+input 38400 pad-release 11
+input 40000 press ok
+input 41600 release ok
+input 43200 press down
+input 44800 release down
+input 46400 press down
+input 48000 release down
+input 49600 press down
+input 51200 release down
+input 52800 press down
+input 54400 release down
+input 56000 press ok
+input 57600 release ok
+# MENU + step 1 shows STEP.
+input 59200 press menu
+input 60800 press step-1
+input 62400 release step-1
+input 64000 release menu
+# Pad 1 selected; taps of steps 1, 5, 9 and 13 enter four notes of Syn 1.
+input 65600 pad-hit 0 100
+input 67200 pad-release 0
+input 68800 press step-1
+input 70400 release step-1
+input 72000 press step-5
+input 73600 release step-5
+input 75200 press step-9
+input 76800 release step-9
+input 78400 press step-13
+input 80000 release step-13
+# Pad 2 selected; taps of steps 5 and 13 enter two notes of Syn 2, the cursor ending on 13.
+input 81600 pad-hit 1 100
+input 83200 pad-release 1
+input 84800 press step-5
+input 86400 release step-5
+input 88000 press step-13
+input 89600 release step-13
+# Left twice moves the cursor to step 11, where OK enters a note of Syn 2.
+input 91200 press left
+input 92800 release left
+input 94400 press left
+input 96000 release left
+input 97600 press ok
+input 99200 release ok
+# Up selects pad 1's lane and Syn 1, right four times moves the cursor to step 15 and OK enters a
+# note of Syn 1.
+input 100800 press up
+input 102400 release up
+input 104000 press right
+input 105600 release right
+input 107200 press right
+input 108800 release right
+input 110400 press right
+input 112000 release right
+input 113600 press right
+input 115200 release right
+input 116800 press ok
+input 118400 release ok
+# PADS/KEYS switches to KEYS. Pads 1, 5 and 8 hit under the held step 3 add C4, E4 and G4 of Syn 1
+# there as a chord, and the step's release is no tap. PADS/KEYS switches back.
+input 120000 press pads-keys
+input 121600 release pads-keys
+input 123200 press step-3
+input 124800 pad-hit 0 100
+input 126400 pad-release 0
+input 128000 pad-hit 4 100
+input 129600 pad-release 4
+input 131200 pad-hit 7 100
+input 132800 pad-release 7
+input 134400 release step-3
+input 136000 press pads-keys
+input 137600 release pads-keys
+# MENU + step 9 shows PATTERN, PAGE + step 2 its Bars page and push 1 the Length picker on 1 bar;
+# down twice onto 4 bars and OK choose it.
+input 139200 press menu
+input 140800 press step-9
+input 142400 release step-9
+input 144000 release menu
+input 145600 press page
+input 147200 press step-2
+input 148800 release step-2
+input 150400 release page
+input 152000 press push-1
+input 153600 release push-1
+input 155200 press down
+input 156800 release down
+input 158400 press down
+input 160000 release down
+input 161600 press ok
+input 163200 release ok
+input 164800 press menu
+input 166400 press step-1
+input 168000 release step-1
+input 169600 release menu
+# Holding step 3 shows the NOTE strip for the chord. Encoder 3 lengthens its notes by two clicks to
+# 3/16 and encoder 4 moves them one step on, to step 4.
+# Frame: NOTE strip, the strip while the step is held (note-strip.png).
+input 171200 press step-3
+input 172800 turn encoder-3 2
+input 174400 turn encoder-4 1
+frame 179200
+input 180800 release step-3
+# The hit on pad 1 selects it, and on SOUND's Pad page OK opens the picker on Syn 1, up highlights
+# New synth and OK choose it: Syn 3 on pad 1. Syn 1 sits on no pad now, so its notes take an extra
+# lane.
+input 182400 pad-hit 0 100
+input 184000 pad-release 0
+input 185600 press menu
+input 187200 press step-3
+input 188800 release step-3
+input 190400 release menu
+input 192000 press ok
+input 193600 release ok
+input 195200 press up
+input 196800 release up
+input 198400 press ok
+input 200000 release ok
+input 201600 press menu
+input 203200 press step-1
+input 204800 release step-1
+input 206400 release menu
+# A tap of step 1 enters a note of Syn 3 and puts the cursor on the first step.
+input 208000 press step-1
+input 209600 release step-1
+# PLAY starts bar 1 at its press. A 4/4 bar is 96,000 samples, so bar 3 starts 192,000 after it.
+input 211200 press play
+input 212800 release play
+# Frame: STEP following, the view following the music over bar 3 (step-playing.png).
+frame 441600
+# Left from the first step of the playing bar 3 moves the cursor to the last step of bar 2 and stops
+# following; the music goes on.
+# Frame: STEP after an arrow stopped following.
+input 443200 press left
+input 444800 release left
+frame 454400
+# STOP stops the pattern and leaves the cursor in bar 2.
+# Frame: STEP stopped (step-stopped.png).
+input 456000 press stop
+input 457600 release stop
+frame 460800
+# MENU + step 9 shows PATTERN, PAGE + step 2 its Bars page and push 2 the Signature picker on 4/4.
+# Up onto 3/4 and OK ask "Delete 3 notes?", as three notes lie past the end of a 3/4 bar, and OK
+# deletes them. The cursor, on step 16 of bar 2, moves to its step 12.
+input 462400 press menu
+input 464000 press step-9
+input 465600 release step-9
+input 467200 release menu
+input 468800 press page
+input 470400 press step-2
+input 472000 release step-2
+input 473600 release page
+input 475200 press push-2
+input 476800 release push-2
+input 478400 press up
+input 480000 release up
+input 481600 press ok
+input 483200 release ok
+input 484800 press ok
+input 486400 release ok
+input 488000 press menu
+input 489600 press step-1
+input 491200 release step-1
+input 492800 release menu
+# Frame: STEP in 3/4, with 4 dark cells at the end of each bar.
+frame 496000
+# Signature 7/8: right moves the picker a page onto 3/8, and down four times onto 7/8.
+input 497600 press menu
+input 499200 press step-9
+input 500800 release step-9
+input 502400 release menu
+input 504000 press page
+input 505600 press step-2
+input 507200 release step-2
+input 508800 release page
+input 510400 press push-2
+input 512000 release push-2
+input 513600 press right
+input 515200 release right
+input 516800 press down
+input 518400 release down
+input 520000 press down
+input 521600 release down
+input 523200 press down
+input 524800 release down
+input 526400 press down
+input 528000 release down
+input 529600 press ok
+input 531200 release ok
+input 532800 press menu
+input 534400 press step-1
+input 536000 release step-1
+input 537600 release menu
+# Frame: STEP in 7/8, with 2 dark cells at the end of each bar (step-7-8.png).
+frame 540800
+# Signature 5/4: left moves the picker a page back onto 7/4, and up twice onto 5/4.
+input 542400 press menu
+input 544000 press step-9
+input 545600 release step-9
+input 547200 release menu
+input 548800 press page
+input 550400 press step-2
+input 552000 release step-2
+input 553600 release page
+input 555200 press push-2
+input 556800 release push-2
+input 558400 press left
+input 560000 release left
+input 561600 press up
+input 563200 release up
+input 564800 press up
+input 566400 release up
+input 568000 press ok
+input 569600 release ok
+input 571200 press menu
+input 572800 press step-1
+input 574400 release step-1
+input 576000 release menu
+# A bar of 5/4 takes two pages, the second of 4 steps. SHIFT + right moves the cursor a page on,
+# onto the last step of the short page.
+input 577600 press shift
+input 579200 press right
+input 580800 release right
+input 582400 release shift
+# Frame: STEP in 5/4 on its short page (step-5-4.png).
+frame 585600
+end 588800

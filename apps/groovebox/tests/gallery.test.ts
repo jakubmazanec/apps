@@ -35,6 +35,7 @@ describe('the gallery', () => {
           'metronome/',
           'new-synth/',
           'picker-while-playing/',
+          'step-view/',
           'steps/',
           'synth-pages/',
         ].map(async (scene) =>
