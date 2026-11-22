@@ -3,7 +3,7 @@ use super::held::write_length;
 use super::pages::{ItemDef, ItemKind, LIBRARY_METER, NOTE, Picture};
 use super::samples::{self, rows};
 use super::step_view::{self, LANES_SHOWN, PAGE, cell_of};
-use super::view::{Picker, Question, Screen, StepCursor};
+use super::view::{Picker, Question, Screen};
 use super::{Control, Entry, HeaderMessage};
 use crate::budget;
 use crate::font::ADVANCE;
@@ -415,7 +415,7 @@ impl Control {
         } else if screen == Screen::Step {
             let signature = self.project.signature;
             let view = self.view.step_view;
-            let (names, columns) = self.step_columns();
+            let columns = self.step_columns().1;
             let mut labels = [(Label::<NAME_BYTES>::new(), TEXT); LANES_SHOWN];
             let mut shown = 0;
             for (label, lane) in labels.iter_mut().zip(self.lanes().skip(view.first_lane)) {
@@ -428,19 +428,12 @@ impl Control {
                 color: labels[row].1,
                 selected: view.first_lane + row == cursor_lane,
             });
-            // The cursor's cell, which is also the page the step buttons show.
-            let cell = cell_of(
-                StepCursor {
-                    bar: self.shown_bar(self.now),
-                    ..self.view.steps
-                },
-                signature,
-            );
+            // The cursor's cell, whose page is the page the step buttons show.
+            let cell = cell_of(self.cursor_at(self.now), signature);
             draw_step(
                 canvas,
                 &StepPicture {
                     lanes: &lanes[..shown],
-                    names,
                     columns,
                     first_cell: view.first_cell,
                     cells: step_view::cells(

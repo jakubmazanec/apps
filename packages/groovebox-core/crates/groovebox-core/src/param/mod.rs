@@ -550,7 +550,7 @@ pub fn format<const N: usize>(entry: &Entry, value: i32, out: &mut Label<N>) {
 const MINUS: &str = "\u{2212}";
 
 /// Appends `value` with its sign, "+" for 0 and above and "−" below.
-pub fn signed<const N: usize>(value: i32, out: &mut Label<N>) -> core::fmt::Result {
+pub(crate) fn signed<const N: usize>(value: i32, out: &mut Label<N>) -> core::fmt::Result {
     write!(
         out,
         "{}{}",

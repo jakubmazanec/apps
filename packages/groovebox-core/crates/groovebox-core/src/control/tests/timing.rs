@@ -1669,7 +1669,7 @@ fn play_while_playing_follows_again_and_sends_nothing() {
     let queue = Queue::new();
     let mut rig = playing_4_bars(&queue);
     rig.step(200_000);
-    // By hand, as nothing ends following before plan 3's arrows.
+    // By hand, rather than with an arrow into another bar, which ends following.
     rig.control.view.following = false;
     rig.control.view.steps.bar = 0;
     assert!(bars_header_shows(&rig.control, PAD_1, "1/4 ▶3"));

@@ -250,8 +250,8 @@ fn the_view_stops_at_the_patterns_end() {
 
 #[test]
 fn following_moves_the_view_at_the_bar_line() {
-    // The 13 character name makes 49 columns, whose last is cell 48, bar 4's first; with 57
-    // columns that cell shows without a move.
+    // The 13 character name makes 49 columns, whose last is cell 48, bar 4's first; with 55
+    // columns, the ones "Syn 1" makes, that cell shows without a move.
     for (name, first_cell) in [(Some("Žluťoučký kůň"), 4), (None, 0)] {
         let queue = Queue::new();
         let mut rig = playing_4_bars(&queue);
@@ -305,8 +305,9 @@ fn the_view_keeps_the_cursor_after_a_lane_goes() {
     assert_eq!(rig.control.view.step_view.first_lane, 22 - LANES_SHOWN);
 }
 
-/// STEP of a new project on T1 under `strip`, with these lanes, drawn by `draw_step`: 57 columns,
-/// 1 bar, the cursor at (`cursor`), the header `header` and `marks`.
+/// STEP of a new project on T1 under `strip`, with these lanes, drawn by `draw_step`: as many
+/// columns as a names column of `names` px leaves, 1 bar, the cursor at (`cursor`), the header
+/// `header` and `marks`.
 fn step_picture(
     header: &[(&str, Color)],
     names: i32,
@@ -333,7 +334,6 @@ fn step_picture(
                 screen,
                 &StepPicture {
                     lanes: &lanes,
-                    names,
                     columns: (480 - 2 - names as u32 - 2) / 8,
                     first_cell: 0,
                     cells: 16,
@@ -1191,7 +1191,8 @@ fn pitch_and_position_move_together_and_stop_at_the_first_end() {
     assert_eq!(notes_in(&rig, track_1(&rig)), notes);
     assert_eq!(versions(&mut rig), []);
 
-    // 20 clicks on stop where the second reaches the last sixteenth: 14.
+    // 20 clicks on stop where the second note reaches the last sixteenth, which puts the first on
+    // place 14.
     rig.turn(40, 3, 20);
     rig.step(50);
     assert_eq!(
@@ -1590,6 +1591,29 @@ fn a_pad_under_a_held_step_adds_or_removes_its_sound_there() {
     assert_eq!(notes_in(&rig, track_1(&rig)), []);
     assert_eq!(versions(&mut rig), []);
     assert_eq!(on_tracks(&rig, syn_1), [0; 4]);
+}
+
+#[test]
+fn a_pad_under_a_held_step_removes_its_sound_at_every_pitch() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    rig.synth_on(0);
+    let syn_2 = rig.synth_on(1);
+    // Pad 2 plays Syn 2 at C4: the held step's notes at C4 and E4 both go.
+    put(
+        &mut rig,
+        0,
+        0,
+        &[entered(0, syn_2, 60), entered(0, syn_2, 64)],
+    );
+    rig.press(10, Button::Step(0));
+
+    rig.hit(20, 1, 100);
+    rig.step(30);
+
+    assert_eq!(notes_in(&rig, track_1(&rig)), []);
+    assert_eq!(on_tracks(&rig, syn_2), [0; 4]);
+    assert_eq!(versions(&mut rig).len(), 1);
 }
 
 #[test]

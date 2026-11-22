@@ -642,10 +642,11 @@ impl Control {
                 };
             }
             self.marks = [[None; GRID_CELLS]; LANES_SHOWN];
-            let tree = self.project.patterns[usize::from(self.project.pattern)].tracks
-                [usize::from(self.project.track)];
-            let first_bar = (view.first_cell / cells(1, signature)) as u16;
-            for note in store.reader().notes(tree, Key::at(first_bar, 0)) {
+            for note in store.reader().notes(
+                self.project.patterns[usize::from(self.project.pattern)].tracks
+                    [usize::from(self.project.track)],
+                Key::at((view.first_cell / cells(1, signature)) as u16, 0),
+            ) {
                 let cell = cell_of(
                     StepCursor {
                         bar: note.bar,
@@ -660,12 +661,12 @@ impl Control {
                     && let Some(column) = cell.checked_sub(view.first_cell)
                 {
                     let mark = &mut self.marks[row][column as usize];
-                    let held = mark.unwrap_or_default();
+                    let before = mark.unwrap_or_default();
                     *mark = Some(Mark {
-                        velocity: held.velocity.max(note.velocity),
-                        count: held.count.saturating_add(1),
+                        velocity: before.velocity.max(note.velocity),
+                        count: before.count.saturating_add(1),
                         // 8 px to 480 ticks, so 60 ticks to a pixel.
-                        tail: held.tail.max(
+                        tail: before.tail.max(
                             u16::try_from(note.length.saturating_sub(480) / 60).unwrap_or(u16::MAX),
                         ),
                     });
@@ -1377,7 +1378,7 @@ impl Control {
                         bar: (cell / cells(1, signature)) as u16,
                         step: (cell % cells(1, signature)).min(signature.sixteenths() - 1) as u8,
                     };
-                    let moved = match (button == Button::Left, shift) {
+                    let target = match (button == Button::Left, shift) {
                         (true, false) => (0..cell).rev().find_map(|cell| place_of(cell, signature)),
                         (false, false) => {
                             (cell + 1..total).find_map(|cell| place_of(cell, signature))
@@ -1386,20 +1387,19 @@ impl Control {
                         (false, true) => (cell + PAGE < total).then(|| jumped(cell + PAGE)),
                     }
                     .unwrap_or(cursor);
-                    self.view.following &= moved.bar == cursor.bar;
-                    self.view.steps = moved;
+                    self.view.following &= target.bar == cursor.bar;
+                    self.view.steps = target;
                 }
                 Button::Up | Button::Down => {
                     let by = if shift { 12 } else { 1 };
-                    let lane = self.cursor_lane();
-                    let lane = if button == Button::Up {
-                        lane.saturating_sub(by)
-                    } else {
-                        (lane + by).min(self.lanes().count() - 1)
-                    };
+                    let from = self.cursor_lane();
                     let lane = self
                         .lanes()
-                        .nth(lane)
+                        .nth(if button == Button::Up {
+                            from.saturating_sub(by)
+                        } else {
+                            (from + by).min(self.lanes().count() - 1)
+                        })
                         .expect("the lane is one of the lanes");
                     match lane {
                         Lane::Pad(pad) => self.track_mut().select(pad),
@@ -2008,7 +2008,7 @@ impl Control {
     /// A button goes up. A tap of PADS/KEYS switches the current track's pad mode, a tap of a step
     /// enters or removes notes (`tap_step`) and a tap of TEMPO turns the metronome on or off, also
     /// while MENU or PAGE is held. A tap of CANCEL closes the picker without choosing, answers the
-    /// question no or, on SAMPLES and in the sample picker, goes up (`cancel_in_samples`), and on
+    /// question no or, on SAMPLES and in the sample picker, goes up (`cancel_in_samples`) and on
     /// STEP removes the notes of the cell the cursor showed at its press (`remove_notes`).
     fn release(
         &mut self,

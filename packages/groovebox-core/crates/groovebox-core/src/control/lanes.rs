@@ -62,10 +62,10 @@ impl Control {
     }
 
     /// `change` notes of `sound` were added, or removed below 0, on track `track` of pattern
-    /// `pattern`: every note added or removed goes through here (S1). The sound's notes change
-    /// always and its notes on the track when the pattern is the current one.
+    /// `pattern`: every note added or removed goes through here (S1), but those that `delete_sound`
+    /// removes, as the sound's counts go with the sound. The sound's notes change always and its
+    /// notes on the track when the pattern is the current one.
     pub(super) fn counted(&mut self, pattern: u8, track: u8, sound: SoundNumber, change: i32) {
-        let current = pattern == self.project.pattern;
         let sound = self
             .project
             .pool
@@ -75,7 +75,7 @@ impl Control {
             .notes
             .checked_add_signed(change)
             .expect("a sound has the notes that are counted off it");
-        if current {
+        if pattern == self.project.pattern {
             let on_track = &mut sound.on_tracks[usize::from(track)];
             *on_track = on_track
                 .checked_add_signed(change)

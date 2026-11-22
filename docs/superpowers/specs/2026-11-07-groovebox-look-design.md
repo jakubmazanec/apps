@@ -194,10 +194,10 @@ the owner "for now", expected to change with testing.
 - **Where you are**, at the left, items 6 px apart: the screen name in the accent (Step), the page
   name after it where the screen has pages (Sound Filter), the track (T1), the sound (Snare; in red
   when its sample is missing; while an empty pad is selected there is no sound to name, and the
-  pad's dim number stands in its place, as in STEP's names column **(my call)**), and the pad mode
-  (Pads, or Keys C4 with the octave). STEP and ROLL name the screen only, not the SOUND page their
-  strip shows. While the transport shows, a sound name that would bring this group closer than 6 px
-  to the transport loses its end to "…".
+  pad's dim number stands in its place, as an unselected empty pad's number does in STEP's names
+  column **(my call)**), and the pad mode (Pads, or Keys C4 with the octave). STEP and ROLL name the
+  screen only, not the SOUND page their strip shows. While the transport shows, a sound name that
+  would bring this group closer than 6 px to the transport loses its end to "…".
 - **The transport**, pushed to the right edge, from the left: the pattern (P3; P3→4 while pattern 4
   is queued), the bar the step buttons show over the pattern's length (2/4; "2/4 ▶1" while playing,
   the bar playing after ▶), the tempo with one decimal (120.0); then only while they apply: a record

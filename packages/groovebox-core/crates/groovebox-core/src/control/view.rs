@@ -187,7 +187,8 @@ pub struct View {
     pub steps: StepCursor,
     pub step_view: StepView,
     /// Whether the step buttons and the header show the bar playing while the music plays (S16).
-    /// PLAY and SHIFT + PLAY set it.
+    /// PLAY and SHIFT + PLAY set it, and an arrow on STEP that moves the cursor into another bar
+    /// clears it.
     pub following: bool,
     /// The picker while it is open over the main area of `screen`, with its highlight. The sample
     /// picker's highlight is `sample_picker`'s cursor, and this one stays on its first row.

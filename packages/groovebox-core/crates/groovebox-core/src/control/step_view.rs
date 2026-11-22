@@ -131,16 +131,17 @@ impl Control {
     /// and lanes by one.
     pub(super) fn keep_step_view(&mut self, sample: u64) {
         let signature = self.project.signature;
-        let cursor = cell_of(self.cursor_at(sample), signature);
-        let bars = self.project.patterns[usize::from(self.project.pattern)].bars;
         let view = self.view.step_view;
         self.view.step_view = StepView {
             first_cell: kept(
-                cursor,
+                cell_of(self.cursor_at(sample), signature),
                 view.first_cell,
                 self.step_columns().1,
                 PAGE / u32::from(signature.unit),
-                cells(bars, signature),
+                cells(
+                    self.project.patterns[usize::from(self.project.pattern)].bars,
+                    signature,
+                ),
             ),
             first_lane: kept(
                 self.cursor_lane() as u32,
@@ -167,11 +168,17 @@ impl Control {
             },
             signature,
         );
-        let bars = self.project.patterns[usize::from(self.project.pattern)].bars;
         let columns = self.step_columns().1;
         let column = cell
             .checked_sub(self.view.step_view.first_cell)
-            .filter(|&column| column < columns && cell < cells(bars, signature))?;
+            .filter(|&column| {
+                column < columns
+                    && cell
+                        < cells(
+                            self.project.patterns[usize::from(self.project.pattern)].bars,
+                            signature,
+                        )
+            })?;
         Some(grid_left(columns) + CELL * column as i32 + (place % 480 * CELL as u32 / 480) as i32)
     }
 }

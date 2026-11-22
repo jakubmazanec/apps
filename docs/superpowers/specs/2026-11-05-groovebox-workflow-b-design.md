@@ -552,37 +552,39 @@ page back.
 - **A held step** is a step held down on its own, not as part of a combination (SHIFT + step, or a
   step under MENU or PAGE) and with no picker or question open, whose sixteenth, the one it showed
   when it went down, lies inside the bar. The strip is the NOTE strip from that press, unless TEMPO
-  was pressed before it: the first pressed counts, as with MENU and PAGE (Workflow A).
+  was pressed before it: the first pressed counts, as with MENU and PAGE (Workflow A) **(my call)**.
 - **Its notes** are the selected sound's notes in the held steps' sixteenths. With none, or with no
   selected sound, the strip is empty. A turn changes them and moves no cursor, since the items are
-  not on the screen; a push does nothing.
+  not on the screen; a push does nothing **(my call)**.
 - **PITCH** in semitones, in PADS mode too, for tuned drums. It is written as a note name, as Root
-  note is ("C3"), and runs from 0 to 127. It moves one per click, SHIFT too **(owner's choice)**, as
-  every counted value does.
-- **VELOCITY** runs from 1 to 127 and moves one per click, SHIFT too **(owner's choice)**.
+  note is ("C3"), and runs from 0 to 127 **(my call)**. It moves one per click, SHIFT too **(owner's
+  choice)**, as every counted value does.
+- **VELOCITY** runs from 1 to 127 **(my call)** and moves one per click, SHIFT too **(owner's
+  choice)**.
 - **LENGTH,** one grid step per click, 16 times finer with SHIFT, as for every smooth value: while
   the grid is 1/16, 480 ticks a click and 30 with SHIFT. It runs from 30 ticks, one SHIFT click, to
   one bar of the signature, as the EP-133's runs from one tick to one bar **(owner's choice)**. It
   is written as the shortened fraction of a whole note: 1/16, 1/8, 3/16, 1/4 and on to 1/1, up to
   2/1 in an 8/4 bar; a length between steps is written in 256ths, such as 17/256 **(owner's
   choice)**. A fraction of a whole note also stays exact when triplet grids come.
-- **POSITION,** one grid step per click, SHIFT too, so a note can move onto another step; the edit
-  follows the note, not the button. It reads as the number of grid steps the notes lie from the
-  sixteenth their step showed when it went down: "+0", "+1", "−2", with the minus sign of signed
-  values. A note moves through the pattern's grid positions in order, bar after bar and over dark
-  cells, between the pattern's first and last; each held step then stands for the sixteenth its
-  notes moved to and edits every note of the sound there. Finer positions belong to micro-timing,
-  which comes later, so in version 1 a note's time is set by hand only on the grid. Times off the
-  grid come only from recording with quantize off.
+- **POSITION,** one grid step per click, SHIFT too **(my call)**, so a note can move onto another
+  step; the edit follows the note, not the button. It reads as the number of grid steps the notes
+  lie from the sixteenth their step showed when it went down: "+0", "+1", "−2", with the minus sign
+  of signed values **(my call)**. A note moves through the pattern's grid positions in order, bar
+  after bar and over dark cells, between the pattern's first and last; each held step then stands
+  for the sixteenth its notes moved to and edits every note of the sound there **(my call)**. Finer
+  positions belong to micro-timing, which comes later, so in version 1 a note's time is set by hand
+  only on the grid. Times off the grid come only from recording with quantize off.
 - **Several notes,** such as a chord, several notes in one sixteenth or several held steps, change
   by the same amount. Values that differ show as a range, as on Push and Maschine: the lowest and
-  the highest joined by an en dash, such as "C3–E3", "60–100", "1/16–1/8" and "−1–+2".
-- **Where a turn stops several notes.** VELOCITY and LENGTH stop note by note at their ends: a note
-  at its end stays there while the others go on, as on Maschine. PITCH and POSITION move the notes
-  together and stop where the first of them reaches its end, so that two held notes never land on
-  one pitch and start, where one would replace the other. A moved note replaces a note of the same
-  sound and pitch where it lands, as recording does (see "Recorded notes"). A turn that does not fit
-  in memory changes nothing and shows NOT ENOUGH MEMORY (Project model).
+  the highest joined by an en dash, such as "C3–E3", "60–100", "1/16–1/8" and "−1–+2" **(my call)**.
+- **Where a turn stops several notes (my call).** VELOCITY and LENGTH stop note by note at their
+  ends: a note at its end stays there while the others go on, as Maschine's manual implies. PITCH
+  and POSITION move the notes together and stop where the first of them reaches its end, so that two
+  held notes never land on one pitch and start, where one would replace the other. A moved note
+  replaces a note of the same sound and pitch where it lands, as recording does (see "Recorded
+  notes"). A turn that does not fit in memory changes nothing and shows NOT ENOUGH MEMORY (Project
+  model).
 
 Rejected: holding a step and pressing a later one to set the length (OP-XY, Deluge, Hapax). It
 clashes with holding several steps, and LENGTH covers it.

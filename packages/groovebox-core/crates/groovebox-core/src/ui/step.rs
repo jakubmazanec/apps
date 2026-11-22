@@ -45,8 +45,6 @@ pub struct LaneView<'a> {
 pub struct StepPicture<'a> {
     /// The shown lanes, at most `LANES_SHOWN`.
     pub lanes: &'a [LaneView<'a>],
-    /// The names column's width.
-    pub names: i32,
     pub columns: u32,
     pub first_cell: u32,
     /// The pattern's cells.
@@ -65,9 +63,9 @@ pub struct StepPicture<'a> {
 }
 
 /// Draws STEP's main area (S3 to S7): the cells from the first one, as many as the columns and the
-/// pattern have, a tint on the dark cells and the page the step buttons show, and the lines that
-/// start at each cell's left edge and after the last one; the lanes with their labels, separators
-/// and notes; the cursor, and last the music.
+/// pattern have, with a tint on the dark cells and the page the step buttons show, then the lines
+/// that start at each cell's left edge and after the last one; the lanes with their labels,
+/// separators and notes; the cursor and last the music.
 pub fn draw_step(canvas: &mut impl Canvas, picture: &StepPicture) {
     let StepPicture {
         lanes,
@@ -119,12 +117,17 @@ pub fn draw_step(canvas: &mut impl Canvas, picture: &StepPicture) {
                 ACCENT,
             );
         }
-        let label = if lane.selected {
-            BACKGROUND
-        } else {
-            lane.color
-        };
-        text::draw(canvas, LEFT + TEXT_INSET, y, lane.label, label);
+        text::draw(
+            canvas,
+            LEFT + TEXT_INSET,
+            y,
+            lane.label,
+            if lane.selected {
+                BACKGROUND
+            } else {
+                lane.color
+            },
+        );
         if row > 0 {
             let line = if first_extra == Some(row) {
                 LINE
@@ -189,7 +192,6 @@ mod tests {
                 color: DIM,
                 selected: false,
             }],
-            names: 17,
             columns: 57,
             first_cell: 0,
             cells: 16,

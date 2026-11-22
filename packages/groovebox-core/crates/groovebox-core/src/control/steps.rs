@@ -6,7 +6,7 @@ use super::view::StepCursor;
 use crate::budget;
 use crate::message::{VERSION_QUEUE, Version};
 use crate::palette::RECORD;
-use crate::project::pool::{Sound, SoundNumber};
+use crate::project::pool::SoundNumber;
 use crate::project::track::PadMode;
 use crate::queue::Producer;
 use crate::store::note::{Key, Note};
@@ -72,8 +72,9 @@ impl Control {
 
     /// Enters a note of the selected sound in the sixteenth of `place`, unless a note of the sound
     /// starts there already (S10). It starts the sixteenth, is a sixteenth long, has velocity 127
-    /// and no pressure curve, and its pitch is `entry_pitch`. With fewer than `RESERVE` blocks free
-    /// no note goes in, and "Not enough memory" shows in red instead (S19).
+    /// and no pressure curve, and its pitch is where the sound plays unchanged in PADS mode, and in
+    /// KEYS mode the last key played, or the C of the octave before any key. With fewer than
+    /// `RESERVE` blocks free no note goes in, and "Not enough memory" shows in red instead (S19).
     pub(super) fn enter_note(
         &mut self,
         place: StepCursor,
@@ -84,7 +85,7 @@ impl Control {
         let Some(sound) = self.selected() else {
             return;
         };
-        let (number, pitch) = (sound.number, self.entry_pitch(sound));
+        let number = sound.number;
         let keys = sixteenth(place);
         if store
             .reader()
@@ -98,7 +99,16 @@ impl Control {
             self.say("Not enough memory", RECORD);
             return;
         }
-        let tree = self.added(self.track_tree(), place, number, pitch, store);
+        let tree = self.added(
+            self.track_tree(),
+            place,
+            number,
+            match self.track().mode {
+                PadMode::Pads => sound.unchanged_pitch(),
+                PadMode::Keys => self.track().last_key.unwrap_or(self.track().key_pitch(0)),
+            },
+            store,
+        );
         self.edit(
             self.project.pattern,
             self.project.track,
@@ -166,15 +176,6 @@ impl Control {
         self.hold_over(tree, added, store);
         self.counted(self.project.pattern, self.project.track, sound, 1);
         added
-    }
-
-    /// The pitch a step-entered note of `sound` gets: where the sound plays unchanged in PADS
-    /// mode, and in KEYS mode the last key played, or the C of the octave before any key.
-    pub(super) fn entry_pitch(&self, sound: &Sound) -> u8 {
-        match self.track().mode {
-            PadMode::Pads => sound.unchanged_pitch(),
-            PadMode::Keys => self.track().last_key.unwrap_or(self.track().key_pitch(0)),
-        }
     }
 
     /// Holds `made`, which `old` was edited into, and lets go of `old` unless it is the track's:
