@@ -4,8 +4,9 @@ pool_sounds = 1_024
 voices = 32
 # The busiest 128-sample render batch of scenes/worst-case.scene in operations: the fuel wasmtime
 # counts in the stable build. The first measurement, 6,983,821, plus 10 % and rounded up; raising it
-# is a deliberate edit.
-worst_batch_operations = 7_682_204
+# is a deliberate edit. Raised on 2026-11-22 to the worst case with every voice fading, 8,278,061,
+# plus 10 % and rounded up.
+worst_batch_operations = 9_105_868
 sample_ram = 64_000_000
 library_files = 4_096
 library_folders = 1_024
