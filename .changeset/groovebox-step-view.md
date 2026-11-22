@@ -1,5 +1,6 @@
 ---
 'groovebox': minor
+'groovebox-core': minor
 ---
 
 Added the groovebox STEP view: lanes for every pad and for sounds with notes on no pad, the
