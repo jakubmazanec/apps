@@ -835,6 +835,36 @@ fn cancel_removes_the_cells_notes_when_let_go() {
 }
 
 #[test]
+fn shift_and_cancel_remove_nothing_on_step() {
+    let queue = Queue::new();
+    let mut rig = shaped(&queue, 1, FOUR_FOUR, place(0, 4));
+    let syn_1 = rig.synth_on(0);
+    put(&mut rig, 0, 0, &[entered(4, syn_1, 60)]);
+    rig.step(10);
+
+    // SHIFT + CANCEL stays free for Milestone 4's undo, whichever button goes up first.
+    rig.press(100, Button::Shift);
+    rig.tap(110, Button::Cancel);
+    rig.let_go(120, Button::Shift);
+    rig.press(200, Button::Shift);
+    rig.press(210, Button::Cancel);
+    rig.let_go(220, Button::Shift);
+    rig.let_go(230, Button::Cancel);
+    rig.step(300);
+    assert_eq!(notes_in(&rig, track_1(&rig)), [entered(4, syn_1, 60)]);
+    assert_eq!(versions(&mut rig), []);
+
+    // It still closes a picker.
+    rig.tap(400, Button::Push(0));
+    rig.press(410, Button::Shift);
+    rig.tap(420, Button::Cancel);
+    rig.let_go(430, Button::Shift);
+    rig.step(500);
+    assert!(rig.control.view.picker.is_none());
+    assert_eq!(notes_in(&rig, track_1(&rig)), [entered(4, syn_1, 60)]);
+}
+
+#[test]
 fn cancel_acts_on_the_cell_it_showed_at_its_press() {
     let queue = Queue::new();
     let mut rig = playing_on_step(&queue);

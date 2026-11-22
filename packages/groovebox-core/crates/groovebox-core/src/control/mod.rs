@@ -1010,7 +1010,8 @@ impl Control {
     /// encoder holds. PLAY and SHIFT + PLAY start or jump (`play`) and STOP stops (`stop`), also
     /// while MENU or PAGE is held. A step and TEMPO act when they are let go (`release`), a step on
     /// the bar and sixteenth it showed at its press (`pressed`, S16), and so does CANCEL on STEP, on
-    /// the cell the cursor showed at its press (`cancel_at`, S11).
+    /// the cell the cursor showed at its press (`cancel_at`, S11), unless SHIFT is held at its
+    /// press, which takes it.
     fn press(
         &mut self,
         button: Button,
@@ -1037,6 +1038,15 @@ impl Control {
             | Button::Stop
             | Button::Push(_)
                 if self.buttons.is_held(Button::Shift) =>
+            {
+                self.buttons.take(button);
+            }
+            // SHIFT + CANCEL on STEP stays free for undo (Milestone 4), as CANCEL alone removes.
+            Button::Cancel
+                if self.view.screen == Screen::Step
+                    && !picker
+                    && !question
+                    && self.buttons.is_held(Button::Shift) =>
             {
                 self.buttons.take(button);
             }
