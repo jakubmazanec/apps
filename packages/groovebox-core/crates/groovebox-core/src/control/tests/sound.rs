@@ -1521,7 +1521,7 @@ fn counts_ignore_shift_and_smooth_values_go_finer() {
     rig.let_go(220, Button::Shift);
     rig.step(230);
     assert_eq!(rig.control.value(TRANSPOSE.id), 1);
-    let mut value = Label::new();
+    let mut value = Label::<16>::new();
     param::format(&TRANSPOSE, rig.control.value(TRANSPOSE.id), &mut value);
     assert_eq!(value.as_str(), "+1");
 

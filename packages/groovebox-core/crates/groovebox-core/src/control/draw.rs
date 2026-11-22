@@ -40,6 +40,10 @@ const TOP_ROW: i32 = PICTURE.1 + 1;
 const BOTTOM_ROW: i32 = PICTURE.1 + PICTURE.3 - 2;
 const ROWS: i32 = BOTTOM_ROW - TOP_ROW;
 
+/// The most bytes an item's value takes: a LENGTH range of two lengths in 256ths of 4 digits,
+/// "1005/256–1007/256" in a 16/4 bar.
+const VALUE_BYTES: usize = 19;
+
 impl Control {
     /// Draws the whole picture from the state of the control part alone, whatever the canvas held
     /// before.
@@ -736,7 +740,7 @@ impl Control {
     }
 
     /// What `item` shows, with its value written into `value` where it is not a name.
-    fn item_view<'a>(&'a self, item: &ItemDef, value: &'a mut Label<16>) -> ItemView<'a> {
+    fn item_view<'a>(&'a self, item: &ItemDef, value: &'a mut Label<VALUE_BYTES>) -> ItemView<'a> {
         let (name, value, bar) = match item.kind {
             // A point of the sound's file shows its share of the file's last frame.
             ItemKind::Param(id) if param::entry(id).curve == Curve::Frame => {
@@ -846,7 +850,7 @@ impl Control {
                     }
                     _ => ("Position", held.position),
                 };
-                let write = |shown: i32, value: &mut Label<16>| match kind {
+                let write = |shown: i32, value: &mut Label<VALUE_BYTES>| match kind {
                     ItemKind::NotePitch => param::format(&ROOT_NOTE, shown, value),
                     ItemKind::NoteVelocity => {
                         write!(value, "{shown}").expect("writing to a label never fails");

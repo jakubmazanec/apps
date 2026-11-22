@@ -202,7 +202,7 @@ pub struct Control {
     /// (S16).
     pressed: [StepCursor; 16],
     /// Where the notes of each step button lie while it is held: the place it showed at its press,
-    /// which POSITION moves with its notes (S14).
+    /// which POSITION moves by as many grid steps as the notes, with notes there or not (S14).
     held: [StepCursor; 16],
     /// The held steps' notes as the latest step that asked for a redraw left them, none while
     /// there are none (S13).
@@ -627,7 +627,7 @@ impl Control {
         redraw |= self.scrolling.get() && pixels(until) != pixels(self.now);
         redraw |= header_bars(self, until) != shown;
         if redraw {
-            self.held_values = self.summary(store).map(|(held, _)| held);
+            self.held_values = self.summary(store);
         }
         if redraw && self.view.screen == Screen::Step {
             let signature = self.project.signature;

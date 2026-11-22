@@ -56,15 +56,23 @@ impl Control {
             .map(move |step| (step, self.held[usize::from(step)]))
     }
 
-    /// The held notes as the strip shows them, and the first and last grid position they lie on:
-    /// the selected sound's notes in each held step's sixteenth. None while there are none.
-    pub(super) fn summary(&self, store: &Store<'_>) -> Option<(Held, (u32, u32))> {
+    /// The held notes as the strip shows them: the selected sound's notes in each held step's
+    /// sixteenth. None while there are none.
+    pub(super) fn summary(&self, store: &Store<'_>) -> Option<Held> {
         let sound = self.track().selected_sound?;
         let sixteenths = self.project.signature.sixteenths();
         let mut summary = None;
         for (step, place) in self.held_steps() {
-            let at = grid(place, sixteenths);
-            let position = at as i32 - grid(self.pressed[usize::from(step)], sixteenths) as i32;
+            // A step pressed where an earlier one's notes lie shares them, at the earlier one's
+            // position.
+            if self
+                .held_steps()
+                .any(|(earlier, at)| earlier < step && at == place)
+            {
+                continue;
+            }
+            let position = grid(place, sixteenths) as i32
+                - grid(self.pressed[usize::from(step)], sixteenths) as i32;
             let keys = sixteenth(place);
             for note in store
                 .reader()
@@ -72,22 +80,18 @@ impl Control {
                 .take_while(|note| keys.contains(&note.key()))
                 .filter(|note| note.sound == sound)
             {
-                let (held, places) = summary.get_or_insert((
-                    Held {
-                        pitch: (note.pitch, note.pitch),
-                        velocity: (note.velocity, note.velocity),
-                        length: (note.length, note.length),
-                        position: (position, position),
-                    },
-                    (at, at),
-                ));
+                let held = summary.get_or_insert(Held {
+                    pitch: (note.pitch, note.pitch),
+                    velocity: (note.velocity, note.velocity),
+                    length: (note.length, note.length),
+                    position: (position, position),
+                });
                 *held = Held {
                     pitch: spread(held.pitch, note.pitch),
                     velocity: spread(held.velocity, note.velocity),
                     length: spread(held.length, note.length),
                     position: spread(held.position, position),
                 };
-                *places = spread(*places, at);
             }
         }
         summary
@@ -96,13 +100,14 @@ impl Control {
     /// A turn of `clicks` on the NOTE item `kind` (S13, S14). Every held note moves by the same
     /// amount: PITCH a semitone and VELOCITY one a click, LENGTH 480 ticks and 30 while SHIFT is
     /// held, POSITION a grid step. VELOCITY and LENGTH stop each note at its own end, 1 to 127 and
-    /// 30 ticks to a bar; PITCH and POSITION stop all of them where the first reaches its end, 0 to
-    /// 127 and the pattern's first and last grid position, so no held note lands on another. A
-    /// turn that changes nothing does nothing, and with fewer than `RESERVE` blocks free none
-    /// changes and "Not enough memory" shows in red. The held notes leave the track's tree and go
-    /// back changed, read from the old tree, which the track holds until `edit`. A moved note
-    /// replaces a note of the sound and pitch where it lands, which goes off its counts, and each
-    /// held step whose notes moved stands for their new sixteenth (`held`).
+    /// 30 ticks to a bar; PITCH stops all of them where the first note reaches 0 or 127, and
+    /// POSITION where the first held step, with notes or without, reaches the pattern's first or
+    /// last grid position, so no held note lands on another. A turn that changes nothing does
+    /// nothing, and with fewer than `RESERVE` blocks free none changes and "Not enough memory"
+    /// shows in red. The held notes leave the track's tree and go back changed, read from the old
+    /// tree, which the track holds until `edit`. A moved note replaces a note of the sound and
+    /// pitch where it lands, which goes off its counts, and every held step moves by the same
+    /// number (`held`), so each stands for the sixteenth its notes moved to.
     pub(super) fn turn_held(
         &mut self,
         kind: ItemKind,
@@ -111,9 +116,7 @@ impl Control {
         versions: &mut Producer<'_, Version, VERSION_QUEUE>,
         store: &mut Store<'_>,
     ) {
-        let (Some(sound), Some((held, (first, last)))) =
-            (self.track().selected_sound, self.summary(store))
-        else {
+        let (Some(sound), Some(held)) = (self.track().selected_sound, self.summary(store)) else {
             return;
         };
         let signature = self.project.signature;
@@ -122,13 +125,21 @@ impl Control {
             ItemKind::NotePitch => {
                 clicks.clamp(-i32::from(held.pitch.0), 127 - i32::from(held.pitch.1))
             }
-            ItemKind::NotePosition => clicks.clamp(
-                -(first as i32),
-                (u32::from(self.project.patterns[usize::from(self.project.pattern)].bars)
-                    * sixteenths
-                    - 1
-                    - last) as i32,
-            ),
+            ItemKind::NotePosition => {
+                let (first, last) = self
+                    .held_steps()
+                    .map(|(_, place)| grid(place, sixteenths))
+                    .fold((u32::MAX, 0), spread);
+                // A held place that a shorter length or signature left past the pattern's end lets
+                // the notes move only back.
+                clicks.clamp(
+                    -(first as i32),
+                    (u32::from(self.project.patterns[usize::from(self.project.pattern)].bars)
+                        * sixteenths
+                        - 1)
+                    .saturating_sub(last) as i32,
+                )
+            }
             ItemKind::NoteLength if self.buttons.is_held(Button::Shift) => clicks * 30,
             ItemKind::NoteLength => clicks * 480,
             _ => clicks,
@@ -167,12 +178,12 @@ impl Control {
             tree = self.cleared(tree, place, sound, None, store).0;
         }
         for (step, place) in steps.iter().enumerate() {
-            let Some(place) = *place else {
+            // A step pressed where an earlier one's notes lie shares them, and they go in once.
+            let Some(place) = place.filter(|place| !steps[..step].contains(&Some(*place))) else {
                 continue;
             };
             let keys = sixteenth(place);
             let mut cursor = store.reader().seek(old, keys.start);
-            let mut found = false;
             while let Some(note) = store
                 .reader()
                 .peek(&cursor)
@@ -180,11 +191,6 @@ impl Control {
             {
                 store.reader().advance(&mut cursor);
                 if note.sound != sound {
-                    continue;
-                }
-                found = true;
-                // A step that stands for an earlier one's sixteenth finds its notes moved already.
-                if steps[..step].contains(&Some(place)) {
                     continue;
                 }
                 let (added, replaced) = store.insert(
@@ -221,8 +227,12 @@ impl Control {
                     1 - i32::from(replaced.is_some()),
                 );
             }
-            if found && kind == ItemKind::NotePosition {
-                self.held[step] = moved(place);
+        }
+        if kind == ItemKind::NotePosition {
+            for (held, place) in self.held.iter_mut().zip(steps) {
+                if let Some(place) = place {
+                    *held = moved(place);
+                }
             }
         }
         self.edit(

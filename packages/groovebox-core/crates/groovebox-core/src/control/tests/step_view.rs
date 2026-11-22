@@ -1238,30 +1238,111 @@ fn held_steps_on_one_sixteenth_edit_its_notes_once() {
     let mut rig = Rig::new(&queue);
     let syn_1 = rig.synth_on(0);
     put(&mut rig, 0, 0, &[entered(1, syn_1, 60)]);
-    // Steps 1 and 2 held, and step 2's note moved into step 1's sixteenth: both stand for it.
+    // Steps 1 and 2 held, a note in step 2's sixteenth only.
     rig.press(10, Button::Step(0));
     rig.press(11, Button::Step(1));
 
+    // Step 1 stands for the pattern's first sixteenth, so nothing moves back.
     rig.turn(20, 3, -1);
-    rig.turn(30, 1, -10);
-    rig.step(40);
+    rig.step(30);
+    assert_eq!(notes_in(&rig, track_1(&rig)), [entered(1, syn_1, 60)]);
+    assert_eq!(versions(&mut rig), []);
 
+    // Both held steps move, the one without notes too.
+    rig.turn(40, 3, 1);
+    rig.step(50);
+    assert_eq!(notes_in(&rig, track_1(&rig)), [entered(2, syn_1, 60)]);
+    assert_eq!(rig.control.held[..2], [place(0, 1), place(0, 2)]);
+
+    // Step 3 pressed where the note lies now stands for it too: the note changes once and reads
+    // one position, step 2's.
+    rig.press(60, Button::Step(2));
+    rig.turn(70, 1, -10);
+    rig.step(80);
     assert_eq!(
         notes_in(&rig, track_1(&rig)),
         [Note {
             velocity: 117,
-            ..entered(0, syn_1, 60)
+            ..entered(2, syn_1, 60)
         }]
     );
     assert_eq!(count(&rig, syn_1), 1);
-    assert_eq!(rig.control.held[..2], [place(0, 0), place(0, 0)]);
     assert!(strip_shows(
         &rig,
         &note_strip(
             ("C4", Bar::Fill(60, 127)),
             ("117", Bar::Fill(117, 127)),
             "1/16",
-            "\u{2212}1–+0"
+            "+1"
+        )
+    ));
+}
+
+#[test]
+fn a_held_step_past_a_shortened_patterns_end_moves_nothing_on() {
+    let queue = Queue::new();
+    let mut rig = shaped(&queue, 2, FOUR_FOUR, place(0, 0));
+    let syn_1 = rig.synth_on(0);
+    put(&mut rig, 0, 0, &[entered(0, syn_1, 60)]);
+    // Step 1 held on its note in bar 1, step 3 on nothing in bar 2 (PAGE + step 2 opens the Bars
+    // page).
+    rig.press(10, Button::Step(0));
+    rig.step(15);
+    rig.control.view.steps.bar = 1;
+    rig.press(20, Button::Step(2));
+    // On PATTERN's Bars page OK opens the Length picker, where up is 1 bar.
+    on_bars(&mut rig, 30);
+    rig.tap(50, Button::Ok);
+    rig.tap(60, Button::Up);
+    rig.tap(70, Button::Ok);
+    rig.step(80);
+    assert_eq!(rig.control.project.patterns[0].bars, 1);
+    versions(&mut rig);
+
+    rig.turn(90, 3, 1);
+    rig.step(100);
+
+    assert_eq!(notes_in(&rig, track_1(&rig)), [entered(0, syn_1, 60)]);
+    assert_eq!(versions(&mut rig), []);
+}
+
+#[test]
+fn the_strip_shows_a_length_range_whole() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    rig.synth_on(0);
+    // Taps of steps 1 and 2 enter a sixteenth each.
+    rig.tap(10, Button::Step(0));
+    rig.tap(20, Button::Step(1));
+    let shorter = |rig: &mut Rig<'_>, sample, step, clicks| {
+        rig.press(sample, Button::Step(step));
+        rig.press(sample + 1, Button::Shift);
+        rig.turn(sample + 2, 2, clicks);
+        rig.let_go(sample + 3, Button::Shift);
+        rig.let_go(sample + 4, Button::Step(step));
+    };
+    // Step 1 alone at 450 ticks and step 2 alone at 390.
+    shorter(&mut rig, 100, 0, -1);
+    shorter(&mut rig, 200, 1, -3);
+
+    // Both, 6 sixteenths longer: 3,330 and 3,270 ticks.
+    rig.press(300, Button::Step(0));
+    rig.press(301, Button::Step(1));
+    rig.turn(310, 2, 6);
+    rig.step(320);
+
+    let lengths: Vec<u32> = notes_in(&rig, track_1(&rig))
+        .iter()
+        .map(|note| note.length)
+        .collect();
+    assert_eq!(lengths, [3_330, 3_270]);
+    assert!(strip_shows(
+        &rig,
+        &note_strip(
+            ("C4", Bar::Fill(60, 127)),
+            ("127", Bar::Fill(127, 127)),
+            "109/256–111/256",
+            "+0"
         )
     ));
 }

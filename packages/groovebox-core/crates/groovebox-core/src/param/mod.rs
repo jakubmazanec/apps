@@ -483,7 +483,7 @@ pub fn moved_frame(value: i32, clicks: i32, fine: bool, frames: u32) -> i32 {
 /// Appends the frame `value` of a file of `frames` frames as the share of the file it is at, in
 /// tenths of a percent of the last frame, rounded half up on integers. A file of one frame reads
 /// "0.0%".
-pub fn format_frame(value: i32, frames: u32, out: &mut Label<16>) {
+pub fn format_frame<const N: usize>(value: i32, frames: u32, out: &mut Label<N>) {
     let last = i64::from(frames) - 1;
     let tenths = if last > 0 {
         (2 * i64::from(value) * 1_000 + last) / (2 * last)
@@ -496,7 +496,7 @@ pub fn format_frame(value: i32, frames: u32, out: &mut Label<16>) {
 
 /// Appends the value as it is shown. Rounding is half away from zero, done on integers. A frame is
 /// shown by `format_frame`, never by this.
-pub fn format(entry: &Entry, value: i32, out: &mut Label<16>) {
+pub fn format<const N: usize>(entry: &Entry, value: i32, out: &mut Label<N>) {
     let written = match entry.curve {
         Curve::Switch => out.write_str(if value == 0 { "Off" } else { "On" }),
         Curve::List => out.write_str(entry.choices[place(entry, value)].label),
@@ -550,7 +550,7 @@ pub fn format(entry: &Entry, value: i32, out: &mut Label<16>) {
 const MINUS: &str = "\u{2212}";
 
 /// Appends `value` with its sign, "+" for 0 and above and "−" below.
-pub fn signed(value: i32, out: &mut Label<16>) -> core::fmt::Result {
+pub fn signed<const N: usize>(value: i32, out: &mut Label<N>) -> core::fmt::Result {
     write!(
         out,
         "{}{}",
@@ -807,7 +807,7 @@ mod tests {
     #[test]
     fn frames_read_as_a_percent_with_one_decimal() {
         let percent = |value| {
-            let mut out = Label::new();
+            let mut out = Label::<16>::new();
             format_frame(value, 48_000, &mut out);
             out
         };
@@ -820,7 +820,7 @@ mod tests {
 
     #[test]
     fn a_one_frame_file_reads_0_percent_and_never_moves() {
-        let mut out = Label::new();
+        let mut out = Label::<16>::new();
 
         format_frame(0, 1, &mut out);
 
