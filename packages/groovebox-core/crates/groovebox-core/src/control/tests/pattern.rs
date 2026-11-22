@@ -103,7 +103,8 @@ pub(super) fn put(rig: &mut Rig<'_>, pattern: usize, track: usize, notes: &[Note
     store.hold(tree);
     rig.control.project.patterns[pattern].tracks[track] = tree;
     for note in notes {
-        rig.control.project.pool.get_mut(note.sound).unwrap().notes += 1;
+        rig.control
+            .counted(pattern as u8, track as u8, note.sound, 1);
     }
 }
 

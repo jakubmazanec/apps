@@ -674,14 +674,14 @@ fn bars_picker(rows: &[&str], scroll: usize, item: usize) -> Screen {
 }
 
 /// Opens PATTERN's Bars page with MENU + 9 and PAGE + 2, from `sample` to 13 samples later.
-fn on_bars(rig: &mut Rig<'_>, sample: u64) {
+pub(super) fn on_bars(rig: &mut Rig<'_>, sample: u64) {
     rig.menu(sample, 8);
     rig.page(sample + 10, 1);
 }
 
 /// On the Bars page, opens the picker of encoder `encoder`'s item with its push, moves its
 /// highlight with `moves` and chooses with OK at `sample`, the taps 10 samples apart.
-fn choose(rig: &mut Rig<'_>, sample: u64, encoder: u8, moves: &[Button]) {
+pub(super) fn choose(rig: &mut Rig<'_>, sample: u64, encoder: u8, moves: &[Button]) {
     let first = sample - 10 * (moves.len() as u64 + 1);
     rig.tap(first, Button::Push(encoder));
     for (at, &button) in (first + 10..).step_by(10).zip(moves) {

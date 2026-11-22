@@ -325,6 +325,7 @@ mod tests {
             engine: Engine::Synth,
             values: SOUND_DEFAULTS,
             notes: 0,
+            on_tracks: [0; 4],
         };
         let sample = Sound {
             engine: Engine::Sample(Sample::File(FileId(0))),
@@ -379,6 +380,7 @@ mod tests {
             engine: Engine::Synth,
             values: SOUND_DEFAULTS,
             notes: 0,
+            on_tracks: [0; 4],
         };
         let sample = Sound {
             engine: Engine::Sample(Sample::File(FileId(0))),

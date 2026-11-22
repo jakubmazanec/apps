@@ -169,11 +169,7 @@ impl Control {
                 self.project.patterns[usize::from(trim.pattern)].tracks[usize::from(trim.track)],
             );
             let new = store.remove(old, from, to, |note| {
-                self.project
-                    .pool
-                    .get_mut(note.sound)
-                    .expect("a note's sound is in the pool")
-                    .notes -= 1;
+                self.counted(trim.pattern, trim.track, note.sound, -1);
                 true
             });
             if new != old {

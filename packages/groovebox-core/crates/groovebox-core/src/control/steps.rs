@@ -56,7 +56,7 @@ impl Control {
             Key::at(note.bar, note.place + 480),
             |other| {
                 let taken = other.sound == note.sound;
-                removed += u32::from(taken);
+                removed += i32::from(taken);
                 taken
             },
         );
@@ -64,17 +64,11 @@ impl Control {
             self.say("Not enough memory", RECORD);
             return;
         }
-        let notes = &mut self
-            .project
-            .pool
-            .get_mut(note.sound)
-            .expect("a selected sound is in the pool")
-            .notes;
         let edited = if removed > 0 {
-            *notes -= removed;
+            self.counted(pattern, track, note.sound, -removed);
             kept
         } else {
-            *notes += 1;
+            self.counted(pattern, track, note.sound, 1);
             store.insert(tree, note).0
         };
         self.edit(pattern, track, edited, sample, versions, store);

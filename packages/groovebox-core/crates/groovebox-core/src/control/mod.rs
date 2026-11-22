@@ -1,6 +1,7 @@
 mod bars;
 pub mod buttons;
 mod draw;
+mod lanes;
 pub mod notes;
 pub mod pages;
 mod pool;

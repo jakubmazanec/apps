@@ -24,6 +24,7 @@ mod pattern;
 mod pool;
 mod sample_sounds;
 mod sound;
+mod step_view;
 mod timing;
 
 /// A control part with its own storage, I/O buffer, block tables, sample RAM, version queue and

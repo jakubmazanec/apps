@@ -67,6 +67,8 @@ pub struct Sound {
     pub values: [i32; SOUND_VALUES],
     /// Its notes in every pattern, which every edit keeps counted.
     pub notes: u32,
+    /// Its notes on each track of the current pattern (S1).
+    pub on_tracks: [u32; 4],
 }
 
 impl Sound {
@@ -150,6 +152,7 @@ impl Sound {
         engine: Engine::Synth,
         values: SOUND_DEFAULTS,
         notes: 0,
+        on_tracks: [0; 4],
     };
 }
 
@@ -189,6 +192,7 @@ impl Pool {
             engine: Engine::Synth,
             values: SOUND_DEFAULTS,
             notes: 0,
+            on_tracks: [0; 4],
         }))
     }
 
@@ -232,6 +236,7 @@ impl Pool {
             number,
             name,
             notes: 0,
+            on_tracks: [0; 4],
             ..original
         }))
     }
@@ -315,6 +320,7 @@ impl Pool {
             engine: Engine::Synth,
             values: SOUND_DEFAULTS,
             notes: 0,
+            on_tracks: [0; 4],
         })
     }
 }
@@ -377,6 +383,20 @@ mod tests {
         // A copy has no notes in any pattern.
         assert_eq!(copy.notes, 0);
         assert_eq!(original.name.as_str(), "Syn 1");
+    }
+
+    #[test]
+    fn a_copy_has_no_notes_on_any_track() {
+        let mut pool = Pool::new();
+        let original = pool.new_synth().unwrap();
+        pool.sounds[0].notes = 3;
+        pool.sounds[0].on_tracks = [1, 2, 0, 0];
+
+        let copy = pool.copy(original).unwrap();
+
+        let copy = pool.get(copy).unwrap();
+        assert_eq!((copy.notes, copy.on_tracks), (0, [0; 4]));
+        assert_eq!(pool.get(original).unwrap().on_tracks, [1, 2, 0, 0]);
     }
 
     #[test]
