@@ -785,8 +785,9 @@ impl Control {
                     store,
                 );
             }
-            // A MIDI note is no control of the device, so it uses no held button. In KEYS mode it
-            // plays its own pitch from C0 to B8, the pitches the pads play, and others are ignored.
+            // A MIDI note is no control of the device, so it uses no held button, except one that
+            // adds or removes notes under held steps (`hit`). In KEYS mode it plays its own pitch
+            // from C0 to B8, the pitches the pads play, and others are ignored.
             Input::NoteOn { note, velocity }
                 if self.track().mode == PadMode::Pads || (12..=119).contains(&note) =>
             {
@@ -847,7 +848,8 @@ impl Control {
     /// that becomes the last key played, and it plays the selected sound at that pitch. With no
     /// sound it plays nothing, and neither does a source that has a note on already. Its note
     /// plays the sound's `note_engine`. With a step held and no picker or question open, what
-    /// sounds also goes in or out of each held step's notes (`toggle_held`, S15).
+    /// sounds also goes in or out of each held step's notes (`toggle_held`, S15), and that uses
+    /// the held buttons, a MIDI note too.
     #[expect(
         clippy::too_many_arguments,
         reason = "a hit writes the message queue, the version queue and the note memory"
@@ -915,6 +917,8 @@ impl Control {
             messages,
         );
         if held {
+            // A MIDI key edits the held steps' notes as a pad hit does, so their release is no tap.
+            self.buttons.used();
             self.toggle_held(sound, pitch, sample, versions, store);
         }
     }

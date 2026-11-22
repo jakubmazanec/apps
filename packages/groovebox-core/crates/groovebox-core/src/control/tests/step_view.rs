@@ -1703,3 +1703,22 @@ fn sixteen_held_steps_send_one_version() {
     rig.applied(sent[0].number, 50);
     assert_eq!(ready(&rig), NOTE_BLOCKS - 1);
 }
+
+#[test]
+fn a_midi_key_under_a_held_step_spoils_the_steps_tap() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    let syn_1 = rig.synth_on(0);
+    rig.tap(0, Button::PadsKeys);
+    rig.press(10, Button::Step(0));
+    rig.note_on(20, 60, 100);
+    rig.note_off(30, 60);
+    // A quick release, within HOLD.
+    rig.let_go(40, Button::Step(0));
+
+    rig.step(50);
+
+    assert_eq!(notes_in(&rig, track_1(&rig)), [entered(0, syn_1, 60)]);
+    assert_eq!(on_tracks(&rig, syn_1), [1, 0, 0, 0]);
+    assert_eq!(versions(&mut rig).len(), 1);
+}
