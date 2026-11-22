@@ -3,7 +3,7 @@
 
 use super::Control;
 use super::lanes::Lane;
-use super::view::StepCursor;
+use super::view::{Screen, StepCursor};
 use crate::label::Label;
 use crate::palette::{DIM, RECORD, TEXT};
 use crate::project::Signature;
@@ -15,12 +15,13 @@ use core::fmt::Write;
 /// How many lanes fit (S4).
 pub const LANES_SHOWN: usize = 16;
 /// The most cells the grid has (S4).
-#[expect(dead_code, reason = "STEP's picture marks the cells and is built next")]
 pub const GRID_CELLS: usize = 58;
 /// A cell's width in pixels.
-const CELL: i32 = 8;
+pub const CELL: i32 = 8;
 /// Cells in a page: the sixteenths the step buttons show.
-const PAGE: u32 = 16;
+pub const PAGE: u32 = 16;
+/// The pixel the grid ends on, where its last line stands (S4).
+pub const GRID_END: i32 = WIDTH as i32 - 2;
 /// The space on each side of the names column's labels.
 const NAMES_INSET: i32 = 3;
 /// The width in pixels that a label of 12 characters takes, the most one may (S3).
@@ -45,13 +46,6 @@ pub fn cell_of(place: StepCursor, signature: Signature) -> u32 {
 }
 
 /// The place of a cell, none for a dark one: a cell past its bar's last sixteenth.
-#[cfg_attr(
-    not(test),
-    expect(
-        dead_code,
-        reason = "STEP's arrows move over places and are built next"
-    )
-)]
 pub fn place_of(cell: u32, signature: Signature) -> Option<StepCursor> {
     let bar_cells = pages(signature) * PAGE;
     let step = cell % bar_cells;
@@ -64,6 +58,11 @@ pub fn place_of(cell: u32, signature: Signature) -> Option<StepCursor> {
 /// A pattern's cells: every bar takes its pages.
 pub fn cells(bars: u16, signature: Signature) -> u32 {
     u32::from(bars) * pages(signature) * PAGE
+}
+
+/// Where the grid's left line stands for `columns` cells: the grid ends at `GRID_END` (S4).
+pub fn grid_left(columns: u32) -> i32 {
+    GRID_END - CELL * columns as i32
 }
 
 /// The first shown index once `cursor` must show, `visible` showing from `first`, moving `by` at a
@@ -157,6 +156,29 @@ impl Control {
                 self.lanes().count() as u32,
             ) as usize,
         };
+    }
+
+    /// The x of the music's line while STEP shows it (S7): the left line of the music's cell and
+    /// its ticks into the sixteenth at 8 px to 480 ticks, rounded down, where that cell shows.
+    pub(super) fn music_x(&self, sample: u64) -> Option<i32> {
+        let (bar, place) = self
+            .player
+            .at(sample)
+            .filter(|_| self.view.screen == Screen::Step)?;
+        let signature = self.project.signature;
+        let cell = cell_of(
+            StepCursor {
+                bar,
+                step: (place / 480) as u8,
+            },
+            signature,
+        );
+        let bars = self.project.patterns[usize::from(self.project.pattern)].bars;
+        let columns = self.step_columns().1;
+        let column = cell
+            .checked_sub(self.view.step_view.first_cell)
+            .filter(|&column| column < columns && cell < cells(bars, signature))?;
+        Some(grid_left(columns) + CELL * column as i32 + (place % 480 * CELL as u32 / 480) as i32)
     }
 }
 

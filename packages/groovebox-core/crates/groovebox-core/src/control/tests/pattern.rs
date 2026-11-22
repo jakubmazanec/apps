@@ -887,7 +887,7 @@ fn a_tap_without_room_says_not_enough_memory() {
     assert_eq!(versions(&mut rig), []);
     assert_eq!(track_1(&rig), one);
     assert_eq!(count(&rig, synth), 1);
-    assert!(shows(
+    assert!(shows_frame(
         &rig.control,
         &drawn(
             &step_header("Syn 1"),
@@ -948,7 +948,7 @@ fn while_playing_the_bar_names_the_playing_bar() {
         false,
     );
     draw_strip(&mut expected, &[None; 4]);
-    assert!(shows(&rig.control, &expected));
+    assert!(shows_frame(&rig.control, &expected));
 
     rig.press(20_000, Button::Stop);
     rig.step(20_128);
@@ -973,7 +973,7 @@ fn a_message_replaces_the_transport() {
     // STOP clears the message, and the transport is back.
     rig.tap(300, Button::Stop);
     rig.step(400);
-    assert!(shows(
+    assert!(shows_frame(
         &rig.control,
         &drawn(
             &step_header("Syn 1"),

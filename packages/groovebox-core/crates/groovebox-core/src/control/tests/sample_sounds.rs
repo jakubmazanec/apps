@@ -1893,7 +1893,7 @@ fn a_missing_sound_plays_and_shows_without_its_file() {
     // STEP's strip shows the Sample page's items.
     rig.menu(300, 0);
     rig.step(310);
-    assert!(shows(
+    assert!(shows_frame(
         &rig.control,
         &drawn(
             &[

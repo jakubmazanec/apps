@@ -14,6 +14,7 @@ use crate::storage::Status;
 use crate::store::NoteRam;
 use crate::ui::frame::{Piece, draw_header, draw_strip};
 use crate::ui::item::{Bar, ItemView, draw_cursor, draw_item};
+use crate::ui::layout::{MAIN_TOP, STRIP_LINE};
 use crate::ui::test_pixels::{filled, outlined, span};
 use crate::ui::tiles::{Tile, TileState, draw_tiles};
 use std::boxed::Box;
@@ -232,10 +233,18 @@ fn shows(control: &Control, expected: &Screen) -> bool {
     picture(control).pixels() == expected.pixels()
 }
 
+/// Whether the control part draws `expected` outside the main area: the rows above `MAIN_TOP` and
+/// from `STRIP_LINE` on (S17). STEP's own tests check the main area.
+fn shows_frame(control: &Control, expected: &Screen) -> bool {
+    let (above, from) = (MAIN_TOP as usize * WIDTH, STRIP_LINE as usize * WIDTH);
+    let (actual, expected) = (picture(control), expected.pixels());
+    actual.pixels()[..above] == expected[..above] && actual.pixels()[from..] == expected[from..]
+}
+
 /// Whether the control part draws STEP with these header pieces over an empty main area and an
 /// empty strip.
 fn shows_step(control: &Control, pieces: &[(&str, Color)]) -> bool {
-    shows(control, &drawn(pieces, None, |_| {}, &[None; 4]))
+    shows_frame(control, &drawn(pieces, None, |_| {}, &[None; 4]))
 }
 
 /// The header of a new project on STEP, on SETTINGS and while MENU is held.
@@ -359,7 +368,6 @@ fn a_new_project_draws_step_t1_pad_1_pads() {
     assert_eq!(span(&screen, 0..=406, 4..=10, TEXT), Some((33, 43)));
     assert_eq!(span(&screen, 0..=479, 4..=10, DIM), Some((50, 83)));
     assert!(filled(&screen, 0..=479, 14..=14, LINE));
-    assert!(filled(&screen, 0..=479, 15..=252, BACKGROUND));
     assert!(filled(&screen, 0..=479, 253..=253, LINE));
     assert!(filled(&screen, 0..=479, 254..=271, BACKGROUND));
 }
@@ -395,7 +403,7 @@ fn pads_mode_plays_the_pads_sound_at_c4_and_selects_it() {
     assert_eq!(rig.track().selected_pad, Some(2));
     assert_eq!(rig.track().selected_sound, Some(syn_1));
     // STEP's strip shows the items of SOUND's Pad page.
-    assert!(shows(
+    assert!(shows_frame(
         &rig.control,
         &drawn(
             &step_header("Syn 1"),

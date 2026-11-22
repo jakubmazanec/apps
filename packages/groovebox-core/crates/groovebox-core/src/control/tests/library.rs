@@ -329,7 +329,7 @@ fn before_the_project_opens_only_the_volume_acts() {
     assert_eq!(rig.sent(), []);
     assert_eq!(rig.control.view.screen, view::Screen::Step);
     assert_eq!(rig.track().selected_pad, Some(0));
-    assert!(shows(
+    assert!(shows_frame(
         &rig.control,
         &drawn(
             &step_header("Syn 1"),
@@ -366,7 +366,7 @@ fn a_library_bigger_than_the_ram_loads_in_order_as_far_as_it_fits() {
     assert!(rig.control.library.file(FileId(0)).loaded);
     assert!(!rig.control.library.file(FileId(1)).loaded);
     assert_eq!(rig.control.library.used(), 19_532 * 2_048);
-    assert!(shows(
+    assert!(shows_frame(
         &rig.control,
         &step_with(("Library too big. 1 file not loaded", RECORD))
     ));
@@ -383,7 +383,7 @@ fn a_file_that_is_not_ours_is_not_loaded() {
     assert_eq!(entries(&rig), [Entry::File(FileId(0))]);
     assert!(!rig.control.library.file(FileId(0)).loaded);
     assert_eq!(rig.control.library.used(), 0);
-    assert!(shows(
+    assert!(shows_frame(
         &rig.control,
         &step_with(("1 file not loaded", RECORD))
     ));
@@ -405,7 +405,7 @@ fn a_file_with_our_chunk_but_another_format_is_not_loaded() {
         assert_eq!(entries(&rig), [Entry::File(FileId(0))]);
         assert!(!rig.control.library.file(FileId(0)).loaded);
         assert_eq!(rig.control.library.used(), 0);
-        assert!(shows(
+        assert!(shows_frame(
             &rig.control,
             &step_with(("1 file not loaded", RECORD))
         ));
@@ -425,7 +425,7 @@ fn a_failed_list_ends_the_listing_and_says_the_library_cant_be_read() {
 
     assert!(rig.control.startup.is_none());
     assert!(entries(&rig).is_empty());
-    assert!(shows(
+    assert!(shows_frame(
         &rig.control,
         &step_with(("Library can't be read", RECORD))
     ));
@@ -447,7 +447,7 @@ fn a_list_claiming_more_records_than_its_page_holds_ends_the_listing() {
     rig.open();
 
     assert!(rig.control.library.file(FileId(0)).loaded);
-    assert!(shows(
+    assert!(shows_frame(
         &rig.control,
         &step_with(("Library can't be read", RECORD))
     ));
@@ -480,7 +480,7 @@ fn a_more_page_without_records_ends_the_listing() {
 
     assert_eq!(entries(&rig), [Entry::File(FileId(0))]);
     assert!(rig.control.library.file(FileId(0)).loaded);
-    assert!(shows(
+    assert!(shows_frame(
         &rig.control,
         &step_with(("Library can't be read", RECORD))
     ));
@@ -521,7 +521,7 @@ fn a_failed_delete_of_tmp_says_the_library_cant_be_read() {
     assert_eq!(rig.control.take_request(), None);
     assert!(rig.control.startup.is_none());
     assert!(entries(&rig).is_empty());
-    assert!(shows(
+    assert!(shows_frame(
         &rig.control,
         &step_with(("Library can't be read", RECORD))
     ));
@@ -560,7 +560,7 @@ fn a_failed_load_leaves_its_file_not_loaded_and_its_blocks_free() {
     assert!(!rig.control.library.file(FileId(0)).loaded);
     assert!(rig.control.library.file(FileId(1)).loaded);
     assert_eq!(rig.control.library.used(), 2_048);
-    assert!(shows(
+    assert!(shows_frame(
         &rig.control,
         &step_with(("1 file not loaded", RECORD))
     ));
@@ -649,14 +649,14 @@ fn a_dropped_file_is_converted_written_and_listed() {
         }
     );
     rig.step(12);
-    assert!(shows(
+    assert!(shows_frame(
         &rig.control,
         &step_with(("Importing kick.wav", ACCENT))
     ));
 
     let requests = rig.settle(20);
 
-    assert!(shows(
+    assert!(shows_frame(
         &rig.control,
         &step_with(("kick.wav imported", ACCENT))
     ));
@@ -754,7 +754,7 @@ fn loose_files_sit_at_the_top_and_folders_keep_their_subfolders() {
         rig.control.library.path(FileId(3)).as_str(),
         "samples/a/b/c/d/deep.wav"
     );
-    assert!(shows(
+    assert!(shows_frame(
         &rig.control,
         &step_with(("4 files imported", ACCENT))
     ));
@@ -811,7 +811,7 @@ fn an_identical_redrop_replaces_the_file() {
     assert_eq!(rig.storage.files()["samples/kick.wav"], written);
     assert_eq!(entries(&rig), [Entry::File(FileId(1))]);
     assert_eq!(rig.control.library.used(), used);
-    assert!(shows(
+    assert!(shows_frame(
         &rig.control,
         &step_with(("kick.wav imported", ACCENT))
     ));
@@ -857,7 +857,7 @@ fn a_name_taken_but_for_case_is_replaced_under_its_own_spelling() {
     );
     assert_eq!(listed.fingerprint, header.ours.unwrap().fingerprint);
     assert_eq!(rig.control.library.used(), 2_048);
-    assert!(shows(
+    assert!(shows_frame(
         &rig.control,
         &step_with(("KICK.wav imported", ACCENT))
     ));
@@ -890,7 +890,7 @@ fn an_old_spelling_the_storage_keeps_stays_listed_until_a_drop_of_that_spelling_
         entries(&rig),
         [Entry::File(FileId(1)), Entry::File(FileId(0))]
     );
-    assert!(shows(
+    assert!(shows_frame(
         &rig.control,
         &step_with(("KICK.wav imported", ACCENT))
     ));
@@ -939,7 +939,7 @@ fn a_file_that_does_not_fit_is_refused_and_the_ones_after_it_import() {
     assert_eq!(begun(&requests), ["samples/a.wav", "samples/c.wav"]);
     assert_eq!(stored(&rig), ["samples/a.wav", "samples/c.wav"]);
     assert_eq!(rig.control.library.used(), 2 * 2_048);
-    assert!(shows(
+    assert!(shows_frame(
         &rig.control,
         &step_with(("2 files imported, 1 not: library full", RECORD))
     ));
@@ -955,7 +955,7 @@ fn a_file_that_fills_the_last_block_imports_and_one_byte_more_is_refused() {
     rig.drop_files(10, &[("tmp/1/over.wav", silence(10_241, 48_000))]);
     rig.settle(20);
 
-    assert!(shows(
+    assert!(shows_frame(
         &rig.control,
         &step_with(("over.wav not imported: library full", RECORD))
     ));
@@ -964,7 +964,7 @@ fn a_file_that_fills_the_last_block_imports_and_one_byte_more_is_refused() {
     rig.drop_files(30, &[("tmp/2/exact.wav", silence(10_240, 48_000))]);
     rig.settle(40);
 
-    assert!(shows(
+    assert!(shows_frame(
         &rig.control,
         &step_with(("exact.wav imported", ACCENT))
     ));
@@ -987,7 +987,7 @@ fn the_4097th_file_is_refused() {
     rig.drop_files(10, &[("tmp/1/kick.wav", short(100.0, 0.01))]);
     rig.settle(20);
 
-    assert!(shows(
+    assert!(shows_frame(
         &rig.control,
         &step_with(("kick.wav not imported: library full", RECORD))
     ));
@@ -1020,7 +1020,7 @@ fn storage_full_keeps_the_reserve() {
         rig.drop_files(10, &[("tmp/1/kick.wav", kick.clone())]);
         rig.settle(20);
 
-        assert!(shows(&rig.control, &step_with(message)), "{room}");
+        assert!(shows_frame(&rig.control, &step_with(message)), "{room}");
     }
 }
 
@@ -1043,7 +1043,7 @@ fn an_unreadable_wav_is_refused_and_reasons_are_listed_in_order() {
     rig.settle(20);
 
     assert_eq!(stored(&rig), ["samples/good.wav"]);
-    assert!(shows(
+    assert!(shows_frame(
         &rig.control,
         &step_with((
             "1 file imported, 2 not: library full, can't be read",
@@ -1130,7 +1130,7 @@ fn a_drop_during_an_import_joins_it() {
     rig.step(11);
     rig.serve(11);
     rig.step(12);
-    assert!(shows(
+    assert!(shows_frame(
         &rig.control,
         &step_with(("Importing 3 files", ACCENT))
     ));
@@ -1143,7 +1143,7 @@ fn a_drop_during_an_import_joins_it() {
         ],
     );
     rig.step(13);
-    assert!(shows(
+    assert!(shows_frame(
         &rig.control,
         &step_with(("Importing 5 files", ACCENT))
     ));
@@ -1159,7 +1159,7 @@ fn a_drop_during_an_import_joins_it() {
             "samples/e.wav"
         ]
     );
-    assert!(shows(
+    assert!(shows_frame(
         &rig.control,
         &step_with(("5 files imported", ACCENT))
     ));
@@ -1206,7 +1206,7 @@ fn a_drop_during_loading_waits_for_the_project() {
     );
     rig.settle(20);
     assert_eq!(stored(&rig), ["samples/kick.wav", "samples/zap.wav"]);
-    assert!(shows(
+    assert!(shows_frame(
         &rig.control,
         &step_with(("kick.wav imported", ACCENT))
     ));
@@ -1227,12 +1227,12 @@ fn a_press_does_not_clear_importing_but_clears_the_result() {
 
     rig.tap(20, Button::Ok);
     rig.step(30);
-    assert!(shows(
+    assert!(shows_frame(
         &rig.control,
         &step_with(("Importing 2 files", ACCENT))
     ));
     rig.settle(40);
-    assert!(shows(
+    assert!(shows_frame(
         &rig.control,
         &step_with(("2 files imported", ACCENT))
     ));
@@ -1255,7 +1255,7 @@ fn a_long_name_is_shortened_so_the_rest_of_the_message_shows() {
 
     // Right of STEP's pieces 386 pixels hold 64 characters: 35 of the name, the "…" and the rest.
     let shortened = format!("{}… not imported: can't be read", "x".repeat(35));
-    assert!(shows(&rig.control, &step_with((&shortened, RECORD))));
+    assert!(shows_frame(&rig.control, &step_with((&shortened, RECORD))));
 }
 
 #[test]
@@ -2521,7 +2521,7 @@ fn a_replace_in_a_full_library_is_refused() {
     rig.drop_files(10, &[("tmp/1/a.wav", short(100.0, 0.01))]);
     rig.settle(20);
 
-    assert!(shows(
+    assert!(shows_frame(
         &rig.control,
         &step_with(("a.wav not imported: library full", RECORD))
     ));

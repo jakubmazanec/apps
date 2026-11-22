@@ -4,6 +4,7 @@ pub mod layout;
 pub mod list;
 pub mod plot;
 pub mod question;
+pub mod step;
 #[cfg(test)]
 pub mod test_pixels;
 pub mod text;

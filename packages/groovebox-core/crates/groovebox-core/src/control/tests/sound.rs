@@ -1038,7 +1038,7 @@ fn encoders_on_step_act_on_sounds_page() {
     let mut rig = Rig::new(&queue);
     let first = rig.synth_on(0);
     rig.step(10);
-    assert!(shows(
+    assert!(shows_frame(
         &rig.control,
         &drawn(
             &step_header("Syn 1"),
@@ -1086,7 +1086,7 @@ fn encoders_on_step_act_on_sounds_page() {
     rig.step(410);
     assert_eq!(rig.track().pads[0], Some(SoundNumber(2)));
     assert_eq!(sound_cursor(&rig), 1);
-    assert!(shows(
+    assert!(shows_frame(
         &rig.control,
         &drawn(
             &step_header("Syn 2"),
@@ -1802,7 +1802,7 @@ fn the_strip_on_step_follows_sounds_shown_page() {
             bar,
         })
     };
-    assert!(shows(
+    assert!(shows_frame(
         &rig.control,
         &drawn(
             &step_header("Syn 1"),

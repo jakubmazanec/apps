@@ -6,7 +6,7 @@ pub mod notes;
 pub mod pages;
 mod pool;
 pub mod samples;
-mod step_view;
+pub(crate) mod step_view;
 mod steps;
 mod transport;
 pub mod view;
@@ -40,16 +40,21 @@ use crate::storage::{Reply, Request};
 use crate::store::note::Key;
 use crate::store::{RESERVE, Store};
 use crate::ui::layout::{LIST_VISIBLE, PICTURE};
+use crate::ui::step::Mark;
 use crate::ui::text::SCROLL_PIXEL;
 use crate::ui::tiles::{Tile, TileState};
 use bars::{Change, LENGTHS, Trim};
 use buttons::{Buttons, REPEATING, Release};
 use core::cell::Cell;
 use core::ops::ControlFlow;
+use lanes::Lane;
 use notes::{Notes, Source};
 use pages::{ItemDef, ItemKind, MENU, PageDef, Picture, TIMING, pages};
 use samples::Deleting;
-use view::{Cursor, Pick, Picker, Question, Screen, View, menu_tiles, moved, page_tiles};
+use step_view::{GRID_CELLS, LANES_SHOWN, cell_of, cells};
+use view::{
+    Cursor, Pick, Picker, Question, Screen, StepCursor, View, menu_tiles, moved, page_tiles,
+};
 
 pub const INPUT_QUEUE: usize = 64;
 pub const REPLAY_QUEUE: usize = 64;
@@ -188,6 +193,9 @@ pub struct Control {
     /// A bit for each step of the page the step buttons show whose sixteenth a note of the
     /// selected sound starts in, from step 1's bit 0, as the latest step left them (S6).
     step_notes: u16,
+    /// What each cell of STEP's shown lanes holds, by lane and then by column from the view's first
+    /// cell, as the latest step that asked for a redraw left it (S6).
+    marks: [[Option<Mark>; GRID_CELLS]; LANES_SHOWN],
     /// The bar the step buttons showed when each step last went down, on which its tap acts (S17).
     pressed_bars: [u16; 16],
     /// The bytes that the blocks of the note memory in use cost (`Store::used`), as the latest step
@@ -241,6 +249,7 @@ impl Control {
             player: Sequencer::new(),
             moment: 0,
             step_notes: 0,
+            marks: [[None; GRID_CELLS]; LANES_SHOWN],
             pressed_bars: [0; 16],
             note_memory: 0,
             waveform: None,
@@ -308,8 +317,9 @@ impl Control {
     /// awaited messages, the queued inputs and the repeats of held buttons, and returns whether
     /// the screen must be redrawn. That is the case on the first step, whenever it handled an
     /// event, whenever the header's bar numbers changed since the step before (the bar the step
-    /// buttons show, `shown_bar`, and the bar playing) and, while a text scrolls, whenever a
-    /// pixel's time has passed since the step before.
+    /// buttons show, `shown_bar`, and the bar playing), whenever the music's line on STEP moved a
+    /// pixel (`music_x`) and, while a text scrolls, whenever a pixel's time has passed since the
+    /// step before.
     ///
     /// On equal samples a reply goes first, then a report, then an input and then a repeat, so a
     /// release at the sample of a repeat ends the hold before it. A reply ends the wait for its
@@ -354,7 +364,8 @@ impl Control {
     /// sound's file (`sample_file`), it reads that file's peaks through `tables` from `ram` unless
     /// it holds them already (`waveform`), it works out which steps of the page and bar the step
     /// buttons show (`shown_bar`) start a note of the selected sound (`step_notes`) and it notes
-    /// how much of the note memory is in use (`note_memory`).
+    /// how much of the note memory is in use (`note_memory`). When it returns true while STEP
+    /// shows, it also notes what the cells of the shown lanes hold (`marks`).
     #[expect(
         clippy::too_many_arguments,
         reason = "the control part writes two queues and reads and writes three memories"
@@ -378,6 +389,7 @@ impl Control {
             (
                 control.shown_bar(sample),
                 control.player.at(sample).map(|(bar, _)| bar),
+                control.music_x(sample),
             )
         };
         let shown = header_bars(self, self.now);
@@ -599,6 +611,49 @@ impl Control {
         let pixels = |sample: u64| sample.saturating_sub(self.landed) / SCROLL_PIXEL;
         redraw |= self.scrolling.get() && pixels(until) != pixels(self.now);
         redraw |= header_bars(self, until) != shown;
+        if redraw && self.view.screen == Screen::Step {
+            let signature = self.project.signature;
+            let view = self.view.step_view;
+            let columns = self.step_columns().1;
+            // The sound each shown lane shows: none on a copy lane or an empty pad's.
+            let mut sounds = [None; LANES_SHOWN];
+            for (sound, lane) in sounds.iter_mut().zip(self.lanes().skip(view.first_lane)) {
+                *sound = match lane {
+                    Lane::Pad(pad) if self.copy_of(pad).is_some() => None,
+                    lane => self.lane_sound(lane),
+                };
+            }
+            self.marks = [[None; GRID_CELLS]; LANES_SHOWN];
+            let tree = self.project.patterns[usize::from(self.project.pattern)].tracks
+                [usize::from(self.project.track)];
+            let first_bar = (view.first_cell / cells(1, signature)) as u16;
+            for note in store.reader().notes(tree, Key::at(first_bar, 0)) {
+                let cell = cell_of(
+                    StepCursor {
+                        bar: note.bar,
+                        step: (note.place / 480) as u8,
+                    },
+                    signature,
+                );
+                if cell >= view.first_cell + columns {
+                    break;
+                }
+                if let Some(row) = sounds.iter().position(|&sound| sound == Some(note.sound))
+                    && let Some(column) = cell.checked_sub(view.first_cell)
+                {
+                    let mark = &mut self.marks[row][column as usize];
+                    let held = mark.unwrap_or_default();
+                    *mark = Some(Mark {
+                        velocity: held.velocity.max(note.velocity),
+                        count: held.count.saturating_add(1),
+                        // 8 px to 480 ticks, so 60 ticks to a pixel.
+                        tail: held.tail.max(
+                            u16::try_from(note.length.saturating_sub(480) / 60).unwrap_or(u16::MAX),
+                        ),
+                    });
+                }
+            }
+        }
         self.now = until;
         redraw
     }

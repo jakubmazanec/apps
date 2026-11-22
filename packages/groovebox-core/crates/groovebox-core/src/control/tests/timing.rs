@@ -287,7 +287,7 @@ fn holding_tempo_shows_the_timing_strip_and_letting_go_brings_the_old_one_back()
 
     rig.press(100, Button::Tempo);
     rig.step(110);
-    assert!(shows(
+    assert!(shows_frame(
         &rig.control,
         &drawn(
             &step_header("Syn 1"),
@@ -300,7 +300,7 @@ fn holding_tempo_shows_the_timing_strip_and_letting_go_brings_the_old_one_back()
     // A long press, which leaves the metronome off.
     rig.let_go(100 + HOLD, Button::Tempo);
     rig.step(100 + HOLD + 10);
-    assert!(shows(
+    assert!(shows_frame(
         &rig.control,
         &drawn(
             &step_header("Syn 1"),
@@ -388,7 +388,7 @@ fn a_tap_of_tempo_turns_the_metronome_on_and_off() {
     rig.step(110);
     assert_eq!(rig.sent(), [message(0, 101, metronome(1))]);
     assert!(rig.lit().contains(&Lights::TEMPO));
-    assert!(shows(
+    assert!(shows_frame(
         &rig.control,
         &with_the_metronome(drawn(&STEP_HEADER, None, |_| {}, &[None; 4]), &STEP_HEADER)
     ));

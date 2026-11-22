@@ -1,11 +1,12 @@
 use super::bars::Change;
 use super::pages::{ItemDef, ItemKind, LIBRARY_METER, Picture};
 use super::samples::{self, rows};
-use super::view::{Picker, Question, Screen};
+use super::step_view::{self, LANES_SHOWN, PAGE, cell_of};
+use super::view::{Picker, Question, Screen, StepCursor};
 use super::{Control, Entry, HeaderMessage};
 use crate::budget;
 use crate::font::ADVANCE;
-use crate::input::Button;
+use crate::input::{Button, PADS};
 use crate::label::Label;
 use crate::library::{self, name};
 use crate::palette::{ACCENT, BACKGROUND, DIM, FAINT, NOTE_MID, RECORD, TEXT};
@@ -26,6 +27,7 @@ use crate::ui::layout::{
 use crate::ui::list::{Row, draw_rows};
 use crate::ui::plot::draw_line;
 use crate::ui::question::draw_question;
+use crate::ui::step::{LaneView, StepPicture, draw_step};
 use crate::ui::text;
 use crate::ui::tiles::{PadTile, draw_pad_tiles, draw_tiles};
 use core::fmt::Write;
@@ -53,8 +55,8 @@ impl Control {
     /// where the pieces would come closer than 6 pixels to that group (S12).
     ///
     /// The main area shows the page's items with the cursor and the page's picture, the tiles while
-    /// MENU or PAGE is held, or the picker while one is open. On STEP it stays empty, as its grid
-    /// comes with the sequencer. SAMPLES shows its rows (`samples_row`) with the cursor, inside a
+    /// MENU or PAGE is held, or the picker while one is open. STEP shows its lanes (`draw_step`).
+    /// SAMPLES shows its rows (`samples_row`) with the cursor, inside a
     /// folder under a dim line with the folder's path, which loses its start to a "…" when too wide
     /// for the row, and the library meter above the strip. The sample picker shows the same rows
     /// under a dim top line at every level: the folder's path and two spaces inside a folder, then
@@ -70,6 +72,10 @@ impl Control {
     /// 24 notes?", with no count line (S12). The strip shows the items that the encoders hold
     /// (`encoder_items`), also on SAMPLES and POOL while TEMPO is held, and nothing while MENU or
     /// PAGE is held or a picker or a question is open.
+    ///
+    /// STEP's lanes start at the view's first lane, each with its label (`lane_label`). Its cells
+    /// start at the view's first cell and show the notes that the latest redraw noted (`marks`),
+    /// the cursor and, while playing, the music's line (`music_x`), as S3 to S7 have them.
     ///
     /// The text under the cursor, the current tile's name and the selected pad's name scroll when
     /// they do not fit, as far as the samples since the cursor landed say; the strip never scrolls.
@@ -400,6 +406,57 @@ impl Control {
                 elapsed,
             );
             self.draw_library_meter(canvas);
+        } else if screen == Screen::Step {
+            let signature = self.project.signature;
+            let view = self.view.step_view;
+            let (names, columns) = self.step_columns();
+            let mut labels = [(Label::<NAME_BYTES>::new(), TEXT); LANES_SHOWN];
+            let mut shown = 0;
+            for (label, lane) in labels.iter_mut().zip(self.lanes().skip(view.first_lane)) {
+                *label = self.lane_label(lane);
+                shown += 1;
+            }
+            let cursor_lane = self.cursor_lane();
+            let lanes: [_; LANES_SHOWN] = core::array::from_fn(|row| LaneView {
+                label: labels[row].0.as_str(),
+                color: labels[row].1,
+                selected: view.first_lane + row == cursor_lane,
+            });
+            // The cursor's cell, which is also the page the step buttons show.
+            let cell = cell_of(
+                StepCursor {
+                    bar: self.shown_bar(self.now),
+                    ..self.view.steps
+                },
+                signature,
+            );
+            draw_step(
+                canvas,
+                &StepPicture {
+                    lanes: &lanes[..shown],
+                    names,
+                    columns,
+                    first_cell: view.first_cell,
+                    cells: step_view::cells(
+                        self.project.patterns[usize::from(self.project.pattern)].bars,
+                        signature,
+                    ),
+                    signature,
+                    shown_page: cell / PAGE,
+                    first_extra: usize::from(PADS)
+                        .checked_sub(view.first_lane)
+                        .filter(|&row| row < shown),
+                    marks: &self.marks[..shown],
+                    cursor: cursor_lane
+                        .checked_sub(view.first_lane)
+                        .filter(|&lane| lane < shown)
+                        .zip(
+                            cell.checked_sub(view.first_cell)
+                                .filter(|&column| column < columns),
+                        ),
+                    music: self.music_x(self.now),
+                },
+            );
         } else {
             let cursor = self.cursor(screen);
             for (row, (index, item)) in (0..).zip(

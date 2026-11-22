@@ -5,8 +5,13 @@ use super::pattern::{count, entered, put};
 use super::timing::{choose, on_bars, playing_4_bars};
 use super::*;
 use crate::control::lanes::Lane;
-use crate::control::step_view::LANES_SHOWN;
+use crate::control::step_view::{GRID_CELLS, LANES_SHOWN};
 use crate::control::view::StepCursor;
+use crate::project::FOUR_FOUR;
+use crate::project::pool::{Engine, Sample};
+use crate::storage::Path;
+use crate::store::note::Note;
+use crate::ui::step::{LaneView, Mark, StepPicture, draw_step};
 
 /// The current track's lanes.
 fn lanes(rig: &Rig<'_>) -> Vec<Lane> {
@@ -297,4 +302,240 @@ fn the_view_keeps_the_cursor_after_a_lane_goes() {
     assert_eq!(lanes(&rig).len(), 22);
     assert_eq!(rig.control.cursor_lane(), 21);
     assert_eq!(rig.control.view.step_view.first_lane, 22 - LANES_SHOWN);
+}
+
+/// STEP of a new project on T1 under `strip`, with these lanes, drawn by `draw_step`: 57 columns,
+/// 1 bar, the cursor at (`cursor`), the header `header` and `marks`.
+fn step_picture(
+    header: &[(&str, Color)],
+    names: i32,
+    labels: &[(&str, Color)],
+    first_extra: Option<usize>,
+    marks: &[[Option<Mark>; GRID_CELLS]],
+    cursor: (usize, u32),
+    strip: &[Option<ItemView>; 4],
+) -> Screen {
+    let lanes: Vec<LaneView> = labels
+        .iter()
+        .enumerate()
+        .map(|(lane, &(label, color))| LaneView {
+            label,
+            color,
+            selected: lane == cursor.0,
+        })
+        .collect();
+    drawn(
+        header,
+        None,
+        |screen| {
+            draw_step(
+                screen,
+                &StepPicture {
+                    lanes: &lanes,
+                    names,
+                    columns: (480 - 2 - names as u32 - 2) / 8,
+                    first_cell: 0,
+                    cells: 16,
+                    signature: FOUR_FOUR,
+                    shown_page: 0,
+                    first_extra,
+                    marks,
+                    cursor: Some(cursor),
+                    music: None,
+                },
+            );
+        },
+        strip,
+    )
+}
+
+#[test]
+fn a_new_project_draws_12_empty_lanes_with_pad_1_selected() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+
+    rig.step(128);
+
+    let labels = [
+        "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12",
+    ]
+    .map(|pad| (pad, DIM));
+    assert!(shows(
+        &rig.control,
+        &step_picture(
+            &STEP_HEADER,
+            17,
+            &labels,
+            None,
+            &[[None; GRID_CELLS]; 12],
+            (0, 0),
+            &[None; 4],
+        )
+    ));
+}
+
+#[test]
+fn lanes_show_names_copies_missing_sounds_and_notes() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    let syn_1 = rig.synth_on(0);
+    rig.control.project.put(11, Some(syn_1));
+    // A sound of a missing sample that sits on no pad: a note of 3 sixteenths at velocity 59 in
+    // sixteenth 4, by hand, as `put` replaces the track's notes.
+    let kick = rig.control.project.pool.new_synth().unwrap();
+    named(&mut rig, kick, "kick");
+    let mut path = Path::new();
+    path.push_str("samples/kick.wav");
+    rig.control.project.pool.get_mut(kick).unwrap().engine = Engine::Sample(Sample::Missing(path));
+    let long = Note {
+        length: 1_440,
+        velocity: 59,
+        ..entered(3, kick, 60)
+    };
+    put(&mut rig, 0, 0, &[long]);
+    // Taps of steps 1 and 2 enter Syn 1's notes in the first two sixteenths.
+    rig.tap(10, Button::Step(0));
+    rig.tap(20, Button::Step(1));
+
+    rig.step(30);
+
+    let mut labels = [
+        "Syn 1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "= pad 1", "kick",
+    ]
+    .map(|label| (label, DIM));
+    labels[0].1 = TEXT;
+    labels[12].1 = RECORD;
+    let mut marks = [[None; GRID_CELLS]; 13];
+    marks[0][0] = Some(Mark {
+        velocity: 127,
+        count: 1,
+        tail: 0,
+    });
+    marks[0][1] = marks[0][0];
+    // 1,440 ticks are 2 sixteenths more than the block, 16 px.
+    marks[12][3] = Some(Mark {
+        velocity: 59,
+        count: 1,
+        tail: 16,
+    });
+    assert_eq!(rig.control.marks[..13], marks);
+    assert!(
+        rig.control.marks[13..]
+            .iter()
+            .flatten()
+            .all(Option::is_none)
+    );
+    assert!(shows(
+        &rig.control,
+        &step_picture(
+            &step_header("Syn 1"),
+            47,
+            &labels,
+            Some(12),
+            &marks,
+            (0, 1),
+            &[
+                Some(sound("Syn 1")),
+                Some(copy("on 2 pads")),
+                Some(engine("Synth")),
+                None
+            ],
+        )
+    ));
+}
+
+#[test]
+fn a_cell_shows_its_loudest_note_its_longest_tail_and_how_many_there_are() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    let syn_1 = rig.synth_on(0);
+    let syn_2 = rig.control.project.pool.new_synth().unwrap();
+    // A chord of 3 of Syn 1 in sixteenth 3 and a note of Syn 2, which sits on no pad, in the same
+    // sixteenth.
+    let chord = |pitch, velocity, length| Note {
+        velocity,
+        length,
+        ..entered(2, syn_1, pitch)
+    };
+    put(
+        &mut rig,
+        0,
+        0,
+        &[
+            chord(60, 40, 480),
+            chord(64, 99, 960),
+            chord(67, 70, 700),
+            entered(2, syn_2, 60),
+        ],
+    );
+
+    // A tap of T1, the track it is on, is an event that makes the control part note the cells.
+    rig.tap(10, Button::T1);
+
+    assert!(rig.step(20));
+    assert_eq!(
+        rig.control.marks[0][2],
+        Some(Mark {
+            velocity: 99,
+            count: 3,
+            // 960 ticks are 8 px past a sixteenth's 8 px, 700 are 3.
+            tail: 8,
+        })
+    );
+    // Syn 2 has no pad: its lane is the first extra lane, 13th.
+    assert_eq!(
+        rig.control.marks[12][2],
+        Some(Mark {
+            velocity: 127,
+            count: 1,
+            tail: 0,
+        })
+    );
+}
+
+#[test]
+fn the_marks_start_at_the_views_first_cell() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    let syn_1 = rig.synth_on(0);
+    rig.control.project.patterns[0].bars = 4;
+    // The cursor in bar 3 and the view from cell 9, the furthest it can start with the 55 columns
+    // that "Syn 1" leaves of 64 cells: the notes at cells 3, 9, 16 and 63, the first before the
+    // view.
+    rig.control.view.steps = StepCursor { bar: 2, step: 0 };
+    rig.control.view.step_view.first_cell = 9;
+    let at = |bar, sixteenth| Note {
+        bar,
+        ..entered(sixteenth, syn_1, 60)
+    };
+    put(&mut rig, 0, 0, &[at(0, 3), at(0, 9), at(1, 0), at(3, 15)]);
+
+    rig.tap(10, Button::T1);
+    rig.step(20);
+
+    assert_eq!(rig.control.view.step_view.first_cell, 9);
+    let marked: Vec<_> = (0..GRID_CELLS)
+        .filter(|&column| rig.control.marks[0][column].is_some())
+        .collect();
+    assert_eq!(marked, [0, 7, 54]);
+}
+
+#[test]
+fn the_music_line_redraws_as_it_moves() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    // 120 BPM: a sixteenth is 6,000 samples and 8 px, so the line moves a pixel every 750.
+    rig.tap(100, Button::Play);
+    assert!(rig.step(200));
+    assert_eq!(rig.control.music_x(200), Some(22));
+
+    assert!(rig.step(950));
+    assert_eq!(rig.control.music_x(950), Some(23));
+    assert!(!rig.step(1_050));
+
+    // The line shows on STEP only.
+    rig.menu(1_100, 2);
+    assert!(rig.step(1_200));
+    assert_eq!(rig.control.music_x(1_200), None);
+    assert!(!rig.step(2_000));
 }
