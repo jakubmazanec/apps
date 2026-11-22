@@ -401,7 +401,7 @@ impl Sequencer {
         }
     }
 
-    /// `meter` takes over, the queued meter waits in place of the waiting one, and the tracks and
+    /// `meter` takes over and the queued meter waits in place of the waiting one; the tracks and
     /// the beats go on from tick `from`, the meter's tick or later.
     fn take(&mut self, meter: Meter, from: u64, notes: &NoteReader<'_>) {
         self.meter = meter;

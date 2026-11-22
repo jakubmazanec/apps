@@ -1431,8 +1431,8 @@ impl Control {
         }
     }
 
-    /// The value of the entry `id`: the tempo, the one project value a page shows, picked out by
-    /// its id, and any other read where its scope keeps it.
+    /// The value of the entry `id`, read where its scope keeps it; the tempo, the one project value
+    /// a page shows, is picked out by its id.
     fn value(&self, id: ParamId) -> i32 {
         if id == TEMPO.id {
             // At most 30,000, so it fits.
