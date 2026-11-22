@@ -353,18 +353,33 @@ row per pitch. Everything else in this section works the same on both.
 ### The cursor
 
 - **The cursor is a cell:** one row and one grid step.
-- **Left and right** move one grid step.
-- **Up and down** move one row. On STEP that is the next lane, which selects its sound as hitting
-  its pad would; it is also how a lane whose sound is on no pad is reached. On ROLL it is one
+- **Left and right** move one grid step, over the dark cells at a bar's end into the next or
+  previous bar, and stop at the pattern's first and last sixteenth. An arrow starts from the cursor
+  as it shows when the arrow is pressed: while following, from the bar playing. One that moves the
+  cursor into another bar stops following, and the cursor keeps that bar.
+- **Up and down** move one row and stop at the first and last. On STEP that is the next lane: a pad
+  lane selects its pad as hitting it would (an empty pad too) and an extra lane selects its sound,
+  which is on no pad; this is also how a lane whose sound is on no pad is reached. On ROLL it is one
   semitone.
-- **SHIFT + left or right** jumps a whole bar, or a page of a long bar. **SHIFT + up or down** jumps
-  12 rows: an octave on ROLL, and between the pad lanes and the extra lanes on STEP.
-- **The cursor never leaves the screen.** When it lands on the last fully visible cell, the view
-  moves one beat, or one row; moving back works the same way. The view stops at the pattern's ends,
-  and the cursor does not wrap round.
+- **SHIFT + left or right** jumps a page of 16 cells, the bar's page or a page of a long bar: to the
+  same place on that page, or to its last sixteenth where that page is shorter. In 5/4, from the
+  fourth sixteenth of the first page the jump lands on the fourth of the short second page, the
+  bar's last; from the fifth or any later one it lands on that same last sixteenth. A jump past the
+  pattern's first or last cell does nothing. **SHIFT + up or down** jumps 12 rows and stops at the
+  first and last: an octave on ROLL, and between the pad lanes and the extra lanes on STEP.
+- **The cursor never leaves the screen.** When it lands on the last visible cell and more cells
+  follow, the view moves on by whole beats until that cell is before the last one; when it lands on
+  the first visible cell and cells precede, the view moves back by whole beats until it is after the
+  first. Lanes and rows work the same, one at a time. A jump moves the view in one go, by as many
+  beats or rows as it needs. This holds after every control and as following carries the cursor into
+  the next bar. The view never starts before the first cell or lane and never ends past the last; a
+  pattern narrower than the grid starts at its first cell. The cursor does not wrap round.
 - **The step buttons show the bar, or the page, the cursor is in.**
 - **STEP and ROLL share the cursor's bar and step,** so switching between them keeps your place;
   each keeps its own row **(my call)**.
+- **On STEP the cursor's lane is the selection's:** the selected pad's lane, or the selected sound's
+  extra lane. A pad hit, T1–T4 and a sound selected on POOL therefore move the cursor, and STEP
+  keeps only which lane and cell its view starts at.
 - **Using a control moves the cursor to what it acts on,** as using an encoder does in Workflow A.
   Pressing a step moves the cursor to that step, scrolling if needed. Hitting a pad in PADS mode
   moves the STEP cursor to its lane. Keys in KEYS mode do not move the ROLL cursor, since playing a
@@ -429,10 +444,17 @@ row per pitch. Everything else in this section works the same on both.
   ROLL is empty.
 - **Below them, an extra lane** for each sound that has notes on this track but sits on none of its
   pads, in pool order. That happens after a pad's sound is swapped, or when notes are entered for a
-  sound selected on POOL. The extra lanes scroll into view.
-- **A sound on two pads** of the same track shows its notes in the first of those lanes. The other
-  lane is marked as a copy, such as "= PAD 3".
-- **The selected sound's lane** is highlighted.
+  sound selected on POOL. The extra lanes scroll into view. A sound's notes are counted for each
+  track of the current pattern, so which lanes there are is known without reading the notes.
+- **A selected sound on no pad gets an extra lane at once, even with no notes (owner's choice):**
+  the cursor is on it and its name is selected. The lane stays once the sound has notes; while it
+  has none, it goes when another lane is selected.
+- **A sound on two pads** of the same track shows its notes in the first of those lanes. Each other
+  lane is marked as a copy, such as "= PAD 3", that names that first pad and shows no notes of its
+  own; the cursor can stand on it, which selects its pad and so the same sound.
+- **The cursor's lane is highlighted (owner's choice):** the selected pad's lane, or the selected
+  sound's extra lane. A selected copy lane and a selected empty pad are highlighted too, so the
+  highlight always marks the cursor's lane.
 - **A sound whose sample is missing** has its lane marked MISSING; its notes stay and are silent
   (Project model).
 
@@ -483,7 +505,19 @@ there. A step is lit when the selected sound has a note starting in its sixteent
   pitch of the selected sound, so chords need no extra mode. The pad or key sounds, so you hear what
   you add, but it does not select or move the cursor, and it is not recorded. Precedent: OP-XY,
   Move, Circuit Tracks and MC-707.
+  - With no picker or question open, the hit acts on each held step on its own. In PADS mode a held
+    step where the pad's sound has notes in its sixteenth loses them, and one where it has none gets
+    a note at the sound's unchanged pitch. In KEYS mode a held step with notes of the selected sound
+    at the key's pitch loses them, and one without gets one.
+  - An added note is a step-entered note and is refused with NOT ENOUGH MEMORY when it does not fit,
+    while the removals on the other held steps still go ahead. All the held steps change together as
+    one edit.
+  - An empty pad, or KEYS mode with no selected sound, sounds nothing and adds nothing. A key hit
+    here is still the last key played, as every key is. The step's release after a hit is no tap.
 - **Hold several steps:** the encoders change all their notes together.
+- **A step acts on what it showed when it went down:** its bar and its sixteenth, so a bar line or a
+  page change between the press and the release never moves its note. The cursor still moves to the
+  step when its tap acts. A step pressed past a short bar's end does nothing, held too.
 - The core decides whether a press was short from the times of press and release in its recorded
   input (Foundation), so replays come out the same.
 
@@ -500,8 +534,8 @@ there. A step is lit when the selected sound has a note starting in its sixteent
 - its pitch:
   - in PADS mode, the pitch where the sound plays unchanged: the root note of a sample and C4 for a
     synth, the same pitch a pad hit records;
-  - in KEYS mode on a plain tap, the last key played, or the C of the current octave before any key
-    has been played;
+  - in KEYS mode on a plain tap, the last key played (a key hit under a held step counts) or the C
+    of the current octave before any key has been played;
   - when the step is held, the keys hit.
 
 A short tap on a lit step removes every note of the selected sound that starts in that sixteenth,
@@ -511,18 +545,44 @@ whatever its pitch.
 
 **(owner's choice)**, like Maschine, MC-707 and Elektron.
 
-While a step is held, the strip shows PITCH, VELOCITY, LENGTH and POSITION instead of the sound's
-page, drawn on screen like the timing strip. Letting go brings the sound's page back.
+While a step is held, the strip shows PITCH, VELOCITY, LENGTH and POSITION on encoders 1 to 4
+instead of the sound's page, drawn on screen like the timing strip. Letting go brings the sound's
+page back.
 
-- **PITCH** in semitones, in PADS mode too, for tuned drums.
-- **VELOCITY.**
-- **LENGTH,** one grid step per click, 16 times finer with SHIFT, as for every smooth value.
-- **POSITION,** one grid step per click, so a note can move onto another step; the edit follows the
-  note, not the button. Finer positions belong to micro-timing, which comes later, so in version 1 a
-  note's time is set by hand only on the grid. Times off the grid come only from recording with
-  quantize off.
+- **A held step** is a step held down on its own, not as part of a combination (SHIFT + step, or a
+  step under MENU or PAGE) and with no picker or question open, whose sixteenth, the one it showed
+  when it went down, lies inside the bar. The strip is the NOTE strip from that press, unless TEMPO
+  was pressed before it: the first pressed counts, as with MENU and PAGE (Workflow A).
+- **Its notes** are the selected sound's notes in the held steps' sixteenths. With none, or with no
+  selected sound, the strip is empty. A turn changes them and moves no cursor, since the items are
+  not on the screen; a push does nothing.
+- **PITCH** in semitones, in PADS mode too, for tuned drums. It is written as a note name, as Root
+  note is ("C3"), and runs from 0 to 127. It moves one per click, SHIFT too **(owner's choice)**, as
+  every counted value does.
+- **VELOCITY** runs from 1 to 127 and moves one per click, SHIFT too **(owner's choice)**.
+- **LENGTH,** one grid step per click, 16 times finer with SHIFT, as for every smooth value: while
+  the grid is 1/16, 480 ticks a click and 30 with SHIFT. It runs from 30 ticks, one SHIFT click, to
+  one bar of the signature, as the EP-133's runs from one tick to one bar **(owner's choice)**. It
+  is written as the shortened fraction of a whole note: 1/16, 1/8, 3/16, 1/4 and on to 1/1, up to
+  2/1 in an 8/4 bar; a length between steps is written in 256ths, such as 17/256 **(owner's
+  choice)**. A fraction of a whole note also stays exact when triplet grids come.
+- **POSITION,** one grid step per click, SHIFT too, so a note can move onto another step; the edit
+  follows the note, not the button. It reads as the number of grid steps the notes lie from the
+  sixteenth their step showed when it went down: "+0", "+1", "−2", with the minus sign of signed
+  values. A note moves through the pattern's grid positions in order, bar after bar and over dark
+  cells, between the pattern's first and last; each held step then stands for the sixteenth its
+  notes moved to and edits every note of the sound there. Finer positions belong to micro-timing,
+  which comes later, so in version 1 a note's time is set by hand only on the grid. Times off the
+  grid come only from recording with quantize off.
 - **Several notes,** such as a chord, several notes in one sixteenth or several held steps, change
-  by the same amount. Values that differ show as a range, as on Push and Maschine.
+  by the same amount. Values that differ show as a range, as on Push and Maschine: the lowest and
+  the highest joined by an en dash, such as "C3–E3", "60–100", "1/16–1/8" and "−1–+2".
+- **Where a turn stops several notes.** VELOCITY and LENGTH stop note by note at their ends: a note
+  at its end stays there while the others go on, as on Maschine. PITCH and POSITION move the notes
+  together and stop where the first of them reaches its end, so that two held notes never land on
+  one pitch and start, where one would replace the other. A moved note replaces a note of the same
+  sound and pitch where it lands, as recording does (see "Recorded notes"). A turn that does not fit
+  in memory changes nothing and shows NOT ENOUGH MEMORY (Project model).
 
 Rejected: holding a step and pressing a later one to set the length (OP-XY, Deluge, Hapax). It
 clashes with holding several steps, and LENGTH covers it.
@@ -532,10 +592,17 @@ clashes with holding several steps, and LENGTH covers it.
 **(owner's choice)**
 
 - **OK on an empty cell** adds a note: the lane's sound on STEP, the selected sound at the cursor's
-  pitch on ROLL.
+  pitch on ROLL. On STEP a cell is empty when the lane's sound has no note starting in its
+  sixteenth, and the note is the one a step's tap enters (see "What a step-entered note gets"), in
+  the bar and sixteenth the cursor shows, in the cursor's lane. It is refused with NOT ENOUGH MEMORY
+  when it does not fit, as every step entry is. On the lane of an empty pad OK does nothing.
 - **OK on a cell with notes** opens the NOTE panel.
-- **CANCEL on a cell with notes** removes them. Like every button that also does something when
-  held, its tap acts when you let go.
+- **CANCEL on a cell with notes** removes them: on STEP every note of the lane's sound that starts
+  in the cell's sixteenth, whatever its pitch. Like every button that also does something when held,
+  its tap acts when you let go, on the cell the cursor showed when CANCEL went down, so a bar line
+  between the press and the release moves nothing. On an empty cell it does nothing. A removal works
+  even when memory is nearly full, as every removal does (Project model).
+- **With a picker or a question open** OK and CANCEL act on that instead (Workflow A).
 
 ### The NOTE panel
 
@@ -792,7 +859,7 @@ stay as they are except where "Changes to Workflow A" says otherwise.
 | SHIFT + step n            | Switch to pattern n, 1 to 16                                                                                                                                                                                                 |
 | Step buttons              | The selected sound's sixteenths in the cursor's bar: a tap on an unlit step adds a note, a short tap on a lit step removes its notes, a hold shows the NOTE strip, a hold + pads or keys adds or removes that sound or pitch |
 | Arrows                    | Move the cursor; on STEP and ROLL one grid step left or right, one lane or semitone up or down, and the view scrolls                                                                                                         |
-| SHIFT + left, right       | Jump the cursor a whole bar, and stop following                                                                                                                                                                              |
+| SHIFT + left, right       | Jump the cursor a page; into another bar, that stops following                                                                                                                                                               |
 | SHIFT + up, down          | Jump the cursor 12 rows                                                                                                                                                                                                      |
 | OK                        | Use the item under the cursor; on STEP and ROLL, add a note on an empty cell or open the NOTE panel on a cell with notes                                                                                                     |
 | CANCEL                    | Back out; on STEP and ROLL, remove the cell's notes; a tap acts when you let go                                                                                                                                              |
@@ -800,9 +867,9 @@ stay as they are except where "Changes to Workflow A" says otherwise.
 | SHIFT + CANCEL            | Undo; again to redo                                                                                                                                                                                                          |
 | − and +                   | Change the value under the cursor; nothing on STEP and ROLL cells                                                                                                                                                            |
 | Encoders 1–4              | The items they hold on the page, shown in the strip; while a step is held, the note's values; while TEMPO is held, TEMPO, GRID, SWING and QUANTIZE; nothing in a picker or a question                                        |
-| Encoder press             | OK on the item it holds                                                                                                                                                                                                      |
+| Encoder press             | OK on the item it holds; nothing while a step is held                                                                                                                                                                        |
 | Volume encoder            | Output volume                                                                                                                                                                                                                |
-| Pads                      | Play; in PADS mode also select and move the STEP cursor to the pad's lane; recorded while recording; under a held step only play; under CANCEL or COPY only point                                                            |
+| Pads                      | Play; in PADS mode also select and move the STEP cursor to the pad's lane; recorded while recording; under a held step only play and add or remove; under CANCEL or COPY only point                                          |
 | REC                       | While playing, start or stop recording; while stopped, arm or disarm                                                                                                                                                         |
 | PLAY                      | Start from the first bar; while playing, follow again                                                                                                                                                                        |
 | SHIFT + PLAY              | Start from the cursor's bar, or jump there while playing                                                                                                                                                                     |
@@ -916,9 +983,9 @@ from a bullet below, the target spec's current text holds.
 - **SETTINGS** gains METRONOME, METRONOME LEVEL and COUNT-IN, so VELOCITY is no longer its only
   setting.
 - **Screen 9 is PATTERN.** Screens 10 to 16 stay free.
-- **The SHIFT combinations Workflow A left free:** SHIFT + left or right jumps a bar, SHIFT + CANCEL
-  undoes and SHIFT + step switches patterns. SHIFT + OK, SHIFT + pad and SHIFT + encoder press stay
-  free.
+- **The SHIFT combinations Workflow A left free:** SHIFT + left or right jumps a page, SHIFT +
+  CANCEL undoes and SHIFT + step switches patterns. SHIFT + OK, SHIFT + pad and SHIFT + encoder
+  press stay free.
 - **Copying bars, patterns and a pad's notes,** which Workflow A left to this spec, is the COPY
   button and the PATTERN screen.
 

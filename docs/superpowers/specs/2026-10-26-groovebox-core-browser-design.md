@@ -462,7 +462,8 @@ Spec: [Look and panel](./2026-11-07-groovebox-look-design.md). In short:
 - **Selected sound:** the sound the encoders edit, the step buttons enter and KEYS mode plays.
 - **Output volume:** how loud the device plays, set by its own knob; a device setting.
 - **Cursor outline:** the orange outline 1 px outside the item, cell, row or tile the cursor is on.
-- **Selected block:** the inverted orange block behind the selected sound's name on STEP.
+- **Selected block:** the inverted orange block behind the label of the lane the cursor is on, on
+  STEP: the selected sound's name, a copy lane's "= pad 1" or an empty pad's number.
 - **Dev page:** the page of SETTINGS with the development meters: library and note memory.
 
 ## Open points for planning
@@ -477,26 +478,21 @@ settles it with the owner.
   counts; the other is ignored until both are let go.
 - **CANCEL or COPY held + a step button.** No meaning is given. Proposed: nothing happens and the
   step's own tap does not fire.
-- **An encoder whose item is not on the screen.** On ROLL, and on STEP while a step is held (the
-  NOTE strip), the cursor cannot move to the item. On STEP's own strip the encoders act in full
-  (Workflow A). Proposed: the value changes; the cursor stays.
+- **An encoder whose item is not on the screen.** On ROLL the cursor cannot move to the item. On
+  STEP's own strip the encoders act in full (Workflow A). Proposed: the value changes; the cursor
+  stays.
 - **The CANCEL + pad question.** When it appears and what letting go of CANCEL does. Proposed: it
   appears on the hit and waits for OK or a new tap of CANCEL; no notes, no question.
 - **REC during the count-in.** What the light and the header dot do. Proposed: the light blinks and
   the dot stays dim through the count-in; steady and red from the first beat.
 - **Blink speeds.** "Blinks slowly" and "blinking" have no rate: one speed or two, in time with the
   tempo or not. Proposed: named constants counted in samples; the speeds: none yet.
-- **An empty pad selected.** Whether its lane is highlighted on STEP; what OK does and where the
-  view opens on ROLL. Proposed: none yet.
+- **An empty pad selected.** What OK does and where the view opens on ROLL. Proposed: none yet.
 
 ### Sound and settings
 
 - **Delay time on the strip.** How dotted and triplet values are written, their order in the list
   and whether "1/1 (1/2)" fits a strip cell. Proposed: none yet.
-- **A note's LENGTH limits.** A note's shortest and longest. Proposed: a note from one fine step (30
-  ticks) to the pattern's length.
-- **Counted or smooth.** Unmarked for note pitch and velocity. Proposed: note PITCH and VELOCITY
-  move one per click, with SHIFT too.
 - **Tuning a range in part 1.** New ID, new format version or just the number? Proposed: just the
   number; the ID and version stay and saved values are held within the new range.
 

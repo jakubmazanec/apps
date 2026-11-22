@@ -153,8 +153,10 @@ column of STEP ("Žluťoučký k…") **(my call: 12)**.
 - **A container whose content can carry the cursor** (an item list, the STEP lanes, the ROLL rows, a
   picker) has 2 px of padding: 1 px of space and 1 px for the outline, so the outline never touches
   the header's line or a box's border. Everything else keeps 1 px.
-- **Selected** is the inverted orange block with the text in black: the selected sound's name on
-  STEP. It is the only use of the block; the cursor never inverts.
+- **Selected** is the inverted orange block with the text in black: on STEP the label of the lane
+  the cursor is on, which is the selected sound's name, the number of a selected empty pad or the "=
+  pad 1" of a selected copy lane **(owner's choice)**. It is the only use of the block; the cursor
+  never inverts.
 - **Pictures** (grids of boxes, curves, waveforms) are graphics, not text: their area has 1 px
   margins, aligned with the neighbouring items' outline row and column.
 
@@ -226,8 +228,12 @@ its encoder holds, when it holds one: name at the left, value at the right, 3 px
 bar under them; 19 px in all, at the bottom of every screen. An empty cell draws nothing, and where
 the encoders hold nothing (a list screen, a picker, a question) all four are empty; the line and the
 19 px stay, so the main area never changes height **(owner's choice)**. The NOTE strip (Pitch,
-Velocity, Length, Position, with a range such as C3–E3 where the held notes differ) and the timing
-strip (Tempo, Grid, an empty cell for Swing, Quantize) are the same cells with other items.
+Velocity, Length, Position) and the timing strip (Tempo, Grid, an empty cell for Swing, Quantize)
+are the same cells with other items. Where the held notes differ, a NOTE strip value is a range: the
+lowest and the highest joined by an en dash, such as "C3–E3", "60–100", "1/16–1/8" and "−1–+2", the
+minus being the signed values' minus sign. The bar under a single Pitch or Velocity fills by its
+value out of 127; under a range, under Length and under Position it is the bare track
+(`note-strip.png`).
 
 ![STEP while a step is held](./2026-11-07-groovebox-look/note-strip.png)
 ![STEP while TEMPO is held](./2026-11-07-groovebox-look/timing-strip.png)
@@ -239,20 +245,29 @@ px were drawn and rejected.
 
 **Lanes.** A compact list of 13 px rows with 1 px gaps (14 px pitch), top-aligned 2 px under the
 header's line; empty space below the lanes stays empty. The names column at the left: 3 px, the
-widest name up to 12 characters, 3 px; the selected sound's name inverted, exactly that 3 px frame
-around the word; an empty pad as its dim number; a copy lane dim ("= pad 1"); a missing sound in
-red. The grid is pushed to the right edge.
+widest label of all the track's lanes, up to 12 characters, 3 px; the lanes scrolled out of view
+count too, so the grid never moves while the view scrolls. A pad lane's label is its sound's name,
+"= pad 1" dim where an earlier pad holds the same sound (a copy lane, Workflow B) or an empty pad's
+number, dim; an extra lane's is its sound's name; a missing sound's name is red. A label of more
+than 12 characters ends in "…" and never scrolls. The label of the lane the cursor is on is
+inverted, exactly that 3 px frame around the word: the selected sound's name and so also a selected
+copy lane's "= pad 1" and a selected empty pad's number **(owner's choice)**. The grid's area is
+pushed to the right edge.
 
 **Pages of 16.** The screen draws the same pages the step buttons show: a bar shorter than 16
 sixteenths leaves dark cells after its end, a longer bar continues on a second page. 3/4 is 12 cells
 and 4 dark; 7/8 is 14 and 2 dark; 5/4 is a full page, then 4 cells and 12 dark. Dark cells are
 filled faint. The page the step buttons show is tinted. Bar lines in the line grey, beat lines and
-page starts faint, faint separators between lanes, a brighter line above the extra lanes.
+page starts faint, faint separators between lanes, a brighter line above the extra lanes. The grid
+ends with the pattern: nothing is drawn past the last bar's last page, and the bar line where the
+next bar would start closes it, so a pattern too short to fill the grid leaves the rest of the row
+empty.
 
 **Notes.** A light block 5 px wide in the 8 px cell, 1 px from the grid lines on both sides, 11 px
 tall in the 13 px row; three greys by velocity; a 2 px tail for the note's length; a chord's count
-as a digit on the block (5 px, no side padding at this scale); a note recorded off the grid drawn
-shifted 2 px, Workflow B's marking, kept.
+from 2 to 9 as a digit on the block (5 px, no side padding at this scale), and none for 10 or more,
+since two digits do not fit; a note recorded off the grid drawn shifted 2 px, Workflow B's marking,
+kept.
 
 **The music** is a 1 px white line. **The cursor** is the orange outline around the cell, 1 px
 outside it.
