@@ -38,6 +38,15 @@ pub enum ItemKind {
     Length,
     /// "Signature": the project's time signature, which OK changes in the Signature picker (S11).
     Signature,
+    /// The NOTE strip's "Pitch": the held notes' pitches, by the Root note's names (S13).
+    NotePitch,
+    /// The NOTE strip's "Velocity": the held notes' velocities (S13).
+    NoteVelocity,
+    /// The NOTE strip's "Length": the held notes' lengths as fractions of a whole note (S13).
+    NoteLength,
+    /// The NOTE strip's "Position": how many grid steps the held notes lie from where their steps
+    /// showed at their press (S13).
+    NotePosition,
 }
 
 /// An item of a page and the encoder that holds it.
@@ -253,6 +262,27 @@ const BARS: PageDef = PageDef {
     ],
     picture: None,
 };
+
+/// The NOTE strip's items while steps are held (S12): Pitch, Velocity, Length and Position on
+/// encoders 1 to 4.
+pub(super) const NOTE: [ItemDef; 4] = [
+    ItemDef {
+        kind: ItemKind::NotePitch,
+        encoder: Some(0),
+    },
+    ItemDef {
+        kind: ItemKind::NoteVelocity,
+        encoder: Some(1),
+    },
+    ItemDef {
+        kind: ItemKind::NoteLength,
+        encoder: Some(2),
+    },
+    ItemDef {
+        kind: ItemKind::NotePosition,
+        encoder: Some(3),
+    },
+];
 
 /// SOUND's pages for a sound: `pad`, the page of its engine, then those of its chain and voice.
 const fn sound_pages(pad: PageDef, engine: PageDef) -> [PageDef; 6] {

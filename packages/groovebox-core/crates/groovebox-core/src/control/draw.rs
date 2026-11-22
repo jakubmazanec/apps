@@ -1,5 +1,6 @@
 use super::bars::Change;
-use super::pages::{ItemDef, ItemKind, LIBRARY_METER, Picture};
+use super::held::write_length;
+use super::pages::{ItemDef, ItemKind, LIBRARY_METER, NOTE, Picture};
 use super::samples::{self, rows};
 use super::step_view::{self, LANES_SHOWN, PAGE, cell_of};
 use super::view::{Picker, Question, Screen, StepCursor};
@@ -11,8 +12,8 @@ use crate::label::Label;
 use crate::library::{self, name};
 use crate::palette::{ACCENT, BACKGROUND, DIM, FAINT, NOTE_MID, RECORD, TEXT};
 use crate::param::{
-    self, BP, CUTOFF, Curve, END, HP, LP_12, LP_24, METRONOME, MODE, ParamId, RESONANCE, START,
-    TEMPO,
+    self, BP, CUTOFF, Curve, END, HP, LP_12, LP_24, METRONOME, MODE, ParamId, RESONANCE, ROOT_NOTE,
+    START, TEMPO,
 };
 use crate::project::pool::{Engine, NAME_BYTES, Sample, Sound, SoundNumber};
 use crate::project::track::PadMode;
@@ -70,8 +71,9 @@ impl Control {
     /// pads, 24 notes" or "24 notes" (S21); Remove unused counts the unused sounds as it is
     /// drawn (S13); Delete notes counts the notes a length or signature no longer fits, as "Delete
     /// 24 notes?", with no count line (S12). The strip shows the items that the encoders hold
-    /// (`encoder_items`), also on SAMPLES and POOL while TEMPO is held, and nothing while MENU or
-    /// PAGE is held or a picker or a question is open.
+    /// (`encoder_items`), also on SAMPLES and POOL while TEMPO or a step is held, and nothing while
+    /// MENU or PAGE is held, a picker or a question is open or the held steps have no notes of the
+    /// selected sound (`held_values`, S12).
     ///
     /// STEP's lanes start at the view's first lane, each with its label (`lane_label`). Its cells
     /// start at the view's first cell and show the notes that the latest redraw noted (`marks`),
@@ -592,7 +594,11 @@ impl Control {
                 None => {}
             }
         }
-        if self.overlay().is_none() && self.view.picker.is_none() && self.view.question.is_none() {
+        if self.overlay().is_none()
+            && self.view.picker.is_none()
+            && self.view.question.is_none()
+            && (self.held_values.is_some() || self.encoder_items() != NOTE)
+        {
             for ((encoder, cell), value) in (0..).zip(&mut cells).zip(&mut values) {
                 *cell = self
                     .encoder_items()
@@ -818,6 +824,55 @@ impl Control {
                 write!(value, "{}", Change::Signature(self.project.signature))
                     .expect("writing to a label never fails");
                 ("Signature", value.as_str(), Bar::Track)
+            }
+            kind @ (ItemKind::NotePitch
+            | ItemKind::NoteVelocity
+            | ItemKind::NoteLength
+            | ItemKind::NotePosition) => {
+                let held = self
+                    .held_values
+                    .expect("the NOTE strip's items show only while the held steps have notes");
+                let (name, (low, high)) = match kind {
+                    ItemKind::NotePitch => {
+                        ("Pitch", (i32::from(held.pitch.0), i32::from(held.pitch.1)))
+                    }
+                    ItemKind::NoteVelocity => (
+                        "Velocity",
+                        (i32::from(held.velocity.0), i32::from(held.velocity.1)),
+                    ),
+                    // A note is shorter than 2^31 ticks.
+                    ItemKind::NoteLength => {
+                        ("Length", (held.length.0 as i32, held.length.1 as i32))
+                    }
+                    _ => ("Position", held.position),
+                };
+                let write = |shown: i32, value: &mut Label<16>| match kind {
+                    ItemKind::NotePitch => param::format(&ROOT_NOTE, shown, value),
+                    ItemKind::NoteVelocity => {
+                        write!(value, "{shown}").expect("writing to a label never fails");
+                    }
+                    ItemKind::NoteLength => {
+                        write_length(shown as u32, value).expect("writing to a label never fails")
+                    }
+                    _ => param::signed(shown, value).expect("writing to a label never fails"),
+                };
+                // Values that differ show as the lowest and the highest, joined by an en dash.
+                write(low, value);
+                if high != low {
+                    value.push_str("–");
+                    write(high, value);
+                }
+                (
+                    name,
+                    value.as_str(),
+                    match kind {
+                        // A single pitch or velocity fills its bar by its place in 127.
+                        ItemKind::NotePitch | ItemKind::NoteVelocity if low == high => {
+                            Bar::Fill(low as u64, 127)
+                        }
+                        _ => Bar::Track,
+                    },
+                )
             }
         };
         ItemView {

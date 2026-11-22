@@ -14,7 +14,7 @@ use crate::store::{RESERVE, Store, Tree};
 use core::ops::Range;
 
 /// The keys of the notes that start in the sixteenth of `place`.
-fn sixteenth(place: StepCursor) -> Range<Key> {
+pub(super) fn sixteenth(place: StepCursor) -> Range<Key> {
     let start = u16::from(place.step) * 480;
     Key::at(place.bar, start)..Key::at(place.bar, start + 480)
 }
@@ -179,7 +179,7 @@ impl Control {
 
     /// Holds `made`, which `old` was edited into, and lets go of `old` unless it is the track's:
     /// the track keeps its own tree until `edit`.
-    fn hold_over(&self, old: Tree, made: Tree, store: &mut Store<'_>) {
+    pub(super) fn hold_over(&self, old: Tree, made: Tree, store: &mut Store<'_>) {
         store.hold(made);
         if old != self.track_tree() {
             store.release(old, None);
@@ -187,7 +187,7 @@ impl Control {
     }
 
     /// The current track's tree.
-    fn track_tree(&self) -> Tree {
+    pub(super) fn track_tree(&self) -> Tree {
         self.project.patterns[usize::from(self.project.pattern)].tracks
             [usize::from(self.project.track)]
     }

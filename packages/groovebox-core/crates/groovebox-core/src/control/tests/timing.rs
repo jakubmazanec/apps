@@ -35,7 +35,7 @@ const GRID: ItemView = ItemView {
 
 /// The Timing page's items in the strip's cells: Tempo at `tempo`, its bar filled `filled` of
 /// 27,000, then Grid.
-fn timing_cells(tempo: &str, filled: u64) -> [Option<ItemView<'_>>; 4] {
+pub(super) fn timing_cells(tempo: &str, filled: u64) -> [Option<ItemView<'_>>; 4] {
     [
         Some(ItemView {
             encoder: Some(1),

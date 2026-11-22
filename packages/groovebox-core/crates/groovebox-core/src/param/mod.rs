@@ -550,7 +550,7 @@ pub fn format(entry: &Entry, value: i32, out: &mut Label<16>) {
 const MINUS: &str = "\u{2212}";
 
 /// Appends `value` with its sign, "+" for 0 and above and "−" below.
-fn signed(value: i32, out: &mut Label<16>) -> core::fmt::Result {
+pub fn signed(value: i32, out: &mut Label<16>) -> core::fmt::Result {
     write!(
         out,
         "{}{}",

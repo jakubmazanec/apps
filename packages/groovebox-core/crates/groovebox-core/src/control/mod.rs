@@ -1,6 +1,7 @@
 mod bars;
 pub mod buttons;
 mod draw;
+mod held;
 mod lanes;
 pub mod notes;
 pub mod pages;
@@ -12,7 +13,7 @@ mod transport;
 pub mod view;
 
 use crate::budget;
-use crate::input::{Button, Input, PADS, Stamped, VOLUME};
+use crate::input::{Button, Input, PADS, STEPS, Stamped, VOLUME};
 use crate::label::Label;
 use crate::library::import::Import;
 use crate::library::startup::StartUp;
@@ -47,9 +48,10 @@ use bars::{Change, LENGTHS, Trim};
 use buttons::{Buttons, REPEATING, Release};
 use core::cell::Cell;
 use core::ops::ControlFlow;
+use held::Held;
 use lanes::Lane;
 use notes::{Notes, Source};
-use pages::{ItemDef, ItemKind, MENU, PageDef, Picture, TIMING, pages};
+use pages::{ItemDef, ItemKind, MENU, NOTE, PageDef, Picture, TIMING, pages};
 use samples::Deleting;
 use step_view::{GRID_CELLS, LANES_SHOWN, PAGE, cell_of, cells, place_of};
 use view::{
@@ -199,6 +201,12 @@ pub struct Control {
     /// The bar and sixteenth each step button showed when it last went down, on which its tap acts
     /// (S16).
     pressed: [StepCursor; 16],
+    /// Where the notes of each step button lie while it is held: the place it showed at its press,
+    /// which POSITION moves with its notes (S14).
+    held: [StepCursor; 16],
+    /// The held steps' notes as the latest step that asked for a redraw left them, none while
+    /// there are none (S13).
+    held_values: Option<Held>,
     /// The cell the cursor showed when CANCEL last went down, on which its tap acts (S11).
     cancel_at: StepCursor,
     /// The bytes that the blocks of the note memory in use cost (`Store::used`), as the latest step
@@ -254,6 +262,8 @@ impl Control {
             step_notes: 0,
             marks: [[None; GRID_CELLS]; LANES_SHOWN],
             pressed: [StepCursor { bar: 0, step: 0 }; 16],
+            held: [StepCursor { bar: 0, step: 0 }; 16],
+            held_values: None,
             cancel_at: StepCursor { bar: 0, step: 0 },
             note_memory: 0,
             waveform: None,
@@ -368,8 +378,9 @@ impl Control {
     /// sound's file (`sample_file`), it reads that file's peaks through `tables` from `ram` unless
     /// it holds them already (`waveform`), it works out which steps of the page and bar the step
     /// buttons show (`shown_bar`) start a note of the selected sound (`step_notes`) and it notes
-    /// how much of the note memory is in use (`note_memory`). When it returns true while STEP
-    /// shows, it also notes what the cells of the shown lanes hold (`marks`).
+    /// how much of the note memory is in use (`note_memory`). When it returns true it also notes
+    /// the held steps' notes as the strip shows them (`held_values`), and while STEP shows what
+    /// the cells of the shown lanes hold (`marks`).
     #[expect(
         clippy::too_many_arguments,
         reason = "the control part writes two queues and reads and writes three memories"
@@ -615,6 +626,9 @@ impl Control {
         let pixels = |sample: u64| sample.saturating_sub(self.landed) / SCROLL_PIXEL;
         redraw |= self.scrolling.get() && pixels(until) != pixels(self.now);
         redraw |= header_bars(self, until) != shown;
+        if redraw {
+            self.held_values = self.summary(store).map(|(held, _)| held);
+        }
         if redraw && self.view.screen == Screen::Step {
             let signature = self.project.signature;
             let view = self.view.step_view;
@@ -801,7 +815,11 @@ impl Control {
                     && self.view.question.is_none()
                     && let Some(item) = self.reach(encoder)
                 {
-                    self.change(item, i32::from(clicks), sample, messages);
+                    if NOTE.contains(&item) {
+                        self.turn_held(item.kind, i32::from(clicks), sample, versions, store);
+                    } else {
+                        self.change(item, i32::from(clicks), sample, messages);
+                    }
                 }
             }
             // The drop's files join the import, whose new progress replaces the message.
@@ -1255,10 +1273,12 @@ impl Control {
                 }
             }
             Button::Step(step) => {
-                self.pressed[usize::from(step)] = StepCursor {
+                let place = StepCursor {
                     step: self.view.steps.step / 16 * 16 + step,
                     ..self.cursor_at(sample)
                 };
+                self.pressed[usize::from(step)] = place;
+                self.held[usize::from(step)] = place;
             }
             Button::Cancel => self.cancel_at = self.cursor_at(sample),
             _ => {}
@@ -1385,7 +1405,8 @@ impl Control {
     /// and Copy puts a copy of the pad's sound on the pad, unless the pool is full. Engine opens
     /// the Engine picker on the sound's engine, and the Sample item the sample picker on the
     /// sound's file, or as New sample does for a missing one (S13). Length and Signature open
-    /// their pickers on the current value (S10, S11). The meters only show, and Grid stays (S3).
+    /// their pickers on the current value (S10, S11). The meters only show, Grid stays (S3) and
+    /// the NOTE strip's items do nothing (S12).
     fn use_item(
         &mut self,
         item: ItemDef,
@@ -1480,7 +1501,13 @@ impl Control {
                 );
                 self.end_held_repeats();
             }
-            ItemKind::LibraryMeter | ItemKind::NoteMeter | ItemKind::Grid => {}
+            ItemKind::LibraryMeter
+            | ItemKind::NoteMeter
+            | ItemKind::Grid
+            | ItemKind::NotePitch
+            | ItemKind::NoteVelocity
+            | ItemKind::NoteLength
+            | ItemKind::NotePosition => {}
         }
     }
 
@@ -1490,7 +1517,8 @@ impl Control {
     /// end. It stays while the audio part may not read the file (`sample_file`, S15) and when no
     /// frame is left to move to. The Pad page's items and the Sample item have no value to move,
     /// so a stray turn never changes what a pad plays, and the meters and Grid have none either.
-    /// Nor do Length and Signature, so a stray turn cannot delete notes (S10).
+    /// Nor do Length and Signature, so a stray turn cannot delete notes (S10). The NOTE strip's
+    /// items are the held notes' values, which `turn_held` moves.
     fn change(
         &mut self,
         item: ItemDef,
@@ -1528,7 +1556,11 @@ impl Control {
             | ItemKind::NoteMeter
             | ItemKind::Grid
             | ItemKind::Length
-            | ItemKind::Signature => {}
+            | ItemKind::Signature
+            | ItemKind::NotePitch
+            | ItemKind::NoteVelocity
+            | ItemKind::NoteLength
+            | ItemKind::NotePosition => {}
         }
     }
 
@@ -1635,19 +1667,23 @@ impl Control {
     }
 
     /// The items of the page the encoders use, of which each encoder holds the one that names it:
-    /// on every screen Timing's while TEMPO is held, unless a picker or a question is open (S5).
-    /// A screen that uses SOUND's page, as STEP does, has none while the selected pad is empty.
+    /// on every screen Timing's while TEMPO is held and the NOTE strip's while steps are held
+    /// (`held_steps`), the first of them pressed counting, unless a picker or a question is open
+    /// (S5, S12). A screen that uses SOUND's page, as STEP does, has none while the selected pad
+    /// is empty.
     fn encoder_items(&self) -> &'static [ItemDef] {
         let screen = self.view.screen;
-        if self.buttons.first_held(&[Button::Tempo]).is_some()
-            && self.view.picker.is_none()
-            && self.view.question.is_none()
-        {
-            TIMING.items
-        } else if screen.paged() != screen && self.track().selected_sound.is_none() {
-            &[]
-        } else {
-            self.items(screen.paged())
+        // The slots past the held steps repeat TEMPO.
+        let mut counted = [Button::Tempo; 1 + STEPS as usize];
+        for (slot, (step, _)) in counted[1..].iter_mut().zip(self.held_steps()) {
+            *slot = Button::Step(step);
+        }
+        let open = self.view.picker.is_some() || self.view.question.is_some();
+        match self.buttons.first_held(&counted) {
+            Some(Button::Tempo) if !open => TIMING.items,
+            Some(Button::Step(_)) if !open => &NOTE,
+            _ if screen.paged() != screen && self.track().selected_sound.is_none() => &[],
+            _ => self.items(screen.paged()),
         }
     }
 

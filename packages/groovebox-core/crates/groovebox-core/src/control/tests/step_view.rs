@@ -2,7 +2,7 @@
 //! main area) and the arrows, OK and CANCEL that move its cursor and act on its cells.
 
 use super::pattern::{count, entered, fill_until, notes_in, put, ready, versions};
-use super::timing::{choose, on_bars, playing_4_bars};
+use super::timing::{choose, on_bars, playing_4_bars, timing_cells};
 use super::*;
 use crate::control::lanes::Lane;
 use crate::control::step_view::{GRID_CELLS, LANES_SHOWN};
@@ -986,4 +986,391 @@ fn ok_and_cancel_under_the_reserve() {
     assert_eq!(notes_in(&rig, track_1(&rig)), [entered(9, syn_1, 60)]);
     assert_eq!(count(&rig, syn_1), 1);
     assert_eq!(versions(&mut rig).len(), 1);
+}
+
+/// The NOTE strip's cells: Pitch and Velocity showing these values over these bars, then Length and
+/// Position over the bare track (S13).
+fn note_strip<'a>(
+    pitch: (&'a str, Bar),
+    velocity: (&'a str, Bar),
+    length: &'a str,
+    position: &'a str,
+) -> [Option<ItemView<'a>>; 4] {
+    let mut encoder = 0;
+    [
+        ("Pitch", pitch),
+        ("Velocity", velocity),
+        ("Length", (length, Bar::Track)),
+        ("Position", (position, Bar::Track)),
+    ]
+    .map(|(name, (value, bar))| {
+        encoder += 1;
+        Some(ItemView {
+            encoder: Some(encoder),
+            name,
+            value,
+            bar,
+        })
+    })
+}
+
+/// Whether the control part draws STEP's frame with Syn 1 selected, no message and these cells in
+/// the strip.
+fn strip_shows(rig: &Rig<'_>, cells: &[Option<ItemView>; 4]) -> bool {
+    shows_frame(
+        &rig.control,
+        &drawn(&step_header("Syn 1"), None, |_| {}, cells),
+    )
+}
+
+#[test]
+fn holding_a_step_shows_its_notes_on_the_note_strip() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    let syn_1 = rig.synth_on(0);
+    put(
+        &mut rig,
+        0,
+        0,
+        &[entered(0, syn_1, 48), entered(0, syn_1, 52)],
+    );
+    let chord = note_strip(
+        ("C3–E3", Bar::Track),
+        ("127", Bar::Fill(127, 127)),
+        "1/16",
+        "+0",
+    );
+
+    rig.press(10, Button::Step(0));
+    rig.step(20);
+    assert!(strip_shows(&rig, &chord));
+
+    // A long press, which keeps the notes.
+    rig.let_go(10 + HOLD, Button::Step(0));
+    rig.step(20 + HOLD);
+    assert!(strip_shows(
+        &rig,
+        &[
+            Some(sound("Syn 1")),
+            Some(copy("on 1 pad")),
+            Some(engine("Synth")),
+            None
+        ]
+    ));
+    assert_eq!(notes_in(&rig, track_1(&rig)).len(), 2);
+
+    // A held step with no notes of the sound: an empty strip.
+    rig.press(30_000, Button::Step(5));
+    rig.step(30_010);
+    assert!(strip_shows(&rig, &[None; 4]));
+    rig.let_go(30_000 + HOLD, Button::Step(5));
+
+    // The first pressed of TEMPO and the held steps counts.
+    rig.press(60_000, Button::Tempo);
+    rig.press(60_010, Button::Step(0));
+    rig.step(60_020);
+    assert!(strip_shows(&rig, &timing_cells("120.0", 9_000)));
+    rig.let_go(60_030, Button::Tempo);
+    rig.let_go(60_010 + HOLD, Button::Step(0));
+    rig.press(90_000, Button::Step(0));
+    rig.press(90_010, Button::Tempo);
+    rig.step(90_020);
+    assert!(strip_shows(&rig, &chord));
+}
+
+#[test]
+fn velocity_and_length_stop_note_by_note() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    let syn_1 = rig.synth_on(0);
+    let chord = |pitch, velocity, length| Note {
+        velocity,
+        length,
+        ..entered(0, syn_1, pitch)
+    };
+    put(&mut rig, 0, 0, &[chord(60, 120, 480), chord(64, 60, 7_200)]);
+    let values = |rig: &Rig<'_>| -> Vec<(u8, u32)> {
+        notes_in(rig, track_1(rig))
+            .iter()
+            .map(|note| (note.velocity, note.length))
+            .collect()
+    };
+    rig.press(10, Button::Step(0));
+
+    rig.turn(20, 1, 10);
+    rig.step(30);
+    assert_eq!(values(&rig), [(127, 480), (70, 7_200)]);
+
+    // A bar of 4/4 is 7,680 ticks.
+    rig.turn(40, 2, 2);
+    rig.step(50);
+    assert_eq!(values(&rig), [(127, 1_440), (70, 7_680)]);
+
+    rig.press(60, Button::Shift);
+    rig.turn(61, 2, -1);
+    rig.let_go(62, Button::Shift);
+    rig.step(70);
+    assert_eq!(values(&rig), [(127, 1_410), (70, 7_650)]);
+
+    rig.turn(80, 2, -20);
+    rig.step(90);
+    assert_eq!(values(&rig), [(127, 30), (70, 30)]);
+    assert_eq!(versions(&mut rig).len(), 4);
+
+    // Both at their end: nothing changes and nothing is sent.
+    rig.turn(100, 2, -1);
+    rig.step(110);
+    assert_eq!(values(&rig), [(127, 30), (70, 30)]);
+    assert_eq!(versions(&mut rig), []);
+}
+
+#[test]
+fn pitch_and_position_move_together_and_stop_at_the_first_end() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    let syn_1 = rig.synth_on(0);
+    put(
+        &mut rig,
+        0,
+        0,
+        &[entered(0, syn_1, 120), entered(0, syn_1, 125)],
+    );
+
+    rig.press(10, Button::Step(0));
+    rig.turn(20, 0, 5);
+    rig.step(30);
+
+    // Only 2 of the 5 clicks, as far as 127.
+    assert_eq!(
+        notes_in(&rig, track_1(&rig)),
+        [entered(0, syn_1, 122), entered(0, syn_1, 127)]
+    );
+
+    // Notes in sixteenths 1 and 2, both held: 3 clicks back pass the pattern's start.
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    let syn_1 = rig.synth_on(0);
+    let notes = [entered(0, syn_1, 60), entered(1, syn_1, 60)];
+    put(&mut rig, 0, 0, &notes);
+    rig.press(10, Button::Step(0));
+    rig.press(11, Button::Step(1));
+
+    rig.turn(20, 3, -3);
+    rig.step(30);
+
+    assert_eq!(notes_in(&rig, track_1(&rig)), notes);
+    assert_eq!(versions(&mut rig), []);
+
+    // 20 clicks on stop where the second reaches the last sixteenth: 14.
+    rig.turn(40, 3, 20);
+    rig.step(50);
+    assert_eq!(
+        notes_in(&rig, track_1(&rig)),
+        [entered(14, syn_1, 60), entered(15, syn_1, 60)]
+    );
+}
+
+#[test]
+fn moving_neighbouring_held_steps_moves_each_note_once() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    let syn_1 = rig.synth_on(0);
+    put(
+        &mut rig,
+        0,
+        0,
+        &[entered(0, syn_1, 60), entered(1, syn_1, 60)],
+    );
+    rig.press(10, Button::Step(0));
+    rig.press(11, Button::Step(1));
+
+    rig.turn(20, 3, 1);
+    rig.step(30);
+
+    assert_eq!(
+        notes_in(&rig, track_1(&rig)),
+        [entered(1, syn_1, 60), entered(2, syn_1, 60)]
+    );
+    assert_eq!(count(&rig, syn_1), 2);
+    assert_eq!(on_tracks(&rig, syn_1), [2, 0, 0, 0]);
+    assert!(strip_shows(
+        &rig,
+        &note_strip(
+            ("C4", Bar::Fill(60, 127)),
+            ("127", Bar::Fill(127, 127)),
+            "1/16",
+            "+1"
+        )
+    ));
+
+    // 3/4 has 12 sixteenths: a note in bar 1's last moves into bar 2's first.
+    let queue = Queue::new();
+    let mut rig = shaped(&queue, 2, Signature { beats: 3, unit: 4 }, place(0, 0));
+    let syn_1 = rig.synth_on(0);
+    put(
+        &mut rig,
+        0,
+        0,
+        &[entered(10, syn_1, 60), entered(11, syn_1, 60)],
+    );
+    rig.press(10, Button::Step(10));
+    rig.press(11, Button::Step(11));
+
+    rig.turn(20, 3, 1);
+    rig.step(30);
+
+    assert_eq!(
+        notes_in(&rig, track_1(&rig)),
+        [
+            entered(11, syn_1, 60),
+            Note {
+                bar: 1,
+                ..entered(0, syn_1, 60)
+            }
+        ]
+    );
+    assert_eq!(rig.control.held[10..12], [place(0, 11), place(1, 0)]);
+}
+
+#[test]
+fn held_steps_on_one_sixteenth_edit_its_notes_once() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    let syn_1 = rig.synth_on(0);
+    put(&mut rig, 0, 0, &[entered(1, syn_1, 60)]);
+    // Steps 1 and 2 held, and step 2's note moved into step 1's sixteenth: both stand for it.
+    rig.press(10, Button::Step(0));
+    rig.press(11, Button::Step(1));
+
+    rig.turn(20, 3, -1);
+    rig.turn(30, 1, -10);
+    rig.step(40);
+
+    assert_eq!(
+        notes_in(&rig, track_1(&rig)),
+        [Note {
+            velocity: 117,
+            ..entered(0, syn_1, 60)
+        }]
+    );
+    assert_eq!(count(&rig, syn_1), 1);
+    assert_eq!(rig.control.held[..2], [place(0, 0), place(0, 0)]);
+    assert!(strip_shows(
+        &rig,
+        &note_strip(
+            ("C4", Bar::Fill(60, 127)),
+            ("117", Bar::Fill(117, 127)),
+            "1/16",
+            "\u{2212}1–+0"
+        )
+    ));
+}
+
+#[test]
+fn a_moved_note_replaces_one_it_lands_on() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    let syn_1 = rig.synth_on(0);
+    let outside = Note {
+        velocity: 50,
+        ..entered(2, syn_1, 60)
+    };
+    put(&mut rig, 0, 0, &[entered(0, syn_1, 60), outside]);
+    let ready_before = ready(&rig);
+    rig.press(10, Button::Step(0));
+
+    rig.turn(20, 3, 2);
+    rig.step(30);
+
+    assert_eq!(notes_in(&rig, track_1(&rig)), [entered(2, syn_1, 60)]);
+    assert_eq!(count(&rig, syn_1), 1);
+    assert_eq!(on_tracks(&rig, syn_1), [1, 0, 0, 0]);
+    // The new tree's one block takes the old one's place once the version is heard, and the trees
+    // between them are free.
+    assert_eq!(versions(&mut rig).len(), 1);
+    rig.applied(0, 40);
+    assert_eq!(ready(&rig), ready_before);
+
+    // A note of another pitch stays, and the held step edits it with the moved one.
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    let syn_1 = rig.synth_on(0);
+    put(
+        &mut rig,
+        0,
+        0,
+        &[entered(0, syn_1, 60), entered(2, syn_1, 62)],
+    );
+    rig.press(10, Button::Step(0));
+
+    rig.turn(20, 3, 2);
+    rig.turn(30, 1, -10);
+    rig.step(40);
+
+    let soft = |pitch| Note {
+        velocity: 117,
+        ..entered(2, syn_1, pitch)
+    };
+    assert_eq!(notes_in(&rig, track_1(&rig)), [soft(60), soft(62)]);
+    assert_eq!(count(&rig, syn_1), 2);
+}
+
+#[test]
+fn the_edit_follows_the_note() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    let syn_1 = rig.synth_on(0);
+    put(&mut rig, 0, 0, &[entered(0, syn_1, 60)]);
+    rig.press(10, Button::Step(0));
+
+    rig.turn(20, 3, 1);
+    // OK on the cursor's cell (0, 0), empty now.
+    rig.tap(30, Button::Ok);
+    rig.turn(40, 1, -10);
+    rig.step(50);
+
+    assert_eq!(
+        notes_in(&rig, track_1(&rig)),
+        [
+            entered(0, syn_1, 60),
+            Note {
+                velocity: 117,
+                ..entered(1, syn_1, 60)
+            }
+        ]
+    );
+    assert_eq!(rig.control.held[0], place(0, 1));
+}
+
+#[test]
+fn a_turn_under_the_reserve_changes_nothing() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    let syn_1 = rig.synth_on(0);
+    put(&mut rig, 0, 0, &[entered(0, syn_1, 60)]);
+    rig.press(10, Button::Step(0));
+    rig.step(20);
+    fill_until(&rig, RESERVE - 1);
+    let before = track_1(&rig);
+
+    rig.turn(30, 1, -10);
+    rig.step(40);
+
+    assert_eq!(track_1(&rig), before);
+    assert_eq!(notes_in(&rig, before), [entered(0, syn_1, 60)]);
+    assert_eq!(versions(&mut rig), []);
+    assert!(shows_frame(
+        &rig.control,
+        &drawn(
+            &step_header("Syn 1"),
+            Some(("Not enough memory", RECORD)),
+            |_| {},
+            &note_strip(
+                ("C4", Bar::Fill(60, 127)),
+                ("127", Bar::Fill(127, 127)),
+                "1/16",
+                "+0"
+            ),
+        )
+    ));
 }
