@@ -48,13 +48,18 @@ fn spread<T: Ord + Copy>((low, high): (T, T), value: T) -> (T, T) {
 
 impl Control {
     /// The held steps (S12), each with where its notes lie now (`held`): the steps held and not
-    /// taken by a combination whose sixteenth at their press (`pressed`) lies inside the bar.
+    /// taken by a combination whose sixteenth at their press (`pressed`) lies inside the bar and
+    /// whose place now lies inside the pattern, as a shorter length or signature may have left it.
     pub(super) fn held_steps(&self) -> impl Iterator<Item = (u8, StepCursor)> + '_ {
+        let sixteenths = self.project.signature.sixteenths();
+        let bars = self.project.patterns[usize::from(self.project.pattern)].bars;
         (0..STEPS)
             .filter(move |&step| {
+                let now = self.held[usize::from(step)];
                 self.buttons.first_held(&[Button::Step(step)]).is_some()
-                    && u32::from(self.pressed[usize::from(step)].step)
-                        < self.project.signature.sixteenths()
+                    && u32::from(self.pressed[usize::from(step)].step) < sixteenths
+                    && now.bar < bars
+                    && u32::from(now.step) < sixteenths
             })
             .map(move |step| (step, self.held[usize::from(step)]))
     }
@@ -133,14 +138,14 @@ impl Control {
                     .held_steps()
                     .map(|(_, place)| grid(place, sixteenths))
                     .fold((u32::MAX, 0), spread);
-                // A held place that a shorter length or signature left past the pattern's end lets
-                // the notes move only back.
+                // A held place lies inside the pattern (`held_steps`), so the last grid position is
+                // never before it.
                 clicks.clamp(
                     -(first as i32),
                     (u32::from(self.project.patterns[usize::from(self.project.pattern)].bars)
                         * sixteenths
-                        - 1)
-                    .saturating_sub(last) as i32,
+                        - 1
+                        - last) as i32,
                 )
             }
             ItemKind::NoteLength if self.buttons.is_held(Button::Shift) => clicks * 30,

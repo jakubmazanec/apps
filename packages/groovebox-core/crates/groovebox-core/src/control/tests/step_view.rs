@@ -1278,8 +1278,20 @@ fn held_steps_on_one_sixteenth_edit_its_notes_once() {
     ));
 }
 
+/// Chooses 1 bar for a pattern of 2 on PATTERN's Bars page, where OK opens the Length picker and up
+/// is 1 bar, from sample 30 to 80, the held steps staying held.
+fn shorten_to_1_bar(rig: &mut Rig<'_>) {
+    on_bars(rig, 30);
+    rig.tap(50, Button::Ok);
+    rig.tap(60, Button::Up);
+    rig.tap(70, Button::Ok);
+    rig.step(80);
+    assert_eq!(rig.control.project.patterns[0].bars, 1);
+    versions(rig);
+}
+
 #[test]
-fn a_held_step_past_a_shortened_patterns_end_moves_nothing_on() {
+fn a_held_step_past_a_shortened_patterns_end_no_longer_counts() {
     let queue = Queue::new();
     let mut rig = shaped(&queue, 2, FOUR_FOUR, place(0, 0));
     let syn_1 = rig.synth_on(0);
@@ -1290,19 +1302,71 @@ fn a_held_step_past_a_shortened_patterns_end_moves_nothing_on() {
     rig.step(15);
     rig.control.view.steps.bar = 1;
     rig.press(20, Button::Step(2));
-    // On PATTERN's Bars page OK opens the Length picker, where up is 1 bar.
-    on_bars(&mut rig, 30);
-    rig.tap(50, Button::Ok);
-    rig.tap(60, Button::Up);
-    rig.tap(70, Button::Ok);
-    rig.step(80);
-    assert_eq!(rig.control.project.patterns[0].bars, 1);
-    versions(&mut rig);
+    shorten_to_1_bar(&mut rig);
 
     rig.turn(90, 3, 1);
     rig.step(100);
 
-    assert_eq!(notes_in(&rig, track_1(&rig)), [entered(0, syn_1, 60)]);
+    assert_eq!(notes_in(&rig, track_1(&rig)), [entered(1, syn_1, 60)]);
+    assert_eq!(rig.control.held[0], place(0, 1));
+    assert_eq!(versions(&mut rig).len(), 1);
+}
+
+#[test]
+fn a_hit_under_a_step_held_past_a_shortened_patterns_end_adds_no_note() {
+    let queue = Queue::new();
+    let mut rig = shaped(&queue, 2, FOUR_FOUR, place(1, 0));
+    rig.synth_on(0);
+    let syn_2 = rig.synth_on(1);
+    rig.press(20, Button::Step(2));
+    shorten_to_1_bar(&mut rig);
+
+    rig.hit(90, 1, 100);
+    rig.step(100);
+
+    assert_eq!(notes_in(&rig, track_1(&rig)), []);
+    assert_eq!(count(&rig, syn_2), 0);
+    assert_eq!(on_tracks(&rig, syn_2), [0; 4]);
+    assert_eq!(versions(&mut rig), []);
+}
+
+#[test]
+fn a_hit_under_a_step_held_past_a_narrowed_bars_end_adds_no_note() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    let syn_1 = rig.synth_on(0);
+    let syn_2 = rig.synth_on(1);
+    put(&mut rig, 0, 0, &[entered(0, syn_1, 60)]);
+    // POSITION moves step 1 and its note to the 15th sixteenth, which 3/4 has no room for.
+    rig.press(10, Button::Step(0));
+    rig.turn(20, 3, 14);
+    rig.step(30);
+    assert_eq!(rig.control.held[0], place(0, 14));
+    // On PATTERN's Bars page, the held step keeping the encoders for the NOTE strip, down and OK
+    // open the Signature picker, where up is 3/4, and OK answers the question.
+    on_bars(&mut rig, 100);
+    for (sample, button) in [
+        (200, Button::Down),
+        (210, Button::Ok),
+        (220, Button::Up),
+        (230, Button::Ok),
+        (300, Button::Ok),
+    ] {
+        rig.tap(sample, button);
+    }
+    rig.step(310);
+    assert_eq!(
+        rig.control.project.signature,
+        Signature { beats: 3, unit: 4 }
+    );
+    assert_eq!(notes_in(&rig, track_1(&rig)), []);
+    versions(&mut rig);
+
+    rig.hit(400, 1, 100);
+    rig.step(410);
+
+    assert_eq!(notes_in(&rig, track_1(&rig)), []);
+    assert_eq!(count(&rig, syn_2), 0);
     assert_eq!(versions(&mut rig), []);
 }
 
