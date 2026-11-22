@@ -1,16 +1,17 @@
-//! STEP's lanes and the notes each track's sounds have, and its view of them: the data under STEP's
-//! main area.
+//! STEP's lanes and the notes each track's sounds have, its view of them (the data under STEP's
+//! main area) and the arrows, OK and CANCEL that move its cursor and act on its cells.
 
-use super::pattern::{count, entered, put};
+use super::pattern::{count, entered, fill_until, notes_in, put, ready, versions};
 use super::timing::{choose, on_bars, playing_4_bars};
 use super::*;
 use crate::control::lanes::Lane;
 use crate::control::step_view::{GRID_CELLS, LANES_SHOWN};
 use crate::control::view::StepCursor;
-use crate::project::FOUR_FOUR;
 use crate::project::pool::{Engine, Sample};
+use crate::project::{FOUR_FOUR, Signature};
 use crate::storage::Path;
 use crate::store::note::Note;
+use crate::store::{NOTE_BLOCKS, Tree};
 use crate::ui::step::{LaneView, Mark, StepPicture, draw_step};
 
 /// The current track's lanes.
@@ -538,4 +539,451 @@ fn the_music_line_redraws_as_it_moves() {
     assert!(rig.step(1_200));
     assert_eq!(rig.control.music_x(1_200), None);
     assert!(!rig.step(2_000));
+}
+
+/// A rig on STEP whose pattern has `bars` bars of `signature` and whose cursor is at `at`.
+fn shaped(
+    queue: &Queue<Message, MESSAGE_QUEUE>,
+    bars: u16,
+    signature: Signature,
+    at: StepCursor,
+) -> Rig<'_> {
+    let mut rig = Rig::new(queue);
+    rig.control.project.patterns[0].bars = bars;
+    rig.control.project.signature = signature;
+    rig.control.view.steps = at;
+    rig
+}
+
+fn place(bar: u16, step: u8) -> StepCursor {
+    StepCursor { bar, step }
+}
+
+/// Where the cursor is after a tap of `button` at `sample`, with SHIFT held when `shift`.
+fn arrow(rig: &mut Rig<'_>, sample: u64, button: Button, shift: bool) -> StepCursor {
+    if shift {
+        rig.press(sample, Button::Shift);
+    }
+    rig.tap(sample + 1, button);
+    if shift {
+        rig.let_go(sample + 3, Button::Shift);
+    }
+    rig.step(sample + 10);
+    rig.control.view.steps
+}
+
+/// The tree of track 1 of pattern 1.
+fn track_1(rig: &Rig<'_>) -> Tree {
+    rig.control.project.patterns[0].tracks[0]
+}
+
+/// `playing_4_bars`, with STEP shown again.
+fn playing_on_step(queue: &Queue<Message, MESSAGE_QUEUE>) -> Rig<'_> {
+    let mut rig = playing_4_bars(queue);
+    rig.menu(120, 0);
+    rig.step(130);
+    rig
+}
+
+#[test]
+fn left_and_right_skip_dark_cells_and_stop_at_the_ends() {
+    let queue = Queue::new();
+    // 3/4 has 12 sixteenths: cells 12 to 15 of each bar are dark.
+    let mut rig = shaped(&queue, 2, Signature { beats: 3, unit: 4 }, place(0, 11));
+
+    assert_eq!(arrow(&mut rig, 100, Button::Right, false), place(1, 0));
+    assert_eq!(arrow(&mut rig, 200, Button::Left, false), place(0, 11));
+    // The pattern's first and last sixteenth hold the cursor.
+    rig.control.view.steps = place(0, 0);
+    assert_eq!(arrow(&mut rig, 300, Button::Left, false), place(0, 0));
+    rig.control.view.steps = place(1, 11);
+    assert_eq!(arrow(&mut rig, 400, Button::Right, false), place(1, 11));
+
+    // The press of a held right moves from (0, 9) to (0, 10), and its repeats on to (0, 11), over
+    // the bar line to (1, 0) and to (1, 1).
+    rig.control.view.steps = place(0, 9);
+    rig.press(1_000, Button::Right);
+    rig.step(1_000 + REPEAT_DELAY + 2 * REPEAT_EVERY + 1);
+    assert_eq!(rig.control.view.steps, place(1, 1));
+}
+
+#[test]
+fn shift_jumps_a_page_and_takes_the_short_pages_last_sixteenth() {
+    let queue = Queue::new();
+    // 5/4 has 20 sixteenths: a bar takes 2 pages and 32 cells, the second with 4 lit.
+    let mut rig = shaped(&queue, 2, Signature { beats: 5, unit: 4 }, place(0, 10));
+
+    assert_eq!(arrow(&mut rig, 100, Button::Right, true), place(0, 19));
+    assert_eq!(arrow(&mut rig, 200, Button::Right, true), place(1, 3));
+    assert_eq!(arrow(&mut rig, 300, Button::Left, true), place(0, 19));
+    // Cell 3 of the first page has no page before it.
+    rig.control.view.steps = place(0, 3);
+    assert_eq!(arrow(&mut rig, 400, Button::Left, true), place(0, 3));
+    // From (1, 3) a page on is (1, 19), the last lit cell; a page past it leaves the pattern.
+    rig.control.view.steps = place(1, 3);
+    assert_eq!(arrow(&mut rig, 500, Button::Right, true), place(1, 19));
+    assert_eq!(arrow(&mut rig, 600, Button::Right, true), place(1, 19));
+    // A page back from (1, 5) is cell 21 of bar 1's second page: dark, so its last sixteenth.
+    rig.control.view.steps = place(1, 5);
+    assert_eq!(arrow(&mut rig, 700, Button::Left, true), place(0, 19));
+
+    // 16/4 has 64 sixteenths: four jumps cross one bar.
+    let queue = Queue::new();
+    let mut rig = shaped(&queue, 2, Signature { beats: 16, unit: 4 }, place(0, 0));
+    for (at, expected) in [
+        (100, place(0, 16)),
+        (200, place(0, 32)),
+        (300, place(0, 48)),
+    ] {
+        assert_eq!(arrow(&mut rig, at, Button::Right, true), expected);
+    }
+    assert_eq!(arrow(&mut rig, 400, Button::Right, true), place(1, 0));
+}
+
+#[test]
+fn up_and_down_select_the_lanes_sound() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    let syn_1 = rig.synth_on(0);
+    let syn_2 = rig.control.project.pool.new_synth().unwrap();
+    // Syn 2 sits on no pad and has a note: the 13th lane.
+    put(&mut rig, 0, 0, &[entered(0, syn_2, 60)]);
+    rig.step(10);
+    assert_eq!(rig.control.cursor_lane(), 0);
+
+    // Up at the first lane stays on it.
+    rig.tap(20, Button::Up);
+    rig.step(30);
+    assert_eq!(rig.track().selected_pad, Some(0));
+    assert_eq!(rig.track().selected_sound, Some(syn_1));
+
+    // Down selects the empty pad 2.
+    rig.tap(40, Button::Down);
+    rig.step(50);
+    assert_eq!(rig.track().selected_pad, Some(1));
+    assert_eq!(rig.track().selected_sound, None);
+    assert_eq!(rig.control.cursor_lane(), 1);
+    assert!(shows_step(
+        &rig.control,
+        &[("Step", ACCENT), ("T1", TEXT), ("2", DIM), ("Pads", DIM)]
+    ));
+
+    // SHIFT + down is 12 lanes, held at the last: Syn 2 on no pad.
+    rig.press(60, Button::Shift);
+    rig.tap(61, Button::Down);
+    rig.let_go(63, Button::Shift);
+    rig.step(70);
+    assert_eq!(rig.track().selected_pad, None);
+    assert_eq!(rig.track().selected_sound, Some(syn_2));
+    assert_eq!(rig.control.cursor_lane(), 12);
+
+    // Up goes back to pad 12, and SHIFT + up to pad 1.
+    rig.tap(80, Button::Up);
+    rig.step(90);
+    assert_eq!(rig.track().selected_pad, Some(11));
+    assert_eq!(rig.control.cursor_lane(), 11);
+    rig.press(100, Button::Shift);
+    rig.tap(101, Button::Up);
+    rig.let_go(103, Button::Shift);
+    rig.step(110);
+    assert_eq!(rig.track().selected_pad, Some(0));
+    assert_eq!(rig.control.cursor_lane(), 0);
+
+    // PADS/KEYS + up still moves the octave in KEYS mode.
+    rig.tap(120, Button::PadsKeys);
+    rig.press(130, Button::PadsKeys);
+    rig.tap(131, Button::Up);
+    rig.let_go(133, Button::PadsKeys);
+    rig.step(140);
+    assert_eq!(rig.track().octave, 5);
+    assert_eq!(rig.control.cursor_lane(), 0);
+}
+
+#[test]
+fn an_arrow_starts_from_the_bar_playing() {
+    let queue = Queue::new();
+    let mut rig = playing_on_step(&queue);
+
+    // Bar 3 plays from sample 192,100, and the cursor was in bar 1.
+    rig.step(200_000);
+    assert!(rig.control.view.following);
+    assert_eq!(rig.control.view.steps, place(0, 0));
+
+    assert_eq!(arrow(&mut rig, 200_100, Button::Right, false), place(2, 1));
+    assert!(rig.control.view.following);
+}
+
+#[test]
+fn an_arrow_into_another_bar_stops_following() {
+    let queue = Queue::new();
+    let mut rig = playing_on_step(&queue);
+    rig.step(200_000);
+
+    // Left from bar 3's first sixteenth is bar 2's last.
+    assert_eq!(arrow(&mut rig, 200_100, Button::Left, false), place(1, 15));
+    assert!(!rig.control.view.following);
+
+    // The next bar line, at 288,100, leaves the buttons and the header on bar 2.
+    rig.step(290_000);
+    assert_eq!(rig.control.shown_bar(290_000), 1);
+    let mut expected = Screen::new();
+    draw_header(
+        &mut expected,
+        &STEP_HEADER.map(|(text, color)| Piece { text, color }),
+        &["P1", "2/4 ▶4", "120.0"].map(|text| Piece { text, color: TEXT }),
+        false,
+    );
+    draw_strip(&mut expected, &[None; 4]);
+    assert!(shows_frame(&rig.control, &expected));
+
+    // Up and down move no cursor and keep following.
+    let queue = Queue::new();
+    let mut rig = playing_on_step(&queue);
+    rig.step(200_000);
+    rig.tap(200_100, Button::Down);
+    rig.tap(200_200, Button::Up);
+    rig.step(200_300);
+    assert!(rig.control.view.following);
+}
+
+#[test]
+fn ok_on_an_empty_cell_enters_and_on_notes_does_nothing() {
+    let queue = Queue::new();
+    let mut rig = shaped(&queue, 1, FOUR_FOUR, place(0, 4));
+    let syn_1 = rig.synth_on(0);
+
+    rig.tap(10, Button::Ok);
+    rig.step(20);
+
+    assert_eq!(notes_in(&rig, track_1(&rig)), [entered(4, syn_1, 60)]);
+    let sent = versions(&mut rig);
+    assert_eq!(sent.len(), 1);
+    assert_eq!(sent[0].tree, track_1(&rig));
+    assert_eq!(on_tracks(&rig, syn_1), [1, 0, 0, 0]);
+
+    // The cell has a note now.
+    rig.tap(30, Button::Ok);
+    rig.step(40);
+    assert_eq!(notes_in(&rig, track_1(&rig)).len(), 1);
+    assert_eq!(versions(&mut rig), []);
+
+    // In KEYS mode the last key sets the pitch: D4 on pad 3.
+    rig.tap(50, Button::PadsKeys);
+    rig.hit(60, 2, 100);
+    rig.release(70, 2);
+    rig.control.view.steps = place(0, 8);
+    rig.tap(80, Button::Ok);
+    rig.step(90);
+    assert_eq!(
+        notes_in(&rig, track_1(&rig)),
+        [entered(4, syn_1, 60), entered(8, syn_1, 62)]
+    );
+
+    // An empty pad's lane has no sound to enter.
+    rig.tap(100, Button::Down);
+    rig.control.view.steps = place(0, 12);
+    rig.tap(110, Button::Ok);
+    rig.step(120);
+    assert_eq!(notes_in(&rig, track_1(&rig)).len(), 2);
+    assert_eq!(count(&rig, syn_1), 2);
+}
+
+#[test]
+fn cancel_removes_the_cells_notes_when_let_go() {
+    let queue = Queue::new();
+    let mut rig = shaped(&queue, 1, FOUR_FOUR, place(0, 4));
+    let syn_1 = rig.synth_on(0);
+    put(
+        &mut rig,
+        0,
+        0,
+        &[entered(4, syn_1, 60), entered(4, syn_1, 64)],
+    );
+    rig.step(10);
+
+    // A long CANCEL removes nothing.
+    rig.press(100, Button::Cancel);
+    rig.let_go(100 + HOLD, Button::Cancel);
+    rig.step(200 + HOLD);
+    assert_eq!(count(&rig, syn_1), 2);
+
+    // A tap closes the Sound picker, which a push of encoder 1 opens, and removes nothing.
+    rig.tap(300 + HOLD, Button::Push(0));
+    rig.step(310 + HOLD);
+    assert!(rig.control.view.picker.is_some());
+    rig.tap(400 + HOLD, Button::Cancel);
+    rig.step(410 + HOLD);
+    assert!(rig.control.view.picker.is_none());
+    assert_eq!(count(&rig, syn_1), 2);
+    assert_eq!(versions(&mut rig), []);
+
+    // With the picker closed a tap removes both notes, whatever their pitch, when it is let go.
+    rig.press(500 + HOLD, Button::Cancel);
+    rig.step(510 + HOLD);
+    assert_eq!(count(&rig, syn_1), 2);
+    rig.let_go(520 + HOLD, Button::Cancel);
+    rig.step(530 + HOLD);
+    assert_eq!(notes_in(&rig, track_1(&rig)), []);
+    assert_eq!(count(&rig, syn_1), 0);
+    assert_eq!(on_tracks(&rig, syn_1), [0; 4]);
+    assert_eq!(versions(&mut rig).len(), 1);
+
+    // An empty cell: nothing.
+    rig.tap(600 + HOLD, Button::Cancel);
+    rig.step(610 + HOLD);
+    assert_eq!(versions(&mut rig), []);
+}
+
+#[test]
+fn cancel_acts_on_the_cell_it_showed_at_its_press() {
+    let queue = Queue::new();
+    let mut rig = playing_on_step(&queue);
+    let syn_1 = rig.synth_on(0);
+    // A note in the first sixteenth of bars 1 and 2.
+    let in_bar_2 = Note {
+        bar: 1,
+        ..entered(0, syn_1, 60)
+    };
+    put(&mut rig, 0, 0, &[entered(0, syn_1, 60), in_bar_2]);
+
+    // Bar 2 starts at sample 96,100: CANCEL goes down in bar 1 and up in bar 2.
+    rig.press(96_000, Button::Cancel);
+    rig.let_go(96_200, Button::Cancel);
+    rig.step(96_300);
+
+    assert_eq!(notes_in(&rig, track_1(&rig)), [in_bar_2]);
+}
+
+#[test]
+fn ok_and_cancel_let_go_of_the_trees_they_replace() {
+    let queue = Queue::new();
+    let mut rig = shaped(&queue, 1, FOUR_FOUR, place(0, 4));
+    rig.synth_on(0);
+
+    // OK in sixteenths 5 and 9, CANCEL in the 5th and OK in the 13th: two notes, in one block, are
+    // left, and every tree that each version replaced is free once its report is heard.
+    rig.tap(10, Button::Ok);
+    rig.step(20);
+    rig.control.view.steps = place(0, 8);
+    rig.tap(30, Button::Ok);
+    rig.step(40);
+    rig.control.view.steps = place(0, 4);
+    rig.tap(50, Button::Cancel);
+    rig.step(60);
+    rig.control.view.steps = place(0, 12);
+    rig.tap(70, Button::Ok);
+    rig.step(80);
+    assert_eq!(versions(&mut rig).len(), 4);
+
+    for number in 0..4 {
+        rig.applied(number, 100 + u64::from(number));
+    }
+    assert_eq!(ready(&rig), NOTE_BLOCKS - 1);
+}
+
+#[test]
+#[allow(unsafe_code)]
+fn cleared_and_added_chain_into_one_tree_and_one_version() {
+    let queue = Queue::new();
+    let mut rig = shaped(&queue, 1, FOUR_FOUR, place(0, 0));
+    let syn_1 = rig.synth_on(0);
+    put(
+        &mut rig,
+        0,
+        0,
+        &[entered(4, syn_1, 60), entered(8, syn_1, 60)],
+    );
+    let ready_before = ready(&rig);
+
+    // SAFETY: as in `Rig::step`, the version producer and the store live only for this block.
+    let (mut sent, mut store) = unsafe { (rig.versions.producer(), rig.notes.store()) };
+    let (tree, removed) = rig
+        .control
+        .cleared(track_1(&rig), place(0, 4), syn_1, None, &mut store);
+    let tree = rig.control.added(tree, place(0, 5), syn_1, 64, &mut store);
+    rig.control.edit(0, 0, tree, 10, &mut sent, &mut store);
+    store.release(tree, None);
+
+    assert_eq!(removed, 1);
+    assert_eq!(
+        notes_in(&rig, track_1(&rig)),
+        [entered(5, syn_1, 64), entered(8, syn_1, 60)]
+    );
+    assert_eq!(on_tracks(&rig, syn_1), [2, 0, 0, 0]);
+    assert_eq!(versions(&mut rig).len(), 1);
+    // The final tree's block took the place of the first tree's, and the tree between them is free.
+    assert_eq!(ready(&rig), ready_before);
+}
+
+#[test]
+fn a_step_acts_on_the_place_it_showed_at_its_press() {
+    let queue = Queue::new();
+    // 5/4: the second page of a bar shows sixteenths 16 to 19, and its steps 5 to 16 are dark.
+    let mut rig = shaped(&queue, 2, Signature { beats: 5, unit: 4 }, place(1, 17));
+    let syn_1 = rig.synth_on(0);
+
+    rig.press(10, Button::Step(2));
+    rig.step(15);
+    assert_eq!(rig.control.pressed[2], place(1, 18));
+    rig.let_go(20, Button::Step(2));
+    rig.step(30);
+    assert_eq!(
+        notes_in(&rig, track_1(&rig)),
+        [Note {
+            bar: 1,
+            ..entered(18, syn_1, 60)
+        }]
+    );
+    assert_eq!(rig.control.view.steps, place(1, 18));
+
+    // Step 5 is past the bar's end.
+    rig.tap(40, Button::Step(5));
+    rig.step(50);
+    assert_eq!(notes_in(&rig, track_1(&rig)).len(), 1);
+    assert_eq!(rig.control.view.steps, place(1, 18));
+}
+
+#[test]
+fn ok_and_cancel_under_the_reserve() {
+    let queue = Queue::new();
+    let mut rig = shaped(&queue, 1, FOUR_FOUR, place(0, 2));
+    let syn_1 = rig.synth_on(0);
+    put(
+        &mut rig,
+        0,
+        0,
+        &[entered(4, syn_1, 60), entered(9, syn_1, 60)],
+    );
+    rig.step(10);
+    fill_until(&rig, RESERVE - 1);
+    let before = track_1(&rig);
+
+    rig.tap(100, Button::Ok);
+    rig.step(110);
+
+    assert_eq!(track_1(&rig), before);
+    assert_eq!(versions(&mut rig), []);
+    assert_eq!(count(&rig, syn_1), 2);
+    assert!(shows_frame(
+        &rig.control,
+        &drawn(
+            &step_header("Syn 1"),
+            Some(("Not enough memory", RECORD)),
+            |_| {},
+            &[
+                Some(sound("Syn 1")),
+                Some(copy("on 1 pad")),
+                Some(engine("Synth")),
+                None
+            ],
+        )
+    ));
+
+    // A removal may use the reserve.
+    rig.control.view.steps = place(0, 4);
+    rig.tap(200, Button::Cancel);
+    rig.step(210);
+    assert_eq!(notes_in(&rig, track_1(&rig)), [entered(9, syn_1, 60)]);
+    assert_eq!(count(&rig, syn_1), 1);
+    assert_eq!(versions(&mut rig).len(), 1);
 }

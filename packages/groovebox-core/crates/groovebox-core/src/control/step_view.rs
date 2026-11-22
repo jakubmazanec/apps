@@ -131,13 +131,7 @@ impl Control {
     /// and lanes by one.
     pub(super) fn keep_step_view(&mut self, sample: u64) {
         let signature = self.project.signature;
-        let cursor = cell_of(
-            StepCursor {
-                bar: self.shown_bar(sample),
-                ..self.view.steps
-            },
-            signature,
-        );
+        let cursor = cell_of(self.cursor_at(sample), signature);
         let bars = self.project.patterns[usize::from(self.project.pattern)].bars;
         let view = self.view.step_view;
         self.view.step_view = StepView {

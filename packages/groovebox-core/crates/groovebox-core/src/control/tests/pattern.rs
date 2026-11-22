@@ -110,7 +110,7 @@ pub(super) fn put(rig: &mut Rig<'_>, pattern: usize, track: usize, notes: &[Note
 
 /// How many blocks of the note memory are ready.
 #[allow(unsafe_code)]
-fn ready(rig: &Rig<'_>) -> usize {
+pub(super) fn ready(rig: &Rig<'_>) -> usize {
     // SAFETY: the store lives while no step runs.
     unsafe { rig.notes.store() }.ready()
 }

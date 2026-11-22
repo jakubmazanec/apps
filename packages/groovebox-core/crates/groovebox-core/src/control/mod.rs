@@ -51,7 +51,7 @@ use lanes::Lane;
 use notes::{Notes, Source};
 use pages::{ItemDef, ItemKind, MENU, PageDef, Picture, TIMING, pages};
 use samples::Deleting;
-use step_view::{GRID_CELLS, LANES_SHOWN, cell_of, cells};
+use step_view::{GRID_CELLS, LANES_SHOWN, PAGE, cell_of, cells, place_of};
 use view::{
     Cursor, Pick, Picker, Question, Screen, StepCursor, View, menu_tiles, moved, page_tiles,
 };
@@ -196,8 +196,11 @@ pub struct Control {
     /// What each cell of STEP's shown lanes holds, by lane and then by column from the view's first
     /// cell, as the latest step that asked for a redraw left it (S6).
     marks: [[Option<Mark>; GRID_CELLS]; LANES_SHOWN],
-    /// The bar the step buttons showed when each step last went down, on which its tap acts (S17).
-    pressed_bars: [u16; 16],
+    /// The bar and sixteenth each step button showed when it last went down, on which its tap acts
+    /// (S16).
+    pressed: [StepCursor; 16],
+    /// The cell the cursor showed when CANCEL last went down, on which its tap acts (S11).
+    cancel_at: StepCursor,
     /// The bytes that the blocks of the note memory in use cost (`Store::used`), as the latest step
     /// left them: the Dev page shows them.
     note_memory: u64,
@@ -250,7 +253,8 @@ impl Control {
             moment: 0,
             step_notes: 0,
             marks: [[None; GRID_CELLS]; LANES_SHOWN],
-            pressed_bars: [0; 16],
+            pressed: [StepCursor { bar: 0, step: 0 }; 16],
+            cancel_at: StepCursor { bar: 0, step: 0 },
             note_memory: 0,
             waveform: None,
             view: View::new(),
@@ -963,10 +967,12 @@ impl Control {
     /// other controls act as with a picker open.
     ///
     /// Otherwise the arrows, - and + nudge (`nudge`), OK uses the item under the cursor, or acts on
-    /// SAMPLES' row (`ok_in_samples`) or POOL's (`ok_in_pool`), and an encoder push the item its
+    /// SAMPLES' row (`ok_in_samples`) or POOL's (`ok_in_pool`), or on STEP enters a note in the
+    /// cursor's cell where none starts (`enter_note`, S10), and an encoder push the item its
     /// encoder holds. PLAY and SHIFT + PLAY start or jump (`play`) and STOP stops (`stop`), also
     /// while MENU or PAGE is held. A step and TEMPO act when they are let go (`release`), a step on
-    /// the bar the buttons show at its press (`pressed_bars`, S17).
+    /// the bar and sixteenth it showed at its press (`pressed`, S16), and so does CANCEL on STEP, on
+    /// the cell the cursor showed at its press (`cancel_at`, S11).
     fn press(
         &mut self,
         button: Button,
@@ -1234,6 +1240,9 @@ impl Control {
                 self.ok_in_samples(sample, messages);
             }
             Button::Ok if self.view.screen == Screen::Pool => self.ok_in_pool(),
+            Button::Ok if self.view.screen == Screen::Step => {
+                self.enter_note(self.cursor_at(sample), sample, versions, store);
+            }
             Button::Ok => {
                 let screen = self.view.screen;
                 if let Some(&item) = self.items(screen).get(self.cursor(screen).item) {
@@ -1245,7 +1254,13 @@ impl Control {
                     self.use_item(item, sample, messages);
                 }
             }
-            Button::Step(step) => self.pressed_bars[usize::from(step)] = self.shown_bar(sample),
+            Button::Step(step) => {
+                self.pressed[usize::from(step)] = StepCursor {
+                    step: self.view.steps.step / 16 * 16 + step,
+                    ..self.cursor_at(sample)
+                };
+            }
+            Button::Cancel => self.cancel_at = self.cursor_at(sample),
             _ => {}
         }
     }
@@ -1258,7 +1273,13 @@ impl Control {
     /// stopping at the ends, and - and + move the value under it by a click, a fine one while SHIFT
     /// is held. SHIFT + an arrow does nothing outside STEP, and left and right do nothing on a page
     /// of one column. None of them gets here while MENU or PAGE is held (`press`). STEP has no
-    /// page, and its own arrows, - and + come with the sequencer.
+    /// page, and - and + do nothing there. Its left and right move the cursor one sixteenth, over
+    /// dark cells into the next or previous bar, and with SHIFT a page of 16 cells to the same
+    /// place on that page or its last sixteenth where it is shorter; a move that would leave the
+    /// pattern does nothing. They start from the cursor as shown (`cursor_at`), and one into
+    /// another bar stops following, the cursor keeping that bar. Its up and down select the sound
+    /// of the lane a lane above or below, SHIFT 12 lanes, stopping at the first and last, as a hit
+    /// of a pad selects it or as POOL selects a sound (S9).
     fn nudge(
         &mut self,
         button: Button,
@@ -1288,6 +1309,54 @@ impl Control {
                 _ if shift => {}
                 Screen::Samples => self.move_in_samples(button, sample, messages),
                 _ => self.move_in_pool(button),
+            }
+            return;
+        }
+        if screen == Screen::Step {
+            match button {
+                Button::Left | Button::Right => {
+                    let signature = self.project.signature;
+                    let cursor = self.cursor_at(sample);
+                    let cell = cell_of(cursor, signature);
+                    let total = cells(
+                        self.project.patterns[usize::from(self.project.pattern)].bars,
+                        signature,
+                    );
+                    // A page may be shorter than 16 sixteenths: its dark cells land on its last.
+                    let jumped = |cell: u32| StepCursor {
+                        bar: (cell / cells(1, signature)) as u16,
+                        step: (cell % cells(1, signature)).min(signature.sixteenths() - 1) as u8,
+                    };
+                    let moved = match (button == Button::Left, shift) {
+                        (true, false) => (0..cell).rev().find_map(|cell| place_of(cell, signature)),
+                        (false, false) => {
+                            (cell + 1..total).find_map(|cell| place_of(cell, signature))
+                        }
+                        (true, true) => cell.checked_sub(PAGE).map(jumped),
+                        (false, true) => (cell + PAGE < total).then(|| jumped(cell + PAGE)),
+                    }
+                    .unwrap_or(cursor);
+                    self.view.following &= moved.bar == cursor.bar;
+                    self.view.steps = moved;
+                }
+                Button::Up | Button::Down => {
+                    let by = if shift { 12 } else { 1 };
+                    let lane = self.cursor_lane();
+                    let lane = if button == Button::Up {
+                        lane.saturating_sub(by)
+                    } else {
+                        (lane + by).min(self.lanes().count() - 1)
+                    };
+                    let lane = self
+                        .lanes()
+                        .nth(lane)
+                        .expect("the lane is one of the lanes");
+                    match lane {
+                        Lane::Pad(pad) => self.track_mut().select(pad),
+                        Lane::Extra(sound) => self.track_mut().select_sound(sound),
+                    }
+                }
+                _ => {}
             }
             return;
         }
@@ -1861,10 +1930,20 @@ impl Control {
             })
     }
 
+    /// The step cursor as shown at `sample`: the bar the step buttons show (`shown_bar`) and the
+    /// cursor's sixteenth.
+    fn cursor_at(&self, sample: u64) -> StepCursor {
+        StepCursor {
+            bar: self.shown_bar(sample),
+            ..self.view.steps
+        }
+    }
+
     /// A button goes up. A tap of PADS/KEYS switches the current track's pad mode, a tap of a step
     /// enters or removes notes (`tap_step`) and a tap of TEMPO turns the metronome on or off, also
     /// while MENU or PAGE is held. A tap of CANCEL closes the picker without choosing, answers the
-    /// question no or, on SAMPLES and in the sample picker, goes up (`cancel_in_samples`).
+    /// question no or, on SAMPLES and in the sample picker, goes up (`cancel_in_samples`), and on
+    /// STEP removes the notes of the cell the cursor showed at its press (`remove_notes`).
     fn release(
         &mut self,
         button: Button,
@@ -1902,6 +1981,9 @@ impl Control {
             }
             (Button::Cancel, Release::Tap) if self.view.screen == Screen::Samples => {
                 self.cancel_in_samples(sample, messages);
+            }
+            (Button::Cancel, Release::Tap) if self.view.screen == Screen::Step => {
+                self.remove_notes(self.cancel_at, sample, versions, store);
             }
             _ => {}
         }
