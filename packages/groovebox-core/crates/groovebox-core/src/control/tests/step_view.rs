@@ -1455,3 +1455,251 @@ fn a_turn_under_the_reserve_changes_nothing() {
         )
     ));
 }
+
+#[test]
+fn a_pad_under_a_held_step_adds_or_removes_its_sound_there() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    let syn_1 = rig.synth_on(0);
+    let syn_2 = rig.synth_on(1);
+    rig.press(10, Button::Step(0));
+
+    rig.hit(20, 1, 90);
+    rig.release(25, 1);
+    rig.step(30);
+
+    assert_eq!(notes_in(&rig, track_1(&rig)), [entered(0, syn_2, 60)]);
+    assert_eq!(on_tracks(&rig, syn_2), [1, 0, 0, 0]);
+    assert_eq!(versions(&mut rig).len(), 1);
+    // It sounds as usual and selects nothing.
+    assert_eq!(
+        rig.sent(),
+        [
+            message(0, 20, note_on(0, 0, syn_2, 60, 90)),
+            message(2, 25, note_off(0))
+        ]
+    );
+    assert_eq!(rig.track().selected_pad, Some(0));
+    assert_eq!(rig.track().selected_sound, Some(syn_1));
+    assert_eq!(rig.control.cursor_lane(), 0);
+
+    rig.hit(40, 1, 90);
+    rig.step(50);
+
+    assert_eq!(notes_in(&rig, track_1(&rig)), []);
+    assert_eq!(on_tracks(&rig, syn_2), [0; 4]);
+    assert_eq!(versions(&mut rig).len(), 1);
+
+    // The step's release is no tap, so it enters nothing for Syn 1.
+    rig.let_go(60, Button::Step(0));
+    rig.step(70);
+    assert_eq!(notes_in(&rig, track_1(&rig)), []);
+    assert_eq!(versions(&mut rig), []);
+    assert_eq!(on_tracks(&rig, syn_1), [0; 4]);
+}
+
+#[test]
+fn a_key_under_a_held_step_adds_or_removes_its_pitch() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    let syn_1 = rig.synth_on(0);
+    rig.tap(0, Button::PadsKeys);
+    // Steps 1 and 3 held, then C4 and E4.
+    rig.press(10, Button::Step(0));
+    rig.press(11, Button::Step(2));
+    rig.hit(20, 0, 100);
+    rig.release(21, 0);
+    rig.hit(30, 4, 100);
+    rig.release(31, 4);
+    rig.step(40);
+
+    assert_eq!(
+        notes_in(&rig, track_1(&rig)),
+        [
+            entered(0, syn_1, 60),
+            entered(0, syn_1, 64),
+            entered(2, syn_1, 60),
+            entered(2, syn_1, 64)
+        ]
+    );
+    assert_eq!(on_tracks(&rig, syn_1), [4, 0, 0, 0]);
+    assert_eq!(versions(&mut rig).len(), 2);
+
+    // E4 again removes E4 from both steps and keeps C4.
+    rig.hit(50, 4, 100);
+    rig.release(51, 4);
+    rig.step(60);
+
+    assert_eq!(
+        notes_in(&rig, track_1(&rig)),
+        [entered(0, syn_1, 60), entered(2, syn_1, 60)]
+    );
+    assert_eq!(on_tracks(&rig, syn_1), [2, 0, 0, 0]);
+    assert_eq!(versions(&mut rig).len(), 1);
+    assert_eq!(rig.track().last_key, Some(64));
+    assert_eq!(rig.track().selected_pad, Some(0));
+}
+
+#[test]
+fn each_held_step_toggles_on_its_own() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    rig.synth_on(0);
+    let syn_2 = rig.synth_on(1);
+    put(&mut rig, 0, 0, &[entered(0, syn_2, 60)]);
+    rig.press(10, Button::Step(0));
+    rig.press(11, Button::Step(2));
+
+    rig.hit(20, 1, 100);
+    rig.step(30);
+
+    assert_eq!(notes_in(&rig, track_1(&rig)), [entered(2, syn_2, 60)]);
+    assert_eq!(count(&rig, syn_2), 1);
+    assert_eq!(on_tracks(&rig, syn_2), [1, 0, 0, 0]);
+    assert_eq!(versions(&mut rig).len(), 1);
+}
+
+#[test]
+fn held_steps_on_one_sixteenth_toggle_it_once() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    let syn_1 = rig.synth_on(0);
+    put(&mut rig, 0, 0, &[entered(0, syn_1, 60)]);
+    // POSITION moves the note onto the second sixteenth, and step 2, pressed after the move, stands
+    // for it as step 1 does.
+    rig.press(10, Button::Step(0));
+    rig.turn(20, 3, 1);
+    rig.press(30, Button::Step(1));
+    rig.step(40);
+    assert_eq!(rig.control.held[..2], [place(0, 1), place(0, 1)]);
+    versions(&mut rig);
+
+    rig.hit(50, 0, 100);
+    rig.release(51, 0);
+    rig.step(60);
+
+    assert_eq!(notes_in(&rig, track_1(&rig)), []);
+    assert_eq!(on_tracks(&rig, syn_1), [0; 4]);
+    assert_eq!(versions(&mut rig).len(), 1);
+
+    rig.hit(70, 0, 100);
+    rig.step(80);
+
+    assert_eq!(notes_in(&rig, track_1(&rig)), [entered(1, syn_1, 60)]);
+    assert_eq!(on_tracks(&rig, syn_1), [1, 0, 0, 0]);
+    assert_eq!(versions(&mut rig).len(), 1);
+}
+
+#[test]
+fn an_empty_pad_or_a_picker_under_a_held_step_adds_nothing() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    rig.synth_on(0);
+    rig.synth_on(1);
+
+    // An empty pad sounds nothing and selects nothing, and the step's release enters nothing.
+    rig.press(10, Button::Step(0));
+    rig.hit(20, 2, 100);
+    rig.release(30, 2);
+    rig.let_go(40, Button::Step(0));
+    rig.step(50);
+    assert_eq!(rig.sent(), []);
+    assert_eq!(notes_in(&rig, track_1(&rig)), []);
+    assert_eq!(versions(&mut rig), []);
+    assert_eq!(rig.track().selected_pad, Some(0));
+
+    // KEYS mode with the empty pad 3 selected: a key is the last key and adds nothing.
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    rig.synth_on(0);
+    rig.hit(10, 2, 100);
+    rig.release(20, 2);
+    rig.tap(30, Button::PadsKeys);
+    rig.press(40, Button::Step(0));
+    rig.hit(50, 0, 100);
+    rig.release(60, 0);
+    rig.let_go(70, Button::Step(0));
+    rig.step(80);
+    assert_eq!(rig.track().selected_sound, None);
+    assert_eq!(rig.track().last_key, Some(60));
+    assert_eq!(rig.sent(), []);
+    assert_eq!(notes_in(&rig, track_1(&rig)), []);
+    assert_eq!(versions(&mut rig), []);
+
+    // With the sound picker open a hit only plays.
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    rig.synth_on(0);
+    let syn_2 = rig.synth_on(1);
+    rig.menu(0, 2);
+    rig.press(10, Button::Step(0));
+    rig.tap(20, Button::Ok);
+    rig.hit(30, 1, 100);
+    rig.step(40);
+    assert!(matches!(rig.control.view.picker, Some((Picker::Sound, _))));
+    assert_eq!(rig.sent(), [message(0, 30, note_on(0, 0, syn_2, 60, 100))]);
+    assert_eq!(notes_in(&rig, track_1(&rig)), []);
+    assert_eq!(versions(&mut rig), []);
+    assert_eq!(rig.track().selected_pad, Some(0));
+}
+
+#[test]
+fn a_hit_under_a_held_step_removes_but_does_not_add_under_the_reserve() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    let syn_1 = rig.synth_on(0);
+    let syn_2 = rig.synth_on(1);
+    // Syn 1's note shares Syn 2's block, so the removal copies it.
+    put(
+        &mut rig,
+        0,
+        0,
+        &[entered(0, syn_2, 60), entered(8, syn_1, 60)],
+    );
+    rig.press(10, Button::Step(0));
+    rig.press(11, Button::Step(2));
+    rig.step(20);
+    fill_until(&rig, RESERVE - 1);
+
+    rig.hit(30, 1, 100);
+    rig.step(40);
+
+    assert_eq!(notes_in(&rig, track_1(&rig)), [entered(8, syn_1, 60)]);
+    assert_eq!(on_tracks(&rig, syn_2), [0; 4]);
+    assert_eq!(versions(&mut rig).len(), 1);
+    assert!(shows_frame(
+        &rig.control,
+        &drawn(
+            &step_header("Syn 1"),
+            Some(("Not enough memory", RECORD)),
+            |_| {},
+            &[None; 4],
+        )
+    ));
+}
+
+#[test]
+fn sixteen_held_steps_send_one_version() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    rig.synth_on(0);
+    let syn_2 = rig.synth_on(1);
+    for step in 0..16 {
+        rig.press(10 + u64::from(step), Button::Step(step));
+    }
+
+    rig.hit(30, 1, 100);
+    rig.step(40);
+
+    assert_eq!(
+        notes_in(&rig, track_1(&rig)),
+        (0..16).map(|at| entered(at, syn_2, 60)).collect::<Vec<_>>()
+    );
+    assert_eq!(on_tracks(&rig, syn_2), [16, 0, 0, 0]);
+    let sent = versions(&mut rig);
+    assert_eq!(sent.len(), 1);
+    assert!(sent.len() <= MAX_VERSIONS_PER_EVENT);
+    // Every tree between the track's and the final one is free, and the final one has one block.
+    rig.applied(sent[0].number, 50);
+    assert_eq!(ready(&rig), NOTE_BLOCKS - 1);
+}

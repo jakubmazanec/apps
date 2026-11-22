@@ -540,8 +540,9 @@ fn a_long_press_or_a_used_hold_does_nothing() {
     rig.press(100, Button::Step(4));
     rig.let_go(100 + HOLD, Button::Step(4));
     rig.press(20_000, Button::Step(4));
-    rig.hit(20_010, 0, 100);
-    rig.release(20_020, 0);
+    // A hit of pad 1 would add its sound under the held step; the empty pad 2 only uses the hold.
+    rig.hit(20_010, 1, 100);
+    rig.release(20_020, 1);
     rig.let_go(20_030, Button::Step(4));
 
     rig.step(30_000);

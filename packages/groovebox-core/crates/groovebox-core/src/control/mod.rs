@@ -781,6 +781,8 @@ impl Control {
                     velocity,
                     sample,
                     messages,
+                    versions,
+                    store,
                 );
             }
             // A MIDI note is no control of the device, so it uses no held button. In KEYS mode it
@@ -795,6 +797,8 @@ impl Control {
                     velocity,
                     sample,
                     messages,
+                    versions,
+                    store,
                 );
             }
             Input::PadRelease { pad } => self.end(Source::Pad(pad), sample, messages),
@@ -838,11 +842,16 @@ impl Control {
     /// A hit from `source`. In PADS mode it hits `pad`: it plays the pad's sound at its own pitch,
     /// C4 for a synth, where it sounds unchanged, and its Root note for a sample sound, where it
     /// sounds as recorded (S2), and selects the pad and its sound unless a picker or a question is
-    /// open, as a new selection would change what it is for; a selected pad lands POOL's cursor
-    /// (`land_on_selection`). In KEYS mode it is the key of the pitch `key`: that becomes the last
-    /// key played, and it plays the selected sound at that pitch. With no sound it plays nothing,
-    /// and neither does a source that has a note on already. Its note plays the sound's
-    /// `note_engine`.
+    /// open, as a new selection would change what it is for, or a step is held; a selected pad
+    /// lands POOL's cursor (`land_on_selection`). In KEYS mode it is the key of the pitch `key`:
+    /// that becomes the last key played, and it plays the selected sound at that pitch. With no
+    /// sound it plays nothing, and neither does a source that has a note on already. Its note
+    /// plays the sound's `note_engine`. With a step held and no picker or question open, what
+    /// sounds also goes in or out of each held step's notes (`toggle_held`, S15).
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "a hit writes the message queue, the version queue and the note memory"
+    )]
     fn hit(
         &mut self,
         source: Source,
@@ -851,12 +860,16 @@ impl Control {
         velocity: u8,
         sample: u64,
         messages: &mut Producer<'_, Message, MESSAGE_QUEUE>,
+        versions: &mut Producer<'_, Version, VERSION_QUEUE>,
+        store: &mut Store<'_>,
     ) {
         let open = self.view.picker.is_some() || self.view.question.is_some();
+        let held = !open && self.held_steps().next().is_some();
+        let selecting = !open && !held;
         let track = self.track_mut();
         let (pad, key, sound) = match track.mode {
             PadMode::Pads => {
-                if !open {
+                if selecting {
                     track.select(pad);
                 }
                 (Some(pad), None, track.pads[usize::from(pad)])
@@ -866,7 +879,7 @@ impl Control {
                 (None, Some(key), track.selected_sound)
             }
         };
-        if pad.is_some() && !open {
+        if pad.is_some() && selecting {
             self.land_on_selection();
         }
         let Some(sound) = sound else {
@@ -901,6 +914,9 @@ impl Control {
             },
             messages,
         );
+        if held {
+            self.toggle_held(sound, pitch, sample, versions, store);
+        }
     }
 
     /// What a note of `sound` plays: the synth, or a sample sound's file while the audio part may

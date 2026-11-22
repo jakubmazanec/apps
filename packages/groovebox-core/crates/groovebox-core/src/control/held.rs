@@ -1,5 +1,6 @@
 //! Held steps and the NOTE strip, whose encoders change the pitch, velocity, length and position
-//! of the selected sound's notes in the held steps' sixteenths (Workflow B).
+//! of the selected sound's notes in the held steps' sixteenths, and whose steps a pad or key hit
+//! adds a sound or pitch to or removes it from (Workflow B).
 
 use super::Control;
 use super::pages::ItemKind;
@@ -8,6 +9,8 @@ use super::view::StepCursor;
 use crate::input::{Button, STEPS};
 use crate::message::{VERSION_QUEUE, Version};
 use crate::palette::RECORD;
+use crate::project::pool::SoundNumber;
+use crate::project::track::PadMode;
 use crate::queue::Producer;
 use crate::store::note::Note;
 use crate::store::{RESERVE, Store};
@@ -244,6 +247,61 @@ impl Control {
             store,
         );
         store.release(tree, None);
+    }
+
+    /// A hit of `sound` at `pitch` under held steps (S15). On each sixteenth the held steps stand
+    /// for, the earlier step owning one that two share, it removes the notes of `sound` there, of
+    /// `pitch` in KEYS mode and of every pitch in PADS mode, or where it removed none adds a
+    /// step-entered note at `pitch`. Once fewer than `RESERVE` blocks are free no note goes in and
+    /// "Not enough memory" shows in red, while the removals go ahead. The changes are one new tree
+    /// and one version, and a hit that changes nothing sends none.
+    pub(super) fn toggle_held(
+        &mut self,
+        sound: SoundNumber,
+        pitch: u8,
+        sample: u64,
+        versions: &mut Producer<'_, Version, VERSION_QUEUE>,
+        store: &mut Store<'_>,
+    ) {
+        let mut steps = [None; STEPS as usize];
+        for (step, place) in self.held_steps() {
+            steps[usize::from(step)] = Some(place);
+        }
+        let old = self.track_tree();
+        let mut tree = old;
+        for (step, place) in steps.iter().enumerate() {
+            // A step pressed where an earlier one's notes lie shares them, and they toggle once.
+            let Some(place) = place.filter(|place| !steps[..step].contains(&Some(*place))) else {
+                continue;
+            };
+            let (kept, removed) = self.cleared(
+                tree,
+                place,
+                sound,
+                (self.track().mode == PadMode::Keys).then_some(pitch),
+                store,
+            );
+            tree = kept;
+            if removed > 0 {
+                continue;
+            }
+            if store.free() < RESERVE {
+                self.say("Not enough memory", RECORD);
+            } else {
+                tree = self.added(tree, place, sound, pitch, store);
+            }
+        }
+        if tree != old {
+            self.edit(
+                self.project.pattern,
+                self.project.track,
+                tree,
+                sample,
+                versions,
+                store,
+            );
+            store.release(tree, None);
+        }
     }
 }
 
