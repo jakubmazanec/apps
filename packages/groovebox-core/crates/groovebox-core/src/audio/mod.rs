@@ -2368,11 +2368,18 @@ mod tests {
 
         // The level glides over 128 samples.
         let (full, quarter) = (at_level(65_535), at_level(32_768));
-        let clipped: Vec<f32> = click.iter().map(|&x| soft_clip(x) * volume).collect();
 
         // The click is loud enough for the clipper to bend it.
         assert!(peak(&click) > 0.5, "peak {}", peak(&click));
-        assert_eq!(bits(&full[128..]), bits(&clipped[128..]));
+        assert_eq!(
+            bits(&full[128..]),
+            bits(
+                &click[128..]
+                    .iter()
+                    .map(|&x| soft_clip(x) * volume)
+                    .collect::<Vec<f32>>()
+            )
+        );
         for (quarter, x) in quarter[128..].iter().zip(&click[128..]) {
             assert!(
                 libm::fabsf(quarter - x / 4.0 * volume) < 1e-4,
@@ -2420,17 +2427,20 @@ mod tests {
         rig.send(0, 0, new_sound(1));
         rig.send(1, 0, play(0));
         rig.version(2, 0, 0, &[step(0), step(4)]);
-        let run = Run {
-            anchor: 3_012,
-            tick: 241,
-            tempo: 6_000,
-        };
-        rig.send(3, 3_000, MessageKind::Tempo { run });
-
-        let out = rig.render(45_024);
+        rig.send(
+            3,
+            3_000,
+            MessageKind::Tempo {
+                run: Run {
+                    anchor: 3_012,
+                    tick: 241,
+                    tempo: 6_000,
+                },
+            },
+        );
 
         assert_eq!(
-            bits(&out),
+            bits(&rig.render(45_024)),
             played_at(&[0, 3_012 + (1_920 - 241) * 150_000 / 6_000], 45_024)
         );
     }
@@ -2442,18 +2452,21 @@ mod tests {
         rig.send(0, 0, new_sound(1));
         rig.send(1, 0, play(0));
         rig.version(2, 0, 0, &[step(0)]);
-        let meter = Meter {
-            tick: 7_680,
-            bar: 0,
-            bars: 1,
-            signature: Signature { beats: 3, unit: 4 },
-        };
-        rig.send(3, 50_000, MessageKind::Meter { meter });
-
-        let out = rig.render(168_032);
+        rig.send(
+            3,
+            50_000,
+            MessageKind::Meter {
+                meter: Meter {
+                    tick: 7_680,
+                    bar: 0,
+                    bars: 1,
+                    signature: Signature { beats: 3, unit: 4 },
+                },
+            },
+        );
 
         assert_eq!(
-            bits(&out),
+            bits(&rig.render(168_032)),
             played_at(&[0, 96_000, 96_000 + 72_000], 168_032)
         );
     }

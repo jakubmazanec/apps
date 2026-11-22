@@ -168,9 +168,10 @@ impl Control {
             let old = trim.tree.unwrap_or(
                 self.project.patterns[usize::from(trim.pattern)].tracks[usize::from(trim.track)],
             );
-            let pool = &mut self.project.pool;
             let new = store.remove(old, from, to, |note| {
-                pool.get_mut(note.sound)
+                self.project
+                    .pool
+                    .get_mut(note.sound)
                     .expect("a note's sound is in the pool")
                     .notes -= 1;
                 true

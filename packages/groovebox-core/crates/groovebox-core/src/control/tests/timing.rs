@@ -1,6 +1,6 @@
 //! The PATTERN screen's Timing page, the tempo, TEMPO and the metronome; its Bars page with LENGTH
-//! and SIGNATURE; the removal of the notes they no longer fit; following the music, and long and
-//! short bars on the step buttons.
+//! and SIGNATURE; the removal of the notes they no longer fit; following the music; long and short
+//! bars on the step buttons.
 
 use super::library::row;
 use super::pattern::{count, entered, fill_until, notes_in, put, versions};
@@ -49,8 +49,8 @@ fn timing_cells(tempo: &str, filled: u64) -> [Option<ItemView<'_>>; 4] {
     ]
 }
 
-/// PATTERN's Timing page of a stopped new project, with Tempo at `tempo`, its bar filled `filled`
-/// of 27,000, here, in the header and in the strip, and the cursor on item `cursor`.
+/// PATTERN's Timing page of a stopped new project, with Tempo at `tempo` here, in the header and
+/// in the strip, its bar filled `filled` of 27,000 and the cursor on item `cursor`.
 fn timing(tempo: &str, filled: u64, cursor: i32) -> Screen {
     let cells = timing_cells(tempo, filled);
     let [left, right]: [Vec<Piece>; 2] = [
@@ -1336,7 +1336,6 @@ fn each_current_track_is_published_once_when_memory_is_plenty() {
         bar,
         ..entered(sixteenth, synth, 60)
     };
-    let tails = [at(0, 13), at(1, 12), at(2, 15), at(3, 14)];
     put(
         &mut rig,
         0,
@@ -1344,7 +1343,12 @@ fn each_current_track_is_published_once_when_memory_is_plenty() {
         &[at(0, 0), at(0, 13), at(1, 12), at(2, 15), at(3, 14)],
     );
     put(&mut rig, 0, 1, &[at(1, 0), at(3, 11)]);
-    put(&mut rig, 0, 2, &tails);
+    put(
+        &mut rig,
+        0,
+        2,
+        &[at(0, 13), at(1, 12), at(2, 15), at(3, 14)],
+    );
 
     choose(&mut rig, 200, 1, &[Button::Up]);
     rig.tap(300, Button::Ok);

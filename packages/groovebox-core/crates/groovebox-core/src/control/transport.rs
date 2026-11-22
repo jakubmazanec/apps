@@ -36,8 +36,8 @@ impl Control {
     }
 
     /// STOP at its press: while playing the cursor stays on the bar the step buttons show
-    /// (`shown_bar`, S16), the pattern stops and its sounding notes end with their own release, and
-    /// the preview plays on; while stopped every voice fades within one chunk and the preview stops
+    /// (`shown_bar`, S16), the pattern stops, its sounding notes end with their own release and the
+    /// preview plays on; while stopped every voice fades within one chunk and the preview stops
     /// (S9). The control part's own sequencer stops too.
     pub(super) fn stop(
         &mut self,

@@ -212,10 +212,10 @@ Rejected:
 - **Lengthening adds empty bars.**
 - **A note that starts inside a bar and lasts past its end** keeps its length and rings into the
   next bar.
-- **While playing,** a new signature takes hold at the next bar line, so the bar being played never
-  changes under the playhead, and a playhead past a new shorter length wraps to bar 1 at the next
-  bar line **(the Project model's call)**. A change made while another still waits for its bar line
-  takes that same bar line and replaces it, so at most one change waits.
+- **While playing,** a new length or signature takes hold at the next bar line, so the bar being
+  played never changes under the playhead, and a playhead past a new shorter length wraps to bar 1
+  at the next bar line **(the Project model's call)**. A change made while another still waits for
+  its bar line takes that same bar line and replaces it, so at most one change waits.
 - **Hidden notes come later.** Shrinking would then keep the notes that no longer fit, silent, and
   play them again when the bar or the pattern grows. A note hidden past a bar's end sits inside the
   pattern, where its tick time would overlap the next bar, so the note store would have to keep its

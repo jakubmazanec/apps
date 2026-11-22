@@ -356,7 +356,7 @@ shows the filter's curve with a faint line at the cutoff. Richer graphics come l
 - **PATTERN**: Timing and Bars as pages (headers "Pattern Timing" and "Pattern Bars"); Timing,
   PAGE + 1, holds Tempo on encoder 1 and Grid on 2 until Swing and Quantize are built, and Bars,
   PAGE + 2, holds Length on 1 and Signature on 2; the Patterns page lists New, then every pattern
-  with its bars and note count, playing and queued marked, empty ones dim; the strip empty.
+  with its bars and note count, playing and queued marked, empty ones dim; its strip empty.
 - **SAMPLES**: the library by folder, in the sample picker's order, with a folder as its name and
   "/" and a file as its stored name with ".wav", its length and size dim at the right; a file
   start-up could not load in red with "not loaded". Inside a folder a dim line names the folder and

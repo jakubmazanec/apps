@@ -11,6 +11,7 @@ use crate::library::{self, name};
 use crate::palette::{ACCENT, BACKGROUND, DIM, FAINT, NOTE_MID, RECORD, TEXT};
 use crate::param::{
     self, BP, CUTOFF, Curve, END, HP, LP_12, LP_24, METRONOME, MODE, ParamId, RESONANCE, START,
+    TEMPO,
 };
 use crate::project::pool::{Engine, NAME_BYTES, Sample, Sound, SoundNumber};
 use crate::project::track::PadMode;
@@ -655,7 +656,7 @@ impl Control {
     /// The header's transport (S11): the current pattern ("P1"), the bar the step buttons show
     /// (`shown_bar`) over the pattern's length ("1/1"), with "▶" and the bar the music is in while
     /// playing ("1/1 ▶1") and the tempo with one decimal ("120.0").
-    fn transport(&self, out: &mut [Label<24>; 3]) {
+    fn transport(&self, out: &mut [Label<16>; 3]) {
         let [pattern, bar, tempo] = out;
         write!(pattern, "P{}", self.project.pattern + 1).expect("writing to a label never fails");
         write!(
@@ -668,8 +669,7 @@ impl Control {
         if let Some((playing, _)) = self.player.at(self.now) {
             write!(bar, " ▶{}", playing + 1).expect("writing to a label never fails");
         }
-        let tenths = (self.project.tempo + 5) / 10;
-        write!(tempo, "{}.{}", tenths / 10, tenths % 10).expect("writing to a label never fails");
+        param::format(&TEMPO, self.value(TEMPO.id), tempo);
     }
 
     /// What `item` shows, with its value written into `value` where it is not a name.

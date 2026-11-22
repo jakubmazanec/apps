@@ -305,9 +305,9 @@ impl Control {
     /// Handles the events before `until` in sample order, the storage's replies, the reports of
     /// awaited messages, the queued inputs and the repeats of held buttons, and returns whether
     /// the screen must be redrawn. That is the case on the first step, whenever it handled an
-    /// event, while a text scrolls whenever a pixel's time has passed since the step before, and
-    /// whenever the header's bar numbers changed since the step before: the bar the step buttons
-    /// show (`shown_bar`) and the bar playing.
+    /// event, whenever the header's bar numbers changed since the step before (the bar the step
+    /// buttons show, `shown_bar`, and the bar playing) and, while a text scrolls, whenever a
+    /// pixel's time has passed since the step before.
     ///
     /// On equal samples a reply goes first, then a report, then an input and then a repeat, so a
     /// release at the sample of a repeat ends the hold before it. A reply ends the wait for its
@@ -1431,7 +1431,8 @@ impl Control {
         }
     }
 
-    /// The value of the entry `id`, read where its scope keeps it.
+    /// The value of the entry `id`: the tempo, the one project value a page shows, picked out by
+    /// its id, and any other read where its scope keeps it.
     fn value(&self, id: ParamId) -> i32 {
         if id == TEMPO.id {
             // At most 30,000, so it fits.
@@ -1800,9 +1801,9 @@ impl Control {
     }
 
     /// A button goes up. A tap of PADS/KEYS switches the current track's pad mode, a tap of a step
-    /// enters or removes notes (`tap_step`), a tap of TEMPO turns the metronome on or off, also
-    /// while MENU or PAGE is held, and a tap of CANCEL closes the picker without choosing, answers
-    /// the question no, or on SAMPLES and in the sample picker goes up (`cancel_in_samples`).
+    /// enters or removes notes (`tap_step`) and a tap of TEMPO turns the metronome on or off, also
+    /// while MENU or PAGE is held. A tap of CANCEL closes the picker without choosing, answers the
+    /// question no or, on SAMPLES and in the sample picker, goes up (`cancel_in_samples`).
     fn release(
         &mut self,
         button: Button,
