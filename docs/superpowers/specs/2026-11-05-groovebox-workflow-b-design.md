@@ -565,8 +565,9 @@ page back.
   the grid is 1/16, 480 ticks a click and 30 with SHIFT. It runs from 30 ticks, one SHIFT click, to
   one bar of the signature, as the EP-133's runs from one tick to one bar **(owner's choice)**. It
   is written as the shortened fraction of a whole note: 1/16, 1/8, 3/16, 1/4 and on to 1/1, up to
-  2/1 in an 8/4 bar; a length between steps is written in 256ths, such as 17/256 **(owner's
-  choice)**. A fraction of a whole note also stays exact when triplet grids come.
+  2/1 in an 8/4 bar; a length between steps is shortened as far as it goes, so 510 ticks is 17/256
+  and 60 is 1/128 **(owner's choice)**. A fraction of a whole note also stays exact when triplet
+  grids come.
 - **POSITION,** one grid step per click, SHIFT too **(my call)**, so a note can move onto another
   step; the edit follows the note, not the button. It reads as the number of grid steps the notes
   lie from the sixteenth their step showed when it went down: "+0", "+1", "−2", with the minus sign
