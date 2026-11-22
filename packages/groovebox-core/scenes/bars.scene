@@ -1,0 +1,82 @@
+groovebox-scene 1
+# A signature change while playing. Syn 1 on pad 1 through the panel: MENU + step 3 shows SOUND's
+# Pad page and OK opens the sound picker on Empty; down twice to New synth and OK choose it.
+input 3200 press menu
+input 4800 press step-3
+input 6400 release step-3
+input 8000 release menu
+input 9600 press ok
+input 11200 release ok
+input 12800 press down
+input 14400 release down
+input 16000 press down
+input 17600 release down
+input 19200 press ok
+input 20800 release ok
+# Taps of steps 1, 5, 9, 13 and 15 enter five notes of Syn 1 in bar 1.
+input 22400 press step-1
+input 24000 release step-1
+input 25600 press step-5
+input 27200 release step-5
+input 28800 press step-9
+input 30400 release step-9
+input 32000 press step-13
+input 33600 release step-13
+input 35200 press step-15
+input 36800 release step-15
+# MENU + step 9 shows PATTERN, and PAGE + step 2 its Bars page: Length 1 bar and Signature 4/4.
+input 38400 press menu
+input 40000 press step-9
+input 41600 release step-9
+input 43200 release menu
+input 44800 press page
+input 46400 press step-2
+input 48000 release step-2
+input 49600 release page
+frame 51200
+# Push 1 opens the Length picker on 1 bar, and down twice onto 4 bars and OK choose it. It adds
+# three empty bars and deletes nothing, so it applies at once.
+input 52800 press push-1
+input 54400 release push-1
+input 56000 press down
+input 57600 release down
+input 59200 press down
+input 60800 release down
+frame 64000
+input 65600 press ok
+input 67200 release ok
+# PLAY starts bar 1 at its press. A 4/4 bar is 96,000 samples, so bar 2 starts at 164,800.
+input 68800 press play
+input 70400 release play
+# In bar 2 push 2 opens the Signature picker on 4/4, and up onto 3/4 and OK ask "Delete 2 notes?",
+# as steps 13 and 15 lie past the end of a 3/4 bar. OK deletes them, and 3/4 takes hold at the
+# next bar line, 260,800, so bar 2 keeps its four beats.
+input 166400 press push-2
+input 168000 release push-2
+input 169600 press up
+input 171200 release up
+input 172800 press ok
+input 174400 release ok
+frame 176000
+input 177600 press ok
+input 179200 release ok
+# Bar 3 plays in 3/4, 72,000 samples long, and the header shows "3/4 ▶3".
+frame 265600
+# In bar 3 push 1 opens the Length picker on 4 bars, and up onto 2 bars and OK choose it. Bars 3
+# and 4 hold no notes, so no question comes. It takes hold at the next bar line, 332,800, where bar
+# 4 lies past the new length and the music wraps to bar 1: the header shows "1/2 ▶1".
+input 268800 press push-1
+input 270400 release push-1
+input 272000 press up
+input 273600 release up
+input 275200 press ok
+input 276800 release ok
+frame 336000
+# STOP stops the pattern and leaves the cursor on bar 1, the bar that played. A second STOP fades
+# every voice.
+input 339200 press stop
+input 340800 release stop
+input 342400 press stop
+input 344000 release stop
+frame 345600
+end 348800
