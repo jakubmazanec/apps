@@ -1,0 +1,199 @@
+//! STEP's view in cells: where a place lies in the grid, which cells and lanes show and how the
+//! view follows the cursor (Workflow B).
+
+use super::Control;
+use super::lanes::Lane;
+use super::view::StepCursor;
+use crate::label::Label;
+use crate::palette::{DIM, RECORD, TEXT};
+use crate::project::Signature;
+use crate::project::pool::NAME_BYTES;
+use crate::screen::{Color, WIDTH};
+use crate::ui::text;
+use core::fmt::Write;
+
+/// How many lanes fit (S4).
+pub const LANES_SHOWN: usize = 16;
+/// The most cells the grid has (S4).
+#[expect(dead_code, reason = "STEP's picture marks the cells and is built next")]
+pub const GRID_CELLS: usize = 58;
+/// A cell's width in pixels.
+const CELL: i32 = 8;
+/// Cells in a page: the sixteenths the step buttons show.
+const PAGE: u32 = 16;
+/// The space on each side of the names column's labels.
+const NAMES_INSET: i32 = 3;
+/// The width in pixels that a label of 12 characters takes, the most one may (S3).
+const LABEL_WIDTH: i32 = 71;
+
+/// STEP's view (S8): the first column and the first lane it shows.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct StepView {
+    pub first_cell: u32,
+    pub first_lane: usize,
+}
+
+/// A bar's pages: as many of 16 cells as its sixteenths need (S5).
+fn pages(signature: Signature) -> u32 {
+    signature.sixteenths().div_ceil(PAGE)
+}
+
+/// The cell of `place`: its bar's pages come before it and its sixteenth counts from the first
+/// page's start.
+pub fn cell_of(place: StepCursor, signature: Signature) -> u32 {
+    u32::from(place.bar) * pages(signature) * PAGE + u32::from(place.step)
+}
+
+/// The place of a cell, none for a dark one: a cell past its bar's last sixteenth.
+#[cfg_attr(
+    not(test),
+    expect(
+        dead_code,
+        reason = "STEP's arrows move over places and are built next"
+    )
+)]
+pub fn place_of(cell: u32, signature: Signature) -> Option<StepCursor> {
+    let bar_cells = pages(signature) * PAGE;
+    let step = cell % bar_cells;
+    (step < signature.sixteenths()).then(|| StepCursor {
+        bar: (cell / bar_cells) as u16,
+        step: step as u8,
+    })
+}
+
+/// A pattern's cells: every bar takes its pages.
+pub fn cells(bars: u16, signature: Signature) -> u32 {
+    u32::from(bars) * pages(signature) * PAGE
+}
+
+/// The first shown index once `cursor` must show, `visible` showing from `first`, moving `by` at a
+/// time within `total` (S8): the view moves when the cursor is on its last index and more follow,
+/// or on its first and more precede, as far as the cursor needs, and never starts where it would
+/// end past `total`.
+pub fn kept(cursor: u32, first: u32, visible: u32, by: u32, total: u32) -> u32 {
+    let moved = if cursor + 1 >= first + visible && first + visible < total {
+        first + (cursor + 2 - first - visible).div_ceil(by) * by
+    } else if cursor <= first {
+        first.saturating_sub((first + 1 - cursor).div_ceil(by) * by)
+    } else {
+        first
+    };
+    moved.min(total.saturating_sub(visible))
+}
+
+impl Control {
+    /// A lane's label and its colour (S3): a sound's name, red while its sample is missing and
+    /// shortened with "…" when it is longer than 12 characters; "= pad 1" dim on a copy lane of the
+    /// earlier pad 1; an empty pad's number dim.
+    pub(super) fn lane_label(&self, lane: Lane) -> (Label<NAME_BYTES>, Color) {
+        let mut label = Label::new();
+        let sound = match lane {
+            Lane::Pad(pad) => match (self.copy_of(pad), self.lane_sound(lane)) {
+                (Some(first), _) => {
+                    write!(label, "= pad {}", first + 1).expect("writing to a label never fails");
+                    return (label, DIM);
+                }
+                (None, None) => {
+                    write!(label, "{}", pad + 1).expect("writing to a label never fails");
+                    return (label, DIM);
+                }
+                (None, Some(sound)) => sound,
+            },
+            Lane::Extra(sound) => sound,
+        };
+        let sound = self
+            .project
+            .pool
+            .get(sound)
+            .expect("a lane's sound is in the pool");
+        write!(label, "{}", text::fit(sound.name.as_str(), LABEL_WIDTH))
+            .expect("writing to a label never fails");
+        let color = if self.missing_file(sound).is_some() {
+            RECORD
+        } else {
+            TEXT
+        };
+        (label, color)
+    }
+
+    /// The names column's width and the grid's columns (S4): the widest label of all the track's
+    /// lanes, those scrolled away too, between two insets, and the whole cells that fit between it
+    /// and the screen's right edge, with a pixel on each side.
+    pub(super) fn step_columns(&self) -> (i32, u32) {
+        let widest = self
+            .lanes()
+            .map(|lane| text::width(self.lane_label(lane).0.as_str()))
+            .fold(0, i32::max);
+        let names = NAMES_INSET + widest + NAMES_INSET;
+        (names, ((WIDTH as i32 - 2 - names - 2) / CELL) as u32)
+    }
+
+    /// Moves STEP's view so the cursor's cell at `sample` and its lane show (S8): cells by a beat
+    /// and lanes by one.
+    pub(super) fn keep_step_view(&mut self, sample: u64) {
+        let signature = self.project.signature;
+        let cursor = cell_of(
+            StepCursor {
+                bar: self.shown_bar(sample),
+                ..self.view.steps
+            },
+            signature,
+        );
+        let bars = self.project.patterns[usize::from(self.project.pattern)].bars;
+        let view = self.view.step_view;
+        self.view.step_view = StepView {
+            first_cell: kept(
+                cursor,
+                view.first_cell,
+                self.step_columns().1,
+                PAGE / u32::from(signature.unit),
+                cells(bars, signature),
+            ),
+            first_lane: kept(
+                self.cursor_lane() as u32,
+                view.first_lane as u32,
+                LANES_SHOWN as u32,
+                1,
+                self.lanes().count() as u32,
+            ) as usize,
+        };
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn cells_count_pages_of_16_and_dark_cells() {
+        let five_four = Signature { beats: 5, unit: 4 };
+        assert_eq!(cell_of(StepCursor { bar: 1, step: 3 }, five_four), 35);
+        assert_eq!(cell_of(StepCursor { bar: 0, step: 19 }, five_four), 19);
+        // The short page's dark cells.
+        assert_eq!(place_of(20, five_four), None);
+        assert_eq!(
+            place_of(32, five_four),
+            Some(StepCursor { bar: 1, step: 0 })
+        );
+        assert_eq!(cells(4, five_four), 128);
+        assert_eq!(cells(2, Signature { beats: 16, unit: 4 }), 128);
+        assert_eq!(place_of(12, Signature { beats: 3, unit: 4 }), None);
+    }
+
+    #[test]
+    fn the_view_moves_a_beat_when_the_cursor_reaches_an_edge() {
+        assert_eq!(kept(47, 0, 49, 4, 64), 0);
+        // On the last column: one beat.
+        assert_eq!(kept(48, 0, 49, 4, 64), 4);
+        // On the first, cells before: one beat back.
+        assert_eq!(kept(4, 4, 49, 4, 64), 0);
+        // A jump, held at the end.
+        assert_eq!(kept(60, 0, 49, 4, 64), 15);
+        // The last cell may sit on the last column.
+        assert_eq!(kept(63, 15, 49, 4, 64), 15);
+        // A pattern narrower than the grid.
+        assert_eq!(kept(10, 0, 57, 4, 16), 0);
+        // Lanes, one at a time.
+        assert_eq!(kept(15, 0, 16, 1, 20), 1);
+    }
+}

@@ -890,7 +890,7 @@ impl Control {
     /// The name of the file of `sound` while the sound is MISSING (S15): its sample is missing, and
     /// the end of its path names it, or its file is not loaded, and the library names it. None for
     /// any other sound.
-    fn missing_file<'a>(&'a self, sound: &'a Sound) -> Option<&'a str> {
+    pub(super) fn missing_file<'a>(&'a self, sound: &'a Sound) -> Option<&'a str> {
         match &sound.engine {
             Engine::Sample(Sample::Missing(path)) => Some(
                 path.as_str()

@@ -6,6 +6,7 @@ pub mod notes;
 pub mod pages;
 mod pool;
 pub mod samples;
+mod step_view;
 mod steps;
 mod transport;
 pub mod view;
@@ -344,8 +345,10 @@ impl Control {
     /// only the jobs they drive change the library; from the reply that opens the project on, so
     /// that start-up, which lists the library page by page in another order, leaves it on the
     /// first row. While POOL shows, its cursor follows the current track's selection
-    /// (`follow_selection`). When the cursor has then landed on something new (`Focus`), the text
-    /// under it scrolls from that event's sample.
+    /// (`follow_selection`). STEP's view is kept on the cursor's cell and lane (`keep_step_view`),
+    /// also at the end of the step, where following has moved the cursor's bar with no event. When
+    /// the cursor has then landed on something new (`Focus`), the text under it scrolls from that
+    /// event's sample.
     ///
     /// Last, while the screen's page shows the waveform and the audio part may read the selected
     /// sound's file (`sample_file`), it reads that file's peaks through `tables` from `ram` unless
@@ -526,6 +529,7 @@ impl Control {
                 }
             }
             self.follow_selection();
+            self.keep_step_view(sample);
             let paged = self.view.screen.paged();
             let track = self.track();
             let focus = Some(Focus {
@@ -554,6 +558,7 @@ impl Control {
             }
             redraw = true;
         }
+        self.keep_step_view(until);
         if self.page(self.view.screen).and_then(|page| page.picture) == Some(Picture::Waveform)
             && let Some(audio) = self.sample_file()
         {

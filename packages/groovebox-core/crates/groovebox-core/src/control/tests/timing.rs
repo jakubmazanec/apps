@@ -692,7 +692,7 @@ pub(super) fn choose(rig: &mut Rig<'_>, sample: u64, encoder: u8, moves: &[Butto
 
 /// A rig on PATTERN's Bars page whose pattern of 4 bars of 4/4, chosen there, plays from bar 1 at
 /// sample 100: its bar lines are at 96,100 and every 96,000 samples on. Its messages are taken.
-fn playing_4_bars(queue: &Queue<Message, MESSAGE_QUEUE>) -> Rig<'_> {
+pub(super) fn playing_4_bars(queue: &Queue<Message, MESSAGE_QUEUE>) -> Rig<'_> {
     let mut rig = Rig::new(queue);
     on_bars(&mut rig, 0);
     choose(&mut rig, 60, 0, &[Button::Down, Button::Down]);

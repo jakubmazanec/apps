@@ -6,19 +6,11 @@ use crate::project::pool::SoundNumber;
 
 /// A lane of STEP (S1).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[cfg_attr(
-    not(test),
-    expect(dead_code, reason = "STEP's view uses the lanes and is built next")
-)]
 pub enum Lane {
     Pad(u8),
     Extra(SoundNumber),
 }
 
-#[cfg_attr(
-    not(test),
-    expect(dead_code, reason = "STEP's view uses the lanes and is built next")
-)]
 impl Control {
     /// The current track's lanes: its 12 pads, then its extra lanes in pool order (S1). An extra
     /// lane is a sound that sits on none of the track's pads and has notes on the track, or is the
