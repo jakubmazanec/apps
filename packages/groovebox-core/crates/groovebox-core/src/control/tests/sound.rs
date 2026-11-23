@@ -1566,6 +1566,7 @@ fn the_filter_page_matches_its_geometry() {
             name: "Cutoff",
             value: "100%",
             bar: Bar::Fill(65_535, 65_535),
+            alert: false,
         },
         true,
         None,
@@ -1578,6 +1579,7 @@ fn the_filter_page_matches_its_geometry() {
             name,
             value,
             bar,
+            alert: false,
         })
     };
     let strip = drawn(
@@ -1619,6 +1621,7 @@ fn oscillator_2_names_give_way_to_their_values() {
             name: "Oscillator 2 fine tu…",
             value: "+0",
             bar: Bar::Fill(50, 100),
+            alert: false,
         },
         true,
         None,
@@ -1651,6 +1654,7 @@ fn item_8(elapsed: u64) -> Screen {
             name: "Oscillator 2 fine tune",
             value: "+0",
             bar: Bar::Fill(50, 100),
+            alert: false,
         },
         true,
         Some(elapsed),
@@ -1706,6 +1710,7 @@ fn leaving_the_name_shortens_it_and_coming_back_starts_it_again() {
             name: "Oscillator 2 fine tu…",
             value: "+0",
             bar: Bar::Fill(50, 100),
+            alert: false,
         },
         true,
         None,
@@ -1757,6 +1762,7 @@ fn a_value_change_keeps_the_name_moving_within_its_new_room() {
             name: "Oscillator 2 fine tune",
             value: "+10",
             bar: Bar::Track,
+            alert: false,
         },
         true,
         Some(MOVED),
@@ -1800,6 +1806,7 @@ fn the_strip_on_step_follows_sounds_shown_page() {
             name,
             value,
             bar,
+            alert: false,
         })
     };
     assert!(shows_frame(

@@ -1,6 +1,6 @@
 use crate::{
     font::glyph,
-    palette::{ACCENT, DIM, FAINT, TEXT},
+    palette::{ACCENT, DIM, FAINT, RECORD, TEXT},
     screen::Canvas,
     ui::{
         layout::{BAR_HEIGHT, DIGIT_COLUMN, ITEM_BAR, PIECE_GAP, TEXT_INSET, rect},
@@ -27,14 +27,16 @@ pub struct ItemView<'a> {
     pub name: &'a str,
     pub value: &'a str,
     pub bar: Bar,
+    /// Whether the name is red on a page, as a muted track's is on MIX. The strip ignores it.
+    pub alert: bool,
 }
 
 /// Draws `item` in the 17 pixel high box at (`x`, `y`) of `width` pixels. The name is at the left
 /// and dim, the value at the right and bright, and the bar is under them. A name that does not fit
 /// is shortened to leave the whole value and 6 pixels between them, or scrolls in that room with
 /// `scroll` (`text::draw_in`). When `numbered`, as on a page, the name comes after the encoder's dim
-/// digit, or after the blank where an item without an encoder would have one. Returns whether the
-/// name scrolls.
+/// digit, or after the blank where an item without an encoder would have one, and an `alert`ed name
+/// is red. Returns whether the name scrolls.
 pub fn draw_item(
     canvas: &mut impl Canvas,
     x: i32,
@@ -63,7 +65,7 @@ pub fn draw_item(
         right - text::width(item.value) + 1 - PIECE_GAP - name,
         item.name,
         scroll,
-        DIM,
+        if item.alert && numbered { RECORD } else { DIM },
     );
 
     let bar = (width - 2 * TEXT_INSET).max(0);
@@ -91,7 +93,7 @@ pub fn draw_cursor(canvas: &mut impl Canvas, x: i32, y: i32, width: i32, height:
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::palette::{ACCENT, BACKGROUND, DIM, FAINT, TEXT};
+    use crate::palette::{ACCENT, BACKGROUND, DIM, FAINT, RECORD, TEXT};
     use crate::screen::Screen;
     use crate::ui::test_pixels::{MOVED, filled, ink, outlined, picture, span};
     use crate::ui::text;
@@ -102,6 +104,7 @@ mod tests {
             name,
             value,
             bar,
+            alert: false,
         }
     }
 
@@ -119,6 +122,7 @@ mod tests {
                 name: "Sound",
                 value: "Snare",
                 bar: Bar::Track,
+                alert: false,
             },
             true,
             None,
@@ -142,6 +146,26 @@ mod tests {
         assert_eq!(span(&screen, 10..=100, 17..=29, DIM), Some((16, 44)));
         assert_eq!(span(&screen, 2..=161, 17..=29, TEXT), Some((130, 158)));
         assert_eq!(ink(&screen, ACCENT), 0);
+    }
+
+    #[test]
+    fn an_alerted_name_is_red_on_a_page_and_dim_in_the_strip() {
+        let item = ItemView {
+            alert: true,
+            ..item("Track 3 muted", "70%", Bar::Track)
+        };
+        let mut page = Screen::new();
+        let mut strip = Screen::new();
+
+        draw_item(&mut page, 2, 17, 160, &item, true, None);
+        draw_item(&mut strip, 1, 255, 120, &item, false, None);
+
+        // The name is red from the column after the number's, the value stays bright.
+        assert_eq!(span(&page, 2..=161, 17..=29, RECORD), Some((16, 92)));
+        assert_eq!(span(&page, 2..=161, 17..=29, DIM), None);
+        assert_eq!(span(&page, 2..=161, 17..=29, TEXT), Some((142, 158)));
+        assert_eq!(ink(&strip, RECORD), 0);
+        assert_eq!(span(&strip, 1..=120, 258..=264, DIM), Some((4, 80)));
     }
 
     #[test]

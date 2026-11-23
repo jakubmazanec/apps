@@ -1041,6 +1041,7 @@ fn the_dev_page_shows_note_memory() {
         name: "Note memory",
         value: "0.0 of 8 MB",
         bar: Bar::Fill(0, 8_000_000),
+        alert: false,
     };
     assert!(shows(
         &rig.control,

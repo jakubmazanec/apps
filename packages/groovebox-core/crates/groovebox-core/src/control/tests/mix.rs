@@ -1,6 +1,8 @@
-//! Muting: SHIFT + T1 to T4, the header that names the muted tracks and their blinking buttons.
+//! Muting: SHIFT + T1 to T4, the header that names the muted tracks and their blinking buttons;
+//! and MIX, MENU + 5: the track levels and the master level.
 
 use super::*;
+use crate::param::{MASTER_LEVEL, TRACK_LEVEL};
 
 /// Track `track` (0 to 3) muted when `value` is 1, unmuted when it is 0.
 fn mute(track: u8, value: i32) -> MessageKind {
@@ -209,4 +211,195 @@ fn a_muted_tracks_pattern_lights_no_pad() {
     assert_eq!(rig.lit(), [pad(1), step(0), track(0), Lights::PLAY]);
     rig.step(105_601);
     assert_eq!(rig.lit(), [pad(0), pad(1), step(0), track(0), Lights::PLAY]);
+}
+
+/// MIX's header on T1 with pad 1 selected in PADS mode.
+const MIX_HEADER: [(&str, Color); 4] = [("Mix", ACCENT), ("T1", TEXT), ("1", DIM), ("Pads", DIM)];
+
+/// Track `track`'s item (0 to 3) as MIX shows it: `name`, with `fill` of the full level in its bar.
+fn level(track: u8, name: &'static str, value: &'static str, fill: u64) -> ItemView<'static> {
+    ItemView {
+        encoder: Some(track + 1),
+        name,
+        value,
+        bar: Bar::Fill(fill, 65_535),
+        alert: name.ends_with("muted"),
+    }
+}
+
+/// The master level's item as MIX shows it.
+fn master(value: &'static str, fill: u64) -> ItemView<'static> {
+    ItemView {
+        encoder: None,
+        name: "Master",
+        value,
+        bar: Bar::Fill(fill, 65_535),
+        alert: false,
+    }
+}
+
+/// MIX with `mute` in the header, the five `items` and the cursor on item `cursor`; the strip
+/// shows the first four without their alert.
+fn mix(mute: &str, items: &[ItemView<'static>; 5], cursor: i32) -> Screen {
+    let mut screen = Screen::new();
+    draw_header(
+        &mut screen,
+        &MIX_HEADER.map(|(text, color)| Piece { text, color }),
+        &["P1", "1/1", "120.0"].map(|text| Piece { text, color: TEXT }),
+        false,
+        mute,
+    );
+    for (y, item) in (17..).step_by(18).zip(items) {
+        draw_item(&mut screen, 2, y, 160, item, true, None);
+    }
+    draw_cursor(&mut screen, 2, 17 + 18 * cursor, 160, 17);
+    draw_strip(
+        &mut screen,
+        &core::array::from_fn(|cell| {
+            Some(ItemView {
+                alert: false,
+                ..items[cell]
+            })
+        }),
+    );
+    screen
+}
+
+/// Every level at 100%.
+fn full_levels() -> [ItemView<'static>; 5] {
+    [
+        level(0, "Track 1", "100%", 65_535),
+        level(1, "Track 2", "100%", 65_535),
+        level(2, "Track 3", "100%", 65_535),
+        level(3, "Track 4", "100%", 65_535),
+        master("100%", 65_535),
+    ]
+}
+
+#[test]
+fn menu_5_shows_mix_with_four_track_levels_and_master() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    rig.menu(10, 4);
+
+    rig.step(128);
+
+    assert_eq!(rig.control.view.screen, view::Screen::Mix);
+    assert_eq!(rig.sent(), []);
+    assert!(shows(&rig.control, &mix("", &full_levels(), 0)));
+    // No page name between "Mix" and "T1": "T1" starts 6 pixels after "Mix" ends.
+    let screen = picture(&rig.control);
+    assert_eq!(span(&screen, 0..=479, 4..=10, ACCENT), Some((4, 20)));
+    assert_eq!(span(&screen, 0..=406, 4..=10, TEXT), Some((27, 37)));
+    // Track 1 has its number; Master has none, and its name starts where the other names do.
+    assert_eq!(span(&screen, 2..=15, 17..=29, DIM), Some((5, 9)));
+    assert_eq!(span(&screen, 2..=15, 89..=101, DIM), None);
+    assert_eq!(
+        span(&screen, 2..=161, 89..=101, DIM).map(|(first, _)| first),
+        Some(16)
+    );
+}
+
+#[test]
+fn encoder_2_turns_track_2s_level_and_moves_the_cursor() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    rig.menu(10, 4);
+    rig.turn(100, 1, -1);
+
+    rig.step(128);
+
+    assert_eq!(
+        rig.sent(),
+        [message(
+            0,
+            100,
+            MessageKind::SetParam {
+                target: Target::Track(1),
+                id: TRACK_LEVEL.id,
+                value: 65_023,
+            }
+        )]
+    );
+    assert_eq!(rig.control.project.track, 0);
+    assert_eq!(rig.control.cursor(view::Screen::Mix).item, 1);
+    let mut items = full_levels();
+    items[1] = level(1, "Track 2", "99%", 65_023);
+    assert!(shows(&rig.control, &mix("", &items, 1)));
+}
+
+#[test]
+fn minus_on_master_lowers_the_master_level() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    rig.menu(10, 4);
+    for index in 0..4 {
+        rig.tap(100 + 10 * index, Button::Down);
+    }
+    rig.tap(200, Button::Minus);
+    rig.press(300, Button::Shift);
+    rig.tap(310, Button::Minus);
+    rig.let_go(320, Button::Shift);
+
+    rig.step(400);
+
+    let master = |number, at, value| {
+        message(
+            number,
+            at,
+            MessageKind::SetParam {
+                target: Target::Project,
+                id: MASTER_LEVEL.id,
+                value,
+            },
+        )
+    };
+    // 512 lower, then a sixteenth of that.
+    assert_eq!(rig.sent(), [master(0, 200, 65_023), master(1, 310, 64_991)]);
+    assert_eq!(rig.control.project.master, 64_991);
+}
+
+#[test]
+fn a_muted_track_reads_muted_in_red_on_mix_and_plainly_in_the_strip() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    rig.press(0, Button::Shift);
+    rig.tap(10, Button::T3);
+    rig.let_go(20, Button::Shift);
+    rig.menu(100, 4);
+
+    rig.step(256);
+
+    let mut items = full_levels();
+    items[2] = level(2, "Track 3 muted", "100%", 65_535);
+    assert!(shows(&rig.control, &mix("Mute 3", &items, 0)));
+    // The red is the muted track's name alone, from its first column, and its number stays dim.
+    let screen = picture(&rig.control);
+    assert_eq!(span(&screen, 0..=479, 0..=271, RECORD), Some((16, 92)));
+    assert_eq!(span(&screen, 0..=479, 53..=65, RECORD), Some((16, 92)));
+    assert_eq!(span(&screen, 2..=15, 53..=65, DIM), Some((5, 9)));
+    // Its strip cell, the third, reads the same in the strip's colours: dim, never red.
+    assert_eq!(span(&screen, 0..=479, 253..=271, RECORD), None);
+    assert_eq!(span(&screen, 241..=359, 258..=264, DIM), Some((244, 320)));
+}
+
+#[test]
+fn page_on_mix_shows_one_unnamed_tile() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    rig.menu(10, 4);
+    rig.press(100, Button::Page);
+
+    rig.step(128);
+
+    let mut shown = [Tile {
+        name: None,
+        state: TileState::Empty,
+    }; 16];
+    shown[0] = Tile {
+        name: Some(""),
+        state: TileState::Current,
+    };
+    assert!(shows(&rig.control, &tiles(&MIX_HEADER, &shown)));
+    assert_eq!(rig.lit(), [pad(0), step(0), track(0)]);
 }

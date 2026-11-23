@@ -266,6 +266,7 @@ fn velocity(value: &str) -> ItemView<'_> {
         name: "Velocity",
         value,
         bar: Bar::Track,
+        alert: false,
     }
 }
 
@@ -276,6 +277,7 @@ fn sound(value: &str) -> ItemView<'_> {
         name: "Sound",
         value,
         bar: Bar::Track,
+        alert: false,
     }
 }
 
@@ -286,6 +288,7 @@ fn copy(value: &str) -> ItemView<'_> {
         name: "Copy",
         value,
         bar: Bar::Track,
+        alert: false,
     }
 }
 
@@ -296,6 +299,7 @@ fn engine(value: &str) -> ItemView<'_> {
         name: "Engine",
         value,
         bar: Bar::Track,
+        alert: false,
     }
 }
 
@@ -314,12 +318,14 @@ fn playing_under(message: Option<(&str, Color)>, value: &str, metronome: &str) -
             name: "Metronome",
             value: metronome,
             bar: Bar::Track,
+            alert: false,
         },
         ItemView {
             encoder: Some(3),
             name: "Metronome level",
             value: "50%",
             bar: Bar::Fill(32_768, 65_535),
+            alert: false,
         },
     ];
     drawn(
@@ -1134,6 +1140,7 @@ fn menu_with_step_8_shows_settings_at_the_steps_press() {
             pad(0),
             step(0),
             step(2),
+            step(4),
             step(5),
             step(7),
             step(8),
@@ -1154,6 +1161,7 @@ fn menu_with_step_8_shows_settings_at_the_steps_press() {
             pad(0),
             step(0),
             step(2),
+            step(4),
             step(5),
             step(7),
             step(8),

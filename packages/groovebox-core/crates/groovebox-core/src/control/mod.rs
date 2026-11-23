@@ -26,7 +26,7 @@ use crate::message::{
 use crate::palette::RECORD;
 use crate::param::{
     self, Curve, END, ENTRIES, LOOP_END, LOOP_START, METRONOME, MUTE, OUTPUT_VOLUME, ParamId,
-    START, Scope, TEMPO, VELOCITY,
+    START, Scope, TEMPO, TRACK_LEVEL, VELOCITY,
 };
 use crate::project::pool::{Engine, PoolFull, SOUND_VALUES, Sample, Sound, SoundNumber};
 use crate::project::settings::DeviceSettings;
@@ -1457,7 +1457,7 @@ impl Control {
     /// the Engine picker on the sound's engine, and the Sample item the sample picker on the
     /// sound's file, or as New sample does for a missing one (S13). Length and Signature open
     /// their pickers on the current value (S10, S11). The meters only show, Grid stays (S3) and
-    /// the NOTE strip's items do nothing (S12).
+    /// the NOTE strip's items and a track's level do nothing (S12, S7).
     fn use_item(
         &mut self,
         item: ItemDef,
@@ -1558,7 +1558,8 @@ impl Control {
             | ItemKind::NotePitch
             | ItemKind::NoteVelocity
             | ItemKind::NoteLength
-            | ItemKind::NotePosition => {}
+            | ItemKind::NotePosition
+            | ItemKind::TrackLevel(_) => {}
         }
     }
 
@@ -1599,6 +1600,16 @@ impl Control {
                 }
             }
             ItemKind::Param(id) => self.turn(id, clicks, fine, sample, messages),
+            ItemKind::TrackLevel(track) => {
+                let target = Target::Track(track);
+                let value = param::moved(
+                    &TRACK_LEVEL,
+                    self.value_of(target, TRACK_LEVEL.id),
+                    clicks,
+                    fine,
+                );
+                self.set_on(target, TRACK_LEVEL.id, value, sample, messages);
+            }
             ItemKind::PadSound
             | ItemKind::PadCopy
             | ItemKind::PadEngine

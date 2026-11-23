@@ -718,6 +718,7 @@ fn item<'a>(encoder: Option<u8>, name: &'a str, value: &'a str, bar: Bar) -> Ite
         name,
         value,
         bar,
+        alert: false,
     }
 }
 

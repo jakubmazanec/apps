@@ -1041,6 +1041,7 @@ fn note_strip<'a>(
             name,
             value,
             bar,
+            alert: false,
         })
     })
 }

@@ -581,6 +581,7 @@ fn the_dev_page_shows_the_library_meter() {
         name: "Library",
         value: "0.1 of 64 MB",
         bar: Bar::Fill(96_256, 64_000_000),
+        alert: false,
     };
     let dev = drawn(
         &[
@@ -604,6 +605,7 @@ fn the_dev_page_shows_the_library_meter() {
                     name: "Note memory",
                     value: "0.0 of 8 MB",
                     bar: Bar::Fill(0, 8_000_000),
+                    alert: false,
                 },
                 true,
                 None,
@@ -1321,6 +1323,7 @@ pub(super) fn meter(value: &str, blocks: u64) -> ItemView<'_> {
         name: "Library",
         value,
         bar: Bar::Fill(blocks * 2_048, 64_000_000),
+        alert: false,
     }
 }
 

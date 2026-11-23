@@ -199,6 +199,7 @@ mod tests {
                 name,
                 value,
                 bar,
+                alert: false,
             })
         };
 
@@ -245,6 +246,7 @@ mod tests {
                 name,
                 value,
                 bar: Bar::Track,
+                alert: false,
             })
         };
 

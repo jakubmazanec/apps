@@ -31,6 +31,7 @@ const GRID: ItemView = ItemView {
     name: "Grid",
     value: "1/16",
     bar: Bar::Track,
+    alert: false,
 };
 
 /// The Timing page's items in the strip's cells: Tempo at `tempo`, its bar filled `filled` of
@@ -42,6 +43,7 @@ pub(super) fn timing_cells(tempo: &str, filled: u64) -> [Option<ItemView<'_>>; 4
             name: "Tempo",
             value: tempo,
             bar: Bar::Fill(filled, 27_000),
+            alert: false,
         }),
         Some(GRID),
         None,
@@ -638,12 +640,14 @@ fn bars_page(
             name: "Length",
             value: length,
             bar: Bar::Track,
+            alert: false,
         },
         ItemView {
             encoder: Some(2),
             name: "Signature",
             value: signature,
             bar: Bar::Track,
+            alert: false,
         },
     ];
     let mut screen = bars_header(sound, &format!("1/{}", length.split(' ').next().unwrap()));

@@ -3,10 +3,10 @@ use crate::input::STEPS;
 use crate::param::{
     ATTACK, CHOKE_GROUP, CUTOFF, DECAY, END, ENVELOPE_AMOUNT, Entry, FILTER_ATTACK, FILTER_DECAY,
     FILTER_RELEASE, FILTER_SUSTAIN, FILTER_TYPE, FILTER_VELOCITY, FINE_TUNE, GLIDE, GLIDE_TIME,
-    KEY_FOLLOW, LEVEL, LOOP, LOOP_END, LOOP_START, METRONOME, METRONOME_LEVEL, MODE, NOISE_LEVEL,
-    OSCILLATOR_2_FINE_TUNE, OSCILLATOR_2_INTERVAL, OSCILLATOR_2_LEVEL, PAN, PLAY_MODE, ParamId,
-    RELEASE, RESONANCE, REVERSE, ROOT_NOTE, SHAPE, SPREAD, START, SUB_LEVEL, SUSTAIN, TEMPO,
-    TRANSPOSE, TRIGGER, VELOCITY, VOLUME_VELOCITY, WAVE,
+    KEY_FOLLOW, LEVEL, LOOP, LOOP_END, LOOP_START, MASTER_LEVEL, METRONOME, METRONOME_LEVEL, MODE,
+    NOISE_LEVEL, OSCILLATOR_2_FINE_TUNE, OSCILLATOR_2_INTERVAL, OSCILLATOR_2_LEVEL, PAN, PLAY_MODE,
+    ParamId, RELEASE, RESONANCE, REVERSE, ROOT_NOTE, SHAPE, SPREAD, START, SUB_LEVEL, SUSTAIN,
+    TEMPO, TRANSPOSE, TRIGGER, VELOCITY, VOLUME_VELOCITY, WAVE,
 };
 use crate::project::pool::{Engine, Sound};
 
@@ -47,6 +47,8 @@ pub enum ItemKind {
     /// The NOTE strip's "Position": how many grid steps the held notes lie from where their steps
     /// showed at their press (S13).
     NotePosition,
+    /// MIX's "Track n": the level of track `n` (0 to 3). Its name says "muted" while the track is.
+    TrackLevel(u8),
 }
 
 /// An item of a page and the encoder that holds it.
@@ -89,6 +91,7 @@ pub const MENU: [Option<Screen>; STEPS as usize] = {
     let mut menu = [None; STEPS as usize];
     menu[0] = Some(Screen::Step);
     menu[2] = Some(Screen::Sound);
+    menu[4] = Some(Screen::Mix);
     menu[5] = Some(Screen::Pool);
     menu[7] = Some(Screen::Settings);
     menu[8] = Some(Screen::Pattern);
@@ -263,6 +266,28 @@ const BARS: PageDef = PageDef {
     picture: None,
 };
 
+/// Track `track`'s level on the encoder of its number, as MIX holds it.
+const fn track_level(track: u8) -> ItemDef {
+    ItemDef {
+        kind: ItemKind::TrackLevel(track),
+        encoder: Some(track),
+    }
+}
+
+/// MIX's one page, which has no name (S7): the four track levels on encoders 1 to 4, then the
+/// master level, which no encoder holds.
+const MIX: PageDef = PageDef {
+    name: "",
+    items: &[
+        track_level(0),
+        track_level(1),
+        track_level(2),
+        track_level(3),
+        item(MASTER_LEVEL, None),
+    ],
+    picture: None,
+};
+
 /// The NOTE strip's items while steps are held (S12): Pitch, Velocity, Length and Position on
 /// encoders 1 to 4.
 pub(super) const NOTE: [ItemDef; 4] = [
@@ -291,16 +316,17 @@ const fn sound_pages(pad: PageDef, engine: PageDef) -> [PageDef; 6] {
 
 /// The pages of `screen` in the order of their steps under PAGE, while `sound` is the selected
 /// sound of the current track and `pad` says whether the track has a selected pad. STEP has none
-/// of its own: PAGE there acts on SOUND's pages. SAMPLES and POOL have none.
+/// of its own: PAGE there acts on SOUND's pages. FX has none yet, and SAMPLES and POOL have none.
 ///
 /// SOUND works on the track's selected pad: its Pad page, then the page of the sound's engine
 /// (Sample or Synth) and the pages of its chain and its voice. While that pad is empty there is no
 /// sound to copy or to shape, and SOUND has only the Pad page with its Sound item. A sound
 /// selected on no pad has no pad to put a sound on or to copy to, so its Pad page holds Engine
-/// alone, on encoder 3. PATTERN has its Timing and Bars pages.
+/// alone, on encoder 3. PATTERN has its Timing and Bars pages and MIX its one page.
 pub fn pages(screen: Screen, sound: Option<&Sound>, pad: bool) -> &'static [PageDef] {
     match screen {
-        Screen::Step | Screen::Pool | Screen::Samples => &[],
+        Screen::Step | Screen::Fx | Screen::Pool | Screen::Samples => &[],
+        Screen::Mix => &[MIX],
         Screen::Sound => match (sound.map(|sound| &sound.engine), pad) {
             (Some(Engine::Sample(_)), true) => &const { sound_pages(PAD, SAMPLE) },
             (Some(Engine::Sample(_)), false) => &const { sound_pages(NO_PAD, SAMPLE) },

@@ -13,6 +13,8 @@ use crate::ui::tiles::{Tile, TileState};
 pub enum Screen {
     Step,
     Sound,
+    Fx,
+    Mix,
     Pool,
     Settings,
     Pattern,
@@ -29,6 +31,8 @@ impl Screen {
     pub const ALL: [Self; SCREENS] = [
         Self::Step,
         Self::Sound,
+        Self::Fx,
+        Self::Mix,
         Self::Pool,
         Self::Settings,
         Self::Pattern,
@@ -40,6 +44,8 @@ impl Screen {
         match self {
             Self::Step => "Step",
             Self::Sound => "Sound",
+            Self::Fx => "Fx",
+            Self::Mix => "Mix",
             Self::Pool => "Pool",
             Self::Settings => "Settings",
             Self::Pattern => "Pattern",
@@ -384,7 +390,7 @@ mod tests {
     }
 
     #[test]
-    fn the_menu_tiles_show_step_sound_pool_settings_pattern_and_samples() {
+    fn the_menu_tiles_show_step_sound_mix_pool_settings_pattern_and_samples() {
         let tiles = menu_tiles(Screen::Settings);
 
         assert_eq!(
@@ -398,6 +404,15 @@ mod tests {
             tiles[2],
             Tile {
                 name: Some("Sound"),
+                state: TileState::Exists
+            }
+        );
+        // Step 4 is FX's, which has no page yet.
+        assert_eq!(tiles[3], EMPTY);
+        assert_eq!(
+            tiles[4],
+            Tile {
+                name: Some("Mix"),
                 state: TileState::Exists
             }
         );
@@ -429,7 +444,8 @@ mod tests {
                 state: TileState::Exists
             }
         );
-        assert_eq!(tiles.iter().filter(|&&tile| tile == EMPTY).count(), 10);
+        assert_eq!(tiles.iter().filter(|&&tile| tile == EMPTY).count(), 9);
+        assert_eq!(menu_tiles(Screen::Mix)[4].state, TileState::Current);
         assert_eq!(menu_tiles(Screen::Step)[0].state, TileState::Current);
         assert_eq!(menu_tiles(Screen::Pool)[5].state, TileState::Current);
     }

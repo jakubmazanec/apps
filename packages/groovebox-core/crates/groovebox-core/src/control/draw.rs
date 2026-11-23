@@ -10,10 +10,11 @@ use crate::font::ADVANCE;
 use crate::input::{Button, PADS};
 use crate::label::Label;
 use crate::library::{self, name};
+use crate::message::Target;
 use crate::palette::{ACCENT, BACKGROUND, DIM, FAINT, NOTE_MID, RECORD, TEXT};
 use crate::param::{
     self, BP, CUTOFF, Curve, END, HP, LP_12, LP_24, METRONOME, MODE, ParamId, RESONANCE, ROOT_NOTE,
-    START, TEMPO,
+    START, TEMPO, TRACK_LEVEL,
 };
 use crate::project::pool::{Engine, NAME_BYTES, Sample, Sound, SoundNumber};
 use crate::project::track::PadMode;
@@ -43,6 +44,8 @@ const ROWS: i32 = BOTTOM_ROW - TOP_ROW;
 /// The most bytes an item's value takes: a LENGTH range of two lengths in 256ths of 4 digits,
 /// "1005/256–1007/256" in a 16/4 bar.
 const VALUE_BYTES: usize = 19;
+/// The most bytes an item's name takes when it is written into a label: "Track 3 muted".
+const TRACK_NAME_BYTES: usize = 13;
 
 impl Control {
     /// Draws the whole picture from the state of the control part alone, whatever the canvas held
@@ -58,7 +61,8 @@ impl Control {
     /// While neither shows, the transport is on the right (`transport`, S11), ending with the
     /// metronome's icon while the metronome is on (S9) and then "Mute" and the numbers of the muted
     /// tracks in the dim colour while any is (S5), and the sound's name loses its end to a "…"
-    /// where the pieces would come closer than 6 pixels to that group (S12).
+    /// where the pieces would come closer than 6 pixels to that group (S12). A page without a name,
+    /// as MIX's, is left out of the header (S7).
     ///
     /// The main area shows the page's items with the cursor and the page's picture, the tiles while
     /// MENU or PAGE is held, or the picker while one is open. STEP shows its lanes (`draw_step`).
@@ -145,7 +149,12 @@ impl Control {
         let (name, page) = if self.overlay() == Some(Button::Menu) {
             ("Menu", None)
         } else {
-            (screen.name(), self.page(screen).map(|page| page.name))
+            (
+                screen.name(),
+                self.page(screen)
+                    .map(|page| page.name)
+                    .filter(|name| !name.is_empty()),
+            )
         };
         let mut header = [
             Piece {
@@ -259,6 +268,7 @@ impl Control {
         );
 
         let elapsed = self.now - self.landed;
+        let mut names = [Label::new(); 4];
         let mut values = [Label::new(); 4];
         let mut cells = [None; 4];
         let mut scrolls = false;
@@ -483,13 +493,13 @@ impl Control {
                     .take(PAGE_VISIBLE),
             ) {
                 let y = PAGE_FIRST + ITEM_PITCH * row;
-                let mut value = Label::new();
+                let (mut name, mut value) = (Label::new(), Label::new());
                 scrolls |= draw_item(
                     canvas,
                     PAGE_X,
                     y,
                     PAGE_WIDTH,
-                    &self.item_view(item, &mut value),
+                    &self.item_view(item, &mut name, &mut value),
                     true,
                     (index == cursor.item).then_some(elapsed),
                 );
@@ -613,12 +623,14 @@ impl Control {
             && self.view.question.is_none()
             && (self.held_values.is_some() || self.encoder_items() != NOTE)
         {
-            for ((encoder, cell), value) in (0..).zip(&mut cells).zip(&mut values) {
+            for (((encoder, cell), name), value) in
+                (0..).zip(&mut cells).zip(&mut names).zip(&mut values)
+            {
                 *cell = self
                     .encoder_items()
                     .iter()
                     .find(|item| item.encoder == Some(encoder))
-                    .map(|item| self.item_view(item, value));
+                    .map(|item| self.item_view(item, name, value));
             }
         }
         if let Some(open) = self.view.question {
@@ -724,7 +736,7 @@ impl Control {
             ROW_X,
             METER_Y,
             ROW_WIDTH,
-            &self.item_view(&LIBRARY_METER, &mut value),
+            &self.item_view(&LIBRARY_METER, &mut Label::new(), &mut value),
             false,
             None,
         );
@@ -749,8 +761,18 @@ impl Control {
         param::format(&TEMPO, self.value(TEMPO.id), tempo);
     }
 
-    /// What `item` shows, with its value written into `value` where it is not a name.
-    fn item_view<'a>(&'a self, item: &ItemDef, value: &'a mut Label<VALUE_BYTES>) -> ItemView<'a> {
+    /// What `item` shows, with its value written into `value` where it is not a name and a track's
+    /// name into `track_name`, which says "muted" and is alerted while the track is muted.
+    fn item_view<'a>(
+        &'a self,
+        item: &ItemDef,
+        track_name: &'a mut Label<TRACK_NAME_BYTES>,
+        value: &'a mut Label<VALUE_BYTES>,
+    ) -> ItemView<'a> {
+        let muted = matches!(
+            item.kind,
+            ItemKind::TrackLevel(track) if self.project.tracks[usize::from(track)].muted()
+        );
         let (name, value, bar) = match item.kind {
             // A point of the sound's file shows its share of the file's last frame.
             ItemKind::Param(id) if param::entry(id).curve == Curve::Frame => {
@@ -771,6 +793,22 @@ impl Control {
                 let current = self.value(id);
                 param::format(entry, current, value);
                 (entry.name, value.as_str(), bar(entry, current))
+            }
+            ItemKind::TrackLevel(track) => {
+                write!(
+                    track_name,
+                    "Track {}{}",
+                    track + 1,
+                    if muted { " muted" } else { "" }
+                )
+                .expect("writing to a label never fails");
+                let current = self.value_of(Target::Track(track), TRACK_LEVEL.id);
+                param::format(&TRACK_LEVEL, current, value);
+                (
+                    track_name.as_str(),
+                    value.as_str(),
+                    bar(&TRACK_LEVEL, current),
+                )
             }
             ItemKind::PadSound => (
                 "Sound",
@@ -894,6 +932,7 @@ impl Control {
             name,
             value,
             bar,
+            alert: muted,
         }
     }
 
