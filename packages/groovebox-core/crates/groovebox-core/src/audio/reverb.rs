@@ -185,8 +185,10 @@ impl Reverb {
         let klp = 0.2 + (0.9 - 0.2) * real(&REVERB_TONE);
         let level = real(&REVERB_LEVEL);
         // At most 100 ms, 4,800 samples.
-        self.crossfade
-            .aim((real(&REVERB_PRE_DELAY) * SAMPLE_RATE as f32) as u32);
+        self.crossfade.aim(
+            (real(&REVERB_PRE_DELAY) * SAMPLE_RATE as f32) as u32,
+            self.ringing(piece),
+        );
         let low_cut = OnePole::gain(100.0);
         let [wobble_1, wobble_2] = self
             .phases
@@ -267,7 +269,6 @@ impl Default for Reverb {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::audio::delay::CROSSFADE;
     use crate::audio::delay::tests::{impulse, piece, values};
     use crate::param::{REVERB_DECAY, REVERB_LEVEL, REVERB_PRE_DELAY};
     use std::vec::Vec;
@@ -333,23 +334,21 @@ mod tests {
 
     #[test]
     fn pre_delay_holds_the_tail_back() {
-        // The impulse on the left comes once the crossfade from the pre-delay a new reverb reads
-        // at is over; the right side holds only the room.
+        // The impulse on the left, which a new reverb, holding only silence, takes through the
+        // pre-delay at once; the right side holds only the room.
         let first_sound = |pre_delay: i32| {
             let values = values(&[(&REVERB_LEVEL, 65_535), (&REVERB_PRE_DELAY, pre_delay)]);
-            let mut left = std::vec![0.0; 12_000];
-            left[CROSSFADE as usize] = 0.5;
             let [_, right] = through(
                 &mut Reverb::new(),
                 &mut piece(),
                 &values,
-                [&left, &[0.0; 12_000]],
+                [&impulse(0.5, 12_000), &[0.0; 12_000]],
             );
             right.iter().position(|&x| x != 0.0)
         };
 
-        assert_eq!(first_sound(0), Some(1_024));
-        assert_eq!(first_sound(65_535), Some(1_024 + 4_800));
+        assert_eq!(first_sound(0), Some(0));
+        assert_eq!(first_sound(65_535), Some(4_800));
     }
 
     #[test]

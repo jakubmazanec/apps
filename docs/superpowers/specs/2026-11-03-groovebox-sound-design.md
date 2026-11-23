@@ -384,7 +384,8 @@ Rejected: playing exactly 2 seconds; the echo would fall off the beat.
 - Tiny values are flushed to zero on every write into a delay line or filter state.
 - The wobble oscillators run from integer phase counters and are updated once per 32-sample chunk.
 - Crossfade lengths are counted in whole samples; a new delay time is applied only after the
-  previous crossfade has finished.
+  previous crossfade has finished. A delay or a pre-delay holding only silence takes a new time at
+  once, with no crossfade, so the first echo of a new or silent delay comes on time at full level.
 - Effect memory is cleared at defined points: when a new type is picked for a slot, when a project
   loads and when STOP is pressed while stopped (Workflow B). A move swaps two slots' memory and
   clears nothing **(owner's choice)**.

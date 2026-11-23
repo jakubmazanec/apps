@@ -343,12 +343,17 @@ shows the filter's curve with a faint line at the cutoff. Richer graphics come l
     work per file is bounded. It is drawn as a vertical line in the note mid grey, symmetric about a
     faint middle line, with its half height 2 px less than half the area's at full scale. Start and
     End are full-height accent lines.
-- **FX, Chain**: the six slots as a row of tiles in chain order, the cursor on one, empty slots
-  faint; under them Type and Move for that slot, on encoders 1 and 2. A tile is 78 by 19 px, slot
-  _s_ counted from 0 at (1 + 79 _s_, 16): a used slot's border in the line grey and an empty one's
-  faint, its number dim 3 px in and its effect's name in the text colour 14 px in (`fx-chain.png`);
-  the cursor's tile has its border, number and name in the accent. Type and Move are items 160 px
-  wide from (2, 39), 18 px apart. The slot pages are ordinary pages with all of the effect's
+- **FX, Chain**: the six slots as a row of tiles in chain order, empty slots faint; under them Type
+  and Move for the chosen slot, the one the cursor last stood on, on encoders 1 and 2. A tile is 77
+  by 19 px, slot _s_ counted from 0 at (2 + 79 _s_, 17), so that the cursor's outline clears the
+  header's line and the screen's edge and a dark pixel stays between it and the next tiles
+  **(owner's choice)**: a used slot's border in the line grey and an empty one's faint, its number
+  dim 3 px in and its effect's name in the text colour 14 px in (`fx-chain.png`). The chosen slot's
+  tile has its border, number and name in the accent whatever the cursor is on, as the Pad page's
+  selected pad does, and while the cursor is on the tiles it has the cursor's outline 1 px outside
+  it as well. Type and Move are items 160 px wide from (2, 39), 18 px apart. `fx-chain.png` is older
+  than the cursor's outline and shows the tiles 1 px wider, higher and further left, with no
+  outline, which the text overrules. The slot pages are ordinary pages with all of the effect's
   settings; an empty slot's page and strip are empty.
 - **MIX**: one page: the four track levels as items, a muted track named in red, then Master; the
   encoders hold the four track levels **(owner's choice)**. A muted track's item reads "Track 3

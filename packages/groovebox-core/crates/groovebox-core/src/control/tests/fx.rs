@@ -46,7 +46,7 @@ fn chain(header: &[(&str, Color)], names: &[Option<&str>; 6], slot: usize, row: 
         header,
         None,
         |screen| {
-            draw_chain(screen, names, (row == 0).then_some(slot));
+            draw_chain(screen, names, slot, row == 0);
             for (y, item) in (39..).step_by(18).zip(&items) {
                 draw_item(screen, 2, y, 160, item, true, None);
             }
@@ -153,21 +153,22 @@ fn menu_4_shows_the_chain_of_the_current_track() {
         &rig.control,
         &chain(&header("Chain"), &NEW_CHAIN, 0, 0)
     ));
-    // S15: the tiles are 78 by 19 pixels from (1 + 79 s, 16), the cursor's in the accent, a used
-    // slot's in the line grey and an empty one's faint; a name starts 14 pixels in. Type and Move
-    // start at (2, 39), 18 pixels apart.
+    // S15: the tiles are 77 by 19 pixels from (2 + 79 s, 17), the chosen one's in the accent with
+    // the cursor's outline 1 pixel outside it, a used slot's in the line grey and an empty one's
+    // faint; a name starts 14 pixels in. Type and Move start at (2, 39), 18 pixels apart.
     let screen = picture(&rig.control);
-    assert!(outlined(&screen, 1, 16, 78, 19, ACCENT));
-    assert!(outlined(&screen, 80, 16, 78, 19, LINE));
+    assert!(outlined(&screen, 2, 17, 77, 19, ACCENT));
+    assert!(outlined(&screen, 1, 16, 79, 21, ACCENT));
+    assert!(outlined(&screen, 81, 17, 77, 19, LINE));
     for slot in 2..6 {
         assert!(
-            outlined(&screen, 1 + 79 * slot, 16, 78, 19, FAINT),
+            outlined(&screen, 2 + 79 * slot, 17, 77, 19, FAINT),
             "{slot}"
         );
     }
     assert_eq!(
-        span(&screen, 81..=156, 17..=33, TEXT).map(|(first, _)| first),
-        Some(94)
+        span(&screen, 82..=156, 18..=34, TEXT).map(|(first, _)| first),
+        Some(95)
     );
     assert_eq!(span(&screen, 2..=161, 39..=51, DIM).map(|s| s.0), Some(5));
     assert_eq!(span(&screen, 2..=161, 57..=69, DIM).map(|s| s.0), Some(5));
@@ -230,6 +231,38 @@ fn left_and_right_move_along_the_slots_and_up_and_down_between_rows() {
     rig.step(700);
     assert_eq!(rig.control.view.fx_slot, 5);
     assert_eq!(rig.sent(), []);
+}
+
+#[test]
+fn the_chosen_slot_stays_in_the_accent_on_every_row_and_the_outline_only_on_the_tiles() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    rig.menu(10, 3);
+    rig.tap(100, Button::Right);
+    rig.step(110);
+    let screen = picture(&rig.control);
+    assert!(outlined(&screen, 81, 17, 77, 19, ACCENT));
+    assert!(outlined(&screen, 80, 16, 79, 21, ACCENT));
+    assert!(outlined(&screen, 1, 38, 162, 19, BACKGROUND));
+
+    // On Type, then on Move: slot 2's border, number and name stay in the accent, with no outline
+    // outside the tile, and the cursor's outline is on the item.
+    for (at, item) in [(200, 0), (300, 1)] {
+        rig.tap(at, Button::Down);
+        rig.step(at + 10);
+        let screen = picture(&rig.control);
+        assert!(outlined(&screen, 81, 17, 77, 19, ACCENT), "{item}");
+        assert_eq!(
+            span(&screen, 82..=156, 18..=34, ACCENT),
+            Some((84, 94 + crate::ui::text::width("Reverb") as usize)),
+            "{item}"
+        );
+        assert!(outlined(&screen, 80, 16, 79, 21, BACKGROUND), "{item}");
+        assert!(
+            outlined(&screen, 1, 38 + 18 * item, 162, 19, ACCENT),
+            "{item}"
+        );
+    }
 }
 
 #[test]

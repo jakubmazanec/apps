@@ -29,7 +29,7 @@ profile (see "Memory and budgets") and changes when part 3 chooses hardware.
 | Browser versus device | Bit-identical: the same input events give exactly the same audio samples, screen pixels and note timing in every build (owner's choice)                                           |
 | How the core runs     | Two parts, an audio part with a hard deadline and a control part for everything else, linked by one-way queues                                                                    |
 | Browser build         | One WASM module instantiated twice on one shared memory; stable compiler with a threads-enabled WASM target, nightly route as fallback (owner's choice)                           |
-| Memory                | No allocation while running; fixed pools; working memory and sample RAM kept apart                                                                                                |
+| Memory                | No allocation while running; fixed pools; working memory, sample RAM, the note memory and the effect memory kept apart                                                            |
 | Sample RAM            | The whole library in RAM, as on the EP-133, 16-bit, with its copy on storage; one budget for the device; long recordings are decided with recording and hardware (owner's choice) |
 | Budgets               | A budget profile enforced by the browser build; provisional sample RAM 64 MB for the whole library (owner's choice)                                                               |
 | Audio                 | 48 kHz; the core's own fixed schedule of 32 samples                                                                                                                               |

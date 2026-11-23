@@ -52,9 +52,12 @@ impl Crossfade {
     }
 
     /// Starts a crossfade to `back` when that is not the read in use and none runs: a change
-    /// during a crossfade waits for it to finish (Sound, "Effect determinism").
-    pub fn aim(&mut self, back: u32) {
-        if self.done == CROSSFADE && back != self.to {
+    /// during a crossfade waits for it to finish (Sound, "Effect determinism"). A line that is not
+    /// `ringing` holds only silence, and the read goes to `back` at once.
+    pub fn aim(&mut self, back: u32, ringing: bool) {
+        if !ringing {
+            *self = Self::new(back);
+        } else if self.done == CROSSFADE && back != self.to {
             *self = Self {
                 from: self.to,
                 to: back,
@@ -127,10 +130,10 @@ impl Delay {
         let value = |entry: &Entry| values[Slot::place(entry.id)];
         let real = |entry: &Entry| param::real(entry, value(entry));
         // A time is a key of `DELAY_TIMES`, so it is not negative.
-        self.crossfade.aim(samples(
-            ticks_in_use(value(&DELAY_TIME) as u32, tempo),
-            tempo,
-        ));
+        self.crossfade.aim(
+            samples(ticks_in_use(value(&DELAY_TIME) as u32, tempo), tempo),
+            self.ringing(piece),
+        );
         let feedback = real(&DELAY_FEEDBACK) * 0.98;
         let tone = OnePole::gain(1_000.0 * libm::powf(16.0, real(&DELAY_TONE)));
         let low_cut = OnePole::gain(100.0);
@@ -284,6 +287,63 @@ pub(super) mod tests {
                 let echo = if n == 0 || n == 6_000 { 0.5 } else { 0.0 };
                 assert_eq!(x, echo, "sample {n}");
             }
+        }
+    }
+
+    #[test]
+    fn a_new_delay_shorter_than_the_crossfade_echoes_on_time_at_full_level() {
+        // 1/32T at 300 BPM: 800 samples.
+        let values = values(&[
+            (&DELAY_TIME, 160),
+            (&DELAY_LEVEL, 65_535),
+            (&DELAY_FEEDBACK, 0),
+        ]);
+        let input = impulse(0.5, 1_024);
+
+        let out = through(
+            &mut Delay::new(),
+            &mut piece(),
+            &values,
+            30_000,
+            [&input, &input],
+        );
+
+        for side in out {
+            assert_eq!(next_sound(&side, 0), Some(800));
+            assert_eq!(side[800], 0.5);
+        }
+    }
+
+    #[test]
+    fn a_delay_holding_only_silence_takes_a_new_time_at_once() {
+        let at = |time| {
+            values(&[
+                (&DELAY_TIME, time),
+                (&DELAY_LEVEL, 65_535),
+                (&DELAY_FEEDBACK, 0),
+            ])
+        };
+        let (mut delay, mut piece) = (Delay::new(), piece());
+        let (input, silence) = (impulse(0.5, CHUNK), [0.0; CHUNK]);
+        // An echo at 1/16, 2,400 samples at 300 BPM, then silence until the lines hold only zeros.
+        through(&mut delay, &mut piece, &at(480), 30_000, [&input, &input]);
+        while delay.ringing(&piece) {
+            through(
+                &mut delay,
+                &mut piece,
+                &at(480),
+                30_000,
+                [&silence, &silence],
+            );
+        }
+        let input = impulse(0.5, 1_024);
+
+        // 1/32T: 800 samples.
+        let out = through(&mut delay, &mut piece, &at(160), 30_000, [&input, &input]);
+
+        for side in out {
+            assert_eq!(next_sound(&side, 0), Some(800));
+            assert_eq!(side[800], 0.5);
         }
     }
 

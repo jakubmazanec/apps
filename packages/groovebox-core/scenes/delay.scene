@@ -90,16 +90,16 @@ input 448000 pad-hit 0 100
 input 449600 pad-release 0
 input 475200 turn encoder-2 1
 # PAGE + step 3 shows the delay's page, now slot 2's, and encoder 1 takes Time to 1/1, 2 seconds
-# at 120 BPM. TEMPO held and encoder 1 take the tempo 60 clicks down to 60 BPM, where a whole note
-# takes 4 seconds: the delay plays a half note, 2 seconds again, and Time reads "1/1 (1/2)". A hit
-# echoes 2 seconds later.
+# at 120 BPM. TEMPO held and encoder 1 take the tempo 20 clicks down to 100 BPM, where a whole note
+# takes 2.4 seconds: the delay plays a dotted half note, 1.8 seconds, and Time reads "1/1 (1/2D)".
+# A hit echoes 1.8 seconds later.
 input 620800 press page
 input 622400 press step-3
 input 624000 release step-3
 input 625600 release page
 input 627200 turn encoder-1 9
 input 628800 press tempo
-input 630400 turn encoder-1 -60
+input 630400 turn encoder-1 -20
 input 632000 release tempo
 frame 633600
 input 635200 pad-hit 0 100
@@ -107,7 +107,7 @@ input 636800 pad-release 0
 # TEMPO held and encoder 1 take it back to 120 BPM, where Time reads 1/1 again. A hit echoes 2
 # seconds later.
 input 878400 press tempo
-input 880000 turn encoder-1 60
+input 880000 turn encoder-1 20
 input 881600 release tempo
 input 883200 pad-hit 0 100
 input 884800 pad-release 0

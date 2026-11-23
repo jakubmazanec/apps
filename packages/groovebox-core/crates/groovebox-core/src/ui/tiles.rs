@@ -2,6 +2,7 @@ use crate::{
     palette::{ACCENT, DIM, FAINT, LINE, TEXT},
     screen::Canvas,
     ui::{
+        item::draw_cursor,
         layout::{
             CHAIN_NAME_X, CHAIN_TILE_HEIGHT, CHAIN_TILE_PITCH, CHAIN_TILE_WIDTH, CHAIN_TILE_X,
             CHAIN_TILE_Y, PAD_TILE_COLUMNS, PAD_TILE_NAME_Y, PAD_TILE_PITCH, PAD_TILE_SIZE,
@@ -116,12 +117,18 @@ pub fn draw_pad_tiles(canvas: &mut impl Canvas, pads: &[PadTile; 12], elapsed: u
 }
 
 /// Draws FX Chain's six slots in a row (S15), each with its number from 1 and its effect's name
-/// from `names`, none for an empty slot. The `cursor`'s tile is all in the accent. The others have
-/// a dim number and a bright name, and a line outline or, when the slot is empty, a faint one.
-pub fn draw_chain(canvas: &mut impl Canvas, names: &[Option<&str>; 6], cursor: Option<usize>) {
+/// from `names`, none for an empty slot. The `chosen` slot's tile is all in the accent, with the
+/// cursor around it while the `cursor` is on the row. The others have a dim number and a bright
+/// name, and a line outline or, when the slot is empty, a faint one.
+pub fn draw_chain(
+    canvas: &mut impl Canvas,
+    names: &[Option<&str>; 6],
+    chosen: usize,
+    cursor: bool,
+) {
     for (index, name) in names.iter().enumerate() {
         let x = CHAIN_TILE_X + CHAIN_TILE_PITCH * index as i32;
-        let (outline, number_color, name_color) = match (cursor == Some(index), name) {
+        let (outline, number_color, name_color) = match (index == chosen, name) {
             (true, _) => (ACCENT, ACCENT, ACCENT),
             (false, Some(_)) => (LINE, DIM, TEXT),
             (false, None) => (FAINT, DIM, TEXT),
@@ -130,6 +137,9 @@ pub fn draw_chain(canvas: &mut impl Canvas, names: &[Option<&str>; 6], cursor: O
             rect(x, CHAIN_TILE_Y, CHAIN_TILE_WIDTH, CHAIN_TILE_HEIGHT),
             outline,
         );
+        if cursor && index == chosen {
+            draw_cursor(canvas, x, CHAIN_TILE_Y, CHAIN_TILE_WIDTH, CHAIN_TILE_HEIGHT);
+        }
         text::draw(
             canvas,
             x + TEXT_INSET,
@@ -152,9 +162,9 @@ pub fn draw_chain(canvas: &mut impl Canvas, names: &[Option<&str>; 6], cursor: O
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::palette::{ACCENT, DIM, FAINT, LINE, TEXT};
+    use crate::palette::{ACCENT, BACKGROUND, DIM, FAINT, LINE, TEXT};
     use crate::screen::Screen;
-    use crate::ui::test_pixels::{MOVED, ink, outlined, picture, span};
+    use crate::ui::test_pixels::{MOVED, filled, ink, outlined, picture, span};
     use crate::ui::text;
 
     /// The sixteen tiles of menu-held.png: Step is the current screen, the next nine exist.
@@ -347,40 +357,51 @@ mod tests {
     }
 
     #[test]
-    fn the_chain_tiles_match_fx_chain_png() {
+    fn the_chain_tiles_match_fx_chain_png_with_room_for_the_cursor() {
         let mut screen = Screen::new();
+        let names = [Some("Delay"), Some("Reverb"), None, None, None, None];
 
-        draw_chain(
-            &mut screen,
-            &[Some("Delay"), Some("Reverb"), None, None, None, None],
-            Some(1),
-        );
+        draw_chain(&mut screen, &names, 1, true);
 
-        // Slot 1, used: a line outline of 78 by 19 pixels at (1, 16), a dim number 3 pixels in and
-        // a bright name 14 pixels in.
-        assert!(outlined(&screen, 1, 16, 78, 19, LINE));
-        assert_eq!(span(&screen, 2..=77, 17..=33, DIM), Some((4, 8)));
+        // fx-chain.png's tiles 1 pixel down and in and 1 pixel narrower, so the cursor's outline
+        // clears the header's line and the screen's edge and a dark pixel stays between it and the
+        // next tiles. Slot 1, used: a line outline of 77 by 19 pixels at (2, 17), a dim number 3
+        // pixels in and a bright name 14 pixels in, which ends at least 3 pixels inside.
+        assert!(outlined(&screen, 2, 17, 77, 19, LINE));
+        assert_eq!(span(&screen, 3..=77, 18..=34, DIM), Some((5, 9)));
         assert_eq!(
-            span(&screen, 2..=77, 17..=33, TEXT),
-            Some((15, 14 + text::width("Delay") as usize))
+            span(&screen, 3..=75, 18..=34, TEXT),
+            Some((16, 15 + text::width("Delay") as usize))
         );
-        // Slot 2, the cursor's: its outline, number and name in the accent.
-        assert!(outlined(&screen, 80, 16, 78, 19, ACCENT));
+        // Slot 2, the chosen one: its outline, number and name in the accent, and the cursor's
+        // outline 1 pixel outside it, with a dark column on each side.
+        assert!(outlined(&screen, 81, 17, 77, 19, ACCENT));
+        assert!(outlined(&screen, 80, 16, 79, 21, ACCENT));
+        assert!(filled(&screen, 79..=79, 15..=37, BACKGROUND));
+        assert!(filled(&screen, 159..=159, 15..=37, BACKGROUND));
         assert_eq!(
-            span(&screen, 81..=156, 17..=33, ACCENT),
-            Some((83, 93 + text::width("Reverb") as usize))
+            span(&screen, 82..=154, 18..=34, ACCENT),
+            Some((84, 94 + text::width("Reverb") as usize))
         );
-        assert_eq!(span(&screen, 81..=156, 17..=33, TEXT), None);
+        assert_eq!(span(&screen, 82..=156, 18..=34, TEXT), None);
         // Slots 3 to 6, empty: a faint outline and a dim number, no name.
         for slot in 2..6 {
-            let x = 1 + 79 * slot;
-            assert!(outlined(&screen, x, 16, 78, 19, FAINT), "{slot}");
+            let x = 2 + 79 * slot;
+            assert!(outlined(&screen, x, 17, 77, 19, FAINT), "{slot}");
             assert_eq!(
-                span(&screen, x + 1..=x + 76, 17..=33, DIM),
+                span(&screen, x + 1..=x + 75, 18..=34, DIM),
                 Some((x + 3, x + 7))
             );
-            assert_eq!(span(&screen, x + 1..=x + 76, 17..=33, TEXT), None);
+            assert_eq!(span(&screen, x + 1..=x + 75, 18..=34, TEXT), None);
         }
+        // Without the cursor the chosen tile keeps its accent, and only the outline is gone.
+        let mut without = Screen::new();
+        draw_chain(&mut without, &names, 1, false);
+        assert!(outlined(&without, 81, 17, 77, 19, ACCENT));
+        assert_eq!(
+            ink(&screen, ACCENT) - ink(&without, ACCENT),
+            2 * (79 + 21) - 4
+        );
     }
 
     #[test]
