@@ -1,4 +1,4 @@
-use super::CHUNK;
+use super::Buses;
 use super::sounds::Sounds;
 use super::voice::{State, Voice};
 use crate::budget;
@@ -66,7 +66,8 @@ impl Voices {
     /// not held any more. A voice of the other engine, or on a restart of a file of other
     /// channels, fades into `fades` instead and the note starts in it. Otherwise the note starts a
     /// voice: a finished one, or else the oldest released voice, the oldest voice of its sound or
-    /// the oldest voice, which fades into `fades` first.
+    /// the oldest voice, which fades into `fades` first. A voice always fades into its own track's
+    /// bus of `fades`.
     ///
     /// # Panics
     ///
@@ -86,7 +87,7 @@ impl Voices {
         engine: NoteEngine,
         sounds: &Sounds,
         reader: &Reader<'_>,
-        fades: &mut [[f32; CHUNK]; 2],
+        fades: &mut Buses,
     ) {
         let values = sounds.values(sound);
         let read = |entry: &Entry| values[Sound::place(entry.id)];
@@ -99,7 +100,7 @@ impl Voices {
                     && voice.sound() != sound
                     && sounds.values(voice.sound())[Sound::place(CHOKE_GROUP.id)] == group
                 {
-                    voice.fade(fades);
+                    voice.fade(&mut fades[usize::from(voice.track())]);
                 }
             }
         }
@@ -145,7 +146,7 @@ impl Voices {
             });
             let voice = &mut self.voices[index];
             if voice.state() != State::Idle {
-                voice.fade(fades);
+                voice.fade(&mut fades[usize::from(voice.track())]);
             }
             voice.start(
                 note,
@@ -222,13 +223,13 @@ impl Voices {
     /// Lets go of `file`: every voice that reads it fades into `fades`, and a held key of it
     /// plays no file from now on, so a Mono return to it plays silence. Nothing reads the file
     /// after this.
-    pub fn forget(&mut self, file: FileId, fades: &mut [[f32; CHUNK]; 2]) {
+    pub fn forget(&mut self, file: FileId, fades: &mut Buses) {
         for voice in self
             .voices
             .iter_mut()
             .filter(|voice| voice.reads() == Some(file))
         {
-            voice.fade(fades);
+            voice.fade(&mut fades[usize::from(voice.track())]);
         }
         for key in &mut self.held[..self.length] {
             if matches!(key.engine, NoteEngine::Sample(Some(sample)) if sample.file == file) {
@@ -239,25 +240,25 @@ impl Voices {
 
     /// Fades every voice of `sound` that is not idle into `fades`. Its held keys stay: their
     /// `NoteOff`s still come and clear them, and no voice of the sound is left to return to them.
-    pub fn delete(&mut self, sound: SoundNumber, fades: &mut [[f32; CHUNK]; 2]) {
+    pub fn delete(&mut self, sound: SoundNumber, fades: &mut Buses) {
         for voice in self
             .voices
             .iter_mut()
             .filter(|voice| voice.state() != State::Idle && voice.sound() == sound)
         {
-            voice.fade(fades);
+            voice.fade(&mut fades[usize::from(voice.track())]);
         }
     }
 
     /// Fades every voice that is not idle into `fades`. The held keys stay: their `NoteOff`s still
     /// come and clear them.
-    pub fn silence(&mut self, fades: &mut [[f32; CHUNK]; 2]) {
+    pub fn silence(&mut self, fades: &mut Buses) {
         for voice in self
             .voices
             .iter_mut()
             .filter(|voice| voice.state() != State::Idle)
         {
-            voice.fade(fades);
+            voice.fade(&mut fades[usize::from(voice.track())]);
         }
     }
 
@@ -272,15 +273,15 @@ impl Voices {
         }
     }
 
-    /// Adds one chunk of every voice that is not idle to `out`, reading the samples' files through
-    /// `reader`.
-    pub fn render(&mut self, reader: &Reader<'_>, out: &mut [[f32; CHUNK]; 2]) {
+    /// Adds one chunk of every voice that is not idle to its track's bus in `out`, reading the
+    /// samples' files through `reader`.
+    pub fn render(&mut self, reader: &Reader<'_>, out: &mut Buses) {
         for voice in self
             .voices
             .iter_mut()
             .filter(|voice| voice.state() != State::Idle)
         {
-            voice.render(reader, out);
+            voice.render(reader, &mut out[usize::from(voice.track())]);
         }
     }
 
@@ -303,6 +304,7 @@ impl Default for Voices {
 #[cfg(all(test, not(feature = "loom")))]
 mod tests {
     use super::*;
+    use crate::audio::CHUNK;
     use crate::audio::tests::empty_reader;
     use crate::param::{
         DECAY, LEGATO, LEVEL, ONE_SHOT, OVERLAPPING, SINE, SUPERSAW, SUSTAIN, TRIGGER, WAVE,
@@ -338,8 +340,8 @@ mod tests {
         }
 
         /// Plays `note`, a synth note, at velocity 127 and gives the fades it made.
-        fn on(&mut self, note: u32, track: u8, sound: u32, pitch: u8) -> [[f32; CHUNK]; 2] {
-            let mut fades = [[0.0; CHUNK]; 2];
+        fn on(&mut self, note: u32, track: u8, sound: u32, pitch: u8) -> Buses {
+            let mut fades = [[[0.0; CHUNK]; 2]; 4];
             self.voices.note_on(
                 NoteId(note),
                 track,
@@ -365,7 +367,7 @@ mod tests {
             self.voices.set(SoundNumber(sound), entry.id, value);
         }
 
-        /// The left channel of the next `chunks` chunks of every voice.
+        /// The left channel of the next `chunks` chunks of every voice, the buses added.
         fn play(&mut self, chunks: usize) -> Vec<f32> {
             left(chunks, |out| self.voices.render(&empty_reader(), out))
         }
@@ -373,7 +375,7 @@ mod tests {
         /// The left channel of the next `chunks` chunks of the voice that plays `note`, alone.
         fn play_alone(&mut self, note: u32, chunks: usize) -> Vec<f32> {
             let voice = &mut self.voices.voices[self.voice(note).expect("a voice plays it")];
-            left(chunks, |out| voice.render(&empty_reader(), out))
+            left(chunks, |out| voice.render(&empty_reader(), &mut out[0]))
         }
 
         /// The voice that plays `note`.
@@ -398,19 +400,23 @@ mod tests {
         }
     }
 
-    /// The left channel of `chunks` chunks of `render`.
-    fn left(chunks: usize, mut render: impl FnMut(&mut [[f32; CHUNK]; 2])) -> Vec<f32> {
+    /// The left channel of `chunks` chunks of `render`, the buses added.
+    fn left(chunks: usize, mut render: impl FnMut(&mut Buses)) -> Vec<f32> {
         let mut left = Vec::new();
         for _ in 0..chunks {
-            let mut out = [[0.0; CHUNK]; 2];
+            let mut out = [[[0.0; CHUNK]; 2]; 4];
             render(&mut out);
-            left.extend(out[0]);
+            left.extend((0..CHUNK).map(|n| out.iter().map(|bus| bus[0][n]).sum::<f32>()));
         }
         left
     }
 
-    fn is_silent(chunk: &[[f32; CHUNK]; 2]) -> bool {
-        chunk.as_flattened().iter().all(|&x| x == 0.0)
+    fn is_silent(buses: &Buses) -> bool {
+        buses
+            .as_flattened()
+            .as_flattened()
+            .iter()
+            .all(|&x| x == 0.0)
     }
 
     fn peak(samples: &[f32]) -> f32 {
@@ -438,7 +444,7 @@ mod tests {
         let fades = rig.on(32, 0, 1, 60);
 
         assert!(!is_silent(&fades));
-        assert_eq!(fades.map(|channel| channel[CHUNK - 1]), [0.0; 2]);
+        assert_eq!(fades[0].map(|channel| channel[CHUNK - 1]), [0.0; 2]);
         assert_eq!(rig.voice(32), oldest);
         assert!(
             rig.voices
@@ -446,6 +452,20 @@ mod tests {
                 .iter()
                 .all(|voice| voice.state() == State::Held)
         );
+    }
+
+    #[test]
+    fn a_taken_voice_fades_into_its_own_tracks_bus() {
+        let mut rig = Rig::new(&[&[]]);
+        for note in 0..32 {
+            rig.on(note, 1, 1, 60);
+            rig.play(1);
+        }
+
+        let fades = rig.on(32, 0, 1, 60);
+
+        let sounding = fades.map(|bus| bus.as_flattened().iter().any(|&x| x != 0.0));
+        assert_eq!(sounding, [false, true, false, false]);
     }
 
     #[test]

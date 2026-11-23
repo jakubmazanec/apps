@@ -2,7 +2,9 @@ use crate::dsp::clip::soft_clip;
 use crate::message::{
     MESSAGE_QUEUE, Message, MessageKind, REPORT_QUEUE, Report, Target, VERSION_QUEUE, Version,
 };
-use crate::param::{self, METRONOME, METRONOME_LEVEL, MUTE, OUTPUT_VOLUME};
+use crate::param::{
+    self, Entry, MASTER_LEVEL, METRONOME, METRONOME_LEVEL, MUTE, OUTPUT_VOLUME, TRACK_LEVEL,
+};
 use crate::project::pool::SOUND_DEFAULTS;
 use crate::queue::{Consumer, Producer};
 use crate::sample_ram::Reader;
@@ -28,6 +30,9 @@ pub const SAMPLE_RATE: u32 = 48_000;
 pub const CHUNK: usize = 32;
 pub const MAX_BATCH: usize = 128;
 
+/// One chunk of both channels for each of the four tracks.
+pub type Buses = [[[f32; CHUNK]; 2]; 4];
+
 pub struct Audio {
     position: u64,
     sounds: Sounds,
@@ -44,6 +49,10 @@ pub struct Audio {
     click: Click,
     /// The click's level, gliding as the output volume does.
     metronome_level: Glide,
+    /// Each track's level, which scales its bus, gliding as the output volume does.
+    levels: [Glide; 4],
+    /// The level of the sum of the buses, gliding as the output volume does.
+    master: Glide,
 }
 
 impl Audio {
@@ -59,6 +68,8 @@ impl Audio {
             metronome: false,
             click: Click::new(),
             metronome_level: Glide::at(METRONOME_LEVEL.default),
+            levels: [Glide::at(TRACK_LEVEL.default); 4],
+            master: Glide::at(MASTER_LEVEL.default),
         }
     }
 
@@ -72,10 +83,11 @@ impl Audio {
     /// sample at which it applied each. Then the sequencer starts and ends the pattern's notes due
     /// by the chunk start: a note of a sound the audio part does not hold starts nothing (S22),
     /// and the others play their sound's engine; a beat starts the click while the metronome is on.
-    /// It then adds up the voices, the last chunk of each voice a new note took or choked or a
-    /// `ForgetSample`, `DeleteSound` or `Silence` faded, the preview and the click at the
-    /// metronome level, soft-clips the sum and multiplies it by the output volume; both levels move
-    /// in a line across the chunk.
+    /// It then adds up each track's voices and the last chunk of each voice a new note took or
+    /// choked or a `ForgetSample`, `DeleteSound` or `Silence` faded into its bus, multiplies each
+    /// bus by its track's level, adds the buses and multiplies the sum by the master level, adds
+    /// the preview and the click at the metronome level, soft-clips the sum and multiplies it by
+    /// the output volume; every level moves in a line across the chunk.
     ///
     /// It takes a message or a version only while the report queue has room for its report and
     /// never waits: one it leaves stays in its queue, in order, for a later chunk start. It counts
@@ -111,7 +123,7 @@ impl Audio {
         let (left, _) = left.as_chunks_mut::<CHUNK>();
         let (right, _) = right.as_chunks_mut::<CHUNK>();
         for (left, right) in left.iter_mut().zip(right) {
-            let mut fades = [[0.0; CHUNK]; 2];
+            let mut fades: Buses = [[[0.0; CHUNK]; 2]; 4];
             let mut room = reports.free();
             while room > 0
                 && let Some(message) = messages
@@ -207,8 +219,19 @@ impl Audio {
                         id,
                         value,
                     } if id == MUTE.id => self.sequencer.mute(track, value != 0),
-                    // Another device value is not the audio part's, and the levels wait for the
-                    // buses.
+                    MessageKind::SetParam {
+                        target: Target::Track(track),
+                        id,
+                        value,
+                    } if id == TRACK_LEVEL.id => {
+                        self.levels[usize::from(track)].set(value, TRACK_LEVEL.glide);
+                    }
+                    MessageKind::SetParam {
+                        target: Target::Project,
+                        id,
+                        value,
+                    } if id == MASTER_LEVEL.id => self.master.set(value, MASTER_LEVEL.glide),
+                    // Another device value is not the audio part's.
                     MessageKind::SetParam { .. } => {}
                 }
                 // The report has room: the audio part takes a message only while it does.
@@ -251,30 +274,45 @@ impl Audio {
                     Event::Start { .. } | Event::Beat { .. } => {}
                     Event::End(sounding) => self.voices.note_off(sounding.id, &self.sounds, reader),
                 });
-            let mut mix = [[0.0; CHUNK]; 2];
+            let mut mix: Buses = [[[0.0; CHUNK]; 2]; 4];
             self.voices.render(reader, &mut mix);
             let mut preview = [[0.0; CHUNK]; 2];
             self.preview.render(reader, &mut preview);
             let mut click = [0.0; CHUNK];
             self.click.render(&mut click);
-            let before = param::real(&OUTPUT_VOLUME, self.volume.value);
-            self.volume.step();
-            let after = param::real(&OUTPUT_VOLUME, self.volume.value);
-            let level_before = param::real(&METRONOME_LEVEL, self.metronome_level.value);
-            self.metronome_level.step();
-            let level_after = param::real(&METRONOME_LEVEL, self.metronome_level.value);
+            let gain = glide_in_a_line(&mut self.volume, &OUTPUT_VOLUME);
+            let level = glide_in_a_line(&mut self.metronome_level, &METRONOME_LEVEL);
+            let track_levels = self
+                .levels
+                .each_mut()
+                .map(|level| glide_in_a_line(level, &TRACK_LEVEL));
+            let master = glide_in_a_line(&mut self.master, &MASTER_LEVEL);
             for n in 0..CHUNK {
-                let gain = before + (after - before) * (n + 1) as f32 / CHUNK as f32;
-                let level =
-                    level_before + (level_after - level_before) * (n + 1) as f32 / CHUNK as f32;
-                left[n] =
-                    soft_clip(mix[0][n] + fades[0][n] + preview[0][n] + click[n] * level) * gain;
-                right[n] =
-                    soft_clip(mix[1][n] + fades[1][n] + preview[1][n] + click[n] * level) * gain;
+                let levels = track_levels.each_ref().map(|level| level(n));
+                let tracks = |channel: usize| {
+                    mix.iter()
+                        .zip(&fades)
+                        .zip(levels)
+                        .fold(0.0, |sum, ((mix, fades), level)| {
+                            sum + (mix[channel][n] + fades[channel][n]) * level
+                        })
+                        * master(n)
+                };
+                left[n] = soft_clip(tracks(0) + preview[0][n] + click[n] * level(n)) * gain(n);
+                right[n] = soft_clip(tracks(1) + preview[1][n] + click[n] * level(n)) * gain(n);
             }
             self.position += CHUNK as u64;
         }
     }
+}
+
+/// Moves `glide` one chunk along and gives what `entry` makes of it at the end of each sample of
+/// the chunk, in a line from where the chunk started.
+fn glide_in_a_line(glide: &mut Glide, entry: &Entry) -> impl Fn(usize) -> f32 + use<> {
+    let before = param::real(entry, glide.value);
+    glide.step();
+    let after = param::real(entry, glide.value);
+    move |n| before + (after - before) * (n + 1) as f32 / CHUNK as f32
 }
 
 impl Default for Audio {
@@ -813,6 +851,94 @@ mod tests {
 
         assert!(gliding[3 * CHUNK..].iter().any(|&x| x != 0.0));
         assert!(after.iter().all(|&x| x == 0.0));
+    }
+
+    fn set_level(target: Target, entry: &Entry, value: i32) -> MessageKind {
+        MessageKind::SetParam {
+            target,
+            id: entry.id,
+            value,
+        }
+    }
+
+    #[test]
+    fn a_track_level_scales_only_its_own_track() {
+        let output = |second_note: bool, level| {
+            let (messages, reports) = (Queue::new(), Queue::new());
+            let mut rig = Rig::new(&messages, &reports);
+            rig.send(0, 0, new_sound(1));
+            rig.send(1, 0, note_on(0));
+            if second_note {
+                let on_track_1 = MessageKind::NoteOn {
+                    note: NoteId(1),
+                    track: 1,
+                    sound: SoundNumber(1),
+                    pitch: 60,
+                    velocity: 127,
+                    engine: NoteEngine::Synth,
+                };
+                rig.send(2, 0, on_track_1);
+            }
+            rig.send(3, 0, set_level(Target::Track(1), &TRACK_LEVEL, level));
+            rig.render(256)
+        };
+
+        let alone = output(false, 65_535);
+
+        // The level glides over 128 samples.
+        assert_eq!(bits(&output(true, 0)[128..]), bits(&alone[128..]));
+        assert_ne!(bits(&output(true, 65_535)), bits(&alone));
+    }
+
+    #[test]
+    fn the_master_level_leaves_the_preview_and_the_click_alone() {
+        let output = |note: bool, master| {
+            let (queue, reports) = (Queue::new(), Queue::new());
+            let mut rig = Rig::with_two_files(&queue, &reports, FRAMES);
+            rig.send(0, 0, new_sound(1));
+            if note {
+                rig.send(1, 0, note_on(0));
+            }
+            rig.send(2, 0, preview(0, FRAMES, false));
+            rig.send(3, 0, set_device(&METRONOME, 1));
+            rig.send(4, 0, play(0));
+            rig.send(5, 0, set_level(Target::Project, &MASTER_LEVEL, master));
+            rig.render(1_440)
+        };
+
+        let alone = output(false, 65_535);
+
+        // The level glides over 128 samples.
+        assert!(!is_silent(&alone[128..]));
+        assert_eq!(bits(&output(true, 0)[128..]), bits(&alone[128..]));
+        assert_ne!(bits(&output(true, 65_535)), bits(&alone));
+    }
+
+    #[test]
+    fn a_level_change_glides_over_four_chunks() {
+        let output = |level| {
+            let (messages, reports) = (Queue::new(), Queue::new());
+            let mut rig = Rig::new(&messages, &reports);
+            rig.send(0, 0, new_sound(1));
+            rig.send(1, 0, note_on(0));
+            rig.send(2, 256, set_level(Target::Track(0), &TRACK_LEVEL, level));
+            rig.render(512)
+        };
+
+        let (steady, changed) = (output(65_535), output(32_768));
+
+        // The note stays within the clipper's straight part, so only the gain differs.
+        assert!(peak(&steady) <= 0.5, "peak {}", peak(&steady));
+        assert!(!is_silent(&steady[256..384]));
+        assert_eq!(bits(&changed[..256]), bits(&steady[..256]));
+        let ends =
+            [65_535, 57_344, 49_152, 40_960, 32_768].map(|value| param::real(&TRACK_LEVEL, value));
+        for (n, (changed, steady)) in changed[256..].iter().zip(&steady[256..]).enumerate() {
+            let chunk = (n / CHUNK).min(4);
+            let (before, after) = (ends[chunk], ends[(chunk + 1).min(4)]);
+            let gain = before + (after - before) * (n % CHUNK + 1) as f32 / CHUNK as f32;
+            assert!(libm::fabsf(changed - steady * gain) < 1e-6, "sample {n}");
+        }
     }
 
     #[test]
