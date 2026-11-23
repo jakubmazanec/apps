@@ -59,11 +59,14 @@ pub enum NoteEngine {
     Sample(Option<SampleFile>),
 }
 
-/// What a changed value belongs to. Milestone 3 adds the project, a track and a slot.
+/// What a changed value belongs to: the device, a sound, the project or a track (0 to 3).
+/// Milestone 3 adds a slot with the track effects.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Target {
     Device,
     Sound(SoundNumber),
+    Project,
+    Track(u8),
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

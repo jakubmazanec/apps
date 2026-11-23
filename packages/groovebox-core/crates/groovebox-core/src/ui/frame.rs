@@ -18,26 +18,36 @@ pub struct Piece<'a> {
     pub color: Color,
 }
 
-/// Draws the header: the `left` pieces from the left edge 6 pixels apart, the `right` pieces in
-/// their order 6 pixels apart with the last against the right edge, and the line under them all.
-/// With `metronome` the metronome's icon ends the right group 6 pixels after its last piece: a dim
-/// triangle on the capitals' rows (S9).
-pub fn draw_header(canvas: &mut impl Canvas, left: &[Piece], right: &[Piece], metronome: bool) {
+/// Draws the header: the `left` pieces from the left edge 6 pixels apart and the line under them
+/// all. The right group is laid out from the right edge inwards, 6 pixels apart: `mute` in the dim
+/// colour unless it is empty (S5), with `metronome` the metronome's icon, a dim triangle on the
+/// capitals' rows (S9), then the `right` pieces from the last to the first.
+pub fn draw_header(
+    canvas: &mut impl Canvas,
+    left: &[Piece],
+    right: &[Piece],
+    metronome: bool,
+    mute: &str,
+) {
     let mut x = TEXT_X;
     for piece in left {
         text::draw(canvas, x, HEADER_ROW, piece.text, piece.color);
         x += text::width(piece.text) + PIECE_GAP;
     }
     x = HEADER_RIGHT;
+    if !mute.is_empty() {
+        text::draw_right(canvas, x, HEADER_ROW, mute, DIM);
+        x -= text::width(mute) + PIECE_GAP;
+    }
     if metronome {
         // Its sides spread a column every 2 rows from the apex down to its base.
         for spread in 0..3 {
-            for side in [HEADER_RIGHT - 3 - spread, HEADER_RIGHT - 3 + spread] {
+            for side in [x - 3 - spread, x - 3 + spread] {
                 canvas.vline(side, HEADER_ROW + 3 + 2 * spread, 2, DIM);
             }
         }
         canvas.hline(
-            HEADER_RIGHT + 1 - METRONOME_WIDTH,
+            x + 1 - METRONOME_WIDTH,
             HEADER_ROW + 9,
             METRONOME_WIDTH as u32,
             DIM,
@@ -88,6 +98,7 @@ mod tests {
             ],
             &[],
             false,
+            "",
         );
 
         // The line under the header, across the whole screen.
@@ -111,6 +122,7 @@ mod tests {
             &[piece("Step", ACCENT)],
             &[piece("Storage full. Not saved", RECORD)],
             false,
+            "",
         );
 
         assert_eq!(span(&screen, 0..=479, 4..=10, ACCENT), Some((4, 26)));
@@ -126,6 +138,7 @@ mod tests {
             &[piece("Step", ACCENT)],
             &[piece("P1", TEXT), piece("1/1", TEXT), piece("120.0", TEXT)],
             false,
+            "",
         );
 
         // step-stopped.png: the tempo last, ending at x 475.
@@ -143,6 +156,7 @@ mod tests {
             &[piece("Step", ACCENT)],
             &[piece("P1", TEXT), piece("1/1", TEXT), piece("120.0", TEXT)],
             true,
+            "",
         );
 
         // A dim triangle on the capitals' rows 4 to 10, ending at x 475, and nothing else dim.
@@ -155,6 +169,25 @@ mod tests {
         assert_eq!(ink(&screen, DIM), 17);
         // The tempo ends 6 pixels before it.
         assert_eq!(span(&screen, 431..=479, 4..=10, TEXT), Some((434, 462)));
+    }
+
+    #[test]
+    fn the_muted_tracks_end_the_right_group_before_the_metronome_icon() {
+        let mut screen = Screen::new();
+
+        draw_header(
+            &mut screen,
+            &[piece("Step", ACCENT)],
+            &[piece("P1", TEXT), piece("1/1", TEXT), piece("120.0", TEXT)],
+            true,
+            "Mute 2 4",
+        );
+
+        // The dim text ends at x 475, with the icon, 7 pixels wide, 6 pixels before it.
+        assert_eq!(span(&screen, 423..=479, 4..=10, DIM), Some((429, 475)));
+        assert_eq!(span(&screen, 400..=422, 4..=10, DIM), Some((416, 422)));
+        // The tempo ends 6 pixels before the icon.
+        assert_eq!(span(&screen, 380..=415, 4..=10, TEXT), Some((381, 409)));
     }
 
     #[test]

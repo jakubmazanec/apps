@@ -947,6 +947,7 @@ fn while_playing_the_bar_names_the_playing_bar() {
         &STEP_HEADER.map(|(text, color)| Piece { text, color }),
         &["P1", "1/1 ▶1", "120.0"].map(|text| Piece { text, color: TEXT }),
         false,
+        "",
     );
     draw_strip(&mut expected, &[None; 4]);
     assert!(shows_frame(&rig.control, &expected));

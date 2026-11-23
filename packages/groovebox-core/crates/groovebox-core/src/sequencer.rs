@@ -112,6 +112,8 @@ pub struct Sequencer {
     table: [Option<Sounding>; SOUNDING],
     /// The notes started so far, which number the next.
     started: u32,
+    /// Whether each track's notes start nothing as they come due.
+    muted: [bool; 4],
 }
 
 impl Sequencer {
@@ -138,6 +140,7 @@ impl Sequencer {
             due: 0,
             table: [None; SOUNDING],
             started: 0,
+            muted: [false; 4],
         }
     }
 
@@ -183,6 +186,13 @@ impl Sequencer {
                 .or(self.waiting_meter.take())
                 .unwrap_or(self.meter)
         };
+    }
+
+    /// While `muted`, the notes of `track` that come due start nothing and take no number: the
+    /// notes passed meanwhile are not caught up after the unmute, and a note sounding keeps its
+    /// end.
+    pub fn mute(&mut self, track: u8, muted: bool) {
+        self.muted[usize::from(track)] = muted;
     }
 
     /// Track `track` plays `tree` from its first note not yet due, so no note starts twice.
@@ -268,7 +278,7 @@ impl Sequencer {
     /// by the run of its start, so a note sounding when a run takes over keeps its end. Then
     /// nothing at `until` or before is due again, and an `until` earlier than the one before leaves
     /// due what was. Each start takes the next number with the top bit set (S24); a full table
-    /// first ends the note that ends soonest.
+    /// first ends the note that ends soonest. A muted track's notes only pass (`mute`).
     pub fn advance(&mut self, until: u64, notes: &NoteReader<'_>, mut out: impl FnMut(Event)) {
         let Some(run) = self.run else { return };
         loop {
@@ -309,30 +319,32 @@ impl Sequencer {
                     self.beat += self.meter.beat();
                 }
                 (end, Some((sample, t, tick, note))) if sample <= until => {
-                    if let Some((slot, sounding)) =
-                        end.filter(|_| self.table.iter().all(Option::is_some))
-                    {
-                        self.table[slot] = None;
-                        out(Event::End(sounding));
+                    if !self.muted[t] {
+                        if let Some((slot, sounding)) =
+                            end.filter(|_| self.table.iter().all(Option::is_some))
+                        {
+                            self.table[slot] = None;
+                            out(Event::End(sounding));
+                        }
+                        let id = NoteId(0x8000_0000 | self.started);
+                        self.started += 1;
+                        *self
+                            .table
+                            .iter_mut()
+                            .find(|slot| slot.is_none())
+                            .expect("a full table has just ended a note") = Some(Sounding {
+                            id,
+                            end: self.run_at(run, tick).sample(tick + u64::from(note.length)),
+                            track: t as u8,
+                            sound: note.sound,
+                            pitch: note.pitch,
+                        });
+                        out(Event::Start {
+                            id,
+                            track: t as u8,
+                            note,
+                        });
                     }
-                    let id = NoteId(0x8000_0000 | self.started);
-                    self.started += 1;
-                    *self
-                        .table
-                        .iter_mut()
-                        .find(|slot| slot.is_none())
-                        .expect("a full table has just ended a note") = Some(Sounding {
-                        id,
-                        end: self.run_at(run, tick).sample(tick + u64::from(note.length)),
-                        track: t as u8,
-                        sound: note.sound,
-                        pitch: note.pitch,
-                    });
-                    out(Event::Start {
-                        id,
-                        track: t as u8,
-                        note,
-                    });
                     notes.advance(&mut self.tracks[t].cursor);
                     self.find_next(t, notes);
                 }
@@ -1289,5 +1301,43 @@ mod tests {
             tempo: 6_000,
         });
         assert_eq!(rig.sequencer.at(28_012), Some((0, 1_241)));
+    }
+
+    #[test]
+    fn a_muted_track_starts_none_of_its_notes_and_catches_none_up() {
+        let ram = NoteRam::boxed();
+        let mut rig = Rig::new(&ram, [step(0), step(2)]);
+        rig.switch(1, [step(0)]);
+        rig.sequencer.mute(0, true);
+        rig.sequencer.play(RUN, &rig.notes);
+
+        // Track 1's notes, at samples 0 and 12,000, pass unheard; track 2's note sounds.
+        assert_eq!(rig.heard(0), [Heard::Start(1, 0)]);
+        assert_eq!(rig.heard(12_000), [Heard::End(6_000)]);
+        // Unmuted after both, nothing comes up until the next pass, whose notes take the next
+        // numbers: the muted ones took none.
+        rig.sequencer.mute(0, false);
+        assert_eq!(rig.heard(95_999), []);
+        let started: Vec<NoteId> = rig
+            .events(96_000)
+            .into_iter()
+            .filter_map(|event| match event {
+                Event::Start { id, .. } => Some(id),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(started, [NoteId(0x8000_0001), NoteId(0x8000_0002)]);
+    }
+
+    #[test]
+    fn a_note_sounding_at_the_mute_keeps_its_end() {
+        let ram = NoteRam::boxed();
+        let mut rig = Rig::new(&ram, [step(0)]);
+        assert_eq!(rig.heard(0), [Heard::Start(0, 0)]);
+        assert_eq!(rig.heard(3_000), []);
+
+        rig.sequencer.mute(0, true);
+
+        assert_eq!(rig.heard(6_000), [Heard::End(6_000)]);
     }
 }

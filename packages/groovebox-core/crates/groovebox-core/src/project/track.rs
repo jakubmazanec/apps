@@ -1,4 +1,8 @@
 use super::pool::SoundNumber;
+use crate::param::{self, ENTRIES, MUTE, ParamId, Scope};
+
+/// The values a track holds: one for each `Track` entry of the master list, in list order.
+pub const TRACK_VALUES: usize = param::count(ENTRIES, Scope::Track);
 
 /// The highest octave: C8, whose pad 1 plays MIDI note 108. The lowest is 0 (C0, note 12).
 pub const MAX_OCTAVE: u8 = 8;
@@ -11,7 +15,8 @@ pub enum PadMode {
     Keys,
 }
 
-/// What a track keeps: its 12 pads, what is selected, the pad mode and the octave.
+/// What a track keeps: its 12 pads, what is selected, the pad mode, the octave, its level and its
+/// mute.
 ///
 /// The selection rule: when `selected_pad` is `Some(p)`, `selected_sound` is `pads[p]`. `select`,
 /// `select_sound` and `put` keep it, so a pad or the selection changes through them and never by
@@ -29,6 +34,8 @@ pub struct Track {
     /// plays, whether or not a sound played it. A step entered in KEYS mode gets it, or the C of
     /// the current octave while it is `None`, before any key has been played.
     pub last_key: Option<u8>,
+    /// TRACK_LEVEL and MUTE, in list order.
+    pub values: [i32; TRACK_VALUES],
 }
 
 impl Track {
@@ -42,6 +49,7 @@ impl Track {
             mode: PadMode::Pads,
             octave: 4,
             last_key: None,
+            values: param::defaults(ENTRIES, Scope::Track),
         }
     }
 
@@ -78,6 +86,29 @@ impl Track {
         }
     }
 
+    /// The value of the `Track` entry `id`.
+    ///
+    /// # Panics
+    ///
+    /// When `id` is not a `Track` entry: an ID comes from the master list.
+    pub fn value(&self, id: ParamId) -> i32 {
+        self.values[Self::place(id)]
+    }
+
+    /// Stores the value, stopping it at the entry's lowest or highest value.
+    pub fn set(&mut self, id: ParamId, value: i32) {
+        let entry = param::entry(id);
+        self.values[Self::place(id)] = value.clamp(entry.low, entry.high);
+    }
+
+    pub fn muted(&self) -> bool {
+        self.value(MUTE.id) != 0
+    }
+
+    fn place(id: ParamId) -> usize {
+        param::position(ENTRIES, Scope::Track, id).expect("every ID in use is a track entry")
+    }
+
     /// The MIDI note pad `pad` (0 to 11) plays in KEYS mode: C0 is 12, C4 60 and B8 119.
     pub fn key_pitch(&self, pad: u8) -> u8 {
         12 * (self.octave + 1) + pad
@@ -93,6 +124,7 @@ impl Default for Track {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::param::TRACK_LEVEL;
 
     #[test]
     fn a_new_track_selects_pad_1_in_pads_mode_at_c4() {
@@ -105,6 +137,29 @@ mod tests {
         assert_eq!(track.octave, 4);
         assert_eq!(track.last_key, None);
         assert_eq!(Track::default(), track);
+    }
+
+    #[test]
+    fn a_new_track_is_at_full_level_and_not_muted() {
+        let track = Track::new();
+
+        assert_eq!(track.value(TRACK_LEVEL.id), 65_535);
+        assert!(!track.muted());
+    }
+
+    #[test]
+    fn a_track_keeps_its_level_and_mute_and_stops_them_at_their_ends() {
+        let mut track = Track::new();
+
+        track.set(MUTE.id, 1);
+        track.set(TRACK_LEVEL.id, 70_000);
+
+        assert!(track.muted());
+        assert_eq!(track.value(TRACK_LEVEL.id), 65_535);
+        track.set(MUTE.id, 0);
+        track.set(TRACK_LEVEL.id, -1);
+        assert!(!track.muted());
+        assert_eq!(track.value(TRACK_LEVEL.id), 0);
     }
 
     #[test]

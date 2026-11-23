@@ -21,6 +21,7 @@ use std::boxed::Box;
 use std::vec::Vec;
 
 mod library;
+mod mix;
 mod pattern;
 mod pool;
 mod sample_sounds;
@@ -222,7 +223,7 @@ fn drawn(
             .collect()
     });
     let mut screen = Screen::new();
-    draw_header(&mut screen, &left, &right, false);
+    draw_header(&mut screen, &left, &right, false, "");
     main(&mut screen);
     draw_strip(&mut screen, strip);
     screen
@@ -642,23 +643,6 @@ fn each_track_keeps_its_mode_octave_and_selection() {
     for (number, track) in rig.control.project.tracks.iter().enumerate().skip(2) {
         assert_eq!(*track, Track::new(), "track {number}");
     }
-}
-
-#[test]
-fn shift_with_a_track_button_does_nothing() {
-    let queue = Queue::new();
-    let mut rig = Rig::new(&queue);
-    rig.press(0, Button::Shift);
-    rig.tap(10, Button::T3);
-    rig.let_go(20, Button::Shift);
-    rig.step(128);
-    assert_eq!(rig.control.project.track, 0);
-    assert_eq!(rig.lit(), [pad(0), track(0)]);
-
-    rig.tap(200, Button::T3);
-    rig.step(256);
-    assert_eq!(rig.control.project.track, 2);
-    assert_eq!(rig.lit(), [pad(0), track(2)]);
 }
 
 #[test]

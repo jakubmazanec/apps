@@ -56,7 +56,8 @@ impl Control {
     /// progress, in the room right of the pieces; a file's name in it is shortened with "…" so that
     /// the rest of the text fits there, and a message still too wide for it loses its end to a "…".
     /// While neither shows, the transport is on the right (`transport`, S11), ending with the
-    /// metronome's icon while the metronome is on (S9), and the sound's name loses its end to a "…"
+    /// metronome's icon while the metronome is on (S9) and then "Mute" and the numbers of the muted
+    /// tracks in the dim colour while any is (S5), and the sound's name loses its end to a "…"
     /// where the pieces would come closer than 6 pixels to that group (S12).
     ///
     /// The main area shows the page's items with the cursor and the page's picture, the tiles while
@@ -99,6 +100,7 @@ impl Control {
                     color: ACCENT,
                 }],
                 false,
+                "",
             );
             draw_strip(canvas, &[None; 4]);
             return;
@@ -203,6 +205,15 @@ impl Control {
             color: TEXT,
         });
         let metronome = self.settings.get(METRONOME.id) == 1;
+        let mut mute = Label::<12>::new();
+        if self.project.tracks.iter().any(|track| track.muted()) {
+            mute.push_str("Mute");
+        }
+        for (number, track) in (1..).zip(&self.project.tracks) {
+            if track.muted() {
+                write!(mute, " {number}").expect("writing to a label never fails");
+            }
+        }
         // The "…" takes the place of at least one character, so two bytes more at most.
         let mut cut = Label::<{ NAME_BYTES + 2 }>::new();
         if message.is_none() {
@@ -223,6 +234,11 @@ impl Control {
                         } else {
                             0
                         }
+                        - if mute.as_str().is_empty() {
+                            0
+                        } else {
+                            text::width(mute.as_str()) + PIECE_GAP
+                        }
                 )
             )
             .expect("writing to a label never fails");
@@ -239,6 +255,7 @@ impl Control {
                 .as_ref()
                 .map_or(transport.as_slice(), core::slice::from_ref),
             message.is_none() && metronome,
+            if message.is_none() { mute.as_str() } else { "" },
         );
 
         let elapsed = self.now - self.landed;

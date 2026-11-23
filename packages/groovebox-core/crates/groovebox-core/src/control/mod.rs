@@ -25,8 +25,8 @@ use crate::message::{
 };
 use crate::palette::RECORD;
 use crate::param::{
-    self, Curve, END, ENTRIES, LOOP_END, LOOP_START, METRONOME, OUTPUT_VOLUME, ParamId, START,
-    Scope, TEMPO, VELOCITY,
+    self, Curve, END, ENTRIES, LOOP_END, LOOP_START, METRONOME, MUTE, OUTPUT_VOLUME, ParamId,
+    START, Scope, TEMPO, VELOCITY,
 };
 use crate::project::pool::{Engine, PoolFull, SOUND_VALUES, Sample, Sound, SoundNumber};
 use crate::project::settings::DeviceSettings;
@@ -66,6 +66,10 @@ const AWAITED: usize = 4;
 
 /// The sound picker's first row of a sound of the pool, after Empty, New sample and New synth.
 const FIRST_SOUND_ROW: usize = 3;
+
+/// The samples of a slow blink, on for the first half and off for the second, counted from sample
+/// 0 of the audio clock (S6).
+const BLINK_SLOW: u64 = 48_000;
 
 /// What a row of a picker chooses.
 enum Entry<'a> {
@@ -685,7 +689,8 @@ impl Control {
     /// note of the current track sounding in the pattern (S13). In KEYS mode pad 1, the C, is lit
     /// and so is every pad whose pitch in the current octave has a MIDI note on or is a pitch the
     /// pattern sounds on the current track in the selected sound (S13). T1 to T4 light the
-    /// current track and PADS/KEYS lights in KEYS mode. While MENU or PAGE is held, the steps of
+    /// current track, a muted one's blinking instead (`BLINK_SLOW`, S6), and PADS/KEYS lights in
+    /// KEYS mode. While MENU or PAGE is held, the steps of
     /// the screens or pages that exist light: the steps whose tiles are not empty. Otherwise the
     /// steps of the page the step buttons show light where a note of the selected sound starts
     /// (`step_notes`), and while playing the step the music is in, on that page of the bar the
@@ -702,7 +707,16 @@ impl Control {
             .sounding()
             .filter(|note| note.track == self.project.track);
         let mut lights = Lights(0);
-        lights.light(Lights::TRACK + u32::from(self.project.track));
+        for (t, track) in (0..).zip(&self.project.tracks) {
+            let on = if track.muted() {
+                self.now % BLINK_SLOW < BLINK_SLOW / 2
+            } else {
+                t == self.project.track
+            };
+            if on {
+                lights.light(Lights::TRACK + u32::from(t));
+            }
+        }
         for pad in self.notes.held_pads() {
             lights.light(Lights::PAD + u32::from(pad));
         }
@@ -975,7 +989,8 @@ impl Control {
     ///   opens on the selection (`land_on_selection`). The arrows, OK, CANCEL, - and +, the encoder
     ///   pushes, ROLL, PADS/KEYS and COPY are dropped, and so taken too.
     /// - T1 to T4 select the track and land POOL's cursor (`land_on_selection`). With SHIFT held
-    ///   they do nothing until muting comes with the sequencer.
+    ///   they flip that track's mute instead, on every screen and while a picker, a question, MENU
+    ///   or PAGE is open or a step is held, and the current track stays (`set_on`, S4).
     /// - SHIFT + OK, SHIFT + STOP, SHIFT + an encoder push and SHIFT + a step do nothing, though a
     ///   step under MENU or PAGE still shows its screen or page.
     /// - PADS/KEYS held + up or down moves the octave in KEYS mode, stopping at C0 and C8, and in
@@ -1031,15 +1046,21 @@ impl Control {
         let question = self.view.question.is_some();
         let pads_keys = self.buttons.first_held(&[Button::PadsKeys]).is_some();
         match button {
-            Button::T1
-            | Button::T2
-            | Button::T3
-            | Button::T4
-            | Button::Ok
-            | Button::Stop
-            | Button::Push(_)
+            Button::T1 | Button::T2 | Button::T3 | Button::T4
                 if self.buttons.is_held(Button::Shift) =>
             {
+                // T1 to T4 have the codes 0 to 3.
+                let track = Target::Track(button.code());
+                self.set_on(
+                    track,
+                    MUTE.id,
+                    i32::from(self.value_of(track, MUTE.id) == 0),
+                    sample,
+                    messages,
+                );
+                self.buttons.take(button);
+            }
+            Button::Ok | Button::Stop | Button::Push(_) if self.buttons.is_held(Button::Shift) => {
                 self.buttons.take(button);
             }
             // SHIFT + CANCEL on STEP stays free for undo (Milestone 4), as CANCEL alone removes.
@@ -1607,30 +1628,34 @@ impl Control {
         self.set(id, value, sample, messages);
     }
 
-    /// What holds the value of the entry `id`: the device, or the selected sound of the current
-    /// track. The project holds the tempo (`value`, `set`).
+    /// What holds the value of the entry `id`: the device, the project, the current track or the
+    /// selected sound of the current track.
     fn target(&self, id: ParamId) -> Target {
         match param::entry(id).scope {
             Scope::Device => Target::Device,
+            Scope::Project => Target::Project,
+            Scope::Track => Target::Track(self.project.track),
             Scope::Sound => Target::Sound(
                 self.track()
                     .selected_sound
                     .expect("a sound's value is on a page only while a sound is selected"),
             ),
-            Scope::Project | Scope::Track => {
-                unreachable!("no page shows a track value or a project value but the tempo")
-            }
         }
     }
 
-    /// The value of the entry `id`, read where its scope keeps it; the tempo, the one project value
-    /// a page shows, is picked out by its id.
+    /// `value_of` where the entry `id` lives (`target`).
     fn value(&self, id: ParamId) -> i32 {
+        self.value_of(self.target(id), id)
+    }
+
+    /// The value of the entry `id` of `target`, read where its scope keeps it; the tempo, the one
+    /// project value but the master level that a page shows, is picked out by its id.
+    fn value_of(&self, target: Target, id: ParamId) -> i32 {
         if id == TEMPO.id {
             // At most 30,000, so it fits.
             return self.project.tempo as i32;
         }
-        match self.target(id) {
+        match target {
             Target::Device => self.settings.get(id),
             Target::Sound(sound) => self
                 .project
@@ -1638,12 +1663,12 @@ impl Control {
                 .get(sound)
                 .expect("a selected sound is in the pool")
                 .value(id),
+            Target::Project => self.project.master,
+            Target::Track(track) => self.project.tracks[usize::from(track)].value(id),
         }
     }
 
-    /// Stores `value` for the entry `id` and tells the audio part, unless the entry holds it
-    /// already. The tempo sends no `SetParam`: while playing the music goes on at it from the first
-    /// tick after `sample`, in both parts, and while stopped the next PLAY carries it (S2).
+    /// `set_on` where the entry `id` lives (`target`).
     fn set(
         &mut self,
         id: ParamId,
@@ -1651,7 +1676,22 @@ impl Control {
         sample: u64,
         messages: &mut Producer<'_, Message, MESSAGE_QUEUE>,
     ) {
-        if value == self.value(id) {
+        self.set_on(self.target(id), id, value, sample, messages);
+    }
+
+    /// Stores `value` for the entry `id` of `target` and tells the audio part, unless the entry
+    /// holds it already. MUTE also mutes the control part's own sequencer. The tempo sends no
+    /// `SetParam`: while playing the music goes on at it from the first tick after `sample`, in
+    /// both parts, and while stopped the next PLAY carries it (S2).
+    fn set_on(
+        &mut self,
+        target: Target,
+        id: ParamId,
+        value: i32,
+        sample: u64,
+        messages: &mut Producer<'_, Message, MESSAGE_QUEUE>,
+    ) {
+        if value == self.value_of(target, id) {
             return;
         }
         if id == TEMPO.id {
@@ -1664,7 +1704,6 @@ impl Control {
             }
             return;
         }
-        let target = self.target(id);
         match target {
             Target::Device => self.settings.set(id, value),
             Target::Sound(sound) => self
@@ -1673,6 +1712,13 @@ impl Control {
                 .get_mut(sound)
                 .expect("a selected sound is in the pool")
                 .set(id, value),
+            Target::Project => self.project.master = value,
+            Target::Track(track) => {
+                self.project.tracks[usize::from(track)].set(id, value);
+                if id == MUTE.id {
+                    self.player.mute(track, value != 0);
+                }
+            }
         }
         self.send(
             sample,

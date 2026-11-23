@@ -2,7 +2,7 @@ use crate::dsp::clip::soft_clip;
 use crate::message::{
     MESSAGE_QUEUE, Message, MessageKind, REPORT_QUEUE, Report, Target, VERSION_QUEUE, Version,
 };
-use crate::param::{self, METRONOME, METRONOME_LEVEL, OUTPUT_VOLUME};
+use crate::param::{self, METRONOME, METRONOME_LEVEL, MUTE, OUTPUT_VOLUME};
 use crate::project::pool::SOUND_DEFAULTS;
 use crate::queue::{Consumer, Producer};
 use crate::sample_ram::Reader;
@@ -202,7 +202,13 @@ impl Audio {
                     }
                     MessageKind::Tempo { run } => self.sequencer.retime(run),
                     MessageKind::Meter { meter } => self.sequencer.meter(meter, notes),
-                    // Another device value is not the audio part's.
+                    MessageKind::SetParam {
+                        target: Target::Track(track),
+                        id,
+                        value,
+                    } if id == MUTE.id => self.sequencer.mute(track, value != 0),
+                    // Another device value is not the audio part's, and the levels wait for the
+                    // buses.
                     MessageKind::SetParam { .. } => {}
                 }
                 // The report has room: the audio part takes a message only while it does.
@@ -288,7 +294,7 @@ mod tests {
     };
     use crate::param::{
         CHOKE_GROUP, CUTOFF, DECAY, END, Entry, GATE, LEGATO, LEVEL, LOOP, LOOP_END, METRONOME,
-        METRONOME_LEVEL, MONO, ONE_SHOT, OUTPUT_VOLUME, PLAY_MODE, POLY, RESONANCE, SPREAD,
+        METRONOME_LEVEL, MONO, MUTE, ONE_SHOT, OUTPUT_VOLUME, PLAY_MODE, POLY, RESONANCE, SPREAD,
         SUPERSAW, SUSTAIN, TRIGGER, WAVE,
     };
     use crate::project::Signature;
@@ -2190,6 +2196,31 @@ mod tests {
         assert_eq!(bits(&out), by_messages);
         assert_eq!(rig.audio.voices.sounding(), 1);
         assert_eq!(rig.audio.sequencer.run(), None);
+    }
+
+    #[test]
+    fn a_hand_played_note_on_a_muted_track_sounds() {
+        let (messages, reports) = (Queue::new(), Queue::new());
+        let mut rig = Rig::new(&messages, &reports);
+        rig.send(0, 0, new_sound(1));
+        rig.send(
+            1,
+            0,
+            MessageKind::SetParam {
+                target: Target::Track(0),
+                id: MUTE.id,
+                value: 1,
+            },
+        );
+        rig.send(2, 0, play(0));
+        rig.version(3, 0, 0, &[step(0)]);
+
+        // Step 0, due at sample 0, starts nothing.
+        assert!(is_silent(&rig.render(128)));
+
+        rig.send(4, 128, note_on(0));
+
+        assert!(!is_silent(&rig.render(128)));
     }
 
     #[test]

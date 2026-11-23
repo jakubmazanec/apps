@@ -1,3 +1,4 @@
+use crate::param::MASTER_LEVEL;
 use crate::store::Tree;
 use pool::{Pool, SoundNumber};
 use track::Track;
@@ -18,7 +19,7 @@ pub struct Pattern {
 }
 
 /// What a project holds in memory: the pool of sounds, the four tracks and the 16 patterns, which
-/// track and which pattern are current, the tempo and the signature.
+/// track and which pattern are current, the tempo, the signature and the master level.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Project {
     pub pool: Pool,
@@ -31,6 +32,8 @@ pub struct Project {
     /// In hundredths of a BPM.
     pub tempo: u32,
     pub signature: Signature,
+    /// MASTER_LEVEL's value.
+    pub master: i32,
 }
 
 impl Project {
@@ -48,6 +51,7 @@ impl Project {
             pattern: 0,
             tempo: NEW_TEMPO,
             signature: FOUR_FOUR,
+            master: MASTER_LEVEL.default,
         }
     }
 
@@ -147,6 +151,11 @@ mod tests {
             assert_eq!(track.octave, 4);
             assert!(track.pads.iter().all(Option::is_none));
         }
+    }
+
+    #[test]
+    fn a_new_project_is_at_full_master_level() {
+        assert_eq!(Box::new(NEW).master, 65_535);
     }
 
     #[test]

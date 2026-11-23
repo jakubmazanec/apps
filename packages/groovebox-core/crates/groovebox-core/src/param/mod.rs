@@ -214,10 +214,12 @@ const fn choice(key: i32, label: &'static str) -> Choice {
 }
 
 mod chain;
+mod mix;
 mod sample;
 mod synth;
 
 pub use chain::*;
+pub use mix::*;
 pub use sample::*;
 pub use synth::*;
 
@@ -228,6 +230,9 @@ pub const ENTRIES: &[Entry] = &[
     METRONOME,
     METRONOME_LEVEL,
     TEMPO,
+    MASTER_LEVEL,
+    TRACK_LEVEL,
+    MUTE,
     MODE,
     CUTOFF,
     RESONANCE,
@@ -634,7 +639,7 @@ mod tests {
             defaults::<4>(ENTRIES, Scope::Device),
             [1, 45_875, 0, METRONOME_LEVEL_DEFAULT]
         );
-        assert_eq!(defaults::<1>(ENTRIES, Scope::Project), [12_000]);
+        assert_eq!(defaults::<2>(ENTRIES, Scope::Project), [12_000, 65_535]);
     }
 
     #[test]
@@ -776,11 +781,12 @@ mod tests {
     };
 
     #[test]
-    fn the_list_passes_its_check_with_40_sound_4_device_and_1_project_entries() {
+    fn the_list_passes_its_check_with_40_sound_4_device_2_project_and_2_track_entries() {
         assert_eq!(check(ENTRIES), Ok(()));
         assert_eq!(count(ENTRIES, Scope::Sound), 40);
         assert_eq!(count(ENTRIES, Scope::Device), 4);
-        assert_eq!(count(ENTRIES, Scope::Project), 1);
+        assert_eq!(count(ENTRIES, Scope::Project), 2);
+        assert_eq!(count(ENTRIES, Scope::Track), 2);
     }
 
     #[test]
@@ -967,6 +973,29 @@ mod tests {
         assert_eq!(METRONOME_LEVEL.default, METRONOME_LEVEL_DEFAULT);
         assert_eq!((TEMPO.id, TEMPO.scope), (ParamId(100), Scope::Project));
         assert_eq!(TEMPO.default, 12_000);
+    }
+
+    #[test]
+    fn the_mix_entries_are_numbered_101_200_and_201_with_full_levels_and_no_mute() {
+        assert_eq!(
+            (MASTER_LEVEL.id, MASTER_LEVEL.scope),
+            (ParamId(101), Scope::Project)
+        );
+        assert_eq!(
+            (TRACK_LEVEL.id, TRACK_LEVEL.scope),
+            (ParamId(200), Scope::Track)
+        );
+        assert_eq!((MUTE.id, MUTE.scope), (ParamId(201), Scope::Track));
+        assert_eq!(
+            [MASTER_LEVEL.default, TRACK_LEVEL.default, MUTE.default],
+            [65_535, 65_535, 0]
+        );
+        assert_eq!(defaults::<2>(ENTRIES, Scope::Track), [65_535, 0]);
+        assert_eq!(MUTE.curve, Curve::Switch);
+        assert_eq!(
+            [MASTER_LEVEL.curve, TRACK_LEVEL.curve],
+            [Curve::Level, Curve::Level]
+        );
     }
 
     #[test]

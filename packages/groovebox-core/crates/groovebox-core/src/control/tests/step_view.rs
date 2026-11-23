@@ -732,6 +732,7 @@ fn an_arrow_into_another_bar_stops_following() {
         &STEP_HEADER.map(|(text, color)| Piece { text, color }),
         &["P1", "2/4 ▶4", "120.0"].map(|text| Piece { text, color: TEXT }),
         false,
+        "",
     );
     draw_strip(&mut expected, &[None; 4]);
     assert!(shows_frame(&rig.control, &expected));
