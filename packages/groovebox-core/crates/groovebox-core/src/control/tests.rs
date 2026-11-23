@@ -20,6 +20,7 @@ use crate::ui::tiles::{Tile, TileState, draw_tiles};
 use std::boxed::Box;
 use std::vec::Vec;
 
+mod fx;
 mod library;
 mod mix;
 mod pattern;
@@ -1140,6 +1141,7 @@ fn menu_with_step_8_shows_settings_at_the_steps_press() {
             pad(0),
             step(0),
             step(2),
+            step(3),
             step(4),
             step(5),
             step(7),
@@ -1161,6 +1163,7 @@ fn menu_with_step_8_shows_settings_at_the_steps_press() {
             pad(0),
             step(0),
             step(2),
+            step(3),
             step(4),
             step(5),
             step(7),
@@ -1257,7 +1260,10 @@ fn the_first_of_menu_and_page_counts() {
         &rig.control,
         &tiles(
             &STEP_HEADER,
-            &page_tiles(pages(view::Screen::Sound, None, true), 0)
+            &page_tiles(
+                &pages(view::Screen::Sound, None, true, &Track::new().slots),
+                0
+            )
         )
     ));
     assert_eq!(rig.lit(), [pad(0), step(0), track(0)]);
@@ -1342,7 +1348,10 @@ fn page_on_settings_shows_playing_and_dev_and_lights_steps_1_and_2() {
     rig.press(100, Button::Page);
     rig.step(101);
 
-    let shown = page_tiles(pages(view::Screen::Settings, None, true), 0);
+    let shown = page_tiles(
+        &pages(view::Screen::Settings, None, true, &Track::new().slots),
+        0,
+    );
     assert_eq!(
         shown[..2],
         [

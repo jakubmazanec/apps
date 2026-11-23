@@ -848,7 +848,13 @@ fn switching_to_synth_resets_the_synths_values_and_keeps_the_chain() {
         sampled[Sound::place(START.id)..]
     );
     assert_eq!(
-        pages(view::Screen::Sound, rig.control.selected(), true)[1].name,
+        pages(
+            view::Screen::Sound,
+            rig.control.selected(),
+            true,
+            &rig.track().slots
+        )[1]
+        .name,
         "Synth"
     );
 }

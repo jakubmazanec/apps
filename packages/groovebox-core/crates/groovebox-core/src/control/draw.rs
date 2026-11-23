@@ -5,6 +5,7 @@ use super::samples::{self, rows};
 use super::step_view::{self, LANES_SHOWN, PAGE, cell_of};
 use super::view::{Picker, Question, Screen};
 use super::{Control, Entry, HeaderMessage};
+use crate::audio::delay::ticks_in_use;
 use crate::budget;
 use crate::font::ADVANCE;
 use crate::input::{Button, PADS};
@@ -13,25 +14,25 @@ use crate::library::{self, name};
 use crate::message::Target;
 use crate::palette::{ACCENT, BACKGROUND, DIM, FAINT, NOTE_MID, RECORD, TEXT};
 use crate::param::{
-    self, BP, CUTOFF, Curve, END, HP, LP_12, LP_24, METRONOME, MODE, ParamId, RESONANCE, ROOT_NOTE,
-    START, TEMPO, TRACK_LEVEL,
+    self, BP, CUTOFF, Curve, DELAY_TIME, END, HP, LP_12, LP_24, METRONOME, MODE, ParamId,
+    RESONANCE, ROOT_NOTE, START, TEMPO, TRACK_LEVEL,
 };
 use crate::project::pool::{Engine, NAME_BYTES, Sample, Sound, SoundNumber};
-use crate::project::track::PadMode;
+use crate::project::track::{Effect, PadMode};
 use crate::screen::{Canvas, HEIGHT, WIDTH};
 use crate::ui::frame::{Piece, draw_header, draw_strip};
 use crate::ui::item::{Bar, ItemView, draw_cursor, draw_item};
 use crate::ui::layout::{
-    HEADER_RIGHT, ITEM_HEIGHT, ITEM_PITCH, LIST_VISIBLE, METER_Y, METRONOME_WIDTH, PAGE_FIRST,
-    PAGE_VISIBLE, PAGE_WIDTH, PAGE_X, PICTURE, PIECE_GAP, ROW_FIRST, ROW_PITCH, ROW_WIDTH, ROW_X,
-    SAMPLES_VISIBLE, TEXT_INSET, TEXT_X, rect,
+    CHAIN_FIRST, HEADER_RIGHT, ITEM_HEIGHT, ITEM_PITCH, LIST_VISIBLE, METER_Y, METRONOME_WIDTH,
+    PAGE_FIRST, PAGE_VISIBLE, PAGE_WIDTH, PAGE_X, PICTURE, PIECE_GAP, ROW_FIRST, ROW_PITCH,
+    ROW_WIDTH, ROW_X, SAMPLES_VISIBLE, TEXT_INSET, TEXT_X, rect,
 };
 use crate::ui::list::{Row, draw_rows};
 use crate::ui::plot::draw_line;
 use crate::ui::question::draw_question;
 use crate::ui::step::{LaneView, StepPicture, draw_step};
 use crate::ui::text;
-use crate::ui::tiles::{PadTile, draw_pad_tiles, draw_tiles};
+use crate::ui::tiles::{PadTile, draw_chain, draw_pad_tiles, draw_tiles};
 use core::fmt::Write;
 
 /// Where a curve or a shape runs: from the picture area's first column across `SPAN` more columns,
@@ -66,7 +67,10 @@ impl Control {
     ///
     /// The main area shows the page's items with the cursor and the page's picture, the tiles while
     /// MENU or PAGE is held, or the picker while one is open. STEP shows its lanes (`draw_step`).
-    /// SAMPLES shows its rows (`samples_row`) with the cursor, inside a
+    /// FX Chain shows the current track's slots as tiles in the place of its first item
+    /// (`draw_chain`), the cursor's slot in the accent while the cursor is on them, and Type and
+    /// Move under them (S15); a delay's Time also shows the time in use while the picked one does
+    /// not fit (S16). SAMPLES shows its rows (`samples_row`) with the cursor, inside a
     /// folder under a dim line with the folder's path, which loses its start to a "…" when too wide
     /// for the row, and the library meter above the strip. The sample picker shows the same rows
     /// under a dim top line at every level: the folder's path and two spaces inside a folder, then
@@ -280,7 +284,8 @@ impl Control {
             | Picker::Delete(_)
             | Picker::DeleteSound(_)
             | Picker::Length
-            | Picker::Signature),
+            | Picker::Signature
+            | Picker::Effect),
             picker,
         )) = self.view.picker
         {
@@ -336,6 +341,11 @@ impl Control {
                             alert: false,
                         }
                     }
+                    Entry::Effect(effect) => Row {
+                        left: effect.name(),
+                        right: None,
+                        alert: false,
+                    },
                 };
             }
             scrolls = draw_rows(
@@ -485,14 +495,31 @@ impl Control {
             );
         } else {
             let cursor = self.cursor(screen);
+            let items = self.items(screen);
+            // FX Chain's tiles take the place of its first item, and Type and Move lie under them.
+            let first = if items.first().map(|item| item.kind) == Some(ItemKind::Chain) {
+                CHAIN_FIRST - ITEM_PITCH
+            } else {
+                PAGE_FIRST
+            };
             for (row, (index, item)) in (0..).zip(
-                self.items(screen)
+                items
                     .iter()
                     .enumerate()
                     .skip(cursor.scroll)
                     .take(PAGE_VISIBLE),
             ) {
-                let y = PAGE_FIRST + ITEM_PITCH * row;
+                if item.kind == ItemKind::Chain {
+                    draw_chain(
+                        canvas,
+                        &track.slots.map(|slot| {
+                            (slot.effect != Effect::Empty).then_some(slot.effect.name())
+                        }),
+                        (index == cursor.item).then_some(usize::from(self.view.fx_slot)),
+                    );
+                    continue;
+                }
+                let y = first + ITEM_PITCH * row;
                 let (mut name, mut value) = (Label::new(), Label::new());
                 scrolls |= draw_item(
                     canvas,
@@ -792,7 +819,29 @@ impl Control {
                 let entry = param::entry(id);
                 let current = self.value(id);
                 param::format(entry, current, value);
+                // A delay time that does not fit at the tempo shows the one in use after it (S16).
+                if id == DELAY_TIME.id {
+                    // A time is at most 11,520 ticks, so both fit.
+                    let in_use = ticks_in_use(current as u32, self.project.tempo) as i32;
+                    if in_use != current {
+                        value.push_str(" (");
+                        param::format(entry, in_use, value);
+                        value.push_str(")");
+                    }
+                }
                 (entry.name, value.as_str(), bar(entry, current))
+            }
+            ItemKind::Chain => unreachable!("FX Chain's tiles are drawn by `draw_chain`"),
+            ItemKind::SlotType => (
+                "Type",
+                self.track().slots[usize::from(self.view.fx_slot)]
+                    .effect
+                    .name(),
+                Bar::Track,
+            ),
+            ItemKind::SlotMove => {
+                write!(value, "{}", self.view.fx_slot + 1).expect("writing to a label never fails");
+                ("Move", value.as_str(), Bar::Track)
             }
             ItemKind::TrackLevel(track) => {
                 write!(

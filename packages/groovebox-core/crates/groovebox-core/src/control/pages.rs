@@ -1,14 +1,17 @@
 use super::view::Screen;
 use crate::input::STEPS;
 use crate::param::{
-    ATTACK, CHOKE_GROUP, CUTOFF, DECAY, END, ENVELOPE_AMOUNT, Entry, FILTER_ATTACK, FILTER_DECAY,
-    FILTER_RELEASE, FILTER_SUSTAIN, FILTER_TYPE, FILTER_VELOCITY, FINE_TUNE, GLIDE, GLIDE_TIME,
-    KEY_FOLLOW, LEVEL, LOOP, LOOP_END, LOOP_START, MASTER_LEVEL, METRONOME, METRONOME_LEVEL, MODE,
-    NOISE_LEVEL, OSCILLATOR_2_FINE_TUNE, OSCILLATOR_2_INTERVAL, OSCILLATOR_2_LEVEL, PAN, PLAY_MODE,
-    ParamId, RELEASE, RESONANCE, REVERSE, ROOT_NOTE, SHAPE, SPREAD, START, SUB_LEVEL, SUSTAIN,
-    TEMPO, TRANSPOSE, TRIGGER, VELOCITY, VOLUME_VELOCITY, WAVE,
+    ATTACK, CHOKE_GROUP, CUTOFF, DECAY, DELAY_FEEDBACK, DELAY_LEVEL, DELAY_PING_PONG, DELAY_TIME,
+    DELAY_TONE, END, ENVELOPE_AMOUNT, Entry, FILTER_ATTACK, FILTER_DECAY, FILTER_RELEASE,
+    FILTER_SUSTAIN, FILTER_TYPE, FILTER_VELOCITY, FINE_TUNE, GLIDE, GLIDE_TIME, KEY_FOLLOW, LEVEL,
+    LOOP, LOOP_END, LOOP_START, MASTER_LEVEL, METRONOME, METRONOME_LEVEL, MODE, NOISE_LEVEL,
+    OSCILLATOR_2_FINE_TUNE, OSCILLATOR_2_INTERVAL, OSCILLATOR_2_LEVEL, PAN, PLAY_MODE, ParamId,
+    RELEASE, RESONANCE, REVERB_DECAY, REVERB_LEVEL, REVERB_PRE_DELAY, REVERB_TONE, REVERSE,
+    ROOT_NOTE, SHAPE, SPREAD, START, SUB_LEVEL, SUSTAIN, TEMPO, TRANSPOSE, TRIGGER, VELOCITY,
+    VOLUME_VELOCITY, WAVE,
 };
 use crate::project::pool::{Engine, Sound};
+use crate::project::track::{Effect, Slot};
 
 /// What an item of a page is.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -49,6 +52,13 @@ pub enum ItemKind {
     NotePosition,
     /// MIX's "Track n": the level of track `n` (0 to 3). Its name says "muted" while the track is.
     TrackLevel(u8),
+    /// FX Chain's tiles: the current track's six slots in chain order, the cursor's on
+    /// `View::fx_slot` (S15).
+    Chain,
+    /// FX Chain's "Type": the effect of slot `View::fx_slot`, which OK changes in the Type picker.
+    SlotType,
+    /// FX Chain's "Move": the place of slot `View::fx_slot`, 1 to 6.
+    SlotMove,
 }
 
 /// An item of a page and the encoder that holds it.
@@ -86,11 +96,44 @@ pub struct PageDef {
     pub picture: Option<Picture>,
 }
 
+/// The most pages a screen has: FX's Chain page and a page for each of the six slots.
+pub const MOST_PAGES: usize = 7;
+
+/// A screen's pages by value, as FX's follow the current track's slots (S17). It derefs to the
+/// pages in order.
+#[derive(Clone, Copy)]
+pub struct Pages {
+    /// The pages, then copies of an empty slot's page.
+    pages: [PageDef; MOST_PAGES],
+    count: usize,
+}
+
+impl Pages {
+    /// `pages`, at most `MOST_PAGES` of them.
+    fn of(pages: &[PageDef]) -> Self {
+        let mut all = [EMPTY_SLOT; MOST_PAGES];
+        all[..pages.len()].copy_from_slice(pages);
+        Self {
+            pages: all,
+            count: pages.len(),
+        }
+    }
+}
+
+impl core::ops::Deref for Pages {
+    type Target = [PageDef];
+
+    fn deref(&self) -> &[PageDef] {
+        &self.pages[..self.count]
+    }
+}
+
 /// The screen that MENU + each step shows, for the screens that exist so far.
 pub const MENU: [Option<Screen>; STEPS as usize] = {
     let mut menu = [None; STEPS as usize];
     menu[0] = Some(Screen::Step);
     menu[2] = Some(Screen::Sound);
+    menu[3] = Some(Screen::Fx);
     menu[4] = Some(Screen::Mix);
     menu[5] = Some(Screen::Pool);
     menu[7] = Some(Screen::Settings);
@@ -288,6 +331,56 @@ const MIX: PageDef = PageDef {
     picture: None,
 };
 
+/// FX's Chain page (S15): the slots' tiles, which no encoder holds, then Type on encoder 1 and Move
+/// on 2.
+const CHAIN: PageDef = PageDef {
+    name: "Chain",
+    items: &[
+        ItemDef {
+            kind: ItemKind::Chain,
+            encoder: None,
+        },
+        ItemDef {
+            kind: ItemKind::SlotType,
+            encoder: Some(0),
+        },
+        ItemDef {
+            kind: ItemKind::SlotMove,
+            encoder: Some(1),
+        },
+    ],
+    picture: None,
+};
+/// A delay slot's page (S16): Time, Feedback, Tone and Level on encoders 1 to 4.
+const DELAY: PageDef = PageDef {
+    name: Effect::Delay.name(),
+    items: &[
+        item(DELAY_TIME, Some(0)),
+        item(DELAY_FEEDBACK, Some(1)),
+        item(DELAY_TONE, Some(2)),
+        item(DELAY_PING_PONG, None),
+        item(DELAY_LEVEL, Some(3)),
+    ],
+    picture: None,
+};
+/// A reverb slot's page (S16): Decay, Tone, Pre-delay and Level on encoders 1 to 4.
+const REVERB: PageDef = PageDef {
+    name: Effect::Reverb.name(),
+    items: &[
+        item(REVERB_DECAY, Some(0)),
+        item(REVERB_TONE, Some(1)),
+        item(REVERB_PRE_DELAY, Some(2)),
+        item(REVERB_LEVEL, Some(3)),
+    ],
+    picture: None,
+};
+/// An empty slot's page, which has no items (S16).
+const EMPTY_SLOT: PageDef = PageDef {
+    name: "–",
+    items: &[],
+    picture: None,
+};
+
 /// The NOTE strip's items while steps are held (S12): Pitch, Velocity, Length and Position on
 /// encoders 1 to 4.
 pub(super) const NOTE: [ItemDef; 4] = [
@@ -315,17 +408,27 @@ const fn sound_pages(pad: PageDef, engine: PageDef) -> [PageDef; 6] {
 }
 
 /// The pages of `screen` in the order of their steps under PAGE, while `sound` is the selected
-/// sound of the current track and `pad` says whether the track has a selected pad. STEP has none
-/// of its own: PAGE there acts on SOUND's pages. FX has none yet, and SAMPLES and POOL have none.
+/// sound of the current track, `pad` says whether the track has a selected pad and `slots` are the
+/// track's effect slots. STEP has none of its own: PAGE there acts on SOUND's pages. SAMPLES and
+/// POOL have none.
 ///
 /// SOUND works on the track's selected pad: its Pad page, then the page of the sound's engine
 /// (Sample or Synth) and the pages of its chain and its voice. While that pad is empty there is no
 /// sound to copy or to shape, and SOUND has only the Pad page with its Sound item. A sound
 /// selected on no pad has no pad to put a sound on or to copy to, so its Pad page holds Engine
-/// alone, on encoder 3. PATTERN has its Timing and Bars pages and MIX its one page.
-pub fn pages(screen: Screen, sound: Option<&Sound>, pad: bool) -> &'static [PageDef] {
-    match screen {
-        Screen::Step | Screen::Fx | Screen::Pool | Screen::Samples => &[],
+/// alone, on encoder 3. FX has its Chain page, then a page for each slot in chain order, its
+/// effect's or an empty slot's (S16). PATTERN has its Timing and Bars pages and MIX its one page.
+pub fn pages(screen: Screen, sound: Option<&Sound>, pad: bool, slots: &[Slot; 6]) -> Pages {
+    let pages: &[PageDef] = match screen {
+        Screen::Step | Screen::Pool | Screen::Samples => &[],
+        Screen::Fx => &core::array::from_fn::<_, MOST_PAGES, _>(|page| match page {
+            0 => CHAIN,
+            _ => match slots[page - 1].effect {
+                Effect::Empty => EMPTY_SLOT,
+                Effect::Delay => DELAY,
+                Effect::Reverb => REVERB,
+            },
+        }),
         Screen::Mix => &[MIX],
         Screen::Sound => match (sound.map(|sound| &sound.engine), pad) {
             (Some(Engine::Sample(_)), true) => &const { sound_pages(PAD, SAMPLE) },
@@ -363,7 +466,8 @@ pub fn pages(screen: Screen, sound: Option<&Sound>, pad: bool) -> &'static [Page
             },
         ],
         Screen::Pattern => &[TIMING, BARS],
-    }
+    };
+    Pages::of(pages)
 }
 
 #[cfg(test)]
@@ -372,6 +476,10 @@ mod tests {
     use crate::label::Label;
     use crate::library::FileId;
     use crate::project::pool::{SOUND_DEFAULTS, Sample, SoundNumber};
+    use crate::project::track::Track;
+
+    /// A new track's slots: a delay, a reverb and four empty slots.
+    const SLOTS: [Slot; 6] = Track::new().slots;
 
     #[test]
     fn each_encoder_holds_at_most_one_item_of_a_page() {
@@ -396,7 +504,7 @@ mod tests {
         }) {
             for page in [true, false]
                 .into_iter()
-                .flat_map(|pad| pages(screen, sound, pad))
+                .flat_map(|pad| pages(screen, sound, pad, &SLOTS).to_vec())
             {
                 for encoder in 0..4 {
                     let holding = page
@@ -419,7 +527,7 @@ mod tests {
     #[test]
     fn settings_playing_holds_velocity_metronome_and_its_level() {
         assert_eq!(
-            pages(Screen::Settings, None, true)[0].items,
+            pages(Screen::Settings, None, true, &SLOTS)[0].items,
             [
                 item(VELOCITY, Some(0)),
                 item(METRONOME, Some(1)),
@@ -443,8 +551,8 @@ mod tests {
             ..synth
         };
         for sound in [&synth, &sample] {
-            let on_a_pad = pages(Screen::Sound, Some(sound), true);
-            let on_no_pad = pages(Screen::Sound, Some(sound), false);
+            let on_a_pad = pages(Screen::Sound, Some(sound), true, &SLOTS);
+            let on_no_pad = pages(Screen::Sound, Some(sound), false, &SLOTS);
 
             assert_eq!(
                 on_no_pad[0],

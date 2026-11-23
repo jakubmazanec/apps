@@ -68,6 +68,17 @@ pub const PAD_TILE_PITCH: i32 = 79;
 pub const PAD_TILE_COLUMNS: usize = 4;
 pub const PAD_TILE_NAME_Y: i32 = 17;
 
+/// FX Chain's slot tiles in a row (S15): the top-left of the first, a tile's width and height, the
+/// distance from one to the next and where a name starts; then the top of Type, the first item
+/// under them.
+pub const CHAIN_TILE_X: i32 = 1;
+pub const CHAIN_TILE_Y: i32 = 16;
+pub const CHAIN_TILE_WIDTH: i32 = 78;
+pub const CHAIN_TILE_HEIGHT: i32 = 19;
+pub const CHAIN_TILE_PITCH: i32 = 79;
+pub const CHAIN_NAME_X: i32 = 14;
+pub const CHAIN_FIRST: i32 = 39;
+
 /// The tiles under MENU and PAGE: the top-left of the first, a tile's width and height, the
 /// distance from one to the next across and down, the tiles in a row and where a name starts.
 pub const TILE_X: i32 = 1;

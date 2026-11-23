@@ -30,7 +30,7 @@ use crate::param::{
 };
 use crate::project::pool::{Engine, PoolFull, SOUND_VALUES, Sample, Sound, SoundNumber};
 use crate::project::settings::DeviceSettings;
-use crate::project::track::{MAX_OCTAVE, PadMode, Track};
+use crate::project::track::{Effect, MAX_OCTAVE, PadMode, Slot, Track};
 use crate::project::{Project, Signature};
 use crate::queue::Producer;
 use crate::ring::Ring;
@@ -51,7 +51,7 @@ use core::ops::ControlFlow;
 use held::Held;
 use lanes::Lane;
 use notes::{Notes, Source};
-use pages::{ItemDef, ItemKind, MENU, NOTE, PageDef, Picture, TIMING, pages};
+use pages::{ItemDef, ItemKind, MENU, NOTE, PageDef, Pages, Picture, TIMING, pages};
 use samples::Deleting;
 use step_view::{GRID_CELLS, LANES_SHOWN, PAGE, cell_of, cells, place_of};
 use view::{
@@ -70,6 +70,9 @@ const FIRST_SOUND_ROW: usize = 3;
 /// The samples of a slow blink, on for the first half and off for the second, counted from sample
 /// 0 of the audio clock (S6).
 const BLINK_SLOW: u64 = 48_000;
+
+/// The last of a track's six effect slots, counted from 0.
+const LAST_SLOT: u8 = 5;
 
 /// What a row of a picker chooses.
 enum Entry<'a> {
@@ -93,6 +96,9 @@ enum Entry<'a> {
     /// Changes the current pattern's length or the signature, asking first when notes no longer
     /// fit (S12).
     Change(Change),
+    /// Clears the slot that FX Chain is on and starts this effect there at its defaults, unless
+    /// the slot holds it already (S15).
+    Effect(Effect),
 }
 
 /// An event of `step`, in this order on equal samples.
@@ -1013,12 +1019,13 @@ impl Control {
     /// closing the picker take the arrows, - and + that are held, as a counted MENU or PAGE does
     /// (`end_held_repeats`). In the Length and Signature pickers the current value changes nothing,
     /// and another applies at once (`reshape`) unless it no longer fits some notes (`doomed`),
-    /// which opens the Delete notes question (S12). While a question is open only OK and a tap of
-    /// CANCEL answer it. OK on SAMPLES' DELETE deletes the file (`delete_file`) unless the import
-    /// replaces a file; on POOL's DELETE it deletes the sound (`delete_sound`) and moves the cursor
-    /// to the row above (S16); on Remove unused it deletes every sound unused at that moment; on
-    /// Delete notes it applies the change (`reshape`). The arrows, - and + are taken too, and the
-    /// other controls act as with a picker open.
+    /// which opens the Delete notes question (S12). In the Type picker the slot's own effect
+    /// changes nothing, and another clears the slot and starts it at its defaults (S15). While a
+    /// question is open only OK and a tap of CANCEL answer it. OK on SAMPLES' DELETE deletes the
+    /// file (`delete_file`) unless the import replaces a file; on POOL's DELETE it deletes the sound
+    /// (`delete_sound`) and moves the cursor to the row above (S16); on Remove unused it deletes
+    /// every sound unused at that moment; on Delete notes it applies the change (`reshape`). The
+    /// arrows, - and + are taken too, and the other controls act as with a picker open.
     ///
     /// Otherwise the arrows, - and + nudge (`nudge`), OK uses the item under the cursor, or acts on
     /// SAMPLES' row (`ok_in_samples`) or POOL's (`ok_in_pool`), or on STEP enters a note in the
@@ -1159,6 +1166,23 @@ impl Control {
                                         Some(Question::DeleteNotes { count, change });
                                 }
                             }
+                        }
+                        return;
+                    }
+                    Entry::Effect(effect) => {
+                        let (track, slot) = (self.project.track, self.view.fx_slot);
+                        let in_slot = &mut self.track_mut().slots[usize::from(slot)];
+                        if in_slot.effect != effect {
+                            *in_slot = Slot::new(effect);
+                            self.send(
+                                sample,
+                                MessageKind::SlotEffect {
+                                    track,
+                                    slot,
+                                    effect,
+                                },
+                                messages,
+                            );
                         }
                         return;
                     }
@@ -1344,7 +1368,8 @@ impl Control {
     /// held none of them does anything there. On a page up and down move the cursor one item,
     /// stopping at the ends, and - and + move the value under it by a click, a fine one while SHIFT
     /// is held. SHIFT + an arrow does nothing outside STEP, and left and right do nothing on a page
-    /// of one column. None of them gets here while MENU or PAGE is held (`press`). STEP has no
+    /// of one column, but on FX Chain's tiles move the cursor's slot, stopping at slots 1 and 6
+    /// (S15). None of them gets here while MENU or PAGE is held (`press`). STEP has no
     /// page, and - and + do nothing there. Its left and right move the cursor one sixteenth, over
     /// dark cells into the next or previous bar, and with SHIFT a page of 16 cells to the same
     /// place on that page or its last sixteenth where it is shorter; a move that would leave the
@@ -1438,6 +1463,15 @@ impl Control {
             Button::Down if !shift => {
                 self.move_cursor(screen, (cursor + 1).min(items.len().saturating_sub(1)))
             }
+            Button::Left | Button::Right
+                if !shift && items.get(cursor).map(|item| item.kind) == Some(ItemKind::Chain) =>
+            {
+                self.view.fx_slot = if button == Button::Left {
+                    self.view.fx_slot.saturating_sub(1)
+                } else {
+                    (self.view.fx_slot + 1).min(LAST_SLOT)
+                };
+            }
             Button::Minus | Button::Plus => {
                 if let Some(&item) = items.get(cursor) {
                     self.change(
@@ -1456,8 +1490,9 @@ impl Control {
     /// and Copy puts a copy of the pad's sound on the pad, unless the pool is full. Engine opens
     /// the Engine picker on the sound's engine, and the Sample item the sample picker on the
     /// sound's file, or as New sample does for a missing one (S13). Length and Signature open
-    /// their pickers on the current value (S10, S11). The meters only show, Grid stays (S3) and
-    /// the NOTE strip's items and a track's level do nothing (S12, S7).
+    /// their pickers on the current value (S10, S11), and FX Chain's tiles and Type the Type picker
+    /// on the slot's effect (S15). The meters only show, Grid stays (S3) and the NOTE strip's
+    /// items, a track's level and Move do nothing (S12, S7, S15).
     fn use_item(
         &mut self,
         item: ItemDef,
@@ -1552,6 +1587,18 @@ impl Control {
                 );
                 self.end_held_repeats();
             }
+            // The picker's rows are the effects in key order.
+            ItemKind::Chain | ItemKind::SlotType => {
+                self.view.highlight(
+                    Picker::Effect,
+                    usize::from(
+                        self.track().slots[usize::from(self.view.fx_slot)]
+                            .effect
+                            .key(),
+                    ),
+                );
+                self.end_held_repeats();
+            }
             ItemKind::LibraryMeter
             | ItemKind::NoteMeter
             | ItemKind::Grid
@@ -1559,7 +1606,8 @@ impl Control {
             | ItemKind::NoteVelocity
             | ItemKind::NoteLength
             | ItemKind::NotePosition
-            | ItemKind::TrackLevel(_) => {}
+            | ItemKind::TrackLevel(_)
+            | ItemKind::SlotMove => {}
         }
     }
 
@@ -1569,8 +1617,10 @@ impl Control {
     /// end. It stays while the audio part may not read the file (`sample_file`, S15) and when no
     /// frame is left to move to. The Pad page's items and the Sample item have no value to move,
     /// so a stray turn never changes what a pad plays, and the meters and Grid have none either.
-    /// Nor do Length and Signature, so a stray turn cannot delete notes (S10). The NOTE strip's
-    /// items are the held notes' values, which `turn_held` moves.
+    /// Nor do Length and Signature, so a stray turn cannot delete notes (S10), nor FX Chain's tiles
+    /// and Type. Move moves the slot's effect a place a click, stopping at slots 1 and 6, in one
+    /// `MoveSlot`, and the cursor's slot goes with it (S3, S15). The NOTE strip's items are the
+    /// held notes' values, which `turn_held` moves.
     fn change(
         &mut self,
         item: ItemDef,
@@ -1610,6 +1660,24 @@ impl Control {
                 );
                 self.set_on(target, TRACK_LEVEL.id, value, sample, messages);
             }
+            ItemKind::SlotMove => {
+                let from = self.view.fx_slot;
+                // At most 5 and at least 0, so it fits.
+                let to = (i32::from(from) + clicks).clamp(0, i32::from(LAST_SLOT)) as u8;
+                if to != from {
+                    self.track_mut().move_slot(from, to);
+                    self.send(
+                        sample,
+                        MessageKind::MoveSlot {
+                            track: self.project.track,
+                            from,
+                            to,
+                        },
+                        messages,
+                    );
+                    self.view.fx_slot = to;
+                }
+            }
             ItemKind::PadSound
             | ItemKind::PadCopy
             | ItemKind::PadEngine
@@ -1622,7 +1690,9 @@ impl Control {
             | ItemKind::NotePitch
             | ItemKind::NoteVelocity
             | ItemKind::NoteLength
-            | ItemKind::NotePosition => {}
+            | ItemKind::NotePosition
+            | ItemKind::Chain
+            | ItemKind::SlotType => {}
         }
     }
 
@@ -1794,7 +1864,8 @@ impl Control {
     /// Row `row` of `picker`: in the sound picker Empty, New sample, New synth, then the sounds of
     /// the pool in number order; in the Engine picker Sample, then Synth; in a Delete picker,
     /// Delete; in the Length picker the lengths of `LENGTHS`; in the Signature picker 1/4 to 16/4,
-    /// then 1/8 to 16/8 (S11). The sample picker's rows are the library's (`samples::rows`).
+    /// then 1/8 to 16/8 (S11); in the Type picker Empty, Delay and Reverb (S15). The sample
+    /// picker's rows are the library's (`samples::rows`).
     fn entry(&self, picker: Picker, row: usize) -> Entry<'_> {
         match (picker, row) {
             (Picker::Sound, 0) => Entry::Empty,
@@ -1811,6 +1882,7 @@ impl Control {
                 beats: row as u8 % 16 + 1,
                 unit: if row < 16 { 4 } else { 8 },
             })),
+            (Picker::Effect, _) => Entry::Effect(Effect::ALL[row]),
             (Picker::Sample(_), _) => unreachable!("the sample picker's rows are the library's"),
         }
     }
@@ -1824,6 +1896,7 @@ impl Control {
             Picker::Delete(_) | Picker::DeleteSound(_) => 1,
             Picker::Length => LENGTHS.len(),
             Picker::Signature => 32,
+            Picker::Effect => Effect::ALL.len(),
         }
     }
 
@@ -2016,19 +2089,25 @@ impl Control {
             Button::Menu => menu_tiles(self.view.screen),
             _ => {
                 let screen = self.view.screen.paged();
-                page_tiles(self.pages(screen), self.shown_page(screen))
+                page_tiles(&self.pages(screen), self.shown_page(screen))
             }
         })
     }
 
-    /// The pages of `screen` for the current track's selection (`pages`).
-    fn pages(&self, screen: Screen) -> &'static [PageDef] {
-        pages(screen, self.selected(), self.track().selected_pad.is_some())
+    /// The pages of `screen` for the current track's selection and slots (`pages`).
+    fn pages(&self, screen: Screen) -> Pages {
+        let track = self.track();
+        pages(
+            screen,
+            self.selected(),
+            track.selected_pad.is_some(),
+            &track.slots,
+        )
     }
 
-    /// The page `screen` shows; none on a screen without pages.
-    fn page(&self, screen: Screen) -> Option<&'static PageDef> {
-        self.pages(screen).get(self.shown_page(screen))
+    /// A copy of the page `screen` shows; none on a screen without pages.
+    fn page(&self, screen: Screen) -> Option<PageDef> {
+        self.pages(screen).get(self.shown_page(screen)).copied()
     }
 
     /// The page `screen` shows: the page it remembers while the screen has that page, else the

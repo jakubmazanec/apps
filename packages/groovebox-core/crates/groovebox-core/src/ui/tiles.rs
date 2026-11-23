@@ -3,9 +3,10 @@ use crate::{
     screen::Canvas,
     ui::{
         layout::{
-            PAD_TILE_COLUMNS, PAD_TILE_NAME_Y, PAD_TILE_PITCH, PAD_TILE_SIZE, PICTURE, TEXT_INSET,
-            TILE_COLUMNS, TILE_HEIGHT, TILE_NAME_X, TILE_PITCH_X, TILE_PITCH_Y, TILE_WIDTH, TILE_X,
-            TILE_Y, rect,
+            CHAIN_NAME_X, CHAIN_TILE_HEIGHT, CHAIN_TILE_PITCH, CHAIN_TILE_WIDTH, CHAIN_TILE_X,
+            CHAIN_TILE_Y, PAD_TILE_COLUMNS, PAD_TILE_NAME_Y, PAD_TILE_PITCH, PAD_TILE_SIZE,
+            PICTURE, TEXT_INSET, TILE_COLUMNS, TILE_HEIGHT, TILE_NAME_X, TILE_PITCH_X,
+            TILE_PITCH_Y, TILE_WIDTH, TILE_X, TILE_Y, rect,
         },
         text,
     },
@@ -112,6 +113,40 @@ pub fn draw_pad_tiles(canvas: &mut impl Canvas, pads: &[PadTile; 12], elapsed: u
         }
     }
     scrolls
+}
+
+/// Draws FX Chain's six slots in a row (S15), each with its number from 1 and its effect's name
+/// from `names`, none for an empty slot. The `cursor`'s tile is all in the accent. The others have
+/// a dim number and a bright name, and a line outline or, when the slot is empty, a faint one.
+pub fn draw_chain(canvas: &mut impl Canvas, names: &[Option<&str>; 6], cursor: Option<usize>) {
+    for (index, name) in names.iter().enumerate() {
+        let x = CHAIN_TILE_X + CHAIN_TILE_PITCH * index as i32;
+        let (outline, number_color, name_color) = match (cursor == Some(index), name) {
+            (true, _) => (ACCENT, ACCENT, ACCENT),
+            (false, Some(_)) => (LINE, DIM, TEXT),
+            (false, None) => (FAINT, DIM, TEXT),
+        };
+        canvas.outline_rect(
+            rect(x, CHAIN_TILE_Y, CHAIN_TILE_WIDTH, CHAIN_TILE_HEIGHT),
+            outline,
+        );
+        text::draw(
+            canvas,
+            x + TEXT_INSET,
+            CHAIN_TILE_Y + TEXT_INSET,
+            NUMBERS[index],
+            number_color,
+        );
+        if let Some(name) = name {
+            text::draw(
+                canvas,
+                x + CHAIN_NAME_X,
+                CHAIN_TILE_Y + TEXT_INSET,
+                name,
+                name_color,
+            );
+        }
+    }
 }
 
 #[cfg(test)]
@@ -309,6 +344,43 @@ mod tests {
             picture(&screen, 165..=240, 33..=92, TEXT),
             picture(&name, 165..=240, 33..=92, TEXT)
         );
+    }
+
+    #[test]
+    fn the_chain_tiles_match_fx_chain_png() {
+        let mut screen = Screen::new();
+
+        draw_chain(
+            &mut screen,
+            &[Some("Delay"), Some("Reverb"), None, None, None, None],
+            Some(1),
+        );
+
+        // Slot 1, used: a line outline of 78 by 19 pixels at (1, 16), a dim number 3 pixels in and
+        // a bright name 14 pixels in.
+        assert!(outlined(&screen, 1, 16, 78, 19, LINE));
+        assert_eq!(span(&screen, 2..=77, 17..=33, DIM), Some((4, 8)));
+        assert_eq!(
+            span(&screen, 2..=77, 17..=33, TEXT),
+            Some((15, 14 + text::width("Delay") as usize))
+        );
+        // Slot 2, the cursor's: its outline, number and name in the accent.
+        assert!(outlined(&screen, 80, 16, 78, 19, ACCENT));
+        assert_eq!(
+            span(&screen, 81..=156, 17..=33, ACCENT),
+            Some((83, 93 + text::width("Reverb") as usize))
+        );
+        assert_eq!(span(&screen, 81..=156, 17..=33, TEXT), None);
+        // Slots 3 to 6, empty: a faint outline and a dim number, no name.
+        for slot in 2..6 {
+            let x = 1 + 79 * slot;
+            assert!(outlined(&screen, x, 16, 78, 19, FAINT), "{slot}");
+            assert_eq!(
+                span(&screen, x + 1..=x + 76, 17..=33, DIM),
+                Some((x + 3, x + 7))
+            );
+            assert_eq!(span(&screen, x + 1..=x + 76, 17..=33, TEXT), None);
+        }
     }
 
     #[test]

@@ -1129,7 +1129,10 @@ fn page_shows_the_pad_tile_on_sound_and_on_step() {
     rig.press(0, Button::Page);
     rig.step(1);
 
-    let shown = page_tiles(pages(view::Screen::Sound, None, true), 0);
+    let shown = page_tiles(
+        &pages(view::Screen::Sound, None, true, &Track::new().slots),
+        0,
+    );
     assert_eq!(
         shown[0],
         Tile {

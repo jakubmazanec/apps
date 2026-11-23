@@ -475,10 +475,10 @@ They belonged to the per-project budget, which Foundation replaced with one libr
 The FX screen shows the current track's six slots.
 
 - **Page 1, CHAIN (owner's choice),** has three rows: the six slots in chain order, then TYPE, then
-  MOVE, both for the slot the cursor last stood on, which each track remembers until the project
-  closes. Encoders 1 and 2 hold TYPE and MOVE, so the strip shows them; encoders 3 and 4 hold
-  nothing. Up and down move between the rows; left and right move along the slots and stop at the
-  first and the last; on TYPE and MOVE they do nothing.
+  MOVE, both for the slot the cursor last stood on; the chain's cursor stays on that slot when the
+  track changes, until the project closes. Encoders 1 and 2 hold TYPE and MOVE, so the strip shows
+  them; encoders 3 and 4 hold nothing. Up and down move between the rows; left and right move along
+  the slots and stop at the first and the last; on TYPE and MOVE they do nothing.
   - **TYPE** (encoder 1): OK on a slot or on TYPE opens a picker with EMPTY, DELAY and REVERB, on
     the slot's type. Choosing the type the slot holds changes nothing; choosing another clears the
     slot, as Sound decided, and starts the effect at its defaults; the old settings are gone.

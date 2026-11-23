@@ -127,8 +127,8 @@ pub struct PoolView {
 }
 
 /// A picker: the sound picker of the selected pad, the Engine picker of the selected sound, the
-/// sample picker or the Delete picker of a file of SAMPLES or of a sound of POOL; or PATTERN's
-/// Length or Signature picker.
+/// sample picker or the Delete picker of a file of SAMPLES or of a sound of POOL; PATTERN's Length
+/// or Signature picker; or FX's Type picker of the slot the Chain page is on.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Picker {
     Sound,
@@ -141,6 +141,8 @@ pub enum Picker {
     Length,
     /// 1/4 to 16/4, then 1/8 to 16/8.
     Signature,
+    /// Empty, Delay and Reverb.
+    Effect,
 }
 
 /// What choosing a file in the sample picker does.
@@ -177,8 +179,8 @@ pub struct StepCursor {
 
 /// What the screen shows: the screen, the page each screen shows, the cursor of each page, the
 /// folder and cursor of SAMPLES and of the sample picker, POOL's cursor, the step cursor, STEP's
-/// view, whether it follows the music and a picker or a question while one is open. They are kept
-/// while the control part lives and are not saved.
+/// view, whether it follows the music, FX Chain's slot and a picker or a question while one is
+/// open. They are kept while the control part lives and are not saved.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct View {
     pub screen: Screen,
@@ -196,6 +198,9 @@ pub struct View {
     /// PLAY and SHIFT + PLAY set it, and an arrow on STEP that moves the cursor into another bar
     /// clears it.
     pub following: bool,
+    /// The slot that FX Chain's tiles have the cursor on and Type and Move act on, 0 to 5: the one
+    /// the cursor last stood on, which stays when the track changes (S15).
+    pub fx_slot: u8,
     /// The picker while it is open over the main area of `screen`, with its highlight. The sample
     /// picker's highlight is `sample_picker`'s cursor, and this one stays on its first row.
     pub picker: Option<(Picker, Cursor)>,
@@ -207,7 +212,7 @@ impl View {
     /// STEP, where a new project opens, with every screen on its first page, every cursor on the
     /// first item, SAMPLES and the sample picker at the top level, POOL's cursor on Remove unused
     /// for T1 with no sound selected, the step cursor on bar 1, step 1, STEP's view at its first
-    /// cell and lane, not following and no picker or question open.
+    /// cell and lane, not following, FX Chain on slot 1 and no picker or question open.
     pub const fn new() -> Self {
         Self {
             screen: Screen::Step,
@@ -225,6 +230,7 @@ impl View {
                 first_lane: 0,
             },
             following: false,
+            fx_slot: 0,
             picker: None,
             question: None,
         }
@@ -390,7 +396,7 @@ mod tests {
     }
 
     #[test]
-    fn the_menu_tiles_show_step_sound_mix_pool_settings_pattern_and_samples() {
+    fn the_menu_tiles_show_step_sound_fx_mix_pool_settings_pattern_and_samples() {
         let tiles = menu_tiles(Screen::Settings);
 
         assert_eq!(
@@ -407,8 +413,14 @@ mod tests {
                 state: TileState::Exists
             }
         );
-        // Step 4 is FX's, which has no page yet.
-        assert_eq!(tiles[3], EMPTY);
+        // Step 4 is FX's.
+        assert_eq!(
+            tiles[3],
+            Tile {
+                name: Some("Fx"),
+                state: TileState::Exists
+            }
+        );
         assert_eq!(
             tiles[4],
             Tile {
@@ -444,7 +456,8 @@ mod tests {
                 state: TileState::Exists
             }
         );
-        assert_eq!(tiles.iter().filter(|&&tile| tile == EMPTY).count(), 9);
+        assert_eq!(tiles.iter().filter(|&&tile| tile == EMPTY).count(), 8);
+        assert_eq!(menu_tiles(Screen::Fx)[3].state, TileState::Current);
         assert_eq!(menu_tiles(Screen::Mix)[4].state, TileState::Current);
         assert_eq!(menu_tiles(Screen::Step)[0].state, TileState::Current);
         assert_eq!(menu_tiles(Screen::Pool)[5].state, TileState::Current);

@@ -26,9 +26,21 @@ pub enum Effect {
 }
 
 impl Effect {
+    /// Every effect, in key order, as the Type picker lists them.
+    pub const ALL: [Self; 3] = [Self::Empty, Self::Delay, Self::Reverb];
+
     /// Its permanent key: 0, 1 and 2.
     pub const fn key(self) -> u16 {
         self as u16
+    }
+
+    /// The name that Type, the Type picker and the slot's tile and page show.
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::Empty => "Empty",
+            Self::Delay => "Delay",
+            Self::Reverb => "Reverb",
+        }
     }
 }
 
