@@ -1,12 +1,15 @@
 groovebox-scene 1
-# kick.wav and pad.wav, a long stereo file for the sample picker to preview.
+# kick.wav and pad.wav, a long stereo file to preview.
 file samples/kick.wav ours 55 0.3 1
 file samples/pad.wav ours 220 10 2
 # The operation count plays this scene: the most a render batch has to do. 32 voices of a stereo
 # sample sound at Transpose +48 cost more than 32 of a stereo Supersaw, as measured when sample
-# sounds came. pad on pad 1 through the panel: MENU + step 3, then OK, down and OK in the sound
-# picker open the sample picker on kick.wav, and down onto pad.wav and OK choose it. A tap of
-# PADS/KEYS then makes the pads keys that play pad.
+# sounds came, and every effect slot of the four tracks holds a reverb, ringing in the busiest batch
+# with every pre-delay crossfading: there a reverb in every slot costs 11,654,242 operations and a
+# delay in every slot 11,250,439, though a turn of the tempo makes every delay crossfade, as
+# measured when the effects came. pad on pad 1 through the panel: MENU + step 3, then OK, down and
+# OK in the sound picker open the sample picker on kick.wav, and down onto pad.wav and OK choose it.
+# A tap of PADS/KEYS then makes the pads keys that play pad.
 input 3200 press menu
 input 4800 press step-3
 input 6400 release step-3
@@ -94,92 +97,636 @@ input 254400 release step-16
 input 256000 press tempo
 input 256800 release tempo
 # Sample page: Loop on, so a note of pad goes round pad.wav instead of ending with it and sounds
-# until its Release ends. Push 1 opens the sample picker on pad.wav, playing nothing. Up onto
-# kick.wav and down onto pad.wav preview it through to the end.
+# until its Release ends.
 input 259200 press page
 input 260800 press step-2
 input 262400 release step-2
 input 264000 release page
 input 264800 turn encoder-4 1
-input 265600 press push-1
-input 267200 release push-1
-input 268800 press up
-input 270400 release up
-input 272000 press down
-input 273600 release down
-# PLAY at 275,200 starts the pattern, whose bars count from there; it reaches the audio part with
-# the next step, at 275,328, which starts step 1's note. The notes, one on each sixteenth and each
+# T2 to T4 put pad on their pad 1 too: SOUND shows the track's empty pad 1, OK opens the sound
+# picker on Empty, and down three times past New sample and New synth onto pad, the sound of the
+# pool, and OK choose it.
+input 266400 press t2
+input 268000 release t2
+input 269600 press ok
+input 271200 release ok
+input 272800 press down
+input 274400 release down
+input 276000 press down
+input 277600 release down
+input 279200 press down
+input 280800 release down
+input 282400 press ok
+input 284000 release ok
+input 285600 press t3
+input 287200 release t3
+input 288800 press ok
+input 290400 release ok
+input 292000 press down
+input 293600 release down
+input 295200 press down
+input 296800 release down
+input 298400 press down
+input 300000 release down
+input 301600 press ok
+input 303200 release ok
+input 304800 press t4
+input 306400 release t4
+input 308000 press ok
+input 309600 release ok
+input 311200 press down
+input 312800 release down
+input 314400 press down
+input 316000 release down
+input 317600 press down
+input 319200 release down
+input 320800 press ok
+input 322400 release ok
+# MENU + step 4 shows FX's Chain page on T4's slot 1. Every slot of every track becomes a reverb: OK
+# on a tile opens the Type picker on its effect, and down from Delay or twice down from Empty onto
+# Reverb and OK choose it; slot 2 holds a reverb already. Left or right go along the tiles: T4 and
+# T2 from slot 1 to slot 6, T3 and T1 back.
+input 324000 press menu
+input 325600 press step-4
+input 327200 release step-4
+input 328800 release menu
+input 330400 press ok
+input 332000 release ok
+input 333600 press down
+input 335200 release down
+input 336800 press ok
+input 338400 release ok
+input 340000 press right
+input 341600 release right
+input 343200 press right
+input 344800 release right
+input 346400 press ok
+input 348000 release ok
+input 349600 press down
+input 351200 release down
+input 352800 press down
+input 354400 release down
+input 356000 press ok
+input 357600 release ok
+input 359200 press right
+input 360800 release right
+input 362400 press ok
+input 364000 release ok
+input 365600 press down
+input 367200 release down
+input 368800 press down
+input 370400 release down
+input 372000 press ok
+input 373600 release ok
+input 375200 press right
+input 376800 release right
+input 378400 press ok
+input 380000 release ok
+input 381600 press down
+input 383200 release down
+input 384800 press down
+input 386400 release down
+input 388000 press ok
+input 389600 release ok
+input 391200 press right
+input 392800 release right
+input 394400 press ok
+input 396000 release ok
+input 397600 press down
+input 399200 release down
+input 400800 press down
+input 402400 release down
+input 404000 press ok
+input 405600 release ok
+input 407200 press t3
+input 408800 release t3
+input 410400 press ok
+input 412000 release ok
+input 413600 press down
+input 415200 release down
+input 416800 press down
+input 418400 release down
+input 420000 press ok
+input 421600 release ok
+input 423200 press left
+input 424800 release left
+input 426400 press ok
+input 428000 release ok
+input 429600 press down
+input 431200 release down
+input 432800 press down
+input 434400 release down
+input 436000 press ok
+input 437600 release ok
+input 439200 press left
+input 440800 release left
+input 442400 press ok
+input 444000 release ok
+input 445600 press down
+input 447200 release down
+input 448800 press down
+input 450400 release down
+input 452000 press ok
+input 453600 release ok
+input 455200 press left
+input 456800 release left
+input 458400 press ok
+input 460000 release ok
+input 461600 press down
+input 463200 release down
+input 464800 press down
+input 466400 release down
+input 468000 press ok
+input 469600 release ok
+input 471200 press left
+input 472800 release left
+input 474400 press left
+input 476000 release left
+input 477600 press ok
+input 479200 release ok
+input 480800 press down
+input 482400 release down
+input 484000 press ok
+input 485600 release ok
+input 487200 press t2
+input 488800 release t2
+input 490400 press ok
+input 492000 release ok
+input 493600 press down
+input 495200 release down
+input 496800 press ok
+input 498400 release ok
+input 500000 press right
+input 501600 release right
+input 503200 press right
+input 504800 release right
+input 506400 press ok
+input 508000 release ok
+input 509600 press down
+input 511200 release down
+input 512800 press down
+input 514400 release down
+input 516000 press ok
+input 517600 release ok
+input 519200 press right
+input 520800 release right
+input 522400 press ok
+input 524000 release ok
+input 525600 press down
+input 527200 release down
+input 528800 press down
+input 530400 release down
+input 532000 press ok
+input 533600 release ok
+input 535200 press right
+input 536800 release right
+input 538400 press ok
+input 540000 release ok
+input 541600 press down
+input 543200 release down
+input 544800 press down
+input 546400 release down
+input 548000 press ok
+input 549600 release ok
+input 551200 press right
+input 552800 release right
+input 554400 press ok
+input 556000 release ok
+input 557600 press down
+input 559200 release down
+input 560800 press down
+input 562400 release down
+input 564000 press ok
+input 565600 release ok
+input 567200 press t1
+input 568800 release t1
+input 570400 press ok
+input 572000 release ok
+input 573600 press down
+input 575200 release down
+input 576800 press down
+input 578400 release down
+input 580000 press ok
+input 581600 release ok
+input 583200 press left
+input 584800 release left
+input 586400 press ok
+input 588000 release ok
+input 589600 press down
+input 591200 release down
+input 592800 press down
+input 594400 release down
+input 596000 press ok
+input 597600 release ok
+input 599200 press left
+input 600800 release left
+input 602400 press ok
+input 604000 release ok
+input 605600 press down
+input 607200 release down
+input 608800 press down
+input 610400 release down
+input 612000 press ok
+input 613600 release ok
+input 615200 press left
+input 616800 release left
+input 618400 press ok
+input 620000 release ok
+input 621600 press down
+input 623200 release down
+input 624800 press down
+input 626400 release down
+input 628000 press ok
+input 629600 release ok
+input 631200 press left
+input 632800 release left
+input 634400 press left
+input 636000 release left
+input 637600 press ok
+input 639200 release ok
+input 640800 press down
+input 642400 release down
+input 644000 press ok
+input 645600 release ok
+# PAGE + steps 2 to 7 show slots 1 to 6, and on each page T1 to T4 in turn take encoder 1 to Decay
+# 100% in 127 clicks, and encoders 3 and 4 to Pre-delay 100 ms and Level 100% in 128.
+input 647200 press page
+input 648800 press step-2
+input 650400 release step-2
+input 652000 release page
+input 653600 turn encoder-1 127
+input 655200 turn encoder-3 127
+input 656800 turn encoder-3 1
+input 658400 turn encoder-4 127
+input 660000 turn encoder-4 1
+input 661600 press t2
+input 663200 release t2
+input 664800 turn encoder-1 127
+input 666400 turn encoder-3 127
+input 668000 turn encoder-3 1
+input 669600 turn encoder-4 127
+input 671200 turn encoder-4 1
+input 672800 press t3
+input 674400 release t3
+input 676000 turn encoder-1 127
+input 677600 turn encoder-3 127
+input 679200 turn encoder-3 1
+input 680800 turn encoder-4 127
+input 682400 turn encoder-4 1
+input 684000 press t4
+input 685600 release t4
+input 687200 turn encoder-1 127
+input 688800 turn encoder-3 127
+input 690400 turn encoder-3 1
+input 692000 turn encoder-4 127
+input 693600 turn encoder-4 1
+input 695200 press page
+input 696800 press step-3
+input 698400 release step-3
+input 700000 release page
+input 701600 turn encoder-1 127
+input 703200 turn encoder-3 127
+input 704800 turn encoder-3 1
+input 706400 turn encoder-4 127
+input 708000 turn encoder-4 1
+input 709600 press t3
+input 711200 release t3
+input 712800 turn encoder-1 127
+input 714400 turn encoder-3 127
+input 716000 turn encoder-3 1
+input 717600 turn encoder-4 127
+input 719200 turn encoder-4 1
+input 720800 press t2
+input 722400 release t2
+input 724000 turn encoder-1 127
+input 725600 turn encoder-3 127
+input 727200 turn encoder-3 1
+input 728800 turn encoder-4 127
+input 730400 turn encoder-4 1
+input 732000 press t1
+input 733600 release t1
+input 735200 turn encoder-1 127
+input 736800 turn encoder-3 127
+input 738400 turn encoder-3 1
+input 740000 turn encoder-4 127
+input 741600 turn encoder-4 1
+input 743200 press page
+input 744800 press step-4
+input 746400 release step-4
+input 748000 release page
+input 749600 turn encoder-1 127
+input 751200 turn encoder-3 127
+input 752800 turn encoder-3 1
+input 754400 turn encoder-4 127
+input 756000 turn encoder-4 1
+input 757600 press t2
+input 759200 release t2
+input 760800 turn encoder-1 127
+input 762400 turn encoder-3 127
+input 764000 turn encoder-3 1
+input 765600 turn encoder-4 127
+input 767200 turn encoder-4 1
+input 768800 press t3
+input 770400 release t3
+input 772000 turn encoder-1 127
+input 773600 turn encoder-3 127
+input 775200 turn encoder-3 1
+input 776800 turn encoder-4 127
+input 778400 turn encoder-4 1
+input 780000 press t4
+input 781600 release t4
+input 783200 turn encoder-1 127
+input 784800 turn encoder-3 127
+input 786400 turn encoder-3 1
+input 788000 turn encoder-4 127
+input 789600 turn encoder-4 1
+input 791200 press page
+input 792800 press step-5
+input 794400 release step-5
+input 796000 release page
+input 797600 turn encoder-1 127
+input 799200 turn encoder-3 127
+input 800800 turn encoder-3 1
+input 802400 turn encoder-4 127
+input 804000 turn encoder-4 1
+input 805600 press t3
+input 807200 release t3
+input 808800 turn encoder-1 127
+input 810400 turn encoder-3 127
+input 812000 turn encoder-3 1
+input 813600 turn encoder-4 127
+input 815200 turn encoder-4 1
+input 816800 press t2
+input 818400 release t2
+input 820000 turn encoder-1 127
+input 821600 turn encoder-3 127
+input 823200 turn encoder-3 1
+input 824800 turn encoder-4 127
+input 826400 turn encoder-4 1
+input 828000 press t1
+input 829600 release t1
+input 831200 turn encoder-1 127
+input 832800 turn encoder-3 127
+input 834400 turn encoder-3 1
+input 836000 turn encoder-4 127
+input 837600 turn encoder-4 1
+input 839200 press page
+input 840800 press step-6
+input 842400 release step-6
+input 844000 release page
+input 845600 turn encoder-1 127
+input 847200 turn encoder-3 127
+input 848800 turn encoder-3 1
+input 850400 turn encoder-4 127
+input 852000 turn encoder-4 1
+input 853600 press t2
+input 855200 release t2
+input 856800 turn encoder-1 127
+input 858400 turn encoder-3 127
+input 860000 turn encoder-3 1
+input 861600 turn encoder-4 127
+input 863200 turn encoder-4 1
+input 864800 press t3
+input 866400 release t3
+input 868000 turn encoder-1 127
+input 869600 turn encoder-3 127
+input 871200 turn encoder-3 1
+input 872800 turn encoder-4 127
+input 874400 turn encoder-4 1
+input 876000 press t4
+input 877600 release t4
+input 879200 turn encoder-1 127
+input 880800 turn encoder-3 127
+input 882400 turn encoder-3 1
+input 884000 turn encoder-4 127
+input 885600 turn encoder-4 1
+input 887200 press page
+input 888800 press step-7
+input 890400 release step-7
+input 892000 release page
+input 893600 turn encoder-1 127
+input 895200 turn encoder-3 127
+input 896800 turn encoder-3 1
+input 898400 turn encoder-4 127
+input 900000 turn encoder-4 1
+input 901600 press t3
+input 903200 release t3
+input 904800 turn encoder-1 127
+input 906400 turn encoder-3 127
+input 908000 turn encoder-3 1
+input 909600 turn encoder-4 127
+input 911200 turn encoder-4 1
+input 912800 press t2
+input 914400 release t2
+input 916000 turn encoder-1 127
+input 917600 turn encoder-3 127
+input 919200 turn encoder-3 1
+input 920800 turn encoder-4 127
+input 922400 turn encoder-4 1
+input 924000 press t1
+input 925600 release t1
+input 927200 turn encoder-1 127
+input 928800 turn encoder-3 127
+input 930400 turn encoder-3 1
+input 932000 turn encoder-4 127
+input 933600 turn encoder-4 1
+# MENU + step 10 shows SAMPLES on kick.wav, and down onto pad.wav previews it through to the end.
+input 935200 press menu
+input 936800 press step-10
+input 938400 release step-10
+input 940000 release menu
+input 941600 press down
+input 943200 release down
+# PLAY at 947,200 starts the pattern, whose bars count from there; it reaches the audio part with
+# the next step, at 947,328, which starts step 1's note. The notes, one on each sixteenth and each
 # sounding through its 10 s Release, take a voice each until all 32 are busy as the second time
 # round ends.
-input 275200 press play
-input 276800 release play
-# 32 MIDI notes at once, one for each voice, held for a second. They come at 467,072 and reach the
-# audio part with the next step, at 467,200, where the pattern starts its third time round: in
-# that batch, the busiest, they take every voice from the pattern's 32 notes, 31 in their release
-# and step 16's still held. Then the bar's first beat starts the click and the sequencer starts
-# step 1's note, which takes a voice from the chord.
-input 467072 note-on 36 127
-input 467072 note-on 37 127
-input 467072 note-on 38 127
-input 467072 note-on 39 127
-input 467072 note-on 40 127
-input 467072 note-on 41 127
-input 467072 note-on 42 127
-input 467072 note-on 43 127
-input 467072 note-on 44 127
-input 467072 note-on 45 127
-input 467072 note-on 46 127
-input 467072 note-on 47 127
-input 467072 note-on 48 127
-input 467072 note-on 49 127
-input 467072 note-on 50 127
-input 467072 note-on 51 127
-input 467072 note-on 52 127
-input 467072 note-on 53 127
-input 467072 note-on 54 127
-input 467072 note-on 55 127
-input 467072 note-on 56 127
-input 467072 note-on 57 127
-input 467072 note-on 58 127
-input 467072 note-on 59 127
-input 467072 note-on 60 127
-input 467072 note-on 61 127
-input 467072 note-on 62 127
-input 467072 note-on 63 127
-input 467072 note-on 64 127
-input 467072 note-on 65 127
-input 467072 note-on 66 127
-input 467072 note-on 67 127
-input 515072 note-off 36
-input 515072 note-off 37
-input 515072 note-off 38
-input 515072 note-off 39
-input 515072 note-off 40
-input 515072 note-off 41
-input 515072 note-off 42
-input 515072 note-off 43
-input 515072 note-off 44
-input 515072 note-off 45
-input 515072 note-off 46
-input 515072 note-off 47
-input 515072 note-off 48
-input 515072 note-off 49
-input 515072 note-off 50
-input 515072 note-off 51
-input 515072 note-off 52
-input 515072 note-off 53
-input 515072 note-off 54
-input 515072 note-off 55
-input 515072 note-off 56
-input 515072 note-off 57
-input 515072 note-off 58
-input 515072 note-off 59
-input 515072 note-off 60
-input 515072 note-off 61
-input 515072 note-off 62
-input 515072 note-off 63
-input 515072 note-off 64
-input 515072 note-off 65
-input 515072 note-off 66
-input 515072 note-off 67
-end 521472
+input 947200 press play
+input 948800 release play
+# Shortly before the chord a hit on pad 1 of T2, T3 and T4 sends pad through each track's slots, so
+# all 24 reverbs ring at it, and T1 comes back for the chord.
+input 1103872 press t2
+input 1105472 release t2
+input 1107072 pad-hit 0 127
+input 1108672 pad-release 0
+input 1110272 press t3
+input 1111872 release t3
+input 1113472 pad-hit 0 127
+input 1115072 pad-release 0
+input 1116672 press t4
+input 1118272 release t4
+input 1119872 pad-hit 0 127
+input 1121472 pad-release 0
+input 1123072 press t1
+input 1124672 release t1
+# MENU + step 4 and PAGE + step 7 show T1's last reverb. From 896 samples before the chord, 8
+# samples apart, far faster than a hand: on pages 7 down to 2, T1 to T4 and back in turn, each
+# reverb's encoder 3 takes its Pre-delay one click down, to 98 ms, so all 24 pre-delays crossfade
+# through the chord's batch. MENU + step 10 then shows SAMPLES again, and up and down onto pad.wav
+# preview it again, as leaving SAMPLES stopped it.
+input 1126272 press menu
+input 1127872 press step-4
+input 1129472 release step-4
+input 1131072 release menu
+input 1132672 press page
+input 1134272 press step-7
+input 1135872 release step-7
+input 1137472 release page
+input 1138176 turn encoder-3 -1
+input 1138184 press t2
+input 1138192 release t2
+input 1138200 turn encoder-3 -1
+input 1138208 press t3
+input 1138216 release t3
+input 1138224 turn encoder-3 -1
+input 1138232 press t4
+input 1138240 release t4
+input 1138248 turn encoder-3 -1
+input 1138256 press page
+input 1138264 press step-6
+input 1138272 release step-6
+input 1138280 release page
+input 1138288 turn encoder-3 -1
+input 1138296 press t3
+input 1138304 release t3
+input 1138312 turn encoder-3 -1
+input 1138320 press t2
+input 1138328 release t2
+input 1138336 turn encoder-3 -1
+input 1138344 press t1
+input 1138352 release t1
+input 1138360 turn encoder-3 -1
+input 1138368 press page
+input 1138376 press step-5
+input 1138384 release step-5
+input 1138392 release page
+input 1138400 turn encoder-3 -1
+input 1138408 press t2
+input 1138416 release t2
+input 1138424 turn encoder-3 -1
+input 1138432 press t3
+input 1138440 release t3
+input 1138448 turn encoder-3 -1
+input 1138456 press t4
+input 1138464 release t4
+input 1138472 turn encoder-3 -1
+input 1138480 press page
+input 1138488 press step-4
+input 1138496 release step-4
+input 1138504 release page
+input 1138512 turn encoder-3 -1
+input 1138520 press t3
+input 1138528 release t3
+input 1138536 turn encoder-3 -1
+input 1138544 press t2
+input 1138552 release t2
+input 1138560 turn encoder-3 -1
+input 1138568 press t1
+input 1138576 release t1
+input 1138584 turn encoder-3 -1
+input 1138592 press page
+input 1138600 press step-3
+input 1138608 release step-3
+input 1138616 release page
+input 1138624 turn encoder-3 -1
+input 1138632 press t2
+input 1138640 release t2
+input 1138648 turn encoder-3 -1
+input 1138656 press t3
+input 1138664 release t3
+input 1138672 turn encoder-3 -1
+input 1138680 press t4
+input 1138688 release t4
+input 1138696 turn encoder-3 -1
+input 1138704 press page
+input 1138712 press step-2
+input 1138720 release step-2
+input 1138728 release page
+input 1138736 turn encoder-3 -1
+input 1138744 press t3
+input 1138752 release t3
+input 1138760 turn encoder-3 -1
+input 1138768 press t2
+input 1138776 release t2
+input 1138784 turn encoder-3 -1
+input 1138792 press t1
+input 1138800 release t1
+input 1138808 turn encoder-3 -1
+input 1138816 press menu
+input 1138824 press step-10
+input 1138832 release step-10
+input 1138840 release menu
+input 1138848 press up
+input 1138856 release up
+input 1138864 press down
+input 1138872 release down
+# 32 MIDI notes at once, one for each voice, held for a second. They come at 1,139,072 and reach the
+# audio part with the next step, at 1,139,200, where the pattern starts its third time round: in
+# that batch, the busiest, they take every voice from the pattern and the three hits, all in their
+# release but step 16's note, still held. Then the bar's first beat starts the click and the
+# sequencer starts step 1's note, which takes a voice from the chord.
+input 1139072 note-on 36 127
+input 1139072 note-on 37 127
+input 1139072 note-on 38 127
+input 1139072 note-on 39 127
+input 1139072 note-on 40 127
+input 1139072 note-on 41 127
+input 1139072 note-on 42 127
+input 1139072 note-on 43 127
+input 1139072 note-on 44 127
+input 1139072 note-on 45 127
+input 1139072 note-on 46 127
+input 1139072 note-on 47 127
+input 1139072 note-on 48 127
+input 1139072 note-on 49 127
+input 1139072 note-on 50 127
+input 1139072 note-on 51 127
+input 1139072 note-on 52 127
+input 1139072 note-on 53 127
+input 1139072 note-on 54 127
+input 1139072 note-on 55 127
+input 1139072 note-on 56 127
+input 1139072 note-on 57 127
+input 1139072 note-on 58 127
+input 1139072 note-on 59 127
+input 1139072 note-on 60 127
+input 1139072 note-on 61 127
+input 1139072 note-on 62 127
+input 1139072 note-on 63 127
+input 1139072 note-on 64 127
+input 1139072 note-on 65 127
+input 1139072 note-on 66 127
+input 1139072 note-on 67 127
+input 1187072 note-off 36
+input 1187072 note-off 37
+input 1187072 note-off 38
+input 1187072 note-off 39
+input 1187072 note-off 40
+input 1187072 note-off 41
+input 1187072 note-off 42
+input 1187072 note-off 43
+input 1187072 note-off 44
+input 1187072 note-off 45
+input 1187072 note-off 46
+input 1187072 note-off 47
+input 1187072 note-off 48
+input 1187072 note-off 49
+input 1187072 note-off 50
+input 1187072 note-off 51
+input 1187072 note-off 52
+input 1187072 note-off 53
+input 1187072 note-off 54
+input 1187072 note-off 55
+input 1187072 note-off 56
+input 1187072 note-off 57
+input 1187072 note-off 58
+input 1187072 note-off 59
+input 1187072 note-off 60
+input 1187072 note-off 61
+input 1187072 note-off 62
+input 1187072 note-off 63
+input 1187072 note-off 64
+input 1187072 note-off 65
+input 1187072 note-off 66
+input 1187072 note-off 67
+end 1193472
