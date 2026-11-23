@@ -510,8 +510,9 @@ there. A step is lit when the selected sound has a note starting in its sixteent
     a note at the sound's unchanged pitch. In KEYS mode a held step with notes of the selected sound
     at the key's pitch loses them, and one without gets one.
   - An added note is a step-entered note and is refused with NOT ENOUGH MEMORY when it does not fit,
-    while the removals on the other held steps still go ahead. All the held steps change together as
-    one edit.
+    while the removals on the other held steps still go ahead. Each add checks the room left on its
+    own, so near the limit the first held steps can get the note and the later ones not **(owner's
+    choice)**. All the held steps change together as one edit.
   - An empty pad, or KEYS mode with no selected sound, sounds nothing and adds nothing. A key hit
     here is still the last key played, as every key is. The step's release after a hit is no tap.
 - **Hold several steps:** the encoders change all their notes together.
