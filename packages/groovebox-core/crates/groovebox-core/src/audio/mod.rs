@@ -96,7 +96,7 @@ impl Audio {
     /// multiplies the sum by the master level, adds the preview and the click at the metronome
     /// level, soft-clips the sum and multiplies it by the output volume; every level moves in a
     /// line across the chunk. The slots follow the tempo of the latest `Play`, `Tempo` or
-    /// `SetParam` of TEMPO, and a `Silence` clears them.
+    /// `SetParam` of TEMPO, and a `Silence` clears them; the fades of its chunk go around them.
     ///
     /// It takes a message or a version only while the report queue has room for its report and
     /// never waits: one it leaves stays in its queue, in order, for a later chunk start. It counts
@@ -134,6 +134,7 @@ impl Audio {
         let (right, _) = right.as_chunks_mut::<CHUNK>();
         for (left, right) in left.iter_mut().zip(right) {
             let mut fades: Buses = [[[0.0; CHUNK]; 2]; 4];
+            let mut silenced = false;
             let mut room = reports.free();
             while room > 0
                 && let Some(message) = messages
@@ -222,6 +223,7 @@ impl Audio {
                         self.preview.stop();
                         self.click.silence();
                         self.slots.clear();
+                        silenced = true;
                     }
                     MessageKind::SoundEngine { sound, engine } => {
                         self.sounds.set_engine(sound, engine);
@@ -315,10 +317,19 @@ impl Audio {
             let mut mix: Buses = [[[0.0; CHUNK]; 2]; 4];
             self.voices.render(reader, &mut mix);
             for (track, (bus, fades)) in (0..).zip(mix.iter_mut().zip(&fades)) {
-                for (x, fade) in bus.as_flattened_mut().iter_mut().zip(fades.as_flattened()) {
-                    *x += fade;
+                let add_fades = |bus: &mut [[f32; CHUNK]; 2]| {
+                    for (x, fade) in bus.as_flattened_mut().iter_mut().zip(fades.as_flattened()) {
+                        *x += fade;
+                    }
+                };
+                // A `Silence` chunk's fades go around the slots it cleared, so none of them echoes.
+                if !silenced {
+                    add_fades(bus);
                 }
                 self.slots.render(track, bus, effects);
+                if silenced {
+                    add_fades(bus);
+                }
             }
             let mut preview = [[0.0; CHUNK]; 2];
             self.preview.render(reader, &mut preview);
@@ -2857,26 +2868,27 @@ mod tests {
             let (messages, reports) = (Queue::new(), Queue::new());
             let mut rig = Rig::new(&messages, &reports);
             rig.send(0, 0, new_sound(1));
+            // A note held on each track until the `Silence` fades it out.
             for track in 0..4 {
-                let number = 1 + 4 * u32::from(track);
+                let number = 1 + 3 * u32::from(track);
                 rig.send(number, 0, set_slot(track, 0, &DELAY_TIME, 480));
                 rig.send(number + 1, 0, set_slot(track, 0, &DELAY_LEVEL, level));
                 rig.send(number + 2, 0, note_on_track(track.into(), track));
-                rig.send(number + 3, 32, note_off(track.into()));
             }
-            rig.send(17, 24_000, MessageKind::Silence);
-            rig.send(18, 24_064, note_on(4));
-            rig.render(30_080)
+            rig.send(13, 24_000, MessageKind::Silence);
+            rig.send(14, 30_080, note_on(4));
+            rig.render(36_096)
         };
 
         let (wet, dry) = (played(65_535), played(0));
 
-        // Only the third echo sounds before the `Silence`.
-        assert!(is_silent(&dry[18_000..24_000]));
-        assert!(!is_silent(&wet[18_000..24_000]));
-        assert!(is_silent(&wet[24_000..24_064]));
-        assert_eq!(bits(&wet[24_064..30_064]), bits(&dry[24_064..30_064]));
-        assert!(!is_silent(&wet[24_064..30_064]));
+        // The echoes ring up to the `Silence`.
+        assert_ne!(bits(&wet[23_968..24_000]), bits(&dry[23_968..24_000]));
+        assert!(!is_silent(&wet[24_000..24_032]));
+        // From the chunk after it, nothing: no echo of the fade 1/16 later, at 30,000.
+        assert!(is_silent(&wet[24_032..30_080]));
+        assert_eq!(bits(&wet[30_080..36_080]), bits(&dry[30_080..36_080]));
+        assert!(!is_silent(&wet[30_080..36_080]));
     }
 
     #[test]
