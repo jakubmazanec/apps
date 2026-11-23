@@ -933,15 +933,18 @@ mod tests {
             rig.send(0, 0, new_sound(1));
             rig.send(1, 0, note_on(0));
             if second_note {
-                let on_track_1 = MessageKind::NoteOn {
-                    note: NoteId(1),
-                    track: 1,
-                    sound: SoundNumber(1),
-                    pitch: 60,
-                    velocity: 127,
-                    engine: NoteEngine::Synth,
-                };
-                rig.send(2, 0, on_track_1);
+                rig.send(
+                    2,
+                    0,
+                    MessageKind::NoteOn {
+                        note: NoteId(1),
+                        track: 1,
+                        sound: SoundNumber(1),
+                        pitch: 60,
+                        velocity: 127,
+                        engine: NoteEngine::Synth,
+                    },
+                );
             }
             rig.send(3, 0, set_level(Target::Track(1), &TRACK_LEVEL, level));
             rig.render(256)
@@ -2700,18 +2703,6 @@ mod tests {
         }
     }
 
-    /// A note of sound 1 on `track` at pitch 60 and velocity 127.
-    fn note_on_track(note: u32, track: u8) -> MessageKind {
-        MessageKind::NoteOn {
-            note: NoteId(note),
-            track,
-            sound: SoundNumber(1),
-            pitch: 60,
-            velocity: 127,
-            engine: NoteEngine::Synth,
-        }
-    }
-
     #[test]
     fn a_new_project_has_a_delay_at_level_0_which_changes_nothing() {
         let played = |empty: bool| {
@@ -2924,7 +2915,18 @@ mod tests {
                 let number = 1 + 3 * u32::from(track);
                 rig.send(number, 0, set_slot(track, 0, &DELAY_TIME, 480));
                 rig.send(number + 1, 0, set_slot(track, 0, &DELAY_LEVEL, level));
-                rig.send(number + 2, 0, note_on_track(track.into(), track));
+                rig.send(
+                    number + 2,
+                    0,
+                    MessageKind::NoteOn {
+                        note: NoteId(track.into()),
+                        track,
+                        sound: SoundNumber(1),
+                        pitch: 60,
+                        velocity: 127,
+                        engine: NoteEngine::Synth,
+                    },
+                );
             }
             rig.send(13, 24_000, MessageKind::Silence);
             rig.send(14, 30_080, note_on(4));

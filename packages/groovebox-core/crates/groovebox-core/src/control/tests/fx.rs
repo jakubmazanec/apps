@@ -2,7 +2,7 @@
 //! each slot's effect.
 
 use super::*;
-use crate::param::{DELAY_LEVEL, DELAY_PING_PONG, DELAY_TIME};
+use crate::param::{DELAY_LEVEL, DELAY_PING_PONG, DELAY_TIME, REVERB_LEVEL};
 use crate::project::track::{Effect, Slot};
 use crate::ui::list::{Row, draw_rows};
 use crate::ui::tiles::draw_chain;
@@ -497,6 +497,31 @@ fn a_delay_page_holds_time_feedback_tone_and_level_on_the_encoders() {
         )]
     );
     assert_eq!(rig.track().slots[0].value(DELAY_PING_PONG.id), 1);
+}
+
+#[test]
+fn a_slots_page_sets_that_slot_while_the_cursor_is_on_slot_1() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    rig.menu(10, 3);
+    rig.page(20, 2);
+    assert_eq!(rig.control.view.fx_slot, 0);
+
+    rig.turn(100, 3, 1);
+
+    rig.step(110);
+    assert_eq!(
+        rig.sent(),
+        [message(
+            0,
+            100,
+            MessageKind::SetParam {
+                target: Target::Slot { track: 0, slot: 1 },
+                id: REVERB_LEVEL.id,
+                value: 512
+            }
+        )]
+    );
 }
 
 #[test]

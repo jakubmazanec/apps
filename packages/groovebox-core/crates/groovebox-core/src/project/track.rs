@@ -91,8 +91,8 @@ pub fn move_item<T>(items: &mut [T], from: u8, to: u8) {
     }
 }
 
-/// What a track keeps: its 12 pads, what is selected, the pad mode, the octave, its level and its
-/// mute, and its effect slots.
+/// What a track keeps: its 12 pads, what is selected, the pad mode and the octave. It also keeps
+/// its level, its mute and its effect slots.
 ///
 /// The selection rule: when `selected_pad` is `Some(p)`, `selected_sound` is `pads[p]`. `select`,
 /// `select_sound` and `put` keep it, so a pad or the selection changes through them and never by

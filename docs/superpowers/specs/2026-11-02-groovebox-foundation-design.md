@@ -109,9 +109,11 @@ called on time and its control part runs the rest of the time.
 - The core never allocates memory while running. Every pool has a size fixed at build time: queues,
   voices, the note store, the frame buffer. The core library does not use Rust's allocation library
   at all, so an accidental allocation is a compile error.
-- Two kinds of memory are kept apart in the code: **working memory** (engine state, queues, the
-  frame buffer; small and needs to be fast) and **sample RAM** (large, read in sequence by the
-  voices). A device can then place them in different kinds of RAM without code changes.
+- Four kinds of memory are kept apart in the code: **working memory** (engine state, queues, the
+  frame buffer; small and needs to be fast), **sample RAM** (large, read in sequence by the voices),
+  the **note memory** (the notes of the patterns) and the **effect memory** (what the effect slots'
+  delays and reverbs remember). A device can then place them in different kinds of RAM without code
+  changes.
 
 ### Sample RAM (owner's choice)
 

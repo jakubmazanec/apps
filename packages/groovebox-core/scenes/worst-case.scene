@@ -4,12 +4,12 @@ file samples/kick.wav ours 55 0.3 1
 file samples/pad.wav ours 220 10 2
 # The operation count plays this scene: the most a render batch has to do. 32 voices of a stereo
 # sample sound at Transpose +48 cost more than 32 of a stereo Supersaw, as measured when sample
-# sounds came, and every effect slot of the four tracks holds a reverb, ringing in the busiest batch
-# with every pre-delay crossfading: there a reverb in every slot costs 11,654,242 operations and a
-# delay in every slot 11,250,439, though a turn of the tempo makes every delay crossfade, as
-# measured when the effects came. pad on pad 1 through the panel: MENU + step 3, then OK, down and
-# OK in the sound picker open the sample picker on kick.wav, and down onto pad.wav and OK choose it.
-# A tap of PADS/KEYS then makes the pads keys that play pad.
+# sounds came. Every effect slot of the four tracks holds a reverb, ringing in the busiest batch
+# with every pre-delay crossfading. There a reverb in every slot costs 11,654,242 operations. A
+# delay in every slot costs 11,250,439, measured in a version of this scene with every slot a delay
+# and a TEMPO turn at the chord, which this file does not contain. pad on pad 1 through the panel:
+# MENU + step 3, then OK, down and OK in the sound picker open the sample picker on kick.wav, and
+# down onto pad.wav and OK choose it. A tap of PADS/KEYS then makes the pads keys that play pad.
 input 3200 press menu
 input 4800 press step-3
 input 6400 release step-3
@@ -103,9 +103,9 @@ input 260800 press step-2
 input 262400 release step-2
 input 264000 release page
 input 264800 turn encoder-4 1
-# T2 to T4 put pad on their pad 1 too: SOUND shows the track's empty pad 1, OK opens the sound
-# picker on Empty, and down three times past New sample and New synth onto pad, the sound of the
-# pool, and OK choose it.
+# T2 to T4 put pad on their pad 1 too. SOUND shows the track's empty pad 1 and OK opens the sound
+# picker on Empty. Down three times past New sample and New synth lands on pad, the sound of the
+# pool; OK chooses it.
 input 266400 press t2
 input 268000 release t2
 input 269600 press ok

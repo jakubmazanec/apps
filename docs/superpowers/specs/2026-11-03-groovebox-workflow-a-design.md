@@ -506,7 +506,7 @@ overview, and moving a slot needs a hidden gesture.
   tails ring out (Sound): a note sounding at the mute keeps its end and plays its release, and notes
   that come due while muted are not caught up after the unmute. Pads and keys you play on a muted
   track still sound and are recorded as usual; only the pattern is silenced **(owner's choice)**.
-- **MIX screen,** one page with no name **(owner's choice)**, so the header reads "Mix" and PAGE
+- **MIX screen,** one page **(owner's choice)** with no name, so the header reads "Mix" and PAGE
   shows one tile, "1": the four track levels, then Sound's master level, the mix's own setting
   before the soft clipper, saved with the project. The encoders hold the four track levels, 1 to 4;
   the master level is reached with the cursor and has no encoder. A level moves by the usual click,

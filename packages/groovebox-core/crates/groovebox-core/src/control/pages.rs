@@ -108,18 +108,6 @@ pub struct Pages {
     count: usize,
 }
 
-impl Pages {
-    /// `pages`, at most `MOST_PAGES` of them.
-    fn of(pages: &[PageDef]) -> Self {
-        let mut all = [EMPTY_SLOT; MOST_PAGES];
-        all[..pages.len()].copy_from_slice(pages);
-        Self {
-            pages: all,
-            count: pages.len(),
-        }
-    }
-}
-
 impl core::ops::Deref for Pages {
     type Target = [PageDef];
 
@@ -421,14 +409,19 @@ const fn sound_pages(pad: PageDef, engine: PageDef) -> [PageDef; 6] {
 pub fn pages(screen: Screen, sound: Option<&Sound>, pad: bool, slots: &[Slot; 6]) -> Pages {
     let pages: &[PageDef] = match screen {
         Screen::Step | Screen::Pool | Screen::Samples => &[],
-        Screen::Fx => &core::array::from_fn::<_, MOST_PAGES, _>(|page| match page {
-            0 => CHAIN,
-            _ => match slots[page - 1].effect {
-                Effect::Empty => EMPTY_SLOT,
-                Effect::Delay => DELAY,
-                Effect::Reverb => REVERB,
-            },
-        }),
+        Screen::Fx => {
+            return Pages {
+                pages: core::array::from_fn(|page| match page {
+                    0 => CHAIN,
+                    _ => match slots[page - 1].effect {
+                        Effect::Empty => EMPTY_SLOT,
+                        Effect::Delay => DELAY,
+                        Effect::Reverb => REVERB,
+                    },
+                }),
+                count: MOST_PAGES,
+            };
+        }
         Screen::Mix => &[MIX],
         Screen::Sound => match (sound.map(|sound| &sound.engine), pad) {
             (Some(Engine::Sample(_)), true) => &const { sound_pages(PAD, SAMPLE) },
@@ -467,7 +460,12 @@ pub fn pages(screen: Screen, sound: Option<&Sound>, pad: bool, slots: &[Slot; 6]
         ],
         Screen::Pattern => &[TIMING, BARS],
     };
-    Pages::of(pages)
+    let mut all = [EMPTY_SLOT; MOST_PAGES];
+    all[..pages.len()].copy_from_slice(pages);
+    Pages {
+        pages: all,
+        count: pages.len(),
+    }
 }
 
 #[cfg(test)]

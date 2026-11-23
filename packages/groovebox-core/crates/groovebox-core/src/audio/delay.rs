@@ -349,6 +349,14 @@ pub(super) mod tests {
                 .chain(&right)
                 .all(|&x| x.is_finite() && libm::fabsf(x) <= bound)
         );
+        // From one echo time after the chord ends only the fed-back part sounds, held by the
+        // limiter.
+        assert!(
+            left[48_000 + 12_000..]
+                .iter()
+                .chain(&right[48_000 + 12_000..])
+                .all(|&x| libm::fabsf(x) <= 1.0)
+        );
         // An echo of 1/8 at 120 BPM, 12,000 samples, a second and 30 seconds after the chord.
         let echoes = |seconds: usize| peak(&left[48_000 * (1 + seconds)..][..12_000]);
         assert!(echoes(30) < echoes(1), "{} and {}", echoes(30), echoes(1));

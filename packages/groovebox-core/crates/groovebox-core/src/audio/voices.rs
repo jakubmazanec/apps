@@ -469,6 +469,19 @@ mod tests {
     }
 
     #[test]
+    fn silence_fades_a_voice_into_its_own_tracks_bus() {
+        let mut rig = Rig::new(&[&[]]);
+        rig.on(0, 2, 1, 60);
+        rig.play(1);
+        let mut fades = [[[0.0; CHUNK]; 2]; 4];
+
+        rig.voices.silence(&mut fades);
+
+        let sounding = fades.map(|bus| bus.as_flattened().iter().any(|&x| x != 0.0));
+        assert_eq!(sounding, [false, false, true, false]);
+    }
+
+    #[test]
     fn stealing_prefers_released_then_same_sound_then_oldest() {
         let mut rig = Rig::new(&[&[], &[], &[]]);
         rig.on(0, 0, 1, 60);

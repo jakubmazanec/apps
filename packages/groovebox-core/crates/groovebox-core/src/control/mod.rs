@@ -1734,8 +1734,8 @@ impl Control {
         self.value_of(self.target(id), id)
     }
 
-    /// The value of the entry `id` of `target`, read where its scope keeps it; the tempo, the one
-    /// project value but the master level that a page shows, is picked out by its id.
+    /// The value of the entry `id` of `target`, read where its scope keeps it. Besides the master
+    /// level the tempo is the project value that a page shows, and it is picked out by its id.
     fn value_of(&self, target: Target, id: ParamId) -> i32 {
         if id == TEMPO.id {
             // At most 30,000, so it fits.

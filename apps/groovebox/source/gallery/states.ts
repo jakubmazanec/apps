@@ -189,7 +189,7 @@ export const STATES: ReadonlyArray<{title: string; frame: string; approved?: str
   },
   {title: 'Timing strip', frame: 'metronome/frame-118400.png', approved: 'timing-strip.png'},
   {title: 'Pattern Timing', frame: 'metronome/frame-131200.png'},
-  {title: 'FX Chain on slot 1', frame: 'delay/frame-28800.png', approved: 'fx-chain.png'},
+  {title: 'FX Chain on slot 1', frame: 'delay/frame-28800.png'},
   {title: 'FX Chain', frame: 'delay/frame-35200.png', approved: 'fx-chain.png'},
   {title: 'Type picker on Reverb', frame: 'delay/frame-41600.png'},
   {title: 'PAGE held on FX', frame: 'delay/frame-64000.png', approved: 'page-held.png'},
