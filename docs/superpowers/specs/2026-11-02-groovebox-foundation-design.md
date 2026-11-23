@@ -165,7 +165,8 @@ and gave the picker a refusal; the EP-133 has one library, one limit and one pla
   used can always be saved. An import that reaches any of these limits is refused (Sound, Project
   model).
 - The profile also holds what the other specs set: the voice count (provisionally 32, plus the
-  preview player), the effect slots' memory (about 9 MB, outside the library's budget) and the
+  preview player), the effect memory, `effect_ram` (provisionally 9,216,000 bytes, beside the sample
+  RAM and the note pool: 24 pieces of 192,000 16-bit samples, a 2-second stereo delay each) and the
   worst-case operation count recorded by a test scene (Sound); the pool of sounds, 1,024 per project
   and held in working memory (Workflow A) **(owner's choice)**; the note pool, `note_ram`
   (provisionally 8,000,000 bytes, beside the sample RAM), the undo budget (provisionally a quarter

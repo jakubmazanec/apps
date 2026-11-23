@@ -485,14 +485,13 @@ settles it with the owner.
   appears on the hit and waits for OK or a new tap of CANCEL; no notes, no question.
 - **REC during the count-in.** What the light and the header dot do. Proposed: the light blinks and
   the dot stays dim through the count-in; steady and red from the first beat.
-- **Blink speeds.** "Blinks slowly" and "blinking" have no rate: one speed or two, in time with the
-  tempo or not. Proposed: named constants counted in samples; the speeds: none yet.
+- **Blink speed of the fast blinks.** REC armed and a queued pattern blink with no rate yet; the
+  slow blink of a muted track is settled (Look, "The lights"). Proposed: a quicker speed, a named
+  constant counted in samples, set with Milestones 4 and 5; the speed: none yet.
 - **An empty pad selected.** What OK does and where the view opens on ROLL. Proposed: none yet.
 
 ### Sound and settings
 
-- **Delay time on the strip.** How dotted and triplet values are written, their order in the list
-  and whether "1/1 (1/2)" fits a strip cell. Proposed: none yet.
 - **Tuning a range in part 1.** New ID, new format version or just the number? Proposed: just the
   number; the ID and version stay and saved values are held within the new range.
 
@@ -524,5 +523,3 @@ settles it with the owner.
 - **Fixed table sizes.** How many projects and queue entries; the message when one is full.
   Proposed: none yet; each is a budget-profile entry. The library's 4,096 files and 1,024 folders
   are settled (Foundation).
-- **Effect memory.** Sound's "large memory class" is not one of Foundation's two kinds. Proposed: it
-  sits beside the sample RAM, with its own budget number.

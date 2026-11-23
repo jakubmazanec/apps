@@ -202,8 +202,9 @@ the owner "for now", expected to change with testing.
   is queued), the bar the step buttons show over the pattern's length (2/4; "2/4 ▶1" while playing,
   the bar playing after ▶), the tempo with one decimal (120.0); then only while they apply: a record
   dot, dim while armed and red while recording; a small metronome icon while the metronome is on,
-  dim, 7 px wide and drawn on the capitals' rows 4 to 10; "Mute 2 4" while tracks are muted. The
-  items are 6 px apart and the last one ends at x 475.
+  dim, 7 px wide and drawn on the capitals' rows 4 to 10; "Mute 2 4" while tracks are muted, dim and
+  at the right end after the metronome icon, counted in the room that shortens a sound's name like
+  the rest of the transport. The items are 6 px apart and the last one ends at x 475.
 - **A message** replaces the transport group, in red for errors (Storage full. Not saved; kick.wav
   not imported: library full; Library can't be read) and in the accent for notices (2 samples
   missing; Loading library; No unused sounds), until a later press of a button clears it **(owner's
@@ -343,10 +344,16 @@ shows the filter's curve with a faint line at the cutoff. Richer graphics come l
     faint middle line, with its half height 2 px less than half the area's at full scale. Start and
     End are full-height accent lines.
 - **FX, Chain**: the six slots as a row of tiles in chain order, the cursor on one, empty slots
-  faint; under them Type and Move for that slot, on encoders 1 and 2. The slot pages are ordinary
-  pages with all of the effect's settings; an empty slot's page and strip are empty.
+  faint; under them Type and Move for that slot, on encoders 1 and 2. A tile is 78 by 19 px, slot
+  _s_ counted from 0 at (1 + 79 _s_, 16): a used slot's border in the line grey and an empty one's
+  faint, its number dim 3 px in and its effect's name in the text colour 14 px in (`fx-chain.png`);
+  the cursor's tile has its border, number and name in the accent. Type and Move are items 160 px
+  wide from (2, 39), 18 px apart. The slot pages are ordinary pages with all of the effect's
+  settings; an empty slot's page and strip are empty.
 - **MIX**: one page: the four track levels as items, a muted track named in red, then Master; the
-  encoders hold the four track levels **(owner's choice)**.
+  encoders hold the four track levels **(owner's choice)**. A muted track's item reads "Track 3
+  muted" with its name in red, and its strip cell reads the same in the strip's usual colours
+  (`mix.png`).
 - **SETTINGS**: a first page named **Playing** (header "Settings Playing", tile "1 Playing") with
   Velocity, Metronome and Metronome level as items, and Count-in once the count-in is built, each on
   the encoder of its place, 1 to 4 **(owner's choice)**; and a **Dev page** (tile "2 Dev") with
@@ -433,7 +440,7 @@ while the eyes are on the hands.
 
 | Light           | On                                                                                                                                                                                                                                                                                       |
 | --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| T1–T4           | the selected track; a muted track blinks slowly                                                                                                                                                                                                                                          |
+| T1–T4           | the selected track; a muted track blinks slowly, selected or not                                                                                                                                                                                                                         |
 | REC             | blinking while armed, lit while recording                                                                                                                                                                                                                                                |
 | PLAY            | while playing                                                                                                                                                                                                                                                                            |
 | TEMPO           | while the metronome is on                                                                                                                                                                                                                                                                |
@@ -442,6 +449,11 @@ while the eyes are on the hands.
 | Step buttons    | where the selected sound has a note in the shown page; the step under the music flipped for its sixteenth; steps past a short bar's end off. SHIFT held: patterns 1–16, lit with notes, the playing one lit, the queued one blinking. MENU or PAGE held: the screens or pages that exist |
 | Pads            | the selected pad (pad 1, the C, in Keys mode); a pad is also lit while one of its notes is on: from a hit to its release and from a sequencer note's start to its end. CANCEL or COPY held: the pads that would be erased or copied blink                                                |
 | Everything else | no light: STOP, SHIFT, MENU, PAGE, COPY, the arrows, OK, CANCEL, − and +                                                                                                                                                                                                                 |
+
+The slow blink is once a second: half a second on, half a second off, at any tempo and while stopped
+**(owner's choice)**. It counts from sample 0 of the audio clock and is on for the first half of
+each second, so every muted track blinks together. The fast blinks (REC armed, a queued pattern) get
+their own quicker speed when they are built.
 
 Unless CANCEL or COPY is held, a pad lit by its selection or by a note does not blink. While one is
 held, every pad it would erase or copy blinks, the selected pad included. The control part works the

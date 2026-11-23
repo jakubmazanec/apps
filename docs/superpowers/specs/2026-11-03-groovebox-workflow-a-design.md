@@ -474,34 +474,45 @@ They belonged to the per-project budget, which Foundation replaced with one libr
 
 The FX screen shows the current track's six slots.
 
-- **Page 1, CHAIN (owner's choice),** has two rows: the six slots in chain order, and TYPE and MOVE
-  for the slot the cursor last stood on. Encoders 1 and 2 hold TYPE and MOVE, so the strip shows
-  them; encoders 3 and 4 hold nothing. Left and right move along a row; up and down switch rows.
-  - **TYPE** (encoder 1): OK on a slot or on TYPE opens a picker with EMPTY, DELAY and REVERB.
-    Choosing a new type clears the slot, as Sound decided, and starts the effect at its defaults;
-    the old settings are gone.
-  - **MOVE** (encoder 2) is a value: each click of the encoder, or each press of − or +, moves the
-    slot one place along the chain. A moved effect keeps its settings and its sound, so a ringing
-    tail does not break. The two slots swap their settings and memory together in one step (Sound).
+- **Page 1, CHAIN (owner's choice),** has three rows: the six slots in chain order, then TYPE, then
+  MOVE, both for the slot the cursor last stood on, which each track remembers until the project
+  closes. Encoders 1 and 2 hold TYPE and MOVE, so the strip shows them; encoders 3 and 4 hold
+  nothing. Up and down move between the rows; left and right move along the slots and stop at the
+  first and the last; on TYPE and MOVE they do nothing.
+  - **TYPE** (encoder 1): OK on a slot or on TYPE opens a picker with EMPTY, DELAY and REVERB, on
+    the slot's type. Choosing the type the slot holds changes nothing; choosing another clears the
+    slot, as Sound decided, and starts the effect at its defaults; the old settings are gone.
+    Turning encoder 1 and pressing − or + do nothing on TYPE or on the slots, as on any item that
+    opens a picker.
+  - **MOVE** (encoder 2) is a value reading the slot's place, 1 to 6: each click of the encoder, or
+    each press of − or +, moves the slot one place along the chain, stopping at the ends; the
+    cursor's slot goes with it. A moved effect keeps its settings and its sound, so a ringing tail
+    does not break. The two slots swap their settings and memory together in one step (Sound).
 - **Pages 2–7** are the slots in chain order, each holding all of its effect's settings: five for
   the delay, four for the reverb. The effect names which of them the encoders hold (Sound). An empty
   slot's page is empty, and so is its strip.
-- Holding PAGE on FX shows the tabs CHAIN, then each slot's type, such as DELAY, REVERB and four
-  dashes.
+- Holding PAGE on FX shows the tabs "Chain", then each slot's effect, such as "Delay", "Reverb" and
+  four dashes, an en dash "–" for each empty slot, as the strip's ranges use; the header names the
+  page the same way.
 
 Rejected: slot pages only, with the type as the first item of each slot's page. The chain has no
 overview, and moving a slot needs a hidden gesture.
 
 ## Mix and volume
 
-- **Mute (owner's choice).** SHIFT + T1–T4 flips that track's mute from any screen. Muted tracks are
-  marked on their track buttons and in the header. Muting lets tails ring out (Sound). Pads and keys
-  you play on a muted track still sound and are recorded as usual; only the pattern is silenced
-  **(owner's choice)**.
-- **MIX screen,** one page **(owner's choice)**: the four track levels, then Sound's master level,
-  the mix's own setting before the soft clipper, saved with the project. The encoders hold the four
-  track levels; the master level is reached with the cursor. Each track shows whether it is muted.
-  Mutes are shown on MIX but flipped only with SHIFT + T.
+- **Mute (owner's choice).** SHIFT + T1–T4 flips that track's mute from any screen, at the press,
+  with a picker or a question open, under MENU or PAGE and while steps are held; the current track
+  does not change. Muted tracks are marked on their track buttons and in the header. Muting lets
+  tails ring out (Sound): a note sounding at the mute keeps its end and plays its release, and notes
+  that come due while muted are not caught up after the unmute. Pads and keys you play on a muted
+  track still sound and are recorded as usual; only the pattern is silenced **(owner's choice)**.
+- **MIX screen,** one page with no name **(owner's choice)**, so the header reads "Mix" and PAGE
+  shows one tile, "1": the four track levels, then Sound's master level, the mix's own setting
+  before the soft clipper, saved with the project. The encoders hold the four track levels, 1 to 4;
+  the master level is reached with the cursor and has no encoder. A level moves by the usual click,
+  128 across its range, and SHIFT by a sixteenth of that; OK does nothing on it. A muted track's
+  item reads "Track 3 muted" with its name in red (Look). Mutes are shown on MIX but flipped only
+  with SHIFT + T.
 - **Volume (owner's choice).** A fifth encoder always sets the output volume, on every screen; pages
   never change it.
   - It is applied after the soft clipper, inside the core, so it never changes the sound's character

@@ -292,11 +292,21 @@ oscillator's level are 0. Every number is a constant tuned by ear.
 - **Each track has 6 effect slots in series** (owner's choice). Any slot can hold any effect type,
   in any order, or nothing. An empty slot costs nothing.
 - **Each slot reserves its own memory,** enough for the biggest effect, a 2-second stereo delay with
-  echoes stored as 16-bit: about 0.4 MB per slot, about 9 MB for all 24 slots. It is reserved when
-  the core is built, in the large memory class alongside the sample RAM but outside the library's
-  budget, and listed in the budget profile. Picking a new type for a slot clears and reuses its
-  memory; there is nothing to hand out, nothing that can fail, and no risk of the audio part reading
-  memory that is being reassigned.
+  echoes stored as 16-bit: a piece of 192,000 samples, about 0.4 MB per slot, about 9 MB for all 24
+  slots. It is reserved when the core is built, as a memory of its own beside the sample RAM and the
+  note memory and outside the library's budget, and listed in the budget profile as `effect_ram`.
+  Only the audio part touches it. At first track 1's slots use the first six pieces in chain order,
+  track 2's the next six, and so on. Picking a new type for a slot clears and reuses its memory;
+  there is nothing to hand out, nothing that can fail, and no risk of the audio part reading memory
+  that is being reassigned.
+- **A clear writes nothing.** Each line of an effect counts the samples written since its clear, and
+  a read further back than that gives 0, so STOP while stopped clears all 24 slots at a chunk
+  boundary without wiping 9 MB.
+- **A quiet slot is passed over.** An effect counts the samples since it last stored a sample that
+  is not 0. Once that count reaches the span of its memory (a delay line's 96,000 samples; the
+  reverb's 32,768 and its pre-delay's 4,800) it holds only zeros, so it sets its filter states to 0
+  and is not ringing. A slot that is empty, or is not ringing while a chunk of its input is exactly
+  0 on both sides, is passed over and leaves the track's signal as it is.
 - **Moving an effect one place along the chain swaps the two slots whole** (owner's choice):
   settings and memory move together in one step, applied by the audio part at a 32-sample chunk
   boundary, so a ringing tail keeps ringing. Nothing is cleared. Since every slot reserves the same
@@ -304,6 +314,8 @@ oscillator's level are 0. Every number is a constant tuned by ear.
   can fail.
 - **Part 1 starts every track with delay in slot 1, reverb in slot 2** and the rest empty, so echoes
   go into the reverb. Everything can be rearranged.
+- **Both start with their Level at 0** (owner's choice), so pads and the pattern sound dry in a new
+  project; turning Level up brings in echoes and room, including echoes of what has just played.
 - **Muting a track lets tails ring out** (owner's choice): muting stops only the notes the pattern
   plays on the track. While it is muted they do not start; those sounding fade with their own
   release, while echoes and reverb already sounding fade naturally. Pads and keys played by hand on
@@ -316,36 +328,55 @@ oscillator's level are 0. Every number is a constant tuned by ear.
 
 - **Time:** note values locked to the tempo, from 1/32 to a whole note (1/1), each straight, dotted
   or triplet **(owner's choice)**; the list does not depend on the time signature. No milliseconds
-  in part 1.
-- **Feedback:** up to 98%. A gentle limiter inside the loop turns high settings into long trails
+  in part 1. A triplet is written "1/8T" and a dotted value "1/8D", and the list is ordered by
+  length, so turning right always makes the echo longer: 1/32T, 1/32, 1/16T, 1/32D, 1/16, 1/8T,
+  1/16D, 1/8, 1/4T, 1/8D, 1/4, 1/2T, 1/4D, 1/2, 1/1T, 1/2D, 1/1, 1/1D **(owner's choice)**.
+- **Feedback:** up to 98% in the loop, which is the item's 100%. A gentle limiter inside the loop,
+  the master's soft clipper applied to the part fed back, turns high settings into long trails
   rather than an explosion.
-- **Tone:** each echo gets a little darker; a fixed low cut in the loop stops bass from piling up.
-- **Ping-pong:** a switch that bounces the echoes between left and right.
+- **Tone:** each echo gets a little darker, through a low-pass in the loop from 1 kHz at 0% to 16
+  kHz at 100%, spread evenly over the octaves; a fixed low cut at 100 Hz in the loop stops bass from
+  piling up.
+- **Ping-pong:** a switch that bounces the echoes between left and right: the left line takes the
+  input's mono sum and the right echo fed back, the right line the left echo fed back, so the echoes
+  cross sides.
 - **Level:** how loud the echoes are on top of the dry sound; the dry sound never drops.
 - **Its page** holds all five; the encoders hold Time, Feedback, Tone and Level **(owner's
   choice)**.
-- **Changing the time or the tempo while echoes ring** crossfades quickly to the new time, with no
-  click. A tape-style pitch glide can be a later mode.
+- **Storage:** two lines, left and right, of 96,000 samples each, one in each half of the slot's
+  piece. An echo is stored in 16 bits with headroom to ±4, so a loud mix with high feedback is held
+  at the limit and never wraps round.
+- **Changing the time or the tempo while echoes ring** crossfades to the new time in a straight line
+  over 1,024 samples, with no click. A tape-style pitch glide can be a later mode.
+- **The tempo reaches the delay while the music is stopped** as well as while it plays, so a tempo
+  turned while stopped changes the time of the next echoes at once, through the same crossfade.
 - **Maximum time:** 2 seconds. A note value that would be longer at the current tempo plays as the
   longest note value in the list that fits **(owner's choice)**. The setting keeps the value the
-  player picked and shows the value in use beside it, such as "1/1 (1/2)" at 60 BPM; when the tempo
-  rises far enough, the picked value comes back by itself. The value in use follows a tempo change
-  through the same crossfade as any other change of time.
+  player picked and shows the value in use beside it, such as "1/1 (1/2)" at 60 BPM, which, like
+  "1/1D (1/2D)", fits a strip cell; when the tempo rises far enough, the picked value comes back by
+  itself. The value in use follows a tempo change through the same crossfade as any other change of
+  time.
 - Tempo-synced times are whole samples computed with integer maths, so no interpolation is needed.
 
 Rejected: playing exactly 2 seconds; the echo would fall off the beat.
 
 ### Reverb (effect type 2)
 
-- **Decay:** from a small room to a long hall.
-- **Tone:** dark to bright.
-- **Pre-delay:** 0 to 100 ms of silence before the reverb starts.
-- **Level.**
+- **Decay:** from a small room to a long hall: Rings's reverb time, from 0.4 at 0% to 0.98 at 100%.
+- **Tone:** dark to bright: Rings's low-pass in the loop, from 0.2 to 0.9.
+- **Pre-delay:** 0 to 100 ms of silence before the reverb starts, a mono line of 4,800 samples that
+  crossfades to a new value as the delay's time does; at 0 the input goes straight in.
+- **Level:** how loud the room is on top of the dry sound, as the delay's echoes are; the dry sound
+  never drops.
 - **Its page** holds all four, all on the encoders.
-- **Fixed inside:** diffusion, a low cut on the input so kicks and bass do not muddy the tail, and a
-  very slow wobble of two internal oscillators that keeps long tails from sounding metallic.
+- **Fixed inside:** diffusion of 0.625 and Rings's input gain of 0.2 after the pre-delay; a one-pole
+  low cut at 100 Hz on the input's mono sum so kicks and bass do not muddy the tail; and a very slow
+  wobble of two internal oscillators, at 0.5 and 0.3 Hz, that keeps long tails from sounding
+  metallic.
 - **Design:** the reverb layout of Mutable Instruments' Rings module, MIT-licensed and the default
-  reverb of the Deluge. Mono in, stereo out. About 0.1 MB.
+  reverb of the Deluge, with its ten lines, coefficients and 16-bit format, in one ring of 32,768
+  samples of the slot's piece, at the 48 kHz Rings runs at. Mono in, stereo out. About 0.1 MB. The
+  port keeps Rings's copyright and MIT notice.
 - A brighter, wider plate reverb (Dattorro) can be a second reverb type later.
 
 ### Effect determinism
@@ -368,10 +399,15 @@ and others, each one more type that any slot can hold.
 - **Per sound:** level and pan.
 - **Per track:** effect slots, then level. Mute is not in the path: it stops the pattern's notes
   from starting (see "Track effects").
-- **Master:** master level, default levels that leave headroom so several loud voices together do
-  not distort straight away, and a **soft clipper**, the last thing before the output volume, that
+- **Master:** master level and a **soft clipper**, the last thing before the output volume, that
   rounds off anything too loud instead of cracking. It is fixed and has no look-ahead, so it is
   bit-identical everywhere (owner's choice). A master compressor can come later.
+- **Levels start at 100%,** every track's and the master's, which multiply by exactly 1, so the mix
+  changes nothing until a level is turned down; the headroom that keeps several loud voices from
+  distorting straight away is in the sounds' own default levels. A level glides over 128 samples and
+  moves in a straight line across each chunk, as the output volume does.
+- **Each voice, and each voice fading out, adds into its own track.** The four tracks are summed in
+  track order before the master level, so the sum is the same in every build.
 - **Two more sources join the master after the master level and before the soft clipper (owner's
   choice):** the sample preview, played by the preview player from the library in RAM (see "Voices")
   at a fixed level, and the metronome click from Workflow B at the metronome level set on SETTINGS.
@@ -466,8 +502,8 @@ Applied to the overview together with this spec:
 ## Assumptions about other specs
 
 - **Foundation:** the budget profile gains the voice count (32, plus the preview player), the effect
-  slot memory (about 9 MB) and the worst-case operation count from the tests; effect memory sits in
-  the large memory class outside the library's sample RAM.
+  slot memory (about 9 MB) and the worst-case operation count from the tests; effect memory is a
+  memory of its own beside the sample RAM and the note memory, outside the library's sample RAM.
 - **Workflow A:** decides how sounds, engines and samples are created and chosen; what a page is,
   how the engine, chain and effect pages are reached and how every item on them is reached without
   an encoder; how effect types are chosen per slot and slots reordered; velocity for inputs that
