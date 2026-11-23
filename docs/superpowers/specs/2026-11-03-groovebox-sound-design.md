@@ -403,9 +403,8 @@ and others, each one more type that any slot can hold.
   rounds off anything too loud instead of cracking. It is fixed and has no look-ahead, so it is
   bit-identical everywhere (owner's choice). A master compressor can come later.
 - **Levels start at 100%,** every track's and the master's, which multiply by exactly 1, so the mix
-  changes nothing until a level is turned down; the headroom that keeps several loud voices from
-  distorting straight away is in the sounds' own default levels. A level glides over 128 samples and
-  moves in a straight line across each chunk, as the output volume does.
+  changes nothing until a level is turned down. A level glides over 128 samples and moves in a
+  straight line across each chunk, as the output volume does.
 - **Each voice, and each voice fading out, adds into its own track.** The four tracks are summed in
   track order before the master level, so the sum is the same in every build.
 - **Two more sources join the master after the master level and before the soft clipper (owner's
