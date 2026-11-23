@@ -21,6 +21,7 @@ use voices::Voices;
 pub mod click;
 pub mod delay;
 pub mod preview;
+pub mod reverb;
 pub mod sample;
 pub mod slots;
 pub mod sounds;
@@ -386,7 +387,8 @@ mod tests {
     use crate::param::{
         CHOKE_GROUP, CUTOFF, DECAY, DELAY_FEEDBACK, DELAY_LEVEL, DELAY_TIME, END, Entry, GATE,
         LEGATO, LEVEL, LOOP, LOOP_END, METRONOME, METRONOME_LEVEL, MONO, MUTE, ONE_SHOT,
-        OUTPUT_VOLUME, PLAY_MODE, POLY, RESONANCE, SPREAD, SUPERSAW, SUSTAIN, TEMPO, TRIGGER, WAVE,
+        OUTPUT_VOLUME, PLAY_MODE, POLY, RESONANCE, REVERB_LEVEL, SPREAD, SUPERSAW, SUSTAIN, TEMPO,
+        TRIGGER, WAVE,
     };
     use crate::project::Signature;
     use crate::project::pool::{SOUND_DEFAULTS, SOUND_VALUES, Sound, SoundNumber};
@@ -2735,6 +2737,55 @@ mod tests {
         };
 
         assert_eq!(played(false), played(true));
+    }
+
+    #[test]
+    fn the_reverb_in_slot_2_takes_the_delays_echoes() {
+        let played = |reverb: bool| {
+            let (messages, reports) = (Queue::new(), Queue::new());
+            let mut rig = Rig::new(&messages, &reports);
+            rig.send(0, 0, new_sound(1));
+            rig.send(1, 0, set_slot(0, 0, &DELAY_LEVEL, 65_535));
+            rig.send(2, 0, set_slot(0, 1, &REVERB_LEVEL, 65_535));
+            if !reverb {
+                rig.send(
+                    3,
+                    0,
+                    MessageKind::SlotEffect {
+                        track: 0,
+                        slot: 1,
+                        effect: Effect::Empty,
+                    },
+                );
+            }
+            rig.send(4, 0, note_on(0));
+            rig.send(5, 32, note_off(0));
+            if reverb {
+                // Slot 2 starts afresh once the note is over, so all it takes from then on is the
+                // echo.
+                rig.send(
+                    6,
+                    9_600,
+                    MessageKind::SlotEffect {
+                        track: 0,
+                        slot: 1,
+                        effect: Effect::Reverb,
+                    },
+                );
+                rig.send(7, 9_600, set_slot(0, 1, &REVERB_LEVEL, 65_535));
+            }
+            rig.render_stereo(12_032)
+        };
+
+        let (reverb, empty) = (played(true), played(false));
+
+        for (reverb, empty) in reverb.iter().zip(&empty) {
+            // A new track's slot 2 is a reverb: the note's room.
+            assert_ne!(bits(&reverb[..9_600]), bits(&empty[..9_600]));
+            assert_eq!(bits(&reverb[9_600..12_000]), bits(&empty[9_600..12_000]));
+            assert!(!is_silent(&empty[12_000..]));
+            assert_ne!(bits(&reverb[12_000..]), bits(&empty[12_000..]));
+        }
     }
 
     #[test]

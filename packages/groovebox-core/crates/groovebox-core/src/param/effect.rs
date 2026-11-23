@@ -79,3 +79,39 @@ pub const DELAY_LEVEL: Entry = Entry {
     curve: Curve::Level,
     ..SMOOTH_SLOT
 };
+
+/// How long the room rings, from a small room to a long hall: Rings's reverb time, from 0.4 to
+/// 0.98.
+pub const REVERB_DECAY: Entry = Entry {
+    id: ParamId(11_000),
+    name: "Decay",
+    default: 32_768,
+    ..SMOOTH_SLOT
+};
+
+/// The low-pass in the loop, from dark to bright: Rings's, from 0.2 to 0.9.
+pub const REVERB_TONE: Entry = Entry {
+    id: ParamId(11_001),
+    name: "Tone",
+    default: 32_768,
+    ..SMOOTH_SLOT
+};
+
+/// The silence before the room starts, up to 100 ms.
+pub const REVERB_PRE_DELAY: Entry = Entry {
+    id: ParamId(11_002),
+    name: "Pre-delay",
+    curve: Curve::Time { max_ms: 100 },
+    unit: Unit::Time,
+    glide: 0,
+    modulated: false,
+    ..SMOOTH_SLOT
+};
+
+/// How loud the room is on top of the dry sound, which never drops.
+pub const REVERB_LEVEL: Entry = Entry {
+    id: ParamId(11_003),
+    name: "Level",
+    curve: Curve::Level,
+    ..SMOOTH_SLOT
+};

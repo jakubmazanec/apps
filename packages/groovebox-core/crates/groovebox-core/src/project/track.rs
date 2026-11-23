@@ -22,10 +22,11 @@ pub enum PadMode {
 pub enum Effect {
     Empty = 0,
     Delay = 1,
+    Reverb = 2,
 }
 
 impl Effect {
-    /// Its permanent key: 0 and 1.
+    /// Its permanent key: 0, 1 and 2.
     pub const fn key(self) -> u16 {
         self as u16
     }
@@ -99,7 +100,7 @@ pub struct Track {
     pub last_key: Option<u8>,
     /// TRACK_LEVEL and MUTE, in list order.
     pub values: [i32; TRACK_VALUES],
-    /// Slots 1 to 6 in chain order: a delay and five empty in a new track (S2).
+    /// Slots 1 to 6 in chain order: a delay, a reverb and four empty in a new track (S2).
     pub slots: [Slot; 6],
 }
 
@@ -116,7 +117,14 @@ impl Track {
             octave: 4,
             last_key: None,
             values: param::defaults(ENTRIES, Scope::Track),
-            slots: [Slot::new(Effect::Delay), empty, empty, empty, empty, empty],
+            slots: [
+                Slot::new(Effect::Delay),
+                Slot::new(Effect::Reverb),
+                empty,
+                empty,
+                empty,
+                empty,
+            ],
         }
     }
 

@@ -1,5 +1,6 @@
 use super::CHUNK;
 use super::delay::Delay;
+use super::reverb::Reverb;
 use super::voice::Glide;
 use crate::effect_ram::{PIECES, Piece};
 use crate::param::{self, ParamId, TEMPO};
@@ -12,6 +13,7 @@ struct Slot {
     /// The values of every effect type, in list order.
     values: [Glide; SLOT_VALUES],
     delay: Delay,
+    reverb: Reverb,
     /// The piece of the effect memory it uses.
     piece: u8,
 }
@@ -30,6 +32,7 @@ impl Slot {
             effect,
             values,
             delay: Delay::new(),
+            reverb: Reverb::new(),
             piece,
         }
     }
@@ -44,16 +47,16 @@ pub struct Slots {
 }
 
 impl Slots {
-    /// Every track with a delay in slot 1 at its defaults and five empty slots (S2), slot `s` of
-    /// track `t` on piece `6t + s`, at 120 BPM.
+    /// Every track with a delay in slot 1 and a reverb in slot 2 at their defaults and four empty
+    /// slots (S2), slot `s` of track `t` on piece `6t + s`, at 120 BPM.
     pub const fn new() -> Self {
         let mut tracks = [[Slot::new(Effect::Empty, 0); 6]; 4];
         let mut piece = 0;
         while piece < PIECES {
-            let effect = if piece % 6 == 0 {
-                Effect::Delay
-            } else {
-                Effect::Empty
+            let effect = match piece % 6 {
+                0 => Effect::Delay,
+                1 => Effect::Reverb,
+                _ => Effect::Empty,
             };
             tracks[piece / 6][piece % 6] = Slot::new(effect, piece as u8);
             piece += 1;
@@ -91,6 +94,7 @@ impl Slots {
     pub fn clear(&mut self) {
         for slot in self.tracks.as_flattened_mut() {
             slot.delay.clear();
+            slot.reverb.clear();
         }
     }
 
@@ -115,7 +119,14 @@ impl Slots {
                         piece,
                     );
                 }
-                Effect::Empty | Effect::Delay => {}
+                Effect::Reverb
+                    if slot.reverb.ringing(piece)
+                        || bus.as_flattened().iter().any(|&x| x != 0.0) =>
+                {
+                    slot.reverb
+                        .render(&slot.values.map(|value| value.value), bus, piece);
+                }
+                Effect::Empty | Effect::Delay | Effect::Reverb => {}
             }
         }
     }

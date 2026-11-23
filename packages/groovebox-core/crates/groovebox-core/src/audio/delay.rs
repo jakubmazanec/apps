@@ -180,7 +180,7 @@ impl Default for Delay {
 }
 
 #[cfg(test)]
-mod tests {
+pub(super) mod tests {
     use super::*;
     use crate::effect_ram::PIECE;
     use crate::param::{
@@ -190,8 +190,8 @@ mod tests {
     use std::boxed::Box;
     use std::vec::Vec;
 
-    /// A delay's values: its defaults with `changes`.
-    fn values(changes: &[(&Entry, i32)]) -> [i32; SLOT_VALUES] {
+    /// A slot's values: its defaults with `changes`.
+    pub(crate) fn values(changes: &[(&Entry, i32)]) -> [i32; SLOT_VALUES] {
         let mut slot = Slot::new(Effect::Delay);
         for &(entry, value) in changes {
             slot.set(entry.id, value);
@@ -200,7 +200,7 @@ mod tests {
     }
 
     /// A piece on the heap: one on a test thread's stack would crowd it.
-    fn piece() -> Box<Piece> {
+    pub(crate) fn piece() -> Box<Piece> {
         std::vec![0; PIECE]
             .into_boxed_slice()
             .try_into()
@@ -228,7 +228,7 @@ mod tests {
     }
 
     /// `length` samples of 0 with `value` at sample 0.
-    fn impulse(value: f32, length: usize) -> Vec<f32> {
+    pub(crate) fn impulse(value: f32, length: usize) -> Vec<f32> {
         let mut samples = std::vec![0.0; length];
         samples[0] = value;
         samples

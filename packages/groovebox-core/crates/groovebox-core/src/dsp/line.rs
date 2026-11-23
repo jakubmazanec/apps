@@ -30,7 +30,7 @@ impl Line {
 
     pub fn write(&mut self, memory: &mut [i16], value: f32) {
         // Rounding toward zero stores 0 for anything below 1 / scale, so a line needs no flush.
-        let stored = ((value * self.scale) as i32).clamp(i16::MIN.into(), i16::MAX.into()) as i16;
+        let stored = compress(value, self.scale);
         memory[self.at as usize] = stored;
         self.at += 1;
         if self.at as usize == memory.len() {
@@ -62,6 +62,11 @@ impl Line {
     pub fn ringing(&self, memory: &[i16]) -> bool {
         self.quiet < memory.len() as u32
     }
+}
+
+/// `value × scale` rounded toward zero and held within `i16`, as Rings's `Compress` does.
+pub fn compress(value: f32, scale: f32) -> i16 {
+    ((value * scale) as i32).clamp(i16::MIN.into(), i16::MAX.into()) as i16
 }
 
 #[cfg(test)]

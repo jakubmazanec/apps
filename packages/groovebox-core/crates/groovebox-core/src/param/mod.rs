@@ -282,6 +282,10 @@ pub const ENTRIES: &[Entry] = &[
     DELAY_TONE,
     DELAY_PING_PONG,
     DELAY_LEVEL,
+    REVERB_DECAY,
+    REVERB_TONE,
+    REVERB_PRE_DELAY,
+    REVERB_LEVEL,
 ];
 
 const _: () = assert!(check(ENTRIES).is_ok());
