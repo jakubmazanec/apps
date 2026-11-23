@@ -31,10 +31,13 @@ describe('the gallery', () => {
       await Promise.all(
         [
           'bars/',
+          'delay/',
           'menu-and-pages/',
           'metronome/',
+          'mix/',
           'new-synth/',
           'picker-while-playing/',
+          'reverb/',
           'step-view/',
           'steps/',
           'synth-pages/',

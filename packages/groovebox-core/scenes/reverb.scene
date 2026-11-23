@@ -1,0 +1,75 @@
+groovebox-scene 1
+# The reverb after the delay, then STOP while stopped over a held note, ringing tails and the
+# sample preview. kick.wav and pad.wav, a long stereo file to preview.
+file samples/kick.wav ours 55 0.3 1
+file samples/pad.wav ours 220 10 2
+# Syn 1 on pad 1 through the panel: MENU + step 3 shows SOUND's Pad page and OK opens the sound
+# picker on Empty; down twice to New synth and OK choose it.
+input 3200 press menu
+input 4800 press step-3
+input 6400 release step-3
+input 8000 release menu
+input 9600 press ok
+input 11200 release ok
+input 12800 press down
+input 14400 release down
+input 16000 press down
+input 17600 release down
+input 19200 press ok
+input 20800 release ok
+# MENU + step 4 and PAGE + step 2 show slot 1's Delay page, and encoder 4 takes its Level to 50%,
+# so a hit echoes every eighth note.
+input 22400 press menu
+input 24000 press step-4
+input 25600 release step-4
+input 27200 release menu
+input 28800 press page
+input 30400 press step-2
+input 32000 release step-2
+input 33600 release page
+input 35200 turn encoder-4 64
+# PAGE + step 3 shows slot 2's Reverb page: Decay 50%, Tone 50%, Pre-delay 0 ms and Level 0%.
+input 36800 press page
+input 38400 press step-3
+input 40000 release step-3
+input 41600 release page
+frame 44800
+# Encoder 1 takes Decay to 75%, encoder 2 Tone to 75%, encoder 3 Pre-delay to 13 ms and encoder
+# 4 Level to 50%. Two hits of pad 1: the reverb after the delay takes its echoes too.
+input 46400 turn encoder-1 32
+input 48000 turn encoder-2 32
+input 49600 turn encoder-3 64
+input 51200 turn encoder-4 64
+input 52800 pad-hit 0 100
+input 54400 pad-release 0
+input 104000 pad-hit 0 100
+input 105600 pad-release 0
+# MENU + step 3 shows SOUND's Pad page of Syn 1. Pad 1 is hit and held; while its echoes and the
+# room ring, OK opens the sound picker on Syn 1, up twice onto New sample and OK open the sample
+# picker on kick.wav, and down onto pad.wav previews it.
+input 251200 press menu
+input 252800 press step-3
+input 254400 release step-3
+input 256000 release menu
+input 257600 pad-hit 0 100
+input 259200 press ok
+input 260800 release ok
+input 262400 press up
+input 264000 release up
+input 265600 press up
+input 267200 release up
+input 268800 press ok
+input 270400 release ok
+input 272000 press down
+input 273600 release down
+# STOP while stopped: the held note, the preview, the echoes and the room go silent in one step.
+# Pad 1 is let go and CANCEL closes the sample picker.
+input 284800 press stop
+input 286400 release stop
+input 297600 pad-release 0
+input 299200 press cancel
+input 300800 release cancel
+# A hit then starts from silence: its own sound, then its own echoes and room.
+input 312000 pad-hit 0 100
+input 313600 pad-release 0
+end 507200

@@ -1,0 +1,114 @@
+groovebox-scene 1
+# FX's Chain page, the Type picker, the delay's page and a move and a tempo change while the delay
+# rings. Syn 1 on pad 1 through the panel: MENU + step 3 shows SOUND's Pad page and OK opens the
+# sound picker on Empty; down twice to New synth and OK choose it.
+input 3200 press menu
+input 4800 press step-3
+input 6400 release step-3
+input 8000 release menu
+input 9600 press ok
+input 11200 release ok
+input 12800 press down
+input 14400 release down
+input 16000 press down
+input 17600 release down
+input 19200 press ok
+input 20800 release ok
+# MENU + step 4 shows FX's Chain page for T1: the delay in slot 1, the reverb in slot 2 and four
+# empty slots, with the cursor on slot 1's tile.
+input 22400 press menu
+input 24000 press step-4
+input 25600 release step-4
+input 27200 release menu
+frame 28800
+# Right moves the cursor onto slot 2, the reverb, as fx-chain.png shows it.
+input 30400 press right
+input 32000 release right
+frame 35200
+# OK opens the Type picker on Reverb.
+input 36800 press ok
+input 38400 release ok
+frame 41600
+# CANCEL closes it. Right onto the empty slot 3: OK opens the Type picker on Empty, and down onto
+# Delay and OK put a new delay there.
+input 43200 press cancel
+input 44800 release cancel
+input 46400 press right
+input 48000 release right
+input 49600 press ok
+input 51200 release ok
+input 52800 press down
+input 54400 release down
+input 56000 press ok
+input 57600 release ok
+# Encoder 2 moves the new delay to slot 4 and back to slot 3, the cursor going with it.
+input 59200 turn encoder-2 1
+input 60800 turn encoder-2 -1
+# PAGE held: the tabs of FX's seven pages, Chain, then slot 1's Delay, slot 2's Reverb, slot 3's
+# Delay and "–" for each empty slot, with Chain current.
+input 62400 press page
+frame 64000
+# Step 2 under PAGE shows slot 1's Delay page: Time 1/8, Feedback 40%, Tone 50%, Ping-pong Off and
+# Level 0%.
+input 65600 press step-2
+input 67200 release step-2
+input 68800 release page
+frame 70400
+# Encoder 4 takes Level to 50%, encoder 2 Feedback to 60% and encoder 3 Tone to 75%. Two hits of
+# pad 1 echo every eighth note.
+input 72000 turn encoder-4 64
+input 73600 turn encoder-2 26
+input 75200 turn encoder-3 32
+input 76800 pad-hit 0 100
+input 78400 pad-release 0
+input 128000 pad-hit 0 100
+input 129600 pad-release 0
+# Down onto Ping-pong and OK turn it on: the next hit's echoes cross from side to side.
+input 275200 press down
+input 276800 release down
+input 278400 press ok
+input 280000 release ok
+input 281600 pad-hit 0 100
+input 283200 pad-release 0
+# PAGE + step 1 shows the Chain page with its cursor on Move, for slot 3; up twice onto the tiles
+# and left twice onto slot 1. A hit rings in the delay, and encoder 2 moves the delay one place
+# while its echoes ring: it goes to slot 2 and the reverb, at Level 0, to slot 1, and the tail goes
+# on unbroken.
+input 428800 press page
+input 430400 press step-1
+input 432000 release step-1
+input 433600 release page
+input 435200 press up
+input 436800 release up
+input 438400 press up
+input 440000 release up
+input 441600 press left
+input 443200 release left
+input 444800 press left
+input 446400 release left
+input 448000 pad-hit 0 100
+input 449600 pad-release 0
+input 475200 turn encoder-2 1
+# PAGE + step 3 shows the delay's page, now slot 2's, and encoder 1 takes Time to 1/1, 2 seconds
+# at 120 BPM. TEMPO held and encoder 1 take the tempo 60 clicks down to 60 BPM, where a whole note
+# takes 4 seconds: the delay plays a half note, 2 seconds again, and Time reads "1/1 (1/2)". A hit
+# echoes 2 seconds later.
+input 620800 press page
+input 622400 press step-3
+input 624000 release step-3
+input 625600 release page
+input 627200 turn encoder-1 9
+input 628800 press tempo
+input 630400 turn encoder-1 -60
+input 632000 release tempo
+frame 633600
+input 635200 pad-hit 0 100
+input 636800 pad-release 0
+# TEMPO held and encoder 1 take it back to 120 BPM, where Time reads 1/1 again. A hit echoes 2
+# seconds later.
+input 878400 press tempo
+input 880000 turn encoder-1 60
+input 881600 release tempo
+input 883200 pad-hit 0 100
+input 884800 pad-release 0
+end 1126400
