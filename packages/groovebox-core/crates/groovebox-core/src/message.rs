@@ -1,6 +1,7 @@
 use crate::library::FileId;
 use crate::param::ParamId;
 use crate::project::pool::SoundNumber;
+use crate::project::track::Effect;
 use crate::sequencer::{Meter, Run};
 use crate::store::Tree;
 
@@ -59,14 +60,15 @@ pub enum NoteEngine {
     Sample(Option<SampleFile>),
 }
 
-/// What a changed value belongs to: the device, a sound, the project or a track (0 to 3).
-/// Milestone 3 adds a slot with the track effects.
+/// What a changed value belongs to: the device, a sound, the project, a track (0 to 3) or an
+/// effect slot of a track (0 to 5, in chain order).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Target {
     Device,
     Sound(SoundNumber),
     Project,
     Track(u8),
+    Slot { track: u8, slot: u8 },
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -142,6 +144,19 @@ pub enum MessageKind {
     /// once (S13).
     Meter {
         meter: Meter,
+    },
+    /// The slot clears and takes `effect` at its defaults.
+    SlotEffect {
+        track: u8,
+        slot: u8,
+        effect: Effect,
+    },
+    /// The slot at `from` goes to `to` with its memory, and the slots between move one place
+    /// towards `from`; nothing clears.
+    MoveSlot {
+        track: u8,
+        from: u8,
+        to: u8,
     },
 }
 

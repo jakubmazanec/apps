@@ -109,6 +109,15 @@ fn metronome(value: i32) -> MessageKind {
     }
 }
 
+/// The project's tempo set to `value` while stopped.
+fn set_tempo(value: i32) -> MessageKind {
+    MessageKind::SetParam {
+        target: Target::Project,
+        id: TEMPO.id,
+        value,
+    }
+}
+
 /// A `Tempo` that goes on at `tempo` from tick `tick` at sample `anchor`.
 fn tempo(anchor: u64, tick: u64, tempo: u32) -> MessageKind {
     MessageKind::Tempo {
@@ -171,8 +180,16 @@ fn the_tempo_moves_1_bpm_a_click_and_0_1_with_shift() {
     rig.step(420);
     assert_eq!(rig.control.project.tempo, 11_980);
     assert!(shows(&rig.control, &timing("119.8", 8_980, 0)));
-    // A project value sends no `SetParam`, and while stopped nothing at all.
-    assert_eq!(rig.sent(), []);
+    // While stopped each change sends the tempo to the project, for the delays (S14).
+    assert_eq!(
+        rig.sent(),
+        [
+            message(0, 100, set_tempo(12_100)),
+            message(1, 210, set_tempo(12_070)),
+            message(2, 300, set_tempo(12_080)),
+            message(3, 410, set_tempo(11_980)),
+        ]
+    );
 }
 
 #[test]
@@ -221,13 +238,13 @@ fn a_tempo_change_while_playing_goes_on_from_the_next_tick() {
 }
 
 #[test]
-fn a_tempo_change_while_stopped_sends_nothing_and_play_carries_it() {
+fn a_tempo_change_while_stopped_sends_the_tempo_and_play_carries_it() {
     let queue = Queue::new();
     let mut rig = Rig::new(&queue);
     rig.menu(0, 8);
     rig.turn(100, 0, 1);
     rig.step(110);
-    assert_eq!(rig.sent(), []);
+    assert_eq!(rig.sent(), [message(0, 100, set_tempo(12_100))]);
     assert_eq!(rig.control.project.tempo, 12_100);
 
     rig.tap(9_600, Button::Play);
@@ -238,7 +255,7 @@ fn a_tempo_change_while_stopped_sends_nothing_and_play_carries_it() {
         tick: 0,
         tempo: 12_100,
     };
-    assert_eq!(rig.sent(), [message(0, 9_600, MessageKind::Play { run })]);
+    assert_eq!(rig.sent(), [message(1, 9_600, MessageKind::Play { run })]);
     assert_eq!(rig.control.player.run(), Some(run));
 }
 
@@ -356,8 +373,9 @@ fn a_turn_under_tempo_moves_the_tempo_and_leaves_the_pages_cursor() {
 
     assert_eq!(rig.control.project.tempo, 12_100);
     assert!(strip_shows(&rig.control, &timing_cells("121.0", 9_100)));
-    // Mode, which encoder 1 holds on the Filter page, stays, and a stopped tempo sends nothing.
-    assert_eq!(rig.sent(), []);
+    // Mode, which encoder 1 holds on the Filter page, stays, and a stopped tempo sends only the
+    // tempo, for the delays.
+    assert_eq!(rig.sent(), [message(0, 110, set_tempo(12_100))]);
     assert_eq!(rig.control.view.page(view::Screen::Sound), 2);
     assert_eq!(rig.control.cursor(view::Screen::Sound).item, 2);
 
@@ -423,9 +441,9 @@ fn a_long_press_or_a_turn_under_tempo_leaves_the_metronome() {
     rig.let_go(30_020, Button::Tempo);
     rig.step(30_100);
 
-    // The turn moved the tempo, which sends nothing while stopped.
+    // The turn moved the tempo, which while stopped sends only the tempo, for the delays.
     assert_eq!(rig.control.project.tempo, 12_100);
-    assert_eq!(rig.sent(), []);
+    assert_eq!(rig.sent(), [message(0, 30_010, set_tempo(12_100))]);
     assert_eq!(rig.control.settings.get(METRONOME.id), 0);
     assert!(!rig.lit().contains(&Lights::TEMPO));
 }

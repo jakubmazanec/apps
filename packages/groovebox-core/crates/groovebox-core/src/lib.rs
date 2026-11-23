@@ -13,6 +13,7 @@ pub mod control;
 #[cfg(not(feature = "loom"))]
 pub mod device;
 pub mod dsp;
+pub mod effect_ram;
 pub mod fingerprint;
 pub mod font;
 pub mod input;

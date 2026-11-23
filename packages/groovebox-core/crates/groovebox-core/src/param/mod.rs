@@ -13,6 +13,8 @@ pub enum Scope {
     Project,
     Track,
     Sound,
+    /// An effect slot of a track.
+    Slot,
 }
 
 /// How a number becomes sound (`real`) and how it is shown (`format`). `p` is the value as a
@@ -214,11 +216,13 @@ const fn choice(key: i32, label: &'static str) -> Choice {
 }
 
 mod chain;
+mod effect;
 mod mix;
 mod sample;
 mod synth;
 
 pub use chain::*;
+pub use effect::*;
 pub use mix::*;
 pub use sample::*;
 pub use synth::*;
@@ -273,13 +277,18 @@ pub const ENTRIES: &[Entry] = &[
     LOOP_END,
     REVERSE,
     ROOT_NOTE,
+    DELAY_TIME,
+    DELAY_FEEDBACK,
+    DELAY_TONE,
+    DELAY_PING_PONG,
+    DELAY_LEVEL,
 ];
 
 const _: () = assert!(check(ENTRIES).is_ok());
 
 /// The rules the list keeps, checked when the core builds. They apply in this order: IDs are
-/// unique; each ID lies in its scope's block (device 1 to 99, project 100 to 199, track 200 to 299
-/// or from 10,000, sound 1,000 to 9,999); the default lies between the lowest and the highest
+/// unique; each ID lies in its scope's block (device 1 to 99, project 100 to 199, track 200 to 299,
+/// sound 1,000 to 9,999, slot from 10,000); the default lies between the lowest and the highest
 /// value; a frame entry has no click and runs 0 to `i32::MAX`; a tempo has no click and no choices;
 /// a smooth entry (click above 0) runs 0 to 65,535 and its click divides by 16, so a fine click is
 /// a whole sixteenth; a switch runs 0 to 1; a list has choices with unique keys, its default among
@@ -304,8 +313,9 @@ pub const fn check(entries: &[Entry]) -> Result<(), &'static str> {
         let in_block = match entry.scope {
             Scope::Device => matches!(entry.id.0, 1..=99),
             Scope::Project => matches!(entry.id.0, 100..=199),
-            Scope::Track => matches!(entry.id.0, 200..=299 | 10_000..),
+            Scope::Track => matches!(entry.id.0, 200..=299),
             Scope::Sound => matches!(entry.id.0, 1_000..=9_999),
+            Scope::Slot => matches!(entry.id.0, 10_000..),
         };
         if !in_block {
             return Err("an ID lies outside its scope's block");
@@ -697,10 +707,10 @@ mod tests {
             (Scope::Project, 199),
             (Scope::Track, 200),
             (Scope::Track, 299),
-            (Scope::Track, 10_000),
-            (Scope::Track, u16::MAX),
             (Scope::Sound, 1_000),
             (Scope::Sound, 9_999),
+            (Scope::Slot, 10_000),
+            (Scope::Slot, u16::MAX),
         ] {
             let entry = Entry {
                 id: ParamId(id),
@@ -736,6 +746,22 @@ mod tests {
             check(&[Entry {
                 id: ParamId(9_999),
                 scope: Scope::Track,
+                ..SMOOTH
+            }]),
+            Err(outside)
+        );
+        assert_eq!(
+            check(&[Entry {
+                id: ParamId(10_000),
+                scope: Scope::Track,
+                ..SMOOTH
+            }]),
+            Err(outside)
+        );
+        assert_eq!(
+            check(&[Entry {
+                id: ParamId(299),
+                scope: Scope::Slot,
                 ..SMOOTH
             }]),
             Err(outside)

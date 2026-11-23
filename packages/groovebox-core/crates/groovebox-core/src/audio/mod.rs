@@ -1,9 +1,10 @@
 use crate::dsp::clip::soft_clip;
+use crate::effect_ram::{PIECES, Piece};
 use crate::message::{
     MESSAGE_QUEUE, Message, MessageKind, REPORT_QUEUE, Report, Target, VERSION_QUEUE, Version,
 };
 use crate::param::{
-    self, Entry, MASTER_LEVEL, METRONOME, METRONOME_LEVEL, MUTE, OUTPUT_VOLUME, TRACK_LEVEL,
+    self, Entry, MASTER_LEVEL, METRONOME, METRONOME_LEVEL, MUTE, OUTPUT_VOLUME, TEMPO, TRACK_LEVEL,
 };
 use crate::project::pool::SOUND_DEFAULTS;
 use crate::queue::{Consumer, Producer};
@@ -12,13 +13,16 @@ use crate::sequencer::{Event, Sequencer};
 use crate::store::NoteReader;
 use click::Click;
 use preview::Preview;
+use slots::Slots;
 use sounds::Sounds;
 use voice::Glide;
 use voices::Voices;
 
 pub mod click;
+pub mod delay;
 pub mod preview;
 pub mod sample;
+pub mod slots;
 pub mod sounds;
 pub mod synth;
 pub mod voice;
@@ -53,6 +57,8 @@ pub struct Audio {
     levels: [Glide; 4],
     /// The level of the sum of the buses, gliding as the output volume does.
     master: Glide,
+    /// Each track's effect slots, which its bus goes through before its level.
+    slots: Slots,
 }
 
 impl Audio {
@@ -70,6 +76,7 @@ impl Audio {
             metronome_level: Glide::at(METRONOME_LEVEL.default),
             levels: [Glide::at(TRACK_LEVEL.default); 4],
             master: Glide::at(MASTER_LEVEL.default),
+            slots: Slots::new(),
         }
     }
 
@@ -84,10 +91,12 @@ impl Audio {
     /// by the chunk start: a note of a sound the audio part does not hold starts nothing (S22),
     /// and the others play their sound's engine; a beat starts the click while the metronome is on.
     /// It then adds up each track's voices and the last chunk of each voice a new note took or
-    /// choked or a `ForgetSample`, `DeleteSound` or `Silence` faded into its bus, multiplies each
-    /// bus by its track's level, adds the buses and multiplies the sum by the master level, adds
-    /// the preview and the click at the metronome level, soft-clips the sum and multiplies it by
-    /// the output volume; every level moves in a line across the chunk.
+    /// choked or a `ForgetSample`, `DeleteSound` or `Silence` faded into its bus, sends each bus
+    /// through its track's effect slots and multiplies it by its track's level, adds the buses and
+    /// multiplies the sum by the master level, adds the preview and the click at the metronome
+    /// level, soft-clips the sum and multiplies it by the output volume; every level moves in a
+    /// line across the chunk. The slots follow the tempo of the latest `Play`, `Tempo` or
+    /// `SetParam` of TEMPO, and a `Silence` clears them.
     ///
     /// It takes a message or a version only while the report queue has room for its report and
     /// never waits: one it leaves stays in its queue, in order, for a later chunk start. It counts
@@ -103,10 +112,10 @@ impl Audio {
     /// after that read, and the control part takes the blocks back only after the report.
     ///
     /// It reads the note memory through `notes`, only the blocks of the trees of the versions it
-    /// applied.
+    /// applied, and keeps the slots' echoes in `effects`, the effect memory.
     #[expect(
         clippy::too_many_arguments,
-        reason = "the audio part reads two memories and three queues"
+        reason = "the audio part uses three memories and three queues"
     )]
     pub fn render(
         &mut self,
@@ -114,6 +123,7 @@ impl Audio {
         right: &mut [f32],
         readers: &[Reader<'_>; 2],
         notes: &NoteReader<'_>,
+        effects: &mut [Piece; PIECES],
         messages: &mut Consumer<'_, Message, MESSAGE_QUEUE>,
         versions: &mut Consumer<'_, Version, VERSION_QUEUE>,
         reports: &mut Producer<'_, Report, REPORT_QUEUE>,
@@ -198,7 +208,10 @@ impl Audio {
                         self.voices.forget(file, &mut fades);
                         self.sounds.forget(file);
                     }
-                    MessageKind::Play { run } => self.sequencer.play(run, notes),
+                    MessageKind::Play { run } => {
+                        self.sequencer.play(run, notes);
+                        self.slots.set_tempo(run.tempo);
+                    }
                     MessageKind::Stop => self.sequencer.stop(|event| {
                         if let Event::End(sounding) = event {
                             self.voices.note_off(sounding.id, &self.sounds, reader);
@@ -208,11 +221,15 @@ impl Audio {
                         self.voices.silence(&mut fades);
                         self.preview.stop();
                         self.click.silence();
+                        self.slots.clear();
                     }
                     MessageKind::SoundEngine { sound, engine } => {
                         self.sounds.set_engine(sound, engine);
                     }
-                    MessageKind::Tempo { run } => self.sequencer.retime(run),
+                    MessageKind::Tempo { run } => {
+                        self.sequencer.retime(run);
+                        self.slots.set_tempo(run.tempo);
+                    }
                     MessageKind::Meter { meter } => self.sequencer.meter(meter, notes),
                     MessageKind::SetParam {
                         target: Target::Track(track),
@@ -231,6 +248,27 @@ impl Audio {
                         id,
                         value,
                     } if id == MASTER_LEVEL.id => self.master.set(value, MASTER_LEVEL.glide),
+                    MessageKind::SetParam {
+                        target: Target::Project,
+                        id,
+                        value,
+                    } if id == TEMPO.id => {
+                        // At least 3,000, so it fits.
+                        self.slots.set_tempo(value as u32);
+                    }
+                    MessageKind::SetParam {
+                        target: Target::Slot { track, slot },
+                        id,
+                        value,
+                    } => self.slots.set(track, slot, id, value),
+                    MessageKind::SlotEffect {
+                        track,
+                        slot,
+                        effect,
+                    } => self.slots.set_effect(track, slot, effect),
+                    MessageKind::MoveSlot { track, from, to } => {
+                        self.slots.move_slot(track, from, to);
+                    }
                     // Another device value is not the audio part's.
                     MessageKind::SetParam { .. } => {}
                 }
@@ -276,6 +314,12 @@ impl Audio {
                 });
             let mut mix: Buses = [[[0.0; CHUNK]; 2]; 4];
             self.voices.render(reader, &mut mix);
+            for (track, (bus, fades)) in (0..).zip(mix.iter_mut().zip(&fades)) {
+                for (x, fade) in bus.as_flattened_mut().iter_mut().zip(fades.as_flattened()) {
+                    *x += fade;
+                }
+                self.slots.render(track, bus, effects);
+            }
             let mut preview = [[0.0; CHUNK]; 2];
             self.preview.render(reader, &mut preview);
             let mut click = [0.0; CHUNK];
@@ -291,11 +335,8 @@ impl Audio {
                 let levels = track_levels.each_ref().map(|level| level(n));
                 let tracks = |channel: usize| {
                     mix.iter()
-                        .zip(&fades)
                         .zip(levels)
-                        .fold(0.0, |sum, ((mix, fades), level)| {
-                            sum + (mix[channel][n] + fades[channel][n]) * level
-                        })
+                        .fold(0.0, |sum, (mix, level)| sum + mix[channel][n] * level)
                         * master(n)
                 };
                 left[n] = soft_clip(tracks(0) + preview[0][n] + click[n] * level(n)) * gain(n);
@@ -325,18 +366,20 @@ impl Default for Audio {
 mod tests {
     use super::*;
     use crate::budget::POOL_SOUNDS;
+    use crate::effect_ram::EffectRam;
     use crate::library::FileId;
     use crate::message::{
         MESSAGE_QUEUE, Message, MessageKind, NoteEngine, NoteId, REPORT_QUEUE, Report, SampleFile,
         Target, VERSION_QUEUE, Version,
     };
     use crate::param::{
-        CHOKE_GROUP, CUTOFF, DECAY, END, Entry, GATE, LEGATO, LEVEL, LOOP, LOOP_END, METRONOME,
-        METRONOME_LEVEL, MONO, MUTE, ONE_SHOT, OUTPUT_VOLUME, PLAY_MODE, POLY, RESONANCE, SPREAD,
-        SUPERSAW, SUSTAIN, TRIGGER, WAVE,
+        CHOKE_GROUP, CUTOFF, DECAY, DELAY_FEEDBACK, DELAY_LEVEL, DELAY_TIME, END, Entry, GATE,
+        LEGATO, LEVEL, LOOP, LOOP_END, METRONOME, METRONOME_LEVEL, MONO, MUTE, ONE_SHOT,
+        OUTPUT_VOLUME, PLAY_MODE, POLY, RESONANCE, SPREAD, SUPERSAW, SUSTAIN, TEMPO, TRIGGER, WAVE,
     };
     use crate::project::Signature;
     use crate::project::pool::{SOUND_DEFAULTS, SOUND_VALUES, Sound, SoundNumber};
+    use crate::project::track::Effect;
     use crate::queue::{Consumer, Producer, Queue};
     use crate::sample_ram::{
         BLOCK, BLOCKS, Blocks, Listed, Listing, SampleRam, Tables, blocks_for,
@@ -347,10 +390,10 @@ mod tests {
     use std::boxed::Box;
     use std::vec::Vec;
 
-    /// An audio part with its own queues, block tables, sample RAM and note memory. The test plays
-    /// the control side of the tables through `listing` and `blocks`, and of the note memory
-    /// through `version`. The audio part is on the heap: a debug build's copies of it on the stack
-    /// overflow a test thread's 2 MiB.
+    /// An audio part with its own queues, block tables, sample RAM, note memory and effect memory.
+    /// The test plays the control side of the tables through `listing` and `blocks`, and of the
+    /// note memory through `version`. The audio part is on the heap: a debug build's copies of it
+    /// on the stack overflow a test thread's 2 MiB.
     struct Rig<'a> {
         audio: Box<Audio>,
         to_audio: Producer<'a, Message, MESSAGE_QUEUE>,
@@ -363,6 +406,7 @@ mod tests {
         blocks: Blocks,
         notes: Box<NoteRam>,
         versions: Box<Queue<Version, VERSION_QUEUE>>,
+        effects: Box<EffectRam>,
     }
 
     impl<'a> Rig<'a> {
@@ -385,6 +429,7 @@ mod tests {
                     blocks: Blocks::new(),
                     notes: NoteRam::boxed(),
                     versions: Box::new(Queue::new()),
+                    effects: EffectRam::boxed(),
                 }
             }
         }
@@ -495,12 +540,14 @@ mod tests {
             let mut right = std::vec![f32::NAN; length];
             // SAFETY: the test tells the audio part only about files it listed and wrote, and
             // writes their blocks only between renders, while no reader lives. It writes no block
-            // of a tree it gave the audio part, and takes the only consumer of its versions.
-            let (readers, notes, mut versions) = unsafe {
+            // of a tree it gave the audio part, and takes the only consumer of its versions. The
+            // pieces live only for this render.
+            let (readers, notes, mut versions, effects) = unsafe {
                 (
                     self.tables.readers(&self.ram),
                     self.notes.reader(),
                     self.versions.consumer(),
+                    self.effects.pieces(),
                 )
             };
             self.audio.render(
@@ -508,6 +555,7 @@ mod tests {
                 &mut right,
                 &readers,
                 &notes,
+                effects,
                 &mut self.inbox,
                 &mut versions,
                 &mut self.outbox,
@@ -685,12 +733,14 @@ mod tests {
     fn render_refuses_channels_of_different_lengths() {
         let (messages, reports) = (Queue::new(), Queue::new());
         let mut rig = Rig::new(&messages, &reports);
-        // SAFETY: the audio part is told about no file and given no tree.
-        let (readers, notes, mut versions) = unsafe {
+        // SAFETY: the audio part is told about no file and given no tree, and the rig's pieces
+        // have no other user.
+        let (readers, notes, mut versions, effects) = unsafe {
             (
                 rig.tables.readers(&rig.ram),
                 rig.notes.reader(),
                 rig.versions.consumer(),
+                rig.effects.pieces(),
             )
         };
 
@@ -699,6 +749,7 @@ mod tests {
             &mut [0.0; 32],
             &readers,
             &notes,
+            effects,
             &mut rig.inbox,
             &mut versions,
             &mut rig.outbox,
@@ -2626,5 +2677,235 @@ mod tests {
             bits(&rig.render(168_032)),
             played_at(&[0, 96_000, 96_000 + 72_000], 168_032)
         );
+    }
+
+    fn set_slot(track: u8, slot: u8, entry: &Entry, value: i32) -> MessageKind {
+        MessageKind::SetParam {
+            target: Target::Slot { track, slot },
+            id: entry.id,
+            value,
+        }
+    }
+
+    /// A note of sound 1 on `track` at pitch 60 and velocity 127.
+    fn note_on_track(note: u32, track: u8) -> MessageKind {
+        MessageKind::NoteOn {
+            note: NoteId(note),
+            track,
+            sound: SoundNumber(1),
+            pitch: 60,
+            velocity: 127,
+            engine: NoteEngine::Synth,
+        }
+    }
+
+    #[test]
+    fn a_new_project_has_a_delay_at_level_0_which_changes_nothing() {
+        let played = |empty: bool| {
+            let (messages, reports) = (Queue::new(), Queue::new());
+            let mut rig = Rig::new(&messages, &reports);
+            rig.send(0, 0, new_sound(1));
+            if empty {
+                for slot in 0..6 {
+                    rig.send(
+                        1 + u32::from(slot),
+                        0,
+                        MessageKind::SlotEffect {
+                            track: 0,
+                            slot,
+                            effect: Effect::Empty,
+                        },
+                    );
+                }
+            }
+            rig.send(7, 0, note_on(0));
+            rig.send(8, 6_000, note_off(0));
+            bits(&rig.render(48_000))
+        };
+
+        assert_eq!(played(false), played(true));
+    }
+
+    #[test]
+    fn moving_a_lone_delay_changes_nothing_in_the_output() {
+        let played = |moved: bool| {
+            let (messages, reports) = (Queue::new(), Queue::new());
+            let mut rig = Rig::new(&messages, &reports);
+            rig.send(0, 0, new_sound(1));
+            rig.send(1, 0, set_slot(0, 0, &DELAY_LEVEL, 65_535));
+            rig.send(2, 0, set_slot(0, 0, &DELAY_FEEDBACK, 32_768));
+            rig.send(3, 0, note_on(0));
+            rig.send(4, 1_000, note_off(0));
+            if moved {
+                rig.send(
+                    5,
+                    24_000,
+                    MessageKind::MoveSlot {
+                        track: 0,
+                        from: 0,
+                        to: 3,
+                    },
+                );
+            }
+            rig.render(60_000)
+        };
+
+        let unmoved = played(false);
+
+        // Echoes of 1/8 at 120 BPM ring on after the move.
+        assert!(!is_silent(&unmoved[24_000..36_000]));
+        assert_eq!(bits(&played(true)), bits(&unmoved));
+    }
+
+    #[test]
+    fn moving_swaps_settings_and_memory_together() {
+        let played = |moved: bool, silenced: bool| {
+            let (messages, reports) = (Queue::new(), Queue::new());
+            let mut rig = Rig::new(&messages, &reports);
+            rig.send(0, 0, new_sound(1));
+            // Slot 1 a delay at 1/4 and Level 100%, slot 2 one at 1/8 and Level 0.
+            rig.send(1, 0, set_slot(0, 0, &DELAY_TIME, 1_920));
+            rig.send(2, 0, set_slot(0, 0, &DELAY_LEVEL, 65_535));
+            rig.send(
+                3,
+                0,
+                MessageKind::SlotEffect {
+                    track: 0,
+                    slot: 1,
+                    effect: Effect::Delay,
+                },
+            );
+            rig.send(4, 0, note_on(0));
+            rig.send(5, 32, note_off(0));
+            if moved {
+                rig.send(
+                    6,
+                    12_000,
+                    MessageKind::MoveSlot {
+                        track: 0,
+                        from: 0,
+                        to: 1,
+                    },
+                );
+            }
+            if silenced {
+                rig.send(7, 24_000, set_slot(0, 1, &DELAY_LEVEL, 0));
+            }
+            rig.render(72_000)
+        };
+
+        let moved = played(true, false);
+
+        // The note is over long before its echo.
+        assert!(is_silent(&moved[12_000..24_000]));
+        assert!(!is_silent(&moved[24_000..24_032]));
+        assert_eq!(bits(&moved), bits(&played(false, false)));
+        // The level glides to 0 over 128 samples.
+        let silenced = played(true, true);
+        assert!(!is_silent(&silenced[24_000..24_032]));
+        assert!(is_silent(&silenced[24_128..]));
+    }
+
+    /// A rig whose slot 1 of track 0 is a delay at Level 100% that rings with the echo of a short
+    /// note, rendered up to sample 12,032.
+    fn ringing<'a>(
+        messages: &'a Queue<Message, MESSAGE_QUEUE>,
+        reports: &'a Queue<Report, REPORT_QUEUE>,
+    ) -> Rig<'a> {
+        let mut rig = Rig::new(messages, reports);
+        rig.send(0, 0, new_sound(1));
+        rig.send(1, 0, set_slot(0, 0, &DELAY_LEVEL, 65_535));
+        rig.send(2, 0, note_on(0));
+        rig.send(3, 32, note_off(0));
+        let played = rig.render(12_032);
+        assert!(is_silent(&played[9_600..12_000]));
+        assert!(!is_silent(&played[12_000..]));
+        rig
+    }
+
+    #[test]
+    fn a_new_type_clears_the_slot_and_takes_its_defaults() {
+        let delay = MessageKind::SlotEffect {
+            track: 0,
+            slot: 0,
+            effect: Effect::Delay,
+        };
+        // With Level back at 100% no echo of what came before is heard.
+        let (messages, reports) = (Queue::new(), Queue::new());
+        let mut rig = ringing(&messages, &reports);
+        rig.send(4, 12_032, delay);
+        rig.send(5, 12_032, set_slot(0, 0, &DELAY_LEVEL, 65_535));
+
+        assert!(is_silent(&rig.render(36_000)));
+
+        // Level is 0 again: a new note's echo 12,000 samples on is not heard.
+        let (messages, reports) = (Queue::new(), Queue::new());
+        let mut rig = ringing(&messages, &reports);
+        rig.send(4, 12_032, delay);
+        rig.send(5, 12_032, note_on(1));
+        rig.send(6, 12_064, note_off(1));
+
+        let played = rig.render(36_000);
+
+        assert!(!is_silent(&played[..CHUNK]));
+        assert!(is_silent(&played[9_600..]));
+    }
+
+    #[test]
+    fn silence_clears_every_slot_and_the_next_note_starts_dry() {
+        let played = |level: i32| {
+            let (messages, reports) = (Queue::new(), Queue::new());
+            let mut rig = Rig::new(&messages, &reports);
+            rig.send(0, 0, new_sound(1));
+            for track in 0..4 {
+                let number = 1 + 4 * u32::from(track);
+                rig.send(number, 0, set_slot(track, 0, &DELAY_TIME, 480));
+                rig.send(number + 1, 0, set_slot(track, 0, &DELAY_LEVEL, level));
+                rig.send(number + 2, 0, note_on_track(track.into(), track));
+                rig.send(number + 3, 32, note_off(track.into()));
+            }
+            rig.send(17, 24_000, MessageKind::Silence);
+            rig.send(18, 24_064, note_on(4));
+            rig.render(30_080)
+        };
+
+        let (wet, dry) = (played(65_535), played(0));
+
+        // Only the third echo sounds before the `Silence`.
+        assert!(is_silent(&dry[18_000..24_000]));
+        assert!(!is_silent(&wet[18_000..24_000]));
+        assert!(is_silent(&wet[24_000..24_064]));
+        assert_eq!(bits(&wet[24_064..30_064]), bits(&dry[24_064..30_064]));
+        assert!(!is_silent(&wet[24_064..30_064]));
+    }
+
+    #[test]
+    fn the_delay_follows_a_tempo_change_while_stopped() {
+        let played = |level: i32| {
+            let (messages, reports) = (Queue::new(), Queue::new());
+            let mut rig = Rig::new(&messages, &reports);
+            rig.send(0, 0, new_sound(1));
+            rig.send(
+                1,
+                0,
+                MessageKind::SetParam {
+                    target: Target::Project,
+                    id: TEMPO.id,
+                    value: 6_000,
+                },
+            );
+            rig.send(2, 0, set_slot(0, 0, &DELAY_TIME, 480));
+            rig.send(3, 0, set_slot(0, 0, &DELAY_LEVEL, level));
+            rig.send(4, 0, note_on(0));
+            rig.send(5, 32, note_off(0));
+            rig.render(12_032)
+        };
+
+        let (wet, dry) = (played(65_535), played(0));
+
+        // 1/16 at 60 BPM: 12,000 samples.
+        assert!(is_silent(&wet[9_600..12_000]));
+        assert_eq!(bits(&wet[..12_000]), bits(&dry[..12_000]));
+        assert!(!is_silent(&wet[12_000..]));
     }
 }

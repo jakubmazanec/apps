@@ -3,6 +3,8 @@ use crate::param::{self, ENTRIES, MUTE, ParamId, Scope};
 
 /// The values a track holds: one for each `Track` entry of the master list, in list order.
 pub const TRACK_VALUES: usize = param::count(ENTRIES, Scope::Track);
+/// The values an effect slot holds: one for each `Slot` entry of the master list, in list order.
+pub const SLOT_VALUES: usize = param::count(ENTRIES, Scope::Slot);
 
 /// The highest octave: C8, whose pad 1 plays MIDI note 108. The lowest is 0 (C0, note 12).
 pub const MAX_OCTAVE: u8 = 8;
@@ -15,8 +17,69 @@ pub enum PadMode {
     Keys,
 }
 
+/// What an effect slot holds (S2).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Effect {
+    Empty = 0,
+    Delay = 1,
+}
+
+impl Effect {
+    /// Its permanent key: 0 and 1.
+    pub const fn key(self) -> u16 {
+        self as u16
+    }
+}
+
+/// An effect slot: its effect and the values of every effect type, in list order.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Slot {
+    pub effect: Effect,
+    pub values: [i32; SLOT_VALUES],
+}
+
+impl Slot {
+    /// `effect` with every value at its default.
+    pub const fn new(effect: Effect) -> Self {
+        Self {
+            effect,
+            values: param::defaults(ENTRIES, Scope::Slot),
+        }
+    }
+
+    /// The value of the `Slot` entry `id`.
+    ///
+    /// # Panics
+    ///
+    /// When `id` is not a `Slot` entry: an ID comes from the master list.
+    pub fn value(&self, id: ParamId) -> i32 {
+        self.values[Self::place(id)]
+    }
+
+    /// Stores the value, stopping it at the entry's lowest or highest value.
+    pub fn set(&mut self, id: ParamId, value: i32) {
+        let entry = param::entry(id);
+        self.values[Self::place(id)] = value.clamp(entry.low, entry.high);
+    }
+
+    /// The place of the entry `id` among the slot's values.
+    pub fn place(id: ParamId) -> usize {
+        param::position(ENTRIES, Scope::Slot, id).expect("every ID in use is a slot entry")
+    }
+}
+
+/// Moves the item at `from` to `to`; the items between move one place towards `from` (S3).
+pub fn move_item<T>(items: &mut [T], from: u8, to: u8) {
+    let (from, to) = (usize::from(from), usize::from(to));
+    if from < to {
+        items[from..=to].rotate_left(1);
+    } else {
+        items[to..=from].rotate_right(1);
+    }
+}
+
 /// What a track keeps: its 12 pads, what is selected, the pad mode, the octave, its level and its
-/// mute.
+/// mute, and its effect slots.
 ///
 /// The selection rule: when `selected_pad` is `Some(p)`, `selected_sound` is `pads[p]`. `select`,
 /// `select_sound` and `put` keep it, so a pad or the selection changes through them and never by
@@ -36,12 +99,15 @@ pub struct Track {
     pub last_key: Option<u8>,
     /// TRACK_LEVEL and MUTE, in list order.
     pub values: [i32; TRACK_VALUES],
+    /// Slots 1 to 6 in chain order: a delay and five empty in a new track (S2).
+    pub slots: [Slot; 6],
 }
 
 impl Track {
     /// A track with empty pads, pad 1 selected, PADS mode and octave 4, on which no key has been
     /// played.
     pub const fn new() -> Self {
+        let empty = Slot::new(Effect::Empty);
         Self {
             pads: [None; 12],
             selected_pad: Some(0),
@@ -50,6 +116,7 @@ impl Track {
             octave: 4,
             last_key: None,
             values: param::defaults(ENTRIES, Scope::Track),
+            slots: [Slot::new(Effect::Delay), empty, empty, empty, empty, empty],
         }
     }
 
@@ -105,6 +172,11 @@ impl Track {
         self.value(MUTE.id) != 0
     }
 
+    /// The slot at `from` goes to `to`; the slots between move one place towards `from` (S3).
+    pub fn move_slot(&mut self, from: u8, to: u8) {
+        move_item(&mut self.slots, from, to);
+    }
+
     fn place(id: ParamId) -> usize {
         param::position(ENTRIES, Scope::Track, id).expect("every ID in use is a track entry")
     }
@@ -124,7 +196,7 @@ impl Default for Track {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::param::TRACK_LEVEL;
+    use crate::param::{DELAY_LEVEL, TRACK_LEVEL};
 
     #[test]
     fn a_new_track_selects_pad_1_in_pads_mode_at_c4() {
@@ -160,6 +232,23 @@ mod tests {
         track.set(TRACK_LEVEL.id, -1);
         assert!(!track.muted());
         assert_eq!(track.value(TRACK_LEVEL.id), 0);
+    }
+
+    #[test]
+    fn moving_a_slot_moves_the_slots_between_towards_where_it_came_from() {
+        let mut track = Track::new();
+        for (level, slot) in (0..).zip(&mut track.slots) {
+            slot.set(DELAY_LEVEL.id, level);
+        }
+        let levels = |track: &Track| track.slots.map(|slot| slot.value(DELAY_LEVEL.id));
+
+        track.move_slot(0, 2);
+        assert_eq!(levels(&track), [1, 2, 0, 3, 4, 5]);
+        assert_eq!(track.slots[2].effect, Effect::Delay);
+        track.move_slot(5, 3);
+        assert_eq!(levels(&track), [1, 2, 0, 5, 3, 4]);
+        track.move_slot(4, 4);
+        assert_eq!(levels(&track), [1, 2, 0, 5, 3, 4]);
     }
 
     #[test]

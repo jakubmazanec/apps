@@ -97,6 +97,42 @@ impl Default for Filter {
     }
 }
 
+/// A one-pole low-pass in the same trapezoidal form; its high-pass is what the low-pass leaves.
+#[derive(Clone, Copy)]
+pub struct OnePole {
+    state: f32,
+}
+
+impl OnePole {
+    pub const fn new() -> Self {
+        Self { state: 0.0 }
+    }
+
+    /// The gain that tunes a one-pole to `cutoff_hz`. Find it once per chunk: the tangent is too
+    /// dear to find per sample.
+    pub fn gain(cutoff_hz: f32) -> f32 {
+        let g = libm::tanf(PI * cutoff_hz / SAMPLE_RATE as f32);
+        g / (1.0 + g)
+    }
+
+    pub fn low_pass(&mut self, x: f32, gain: f32) -> f32 {
+        let step = (x - self.state) * gain;
+        let low = step + self.state;
+        self.state = flush(low + step);
+        low
+    }
+
+    pub fn high_pass(&mut self, x: f32, gain: f32) -> f32 {
+        x - self.low_pass(x, gain)
+    }
+}
+
+impl Default for OnePole {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -166,6 +202,31 @@ mod tests {
                 "{mode:?}"
             );
         }
+    }
+
+    #[test]
+    fn a_one_pole_halves_the_power_at_its_cutoff_on_both_sides() {
+        let power = |high: bool| {
+            let (mut pole, gain) = (OnePole::new(), OnePole::gain(1_000.0));
+            let mut sine = Oscillator::new(0.0);
+            let (mut input, mut output) = (0.0, 0.0);
+            for n in 0..SAMPLE_RATE {
+                let x = sine.next(Wave::Sine, 1_000.0 / SAMPLE_RATE as f32, 0.0);
+                let y = if high {
+                    pole.high_pass(x, gain)
+                } else {
+                    pole.low_pass(x, gain)
+                };
+                if n >= SAMPLE_RATE / 2 {
+                    input += f64::from(x * x);
+                    output += f64::from(y * y);
+                }
+            }
+            output / input
+        };
+
+        assert!(libm::fabs(power(false) - 0.5) < 0.01, "{}", power(false));
+        assert!(libm::fabs(power(true) - 0.5) < 0.01, "{}", power(true));
     }
 
     #[test]

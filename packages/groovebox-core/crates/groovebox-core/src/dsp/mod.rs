@@ -3,6 +3,7 @@
 pub mod clip;
 pub mod envelope;
 pub mod filter;
+pub mod line;
 pub mod osc;
 
 /// Sets a value below 1e-20 in magnitude to exactly 0. Every write to a feedback path goes

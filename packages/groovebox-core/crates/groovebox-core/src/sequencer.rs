@@ -9,7 +9,7 @@ use crate::store::{NoteReader, Tree};
 pub const SOUNDING: usize = 128;
 
 /// Foundation's 48,000 samples × 60 seconds × 100 over 1,920 ticks a beat.
-const SCALE: u64 = 150_000;
+pub(crate) const SCALE: u64 = 150_000;
 
 /// Sample `anchor` is tick `tick` of the run, counted from bar 1 of the first pass, at `tempo`
 /// hundredths of a BPM.

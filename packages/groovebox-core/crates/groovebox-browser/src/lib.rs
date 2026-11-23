@@ -9,6 +9,7 @@
 use core::sync::atomic::{AtomicU32, AtomicU64, Ordering};
 use groovebox_core::audio::MAX_BATCH;
 use groovebox_core::device::{ControlSide, Device};
+use groovebox_core::effect_ram::EffectRam;
 use groovebox_core::fingerprint::Fingerprint;
 use groovebox_core::input::{Input, Stamped};
 use groovebox_core::message::{REPORT_QUEUE, Report};
@@ -73,6 +74,7 @@ const EMPTY_REQUEST: RequestRecord = RequestRecord {
 static DEVICE: Device = Device::new();
 static SAMPLE_RAM: SampleRam = SampleRam::new();
 static NOTE_RAM: NoteRam = NoteRam::new();
+static EFFECT_RAM: EffectRam = EffectRam::new();
 /// The sample at which the next `audio_render` starts. Only the audio side stores it.
 static POSITION: AtomicU64 = AtomicU64::new(0);
 /// Counts the batches rendered. Only the page uses it: the AudioWorklet adds to it and wakes the
@@ -339,10 +341,11 @@ pub extern "C" fn audio_fingerprint() -> u64 {
 #[unsafe(no_mangle)]
 pub extern "C" fn audio_render(frames: u32) -> u32 {
     // SAFETY: only the AudioWorklet calls this, one call at a time, so at most one audio side
-    // exists; and only this call touches the output, which the worklet reads after it returns.
+    // exists, and only it touches the effect memory; and only this call touches the output, which
+    // the worklet reads after it returns.
     let (mut audio, [left, right]) = unsafe {
         (
-            DEVICE.audio_side(&SAMPLE_RAM, &NOTE_RAM),
+            DEVICE.audio_side(&SAMPLE_RAM, &NOTE_RAM, &EFFECT_RAM),
             (&raw mut OUTPUT).as_mut_unchecked(),
         )
     };

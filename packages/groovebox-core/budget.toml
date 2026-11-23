@@ -14,5 +14,8 @@ storage_reserve = 9_000_000
 io_buffer = 65_536
 # The note memory beside the sample RAM: blocks and their bookkeeping.
 note_ram = 8_000_000
+# The effect memory beside the note memory: 24 pieces, one for each track effect slot, of 2 seconds
+# of stereo 16-bit samples at 48 kHz.
+effect_ram = 9_216_000
 # Samples from an edit's input to the moment its version plays.
 edit_lead = 1_024

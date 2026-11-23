@@ -1,5 +1,6 @@
 use crate::runner::Runner;
 use groovebox_core::device::{ControlSide, Device};
+use groovebox_core::effect_ram::EffectRam;
 use groovebox_core::input::Stamped;
 use groovebox_core::memory_storage::MemoryStorage;
 use groovebox_core::message::Report;
@@ -13,6 +14,7 @@ pub struct NativeRunner {
     device: Box<Device>,
     ram: Box<SampleRam>,
     notes: Box<NoteRam>,
+    effects: Box<EffectRam>,
     /// The reports that the last step took, as the browser export stashes them.
     applied: Vec<(u32, u64)>,
 }
@@ -33,6 +35,7 @@ impl Default for NativeRunner {
             device,
             ram: SampleRam::boxed(),
             notes: NoteRam::boxed(),
+            effects: EffectRam::boxed(),
             applied: Vec::new(),
         }
     }
@@ -94,8 +97,13 @@ impl Runner for NativeRunner {
 
     fn render(&mut self, left: &mut [f32], right: &mut [f32]) {
         // SAFETY: the side lives only for this call, which borrows this runner mutably, so no
-        // other side of its device exists while it lives.
-        unsafe { self.device.audio_side(&self.ram, &self.notes) }.render(left, right);
+        // other side of its device exists while it lives and nothing else touches its effect
+        // memory.
+        unsafe {
+            self.device
+                .audio_side(&self.ram, &self.notes, &self.effects)
+        }
+        .render(left, right);
     }
 
     fn front_screen(&mut self) -> Vec<u8> {

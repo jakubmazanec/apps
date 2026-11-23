@@ -1639,8 +1639,8 @@ impl Control {
         self.set(id, value, sample, messages);
     }
 
-    /// What holds the value of the entry `id`: the device, the project, the current track or the
-    /// selected sound of the current track.
+    /// What holds the value of the entry `id`: the device, the project, the current track, the
+    /// selected sound of the current track or the current track's slot that FX shows.
     fn target(&self, id: ParamId) -> Target {
         match param::entry(id).scope {
             Scope::Device => Target::Device,
@@ -1651,6 +1651,11 @@ impl Control {
                     .selected_sound
                     .expect("a sound's value is on a page only while a sound is selected"),
             ),
+            // FX's first page is the Chain and the next six are slots 1 to 6.
+            Scope::Slot => Target::Slot {
+                track: self.project.track,
+                slot: (self.shown_page(Screen::Fx) - 1) as u8,
+            },
         }
     }
 
@@ -1676,6 +1681,9 @@ impl Control {
                 .value(id),
             Target::Project => self.project.master,
             Target::Track(track) => self.project.tracks[usize::from(track)].value(id),
+            Target::Slot { track, slot } => {
+                self.project.tracks[usize::from(track)].slots[usize::from(slot)].value(id)
+            }
         }
     }
 
@@ -1691,9 +1699,9 @@ impl Control {
     }
 
     /// Stores `value` for the entry `id` of `target` and tells the audio part, unless the entry
-    /// holds it already. MUTE also mutes the control part's own sequencer. The tempo sends no
-    /// `SetParam`: while playing the music goes on at it from the first tick after `sample`, in
-    /// both parts, and while stopped the next PLAY carries it (S2).
+    /// holds it already. MUTE also mutes the control part's own sequencer. The tempo sends a
+    /// `SetParam` only while stopped, for the delays, and the next PLAY carries it; while playing
+    /// the music goes on at it from the first tick after `sample`, in both parts (S2, S14).
     fn set_on(
         &mut self,
         target: Target,
@@ -1712,6 +1720,12 @@ impl Control {
                 let run = self.player.retimed(sample, self.project.tempo);
                 self.send(sample, MessageKind::Tempo { run }, messages);
                 self.player.retime(run);
+            } else {
+                self.send(
+                    sample,
+                    MessageKind::SetParam { target, id, value },
+                    messages,
+                );
             }
             return;
         }
@@ -1729,6 +1743,9 @@ impl Control {
                 if id == MUTE.id {
                     self.player.mute(track, value != 0);
                 }
+            }
+            Target::Slot { track, slot } => {
+                self.project.tracks[usize::from(track)].slots[usize::from(slot)].set(id, value);
             }
         }
         self.send(
