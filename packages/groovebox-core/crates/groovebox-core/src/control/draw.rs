@@ -68,10 +68,10 @@ impl Control {
     /// The main area shows the page's items with the cursor and the page's picture, the tiles while
     /// MENU or PAGE is held, or the picker while one is open. STEP shows its lanes (`draw_step`).
     /// FX Chain shows the current track's slots as tiles in the place of its first item
-    /// (`draw_chain`), the chosen slot in the accent whatever the cursor is on and with the cursor
-    /// around it while the cursor is on them, and Type and Move under them (S15); a delay's Time
-    /// also shows the time in use while the picked one does not fit (S16). SAMPLES shows its rows
-    /// (`samples_row`) with the cursor, inside a
+    /// (`draw_chain`), the chosen slot in the accent whatever the cursor is on and
+    /// with the cursor around it while the cursor is on them, and Type and Move under
+    /// them (S15); a delay's Time also shows the time in use while the picked one does
+    /// not fit (S16). SAMPLES shows its rows (`samples_row`) with the cursor, inside a
     /// folder under a dim line with the folder's path, which loses its start to a "…" when too wide
     /// for the row, and the library meter above the strip. The sample picker shows the same rows
     /// under a dim top line at every level: the folder's path and two spaces inside a folder, then

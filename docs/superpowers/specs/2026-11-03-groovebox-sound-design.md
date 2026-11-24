@@ -349,7 +349,8 @@ oscillator's level are 0. Every number is a constant tuned by ear.
 - **Changing the time or the tempo while echoes ring** crossfades to the new time in a straight line
   over 1,024 samples, with no click. A tape-style pitch glide can be a later mode.
 - **The tempo reaches the delay while the music is stopped** as well as while it plays, so a tempo
-  turned while stopped changes the time of the next echoes at once, through the same crossfade.
+  turned while stopped changes the time of the next echoes straight away: through the crossfade
+  while echoes ring, and with no crossfade while the delay holds only silence.
 - **Maximum time:** 2 seconds. A note value that would be longer at the current tempo plays as the
   longest note value in the list that fits **(owner's choice)**. The setting keeps the value the
   player picked and shows the value in use beside it, such as "1/1 (1/2)" at 60 BPM, which, like

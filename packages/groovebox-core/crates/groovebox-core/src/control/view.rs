@@ -198,8 +198,8 @@ pub struct View {
     /// PLAY and SHIFT + PLAY set it, and an arrow on STEP that moves the cursor into another bar
     /// clears it.
     pub following: bool,
-    /// The slot that FX Chain's tiles have the cursor on and Type and Move act on, 0 to 5: the one
-    /// the cursor last stood on, which stays when the track changes (S15).
+    /// FX Chain's chosen slot, 0 to 5: the one the cursor last stood on among the tiles, drawn in
+    /// the accent, which Type and Move act on and which stays when the track changes (S15).
     pub fx_slot: u8,
     /// The picker while it is open over the main area of `screen`, with its highlight. The sample
     /// picker's highlight is `sample_picker`'s cursor, and this one stays on its first row.

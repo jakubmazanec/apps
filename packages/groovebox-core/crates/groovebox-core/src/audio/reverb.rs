@@ -187,7 +187,7 @@ impl Reverb {
         // At most 100 ms, 4,800 samples.
         self.crossfade.aim(
             (real(&REVERB_PRE_DELAY) * SAMPLE_RATE as f32) as u32,
-            self.ringing(piece),
+            self.pre_delay.ringing(&piece[RING..][..PRE_DELAY]),
         );
         let low_cut = OnePole::gain(100.0);
         let [wobble_1, wobble_2] = self
@@ -269,6 +269,7 @@ impl Default for Reverb {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::audio::delay::CROSSFADE;
     use crate::audio::delay::tests::{impulse, piece, values};
     use crate::param::{REVERB_DECAY, REVERB_LEVEL, REVERB_PRE_DELAY};
     use std::vec::Vec;
@@ -334,8 +335,8 @@ mod tests {
 
     #[test]
     fn pre_delay_holds_the_tail_back() {
-        // The impulse on the left, which a new reverb, holding only silence, takes through the
-        // pre-delay at once; the right side holds only the room.
+        // The impulse on the left, which a new reverb takes through the pre-delay at once, since
+        // the pre-delay's line holds only silence; the right side holds only the room.
         let first_sound = |pre_delay: i32| {
             let values = values(&[(&REVERB_LEVEL, 65_535), (&REVERB_PRE_DELAY, pre_delay)]);
             let [_, right] = through(
@@ -349,6 +350,61 @@ mod tests {
 
         assert_eq!(first_sound(0), Some(0));
         assert_eq!(first_sound(65_535), Some(4_800));
+    }
+
+    /// After an impulse with no pre-delay and `lead` samples of silence, Pre-delay turns to 100 ms
+    /// with a hit on the left at `hit`, while the room rings at Decay 100%: whether the pre-delay's
+    /// line still rang at the turn, and the first of the 4,800 samples after it at which the right
+    /// side, which holds only the room, differs from the same without the hit.
+    fn after_a_pre_delay_turn(lead: usize, hit: usize) -> (bool, Option<usize>) {
+        let at = |pre_delay| {
+            values(&[
+                (&REVERB_LEVEL, 65_535),
+                (&REVERB_DECAY, 65_535),
+                (&REVERB_PRE_DELAY, pre_delay),
+            ])
+        };
+        let room = |hit: Option<usize>| {
+            let (mut reverb, mut piece) = (Reverb::new(), piece());
+            let before = impulse(0.5, CHUNK + lead);
+            through(
+                &mut reverb,
+                &mut piece,
+                &at(0),
+                [&before, &std::vec![0.0; before.len()]],
+            );
+            assert!(reverb.ringing(&piece));
+            let rang = reverb.pre_delay.ringing(&piece[RING..][..PRE_DELAY]);
+            let mut left = [0.0; PRE_DELAY];
+            if let Some(hit) = hit {
+                left[hit] = 0.5;
+            }
+            let [_, right] = through(
+                &mut reverb,
+                &mut piece,
+                &at(65_535),
+                [&left, &[0.0; PRE_DELAY]],
+            );
+            (rang, right)
+        };
+
+        let ((rang, with), (_, without)) = (room(Some(hit)), room(None));
+        (rang, with.iter().zip(&without).position(|(a, b)| a != b))
+    }
+
+    #[test]
+    fn a_silent_pre_delay_takes_a_new_time_at_once_while_the_room_rings() {
+        // The hit waits in the pre-delay: none of it reaches the room for 100 ms.
+        assert_eq!(after_a_pre_delay_turn(9_600, 0), (false, None));
+    }
+
+    #[test]
+    fn a_ringing_pre_delay_crossfades_to_a_new_time() {
+        // Until the crossfade ends a hit still reaches the room in part straight, then not at all.
+        let last = CROSSFADE as usize - 1;
+
+        assert_eq!(after_a_pre_delay_turn(992, last), (true, Some(last)));
+        assert_eq!(after_a_pre_delay_turn(992, last + 1), (true, None));
     }
 
     #[test]
