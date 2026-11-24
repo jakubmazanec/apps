@@ -79,8 +79,10 @@ font at a position in a colour. Curves and waveforms are columns of 1-pixel fill
 **In the browser** the shell shows the buffer on a canvas and zooms it by a whole number of the
 monitor's device pixels, never by a fraction: on a desktop at 100% browser zoom and a 100% or 200%
 display scale every screen pixel is an exact block. On other scales, and on phones, a browser cannot
-show the picture pixel-exactly; the shell says so instead of pretending. For review away from such a
-screen, the shell exports a screen as a PNG enlarged by a whole number.
+show the picture pixel-exactly; the shell says so instead of pretending. The real-size view (The
+browser shell) is the one place the picture is scaled by a fraction, so that the device shows at its
+true size. For review away from such a screen, the shell exports a screen as a PNG enlarged by a
+whole number.
 
 ## The font
 
@@ -475,9 +477,33 @@ The shell shows the screen and the panel and turns input into the abstract contr
 defines: presses, releases, encoder turns, pad hits and MIDI notes with the audio clock's time
 stamp. The core decides taps and holds; the shell never does.
 
-- **The panel (owner's choice).** It is drawn in true proportions: one screen pixel is 0.198 mm, so
-  the panel is 1,622 × 647 screen pixels. The whole panel has one whole zoom, the largest that fits
-  the window; below zoom 1 the page scrolls.
+- **The panel: two views and a switch (owner's choice, 2026-11-24).**
+  - **The browser view**, the default, is made for playing in the browser. It is not the device's
+    arrangement: the same controls with the same labels, behaviour and computer keys, arranged to
+    fit the window. Its blocks are the screen; the four encoders, one under each of the screen's
+    four strip cells; three rows of eight keys (T1, T2, T3, T4, PADS/KEYS, ROLL, a free cell and VOL
+    as a smaller knob; REC, PLAY, STOP, TEMPO, −, ▲, + and OK; MENU, PAGE, COPY, SHIFT, ◄, ▼, ► and
+    CANCEL), so OK stays above CANCEL; the 16 steps in two rows of eight; the 12 pads in two rows of
+    six; then the row with the status line and the buttons. The rows of keys, steps and pads go
+    under the screen and its encoders (a phone held upright) or in a column beside them (a phone
+    held sideways, a laptop, a monitor), whichever gives the screen the larger zoom, and on a tie
+    the larger keys. The screen takes the largest whole zoom that leaves every played control at
+    least 44 CSS px; on a phone too narrow for that, the controls go down to 40 px before the screen
+    drops a zoom. The keys, steps, pads and encoders then grow in CSS px, not tied to whole pixels,
+    to fill the rest, a key or a pad at most as tall as wide and an encoder at most as wide as a
+    pad; a knob's label sits on the knob. The page fits the window with no scrolling; only a window
+    too small even for the screen at zoom 1 with 40 px controls scrolls.
+  - **The real-size view** draws the device as "The panel" measures it, 321 × 128 mm, at its true
+    size on this screen. A browser cannot tell how big its CSS px is, so the first time the view
+    shows a bank card outline (85.60 × 53.98 mm) with − and + to make it smaller or bigger until it
+    matches a real card held against the screen, and Done. The browser keeps the size, in CSS px a
+    mm, in its local storage; "Set size" shows the card again, and a blocked storage only means
+    setting it again. The screen picture is scaled by whatever fraction the size needs, so it is not
+    pixel-exact, and the line beside the buttons says so. A device wider than the window scrolls.
+  - **The switch** is a button in the row with Save session and Save picture: "Real size" in the
+    browser view and "Browser view" in the real-size view. The browser keeps the choice in its local
+    storage in the same way. Switching only draws the panel again, as a resize does: the core, the
+    lights and what is held go on.
 - **Starting sound (owner's choice).** A browser is silent until the first click or key, so the line
   beside the screen says "Click to start" until then.
 - **Mouse (owner's choice).** Clicking a drawn key presses it, releasing lets go, so holding the
@@ -536,7 +562,7 @@ stamp. The core decides taps and holds; the shell never does.
   never draws over the screen name **(owner's choice)**. A refused file does not stop the ones after
   it **(owner's choice)**.
 - **What the shell never does:** draw anything of its own on the screen, decide a tap or a hold,
-  latch a modifier, or scale the screen by a fraction **(my call)**.
+  latch a modifier, or scale the screen by a fraction outside the real-size view **(my call)**.
 
 ## The screen gallery and the drift frames
 

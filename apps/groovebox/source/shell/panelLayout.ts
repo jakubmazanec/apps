@@ -18,7 +18,7 @@ export function toScreenPixels(mm: number) {
   return Math.round(mm / MM_PER_PIXEL);
 }
 
-type Rectangle = {x: number; y: number; width: number; height: number};
+export type Rectangle = {x: number; y: number; width: number; height: number};
 
 // The module is the black frame and the picture the screen inside it: exactly 480 × 272 screen
 // pixels, with its position rounded as every position is
@@ -53,7 +53,7 @@ function keys(
   }));
 }
 
-const KNOB_SIZE = {width: 22, height: 22};
+export const KNOB_SIZE = {width: 22, height: 22};
 const KNOB_Y = 8;
 const ENCODER_PITCH = 25;
 

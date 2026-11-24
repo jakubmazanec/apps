@@ -10,7 +10,7 @@ import {decodeLights, loadLights} from './lights.js';
 import {createMidiMapper} from './midi.js';
 import {buildPanel} from './panel.js';
 import {pictureBlob} from './picture.js';
-import {expandFrame, fitPanel} from './present.js';
+import {expandFrame, fitPanel, realSizePanel} from './present.js';
 import {
   type ButtonName,
   encoderName,
@@ -19,8 +19,13 @@ import {
   type WorkerRequest,
 } from './protocol.js';
 import {startAudio} from './startAudio.js';
+import {storedPixelsPerMm, storedView, storePixelsPerMm, storeView} from './view.js';
 
 const VOLUME = 4;
+
+// A bank card's size in mm, which sets the real size, and the factor of each − or + press
+const CARD_MM = {width: 85.6, height: 53.98};
+const SIZE_STEP = 1.01;
 
 // The most clicks the core takes in one turn input, either way
 const MOST_CLICKS = 127;
@@ -63,6 +68,8 @@ export async function runShell({
   note,
   saveSession,
   savePicture,
+  switchView,
+  setSize,
 }: {
   panel: HTMLElement;
   row: HTMLElement;
@@ -70,6 +77,8 @@ export async function runShell({
   note: HTMLElement;
   saveSession: HTMLButtonElement;
   savePicture: HTMLButtonElement;
+  switchView: HTMLButtonElement;
+  setSize: HTMLButtonElement;
 }): Promise<{core: Core; start: () => Promise<AudioContext>; stop: () => void}> {
   let core = await bootCore(wasmUrl);
   let {memory, worker, addresses} = core;
@@ -87,6 +96,15 @@ export async function runShell({
   let audio: Promise<AudioContext> | undefined;
   let context: AudioContext | undefined;
   let frame = 0;
+  let view = storedView();
+  let stored = storedPixelsPerMm();
+  // CSS's own mm, 96 px an inch, until the real size is set
+  let pixelsPerMm = stored ?? 96 / 25.4;
+  // Whether the real-size view shows the bank card: until the size is first set, and after "Set
+  // size" until Done
+  let setting = stored === undefined;
+  let card = document.createElement('div');
+  let outline = document.createElement('div');
 
   // The line says "Click to start" until the audio runs, and then whether MIDI was refused
   let showStatus = () => {
@@ -325,16 +343,39 @@ export async function runShell({
     }
   };
 
-  // The panel at the largest whole zoom that fits the window above the row
+  // The browser view arranges the panel and the row to fit the window, and the real-size view draws
+  // the device at its size with the row under it, and the bank card over its corner while its size
+  // is set
   let fitted = () => {
-    let {zoom, exact} = fitPanel(
-      {width: window.innerWidth, height: window.innerHeight - row.getBoundingClientRect().height},
-      window.devicePixelRatio,
-    );
+    let browser =
+      view === 'browser' ?
+        fitPanel({width: window.innerWidth, height: window.innerHeight}, window.devicePixelRatio)
+      : undefined;
+    let arrangement = browser ?? realSizePanel(pixelsPerMm);
+    let built = buildPanel(container, arrangement);
 
-    note.textContent = exact ? '' : 'This display scale cannot show the screen pixel-exactly.';
+    note.textContent =
+      browser === undefined ? 'At real size the screen is not pixel-exact.'
+      : browser.exact ? ''
+      : 'This display scale cannot show the screen pixel-exactly.';
+    switchView.textContent = browser ? 'Real size' : 'Browser view';
+    setSize.hidden = browser !== undefined;
+    Object.assign(row.style, {
+      position: 'absolute',
+      left: `${arrangement.row.x}px`,
+      top: `${arrangement.row.y}px`,
+      width: `${arrangement.row.width}px`,
+      height: `${arrangement.row.height}px`,
+    });
+    outline.style.width = `${CARD_MM.width * pixelsPerMm}px`;
+    outline.style.height = `${CARD_MM.height * pixelsPerMm}px`;
+    card.remove();
 
-    return buildPanel(container, zoom, window.devicePixelRatio);
+    if (!browser && setting) {
+      container.append(card);
+    }
+
+    return built;
   };
 
   status.textContent = 'Click to start';
@@ -345,6 +386,50 @@ export async function runShell({
     panel.dispose();
     panel = fitted();
   };
+
+  card.className = 'absolute top-2 left-2 flex items-end gap-2 text-xs';
+  outline.className =
+    'flex items-center justify-center rounded bg-white shadow-[inset_0_0_0_2px_#1e1e1e]';
+  outline.textContent = 'Match a bank card held here';
+  card.append(outline);
+
+  // − and + make the card smaller or bigger, and Done keeps its size
+  for (let [text, change] of [
+    [
+      '−',
+      () => {
+        pixelsPerMm /= SIZE_STEP;
+      },
+    ],
+    [
+      '+',
+      () => {
+        pixelsPerMm *= SIZE_STEP;
+      },
+    ],
+    [
+      'Done',
+      () => {
+        storePixelsPerMm(pixelsPerMm);
+        setting = false;
+      },
+    ],
+  ] as const) {
+    let button = document.createElement('button');
+
+    button.type = 'button';
+    button.className = 'rounded border border-[#969692] bg-[#ecece8] px-2';
+    button.textContent = text;
+    button.addEventListener(
+      'click',
+      () => {
+        change();
+        fit();
+      },
+      {signal: listening.signal},
+    );
+    card.append(button);
+  }
 
   // The window sends no resize when only the display scale changes
   let refitOnDisplayScaleChange = () => {
@@ -467,6 +552,25 @@ export async function runShell({
     },
     {signal: listening.signal},
   );
+  // The switch only draws the panel again, as a resize does: the core, the lights and what is held
+  // go on
+  switchView.addEventListener(
+    'click',
+    () => {
+      view = view === 'browser' ? 'real-size' : 'browser';
+      storeView(view);
+      fit();
+    },
+    {signal: listening.signal},
+  );
+  setSize.addEventListener(
+    'click',
+    () => {
+      setting = true;
+      fit();
+    },
+    {signal: listening.signal},
+  );
   // The shown frame, named by the audio position when it is saved (answer 21)
   savePicture.addEventListener(
     'click',
@@ -487,6 +591,7 @@ export async function runShell({
       cancelAnimationFrame(frame);
       listening.abort();
       panel.dispose();
+      card.remove();
       worker.terminate();
       void audio?.then(async (started) => started.close());
     },

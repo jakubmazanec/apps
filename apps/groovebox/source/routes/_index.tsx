@@ -17,6 +17,8 @@ export default function Index() {
   let note = useRef<HTMLParagraphElement>(null);
   let saveSession = useRef<HTMLButtonElement>(null);
   let savePicture = useRef<HTMLButtonElement>(null);
+  let switchView = useRef<HTMLButtonElement>(null);
+  let setSize = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     let shell = import('../shell/shell.js').then(async ({runShell}) =>
@@ -27,6 +29,8 @@ export default function Index() {
         note: note.current as HTMLParagraphElement,
         saveSession: saveSession.current as HTMLButtonElement,
         savePicture: savePicture.current as HTMLButtonElement,
+        switchView: switchView.current as HTMLButtonElement,
+        setSize: setSize.current as HTMLButtonElement,
       }),
     );
 
@@ -37,12 +41,13 @@ export default function Index() {
     };
   }, []);
 
-  // The panel at the top left, at whole device pixels, and under it one row of the rest. Below
-  // zoom 1 the page scrolls
+  // The panel at the top left and one row of the rest, which the shell places: in the browser view
+  // both fit the window, and in the real-size view the row sits under the device and the page
+  // scrolls when the device is wider than the window
   return (
-    <main className="min-h-screen w-max min-w-full bg-[#f0f0ec]">
+    <main className="min-h-dvh w-max min-w-full bg-[#f0f0ec]">
       <div ref={panel} />
-      <div ref={row} className="flex items-center gap-4 px-4 py-2">
+      <div ref={row} className="flex flex-wrap content-start items-center gap-x-2 gap-y-1 text-xs">
         <p ref={status} />
         <p ref={note} />
         <button
@@ -58,6 +63,21 @@ export default function Index() {
           type="button"
         >
           Save picture
+        </button>
+        <button
+          ref={switchView}
+          className="rounded border border-[#969692] bg-[#ecece8] px-2"
+          type="button"
+        >
+          Real size
+        </button>
+        <button
+          ref={setSize}
+          hidden
+          className="rounded border border-[#969692] bg-[#ecece8] px-2"
+          type="button"
+        >
+          Set size
         </button>
       </div>
     </main>

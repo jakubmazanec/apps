@@ -55,16 +55,28 @@ function mount() {
   let note = document.createElement('p');
   let saveSession = document.createElement('button');
   let savePicture = document.createElement('button');
+  let switchView = document.createElement('button');
+  let setSize = document.createElement('button');
 
   saveSession.textContent = 'Save session';
   savePicture.textContent = 'Save picture';
-  Object.assign(row.style, {display: 'flex', alignItems: 'center', gap: '16px', padding: '8px'});
-  row.append(status, note, saveSession, savePicture);
+  switchView.textContent = 'Real size';
+  setSize.textContent = 'Set size';
+  setSize.hidden = true;
+  Object.assign(row.style, {
+    display: 'flex',
+    flexWrap: 'wrap',
+    alignContent: 'start',
+    alignItems: 'center',
+    gap: '4px 8px',
+    fontSize: '12px',
+  });
+  row.append(status, note, saveSession, savePicture, switchView, setSize);
   main.append(panel, row);
   document.body.style.margin = '0';
   document.body.replaceChildren(main);
 
-  return {panel, row, status, note, saveSession, savePicture};
+  return {panel, row, status, note, saveSession, savePicture, switchView, setSize};
 }
 
 async function runMounted() {
@@ -129,6 +141,22 @@ function inkSpan(
 
 function control(name: string) {
   return document.querySelector(`[data-control="${name}"]`) as HTMLElement;
+}
+
+function button(text: string) {
+  return [...document.querySelectorAll('button')].find(
+    (candidate) => candidate.textContent === text,
+  );
+}
+
+// A rectangle on the page, to 0.05 CSS px, as the browser lays out in fractions of a px
+function near({x, y, width, height}: {x: number; y: number; width: number; height: number}) {
+  return {
+    x: expect.closeTo(x, 1) as unknown,
+    y: expect.closeTo(y, 1) as unknown,
+    width: expect.closeTo(width, 1) as unknown,
+    height: expect.closeTo(height, 1) as unknown,
+  };
 }
 
 function isLit(name: string) {
@@ -235,23 +263,20 @@ function stubDisplayScale(initialRatio: number) {
 }
 
 function shown({panel, note}: {panel: HTMLElement; note: HTMLElement}) {
-  let {width, height} = (panel.firstElementChild as HTMLElement).style;
+  let {width, height} = (panel.querySelector('canvas') as HTMLCanvasElement).style;
 
   return {width, height, note: note.textContent};
 }
 
-function fitted(ratio: number, row: HTMLElement) {
-  let {cssWidth, cssHeight, exact} = fitPanel(
-    {
-      width: globalThis.innerWidth,
-      height: globalThis.innerHeight - row.getBoundingClientRect().height,
-    },
+function fitted(ratio: number) {
+  let {screen, exact} = fitPanel(
+    {width: globalThis.innerWidth, height: globalThis.innerHeight},
     ratio,
   );
 
   return {
-    width: `${cssWidth}px`,
-    height: `${cssHeight}px`,
+    width: `${screen.width}px`,
+    height: `${screen.height}px`,
     note: exact ? '' : 'This display scale cannot show the screen pixel-exactly.',
   };
 }
@@ -261,6 +286,9 @@ describe(runShell, () => {
     requestMidiAccess = vitest
       .spyOn(Navigator.prototype, 'requestMIDIAccess')
       .mockResolvedValue(fakeMidi().access);
+    // Every test starts in the browser view with no real size set
+    localStorage.removeItem('groovebox-view');
+    localStorage.removeItem('groovebox-pixels-per-mm');
     await page.viewport(1700, 900);
 
     return () => {
@@ -351,57 +379,51 @@ describe(runShell, () => {
   });
 
   test.each([
-    {
-      window: {width: 3300, height: 1400},
-      ratio: 1,
-      panel: {width: 3244, height: 1294},
-      picture: {left: 940, top: 148, width: 960, height: 544},
-    },
-    {
-      window: {width: 1700, height: 900},
-      ratio: 1,
-      panel: {width: 1622, height: 647},
-      picture: {left: 470, top: 74, width: 480, height: 272},
-    },
-    {
-      window: {width: 1700, height: 900},
-      ratio: 2,
-      panel: {width: 1622, height: 647},
-      picture: {left: 470, top: 74, width: 480, height: 272},
-    },
+    {window: {width: 1700, height: 900}, ratio: 1},
+    {window: {width: 1700, height: 900}, ratio: 2},
+    {window: {width: 390, height: 660}, ratio: 3},
+    {window: {width: 750, height: 340}, ratio: 3},
   ])(
-    'the panel fills the window at a whole zoom with the screen in its picture ($window.width × $window.height at $ratio)',
-    async ({window, ratio, panel, picture}) => {
+    'the browser view fills the window with the screen at its zoom ($window.width × $window.height at $ratio)',
+    async ({window, ratio}) => {
       await page.viewport(window.width, window.height);
       stubDisplayScale(ratio);
 
       let elements = await runMounted();
+      let layout = fitPanel(window, ratio);
       let canvas = elements.panel.querySelector('canvas') as HTMLCanvasElement;
       let {scrollWidth, scrollHeight} = document.scrollingElement as Element;
 
       expect(elements.panel.firstElementChild?.getBoundingClientRect().toJSON()).toMatchObject({
         left: 0,
         top: 0,
-        ...panel,
+        ...window,
       });
-      expect(canvas.getBoundingClientRect().toJSON()).toMatchObject(picture);
+      expect(canvas.getBoundingClientRect().toJSON()).toMatchObject(near(layout.screen));
       expect([canvas.width, canvas.height]).toEqual([480, 272]);
-      expect(elements.row.getBoundingClientRect().top).toBeGreaterThanOrEqual(panel.height);
+      expect(elements.row.getBoundingClientRect().toJSON()).toMatchObject(near(layout.row));
+
+      for (let {control: name, x, y, width, height} of layout.controls) {
+        expect(control(name).getBoundingClientRect().toJSON()).toMatchObject(
+          near({x, y, width, height}),
+        );
+      }
+
       expect(scrollWidth).toBeLessThanOrEqual(globalThis.innerWidth);
       expect(scrollHeight).toBeLessThanOrEqual(globalThis.innerHeight);
     },
   );
 
-  test('a window smaller than the panel scrolls at zoom 1', async () => {
-    await page.viewport(1000, 500);
+  test('a window too small for the screen at zoom 1 with 40 px keys scrolls', async () => {
+    await page.viewport(300, 300);
     stubDisplayScale(1);
 
     let {panel} = await runMounted();
     let {scrollWidth, scrollHeight} = document.scrollingElement as Element;
 
-    expect(panel.firstElementChild?.getBoundingClientRect().toJSON()).toMatchObject({
-      width: 1622,
-      height: 647,
+    expect(panel.querySelector('canvas')?.getBoundingClientRect().toJSON()).toMatchObject({
+      width: 480,
+      height: 272,
     });
     expect(scrollWidth).toBeGreaterThan(globalThis.innerWidth);
     expect(scrollHeight).toBeGreaterThan(globalThis.innerHeight);
@@ -411,15 +433,15 @@ describe(runShell, () => {
     let changeRatio = stubDisplayScale(1);
     let elements = await runMounted();
 
-    expect(shown(elements)).toEqual(fitted(1, elements.row));
+    expect(shown(elements)).toEqual(fitted(1));
 
     changeRatio(1.25);
 
-    expect(shown(elements)).toEqual(fitted(1.25, elements.row));
+    expect(shown(elements)).toEqual(fitted(1.25));
 
     changeRatio(2);
 
-    expect(shown(elements)).toEqual(fitted(2, elements.row));
+    expect(shown(elements)).toEqual(fitted(2));
   });
 
   test('a display scale change after stop is ignored', async () => {
@@ -430,8 +452,47 @@ describe(runShell, () => {
     elements.stop();
     changeRatio(1.25);
 
-    expect(before).toEqual(fitted(1, elements.row));
+    expect(before).toEqual(fitted(1));
     expect(elements.panel.children).toHaveLength(0);
+  });
+
+  test('the switch shows the device at the size set by the bank card and back, and MENU stays held', async () => {
+    let shell = await runStarted();
+
+    await userEvent.keyboard('{KeyL>}');
+
+    // The first tile, STEP's, is outlined in the accent while MENU is held
+    await expect.poll(() => pixel(shell.core, 1, 16)).toBe(ACCENT);
+
+    let inputs = watchInputs(shell);
+
+    await userEvent.click(shell.switchView);
+
+    expect([shell.switchView.textContent, shell.setSize.hidden]).toEqual(['Browser view', false]);
+    expect(shell.note.textContent).toBe('At real size the screen is not pixel-exact.');
+    expect(localStorage.getItem('groovebox-view')).toBe('real-size');
+
+    await userEvent.click(button('+') as HTMLButtonElement);
+    await userEvent.click(button('+') as HTMLButtonElement);
+    await userEvent.click(button('Done') as HTMLButtonElement);
+
+    let pixelsPerMm = (96 / 25.4) * 1.01 * 1.01;
+
+    expect(button('Done')).toBeUndefined();
+    expect(Number(localStorage.getItem('groovebox-pixels-per-mm'))).toBeCloseTo(pixelsPerMm);
+    expect(shell.panel.firstElementChild?.getBoundingClientRect().width).toBeCloseTo(
+      1622 * 0.198 * pixelsPerMm,
+      1,
+    );
+
+    await userEvent.click(shell.switchView);
+
+    expect(shell.switchView.textContent).toBe('Real size');
+    expect(shell.panel.firstElementChild?.getBoundingClientRect().width).toBe(1700);
+    expect(pixel(shell.core, 1, 16)).toBe(ACCENT);
+    expect(inputs()).toEqual([]);
+
+    await userEvent.keyboard('{/KeyL}');
   });
 
   test('L held and a click on step 8 shows SETTINGS', async () => {

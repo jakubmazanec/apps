@@ -1,4 +1,5 @@
-import {CONTROLS, DISPLAY, PANEL_PIXELS, toScreenPixels} from './panelLayout.js';
+import {KNOB_SIZE, type Rectangle, toScreenPixels} from './panelLayout.js';
+import {type Arrangement} from './present.js';
 
 // The look of the parts that "The panel" in the plan leaves to Look's panel.png, in screen pixels
 const PANEL_RADIUS = 16;
@@ -10,7 +11,11 @@ const MARK = {top: 8, width: 3, height: 30};
 const LABEL_SIZE = 12;
 const KNOB_LABEL_GAP = 4;
 
-// The panel's stylesheet at one zoom. A control is lit by its `data-lit` attribute
+function px(css: number) {
+  return `${css}px`;
+}
+
+// The panel's stylesheet at one scale. A control is lit by its `data-lit` attribute
 function style(css: (pixels: number) => string) {
   return `
     .groovebox-panel {
@@ -50,9 +55,15 @@ function style(css: (pixels: number) => string) {
       color: #1e1e1e;
     }
     .groovebox-panel .knob {
+      display: flex;
+      align-items: center;
+      justify-content: center;
       background: #2b2b2b;
-      border: ${css(KNOB_RING)} solid #bebeba;
+      border-style: solid;
+      border-color: #bebeba;
       border-radius: 50%;
+      color: #f0f0f0;
+      font-weight: bold;
     }
     .groovebox-panel .mark {
       position: absolute;
@@ -71,48 +82,43 @@ function style(css: (pixels: number) => string) {
   `;
 }
 
-// Draws the panel into `container` at `zoom` device pixels per screen pixel. Every part sits at
-// whole device pixels: its position and size in screen pixels times the zoom, in CSS px. The
-// screen canvas sits at the display's picture. `lights` holds the keys and pads by their names
+// Draws `arrangement` into `container`: the panel at its size and every part at its rectangle, in
+// CSS px, with the radii, borders and labels at its scale. The screen canvas sits at its screen.
+// `lights` holds the keys and pads by their names
 export function buildPanel(
   container: HTMLElement,
-  zoom: number,
-  devicePixelRatio: number,
+  arrangement: Arrangement,
 ): {canvas: HTMLCanvasElement; lights: Map<string, Element>; dispose: () => void} {
-  let css = (pixels: number) => `${(pixels * zoom) / devicePixelRatio}px`;
   let panel = document.createElement('div');
   let stylesheet = document.createElement('style');
-  let module = document.createElement('div');
   let canvas = document.createElement('canvas');
   let lights = new Map<string, Element>();
 
-  // A part at its rectangle in mm, rounded to screen pixels
-  let place = (
-    element: HTMLElement,
-    {x, y, width, height}: {x: number; y: number; width: number; height: number},
-  ) => {
-    Object.assign(element.style, {
-      left: css(toScreenPixels(x)),
-      top: css(toScreenPixels(y)),
-      width: css(toScreenPixels(width)),
-      height: css(toScreenPixels(height)),
-    });
+  // A part at its rectangle in CSS px
+  let place = (element: HTMLElement, {x, y, width, height}: Rectangle) => {
+    Object.assign(element.style, {left: px(x), top: px(y), width: px(width), height: px(height)});
     panel.append(element);
   };
 
   panel.className = 'groovebox-panel';
-  panel.style.width = css(PANEL_PIXELS.width);
-  panel.style.height = css(PANEL_PIXELS.height);
-  stylesheet.textContent = style(css);
+  panel.style.width = px(arrangement.width);
+  panel.style.height = px(arrangement.height);
+  stylesheet.textContent = style((pixels) => px(pixels * arrangement.scale));
   panel.append(stylesheet);
-  module.className = 'module';
-  place(module, DISPLAY.module);
+
+  if (arrangement.module) {
+    let module = document.createElement('div');
+
+    module.className = 'module';
+    place(module, arrangement.module);
+  }
+
   canvas.width = 480;
   canvas.height = 272;
   canvas.setAttribute('aria-label', 'Screen');
-  place(canvas, DISPLAY.picture);
+  place(canvas, arrangement.screen);
 
-  for (let {control, shape, label, ...rectangle} of CONTROLS) {
+  for (let {control, shape, label, ...rectangle} of arrangement.controls) {
     let element = document.createElement('div');
 
     element.className = shape;
@@ -121,26 +127,34 @@ export function buildPanel(
 
     if (shape === 'knob') {
       let mark = document.createElement('div');
-      let caption = document.createElement('div');
-      let size = toScreenPixels(rectangle.width);
+      // A knob is the device's knob at its size: its ring and mark are its screen pixels times this
+      let unit = rectangle.width / toScreenPixels(KNOB_SIZE.width);
 
+      element.style.borderWidth = px(KNOB_RING * unit);
       // The mark is inside the knob's ring, so its position counts from there
       mark.className = 'mark';
       Object.assign(mark.style, {
-        left: css(Math.round((size - MARK.width) / 2) - KNOB_RING),
-        top: css(MARK.top - KNOB_RING),
-        width: css(MARK.width),
-        height: css(MARK.height),
+        left: px((rectangle.width - MARK.width * unit) / 2 - KNOB_RING * unit),
+        top: px((MARK.top - KNOB_RING) * unit),
+        width: px(MARK.width * unit),
+        height: px(MARK.height * unit),
       });
       element.append(mark);
-      caption.className = 'label';
-      caption.textContent = label;
-      Object.assign(caption.style, {
-        left: css(toScreenPixels(rectangle.x)),
-        top: css(toScreenPixels(rectangle.y) + toScreenPixels(rectangle.height) + KNOB_LABEL_GAP),
-        width: css(size),
-      });
-      panel.append(caption);
+
+      if (arrangement.labelsUnderKnobs) {
+        let caption = document.createElement('div');
+
+        caption.className = 'label';
+        caption.textContent = label;
+        Object.assign(caption.style, {
+          left: px(rectangle.x),
+          top: px(rectangle.y + rectangle.height + KNOB_LABEL_GAP * arrangement.scale),
+          width: px(rectangle.width),
+        });
+        panel.append(caption);
+      } else {
+        element.append(label);
+      }
     } else {
       element.textContent = label;
       lights.set(control, element);
