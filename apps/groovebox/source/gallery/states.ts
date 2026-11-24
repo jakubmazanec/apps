@@ -57,6 +57,7 @@ export const STATES: ReadonlyArray<{title: string; frame: string; approved?: str
     approved: 'sound-volume-envelope.png',
   },
   {title: 'SOUND Voice page', frame: 'synth-pages/frame-403200.png'},
+  {title: 'SOUND Pitch page', frame: 'synth-pages/frame-412032.png'},
   {
     title: 'SOUND Synth page, Oscillator 2 fine tune holding still',
     frame: 'scrolling-text/frame-69120.png',

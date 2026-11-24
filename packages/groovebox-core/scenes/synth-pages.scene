@@ -86,10 +86,14 @@ input 396800 press step-6
 input 398400 release step-6
 input 400000 release page
 frame 403200
-# PAGE held on SOUND after PAGE + step 3: the tiles of SOUND's six pages, Filter current.
+# PAGE held on SOUND after PAGE + step 3: the tiles of SOUND's seven pages, Filter current.
 input 404800 press page
 input 406400 press step-3
 input 408000 release step-3
 frame 409600
+# PAGE + step 7 too: the Pitch page, seen once PAGE is let go.
+input 410000 press step-7
+input 410600 release step-7
 input 411200 release page
+frame 412032
 end 412800

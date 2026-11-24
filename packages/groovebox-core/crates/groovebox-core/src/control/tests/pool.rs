@@ -493,7 +493,7 @@ fn moving_onto_a_sound_on_no_pad_leaves_no_pad_selected() {
         )
     ));
 
-    // PAGE lights all six of SOUND's pages.
+    // PAGE lights all seven of SOUND's pages.
     rig.press(80, Button::Page);
     rig.step(81);
     assert_eq!(
@@ -505,6 +505,7 @@ fn moving_onto_a_sound_on_no_pad_leaves_no_pad_selected() {
             step(3),
             step(4),
             step(5),
+            step(6),
             track(0)
         ]
     );

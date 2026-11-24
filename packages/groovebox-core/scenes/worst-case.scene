@@ -5,9 +5,10 @@ file samples/pad.wav ours 220 10 2
 # The operation count plays this scene: the most a render batch has to do. 32 voices of a stereo
 # sample sound at Transpose +48 cost more than 32 of a stereo Supersaw, as measured when sample
 # sounds came. Every effect slot of the four tracks holds a reverb, ringing in the busiest batch
-# with every pre-delay crossfading. There a reverb in every slot costs 11,654,242 operations. A
-# delay in every slot costs 11,250,439, measured in a version of this scene with every slot a delay
-# and a TEMPO turn at the chord, which this file does not contain. pad on pad 1 through the panel:
+# with every pre-delay crossfading. There a reverb in every slot costs 12,094,984 operations, with
+# the Pitch amount and Pitch decay set below; 12,087,261 without them. A delay in every slot costs
+# 11,250,439, measured in a version of this scene with every slot a delay and a TEMPO turn at the
+# chord, which this file does not contain. pad on pad 1 through the panel:
 # MENU + step 3, then OK, down and OK in the sound picker open the sample picker on kick.wav, and
 # down onto pad.wav and OK choose it. A tap of PADS/KEYS then makes the pads keys that play pad.
 input 3200 press menu
@@ -39,26 +40,25 @@ input 40000 press step-5
 input 41600 release step-5
 input 43200 release page
 input 44800 turn encoder-4 127
-# Voice page: Trigger Gate, so a note of pad plays its Release once let go. Then down five times to
-# Transpose and + held for 48 moves: +48, so the notes below read pad.wav 4 to 24 times as fast as
-# it was recorded.
+# Voice page: Trigger Gate, so a note of pad plays its Release once let go. Then the Pitch page,
+# down once from Transpose to Fine tune and + held for 49 moves: +49 cents.
 input 46400 press page
 input 48000 press step-6
 input 49600 release step-6
 input 51200 release page
 input 52000 turn encoder-4 -1
-input 52800 press down
-input 54400 release down
-input 56000 press down
-input 57600 release down
+input 52800 press page
+input 54400 press step-7
+input 56000 release step-7
+input 57600 release page
 input 59200 press down
 input 60800 release down
-input 62400 press down
-input 64000 release down
-input 65600 press down
-input 67200 release down
 input 68800 press plus
 input 201800 release plus
+# Pitch amount +48 and Pitch decay 10 s: each note starts four octaves up and falls back over 10 s.
+input 202400 turn encoder-3 48
+input 203000 turn encoder-4 127
+input 203600 turn encoder-4 1
 # Taps of steps 1 to 16 put a note of pad on every sixteenth of bar 1, at C4 in KEYS mode before
 # any key. A tap of TEMPO turns the metronome on, which clicks on each beat while the pattern
 # plays.

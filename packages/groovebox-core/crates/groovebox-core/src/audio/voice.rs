@@ -9,8 +9,8 @@ use crate::message::{NoteEngine, NoteId};
 use crate::param::{
     self, ATTACK, CUTOFF, DECAY, ENVELOPE_AMOUNT, Entry, FILTER_ATTACK, FILTER_DECAY,
     FILTER_RELEASE, FILTER_SUSTAIN, FILTER_VELOCITY, FINE_TUNE, GLIDE_TIME, HP, KEY_FOLLOW, LEVEL,
-    LOOP, LP_12, LP_24, MODE, ONE_SHOT, PAN, ParamId, RELEASE, RESONANCE, ROOT_NOTE, SPREAD,
-    SUSTAIN, TRANSPOSE, TRIGGER, VOLUME_VELOCITY,
+    LOOP, LP_12, LP_24, MODE, ONE_SHOT, PAN, PITCH_AMOUNT, PITCH_DECAY, ParamId, RELEASE,
+    RESONANCE, ROOT_NOTE, SPREAD, SUSTAIN, TRANSPOSE, TRIGGER, VOLUME_VELOCITY,
 };
 use crate::project::pool::{SOUND_VALUES, Sound, SoundNumber};
 use crate::sample_ram::Reader;
@@ -98,6 +98,9 @@ pub struct Voice {
     /// there in a line.
     bend: f32,
     bend_chunks: u32,
+    /// The share of Pitch amount the next chunk the note sounds or reads is still off its pitch by:
+    /// 1 before the note's start, falling over Pitch decay.
+    pitch_drop: f32,
     /// Fixed when the note starts: Spread was above 0, or its sample's file is stereo.
     stereo: bool,
     values: Values,
@@ -128,6 +131,7 @@ impl Voice {
             velocity: 0,
             bend: 0.0,
             bend_chunks: 0,
+            pitch_drop: 0.0,
             stereo: false,
             values: Values([Glide::at(0); SOUND_VALUES]),
             engine: Engine::Synth(Synth::new()),
@@ -207,6 +211,7 @@ impl Voice {
             values,
             ..Self::new()
         };
+        self.restart_pitch_drop();
         self.engine = match engine {
             NoteEngine::Synth => {
                 let mut synth = Synth::new();
@@ -268,6 +273,7 @@ impl Voice {
         if restart {
             self.filter_envelope.start();
             self.volume_envelope.start();
+            self.restart_pitch_drop();
             let speed = rate(self.semitones(), self.values.read(ROOT_NOTE.id));
             if let (Engine::Sample(player), NoteEngine::Sample(sample)) = (&mut self.engine, engine)
             {
@@ -313,12 +319,28 @@ impl Voice {
     }
 
     /// The pitch the note plays in semitones: its key's, bent on its way there, with Transpose and
-    /// Fine tune.
+    /// Fine tune, and its Pitch amount as far as the pitch drop has not fallen.
     fn semitones(&self) -> f32 {
         self.pitch as f32
             + self.bend
             + self.values.read(TRANSPOSE.id) as f32
             + self.values.read(FINE_TUNE.id) as f32 / 100.0
+            + self.pitch_drop * self.values.read(PITCH_AMOUNT.id) as f32
+    }
+
+    /// Starts the pitch drop over: at Pitch amount, then through the chunk the note sounds or reads
+    /// next, so a Pitch decay of 0 leaves even that chunk at the pitch.
+    fn restart_pitch_drop(&mut self) {
+        self.pitch_drop = 1.0;
+        self.pitch_drop = self.fallen_pitch_drop();
+    }
+
+    /// The pitch drop after one more chunk: the distance to the pitch shrinks to 1/1,000 over Pitch
+    /// decay, as an envelope's decay does.
+    fn fallen_pitch_drop(&self) -> f32 {
+        let decay =
+            param::real(&PITCH_DECAY, self.values.read(PITCH_DECAY.id)) * SAMPLE_RATE as f32;
+        flush(self.pitch_drop * libm::powf(0.001, CHUNK as f32 / decay))
     }
 
     /// `render`; without a reader a sample note plays the chunk it read ahead and reads nothing.
@@ -330,6 +352,8 @@ impl Voice {
             self.bend = flush(self.bend - self.bend / self.bend_chunks as f32);
             self.bend_chunks -= 1;
         }
+        let semitones = self.semitones();
+        self.pitch_drop = self.fallen_pitch_drop();
         let read = |id: ParamId| self.values.read(id);
         let real = |entry: &Entry| param::real(entry, read(entry.id));
         let samples = |entry: &Entry| (real(entry) * SAMPLE_RATE as f32) as u32;
@@ -351,7 +375,6 @@ impl Voice {
             self.volume_envelope.release();
         }
 
-        let semitones = self.semitones();
         let mut sources = [[0.0; CHUNK]; 2];
         match &mut self.engine {
             Engine::Synth(synth) => synth.render(
@@ -488,8 +511,8 @@ mod tests {
     use super::*;
     use crate::audio::tests::empty_reader;
     use crate::param::{
-        CUTOFF, FINE_TUNE, GATE, ONE_SHOT, OSCILLATOR_2_INTERVAL, OSCILLATOR_2_LEVEL, SINE, SPREAD,
-        SUPERSAW, SUSTAIN, TRANSPOSE, TRIGGER, VOLUME_VELOCITY, WAVE,
+        CUTOFF, FINE_TUNE, GATE, ONE_SHOT, OSCILLATOR_2_INTERVAL, OSCILLATOR_2_LEVEL, PITCH_AMOUNT,
+        PITCH_DECAY, SINE, SPREAD, SUPERSAW, SUSTAIN, TRANSPOSE, TRIGGER, VOLUME_VELOCITY, WAVE,
     };
     use crate::project::pool::SOUND_DEFAULTS;
     use std::vec::Vec;
@@ -589,6 +612,92 @@ mod tests {
             let crossings = crossings(tuning);
             assert!(crossings.abs_diff(expected) <= 1, "{crossings} crossings");
         }
+    }
+
+    #[test]
+    fn a_note_starts_pitch_amount_semitones_away_and_falls_back_in_pitch_decay() {
+        let mut voice = note(&sound(&[(&PITCH_AMOUNT, 12)]), 69, 127, 1);
+        // The first chunk has fallen one 60th of the default Pitch decay of 40 ms: to 0.89.
+        let first = voice.semitones() - 69.0;
+        assert!((10.0..12.0).contains(&first), "{first}");
+
+        // The chunk after 40 ms, 60 chunks, is within a thousandth of the amount of its pitch.
+        play(&mut voice, 60);
+        let left = voice.semitones() - 69.0;
+        assert!((0.0..=12.0 / 1_000.0).contains(&left), "{left}");
+
+        // The synth sounds it: in 100 ms of a 10 s decay a sine's 44 cycles at 440 Hz become 86.
+        let crossings = |amount| {
+            let values = sound(&[
+                (&WAVE, SINE),
+                (&PITCH_AMOUNT, amount),
+                (&PITCH_DECAY, 65_535),
+            ]);
+            upward_crossings(&play(&mut note(&values, 69, 127, 1), SECOND / 10)[0])
+        };
+        assert!(crossings(0).abs_diff(44) <= 1);
+        assert!(crossings(12).abs_diff(86) <= 3);
+    }
+
+    #[test]
+    fn a_pitch_decay_of_0_leaves_every_chunk_at_the_notes_pitch() {
+        let values = sound(&[(&PITCH_AMOUNT, 48), (&PITCH_DECAY, 0)]);
+        for engine in [NoteEngine::Synth, NoteEngine::Sample(None)] {
+            let mut voice = Voice::new();
+            voice.start(
+                NoteId(0),
+                0,
+                SoundNumber(1),
+                69,
+                127,
+                1,
+                engine,
+                &values,
+                &empty_reader(),
+            );
+
+            assert_eq!(voice.semitones(), 69.0);
+            for _ in 0..8 {
+                play(&mut voice, 1);
+                assert_eq!(voice.semitones(), 69.0);
+            }
+        }
+    }
+
+    #[test]
+    fn a_pitch_amount_of_0_renders_exactly_as_no_drop_does() {
+        let render = |decay| {
+            let values = sound(&[(&PITCH_DECAY, decay)]);
+            play(&mut note(&values, 60, 127, 1), 100)
+        };
+
+        assert_eq!(
+            render(PITCH_DECAY.default).map(|channel| bits(&channel)),
+            render(0).map(|channel| bits(&channel))
+        );
+    }
+
+    #[test]
+    fn a_change_without_restart_keeps_the_pitch_drop_running_and_a_restart_starts_it_over() {
+        let values = sound(&[(&PITCH_AMOUNT, 12)]);
+        let pitch_after_a_change = |restart| {
+            let mut voice = note(&values, 60, 127, 1);
+            play(&mut voice, 60);
+            voice.change(
+                NoteId(1),
+                72,
+                127,
+                restart,
+                false,
+                NoteEngine::Synth,
+                &empty_reader(),
+            );
+            play(&mut voice, 1);
+            voice.semitones() - 72.0
+        };
+
+        assert!((0.0..=12.0 / 1_000.0).contains(&pitch_after_a_change(false)));
+        assert!(pitch_after_a_change(true) > 9.0);
     }
 
     #[test]

@@ -82,8 +82,9 @@ Master:                  all 4 tracks mixed → master level → + sample previe
      choice)**; in legato it keeps its place and its file and only the pitch moves, as the EP-133's
      legato carries on from the same play position. A synth restart moves from the old note's volume
      to the new one's within one 32-sample chunk, so the level never steps **(owner's choice)**;
-   - every 32-sample chunk: the current pitch with glide already applied, whether the note is held,
-     and its parameter values, read through Foundation's single parameter-read step;
+   - every 32-sample chunk: the current pitch with glide and the pitch envelope's drop already
+     applied, whether the note is held, and its parameter values, read through Foundation's single
+     parameter-read step;
    - finally: release, or a stop when the voice is taken.
 4. **What an engine returns:** its audio, with the channel count fixed when the note starts, plus
    "still sounding" or "finished". Samples report "finished" at their end; later drum models when
@@ -155,9 +156,9 @@ A supersaw voice costs about 3 to 5 times a basic voice; the worst-case tests co
   recorded, while a synth stays at C4 (Workflow B). KEYS mode plays it chromatically from the root
   note, at the key's pitch.
 - **Pitch changes** by reading faster or slower: the sample is read
-  `2^((pitch + Transpose + Fine tune / 100 − Root note) / 12)` times as fast, with 4-point cubic
-  Hermite interpolation: clean even far from the root note, at about four times the cost of the
-  crudest method.
+  `2^((pitch + Transpose + Fine tune / 100 + the pitch envelope's drop − Root note) / 12)` times as
+  fast, with 4-point cubic Hermite interpolation: clean even far from the root note, at about four
+  times the cost of the crudest method.
 - A sample that is not looping reports "finished" at End (at Start in reverse) in either trigger,
   and the voice is free from then on. In gate trigger letting go releases the note, as for a synth.
 - **A sample that ends by itself** (not looping, so it ends at End, or at Start in reverse) fades to
@@ -213,6 +214,15 @@ Every layer of every note runs through this chain after its engine, the same for
 5. **Level and pan;** for stereo voices pan works as balance.
 6. **Tuning:** transpose from −48 to +48 semitones and fine tune from −50 to +50 cents, as on the
    JD-Xi, for every sound. Each moves one unit per click, and SHIFT changes nothing on them.
+   - **Pitch envelope (owner's choice):** pitch amount, from −48 to +48 semitones, is how far above
+     the note's pitch a note starts, below when negative; it moves one unit per click and SHIFT
+     changes nothing. Pitch decay, a time as the envelopes' have, 0 to 10 s, is how fast the note
+     falls back to its pitch: exponentially, to a thousandth of the amount in that time, as the
+     envelopes' decay falls. A pitch decay of 0 gives no drop at all.
+   - The drop is a fraction from 1 to 0 times the current pitch amount, so turning pitch amount
+     during a note moves the pitch at once. It restarts whenever the envelopes restart: with a new
+     note and, in mono, with every change of key; in legato it keeps running. It moves the pitch of
+     a synth, the rate a sample is read at and the filter's key follow alike.
 7. **Play mode:** poly, mono, or mono with legato; a glide time; glide always or only between
    overlapping notes. Each engine declares which modes it allows.
    - Mono and legato sound the newest held key. Letting go of it goes back to the newest key still
@@ -235,15 +245,17 @@ PAD page comes before them and they keep this order:
 - volume envelope: attack, decay, sustain, release, velocity amount, level, pan; the encoders hold
   attack, decay, sustain and release **(owner's choice)**;
 - voice: play mode, glide time, glide always or only between overlapping notes, trigger mode, choke
-  group, transpose, fine tune; the encoders hold play mode, glide time, glide always or only between
-  overlapping notes and trigger mode **(owner's choice)**.
+  group; the encoders hold play mode, glide time, glide always or only between overlapping notes and
+  trigger mode **(owner's choice)**;
+- pitch: transpose, fine tune, pitch amount, pitch decay; all four on the encoders **(owner's
+  choice)**.
 
 **Starting sound,** what NEW SYNTH puts on a pad, written in code and expected to change: a plain
 open saw. The wave is saw and the filter is open: low-pass 24 dB, cutoff 100%, resonance 0%,
 envelope amount +0 and key follow 0%. The volume starts at once, holds full while a key is held and
 fades out over about 100 ms once it is let go; level 80%. The voice is poly with a gate trigger, a
-glide time of 0 ms, no choke group and no transpose. Sub level, noise level, spread and the second
-oscillator's level are 0. Every number is a constant tuned by ear.
+glide time of 0 ms, no choke group, no transpose and a pitch amount of +0. Sub level, noise level,
+spread and the second oscillator's level are 0. Every number is a constant tuned by ear.
 
 ## Voices
 

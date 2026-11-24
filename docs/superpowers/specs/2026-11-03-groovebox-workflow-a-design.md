@@ -258,6 +258,7 @@ TEMPO is held its timing strip; their screen routes are the NOTE panel and PATTE
   | 4           | filter envelope                         |
   | 5           | volume envelope                         |
   | 6           | voice                                   |
+  | 7           | pitch                                   |
 
   Each page names in code which of its items the encoders hold, up to four; Sound lists the starting
   choices. A page with fewer than four such items leaves an encoder, and its strip cell, empty.

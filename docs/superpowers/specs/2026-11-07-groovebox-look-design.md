@@ -334,9 +334,9 @@ name, an empty pad with its number only and the selected pad in the accent; a sa
 waveform with the start and end marks; an envelope page shows the envelope's shape; a filter page
 shows the filter's curve with a faint line at the cutoff. Richer graphics come later.
 
-- **SOUND**: the six pages Workflow A lists (Pad, the engine, Filter, Filter envelope, Volume
-  envelope, Voice), each drawn this way, each a whole group: Filter is seven items, the sample
-  engine eight.
+- **SOUND**: the seven pages Workflow A lists (Pad, the engine, Filter, Filter envelope, Volume
+  envelope, Voice, Pitch), each drawn this way, each a whole group: Filter is seven items, the
+  sample engine eight.
   - **The sample page's points.** Start, End, Loop start and Loop end are frames of the sound's file
     and show a percent of its length with one decimal, "4.2%", so every fine click shows;
     `sound-sample.png` shows whole percents.

@@ -226,3 +226,20 @@ pub const FINE_TUNE: Entry = Entry {
     high: 50,
     ..COUNT_SOUND
 };
+
+/// How many semitones above the note's pitch a note starts; below when negative.
+pub const PITCH_AMOUNT: Entry = Entry {
+    id: ParamId(1037),
+    name: "Pitch amount",
+    low: -48,
+    high: 48,
+    ..COUNT_SOUND
+};
+
+/// How long a note takes to fall back to its pitch.
+pub const PITCH_DECAY: Entry = Entry {
+    id: ParamId(1038),
+    name: "Pitch decay",
+    default: 10_403,
+    ..TIME_SOUND
+};

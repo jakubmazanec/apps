@@ -262,6 +262,8 @@ pub const ENTRIES: &[Entry] = &[
     CHOKE_GROUP,
     TRANSPOSE,
     FINE_TUNE,
+    PITCH_AMOUNT,
+    PITCH_DECAY,
     WAVE,
     SHAPE,
     SPREAD,
@@ -811,9 +813,9 @@ mod tests {
     };
 
     #[test]
-    fn the_list_passes_its_check_with_40_sound_4_device_2_project_and_2_track_entries() {
+    fn the_list_passes_its_check_with_42_sound_4_device_2_project_and_2_track_entries() {
         assert_eq!(check(ENTRIES), Ok(()));
-        assert_eq!(count(ENTRIES, Scope::Sound), 40);
+        assert_eq!(count(ENTRIES, Scope::Sound), 42);
         assert_eq!(count(ENTRIES, Scope::Device), 4);
         assert_eq!(count(ENTRIES, Scope::Project), 2);
         assert_eq!(count(ENTRIES, Scope::Track), 2);
@@ -887,6 +889,9 @@ mod tests {
     fn counts_ignore_shift() {
         assert_eq!(moved(&TRANSPOSE, 0, 1, true), 1);
         assert_eq!(moved(&FINE_TUNE, 50, 1, false), 50);
+        assert_eq!(moved(&PITCH_AMOUNT, 47, 1, true), 48);
+        assert_eq!(moved(&PITCH_AMOUNT, 48, 1, false), 48);
+        assert_eq!(moved(&PITCH_AMOUNT, -47, -5, false), -48);
     }
 
     #[test]
@@ -906,6 +911,9 @@ mod tests {
         assert_eq!(text(&TRANSPOSE, 12).as_str(), "+12");
         assert_eq!(text(&TRANSPOSE, -7).as_str(), "\u{2212}7");
         assert_eq!(text(&TRANSPOSE, 0).as_str(), "+0");
+        assert_eq!(text(&PITCH_AMOUNT, 0).as_str(), "+0");
+        assert_eq!(text(&PITCH_AMOUNT, 48).as_str(), "+48");
+        assert_eq!(text(&PITCH_AMOUNT, -48).as_str(), "\u{2212}48");
     }
 
     #[test]
@@ -916,6 +924,8 @@ mod tests {
         assert_eq!(text(&ATTACK, 49_151).as_str(), "4.2 s");
         assert_eq!(text(&ATTACK, 65_535).as_str(), "10.0 s");
         assert_eq!(text(&GLIDE_TIME, 65_535).as_str(), "2.0 s");
+        assert_eq!(text(&PITCH_DECAY, PITCH_DECAY.default).as_str(), "40 ms");
+        assert_eq!(text(&PITCH_DECAY, 65_535).as_str(), "10.0 s");
     }
 
     #[test]
@@ -951,6 +961,7 @@ mod tests {
         assert_eq!(default(&LEVEL), 52_428);
         assert_eq!(default(&PLAY_MODE), POLY);
         assert_eq!(default(&TRIGGER), GATE);
+        assert_eq!(default(&PITCH_AMOUNT), 0);
     }
 
     #[test]

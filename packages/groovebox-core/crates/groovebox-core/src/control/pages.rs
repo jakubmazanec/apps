@@ -5,10 +5,10 @@ use crate::param::{
     DELAY_TONE, END, ENVELOPE_AMOUNT, Entry, FILTER_ATTACK, FILTER_DECAY, FILTER_RELEASE,
     FILTER_SUSTAIN, FILTER_TYPE, FILTER_VELOCITY, FINE_TUNE, GLIDE, GLIDE_TIME, KEY_FOLLOW, LEVEL,
     LOOP, LOOP_END, LOOP_START, MASTER_LEVEL, METRONOME, METRONOME_LEVEL, MODE, NOISE_LEVEL,
-    OSCILLATOR_2_FINE_TUNE, OSCILLATOR_2_INTERVAL, OSCILLATOR_2_LEVEL, PAN, PLAY_MODE, ParamId,
-    RELEASE, RESONANCE, REVERB_DECAY, REVERB_LEVEL, REVERB_PRE_DELAY, REVERB_TONE, REVERSE,
-    ROOT_NOTE, SHAPE, SPREAD, START, SUB_LEVEL, SUSTAIN, TEMPO, TRANSPOSE, TRIGGER, VELOCITY,
-    VOLUME_VELOCITY, WAVE,
+    OSCILLATOR_2_FINE_TUNE, OSCILLATOR_2_INTERVAL, OSCILLATOR_2_LEVEL, PAN, PITCH_AMOUNT,
+    PITCH_DECAY, PLAY_MODE, ParamId, RELEASE, RESONANCE, REVERB_DECAY, REVERB_LEVEL,
+    REVERB_PRE_DELAY, REVERB_TONE, REVERSE, ROOT_NOTE, SHAPE, SPREAD, START, SUB_LEVEL, SUSTAIN,
+    TEMPO, TRANSPOSE, TRIGGER, VELOCITY, VOLUME_VELOCITY, WAVE,
 };
 use crate::project::pool::{Engine, Sound};
 use crate::project::track::{Effect, Slot};
@@ -262,8 +262,16 @@ const VOICE: PageDef = PageDef {
         item(GLIDE, Some(2)),
         item(TRIGGER, Some(3)),
         item(CHOKE_GROUP, None),
-        item(TRANSPOSE, None),
-        item(FINE_TUNE, None),
+    ],
+    picture: None,
+};
+const PITCH: PageDef = PageDef {
+    name: "Pitch",
+    items: &[
+        item(TRANSPOSE, Some(0)),
+        item(FINE_TUNE, Some(1)),
+        item(PITCH_AMOUNT, Some(2)),
+        item(PITCH_DECAY, Some(3)),
     ],
     picture: None,
 };
@@ -390,9 +398,18 @@ pub(super) const NOTE: [ItemDef; 4] = [
     },
 ];
 
-/// SOUND's pages for a sound: `pad`, the page of its engine, then those of its chain and voice.
-const fn sound_pages(pad: PageDef, engine: PageDef) -> [PageDef; 6] {
-    [pad, engine, FILTER, FILTER_ENVELOPE, VOLUME_ENVELOPE, VOICE]
+/// SOUND's pages for a sound: `pad`, the page of its engine, then those of its chain, voice and
+/// pitch.
+const fn sound_pages(pad: PageDef, engine: PageDef) -> [PageDef; 7] {
+    [
+        pad,
+        engine,
+        FILTER,
+        FILTER_ENVELOPE,
+        VOLUME_ENVELOPE,
+        VOICE,
+        PITCH,
+    ]
 }
 
 /// The pages of `screen` in the order of their steps under PAGE, while `sound` is the selected
@@ -401,10 +418,10 @@ const fn sound_pages(pad: PageDef, engine: PageDef) -> [PageDef; 6] {
 /// POOL have none.
 ///
 /// SOUND works on the track's selected pad: its Pad page, then the page of the sound's engine
-/// (Sample or Synth) and the pages of its chain and its voice. While that pad is empty there is no
-/// sound to copy or to shape, and SOUND has only the Pad page with its Sound item. A sound
-/// selected on no pad has no pad to put a sound on or to copy to, so its Pad page holds Engine
-/// alone, on encoder 3. FX has its Chain page, then a page for each slot in chain order, its
+/// (Sample or Synth) and the pages of its chain, its voice and its pitch. While that pad is empty
+/// there is no sound to copy or to shape, and SOUND has only the Pad page with its Sound item. A
+/// sound selected on no pad has no pad to put a sound on or to copy to, so its Pad page holds
+/// Engine alone, on encoder 3. FX has its Chain page, then a page for each slot in chain order, its
 /// effect's or an empty slot's (S16). PATTERN has its Timing and Bars pages and MIX its one page.
 pub fn pages(screen: Screen, sound: Option<&Sound>, pad: bool, slots: &[Slot; 6]) -> Pages {
     let pages: &[PageDef] = match screen {

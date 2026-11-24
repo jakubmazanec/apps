@@ -5,8 +5,8 @@ use crate::param::{
     ATTACK, CHOKE_GROUP, CUTOFF, DECAY, ENVELOPE_AMOUNT, FILTER_ATTACK, FILTER_DECAY,
     FILTER_RELEASE, FILTER_SUSTAIN, FILTER_TYPE, FILTER_VELOCITY, FINE_TUNE, GLIDE, GLIDE_TIME, HP,
     KEY_FOLLOW, LEVEL, LP_12, MODE, NOISE_LEVEL, OSCILLATOR_2_FINE_TUNE, OSCILLATOR_2_INTERVAL,
-    OSCILLATOR_2_LEVEL, PAN, PLAY_MODE, PULSE, RELEASE, RESONANCE, SHAPE, SPREAD, SUB_LEVEL,
-    SUPERSAW, SUSTAIN, TRANSPOSE, TRIGGER, VOLUME_VELOCITY, WAVE,
+    OSCILLATOR_2_LEVEL, PAN, PITCH_AMOUNT, PITCH_DECAY, PLAY_MODE, PULSE, RELEASE, RESONANCE,
+    SHAPE, SPREAD, SUB_LEVEL, SUPERSAW, SUSTAIN, TRANSPOSE, TRIGGER, VOLUME_VELOCITY, WAVE,
 };
 use crate::ui::layout::HEADER_LINE;
 use crate::ui::list::{Row, draw_rows};
@@ -1271,7 +1271,7 @@ pub(super) fn set_param(sound: SoundNumber, id: ParamId, value: i32) -> MessageK
 }
 
 #[test]
-fn sound_has_six_pages_while_the_pad_has_a_synth() {
+fn sound_has_seven_pages_while_the_pad_has_a_synth() {
     let queue = Queue::new();
     let mut rig = Rig::new(&queue);
     rig.synth_on(0);
@@ -1286,12 +1286,13 @@ fn sound_has_six_pages_while_the_pad_has_a_synth() {
         "Filter envelope",
         "Volume envelope",
         "Voice",
+        "Pitch",
     ];
     let shown: [Tile; 16] = core::array::from_fn(|at| Tile {
         name: names.get(at).copied(),
         state: match at {
             0 => TileState::Current,
-            1..=5 => TileState::Exists,
+            1..=6 => TileState::Exists,
             _ => TileState::Empty,
         },
     });
@@ -1309,6 +1310,7 @@ fn sound_has_six_pages_while_the_pad_has_a_synth() {
             step(3),
             step(4),
             step(5),
+            step(6),
             track(0)
         ]
     );
@@ -1320,7 +1322,7 @@ fn each_page_holds_its_items_on_the_encoders() {
     let mut rig = Rig::new(&queue);
     rig.synth_on(0);
     rig.menu(0, 2);
-    let pages: [(&str, &[(&str, ParamId)]); 5] = [
+    let pages: [(&str, &[(&str, ParamId)]); 6] = [
         (
             "Synth",
             &[
@@ -1375,8 +1377,15 @@ fn each_page_holds_its_items_on_the_encoders() {
                 ("Glide", GLIDE.id),
                 ("Trigger", TRIGGER.id),
                 ("Choke group", CHOKE_GROUP.id),
+            ],
+        ),
+        (
+            "Pitch",
+            &[
                 ("Transpose", TRANSPOSE.id),
                 ("Fine tune", FINE_TUNE.id),
+                ("Pitch amount", PITCH_AMOUNT.id),
+                ("Pitch decay", PITCH_DECAY.id),
             ],
         ),
     ];
@@ -1514,11 +1523,8 @@ fn counts_ignore_shift_and_smooth_values_go_finer() {
     rig.synth_on(0);
     rig.menu(0, 2);
 
-    // Voice: the cursor down to Transpose, then SHIFT + plus moves it one semitone.
-    rig.page(10, 5);
-    for at in 0..5 {
-        rig.tap(100 + 10 * at, Button::Down);
-    }
+    // Pitch: the cursor is on Transpose, and SHIFT + plus moves it one semitone.
+    rig.page(10, 6);
     rig.press(200, Button::Shift);
     rig.tap(210, Button::Plus);
     rig.let_go(220, Button::Shift);
