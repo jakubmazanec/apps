@@ -105,6 +105,8 @@ export async function runShell({
   let setting = stored === undefined;
   let card = document.createElement('div');
   let outline = document.createElement('div');
+  // The row's height when the panel was last fitted
+  let fittedRowHeight = 0;
 
   // The line says "Click to start" until the audio runs, and then whether MIDI was refused
   let showStatus = () => {
@@ -343,35 +345,43 @@ export async function runShell({
     }
   };
 
-  // The browser view arranges the panel and the row to fit the window, and the real-size view draws
-  // the device at its size with the row under it, and the bank card over its corner while its size
-  // is set
+  // The browser view arranges the panel and the row to fit the window, with the row's height
+  // measured at each width it may get, as its text wraps. The real-size view draws the device at its
+  // size with the row under it and the bank card over its corner while its size is set
   let fitted = () => {
-    let browser =
+    note.textContent =
+      view === 'real-size' ? 'At real size the screen is not pixel-exact.'
+      : Number.isInteger(window.devicePixelRatio) ? ''
+      : 'This display scale cannot show the screen pixel-exactly.';
+    switchView.textContent = view === 'browser' ? 'Real size' : 'Browser view';
+    setSize.hidden = view === 'browser';
+    row.style.position = 'absolute';
+
+    let arrangement =
       view === 'browser' ?
-        fitPanel({width: window.innerWidth, height: window.innerHeight}, window.devicePixelRatio)
-      : undefined;
-    let arrangement = browser ?? realSizePanel(pixelsPerMm);
+        fitPanel(
+          {width: window.innerWidth, height: window.innerHeight},
+          window.devicePixelRatio,
+          (width) => {
+            row.style.width = `${width}px`;
+
+            return row.getBoundingClientRect().height;
+          },
+        )
+      : realSizePanel(pixelsPerMm);
     let built = buildPanel(container, arrangement);
 
-    note.textContent =
-      browser === undefined ? 'At real size the screen is not pixel-exact.'
-      : browser.exact ? ''
-      : 'This display scale cannot show the screen pixel-exactly.';
-    switchView.textContent = browser ? 'Real size' : 'Browser view';
-    setSize.hidden = browser !== undefined;
     Object.assign(row.style, {
-      position: 'absolute',
       left: `${arrangement.row.x}px`,
       top: `${arrangement.row.y}px`,
       width: `${arrangement.row.width}px`,
-      height: `${arrangement.row.height}px`,
     });
+    fittedRowHeight = row.getBoundingClientRect().height;
     outline.style.width = `${CARD_MM.width * pixelsPerMm}px`;
     outline.style.height = `${CARD_MM.height * pixelsPerMm}px`;
     card.remove();
 
-    if (!browser && setting) {
+    if (view === 'real-size' && setting) {
       container.append(card);
     }
 
@@ -387,11 +397,33 @@ export async function runShell({
     panel = fitted();
   };
 
-  card.className = 'absolute top-2 left-2 flex items-end gap-2 text-xs';
-  outline.className =
-    'flex items-center justify-center rounded bg-white shadow-[inset_0_0_0_2px_#1e1e1e]';
+  // A row whose text changes its height, after the first click for one, is fitted again
+  let rowResize = new ResizeObserver(() => {
+    if (row.getBoundingClientRect().height !== fittedRowHeight) {
+      fit();
+    }
+  });
+
+  rowResize.observe(row);
+  // The buttons sit left of the card, where its growth does not move them
+  Object.assign(card.style, {
+    position: 'absolute',
+    left: '8px',
+    top: '8px',
+    display: 'flex',
+    alignItems: 'start',
+    gap: '8px',
+    fontSize: '12px',
+  });
+  Object.assign(outline.style, {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: '4px',
+    background: '#ffffff',
+    boxShadow: 'inset 0 0 0 2px #1e1e1e',
+  });
   outline.textContent = 'Match a bank card held here';
-  card.append(outline);
 
   // − and + make the card smaller or bigger, and Done keeps its size
   for (let [text, change] of [
@@ -418,7 +450,7 @@ export async function runShell({
     let button = document.createElement('button');
 
     button.type = 'button';
-    button.className = 'rounded border border-[#969692] bg-[#ecece8] px-2';
+    button.className = saveSession.className;
     button.textContent = text;
     button.addEventListener(
       'click',
@@ -430,6 +462,8 @@ export async function runShell({
     );
     card.append(button);
   }
+
+  card.append(outline);
 
   // The window sends no resize when only the display scale changes
   let refitOnDisplayScaleChange = () => {
@@ -590,6 +624,7 @@ export async function runShell({
     stop: () => {
       cancelAnimationFrame(frame);
       listening.abort();
+      rowResize.disconnect();
       panel.dispose();
       card.remove();
       worker.terminate();

@@ -1,6 +1,5 @@
 import {describe, expect, onTestFinished, test, vitest} from 'vitest';
 
-import {MM_PER_PIXEL, PANEL_PIXELS} from '../source/shell/panelLayout.js';
 import {realSizePanel} from '../source/shell/present.js';
 import {storedPixelsPerMm, storedView, storePixelsPerMm, storeView} from '../source/shell/view.js';
 
@@ -71,9 +70,8 @@ describe(storedPixelsPerMm, () => {
     storePixelsPerMm(4.2);
 
     expect(storedPixelsPerMm()).toBe(4.2);
-    expect(realSizePanel(storedPixelsPerMm() ?? 0).width).toBe(
-      PANEL_PIXELS.width * MM_PER_PIXEL * 4.2,
-    );
+    // The device's 321 mm, to half a mm
+    expect(realSizePanel(storedPixelsPerMm() ?? 0).width / 4.2).toBeCloseTo(321, 0);
   });
 
   test.each(['', 'wide', '0', '-3', 'Infinity'])('is not set by the item "%s"', (item) => {

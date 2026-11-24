@@ -143,6 +143,13 @@ function control(name: string) {
   return document.querySelector(`[data-control="${name}"]`) as HTMLElement;
 }
 
+// Where a control of the panel is on the page
+function placeOf(name: string) {
+  let {x, y, width, height} = control(name).getBoundingClientRect();
+
+  return {x, y, width, height};
+}
+
 function button(text: string) {
   return [...document.querySelectorAll('button')].find(
     (candidate) => candidate.textContent === text,
@@ -268,16 +275,32 @@ function shown({panel, note}: {panel: HTMLElement; note: HTMLElement}) {
   return {width, height, note: note.textContent};
 }
 
-function fitted(ratio: number) {
-  let {screen, exact} = fitPanel(
+// The row's height at a width, measured as the shell measures it, with the row's own width kept
+function rowHeightAt(row: HTMLElement) {
+  return (width: number) => {
+    let kept = row.style.width;
+
+    row.style.width = `${width}px`;
+
+    let {height} = row.getBoundingClientRect();
+
+    row.style.width = kept;
+
+    return height;
+  };
+}
+
+function fitted(ratio: number, row: HTMLElement) {
+  let {screen} = fitPanel(
     {width: globalThis.innerWidth, height: globalThis.innerHeight},
     ratio,
+    rowHeightAt(row),
   );
 
   return {
     width: `${screen.width}px`,
     height: `${screen.height}px`,
-    note: exact ? '' : 'This display scale cannot show the screen pixel-exactly.',
+    note: Number.isInteger(ratio) ? '' : 'This display scale cannot show the screen pixel-exactly.',
   };
 }
 
@@ -379,29 +402,32 @@ describe(runShell, () => {
   });
 
   test.each([
-    {window: {width: 1700, height: 900}, ratio: 1},
-    {window: {width: 1700, height: 900}, ratio: 2},
-    {window: {width: 390, height: 660}, ratio: 3},
-    {window: {width: 750, height: 340}, ratio: 3},
+    {viewport: {width: 1700, height: 900}, ratio: 1},
+    {viewport: {width: 1700, height: 900}, ratio: 2},
+    {viewport: {width: 390, height: 660}, ratio: 3},
+    {viewport: {width: 750, height: 340}, ratio: 3},
+    {viewport: {width: 915, height: 356}, ratio: 2.625},
   ])(
-    'the browser view fills the window with the screen at its zoom ($window.width × $window.height at $ratio)',
-    async ({window, ratio}) => {
-      await page.viewport(window.width, window.height);
+    'the browser view fills the window with the screen at its zoom ($viewport.width × $viewport.height at $ratio)',
+    async ({viewport, ratio}) => {
+      await page.viewport(viewport.width, viewport.height);
       stubDisplayScale(ratio);
 
       let elements = await runMounted();
-      let layout = fitPanel(window, ratio);
+      let layout = fitPanel(viewport, ratio, rowHeightAt(elements.row));
       let canvas = elements.panel.querySelector('canvas') as HTMLCanvasElement;
+      let row = elements.row.getBoundingClientRect();
       let {scrollWidth, scrollHeight} = document.scrollingElement as Element;
 
       expect(elements.panel.firstElementChild?.getBoundingClientRect().toJSON()).toMatchObject({
         left: 0,
         top: 0,
-        ...window,
+        ...viewport,
       });
       expect(canvas.getBoundingClientRect().toJSON()).toMatchObject(near(layout.screen));
       expect([canvas.width, canvas.height]).toEqual([480, 272]);
-      expect(elements.row.getBoundingClientRect().toJSON()).toMatchObject(near(layout.row));
+      expect(row.toJSON()).toMatchObject(near({...layout.row, height: row.height}));
+      expect(row.bottom).toBeLessThanOrEqual(viewport.height);
 
       for (let {control: name, x, y, width, height} of layout.controls) {
         expect(control(name).getBoundingClientRect().toJSON()).toMatchObject(
@@ -433,15 +459,15 @@ describe(runShell, () => {
     let changeRatio = stubDisplayScale(1);
     let elements = await runMounted();
 
-    expect(shown(elements)).toEqual(fitted(1));
+    expect(shown(elements)).toEqual(fitted(1, elements.row));
 
     changeRatio(1.25);
 
-    expect(shown(elements)).toEqual(fitted(1.25));
+    expect(shown(elements)).toEqual(fitted(1.25, elements.row));
 
     changeRatio(2);
 
-    expect(shown(elements)).toEqual(fitted(2));
+    expect(shown(elements)).toEqual(fitted(2, elements.row));
   });
 
   test('a display scale change after stop is ignored', async () => {
@@ -452,7 +478,7 @@ describe(runShell, () => {
     elements.stop();
     changeRatio(1.25);
 
-    expect(before).toEqual(fitted(1));
+    expect(before).toEqual(fitted(1, elements.row));
     expect(elements.panel.children).toHaveLength(0);
   });
 
@@ -472,8 +498,19 @@ describe(runShell, () => {
     expect(shell.note.textContent).toBe('At real size the screen is not pixel-exact.');
     expect(localStorage.getItem('groovebox-view')).toBe('real-size');
 
+    let plus = () => {
+      let {x, y} = (button('+') as HTMLButtonElement).getBoundingClientRect();
+
+      return {x, y};
+    };
+    let before = plus();
+
     await userEvent.click(button('+') as HTMLButtonElement);
     await userEvent.click(button('+') as HTMLButtonElement);
+
+    // The card grows, and its buttons stay under the pointer
+    expect(plus()).toEqual(before);
+
     await userEvent.click(button('Done') as HTMLButtonElement);
 
     let pixelsPerMm = (96 / 25.4) * 1.01 * 1.01;
@@ -493,6 +530,66 @@ describe(runShell, () => {
     expect(inputs()).toEqual([]);
 
     await userEvent.keyboard('{/KeyL}');
+  });
+
+  test('a row that wraps is given its height, and the panel is fitted again when its text changes', async () => {
+    let viewport = {width: 915, height: 356};
+
+    await page.viewport(viewport.width, viewport.height);
+    stubDisplayScale(2.625);
+
+    let shell = await runMounted();
+    let before = placeOf('encoder-1');
+
+    // The shell sets the status line, here to one long enough to need a line of its own
+    shell.status.textContent =
+      'MIDI not allowed: a status line long enough to need a line of its own';
+
+    let fitAgain = fitPanel(viewport, 2.625, rowHeightAt(shell.row));
+
+    await expect
+      .poll(() => placeOf('encoder-1'))
+      .toMatchObject(
+        near(fitAgain.controls.find(({control: name}) => name === 'encoder-1') ?? before),
+      );
+
+    let {scrollWidth, scrollHeight} = document.scrollingElement as Element;
+
+    expect(placeOf('encoder-1')).not.toEqual(before);
+    expect(shell.row.getBoundingClientRect().bottom).toBeLessThanOrEqual(viewport.height);
+    expect([scrollWidth, scrollHeight]).toEqual([viewport.width, viewport.height]);
+  });
+
+  test('a stored real-size view starts at real size, with the bank card until the size is set', async () => {
+    localStorage.setItem('groovebox-view', 'real-size');
+
+    let shell = await runMounted();
+
+    expect([shell.switchView.textContent, shell.setSize.hidden]).toEqual(['Browser view', false]);
+    expect(shell.panel.firstElementChild?.getBoundingClientRect().width).toBeCloseTo(
+      1622 * 0.198 * (96 / 25.4),
+      1,
+    );
+    expect(button('Done')).toBeDefined();
+  });
+
+  test('a stored size draws the device at it without the card, and "Set size" shows the card again', async () => {
+    localStorage.setItem('groovebox-view', 'real-size');
+    localStorage.setItem('groovebox-pixels-per-mm', '5');
+
+    let shell = await runMounted();
+    let width = () => shell.panel.firstElementChild?.getBoundingClientRect().width;
+
+    expect(width()).toBeCloseTo(1622 * 0.198 * 5, 1);
+    expect(button('Done')).toBeUndefined();
+
+    await userEvent.click(shell.setSize);
+    await userEvent.click(button('−') as HTMLButtonElement);
+    await userEvent.click(button('Done') as HTMLButtonElement);
+
+    expect(width()).toBeCloseTo((1622 * 0.198 * 5) / 1.01, 1);
+    expect(Number(localStorage.getItem('groovebox-pixels-per-mm'))).toBeCloseTo(5 / 1.01);
+    expect(button('Done')).toBeUndefined();
   });
 
   test('L held and a click on step 8 shows SETTINGS', async () => {

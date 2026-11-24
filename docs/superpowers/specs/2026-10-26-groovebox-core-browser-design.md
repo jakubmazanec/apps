@@ -398,7 +398,8 @@ Spec: [Look and panel](./2026-11-07-groovebox-look-design.md). In short:
   STEP button**: STEP is MENU + 1. Layout D is replaced.
 - **Lights are single colour, on or off** **(decided)**; dimming only if the hardware gives it for
   free. Only pads, steps, T1–T4, REC, PLAY, TEMPO, ROLL and PADS/KEYS have lights.
-- **The browser shell** zooms the screen by whole monitor pixels only; mouse, computer keyboard and
+- **The browser shell** zooms the screen by whole monitor pixels only, except in the real-size view
+  that shows the device at its true size (Look, "The browser shell"); mouse, computer keyboard and
   USB MIDI map to the abstract controls, with velocity and aftertouch from MIDI; WAV files dropped
   on the page go into the library; development meters are a Dev page on SETTINGS **(decided)**.
 - **The repo holds the spec and a folder of PNGs**, one per approved screen state, the first screen

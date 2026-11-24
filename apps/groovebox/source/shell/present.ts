@@ -23,9 +23,10 @@ export function expandFrame(
 }
 
 // What the panel draws, in CSS px from its top-left corner: its size, the screen's canvas, the
-// display's black module at real size, every control and the row with the status line and the
-// buttons. The radii, borders and labels are drawn at `scale` CSS px a screen pixel. A knob's label
-// sits under it at real size and on it in the browser view, where nothing is under a knob
+// display's black module at real size, every control and where the row with the status line and
+// the buttons starts, which is as tall as its text. The radii, borders and labels are drawn at
+// `scale` CSS px a screen pixel. A knob's label sits under it at real size and on it in the browser
+// view, where nothing is under a knob
 export type Arrangement = {
   width: number;
   height: number;
@@ -33,16 +34,14 @@ export type Arrangement = {
   screen: Rectangle;
   module?: Rectangle;
   controls: PanelControl[];
-  row: Rectangle;
+  row: Pick<Rectangle, 'width' | 'x' | 'y'>;
   labelsUnderKnobs: boolean;
 };
 
-// The browser view's spacing in CSS px: a margin at the window's edges and between blocks, a gap
-// between the controls of a block, and the least height of the row with the status line and the
-// buttons, two lines of its text
+// The browser view's spacing in CSS px: a margin at the window's edges and between blocks and a gap
+// between the controls of a block
 const MARGIN = 8;
 const GAP = 3;
-const ROW = 40;
 
 // The least size of a played control: the goal, and the floor that a phone too narrow for the goal
 // takes before its screen drops a zoom
@@ -68,6 +67,9 @@ const BY_NAME = new Map<string, PanelControl>(
 // The device's key in screen pixels, which the browser view draws at the size of its keys
 const DEVICE_KEY = toScreenPixels((BY_NAME.get('t1') as PanelControl).width);
 
+// The device's step, 12 × 10 mm, whose shape the browser view's steps keep down to `KEY_FLOOR`
+const DEVICE_STEP = BY_NAME.get('step-1') as PanelControl;
+
 // The height that rows of `[count, cap]` share out of `free`: each the same, but none more than its
 // cap, and what a capped row leaves goes to the others. Infinity when every row reaches its cap
 function share(free: number, rows: Array<[count: number, cap: number]>) {
@@ -87,51 +89,58 @@ function share(free: number, rows: Array<[count: number, cap: number]>) {
 }
 
 // The browser view at `zoom` with the rows of keys, steps and pads under the screen (the report's
-// P1) or beside it (P3). The controls take the CSS px the window leaves: a row spans its column, a
-// key or a pad is at most as tall as wide, a knob at most as wide as a pad and its strip cell, and
-// the rows share the height equally. Beside the screen the knobs take the height that the screen
-// and the row leave. `smallest` is the least size of a played control; one below `KEY_FLOOR` is
-// drawn at `KEY_FLOOR`, and the page scrolls
-// eslint-disable-next-line @typescript-eslint/max-params -- the window, its display scale and the zoom and placement tried
+// P1) or beside it (P3). The controls take the CSS px the viewport leaves: a row spans its column, a
+// key or a pad is at most as tall as wide, a step as flat as the device's but at least
+// `KEY_FLOOR` and a knob at most as wide as a pad and its strip cell; the rows share the height
+// equally. Beside the screen the knobs take the height that the screen and the row leave. The row
+// is `rowHeight` tall at its width. `smallest` is the least size of a played control; one below
+// `KEY_FLOOR` is drawn at `KEY_FLOOR`, and the page scrolls
+// eslint-disable-next-line @typescript-eslint/max-params -- the viewport, its display scale, the zoom and placement tried and the row's height
 function arrange(
-  window: {width: number; height: number},
+  viewport: {width: number; height: number},
   ratio: number,
   zoom: number,
   beside: boolean,
-): Arrangement & {zoom: number; smallest: number; keySize: number} {
-  let snap = (css: number) => Math.round(css * ratio) / ratio;
+  rowHeight: (width: number) => number,
+): {arrangement: Arrangement; zoom: number; smallest: number; keySize: number} {
+  // Down to a whole device pixel, so that nothing moves past the viewport
+  let snap = (css: number) => Math.floor(css * ratio) / ratio;
   let screenWidth = (480 * zoom) / ratio;
   let screenHeight = (272 * zoom) / ratio;
-  let column = window.width - (beside ? 3 * MARGIN + screenWidth : 2 * MARGIN);
+  let column = viewport.width - (beside ? 3 * MARGIN + screenWidth : 2 * MARGIN);
   let keyWidth = (column - 7 * GAP) / 8;
   let padWidth = (column - 5 * GAP) / 6;
+  let stepCap = Math.max(KEY_FLOOR, (keyWidth * DEVICE_STEP.height) / DEVICE_STEP.width);
   let knobCap = Math.min(padWidth, screenWidth / 4 - GAP);
+  let [key = 0, pad = 0] = [keyWidth, padWidth].map((size) => Math.max(KEY_FLOOR, size));
+  let rowsWidth = Math.max(8 * key + 7 * GAP, 6 * pad + 5 * GAP);
+  let rowTall = rowHeight(beside ? screenWidth : rowsWidth);
   let level =
     beside ?
-      share(window.height - 4 * MARGIN - 4 * GAP, [
-        [5, keyWidth],
+      share(viewport.height - 4 * MARGIN - 4 * GAP, [
+        [3, keyWidth],
+        [2, stepCap],
         [2, padWidth],
       ])
-    : share(window.height - screenHeight - 7 * MARGIN - 4 * GAP - ROW, [
+    : share(viewport.height - screenHeight - 7 * MARGIN - 4 * GAP - rowTall, [
         [1, knobCap],
-        [5, keyWidth],
+        [3, keyWidth],
+        [2, stepCap],
         [2, padWidth],
       ]);
   let knobSize = Math.min(
     knobCap,
-    beside ? window.height - screenHeight - 4 * MARGIN - ROW : level,
+    beside ? viewport.height - screenHeight - 4 * MARGIN - rowTall : level,
   );
   let keyHeight = Math.min(keyWidth, level);
   let padHeight = Math.min(padWidth, level);
-  let [key = 0, keyTall = 0, pad = 0, padTall = 0, knob = 0] = [
-    keyWidth,
+  let [keyTall = 0, stepTall = 0, padTall = 0, knob = 0] = [
     keyHeight,
-    padWidth,
+    Math.min(stepCap, level),
     padHeight,
     knobSize,
   ].map((size) => Math.max(KEY_FLOOR, size));
-  let rowsWidth = Math.max(8 * key + 7 * GAP, 6 * pad + 5 * GAP);
-  let columnHeight = 5 * keyTall + 2 * padTall + 4 * GAP + 2 * MARGIN;
+  let columnHeight = 3 * keyTall + 2 * stepTall + 2 * padTall + 4 * GAP + 2 * MARGIN;
   let screen = {
     x: snap(beside ? MARGIN : MARGIN + Math.max(0, (rowsWidth - screenWidth) / 2)),
     y: snap(MARGIN),
@@ -141,11 +150,10 @@ function arrange(
   let knobsY = screen.y + screenHeight + MARGIN;
   let columnX = beside ? screen.x + screenWidth + MARGIN : MARGIN;
   let keysY =
-    beside ? Math.max(MARGIN, (window.height - columnHeight) / 2) : knobsY + knob + MARGIN;
+    beside ? Math.max(MARGIN, (viewport.height - columnHeight) / 2) : knobsY + knob + MARGIN;
   let stepsY = keysY + 3 * keyTall + 2 * GAP + MARGIN;
-  let padsY = stepsY + 2 * keyTall + GAP + MARGIN;
+  let padsY = stepsY + 2 * stepTall + GAP + MARGIN;
   let rowY = beside ? knobsY + knob + MARGIN : padsY + 2 * padTall + GAP + MARGIN;
-  let rowHeight = Math.max(ROW, window.height - MARGIN - rowY);
 
   // A control in its cell: a knob is round and centred in it
   let cell = (name: string, {x, y, width, height}: Rectangle): PanelControl => {
@@ -184,50 +192,52 @@ function arrange(
     smallest:
       beside || screenWidth <= column ? Math.min(keyWidth, keyHeight, padHeight, knobSize) : 0,
     keySize: Math.min(keyWidth, keyHeight),
-    width: Math.max(window.width, Math.max(screen.x + screenWidth, columnX + rowsWidth) + MARGIN),
-    height: Math.max(window.height, Math.max(rowY + rowHeight, keysY + columnHeight) + MARGIN),
-    scale: Math.min(key, keyTall) / DEVICE_KEY,
-    screen,
-    controls: [
-      ...Array.from({length: 4}, (_, index) =>
-        cell(encoderName(index), {
-          x: screen.x + (index * screenWidth) / 4,
-          y: knobsY,
-          width: screenWidth / 4,
-          height: knob,
-        }),
+    arrangement: {
+      width: Math.max(
+        viewport.width,
+        Math.max(screen.x + screenWidth, columnX + rowsWidth) + MARGIN,
       ),
-      ...rows(KEY_ROWS, {x: columnX, y: keysY, width: key, height: keyTall}),
-      ...rows(STEP_ROWS, {x: columnX, y: stepsY, width: key, height: keyTall}),
-      ...rows(PAD_ROWS, {x: columnX, y: padsY, width: pad, height: padTall}),
-    ],
-    row: {
-      x: beside ? screen.x : MARGIN,
-      y: rowY,
-      width: beside ? screenWidth : rowsWidth,
-      height: rowHeight,
+      height: Math.max(viewport.height, Math.max(rowY + rowTall, keysY + columnHeight) + MARGIN),
+      scale: Math.min(key, keyTall) / DEVICE_KEY,
+      screen,
+      controls: [
+        ...Array.from({length: 4}, (_, index) =>
+          cell(encoderName(index), {
+            x: screen.x + (index * screenWidth) / 4,
+            y: knobsY,
+            width: screenWidth / 4,
+            height: knob,
+          }),
+        ),
+        ...rows(KEY_ROWS, {x: columnX, y: keysY, width: key, height: keyTall}),
+        ...rows(STEP_ROWS, {x: columnX, y: stepsY, width: key, height: stepTall}),
+        ...rows(PAD_ROWS, {x: columnX, y: padsY, width: pad, height: padTall}),
+      ],
+      row: {x: beside ? screen.x : MARGIN, y: rowY, width: beside ? screenWidth : rowsWidth},
+      labelsUnderKnobs: false,
     },
-    labelsUnderKnobs: false,
   };
 }
 
-// The browser view (owner's choice, 2026-11-24): the panel's controls arranged to fit the window,
+// The browser view (owner's choice, 2026-11-24): the panel's controls arranged to fit the viewport,
 // the rows of keys, steps and pads under the screen or beside it, whichever gives the larger zoom,
-// and on a tie the larger keys. The screen takes the largest whole zoom, `zoom` device pixels a
-// screen pixel, that leaves every played control 44 CSS px, or 40 when no zoom leaves 44. A window
-// too small even for zoom 1 with 40 px controls gets zoom 1 and scrolls
+// and on a tie the larger keys. The screen takes the largest whole zoom, whole device pixels a
+// screen pixel, that leaves every played control 44 CSS px, or 40 when no zoom leaves 44. A
+// viewport too small even for zoom 1 with 40 px controls gets zoom 1 and scrolls. The row with the
+// status line and the buttons is `rowHeight` tall at a width, as its text wraps there
 export function fitPanel(
-  window: {width: number; height: number},
+  viewport: {width: number; height: number},
   devicePixelRatio: number,
-): Arrangement & {zoom: number; exact: boolean} {
+  rowHeight: (width: number) => number,
+): Arrangement {
   let most = Math.floor(
-    Math.min((window.width * devicePixelRatio) / 480, (window.height * devicePixelRatio) / 272),
+    Math.min((viewport.width * devicePixelRatio) / 480, (viewport.height * devicePixelRatio) / 272),
   );
-  // On a full tie the rows go under the screen in a window taller than wide
-  let tall = window.height > window.width;
+  // On a full tie the rows go under the screen in a viewport taller than wide
+  let tall = viewport.height > viewport.width;
   let [best] = Array.from({length: most}, (_, index) => most - index)
     .flatMap((zoom) =>
-      [!tall, tall].map((beside) => arrange(window, devicePixelRatio, zoom, beside)),
+      [!tall, tall].map((beside) => arrange(viewport, devicePixelRatio, zoom, beside, rowHeight)),
     )
     .filter(({smallest}) => smallest >= KEY_FLOOR)
     .toSorted(
@@ -237,10 +247,7 @@ export function fitPanel(
         b.keySize - a.keySize,
     );
 
-  return {
-    ...(best ?? arrange(window, devicePixelRatio, 1, !tall)),
-    exact: Number.isInteger(devicePixelRatio),
-  };
+  return (best ?? arrange(viewport, devicePixelRatio, 1, !tall, rowHeight)).arrangement;
 }
 
 // The real-size view (owner's choice, 2026-11-24): the device as "The panel" in the plan measures
@@ -263,7 +270,7 @@ export function realSizePanel(pixelsPerMm: number): Arrangement {
     screen: inCss(DISPLAY.picture),
     module: inCss(DISPLAY.module),
     controls: CONTROLS.map((control) => ({...control, ...inCss(control)})),
-    row: {x: MARGIN, y: panel.height + MARGIN, width: panel.width - 2 * MARGIN, height: ROW},
+    row: {x: MARGIN, y: panel.height + MARGIN, width: panel.width - 2 * MARGIN},
     labelsUnderKnobs: true,
   };
 }

@@ -10,6 +10,9 @@ export const meta: MetaFunction = () => [
   },
 ];
 
+// The row's buttons, whose look the shell gives the bank card's buttons too
+const BUTTON = 'rounded border border-[#969692] bg-[#ecece8] px-2';
+
 export default function Index() {
   let panel = useRef<HTMLDivElement>(null);
   let row = useRef<HTMLDivElement>(null);
@@ -50,33 +53,16 @@ export default function Index() {
       <div ref={row} className="flex flex-wrap content-start items-center gap-x-2 gap-y-1 text-xs">
         <p ref={status} />
         <p ref={note} />
-        <button
-          ref={saveSession}
-          className="rounded border border-[#969692] bg-[#ecece8] px-2"
-          type="button"
-        >
+        <button ref={saveSession} className={BUTTON} type="button">
           Save session
         </button>
-        <button
-          ref={savePicture}
-          className="rounded border border-[#969692] bg-[#ecece8] px-2"
-          type="button"
-        >
+        <button ref={savePicture} className={BUTTON} type="button">
           Save picture
         </button>
-        <button
-          ref={switchView}
-          className="rounded border border-[#969692] bg-[#ecece8] px-2"
-          type="button"
-        >
+        <button ref={switchView} className={BUTTON} type="button">
           Real size
         </button>
-        <button
-          ref={setSize}
-          hidden
-          className="rounded border border-[#969692] bg-[#ecece8] px-2"
-          type="button"
-        >
+        <button ref={setSize} hidden className={BUTTON} type="button">
           Set size
         </button>
       </div>

@@ -490,22 +490,32 @@ stamp. The core decides taps and holds; the shell never does.
     the larger keys. The screen takes the largest whole zoom that leaves every played control at
     least 44 CSS px; on a phone too narrow for that, the controls go down to 40 px before the screen
     drops a zoom. The keys, steps, pads and encoders then grow in CSS px, not tied to whole pixels,
-    to fill the rest, a key or a pad at most as tall as wide and an encoder at most as wide as a
-    pad; a knob's label sits on the knob. The page fits the window with no scrolling; only a window
-    too small even for the screen at zoom 1 with 40 px controls scrolls.
+    to fill the rest. The page fits the window with no scrolling; only a window too small even for
+    the screen at zoom 1 with 40 px controls scrolls.
+
+    How they grow **(my call)**: a key or a pad is at most as tall as wide, a step as flat as the
+    device's 12 × 10 mm step but at least 40 px tall and an encoder at most as wide as a pad. A
+    knob's label sits on the knob, as nothing is under it. The row with the status line and the
+    buttons, in 12 px text, is as tall as its text wraps at its width; the shell measures it each
+    time it fits the panel and fits the panel again when the row's text changes its height.
+
   - **The real-size view** draws the device as "The panel" measures it, 321 × 128 mm, at its true
     size on this screen. A browser cannot tell how big its CSS px is, so the first time the view
     shows a bank card outline (85.60 × 53.98 mm) with − and + to make it smaller or bigger until it
     matches a real card held against the screen, and Done. The browser keeps the size, in CSS px a
     mm, in its local storage; "Set size" shows the card again, and a blocked storage only means
-    setting it again. The screen picture is scaled by whatever fraction the size needs, so it is not
-    pixel-exact, and the line beside the buttons says so. A device wider than the window scrolls.
+    setting it again. − and + change the size by 1% a press and sit left of the card, where its
+    growth does not move them **(my call)**. The screen picture is scaled by whatever fraction the
+    size needs, so it is not pixel-exact, and the note in the row says so. A device wider than the
+    window scrolls.
   - **The switch** is a button in the row with Save session and Save picture: "Real size" in the
     browser view and "Browser view" in the real-size view. The browser keeps the choice in its local
     storage in the same way. Switching only draws the panel again, as a resize does: the core, the
     lights and what is held go on.
-- **Starting sound (owner's choice).** A browser is silent until the first click or key, so the line
-  beside the screen says "Click to start" until then.
+- **Starting sound (owner's choice).** A browser is silent until the first click or key, so the
+  status line says "Click to start" until then. It starts the row with the buttons, which sits under
+  the pads or, when the rows are beside the screen, under the encoders; at real size it sits under
+  the device.
 - **Mouse (owner's choice).** Clicking a drawn key presses it, releasing lets go, so holding the
   mouse button holds the key. A pad or a key on the panel is held from mouse down to mouse up,
   wherever the pointer goes. A pad is hit at velocity 127 with no pressure. A mouse cannot hold one
@@ -540,8 +550,8 @@ stamp. The core decides taps and holds; the shell never does.
   CC 7 sets the volume. A constant per number in the shell sets whether it is absolute, the default,
   or relative. Relative: 1–63 turn up and 65–127 turn down by 128 − value. Absolute: the difference
   from the last value is that many clicks, and the first value only sets the reference. MIDI is
-  asked for at the "Click to start" gesture; if it is refused, the line beside the screen says "MIDI
-  not allowed". Nothing else is mapped in part 1.
+  asked for at the "Click to start" gesture; if it is refused, the status line says "MIDI not
+  allowed". Nothing else is mapped in part 1.
 - **Losing focus (owner's choice).** On `blur` or when the page is hidden, the shell sends an
   ordinary release for every control that a key or a pointer holds: a drag ends and sends no push.
   MIDI notes stay.
