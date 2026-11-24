@@ -218,8 +218,7 @@ describe(fitPanel, () => {
   test('the row is as tall as its text at its own width', () => {
     let viewport = {width: 750, height: 340};
     // Two lines at the screen's 320 px beside it, one line wider
-    let rowHeight = (width: number) => (width < 360 ? ROW : 18);
-    let layout = fitPanel(viewport, 3, rowHeight);
+    let layout = fitPanel(viewport, 3, (width: number) => (width < 360 ? ROW : 18));
 
     expect(layout.row.width).toBeCloseTo(320);
 

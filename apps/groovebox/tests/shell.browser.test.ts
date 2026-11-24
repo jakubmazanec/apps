@@ -545,12 +545,14 @@ describe(runShell, () => {
     shell.status.textContent =
       'MIDI not allowed: a status line long enough to need a line of its own';
 
-    let fitAgain = fitPanel(viewport, 2.625, rowHeightAt(shell.row));
-
     await expect
       .poll(() => placeOf('encoder-1'))
       .toMatchObject(
-        near(fitAgain.controls.find(({control: name}) => name === 'encoder-1') ?? before),
+        near(
+          fitPanel(viewport, 2.625, rowHeightAt(shell.row)).controls.find(
+            ({control: name}) => name === 'encoder-1',
+          ) ?? before,
+        ),
       );
 
     let {scrollWidth, scrollHeight} = document.scrollingElement as Element;
