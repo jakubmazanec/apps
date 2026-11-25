@@ -855,8 +855,12 @@ impl Control {
                     store,
                 );
             }
-            Input::PadRelease { pad } => self.end(Source::Pad(pad), sample, messages),
-            Input::NoteOff { note } => self.end(Source::Midi(note), sample, messages),
+            Input::PadRelease { pad } => {
+                self.end(Source::Pad(pad), sample, messages, versions, store)
+            }
+            Input::NoteOff { note } => {
+                self.end(Source::Midi(note), sample, messages, versions, store)
+            }
             Input::ButtonPress { button } => self.press(button, sample, messages, versions, store),
             Input::ButtonRelease { button } => {
                 self.release(button, sample, messages, versions, store)
@@ -905,7 +909,8 @@ impl Control {
     /// sound it plays nothing, and neither does a source that has a note on already. Its note
     /// plays the sound's `note_engine`. With a step held and no picker or question open, what
     /// sounds also goes in or out of each held step's notes (`toggle_held`, S15), and that uses
-    /// the held buttons, a MIDI note too.
+    /// the held buttons, a MIDI note too; otherwise its note records what it plays while REC is
+    /// on (`take`, S9).
     #[expect(
         clippy::too_many_arguments,
         reason = "a hit writes the message queue, the version queue and the note memory"
@@ -951,14 +956,19 @@ impl Control {
         let engine = self.note_engine(played);
         let pitch = key.unwrap_or(played.unchanged_pitch());
         let track = self.project.track;
-        let Some(note) = self.notes.start(source, track, pad, pitch) else {
-            return;
-        };
         // With VELOCITY off every note plays at full velocity.
         let velocity = if self.settings.get(VELOCITY.id) == 0 {
             127
         } else {
             velocity
+        };
+        let take = if held {
+            None
+        } else {
+            self.take(sound, velocity, sample)
+        };
+        let Some(note) = self.notes.start(source, track, pad, pitch, take) else {
+            return;
         };
         self.send(
             sample,
@@ -1004,15 +1014,18 @@ impl Control {
     }
 
     /// A pad release or a MIDI note-off: it ends the note that the hit from `source` started,
-    /// whatever changed since.
+    /// whatever changed since, and puts in what it recorded (`keep`).
     fn end(
         &mut self,
         source: Source,
         sample: u64,
         messages: &mut Producer<'_, Message, MESSAGE_QUEUE>,
+        versions: &mut Producer<'_, Version, VERSION_QUEUE>,
+        store: &mut Store<'_>,
     ) {
         if let Some(note) = self.notes.end(source) {
-            self.send(sample, MessageKind::NoteOff { note }, messages);
+            self.send(sample, MessageKind::NoteOff { note: note.id }, messages);
+            self.keep(note, sample, versions, store);
         }
     }
 

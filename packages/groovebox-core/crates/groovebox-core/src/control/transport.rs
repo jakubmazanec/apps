@@ -16,12 +16,14 @@ impl Control {
     /// once with a new run anchored at the press (S8). Both follow the music from then on (S16).
     /// The control part's own sequencer plays the same run. With REC armed and COUNT-IN at 1 bar
     /// the start counts in: the pattern starts a bar after the press; with COUNT-IN off REC turns
-    /// on at the press. During the count-in both do nothing at all (S4).
+    /// on at the press. During the count-in both do nothing at all (S4). A jump ends the held
+    /// takes at the press (`end_takes`), as the new run's ticks do not continue the old one's
+    /// (S11).
     pub(super) fn play(
         &mut self,
         sample: u64,
         messages: &mut Producer<'_, Message, MESSAGE_QUEUE>,
-        _versions: &mut Producer<'_, Version, VERSION_QUEUE>,
+        versions: &mut Producer<'_, Version, VERSION_QUEUE>,
         store: &mut Store<'_>,
     ) {
         if self.player.counting_in(sample) {
@@ -40,6 +42,8 @@ impl Control {
             tempo: self.project.tempo,
         };
         let count_in = matches!(self.rec, Rec::Armed(_)) && self.settings.get(COUNT_IN.id) == 1;
+        // Only a jump has takes to end: while stopped none is held.
+        self.end_takes(sample, versions, store);
         self.send(sample, MessageKind::Play { run, count_in }, messages);
         self.player.play(run, count_in, &store.reader());
         self.count_in_over(sample);
@@ -48,15 +52,17 @@ impl Control {
     /// STOP at its press: while playing the cursor stays on the bar the step buttons show
     /// (`shown_bar`, S16), the pattern stops, its sounding notes end with their own release and the
     /// preview plays on; while stopped every voice fades within one chunk and the preview stops
-    /// (S9). The control part's own sequencer stops too, and REC turns off (S3).
+    /// (S9). The control part's own sequencer stops too, and REC turns off (S3), ending the held
+    /// takes at the press (`end_takes`, S11).
     pub(super) fn stop(
         &mut self,
         sample: u64,
         messages: &mut Producer<'_, Message, MESSAGE_QUEUE>,
-        _versions: &mut Producer<'_, Version, VERSION_QUEUE>,
-        _store: &mut Store<'_>,
+        versions: &mut Producer<'_, Version, VERSION_QUEUE>,
+        store: &mut Store<'_>,
     ) {
         self.rec = Rec::Off;
+        self.end_takes(sample, versions, store);
         if self.player.run().is_some() {
             self.view.steps.bar = self.shown_bar(sample);
             self.send(sample, MessageKind::Stop, messages);

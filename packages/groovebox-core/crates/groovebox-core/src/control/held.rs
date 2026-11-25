@@ -108,7 +108,8 @@ impl Control {
     /// A turn of `clicks` on the NOTE item `kind` (S13, S14). Every held note moves by the same
     /// amount: PITCH a semitone and VELOCITY one a click, LENGTH 480 ticks and 30 while SHIFT is
     /// held, POSITION a grid step. VELOCITY and LENGTH stop each note at its own end, 1 to 127 and
-    /// 30 ticks to a bar; PITCH stops all of them where the first note reaches 0 or 127, and
+    /// 30 ticks to a bar, or at its own length for a note longer or shorter than that (S18); PITCH
+    /// stops all of them where the first note reaches 0 or 127, and
     /// POSITION where the first held step, with notes or without, reaches the pattern's first or
     /// last grid position, so no held note lands on another. A turn that changes nothing does
     /// nothing, and with fewer than `RESERVE` blocks free none changes and "Not enough memory"
@@ -153,9 +154,12 @@ impl Control {
             _ => clicks,
         };
         let velocity = |velocity: u8| (i32::from(velocity) + by).clamp(1, 127) as u8;
-        // A note is shorter than 2^31 ticks.
-        let length =
-            |length: u32| (length as i32 + by).clamp(30, signature.bar_ticks() as i32) as u32;
+        // A note is shorter than 2^31 ticks. Its range reaches its own length, so no turn moves it
+        // against the turn (S18).
+        let length = |length: u32| {
+            let old = length as i32;
+            (old + by).clamp(old.min(30), old.max(signature.bar_ticks() as i32)) as u32
+        };
         let moved = |place: StepCursor| {
             let at = (grid(place, sixteenths) as i32 + by) as u32;
             StepCursor {
