@@ -352,8 +352,9 @@ edited another pad's sound.
   Every later sound of a base, a copy included, takes the highest number of that base in the pool,
   plus one, and an unnumbered name counts as 1 (a copy of Kick is Kick 2). The base is shortened at
   a character boundary so that the name fits 64 bytes. Nothing extra is stored. The factory sounds
-  carry their own names, such as Kick and Bass; a copy follows the rule (Kick 2). Typing names
-  comes later.
+  carry their own names, such as Kick and Bass; a copy follows the rule (Kick 2), and so does a
+  sample of a file of the same name, since its base is already in the pool. Typing names comes
+  later.
 
 ### Two ways to change what a pad plays
 

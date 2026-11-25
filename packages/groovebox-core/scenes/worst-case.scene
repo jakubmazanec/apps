@@ -5,11 +5,11 @@ file samples/pad.wav ours 220 10 2
 # The operation count plays this scene: the most a render batch has to do. 32 voices of a stereo
 # sample sound at Transpose +48 cost more than 32 of a stereo Supersaw, as measured when sample
 # sounds came. Every effect slot of the four tracks holds a reverb, ringing in the busiest batch
-# with every pre-delay crossfading. There a reverb in every slot costs 11,576,143 operations. With
-# Pitch amount +48 and Pitch decay 10 s on top it cost 12,087,867, and a delay in every slot
-# 11,250,439, each measured in a version of this scene that this file does not contain, the delay
-# one with a TEMPO turn at the chord, before a sound's values were found faster and the reverb
-# version cost 12,096,989. pad on pad 1 through the panel, in the place of the factory
+# with every pre-delay crossfading. There a reverb in every slot costs 11,576,143 operations. Before
+# a sound's values were found faster it cost 12,096,989, and 12,087,867 with Pitch amount +48 and
+# Pitch decay 10 s on top; before the pitch envelope, a delay in every slot cost 11,250,439. The
+# last two were measured in versions of this scene that this file does not contain, the delay one
+# with a TEMPO turn at the chord. pad on pad 1 through the panel, in the place of the factory
 # project's Kick: MENU + step 3, then OK opens the sound picker on Kick, and up twice onto New
 # sample and OK open the sample picker on kick.wav, and down onto pad.wav and OK choose it. A tap of
 # PADS/KEYS then makes the pads keys that play pad.

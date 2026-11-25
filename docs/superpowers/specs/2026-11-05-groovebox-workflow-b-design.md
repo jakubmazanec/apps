@@ -924,7 +924,7 @@ On top of Foundation's and Workflow A's testing:
     takes;
   - the pattern list's actions, and pattern numbers after DELETE.
 - **Drift scenes** that drive the panel only:
-  - a beat entered by steps from an empty project;
+  - a beat entered by steps on the factory project's empty T4;
   - a take played in with quantize on, and one with it off;
   - overdub passes and an erase;
   - tempo changes while the delay rings;

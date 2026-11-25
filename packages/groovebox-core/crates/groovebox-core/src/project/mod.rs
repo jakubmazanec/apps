@@ -68,8 +68,10 @@ impl Project {
         let mut index = 0;
         while index < FACTORY_SOUNDS.len() {
             let sound = &FACTORY_SOUNDS[index];
-            let number = project.pool.add_synth(sound.name, sound.values());
-            project.tracks[sound.track as usize].put(sound.pad, Some(number));
+            project.tracks[sound.track as usize].put(
+                sound.pad,
+                Some(project.pool.add_synth(sound.name, sound.values())),
+            );
             index += 1;
         }
         project
@@ -406,13 +408,12 @@ mod tests {
 
     #[test]
     fn the_factory_project_holds_13_synths_numbered_1_to_13_and_the_next_sound_is_14() {
-        let names = [
-            "Kick", "Snare", "Hat", "Open hat", "Tom", "Cowbell", "Bass", "Sub", "Acid", "Lead",
-            "Pluck", "Strings", "Stab",
-        ];
         let sounds = FACTORY.pool.sounds();
 
-        assert!(sounds.iter().map(|sound| sound.name.as_str()).eq(names));
+        assert!(sounds.iter().map(|sound| sound.name.as_str()).eq([
+            "Kick", "Snare", "Hat", "Open hat", "Tom", "Cowbell", "Bass", "Sub", "Acid", "Lead",
+            "Pluck", "Strings", "Stab",
+        ]));
         assert!(sounds.iter().map(|sound| sound.number.0).eq(1..=13));
         assert!(sounds.iter().all(|sound| sound.engine == Engine::Synth
             && sound.notes == 0
@@ -422,12 +423,10 @@ mod tests {
 
     #[test]
     fn the_factory_project_puts_drums_on_t1_basses_on_t2_and_melodic_sounds_on_t3() {
-        let pads = FACTORY
-            .tracks
-            .map(|track| track.pads.map(|pad| pad.map_or(0, |sound| sound.0)));
-
         assert_eq!(
-            pads,
+            FACTORY
+                .tracks
+                .map(|track| track.pads.map(|pad| pad.map_or(0, |sound| sound.0))),
             [
                 [1, 2, 3, 4, 5, 6, 0, 0, 0, 0, 0, 0],
                 [7, 8, 9, 0, 0, 0, 0, 0, 0, 0, 0, 0],

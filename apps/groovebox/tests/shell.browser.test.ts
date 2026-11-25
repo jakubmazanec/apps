@@ -331,8 +331,7 @@ describe(runShell, () => {
 
     await expect.poll(() => position(core), {timeout: 5000}).toBeGreaterThan(4800n);
 
-    // The header's line, the "S" of "Step" in the accent and the faint line under the factory
-    // project's Kick lane
+    // The header's line, the "S" of "Step" in the accent and the faint line under the first lane
     expect(pixel(core, 0, 14)).toBe(LINE);
     expect(pixel(core, 4, 6)).toBe(ACCENT);
     expect(pixel(core, 240, 30)).toBe(FAINT);
