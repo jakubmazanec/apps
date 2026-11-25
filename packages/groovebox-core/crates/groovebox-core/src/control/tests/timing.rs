@@ -34,8 +34,17 @@ const GRID: ItemView = ItemView {
     alert: false,
 };
 
+/// Quantize as the Timing page and the strip show it, on its default.
+const QUANTIZE_ON: ItemView = ItemView {
+    encoder: Some(4),
+    name: "Quantize",
+    value: "On",
+    bar: Bar::Track,
+    alert: false,
+};
+
 /// The Timing page's items in the strip's cells: Tempo at `tempo`, its bar filled `filled` of
-/// 27,000, then Grid.
+/// 27,000, then Grid, an empty cell and Quantize.
 pub(super) fn timing_cells(tempo: &str, filled: u64) -> [Option<ItemView<'_>>; 4] {
     [
         Some(ItemView {
@@ -47,7 +56,7 @@ pub(super) fn timing_cells(tempo: &str, filled: u64) -> [Option<ItemView<'_>>; 4
         }),
         Some(GRID),
         None,
-        None,
+        Some(QUANTIZE_ON),
     ]
 }
 
@@ -190,6 +199,53 @@ fn the_tempo_moves_1_bpm_a_click_and_0_1_with_shift() {
             message(3, 410, set_tempo(11_980)),
         ]
     );
+}
+
+#[test]
+fn the_timing_page_holds_quantize_on_encoder_4() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    rig.menu(0, 8);
+    rig.step(10);
+    assert!(shows(&rig.control, &timing("120.0", 9_000, 0)));
+    assert!(strip_shows(&rig.control, &timing_cells("120.0", 9_000)));
+    assert!(rig.control.project.quantize);
+
+    rig.turn(100, 3, -1);
+    rig.step(110);
+    assert!(!rig.control.project.quantize);
+    assert_eq!(
+        rig.sent(),
+        [message(
+            0,
+            100,
+            MessageKind::SetParam {
+                target: Target::Project,
+                id: QUANTIZE.id,
+                value: 0
+            }
+        )]
+    );
+    assert_eq!(rig.control.cursor(view::Screen::Pattern).item, 2);
+
+    rig.tap(200, Button::Ok);
+    rig.step(210);
+    assert!(rig.control.project.quantize);
+}
+
+#[test]
+fn holding_tempo_shows_quantize_in_the_fourth_cell() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    let [tempo, grid, ..] = timing_cells("120.0", 9_000);
+
+    rig.press(100, Button::Tempo);
+    rig.step(110);
+
+    assert!(strip_shows(
+        &rig.control,
+        &[tempo, grid, None, Some(QUANTIZE_ON)]
+    ));
 }
 
 #[test]
@@ -418,7 +474,10 @@ fn a_tap_of_tempo_turns_the_metronome_on_and_off() {
     rig.step(210);
     assert!(shows(
         &rig.control,
-        &with_the_metronome(playing_under(None, "On", "On"), &SETTINGS_HEADER)
+        &with_the_metronome(
+            playing_under(None, "On", "On", "1 bar", 0),
+            &SETTINGS_HEADER
+        )
     ));
 
     rig.tap(300, Button::Tempo);

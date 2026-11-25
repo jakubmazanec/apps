@@ -25,7 +25,8 @@ pub struct Pattern {
 }
 
 /// What a project holds in memory: the pool of sounds, the four tracks and the 16 patterns, which
-/// track and which pattern are current, the tempo, the signature and the master level.
+/// track and which pattern are current, the tempo, the signature, the master level and whether
+/// recording quantizes.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Project {
     pub pool: Pool,
@@ -40,6 +41,8 @@ pub struct Project {
     pub signature: Signature,
     /// MASTER_LEVEL's value.
     pub master: i32,
+    /// QUANTIZE's value.
+    pub quantize: bool,
 }
 
 impl Project {
@@ -58,6 +61,7 @@ impl Project {
             tempo: NEW_TEMPO,
             signature: FOUR_FOUR,
             master: MASTER_LEVEL.default,
+            quantize: true,
         }
     }
 

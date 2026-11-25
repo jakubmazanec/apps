@@ -1,14 +1,14 @@
 use super::view::Screen;
 use crate::input::STEPS;
 use crate::param::{
-    ATTACK, CHOKE_GROUP, CUTOFF, DECAY, DELAY_FEEDBACK, DELAY_LEVEL, DELAY_PING_PONG, DELAY_TIME,
-    DELAY_TONE, END, ENVELOPE_AMOUNT, Entry, FILTER_ATTACK, FILTER_DECAY, FILTER_RELEASE,
-    FILTER_SUSTAIN, FILTER_TYPE, FILTER_VELOCITY, FINE_TUNE, GLIDE, GLIDE_TIME, KEY_FOLLOW, LEVEL,
-    LOOP, LOOP_END, LOOP_START, MASTER_LEVEL, METRONOME, METRONOME_LEVEL, MODE, NOISE_LEVEL,
-    OSCILLATOR_2_FINE_TUNE, OSCILLATOR_2_INTERVAL, OSCILLATOR_2_LEVEL, PAN, PITCH_AMOUNT,
-    PITCH_DECAY, PLAY_MODE, ParamId, RELEASE, RESONANCE, REVERB_DECAY, REVERB_LEVEL,
-    REVERB_PRE_DELAY, REVERB_TONE, REVERSE, ROOT_NOTE, SHAPE, SPREAD, START, SUB_LEVEL, SUSTAIN,
-    TEMPO, TRANSPOSE, TRIGGER, VELOCITY, VOLUME_VELOCITY, WAVE,
+    ATTACK, CHOKE_GROUP, COUNT_IN, CUTOFF, DECAY, DELAY_FEEDBACK, DELAY_LEVEL, DELAY_PING_PONG,
+    DELAY_TIME, DELAY_TONE, END, ENVELOPE_AMOUNT, Entry, FILTER_ATTACK, FILTER_DECAY,
+    FILTER_RELEASE, FILTER_SUSTAIN, FILTER_TYPE, FILTER_VELOCITY, FINE_TUNE, GLIDE, GLIDE_TIME,
+    KEY_FOLLOW, LEVEL, LOOP, LOOP_END, LOOP_START, MASTER_LEVEL, METRONOME, METRONOME_LEVEL, MODE,
+    NOISE_LEVEL, OSCILLATOR_2_FINE_TUNE, OSCILLATOR_2_INTERVAL, OSCILLATOR_2_LEVEL, PAN,
+    PITCH_AMOUNT, PITCH_DECAY, PLAY_MODE, ParamId, QUANTIZE, RELEASE, RESONANCE, REVERB_DECAY,
+    REVERB_LEVEL, REVERB_PRE_DELAY, REVERB_TONE, REVERSE, ROOT_NOTE, SHAPE, SPREAD, START,
+    SUB_LEVEL, SUSTAIN, TEMPO, TRANSPOSE, TRIGGER, VELOCITY, VOLUME_VELOCITY, WAVE,
 };
 use crate::project::pool::{Engine, Sound};
 use crate::project::track::{Effect, Slot};
@@ -276,7 +276,7 @@ const PITCH: PageDef = PageDef {
     picture: None,
 };
 
-/// PATTERN's Timing page: Tempo on encoder 1 and Grid on 2 (S4).
+/// PATTERN's Timing page: Tempo on encoder 1, Grid on 2 and Quantize on 4, encoder 3 empty (S4).
 pub(super) const TIMING: PageDef = PageDef {
     name: "Timing",
     items: &[
@@ -285,6 +285,7 @@ pub(super) const TIMING: PageDef = PageDef {
             kind: ItemKind::Grid,
             encoder: Some(1),
         },
+        item(QUANTIZE, Some(3)),
     ],
     picture: None,
 };
@@ -466,6 +467,10 @@ pub fn pages(screen: Screen, sound: Option<&Sound>, pad: bool, slots: &[Slot; 6]
                         kind: ItemKind::Param(METRONOME_LEVEL.id),
                         encoder: Some(2),
                     },
+                    ItemDef {
+                        kind: ItemKind::Param(COUNT_IN.id),
+                        encoder: Some(3),
+                    },
                 ],
                 picture: None,
             },
@@ -540,13 +545,14 @@ mod tests {
     }
 
     #[test]
-    fn settings_playing_holds_velocity_metronome_and_its_level() {
+    fn settings_playing_holds_velocity_metronome_its_level_and_count_in() {
         assert_eq!(
             pages(Screen::Settings, None, true, &SLOTS)[0].items,
             [
                 item(VELOCITY, Some(0)),
                 item(METRONOME, Some(1)),
                 item(METRONOME_LEVEL, Some(2)),
+                item(COUNT_IN, Some(3)),
             ]
         );
     }

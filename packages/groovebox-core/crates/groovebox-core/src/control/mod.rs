@@ -26,7 +26,7 @@ use crate::message::{
 use crate::palette::RECORD;
 use crate::param::{
     self, Curve, END, ENTRIES, LOOP_END, LOOP_START, METRONOME, MUTE, OUTPUT_VOLUME, ParamId,
-    START, Scope, TEMPO, TRACK_LEVEL, VELOCITY,
+    QUANTIZE, START, Scope, TEMPO, TRACK_LEVEL, VELOCITY,
 };
 use crate::project::pool::{Engine, PoolFull, SOUND_VALUES, Sample, Sound, SoundNumber};
 use crate::project::settings::DeviceSettings;
@@ -1735,7 +1735,8 @@ impl Control {
     }
 
     /// The value of the entry `id` of `target`, read where its scope keeps it. Besides the master
-    /// level the tempo is the project value that a page shows, and it is picked out by its id.
+    /// level the tempo and Quantize are the project values that a page shows, and they are picked
+    /// out by their ids.
     fn value_of(&self, target: Target, id: ParamId) -> i32 {
         if id == TEMPO.id {
             // At most 30,000, so it fits.
@@ -1749,6 +1750,7 @@ impl Control {
                 .get(sound)
                 .expect("a selected sound is in the pool")
                 .value(id),
+            Target::Project if id == QUANTIZE.id => i32::from(self.project.quantize),
             Target::Project => self.project.master,
             Target::Track(track) => self.project.tracks[usize::from(track)].value(id),
             Target::Slot { track, slot } => {
@@ -1807,6 +1809,7 @@ impl Control {
                 .get_mut(sound)
                 .expect("a selected sound is in the pool")
                 .set(id, value),
+            Target::Project if id == QUANTIZE.id => self.project.quantize = value != 0,
             Target::Project => self.project.master = value,
             Target::Track(track) => {
                 self.project.tracks[usize::from(track)].set(id, value);

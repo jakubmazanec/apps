@@ -148,6 +148,22 @@ pub const METRONOME_LEVEL: Entry = Entry {
     modulated: false,
 };
 
+/// How long the music is counted in before recording starts: not at all or one bar.
+pub const COUNT_IN: Entry = Entry {
+    id: ParamId(5),
+    name: "Count-in",
+    scope: Scope::Device,
+    low: 0,
+    high: 1,
+    default: 1,
+    curve: Curve::List,
+    unit: Unit::None,
+    click: 0,
+    choices: &[choice(0, "Off"), choice(1, "1 bar")],
+    glide: 0,
+    modulated: false,
+};
+
 /// The project's tempo in hundredths of a BPM, from 30 to 300.
 pub const TEMPO: Entry = Entry {
     id: ParamId(100),
@@ -157,6 +173,22 @@ pub const TEMPO: Entry = Entry {
     high: 30_000,
     default: 12_000,
     curve: Curve::Tempo,
+    unit: Unit::None,
+    click: 0,
+    choices: &[],
+    glide: 0,
+    modulated: false,
+};
+
+/// Whether a recorded note snaps to the nearest 1/16 or stays where it was played.
+pub const QUANTIZE: Entry = Entry {
+    id: ParamId(102),
+    name: "Quantize",
+    scope: Scope::Project,
+    low: 0,
+    high: 1,
+    default: 1,
+    curve: Curve::Switch,
     unit: Unit::None,
     click: 0,
     choices: &[],
@@ -233,8 +265,10 @@ pub const ENTRIES: &[Entry] = &[
     OUTPUT_VOLUME,
     METRONOME,
     METRONOME_LEVEL,
+    COUNT_IN,
     TEMPO,
     MASTER_LEVEL,
+    QUANTIZE,
     TRACK_LEVEL,
     MUTE,
     MODE,
@@ -658,12 +692,12 @@ mod tests {
         assert_eq!(count(&MIXED, Scope::Project), 0);
         assert_eq!(SOUND, [11, 7]);
         assert_eq!(defaults::<0>(&MIXED, Scope::Project), []);
-        assert_eq!(count(ENTRIES, Scope::Device), 4);
+        assert_eq!(count(ENTRIES, Scope::Device), 5);
         assert_eq!(
-            defaults::<4>(ENTRIES, Scope::Device),
-            [1, 45_875, 0, METRONOME_LEVEL_DEFAULT]
+            defaults::<5>(ENTRIES, Scope::Device),
+            [1, 45_875, 0, METRONOME_LEVEL_DEFAULT, 1]
         );
-        assert_eq!(defaults::<2>(ENTRIES, Scope::Project), [12_000, 65_535]);
+        assert_eq!(defaults::<3>(ENTRIES, Scope::Project), [12_000, 65_535, 1]);
     }
 
     #[test]
@@ -821,11 +855,11 @@ mod tests {
     };
 
     #[test]
-    fn the_list_passes_its_check_with_42_sound_4_device_2_project_and_2_track_entries() {
+    fn the_list_passes_its_check_with_42_sound_5_device_3_project_and_2_track_entries() {
         assert_eq!(check(ENTRIES), Ok(()));
         assert_eq!(count(ENTRIES, Scope::Sound), 42);
-        assert_eq!(count(ENTRIES, Scope::Device), 4);
-        assert_eq!(count(ENTRIES, Scope::Project), 2);
+        assert_eq!(count(ENTRIES, Scope::Device), 5);
+        assert_eq!(count(ENTRIES, Scope::Project), 3);
         assert_eq!(count(ENTRIES, Scope::Track), 2);
     }
 
@@ -1022,6 +1056,31 @@ mod tests {
         assert_eq!(METRONOME_LEVEL.default, METRONOME_LEVEL_DEFAULT);
         assert_eq!((TEMPO.id, TEMPO.scope), (ParamId(100), Scope::Project));
         assert_eq!(TEMPO.default, 12_000);
+    }
+
+    #[test]
+    fn quantize_and_count_in_are_on_the_list() {
+        assert_eq!(
+            (
+                QUANTIZE.id,
+                QUANTIZE.scope,
+                QUANTIZE.curve,
+                QUANTIZE.default
+            ),
+            (ParamId(102), Scope::Project, Curve::Switch, 1)
+        );
+        assert_eq!(
+            (
+                COUNT_IN.id,
+                COUNT_IN.scope,
+                COUNT_IN.curve,
+                COUNT_IN.default
+            ),
+            (ParamId(5), Scope::Device, Curve::List, 1)
+        );
+        assert_eq!(text(&COUNT_IN, 0).as_str(), "Off");
+        assert_eq!(text(&COUNT_IN, 1).as_str(), "1 bar");
+        assert_eq!(check(ENTRIES), Ok(()));
     }
 
     #[test]

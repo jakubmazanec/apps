@@ -5,7 +5,7 @@ use crate::input::VOLUME;
 use crate::memory_storage::MemoryStorage;
 use crate::message::{NoteId, Target};
 use crate::palette::{ACCENT, BACKGROUND, DIM, FAINT, LINE, RECORD, TEXT};
-use crate::param::{CUTOFF, OUTPUT_VOLUME};
+use crate::param::{COUNT_IN, CUTOFF, OUTPUT_VOLUME};
 use crate::project::pool::SoundNumber;
 use crate::queue::{Consumer, Queue};
 use crate::sample_ram::SampleRam;
@@ -310,8 +310,15 @@ fn step_header(sound: &str) -> [(&str, Color); 4] {
 }
 
 /// SETTINGS' Playing page under `message`: Velocity at `value` under the cursor, then the
-/// metronome at `metronome` and its starting level, each in its row and in its cell of the strip.
-fn playing_under(message: Option<(&str, Color)>, value: &str, metronome: &str) -> Screen {
+/// metronome at `metronome` and its starting level, then Count-in at `count_in`, each in its row and
+/// in its cell of the strip, with the cursor on row `cursor`.
+fn playing_under(
+    message: Option<(&str, Color)>,
+    value: &str,
+    metronome: &str,
+    count_in: &str,
+    cursor: i32,
+) -> Screen {
     let items = [
         velocity(value),
         ItemView {
@@ -328,6 +335,13 @@ fn playing_under(message: Option<(&str, Color)>, value: &str, metronome: &str) -
             bar: Bar::Fill(32_768, 65_535),
             alert: false,
         },
+        ItemView {
+            encoder: Some(4),
+            name: "Count-in",
+            value: count_in,
+            bar: Bar::Track,
+            alert: false,
+        },
     ];
     drawn(
         &SETTINGS_HEADER,
@@ -336,15 +350,15 @@ fn playing_under(message: Option<(&str, Color)>, value: &str, metronome: &str) -
             for (y, item) in (17..).step_by(18).zip(&items) {
                 draw_item(screen, 2, y, 160, item, true, None);
             }
-            draw_cursor(screen, 2, 17, 160, 17);
+            draw_cursor(screen, 2, 17 + 18 * cursor, 160, 17);
         },
-        &[Some(items[0]), Some(items[1]), Some(items[2]), None],
+        &items.map(Some),
     )
 }
 
 /// SETTINGS' Playing page with Velocity at `value`.
 fn playing(value: &str) -> Screen {
-    playing_under(None, value, "Off")
+    playing_under(None, value, "Off", "1 bar", 0)
 }
 
 /// The tiles of MENU or PAGE under this header, over an empty strip.
@@ -1406,7 +1420,8 @@ fn velocity_flips_with_ok_and_moves_with_minus_plus_and_encoder_1() {
     assert_eq!(rig.velocity(), 0);
     assert!(shows(&rig.control, &playing("Off")));
 
-    // CANCEL does nothing on a page, and neither does an encoder that holds no item.
+    // CANCEL does nothing on a page, nor does a turn up or a push of Count-in, which is at its last
+    // choice.
     rig.tap(500, Button::Cancel);
     rig.turn(510, 3, 5);
     rig.tap(520, Button::Push(3));
@@ -1422,6 +1437,41 @@ fn velocity_flips_with_ok_and_moves_with_minus_plus_and_encoder_1() {
     rig.tap(620, Button::Minus);
     rig.step(630);
     assert_eq!(rig.velocity(), 0);
+}
+
+#[test]
+fn the_playing_page_holds_count_in_on_encoder_4() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    rig.menu(0, 7);
+    rig.step(10);
+    assert!(shows(&rig.control, &playing("On")));
+
+    rig.turn(100, 3, -1);
+    rig.step(110);
+    assert_eq!(rig.control.settings.get(COUNT_IN.id), 0);
+    assert!(shows(
+        &rig.control,
+        &playing_under(None, "On", "Off", "Off", 3)
+    ));
+    assert_eq!(
+        rig.sent(),
+        [message(
+            0,
+            100,
+            MessageKind::SetParam {
+                target: Target::Device,
+                id: COUNT_IN.id,
+                value: 0
+            }
+        )]
+    );
+
+    // OK on a list changes nothing.
+    rig.tap(200, Button::Ok);
+    rig.step(210);
+    assert_eq!(rig.control.settings.get(COUNT_IN.id), 0);
+    assert_eq!(rig.sent(), []);
 }
 
 #[test]
@@ -1513,7 +1563,7 @@ fn a_message_stays_until_a_later_button_press() {
     assert_eq!(rig.velocity(), 0);
     assert!(shows(
         &rig.control,
-        &playing_under(Some(("Pool full", RECORD)), "Off", "Off")
+        &playing_under(Some(("Pool full", RECORD)), "Off", "Off", "1 bar", 0)
     ));
 
     // A later press clears it and still acts.
@@ -1544,15 +1594,22 @@ fn the_settings_page_matches_its_geometry() {
     assert_eq!(span(&screen, 2..=161, 17..=29, TEXT), Some((148, 158)));
     assert!(filled(&screen, 5..=158, 31..=32, FAINT));
     assert!(outlined(&screen, 1, 16, 162, 19, ACCENT));
-    // Items 2 and 3 follow 18 pixels apart, and nothing is under them.
+    // Items 2 to 4 follow 18 pixels apart, and nothing is under them.
     assert_eq!(span(&screen, 10..=100, 35..=47, DIM).map(|s| s.0), Some(16));
     assert_eq!(span(&screen, 10..=100, 53..=65, DIM).map(|s| s.0), Some(16));
-    assert!(filled(&screen, 0..=479, 70..=252, BACKGROUND));
+    assert_eq!(span(&screen, 10..=100, 71..=83, DIM).map(|s| s.0), Some(16));
+    assert!(filled(&screen, 0..=479, 88..=252, BACKGROUND));
     // Strip cell 1: the name from x 4, the value ending at 117 and the faint track under them.
     assert_eq!(span(&screen, 1..=120, 258..=264, DIM).map(|s| s.0), Some(4));
     assert_eq!(span(&screen, 1..=120, 258..=264, TEXT), Some((107, 117)));
     assert!(filled(&screen, 4..=117, 269..=270, FAINT));
-    assert!(filled(&screen, 360..=478, 254..=271, BACKGROUND));
+    // Cell 4 holds Count-in the same way, starting at x 359.
+    assert_eq!(
+        span(&screen, 359..=479, 258..=264, DIM).map(|s| s.0),
+        Some(363)
+    );
+    assert_eq!(span(&screen, 359..=479, 258..=264, TEXT), Some((447, 475)));
+    assert!(filled(&screen, 363..=475, 269..=270, FAINT));
 }
 
 #[test]
