@@ -1487,6 +1487,18 @@ mod tests {
     }
 
     #[test]
+    fn a_track_switched_during_the_count_in_starts_at_the_pattern_start() {
+        let ram = NoteRam::boxed();
+        let mut rig = Rig::new(&ram, []).counting_in(0);
+        rig.heard(30_000);
+
+        rig.switch(0, [step(0)]);
+
+        assert_eq!(rig.heard(95_999), []);
+        assert_eq!(rig.heard(96_000), [Heard::Start(0, 0)]);
+    }
+
+    #[test]
     fn the_music_stands_at_the_start_during_the_count_in() {
         let ram = NoteRam::boxed();
         let rig = Rig::new(&ram, []).counting_in(0);
