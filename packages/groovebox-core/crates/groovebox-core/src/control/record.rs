@@ -1,12 +1,13 @@
 //! REC, the count-in and the notes recorded (Workflow B).
 
 use super::Control;
-use super::notes::{self, Take};
+use super::notes::{self, Source, Take};
 use crate::message::{VERSION_QUEUE, Version};
 use crate::palette::RECORD;
 use crate::project::pool::SoundNumber;
 use crate::queue::Producer;
 use crate::sequencer::Run;
+use crate::store::curve::Curve;
 use crate::store::note::Note;
 use crate::store::{RESERVE, Store, Tree};
 
@@ -76,9 +77,7 @@ impl Control {
             self.say("Full", RECORD);
             return None;
         }
-        let tick = self
-            .player
-            .tick_at(sample.saturating_sub(u64::from(self.output_delay)));
+        let tick = self.played_tick(sample);
         let start = if self.project.quantize {
             self.player.snap(tick)
         } else {
@@ -95,7 +94,49 @@ impl Control {
             place: place as u16,
             // A start snapped back has passed, and may lie before the run's first tick.
             due: self.player.sample_at(start.max(tick)),
+            pressed: false,
+            curve: None,
         })
+    }
+
+    /// Pressure `value` at `sample` from `source`, or from the channel for every held note with
+    /// `None`: it goes into the curve of each such note that records, which starts at its first
+    /// pressure (`Curve::start`, S15). Its ticks are counted from the hit's.
+    pub(super) fn pressure(
+        &mut self,
+        source: Option<Source>,
+        value: u8,
+        sample: u64,
+        store: &mut Store<'_>,
+    ) {
+        // Notes record only while the player plays, which alone has ticks.
+        if self.notes.taken().next().is_none() {
+            return;
+        }
+        let tick = self.played_tick(sample);
+        let press = |take: &mut Take| {
+            let ticks = tick.saturating_sub(take.tick);
+            match &mut take.curve {
+                Some(curve) => curve.point(store, ticks, value),
+                None if !take.pressed => take.curve = Curve::start(store, ticks, value),
+                None => {}
+            }
+            take.pressed = true;
+        };
+        match source {
+            Some(source) => self.notes.take_mut(source).into_iter().for_each(press),
+            None => self
+                .notes
+                .taken()
+                .filter_map(|note| note.take.as_mut())
+                .for_each(press),
+        }
+    }
+
+    /// The run's tick of an input at `sample`, less the output delay (S8).
+    fn played_tick(&self, sample: u64) -> u64 {
+        self.player
+            .tick_at(sample.saturating_sub(u64::from(self.output_delay)))
     }
 
     /// The release of `note` at `sample`: what it recorded goes into its track's tree
@@ -173,10 +214,10 @@ impl Control {
     /// held from its tick before snapping, at least 1 tick and at most the pattern. It holds the
     /// tree it makes before it lets go of `tree`, unless that is the track's, replaces a note of
     /// the same sound, pitch and start (counting it only when it replaced none) and raises
-    /// `moment` past the start's sample in its pass (S12). It gives `tree` itself for a take it
-    /// drops: one whose sound left the pool or whose bar or place no longer fits the pattern, and
-    /// any once the pass is full or with fewer than `RESERVE` blocks free, which make the pass full
-    /// and show "Full" (S13, S14).
+    /// `moment` past the start's sample in its pass (S12). The note takes the take's curve. It
+    /// gives `tree` itself for a take it drops, and gives its curve back: one whose sound left the
+    /// pool or whose bar or place no longer fits the pattern, and any once the pass is full or with
+    /// fewer than `RESERVE` blocks free, which make the pass full and show "Full" (S13, S14).
     fn recorded(
         &mut self,
         tree: Tree,
@@ -187,34 +228,34 @@ impl Control {
         let take = note.take.expect("a recorded note has a take");
         let pattern = self.project.patterns[usize::from(take.pattern)];
         let bar_ticks = self.project.signature.bar_ticks();
-        if self.project.pool.get(take.sound).is_none()
-            || take.bar >= pattern.bars
-            || u32::from(take.place) >= bar_ticks
-        {
-            return tree;
-        }
-        if self.full || store.free() < RESERVE {
+        let fits = self.project.pool.get(take.sound).is_some()
+            && take.bar < pattern.bars
+            && u32::from(take.place) < bar_ticks;
+        if fits && (self.full || store.free() < RESERVE) {
             self.full = true;
             self.say("Full", RECORD);
+        }
+        if !fits || self.full {
+            if let Some(curve) = take.curve {
+                store.give_back(curve.block());
+            }
             return tree;
         }
-        let end = self
-            .player
-            .tick_at(sample.saturating_sub(u64::from(self.output_delay)));
         let (made, replaced) = store.insert(
             tree,
             Note {
                 bar: take.bar,
                 place: take.place,
                 // A pattern of 64 bars of 30,720 ticks fits.
-                length: end
+                length: self
+                    .played_tick(sample)
                     .saturating_sub(take.tick)
                     .clamp(1, u64::from(pattern.bars) * u64::from(bar_ticks))
                     as u32,
                 sound: take.sound,
                 pitch: note.pitch,
                 velocity: take.velocity,
-                curve: None,
+                curve: take.curve.map(|curve| curve.block()),
             },
         );
         store.hold(made);

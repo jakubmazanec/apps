@@ -894,10 +894,14 @@ impl Control {
             // The output delay is no control of the device: it clears no message and uses no held
             // button.
             Input::OutputDelay { samples } => self.output_delay = samples,
-            Input::NoteOn { .. }
-            | Input::PadPressure { .. }
-            | Input::NotePressure { .. }
-            | Input::ChannelPressure { .. } => {}
+            Input::PadPressure { pad, pressure } => {
+                self.pressure(Some(Source::Pad(pad)), pressure, sample, store);
+            }
+            Input::NotePressure { note, pressure } => {
+                self.pressure(Some(Source::Midi(note)), pressure, sample, store);
+            }
+            Input::ChannelPressure { pressure } => self.pressure(None, pressure, sample, store),
+            Input::NoteOn { .. } => {}
         }
     }
 

@@ -1,6 +1,7 @@
 use crate::input::PADS;
 use crate::message::NoteId;
 use crate::project::pool::SoundNumber;
+use crate::store::curve::Curve;
 
 /// Where a note comes from: a pad or a MIDI note. A source has at most one note on.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -23,6 +24,10 @@ pub struct Take {
     pub place: u16,
     /// The sample of the start in its pass (S12).
     pub due: u64,
+    /// Whether pressure came since the hit: a curve starts only at the first (S15).
+    pub pressed: bool,
+    /// The pressure since the hit, when the first found room for it (S15).
+    pub curve: Option<Curve>,
 }
 
 /// A note that is on.
@@ -220,6 +225,8 @@ mod tests {
             bar: 0,
             place: 480,
             due: 6_000,
+            pressed: false,
+            curve: None,
         };
         notes.start(Source::Pad(0), 3, Some(0), 60, Some(take));
         notes.start(Source::Midi(64), 3, None, 64, None);

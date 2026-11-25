@@ -2,12 +2,12 @@
 //! the record dot and REC's light that show them, and the notes recorded. At 120 BPM in 4/4 a beat
 //! is 24,000 samples, a bar 96,000 and a tick 12.5.
 
-use super::pattern::{count, entered, fill_until, notes_in, put, versions};
+use super::pattern::{count, entered, fill_until, notes_in, put, ready, versions};
 use super::timing::{choose, on_bars};
 use super::*;
 use crate::sequencer::Run;
-use crate::store::Tree;
 use crate::store::note::Note;
+use crate::store::{Tree, curve};
 use view::StepCursor;
 
 /// A `Play` from tick `tick` anchored at `anchor`, at 120 BPM.
@@ -990,4 +990,203 @@ fn the_note_strip_never_moves_a_note_against_the_turn() {
     rig.turn(100, 2, 1);
     rig.step(110);
     assert_eq!(lengths(&rig), [14_880, 490]);
+}
+
+/// The points of the curve of `note`.
+#[allow(unsafe_code)]
+fn points_of(rig: &Rig<'_>, note: &Note) -> Vec<(u16, u8)> {
+    // SAFETY: the reader lives while no step runs.
+    curve::points(unsafe { rig.notes.reader() }.block(note.curve.expect("a curve"))).collect()
+}
+
+#[test]
+fn pressure_while_recording_goes_into_the_notes_curve() {
+    let queue = Queue::new();
+    let (mut rig, synth) = recording(&queue, 1);
+    rig.tap(1_000, Button::PadsKeys);
+
+    // Ticks 480, 500, 560 and 720.
+    rig.note_on(6_000, 60, 100);
+    rig.queue(
+        6_250,
+        Input::NotePressure {
+            note: 60,
+            pressure: 40,
+        },
+    );
+    rig.queue(
+        7_000,
+        Input::NotePressure {
+            note: 60,
+            pressure: 45,
+        },
+    );
+    rig.note_off(9_000, 60);
+    rig.step(9_128);
+
+    let [note] = on_t4(&rig)[..] else {
+        panic!("one note on T4");
+    };
+    assert_eq!(
+        note,
+        Note {
+            curve: note.curve,
+            ..played(480, 240, synth)
+        }
+    );
+    assert_eq!(points_of(&rig, &note), [(20, 40), (60, 45)]);
+}
+
+#[test]
+fn channel_pressure_reaches_every_held_recorded_note() {
+    let queue = Queue::new();
+    let (mut rig, synth) = recording(&queue, 1);
+    let syn_2 = rig.synth_on(1);
+
+    // Ticks 480 and 520, which snaps to 480, then 560 and 720.
+    rig.hit(6_000, 0, 100);
+    rig.hit(6_500, 1, 100);
+    rig.queue(7_000, Input::ChannelPressure { pressure: 50 });
+    rig.release(9_000, 0);
+    rig.release(9_000, 1);
+    rig.step(9_128);
+
+    let notes = on_t4(&rig);
+    assert_eq!(
+        notes,
+        [
+            Note {
+                curve: notes[0].curve,
+                ..played(480, 240, synth)
+            },
+            Note {
+                curve: notes[1].curve,
+                ..played(480, 200, syn_2)
+            }
+        ]
+    );
+    assert_eq!(points_of(&rig, &notes[0]), [(80, 50)]);
+    assert_eq!(points_of(&rig, &notes[1]), [(40, 50)]);
+}
+
+#[test]
+#[allow(unsafe_code)]
+fn without_room_a_note_is_kept_without_its_curve() {
+    let queue = Queue::new();
+    let (mut rig, synth) = recording(&queue, 1);
+    rig.hit(6_000, 0, 100);
+    rig.step(6_128);
+    fill_until(&rig, RESERVE + 1);
+    // SAFETY: the store lives while no step runs.
+    let block = unsafe { rig.notes.store() }.take();
+
+    rig.queue(
+        6_250,
+        Input::PadPressure {
+            pad: 0,
+            pressure: 40,
+        },
+    );
+    rig.step(6_378);
+    assert_eq!(ready(&rig), RESERVE);
+    // SAFETY: as above. With room again a later pressure starts no curve either, as a curve starts
+    // only at the first.
+    unsafe { rig.notes.store() }.give_back(block);
+    rig.queue(
+        7_000,
+        Input::PadPressure {
+            pad: 0,
+            pressure: 60,
+        },
+    );
+    rig.step(7_128);
+    assert_eq!(ready(&rig), RESERVE + 1);
+    rig.release(9_000, 0);
+    rig.step(9_128);
+
+    assert_eq!(on_t4(&rig), [played(480, 240, synth)]);
+}
+
+#[test]
+fn a_dropped_note_gives_its_curve_back() {
+    let queue = Queue::new();
+    let (mut rig, synth) = recording(&queue, 1);
+    let before = ready(&rig);
+    rig.hit(6_000, 0, 100);
+    rig.queue(
+        6_050,
+        Input::PadPressure {
+            pad: 0,
+            pressure: 40,
+        },
+    );
+    // POOL opens on the selected Syn 1, whose DELETE's question OK answers.
+    rig.menu(6_100, 5);
+    rig.tap(6_200, Button::Ok);
+    rig.tap(6_300, Button::Ok);
+    rig.tap(6_400, Button::Ok);
+    rig.step(6_500);
+    assert!(rig.control.project.pool.get(synth).is_none());
+    assert_eq!(ready(&rig), before - 1);
+
+    rig.release(9_000, 0);
+    rig.step(9_128);
+
+    assert_eq!(versions(&mut rig), []);
+    assert_eq!(on_t4(&rig), []);
+    assert_eq!(ready(&rig), before);
+}
+
+#[test]
+fn pressure_without_a_recorded_note_does_nothing() {
+    /// Pressure from pad 1, MIDI note 60 and the channel at `sample`, stepped past: no block is
+    /// taken and nothing is sent.
+    fn presses_nothing(rig: &mut Rig<'_>, sample: u64) {
+        let before = ready(rig);
+        rig.queue(
+            sample,
+            Input::PadPressure {
+                pad: 0,
+                pressure: 40,
+            },
+        );
+        rig.queue(
+            sample,
+            Input::NotePressure {
+                note: 60,
+                pressure: 40,
+            },
+        );
+        rig.queue(sample, Input::ChannelPressure { pressure: 40 });
+        rig.step(sample + 128);
+        assert_eq!(ready(rig), before);
+        assert_eq!(rig.sent(), []);
+        assert_eq!(versions(rig), []);
+    }
+
+    // Stopped with no note on.
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    rig.control.project.track = 3;
+    rig.synth_on(0);
+    presses_nothing(&mut rig, 1_000);
+
+    // Notes played while playing without REC.
+    rig.tap(2_000, Button::Play);
+    rig.hit(3_000, 0, 100);
+    rig.note_on(3_000, 60, 100);
+    rig.step(3_128);
+    assert_eq!(rig.sent().len(), 3);
+    presses_nothing(&mut rig, 4_000);
+
+    // A recorded note still held after STOP ended its take.
+    let queue = Queue::new();
+    let (mut rig, synth) = recording(&queue, 1);
+    rig.hit(6_000, 0, 100);
+    rig.tap(9_000, Button::Stop);
+    rig.step(9_128);
+    rig.sent();
+    versions(&mut rig);
+    presses_nothing(&mut rig, 10_000);
+    assert_eq!(on_t4(&rig), [played(480, 240, synth)]);
 }

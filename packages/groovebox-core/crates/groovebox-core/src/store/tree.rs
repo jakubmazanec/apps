@@ -92,7 +92,10 @@ impl Store<'_> {
     /// it was.
     pub fn insert(&mut self, tree: Tree, note: Note) -> (Tree, Option<Note>) {
         let Some(root) = tree.0 else {
-            return (Tree(Some(self.write(0, &note.to_bytes()))), None);
+            let leaf = self.write(0, &note.to_bytes());
+            // The leaf holds the note's curve.
+            self.hold_new(leaf);
+            return (Tree(Some(leaf)), None);
         };
         let ((left, right), old) = self.insert_in(root, note);
         let root = match right {

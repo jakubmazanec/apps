@@ -1,5 +1,6 @@
 #![allow(unsafe_code)]
 
+pub mod curve;
 pub mod note;
 pub mod tree;
 
@@ -252,19 +253,40 @@ impl Store<'_> {
         unsafe { &mut *self.ram.block(b) }
     }
 
-    /// The children of an index block, in order: the last two bytes of each 12-byte entry that
-    /// follows the 4 bytes of its head. A leaf has none.
+    /// Gives back `b`, which nobody holds: a curve no note kept.
+    ///
+    /// # Panics
+    ///
+    /// When someone holds `b`.
+    pub fn give_back(&mut self, b: Block) {
+        assert_eq!(self.books.holders[usize::from(b)], 0, "block {b} is held");
+        self.books.give_back(b);
+    }
+
+    /// The blocks that `b` holds. The children of an index block, in order: the last two bytes of
+    /// each 12-byte entry that follows the 4 bytes of its head. The curve blocks of a leaf's notes,
+    /// as it holds them the way an index holds its children (S16). A curve block holds none.
     pub(crate) fn children(&self, b: Block) -> impl Iterator<Item = Block> + use<> {
         let block = self.block(b);
-        let mut children = [0; (BLOCK - 4) / 12];
-        for (child, entry) in children.iter_mut().zip(block[4..].as_chunks::<12>().0) {
-            *child = Block::from_le_bytes([entry[10], entry[11]]);
+        let count = usize::from(block[1]);
+        let mut children = [None; (BLOCK - 4) / 12];
+        match block[0] {
+            0 => {
+                for (child, bytes) in children.iter_mut().zip(&block[4..].as_chunks().0[..count]) {
+                    *child = note::Note::from_bytes(bytes).curve;
+                }
+            }
+            curve::CURVE => {}
+            _ => {
+                for (child, entry) in children
+                    .iter_mut()
+                    .zip(&block[4..].as_chunks::<12>().0[..count])
+                {
+                    *child = Some(Block::from_le_bytes([entry[10], entry[11]]));
+                }
+            }
         }
-        children.into_iter().take(if block[0] == 0 {
-            0
-        } else {
-            usize::from(block[1])
-        })
+        children.into_iter().flatten()
     }
 }
 
@@ -436,5 +458,59 @@ mod tests {
         store.take();
 
         assert_eq!(store.used(), 1_040);
+    }
+
+    #[test]
+    fn a_leaf_holds_its_notes_curves() {
+        let ram = NoteRam::boxed();
+        // SAFETY: the test is the only store.
+        let mut store = unsafe { ram.store() };
+        let mut curve = curve::Curve::start(&mut store, 0, 40).unwrap();
+        // Points whose bytes would name blocks if the curve were read as an index.
+        for ticks in 1..10 {
+            curve.point(&mut store, 60 * ticks, 40);
+        }
+        let c = curve.block();
+        let note = note::Note {
+            bar: 0,
+            place: 0,
+            length: 480,
+            sound: crate::project::pool::SoundNumber(1),
+            pitch: 60,
+            velocity: 127,
+            curve: Some(c),
+        };
+        assert_eq!(store.children(c).count(), 0);
+
+        let (first, _) = store.insert(Tree(None), note);
+        store.hold(first);
+        assert_eq!(store.books.holders[usize::from(c)], 1);
+        let (second, _) = store.insert(
+            first,
+            note::Note {
+                pitch: 61,
+                curve: None,
+                ..note
+            },
+        );
+        store.hold(second);
+        assert_eq!(store.books.holders[usize::from(c)], 2);
+        store.release(first, None);
+        store.release(second, None);
+
+        assert_eq!(store.ready(), NOTE_BLOCKS);
+    }
+
+    #[test]
+    fn give_back_frees_a_block_nobody_holds() {
+        let ram = NoteRam::boxed();
+        // SAFETY: the test is the only store.
+        let mut store = unsafe { ram.store() };
+        let block = store.take();
+
+        store.give_back(block);
+
+        assert_eq!(store.ready(), NOTE_BLOCKS);
+        assert_eq!(store.take(), block);
     }
 }
