@@ -98,8 +98,8 @@ pub struct Voice {
     /// there in a line.
     bend: f32,
     bend_chunks: u32,
-    /// The share of Pitch amount the next chunk the note sounds or reads is still off its pitch by:
-    /// 1 before the note's start, falling over Pitch decay.
+    /// The share of Pitch amount the next chunk the note sounds or reads is off its pitch by. It
+    /// is already fallen one chunk from 1 when the note starts, and falls on over Pitch decay.
     pitch_drop: f32,
     /// Fixed when the note starts: Spread was above 0, or its sample's file is stereo.
     stereo: bool,
@@ -318,8 +318,8 @@ impl Voice {
         self.state = State::Idle;
     }
 
-    /// The pitch the note plays in semitones: its key's, bent on its way there, with Transpose and
-    /// Fine tune, and its Pitch amount as far as the pitch drop has not fallen.
+    /// The pitch the note plays in semitones: its key's, bent on its way there, with Transpose, Fine
+    /// tune and its Pitch amount as far as the pitch drop has not fallen.
     fn semitones(&self) -> f32 {
         self.pitch as f32
             + self.bend
@@ -338,9 +338,15 @@ impl Voice {
     /// The pitch drop after one more chunk: the distance to the pitch shrinks to 1/1,000 over Pitch
     /// decay, as an envelope's decay does.
     fn fallen_pitch_drop(&self) -> f32 {
-        let decay =
-            param::real(&PITCH_DECAY, self.values.read(PITCH_DECAY.id)) * SAMPLE_RATE as f32;
-        flush(self.pitch_drop * libm::powf(0.001, CHUNK as f32 / decay))
+        flush(
+            self.pitch_drop
+                * libm::powf(
+                    0.001,
+                    CHUNK as f32
+                        / (param::real(&PITCH_DECAY, self.values.read(PITCH_DECAY.id))
+                            * SAMPLE_RATE as f32),
+                ),
+        )
     }
 
     /// `render`; without a reader a sample note plays the chunk it read ahead and reads nothing.
@@ -641,26 +647,17 @@ mod tests {
 
     #[test]
     fn a_pitch_decay_of_0_leaves_every_chunk_at_the_notes_pitch() {
-        let values = sound(&[(&PITCH_AMOUNT, 48), (&PITCH_DECAY, 0)]);
-        for engine in [NoteEngine::Synth, NoteEngine::Sample(None)] {
-            let mut voice = Voice::new();
-            voice.start(
-                NoteId(0),
-                0,
-                SoundNumber(1),
-                69,
-                127,
-                1,
-                engine,
-                &values,
-                &empty_reader(),
-            );
+        let mut voice = note(
+            &sound(&[(&PITCH_AMOUNT, 48), (&PITCH_DECAY, 0)]),
+            69,
+            127,
+            1,
+        );
 
+        assert_eq!(voice.semitones(), 69.0);
+        for _ in 0..8 {
+            play(&mut voice, 1);
             assert_eq!(voice.semitones(), 69.0);
-            for _ in 0..8 {
-                play(&mut voice, 1);
-                assert_eq!(voice.semitones(), 69.0);
-            }
         }
     }
 

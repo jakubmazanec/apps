@@ -216,7 +216,7 @@ Every layer of every note runs through this chain after its engine, the same for
    JD-Xi, for every sound. Each moves one unit per click, and SHIFT changes nothing on them.
    - **Pitch envelope (owner's choice):** pitch amount, from −48 to +48 semitones, is how far above
      the note's pitch a note starts, below when negative; it moves one unit per click and SHIFT
-     changes nothing. Pitch decay, a time as the envelopes' have, 0 to 10 s, is how fast the note
+     changes nothing. Pitch decay, a time like the envelopes' times, 0 to 10 s, is how fast the note
      falls back to its pitch: exponentially, to a thousandth of the amount in that time, as the
      envelopes' decay falls. A pitch decay of 0 gives no drop at all.
    - The drop is a fraction from 1 to 0 times the current pitch amount, so turning pitch amount
