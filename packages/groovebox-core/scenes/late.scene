@@ -1,9 +1,12 @@
 groovebox-scene 1
-# Syn 1 on pad 1 through the panel: MENU + step 3, then OK, down twice and OK in the sound picker. A
-# tap of PADS/KEYS then makes the pads keys that play Syn 1.
+# Syn 1 on pad 1 of T4, the track the factory project leaves empty, through the panel: T4, then
+# MENU + step 3, OK, down twice and OK in the sound picker. A tap of PADS/KEYS then makes the pads
+# keys that play Syn 1.
 # The first two steps serve the start-up on an empty storage, which then opens the project.
 step 128
 step 256
+input 1008 press t4
+input 1016 release t4
 input 1024 press menu
 input 1032 press step-3
 input 1040 release step-3

@@ -77,7 +77,7 @@ impl Sound {
     /// # Panics
     ///
     /// When `id` is not a `Sound` entry: an ID comes from the master list.
-    pub fn place(id: ParamId) -> usize {
+    pub const fn place(id: ParamId) -> usize {
         param::position(ENTRIES, Scope::Sound, id).expect("every ID in use is a sound entry")
     }
 
@@ -299,8 +299,24 @@ impl Pool {
         }
     }
 
+    /// Makes a synth sound named `name` that holds `values`, as the factory project's sounds are
+    /// made. A `const fn`, so the factory project is built when the program is compiled. The pool
+    /// has room.
+    pub(super) const fn add_synth(
+        &mut self,
+        name: &str,
+        values: [i32; SOUND_VALUES],
+    ) -> SoundNumber {
+        self.append(Sound {
+            number: SoundNumber(self.next),
+            name: Label::of(name),
+            values,
+            ..Sound::UNUSED
+        })
+    }
+
     /// Adds a sound that `vacancy` approved.
-    fn append(&mut self, sound: Sound) -> SoundNumber {
+    const fn append(&mut self, sound: Sound) -> SoundNumber {
         self.sounds[self.length] = sound;
         self.length += 1;
         self.next += 1;

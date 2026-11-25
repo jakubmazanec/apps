@@ -257,6 +257,9 @@ fades out over about 100 ms once it is let go; level 80%. The voice is poly with
 glide time of 0 ms, no choke group, no transpose and a pitch amount of +0. Sub level, noise level,
 spread and the second oscillator's level are 0. Every number is a constant tuned by ear.
 
+The factory project's sounds (Workflow A) use only the settings above, written in code and tuned by
+ear; the kick and the tom get their punch from the pitch envelope.
+
 ## Voices
 
 - **A fixed count of 32 voices** (owner's choice), provisional and recorded in the budget profile.

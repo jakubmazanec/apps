@@ -5,20 +5,24 @@ file samples/pad.wav ours 220 10 2
 # The operation count plays this scene: the most a render batch has to do. 32 voices of a stereo
 # sample sound at Transpose +48 cost more than 32 of a stereo Supersaw, as measured when sample
 # sounds came. Every effect slot of the four tracks holds a reverb, ringing in the busiest batch
-# with every pre-delay crossfading. There a reverb in every slot costs 12,096,989 operations. With
-# Pitch amount +48 and Pitch decay 10 s on top it costs 12,087,867, and a delay in every slot costs
+# with every pre-delay crossfading. There a reverb in every slot costs 11,576,143 operations. With
+# Pitch amount +48 and Pitch decay 10 s on top it cost 12,087,867, and a delay in every slot
 # 11,250,439, each measured in a version of this scene that this file does not contain, the delay
-# one with a TEMPO turn at the chord. pad on pad 1 through the panel:
-# MENU + step 3, then OK, down and OK in the sound picker open the sample picker on kick.wav, and
-# down onto pad.wav and OK choose it. A tap of PADS/KEYS then makes the pads keys that play pad.
+# one with a TEMPO turn at the chord, before a sound's values were found faster and the reverb
+# version cost 12,096,989. pad on pad 1 through the panel, in the place of the factory
+# project's Kick: MENU + step 3, then OK opens the sound picker on Kick, and up twice onto New
+# sample and OK open the sample picker on kick.wav, and down onto pad.wav and OK choose it. A tap of
+# PADS/KEYS then makes the pads keys that play pad.
 input 3200 press menu
 input 4800 press step-3
 input 6400 release step-3
 input 8000 release menu
 input 9600 press ok
 input 11200 release ok
-input 12800 press down
-input 14400 release down
+input 12800 press up
+input 13600 release up
+input 14400 press up
+input 15200 release up
 input 16000 press ok
 input 17600 release ok
 input 19200 press down
@@ -98,43 +102,37 @@ input 260800 press step-2
 input 262400 release step-2
 input 264000 release page
 input 264800 turn encoder-4 1
-# T2 to T4 put pad on their pad 1 too. SOUND shows the track's empty pad 1 and OK opens the sound
-# picker on Empty. Down three times past New sample and New synth lands on pad, the sound of the
-# pool; OK chooses it.
+# T2 to T4 put pad on their empty pad 12 too, beside the factory sounds. The hit on pad 12 selects
+# it, SOUND shows its Pad page and OK opens the sound picker on Empty. Right goes a page down onto
+# pad, the last sound of the pool after the factory sounds; OK chooses it.
 input 266400 press t2
 input 268000 release t2
-input 269600 press ok
-input 271200 release ok
-input 272800 press down
-input 274400 release down
-input 276000 press down
-input 277600 release down
-input 279200 press down
-input 280800 release down
+input 269600 pad-hit 11 100
+input 271200 pad-release 11
+input 272800 press ok
+input 274400 release ok
+input 276000 press right
+input 277600 release right
 input 282400 press ok
 input 284000 release ok
 input 285600 press t3
 input 287200 release t3
-input 288800 press ok
-input 290400 release ok
-input 292000 press down
-input 293600 release down
-input 295200 press down
-input 296800 release down
-input 298400 press down
-input 300000 release down
+input 288800 pad-hit 11 100
+input 290400 pad-release 11
+input 292000 press ok
+input 293600 release ok
+input 295200 press right
+input 296800 release right
 input 301600 press ok
 input 303200 release ok
 input 304800 press t4
 input 306400 release t4
-input 308000 press ok
-input 309600 release ok
-input 311200 press down
-input 312800 release down
-input 314400 press down
-input 316000 release down
-input 317600 press down
-input 319200 release down
+input 308000 pad-hit 11 100
+input 309600 pad-release 11
+input 311200 press ok
+input 312800 release ok
+input 314400 press right
+input 316000 release right
 input 320800 press ok
 input 322400 release ok
 # MENU + step 4 shows FX's Chain page on T4's slot 1. Every slot of every track becomes a reverb: OK
@@ -538,20 +536,20 @@ input 943200 release down
 # round ends.
 input 947200 press play
 input 948800 release play
-# Shortly before the chord a hit on pad 1 of T2, T3 and T4 sends pad through each track's slots, so
+# Shortly before the chord a hit on pad 12 of T2, T3 and T4 sends pad through each track's slots, so
 # all 24 reverbs ring at it, and T1 comes back for the chord.
 input 1103872 press t2
 input 1105472 release t2
-input 1107072 pad-hit 0 127
-input 1108672 pad-release 0
+input 1107072 pad-hit 11 127
+input 1108672 pad-release 11
 input 1110272 press t3
 input 1111872 release t3
-input 1113472 pad-hit 0 127
-input 1115072 pad-release 0
+input 1113472 pad-hit 11 127
+input 1115072 pad-release 11
 input 1116672 press t4
 input 1118272 release t4
-input 1119872 pad-hit 0 127
-input 1121472 pad-release 0
+input 1119872 pad-hit 11 127
+input 1121472 pad-release 11
 input 1123072 press t1
 input 1124672 release t1
 # MENU + step 4 and PAGE + step 7 show T1's last reverb. From 896 samples before the chord, 8

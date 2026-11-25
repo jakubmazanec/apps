@@ -46,7 +46,7 @@ struct Rig<'a> {
 }
 
 impl<'a> Rig<'a> {
-    /// A rig whose project opened at sample 0, after a start-up on an empty storage.
+    /// A rig whose empty project opened at sample 0, after a start-up on an empty storage.
     fn new(messages: &'a Queue<Message, MESSAGE_QUEUE>) -> Self {
         let mut rig = Self::with_files(messages, &[]);
         rig.open();

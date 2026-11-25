@@ -17,18 +17,24 @@ use std::format;
 use std::string::String;
 use view::{Cursor, Picker, Question, SamplesView};
 
+/// A new control part that is only ever read.
+struct Fresh(Control);
+#[allow(unsafe_code)]
+// SAFETY: nothing writes a `Fresh`, so it is shared only to be read.
+unsafe impl Sync for Fresh {}
+
 impl<'a> Rig<'a> {
-    /// A rig before its first step, whose storage holds `files`, each at its path.
+    /// A rig before its first step, whose storage holds `files`, each at its path, and whose
+    /// project is empty, as the rule tests start from.
     #[allow(unsafe_code)]
     pub(super) fn with_files(
         messages: &'a Queue<Message, MESSAGE_QUEUE>,
         files: &[(&str, Vec<u8>)],
     ) -> Self {
-        /// A new control part that is only ever read.
-        struct Fresh(Control);
-        // SAFETY: nothing writes `FRESH`, so it is shared only to be read.
-        unsafe impl Sync for Fresh {}
-        static FRESH: Fresh = Fresh(Control::new());
+        static FRESH: Fresh = Fresh(Control {
+            project: Project::new(),
+            ..Control::new()
+        });
         let mut control = Box::<Control>::new_uninit();
         // SAFETY: a new control part holds no pointers and owns nothing: a copy of its bytes is a
         // new control part too.
@@ -310,6 +316,14 @@ fn loading_library_shows_until_the_project_opens() {
 
     assert_eq!(rig.control.message, None);
     assert!(shows_step(&rig.control, &STEP_HEADER));
+}
+
+#[test]
+fn a_new_control_part_holds_the_factory_project_from_the_start() {
+    static NEW: Fresh = Fresh(Control::new());
+    static FACTORY: Project = Project::factory();
+
+    assert!(NEW.0.project == FACTORY);
 }
 
 #[test]

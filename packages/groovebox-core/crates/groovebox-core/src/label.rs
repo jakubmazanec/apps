@@ -16,6 +16,23 @@ impl<const N: usize> Label<N> {
         }
     }
 
+    /// A label of `text`. A `const fn`, so a label of the program's own text is built when the
+    /// program is compiled.
+    ///
+    /// # Panics
+    ///
+    /// When `text` does not fit.
+    pub const fn of(text: &str) -> Self {
+        let mut label = Self::new();
+        label
+            .bytes
+            .split_at_mut(text.len())
+            .0
+            .copy_from_slice(text.as_bytes());
+        label.length = text.len();
+        label
+    }
+
     pub fn as_str(&self) -> &str {
         core::str::from_utf8(&self.bytes[..self.length]).expect("a label holds whole characters")
     }

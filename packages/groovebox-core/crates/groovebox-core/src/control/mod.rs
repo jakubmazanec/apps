@@ -262,7 +262,7 @@ impl Control {
             unsent_at: 0,
             trim: None,
             library: Library::new(),
-            project: Project::new(),
+            project: Project::factory(),
             settings: DeviceSettings::new(),
             buttons: Buttons::new(),
             notes: Notes::new(),

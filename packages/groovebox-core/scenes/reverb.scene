@@ -3,8 +3,11 @@ groovebox-scene 1
 # sample preview. kick.wav and pad.wav, a long stereo file to preview.
 file samples/kick.wav ours 55 0.3 1
 file samples/pad.wav ours 220 10 2
-# Syn 1 on pad 1 through the panel: MENU + step 3 shows SOUND's Pad page and OK opens the sound
-# picker on Empty; down twice to New synth and OK choose it.
+# Syn 1 on pad 1 of T4, which the factory project leaves empty, through the panel: T4, then MENU +
+# step 3 shows SOUND's Pad page and OK opens the sound picker on Empty; down twice to New synth and
+# OK choose it.
+input 1600 press t4
+input 2400 release t4
 input 3200 press menu
 input 4800 press step-3
 input 6400 release step-3
@@ -45,8 +48,9 @@ input 54400 pad-release 0
 input 104000 pad-hit 0 100
 input 105600 pad-release 0
 # MENU + step 3 shows SOUND's Pad page of Syn 1. Pad 1 is hit and held; while its echoes and the
-# room ring, OK opens the sound picker on Syn 1. Up twice onto New sample and OK open the sample
-# picker on kick.wav; down onto pad.wav previews it.
+# room ring, OK opens the sound picker on Syn 1, below the factory sounds. Left goes a page up onto
+# Empty, and down onto New sample and OK open the sample picker on kick.wav; down onto pad.wav
+# previews it.
 input 251200 press menu
 input 252800 press step-3
 input 254400 release step-3
@@ -54,10 +58,10 @@ input 256000 release menu
 input 257600 pad-hit 0 100
 input 259200 press ok
 input 260800 release ok
-input 262400 press up
-input 264000 release up
-input 265600 press up
-input 267200 release up
+input 262400 press left
+input 264000 release left
+input 265600 press down
+input 267200 release down
 input 268800 press ok
 input 270400 release ok
 input 272000 press down

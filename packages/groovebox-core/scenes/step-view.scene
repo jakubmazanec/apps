@@ -1,6 +1,9 @@
 groovebox-scene 1
-# The STEP view, driven through the panel only. Syn 1 on pad 1: MENU + step 3 shows SOUND's Pad
-# page and OK opens the sound picker on Empty; down twice to New synth and OK choose it.
+# The STEP view, driven through the panel only. Syn 1 on pad 1 of T4, which the factory project
+# leaves empty: T4, then MENU + step 3 shows SOUND's Pad page and OK opens the sound picker on
+# Empty; down twice to New synth and OK choose it.
+input 800 press t4
+input 1200 release t4
 input 1600 press menu
 input 3200 press step-3
 input 4800 release step-3
@@ -24,20 +27,16 @@ input 30400 press down
 input 32000 release down
 input 33600 press ok
 input 35200 release ok
-# The hit on pad 12 selects it; down four times onto Syn 2 and OK put Syn 2 there as well, so pad
-# 12 is a copy lane of pad 2.
+# The hit on pad 12 selects it; right goes a page down past the factory sounds onto Syn 1, and down
+# onto Syn 2 and OK put Syn 2 there as well, so pad 12 is a copy lane of pad 2.
 input 36800 pad-hit 11 100
 input 38400 pad-release 11
 input 40000 press ok
 input 41600 release ok
-input 43200 press down
-input 44800 release down
+input 43200 press right
+input 44800 release right
 input 46400 press down
 input 48000 release down
-input 49600 press down
-input 51200 release down
-input 52800 press down
-input 54400 release down
 input 56000 press ok
 input 57600 release ok
 # MENU + step 1 shows STEP.
@@ -128,9 +127,9 @@ input 172800 turn encoder-3 2
 input 174400 turn encoder-4 1
 frame 179200
 input 180800 release step-3
-# The hit on pad 1 selects it, and on SOUND's Pad page OK opens the picker on Syn 1, up highlights
-# New synth and OK choose it: Syn 3 on pad 1. Syn 1 sits on no pad now, so its notes take an extra
-# lane.
+# The hit on pad 1 selects it, and on SOUND's Pad page OK opens the picker on Syn 1, below the
+# factory sounds. Left goes a page up onto Empty, down twice highlights New synth and OK choose it:
+# Syn 3 on pad 1. Syn 1 sits on no pad now, so its notes take an extra lane.
 input 182400 pad-hit 0 100
 input 184000 pad-release 0
 input 185600 press menu
@@ -139,8 +138,12 @@ input 188800 release step-3
 input 190400 release menu
 input 192000 press ok
 input 193600 release ok
-input 195200 press up
-input 196800 release up
+input 195200 press left
+input 196000 release left
+input 196400 press down
+input 196800 release down
+input 197200 press down
+input 197600 release down
 input 198400 press ok
 input 200000 release ok
 input 201600 press menu

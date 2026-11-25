@@ -15,7 +15,7 @@ export const STATES: ReadonlyArray<{title: string; frame: string; approved?: str
     approved: 'sound-pad.png',
   },
   {
-    title: 'Sound picker on Empty',
+    title: 'Sound picker on Empty, above the factory sounds',
     frame: 'new-synth/frame-16000.png',
     approved: 'picker-sound.png',
   },
@@ -25,7 +25,7 @@ export const STATES: ReadonlyArray<{title: string; frame: string; approved?: str
     approved: 'sound-pad.png',
   },
   {
-    title: 'SOUND Pad page on track 2',
+    title: 'SOUND Pad page of Bass on track 2, with Sub and Acid',
     frame: 'new-synth/frame-70400.png',
     approved: 'sound-pad.png',
   },
@@ -35,12 +35,13 @@ export const STATES: ReadonlyArray<{title: string; frame: string; approved?: str
     approved: 'step-stopped.png',
   },
   {
-    title: 'Sound picker on Syn 1',
+    title: 'Sound picker on Syn 1, below the factory sounds',
     frame: 'picker-while-playing/frame-22400.png',
     approved: 'picker-sound.png',
   },
   {
-    title: 'Sound picker on Syn 1 with MENU held and T2 and PADS/KEYS pressed',
+    title:
+      'Sound picker on Syn 1, below the factory sounds, with MENU held and T2 and PADS/KEYS pressed',
     frame: 'picker-while-playing/frame-40960.png',
     approved: 'picker-sound.png',
   },
@@ -117,12 +118,13 @@ export const STATES: ReadonlyArray<{title: string; frame: string; approved?: str
     approved: 'question.png',
   },
   {
-    title: 'Sound picker on kick, missing as kick 2 is',
+    title: 'Sound picker on kick below the factory sounds, missing as kick 2 is',
     frame: 'sample-delete/frame-108800.png',
     approved: 'picker-sound.png',
   },
   {
-    title: 'POOL on snare-room, with hat missing (pool.png predates the file name in its row)',
+    title:
+      'POOL on snare-room below the factory sounds, with hat missing (pool.png predates the file name in its row)',
     frame: 'pool/frame-217600.png',
     approved: 'pool.png',
   },
@@ -140,17 +142,17 @@ export const STATES: ReadonlyArray<{title: string; frame: string; approved?: str
   {title: 'POOL saying "No unused sounds"', frame: 'pool/frame-336000.png'},
   {title: 'SETTINGS Dev page', frame: 'samples-screen/frame-190464.png'},
   {
-    title: 'STEP while importing 3 files',
+    title: 'STEP of the factory drums while importing 3 files',
     frame: 'library-import/frame-4864.png',
     approved: 'step-message.png',
   },
   {
-    title: 'STEP after 3 files imported',
+    title: 'STEP of the factory drums after 3 files imported',
     frame: 'library-import/frame-11264.png',
     approved: 'step-message.png',
   },
   {
-    title: 'STEP after 2 files imported and 1 not',
+    title: 'STEP of the factory drums after 2 files imported and 1 not',
     frame: 'library-import/frame-19200.png',
     approved: 'step-message.png',
   },

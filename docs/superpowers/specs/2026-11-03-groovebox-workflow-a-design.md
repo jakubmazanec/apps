@@ -330,7 +330,9 @@ edited another pad's sound.
 
 ### Making sounds
 
-- New projects start empty: no sounds, no samples, every pad empty.
+- New projects start empty: no sounds, no samples, every pad empty. The factory project, which a
+  start opens when there is no project to open, holds 13 synth sounds on T1 to T3 and no notes; NEW
+  still makes an empty project.
 - **NEW SYNTH** puts a virtual-analog sound with default settings on the pad.
 - **NEW SAMPLE** opens the sample picker; choosing a sample puts a sample sound on the pad. It has
   every default, then Start is the file's first frame and End its last; Loop start and Loop end are
@@ -349,8 +351,9 @@ edited another pad's sound.
   as the number. A synth always carries a number (Syn 1), the first sound of a file none (Kick).
   Every later sound of a base, a copy included, takes the highest number of that base in the pool,
   plus one, and an unnumbered name counts as 1 (a copy of Kick is Kick 2). The base is shortened at
-  a character boundary so that the name fits 64 bytes. Nothing extra is stored. Typing names comes
-  later.
+  a character boundary so that the name fits 64 bytes. Nothing extra is stored. The factory sounds
+  carry their own names, such as Kick and Bass; a copy follows the rule (Kick 2). Typing names
+  comes later.
 
 ### Two ways to change what a pad plays
 
@@ -544,7 +547,7 @@ brings each project's own loudness back on load.
 ### Projects
 
 - **Autosave (owner's choice).** The open project saves itself shortly after every change; there is
-  no SAVE. Starting up opens the last project, or a new empty one the first time.
+  no SAVE. Starting up opens the last project, or the factory project the first time.
 - **PROJECT screen.** The list starts with NEW, then the projects, with the open one marked.
   - **OK on NEW** makes a new, empty project and opens it.
   - **OK on a project** opens a picker with OPEN, COPY and DELETE.
@@ -656,9 +659,9 @@ On top of Foundation's testing:
   moving effect slots, mutes, octave limits, autosave requests. A picker or a question open while
   playing: pads sound and do not select, PLAY, STOP and REC work, MENU does nothing. Hitting an
   empty pad: it is selected, SOUND shows only the PAD page with EMPTY, the step buttons do nothing.
-- **Drift scenes** that drive the panel only: from an empty project, NEW SYNTH on a pad, NEW SAMPLE
-  through the sample picker, page changes, effect types and slot moves, mutes, the volume encoder
-  and octave shifts, with frames captured at fixed points.
+- **Drift scenes** that drive the panel only: from the factory project, on its empty T4, NEW SYNTH
+  on a pad, NEW SAMPLE through the sample picker, page changes, effect types and slot moves, mutes,
+  the volume encoder and octave shifts, with frames captured at fixed points.
 - **The screen gallery** shows every screen, the MENU tiles, the page tabs and every picker in fixed
   states.
 

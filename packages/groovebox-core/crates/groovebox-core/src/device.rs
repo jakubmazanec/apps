@@ -498,18 +498,19 @@ mod tests {
         let kind = MessageKind::NoteOn {
             note: NoteId(0),
             track: 0,
-            sound: SoundNumber(1),
+            sound: SoundNumber(14),
             pitch: 60,
             velocity: 100,
             engine: NoteEngine::Synth,
         };
         // The control part sends a message only for a pad with a sound, so the test sends one
-        // itself through the control side's end of the queue, after the sound it plays.
+        // itself through the control side's end of the queue, after the sound it plays: the next
+        // after the factory project's 13.
         let new_sound = Message {
             number: 0,
             at: 0,
             kind: MessageKind::NewSound {
-                sound: SoundNumber(1),
+                sound: SoundNumber(14),
             },
         };
         let message = Message {

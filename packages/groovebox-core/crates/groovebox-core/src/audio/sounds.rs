@@ -2,6 +2,7 @@ use crate::budget;
 use crate::library::FileId;
 use crate::message::NoteEngine;
 use crate::param::ParamId;
+use crate::project::FACTORY_SOUNDS;
 use crate::project::pool::{SOUND_DEFAULTS, SOUND_VALUES, Sound, SoundNumber};
 
 /// The audio part's own copy of every sound's values and of what its pattern notes play, in number
@@ -22,6 +23,21 @@ impl Sounds {
             removed: [false; budget::POOL_SOUNDS],
             length: 0,
         }
+    }
+
+    /// `FACTORY_SOUNDS`, numbered from 1 in the list's order as the factory project's pool numbers
+    /// them, so the audio part holds them from the start as the control part's project does.
+    pub const fn factory() -> Self {
+        let mut sounds = Self::new();
+        while sounds.length < FACTORY_SOUNDS.len() {
+            sounds.sounds[sounds.length] = (
+                SoundNumber(sounds.length as u32 + 1),
+                FACTORY_SOUNDS[sounds.length].values(),
+                NoteEngine::Synth,
+            );
+            sounds.length += 1;
+        }
+        sounds
     }
 
     /// Adds a sound, whose pattern notes play the synth. Numbers only grow, so it goes last. When

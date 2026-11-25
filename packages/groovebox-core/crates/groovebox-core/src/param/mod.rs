@@ -429,11 +429,19 @@ pub const fn defaults<const N: usize>(entries: &[Entry], scope: Scope) -> [i32; 
 
 /// The place of the entry `id` among the entries in `scope`, in list order; none when the list
 /// has no such entry.
-pub fn position(entries: &[Entry], scope: Scope, id: ParamId) -> Option<usize> {
-    entries
-        .iter()
-        .filter(|entry| entry.scope == scope)
-        .position(|entry| entry.id == id)
+pub const fn position(entries: &[Entry], scope: Scope, id: ParamId) -> Option<usize> {
+    let mut place = 0;
+    let mut index = 0;
+    while index < entries.len() {
+        if same(entries[index].scope, scope) {
+            if entries[index].id.0 == id.0 {
+                return Some(place);
+            }
+            place += 1;
+        }
+        index += 1;
+    }
+    None
 }
 
 /// The place of `value`'s key among the choices of the list `entry`.

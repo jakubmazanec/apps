@@ -1,0 +1,40 @@
+groovebox-scene 1
+# A fresh device on the factory project: each of its 13 sounds hit once from its pad in PADS mode,
+# at full velocity and held a quarter of a second, one a second. T1's drums on pads 1 to 6: Kick,
+# Snare, Hat, Open hat, Tom and Cowbell. Then STEP shows their six lanes with Cowbell selected.
+input 3200 pad-hit 0 127
+input 15200 pad-release 0
+input 51200 pad-hit 1 127
+input 63200 pad-release 1
+input 99200 pad-hit 2 127
+input 111200 pad-release 2
+input 147200 pad-hit 3 127
+input 159200 pad-release 3
+input 195200 pad-hit 4 127
+input 207200 pad-release 4
+input 243200 pad-hit 5 127
+input 255200 pad-release 5
+frame 288000
+# T2's basses on pads 1 to 3: Bass, Sub and Acid.
+input 289600 press t2
+input 290400 release t2
+input 291200 pad-hit 0 127
+input 303200 pad-release 0
+input 339200 pad-hit 1 127
+input 351200 pad-release 1
+input 387200 pad-hit 2 127
+input 399200 pad-release 2
+frame 432000
+# T3's melodic sounds on pads 1 to 4: Lead, Pluck, Strings and Stab.
+input 433600 press t3
+input 434400 release t3
+input 435200 pad-hit 0 127
+input 447200 pad-release 0
+input 483200 pad-hit 1 127
+input 495200 pad-release 1
+input 531200 pad-hit 2 127
+input 543200 pad-release 2
+input 579200 pad-hit 3 127
+input 591200 pad-release 3
+frame 624000
+end 672000

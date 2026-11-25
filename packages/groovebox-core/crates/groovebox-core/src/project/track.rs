@@ -166,9 +166,9 @@ impl Track {
 
     /// Puts `sound` on pad `pad` (0 to 11), or empties the pad. When the pad is the selected pad,
     /// the sound becomes the selected one too.
-    pub fn put(&mut self, pad: u8, sound: Option<SoundNumber>) {
-        self.pads[usize::from(pad)] = sound;
-        if self.selected_pad == Some(pad) {
+    pub const fn put(&mut self, pad: u8, sound: Option<SoundNumber>) {
+        self.pads[pad as usize] = sound;
+        if matches!(self.selected_pad, Some(selected) if selected == pad) {
             self.selected_sound = sound;
         }
     }

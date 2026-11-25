@@ -173,9 +173,9 @@ Reopen a project, or restart the browser, and you see what you left: the same sc
 under the encoders. A copied project carries it too. Never saved: playback (a project always opens
 stopped and disarmed), the clipboard, the undo step, any held button and the cursor of each page,
 which Workflow A keeps only until the project closes. Each remembered item names things by number
-and falls back to its default when its target is gone. A new project has nothing remembered yet, at
-the first start too, and opens on the STEP screen with track 1 (T1) selected and pad 1 selected on
-every track.
+and falls back to its default when its target is gone. A new project has nothing remembered yet and
+opens on the STEP screen with track 1 (T1) selected and pad 1 selected on every track. The factory
+project, like a new one, has nothing remembered yet.
 
 Which project was open last is a device setting, so starting up opens it (Workflow A).
 
@@ -553,21 +553,21 @@ number in the file header, which is reserved now.
 ## Projects and the library in use
 
 **Starting up** empties `tmp/`, loads the whole library from storage into RAM, folder by folder,
-then opens the project named in the settings, or a new empty one if there is none or it cannot be
-opened. While the library loads the header says "Loading library"; the project opens once it is
-done, so a project never meets a half-loaded library **(owner's choice)**. A library bigger than the
-sample RAM, possible only after a hardware change or a lowered budget, is loaded in the order
-SAMPLES lists it as far as it fits: the first file that does not fit and every file after it stay on
-storage unloaded and are marked "not loaded" on SAMPLES, even a smaller one that would fill the gap;
-one line says in red "Library too big. 3 files not loaded", and sounds that use those files are
-MISSING until something is deleted and the device restarts **(owner's choice)**. A file whose header
-is not this device's (damaged or foreign) is not loaded either, and neither is a file that has our
-private chunk but is not 16-bit at 48 kHz **(owner's choice)**; when the RAM did not run out, the
-line counts it as "1 file not loaded". Every file not loaded is listed in red as "not loaded" and
-can be deleted. If storage fails while the library is listed, the project opens with whatever has
-loaded and the header says in red "Library can't be read" instead of the count **(owner's choice)**.
-The library is listed and loaded again at every start, which takes about 7 seconds for 300 files in
-the browser; that stays as it is in part 1 **(owner's choice)**.
+then opens the project named in the settings, or the factory project (Workflow A) if there is none
+or it cannot be opened. While the library loads the header says "Loading library"; the project opens
+once it is done, so a project never meets a half-loaded library **(owner's choice)**. A library
+bigger than the sample RAM, possible only after a hardware change or a lowered budget, is loaded in
+the order SAMPLES lists it as far as it fits: the first file that does not fit and every file after
+it stay on storage unloaded and are marked "not loaded" on SAMPLES, even a smaller one that would
+fill the gap; one line says in red "Library too big. 3 files not loaded", and sounds that use those
+files are MISSING until something is deleted and the device restarts **(owner's choice)**. A file
+whose header is not this device's (damaged or foreign) is not loaded either, and neither is a file
+that has our private chunk but is not 16-bit at 48 kHz **(owner's choice)**; when the RAM did not
+run out, the line counts it as "1 file not loaded". Every file not loaded is listed in red as "not
+loaded" and can be deleted. If storage fails while the library is listed, the project opens with
+whatever has loaded and the header says in red "Library can't be read" instead of the count
+**(owner's choice)**. The library is listed and loaded again at every start, which takes about 7
+seconds for 300 files in the browser; that stays as it is in part 1 **(owner's choice)**.
 
 **Opening a project** reads its project, view and pattern files and nothing else: every sample is
 already in RAM, so every sound plays at once. A sample that is not in the library makes its sound

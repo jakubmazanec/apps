@@ -66,7 +66,7 @@ impl Audio {
     pub const fn new() -> Self {
         Self {
             position: 0,
-            sounds: Sounds::new(),
+            sounds: Sounds::factory(),
             voices: Voices::new(),
             preview: Preview::new(),
             volume: Glide::at(OUTPUT_VOLUME.default),
@@ -390,9 +390,9 @@ mod tests {
         OUTPUT_VOLUME, PLAY_MODE, POLY, RESONANCE, REVERB_LEVEL, SPREAD, SUPERSAW, SUSTAIN, TEMPO,
         TRIGGER, WAVE,
     };
-    use crate::project::Signature;
     use crate::project::pool::{SOUND_DEFAULTS, SOUND_VALUES, Sound, SoundNumber};
     use crate::project::track::Effect;
+    use crate::project::{Project, Signature};
     use crate::queue::{Consumer, Producer, Queue};
     use crate::sample_ram::{
         BLOCK, BLOCKS, Blocks, Listed, Listing, SampleRam, Tables, blocks_for,
@@ -403,10 +403,11 @@ mod tests {
     use std::boxed::Box;
     use std::vec::Vec;
 
-    /// An audio part with its own queues, block tables, sample RAM, note memory and effect memory.
-    /// The test plays the control side of the tables through `listing` and `blocks`, and of the
-    /// note memory through `version`. The audio part is on the heap: a debug build's copies of it
-    /// on the stack overflow a test thread's 2 MiB.
+    /// An audio part with its own queues, block tables, sample RAM, note memory and effect memory,
+    /// holding no sounds, as the tests start from an empty pool. The test plays the control side of
+    /// the tables through `listing` and `blocks`, and of the note memory through `version`. The
+    /// audio part is on the heap: a debug build's copies of it on the stack overflow a test
+    /// thread's 2 MiB.
     struct Rig<'a> {
         audio: Box<Audio>,
         to_audio: Producer<'a, Message, MESSAGE_QUEUE>,
@@ -431,7 +432,10 @@ mod tests {
             // SAFETY: each rig takes one producer and one consumer from its own queues.
             unsafe {
                 Self {
-                    audio: Box::new(Audio::new()),
+                    audio: Box::new(Audio {
+                        sounds: Sounds::new(),
+                        ..Audio::new()
+                    }),
                     to_audio: messages.producer(),
                     inbox: messages.consumer(),
                     outbox: reports.producer(),
@@ -624,6 +628,18 @@ mod tests {
         samples
             .iter()
             .fold(0.0, |peak, &x| libm::fmaxf(peak, libm::fabsf(x)))
+    }
+
+    #[test]
+    fn a_new_audio_part_holds_the_values_of_the_factory_project_s_sounds() {
+        static FACTORY: Project = Project::factory();
+        let audio = Box::new(Audio::new());
+
+        for sound in FACTORY.pool.sounds() {
+            assert_eq!(audio.sounds.values(sound.number), &sound.values);
+            assert_eq!(audio.sounds.engine(sound.number), NoteEngine::Synth);
+        }
+        assert!(!audio.sounds.holds(SoundNumber(14)));
     }
 
     #[test]

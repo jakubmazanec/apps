@@ -4,9 +4,11 @@ groovebox-scene 1
 file samples/drums/kick.wav ours 55 0.4 1
 file samples/drums/snare-room.wav ours 180 1.2 1
 file samples/hat.wav ours 3000 0.1 1
-# MENU + step 3 shows SOUND's Pad page for the empty pad 1. OK, down onto New sample and OK open
-# the sample picker at the top level on drums/. OK enters drums/ on "..", and down onto kick.wav and
-# OK choose it: kick on pad 1.
+# T4, which the factory project leaves empty, then MENU + step 3 shows SOUND's Pad page for its
+# empty pad 1. OK, down onto New sample and OK open the sample picker at the top level on drums/. OK
+# enters drums/ on "..", and down onto kick.wav and OK choose it: kick on pad 1.
+input 1600 press t4
+input 2400 release t4
 input 3200 press menu
 input 4800 press step-3
 input 6400 release step-3
@@ -23,17 +25,14 @@ input 22400 press down
 input 24000 release down
 input 25600 press ok
 input 27200 release ok
-# The hit on the empty pad 12 selects it. OK, down three times onto kick and OK: kick on pad 12 too.
+# The hit on the empty pad 12 selects it. OK, right a page down past the factory sounds onto kick,
+# the last row, and OK: kick on pad 12 too.
 input 28800 pad-hit 11 100
 input 30400 pad-release 11
 input 32000 press ok
 input 33600 release ok
-input 35200 press down
-input 36800 release down
-input 38400 press down
-input 40000 release down
-input 41600 press down
-input 43200 release down
+input 35200 press right
+input 36800 release right
 input 44800 press ok
 input 46400 release ok
 # Pad 2: New sample opens the sample picker in drums/ on "..", and down twice onto snare-room.wav
@@ -67,8 +66,9 @@ input 86400 press down
 input 88000 release down
 input 89600 press ok
 input 91200 release ok
-# Pad 9: down twice onto New synth and OK: Syn 1. Twice more OK, left onto Empty, down twice onto
-# New synth and OK: Syn 2, then Syn 3 on pad 9, so Syn 1 and Syn 2 sit on no pad.
+# Pad 9: down twice onto New synth and OK: Syn 1. Twice more OK, left twice past the factory sounds
+# onto Empty, down twice onto New synth and OK: Syn 2, then Syn 3 on pad 9, so Syn 1 and Syn 2 sit
+# on no pad.
 input 92800 pad-hit 8 100
 input 94400 pad-release 8
 input 96000 press ok
@@ -83,6 +83,8 @@ input 108800 press ok
 input 110400 release ok
 input 112000 press left
 input 113600 release left
+input 114000 press left
+input 114400 release left
 input 115200 press down
 input 116800 release down
 input 118400 press down
@@ -93,6 +95,8 @@ input 124800 press ok
 input 126400 release ok
 input 128000 press left
 input 129600 release left
+input 130000 press left
+input 130400 release left
 input 131200 press down
 input 132800 release down
 input 134400 press down
@@ -110,9 +114,12 @@ input 150400 press down
 input 152000 release down
 input 153600 press ok
 input 155200 release ok
-# T2: New synth on its pad 1 only, Syn 5. Back on T1, the hit on the empty pad 10 selects it.
+# T2: the hit on its empty pad 4 selects it, and New synth puts Syn 5 there only. Back on T4, the
+# hit on the empty pad 10 selects it.
 input 156800 press t2
 input 158400 release t2
+input 158800 pad-hit 3 100
+input 159200 pad-release 3
 input 160000 press ok
 input 161600 release ok
 input 163200 press down
@@ -121,8 +128,8 @@ input 166400 press down
 input 168000 release down
 input 169600 press ok
 input 171200 release ok
-input 172800 press t1
-input 174400 release t1
+input 172800 press t4
+input 174400 release t4
 input 176000 pad-hit 9 100
 input 177600 pad-release 9
 # MENU + step 10 opens SAMPLES on drums/. Down onto hat.wav, OK, OK on Delete and OK on its
@@ -139,26 +146,29 @@ input 192000 press ok
 input 193600 release ok
 input 195200 press ok
 input 196800 release ok
-# MENU + step 6 opens POOL on Remove unused, as the empty pad 10 is selected. Down twice: kick, then
-# snare-room selected with pad 2, as in Look's pool.png.
+# MENU + step 6 opens POOL on Remove unused, as the empty pad 10 is selected, above the factory
+# sounds. Right goes a page down onto snare-room, and down onto hat and up again bring hat's row
+# into view: snare-room selected with pad 2, as in Look's pool.png below the factory sounds.
 input 204800 press menu
 input 206400 press step-6
 input 208000 release step-6
 input 209600 release menu
-input 211200 press down
-input 212800 release down
-input 214400 press down
-input 216000 release down
+input 211200 press right
+input 212000 release right
+input 212800 press down
+input 213600 release down
+input 214400 press up
+input 216000 release up
 frame 217600
-# Up twice onto Remove unused keeps kick, the sound passed, selected with pad 1. The hit on pad 12
-# selects it, and the cursor lands on kick.
+# Up onto kick and left a page up onto Remove unused keep kick, the sound passed, selected with pad
+# 1. The hit on pad 12 selects it, and the cursor lands on kick.
 input 220800 press up
 input 222400 release up
-input 224000 press up
-input 225600 release up
+input 224000 press left
+input 225600 release left
 input 227200 pad-hit 11 100
 input 228800 pad-release 11
-# A tap of PADS/KEYS switches T1 to KEYS mode. Down three times onto Syn 1 selects it on no pad,
+# A tap of PADS/KEYS switches T4 to KEYS mode. Down three times onto Syn 1 selects it on no pad,
 # and pad 1 plays it at C4.
 input 230400 press pads-keys
 input 232000 release pads-keys
@@ -212,14 +222,14 @@ input 307200 press ok
 input 308800 release ok
 input 310400 press ok
 input 312000 release ok
-# Up three times onto Remove unused, and OK asks "Remove 1 unused sound?": Syn 2, as Syn 5 sits on
-# T2's pad 1.
+# Up twice and left a page up onto Remove unused, and OK asks "Remove 1 unused sound?": Syn 2, as
+# Syn 5 sits on T2's pad 4 and the factory sounds on their pads.
 input 313600 press up
 input 315200 release up
 input 316800 press up
 input 318400 release up
-input 320000 press up
-input 321600 release up
+input 320000 press left
+input 321600 release left
 input 323200 press ok
 input 324800 release ok
 frame 326400

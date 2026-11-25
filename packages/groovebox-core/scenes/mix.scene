@@ -1,20 +1,7 @@
 groovebox-scene 1
-# Two tracks playing, MIX, a mute while playing and the mutes under MENU. Syn 1 on pad 1 of T1
-# through the panel: MENU + step 3 shows SOUND's Pad page and OK opens the sound picker on Empty;
-# down twice to New synth and OK choose it.
-input 3200 press menu
-input 4800 press step-3
-input 6400 release step-3
-input 8000 release menu
-input 9600 press ok
-input 11200 release ok
-input 12800 press down
-input 14400 release down
-input 16000 press down
-input 17600 release down
-input 19200 press ok
-input 20800 release ok
-# Taps of steps 1, 5, 9 and 13 put T1's notes on the beats of bar 1.
+# Two tracks playing, MIX, a mute while playing and the mutes under MENU, with the factory project's
+# Kick on pad 1 of T1 and Bass on pad 1 of T2, each the selected sound of its track.
+# Taps of steps 1, 5, 9 and 13 put Kick's notes on the beats of bar 1.
 input 22400 press step-1
 input 24000 release step-1
 input 25600 press step-5
@@ -23,19 +10,10 @@ input 28800 press step-9
 input 30400 release step-9
 input 32000 press step-13
 input 33600 release step-13
-# T2 shows track 2's empty pad 1: OK opens the sound picker on Empty, and down twice to New synth
-# and OK put Syn 2 on it. Taps of steps 3, 7, 11 and 15 put T2's notes between the beats, and T1
-# comes back.
+# T2 shows track 2 with Bass selected on its pad 1. Taps of steps 3, 7, 11 and 15 put Bass's notes
+# between the beats, and T1 comes back.
 input 35200 press t2
 input 36800 release t2
-input 38400 press ok
-input 40000 release ok
-input 41600 press down
-input 43200 release down
-input 44800 press down
-input 46400 release down
-input 48000 press ok
-input 49600 release ok
 input 51200 press step-3
 input 52800 release step-3
 input 54400 press step-7
@@ -77,7 +55,7 @@ input 275200 release t2
 input 276800 release shift
 frame 297600
 frame 321664
-# T2 and a hit of its pad 1 while it is muted: Syn 2 sounds, as a hand-played note does.
+# T2 and a hit of its pad 1 while it is muted: Bass sounds, as a hand-played note does.
 input 324800 press t2
 input 326400 release t2
 input 328000 pad-hit 0 100

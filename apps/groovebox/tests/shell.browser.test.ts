@@ -17,6 +17,7 @@ import {runShell} from '../source/shell/shell.js';
 // The palette entries the tests read
 const BACKGROUND = 0;
 const TEXT = 1;
+const FAINT = 3;
 const LINE = 4;
 const ACCENT = 6;
 
@@ -330,10 +331,11 @@ describe(runShell, () => {
 
     await expect.poll(() => position(core), {timeout: 5000}).toBeGreaterThan(4800n);
 
-    // The header's line, the "S" of "Step" in the accent and the empty main area
+    // The header's line, the "S" of "Step" in the accent and the faint line under the factory
+    // project's Kick lane
     expect(pixel(core, 0, 14)).toBe(LINE);
     expect(pixel(core, 4, 6)).toBe(ACCENT);
-    expect(pixel(core, 240, 30)).toBe(BACKGROUND);
+    expect(pixel(core, 240, 30)).toBe(FAINT);
   });
 
   test('two quick clicks start one audio graph', async () => {
@@ -609,9 +611,10 @@ describe(runShell, () => {
     let shell = await runStarted();
     let inputs = watchInputs(shell);
 
-    // Syn 1 on pad 1, then KEYS mode, where a pad is lit while its note is on
+    // Syn 1 on pad 1 of T4, which the factory project leaves empty, then KEYS mode, where a pad is
+    // lit while its note is on
     await userEvent.keyboard(
-      '{KeyL>}{Digit3}{/KeyL}{Enter}{ArrowDown}{ArrowDown}{Enter}{Backslash}',
+      '{BracketRight}{KeyL>}{Digit3}{/KeyL}{Enter}{ArrowDown}{ArrowDown}{Enter}{Backslash}',
     );
 
     await expect.poll(() => isLit('pads-keys')).toBe(true);

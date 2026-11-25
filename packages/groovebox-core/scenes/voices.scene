@@ -1,5 +1,8 @@
 groovebox-scene 1
-# Syn 1 on pad 1 through the panel: MENU + step 3, then OK, down twice and OK in the sound picker.
+# Syn 1 on pad 1 of T4, the track the factory project leaves empty, through the panel: T4, then
+# MENU + step 3, OK, down twice and OK in the sound picker.
+input 1600 press t4
+input 2400 release t4
 input 3200 press menu
 input 4800 press step-3
 input 6400 release step-3
