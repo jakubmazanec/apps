@@ -468,8 +468,9 @@ each second, so every muted track blinks together. The fast blink goes with the 
 choice)**: on for the first half of each beat at the current tempo and off for the second, the beat
 being what the signature counts, a quarter in x/4 and an eighth in x/8. REC armed uses it, and a
 queued pattern's step button will use the same speed. While stopped, the beats run at the current
-tempo from the press that armed REC, and a tempo turn while armed starts them again from that turn;
-during the count-in they are the clicks' beats, and at the first beat REC turns steady.
+tempo from the press that armed REC, and a tempo turn while armed carries the beats on at the new
+tempo from the first tick after the turn; during the count-in they are the clicks' beats, and at the
+first beat REC turns steady.
 
 Unless CANCEL or COPY is held, a pad lit by its selection or by a note does not blink. While one is
 held, every pad it would erase or copy blinks, the selected pad included. The control part works the

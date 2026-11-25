@@ -474,7 +474,7 @@ row per pitch. Everything else in this section works the same on both.
 - **Filled:** a note starts here; the brighter, the louder.
 - **A tail to the right:** the note keeps sounding over the next cells.
 - **Drawn slightly to the right:** the note starts later than the first tick of its sixteenth, as a
-  note recorded with quantize off does. A note off the grid belongs to the step whose sixteenth it
+  note recorded with quantize off can. A note off the grid belongs to the step whose sixteenth it
   starts in, so a slightly early loose hit lights the step before the one aimed at. Nothing is drawn
   left of centre **(owner's choice)**.
 - **A small number:** more than one note starts here, such as a chord.

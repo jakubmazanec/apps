@@ -11,8 +11,8 @@ pub const SOUNDING: usize = 128;
 /// Foundation's 48,000 samples × 60 seconds × 100 over 1,920 ticks a beat.
 pub(crate) const SCALE: u64 = 150_000;
 
-/// Sample `anchor` is tick `tick` of the run, counted from bar 1 of the first pass, at `tempo`
-/// hundredths of a BPM.
+/// Sample `anchor` is tick `tick` of the run, counted from bar 1 of the first pass or from the
+/// count-in bar before it (S4), at `tempo` hundredths of a BPM.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Run {
     pub anchor: u64,
@@ -1690,12 +1690,18 @@ mod tests {
             [true, true, false, true]
         );
         let ram = NoteRam::boxed();
-        let seven_eight = Meter {
-            signature: Signature { beats: 7, unit: 8 },
-            ..FOUR_BARS
-        };
         assert_eq!(
-            on(Rig::with(&ram, seven_eight, []), [0, 5_999, 6_000, 12_000]),
+            on(
+                Rig::with(
+                    &ram,
+                    Meter {
+                        signature: Signature { beats: 7, unit: 8 },
+                        ..FOUR_BARS
+                    },
+                    []
+                ),
+                [0, 5_999, 6_000, 12_000]
+            ),
             [true, true, false, true]
         );
     }

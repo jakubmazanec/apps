@@ -370,6 +370,7 @@ fn splice(work: &mut [u8], at: usize, gone: usize, new: &[u8]) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::store::curve::Curve;
     use crate::store::{NOTE_BLOCKS, NoteRam};
     use std::vec::Vec;
 
@@ -508,6 +509,9 @@ mod tests {
                 let new = Note {
                     length: 1 + random.below(7_680),
                     velocity: 1 + random.below(127) as u8,
+                    // A third of the notes have a curve, which their leaf holds.
+                    curve: (random.below(3) == 0)
+                        .then(|| Curve::start(&mut store, 0, 1).unwrap().block()),
                     ..note(at.bar, at.place, at.sound.0, at.pitch)
                 };
                 let old = match reference.binary_search_by_key(&new.key(), Note::key) {
@@ -556,6 +560,8 @@ mod tests {
         }
 
         assert!(deepest >= 3, "the tree reached only {deepest} levels");
+        store.release(tree, None);
+        assert_eq!(store.ready(), NOTE_BLOCKS);
     }
 
     #[test]

@@ -708,24 +708,24 @@ fn a_hit_from_before_rec_is_not_recorded_even_held_into_it() {
     assert_eq!(on_t4(&rig), []);
 }
 
+/// A rig on T4 with a synth on pad 1, armed with REC at 0 whose PLAY at 0 counts in: the
+/// pattern starts at 96,000. Its messages are taken.
+fn counting_in_on_t4(queue: &Queue<Message, MESSAGE_QUEUE>) -> (Rig<'_>, SoundNumber) {
+    let mut rig = Rig::new(queue);
+    rig.control.project.track = 3;
+    let synth = rig.synth_on(0);
+    rig.press(0, Button::Rec);
+    rig.press(0, Button::Play);
+    rig.let_go(1, Button::Rec);
+    rig.let_go(1, Button::Play);
+    rig.step(2);
+    assert!(rig.control.player.counting_in(2));
+    rig.sent();
+    (rig, synth)
+}
+
 #[test]
 fn hits_during_the_count_in_are_not_recorded_but_an_early_first_hit_is() {
-    /// A rig on T4 with a synth on pad 1, armed with REC at 0 whose PLAY at 0 counts in: the
-    /// pattern starts at 96,000. Its messages are taken.
-    fn counting_in_on_t4(queue: &Queue<Message, MESSAGE_QUEUE>) -> (Rig<'_>, SoundNumber) {
-        let mut rig = Rig::new(queue);
-        rig.control.project.track = 3;
-        let synth = rig.synth_on(0);
-        rig.press(0, Button::Rec);
-        rig.press(0, Button::Play);
-        rig.let_go(1, Button::Rec);
-        rig.let_go(1, Button::Play);
-        rig.step(2);
-        assert!(rig.control.player.counting_in(2));
-        rig.sent();
-        (rig, synth)
-    }
-
     let queue = Queue::new();
     let (mut rig, synth) = counting_in_on_t4(&queue);
     hit_and_release(&mut rig, 50_000, 51_000);
@@ -756,6 +756,33 @@ fn hits_during_the_count_in_are_not_recorded_but_an_early_first_hit_is() {
     rig.step(70_128);
     assert_eq!(versions(&mut rig), []);
     assert_eq!(on_t4(&rig), []);
+}
+
+#[test]
+fn stop_or_rec_during_the_count_in_drops_the_held_takes() {
+    for button in [Button::Stop, Button::Rec] {
+        let queue = Queue::new();
+        let (mut rig, synth) = counting_in_on_t4(&queue);
+        let before = ready(&rig);
+        // Tick 7,600 snaps onto the first beat, which does not come.
+        rig.hit(95_000, 0, 100);
+        rig.queue(
+            95_200,
+            Input::PadPressure {
+                pad: 0,
+                pressure: 40,
+            },
+        );
+
+        rig.tap(95_500, button);
+        rig.release(97_000, 0);
+        rig.step(97_128);
+
+        assert_eq!(versions(&mut rig), [], "{button:?}");
+        assert_eq!(on_t4(&rig), [], "{button:?}");
+        assert_eq!(count(&rig, synth), 0, "{button:?}");
+        assert_eq!(ready(&rig), before, "{button:?}");
+    }
 }
 
 #[test]
@@ -1129,6 +1156,32 @@ fn a_note_short_of_room_only_by_its_curve_is_kept_without_it() {
     assert_eq!(on_t4(&rig), [played(480, 240, synth)]);
     assert_eq!(said(&rig), None);
     assert_eq!(count(&rig, synth), 1);
+}
+
+#[test]
+fn a_note_short_of_room_even_with_its_curve_given_back_is_dropped() {
+    let queue = Queue::new();
+    let (mut rig, synth) = recording(&queue, 1);
+    rig.hit(6_000, 0, 100);
+    rig.queue(
+        6_250,
+        Input::PadPressure {
+            pad: 0,
+            pressure: 40,
+        },
+    );
+    rig.step(6_378);
+    // Giving back the curve's block leaves one block short of `RESERVE`.
+    fill_until(&rig, RESERVE - 2);
+
+    rig.release(9_000, 0);
+    rig.step(9_128);
+
+    assert_eq!(versions(&mut rig), []);
+    assert_eq!(on_t4(&rig), []);
+    assert_eq!(said(&rig), Some(("Full", RECORD)));
+    assert_eq!(ready(&rig), RESERVE - 1);
+    assert_eq!(count(&rig, synth), 0);
 }
 
 #[test]

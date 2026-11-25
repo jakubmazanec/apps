@@ -39,7 +39,7 @@ input 46400 release rec
 input 51200 press play
 input 52800 release play
 # With Quantize off each hit is kept where it was played, less the output delay. C4 with pressure
-# on its pad lands on step 1 and is held for a beat.
+# on its pad lands on step 1 and is held for a sixteenth.
 input 148400 pad-hit 0 100
 input 151400 pad-pressure 0 80
 input 152900 pad-pressure 0 40

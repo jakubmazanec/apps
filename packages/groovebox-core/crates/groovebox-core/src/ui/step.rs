@@ -149,7 +149,7 @@ pub fn draw_step(canvas: &mut impl Canvas, picture: &StepPicture) {
             };
             let block = x(column) + if mark.late { LATE_NOTE_X } else { NOTE_X };
             canvas.fill_rect(rect(block, y + 1, NOTE_WIDTH, NOTE_HEIGHT), color);
-            // The tail runs on the block's middle rows and stops at the last cell.
+            // The tail runs on the block's middle rows and stops at the grid's end.
             let tail = i32::from(mark.tail).min(CELL * (shown - column - 1) as i32);
             canvas.fill_rect(
                 rect(block + NOTE_WIDTH, y + ROW_HEIGHT / 2 - 1, tail, 2),

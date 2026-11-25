@@ -50,14 +50,13 @@ impl Control {
         }
     }
 
-    /// An armed REC whose player plays past its count-in at `sample` turns on, starting a pass
-    /// that is not full (S5, S14).
+    /// An armed REC whose player plays past its count-in at `sample` turns on (S5). Arming started
+    /// the pass, which stays full if a take of the count-in filled it (S14).
     pub(super) fn count_in_over(&mut self, sample: u64) {
         if matches!(self.rec, Rec::Armed(_))
             && self.player.run().is_some()
             && !self.player.counting_in(sample)
         {
-            self.full = false;
             self.rec = Rec::On;
         }
     }
@@ -159,13 +158,22 @@ impl Control {
 
     /// REC turning off, STOP or a jump at `sample` (S11): every held take goes into its track's
     /// tree there (`recorded`), and each track takes all of its own at once (`edit`), in track
-    /// order. The notes stay on without their takes, so their release adds nothing.
+    /// order. During the count-in nothing has played, so the takes go instead, each giving back its
+    /// curve. The notes stay on without their takes, so their release adds nothing.
     pub(super) fn end_takes(
         &mut self,
         sample: u64,
         versions: &mut Producer<'_, Version, VERSION_QUEUE>,
         store: &mut Store<'_>,
     ) {
+        if self.player.counting_in(sample) {
+            for note in self.notes.taken() {
+                if let Some(curve) = note.take.take().and_then(|take| take.curve) {
+                    store.give_back(curve.block());
+                }
+            }
+            return;
+        }
         while let Some((track, pattern)) = self
             .notes
             .taken()

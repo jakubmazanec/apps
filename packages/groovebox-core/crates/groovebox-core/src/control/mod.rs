@@ -795,7 +795,7 @@ impl Control {
                         .map_or(0, |(_, place)| 1 << (place / 480 % 16)),
             ) << Lights::STEP;
         }
-        let rec = match self.rec {
+        if match self.rec {
             Rec::Off => false,
             Rec::Armed(_) if self.player.run().is_some() => self.player.beat_on(self.now),
             Rec::Armed(run) => {
@@ -804,8 +804,7 @@ impl Control {
                 (run.first_tick_after(self.now) - 1) % beat < beat / 2
             }
             Rec::On => true,
-        };
-        if rec {
+        } {
             lights.light(Lights::REC);
         }
         if self.player.run().is_some() {

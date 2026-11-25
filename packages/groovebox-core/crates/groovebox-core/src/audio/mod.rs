@@ -273,7 +273,7 @@ impl Audio {
                     MessageKind::MoveSlot { track, from, to } => {
                         self.slots.move_slot(track, from, to);
                     }
-                    // Another device value is not the audio part's.
+                    // Another device or project value is not the audio part's.
                     MessageKind::SetParam { .. } => {}
                 }
                 // The report has room: the audio part takes a message only while it does.
