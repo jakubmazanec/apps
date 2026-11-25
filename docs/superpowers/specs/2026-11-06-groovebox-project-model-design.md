@@ -331,10 +331,10 @@ already sounded live; its version's moment is one sample after the snapped start
 pass, so the sequencer never plays it again in that pass, and nothing is stored or cleared on the
 sound side. A note pressed in one pattern and released after a switch belongs to the pattern it was
 pressed in; STOP, REC off or a jump while a pad is held ends the note there, at that press less the
-output delay, and the later release adds nothing; a note can never be longer than its pattern. A
-note is dropped at its end, with no version made, when its sound has left the pool, when its bar or
-place no longer fits the pattern after a length or signature change since the hit, or when the pass
-is full; a dropped note gives back the curve block it holds.
+output delay; the later release adds nothing; a note can never be longer than its pattern. A note is
+dropped at its end, with no version made, in three cases. Its sound has left the pool. Its bar or
+place no longer fits the pattern after a length or signature change since the hit. The pass is full.
+A dropped note gives back the curve block it holds.
 
 ### Erasing while playing
 
@@ -383,9 +383,9 @@ never panics.
   one for the value. 169 points fit.
 - **Recording keeps a point only when it says something new:** the value has moved by at least 2, or
   a 1/32 beat, 60 ticks, has passed since the last kept point **(my call)**. When the block fills,
-  every second point is dropped, the second, the fourth and so on, each adding its ticks to the
-  point after it, and the minimum spacing doubles, so a long expressive hold ends with a complete
-  but coarser curve that keeps its first and last points and every tick. Both rules are whole-number
+  every second point is dropped (the second, the fourth and so on) and each adds its ticks to the
+  point after it; the minimum spacing doubles, so a long expressive hold ends with a complete but
+  coarser curve that keeps its first and last points and every tick. Both rules are whole-number
   arithmetic on timestamps and values, so they replay identically.
 - **While a pad is held,** its points go into a block nobody else can see yet; the curve joins the
   note's version at release, and from then on the block is never changed. A note block holds the

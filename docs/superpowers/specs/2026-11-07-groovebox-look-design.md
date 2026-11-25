@@ -203,7 +203,7 @@ the owner "for now", expected to change with testing.
 - **The transport**, pushed to the right edge, from the left: the pattern (P3; P3→4 while pattern 4
   is queued), the bar the step buttons show over the pattern's length (2/4; "2/4 ▶1" while playing,
   the bar playing after ▶), the tempo with one decimal (120.0); then only while they apply: a record
-  dot after the tempo, dim while armed, the count-in included, and red while recording, a disc 7 px
+  dot after the tempo, dim while armed (the count-in included) and red while recording, a disc 7 px
   wide whose rows are 3, 5, 7, 7, 7, 5 and 3 px wide, centred, on the same rows as the metronome
   icon; a small metronome icon while the metronome is on, dim, 7 px wide and drawn on the capitals'
   rows 4 to 10; "Mute 2 4" while tracks are muted, dim and at the right end after the metronome
@@ -389,7 +389,7 @@ shows the filter's curve with a faint line at the cutoff. Richer graphics come l
   "old format" in red; the strip empty.
 - **PATTERN**: Timing and Bars as pages (headers "Pattern Timing" and "Pattern Bars"); Timing,
   PAGE + 1, holds Tempo on encoder 1, Grid on 2 and Quantize on 4, a switch that OK flips, with
-  encoder 3 holding nothing until Swing is built, so the timing strip's third cell stays empty, and
+  encoder 3 holding nothing until Swing is built, so the timing strip's third cell stays empty;
   Bars, PAGE + 2, holds Length on 1 and Signature on 2; the Patterns page lists New, then every
   pattern with its bars and note count, playing and queued marked, empty ones dim; its strip empty.
 - **SAMPLES**: the library by folder, in the sample picker's order, with a folder as its name and

@@ -319,10 +319,10 @@ Rejected:
 - When recording starts from a stop, one bar of clicks plays first, even with the metronome off.
 - COUNT-IN, OFF or 1 BAR, is a device setting on SETTINGS. It starts at 1 BAR **(my call)**.
 - **The bar before the start.** PLAY or SHIFT + PLAY while REC is armed and COUNT-IN is on starts
-  one bar of the signature, clicked beat by beat with the first click high, and the pattern starts
-  one bar later, from the bar the press would have started it from. No note starts in the count-in
-  bar. The clicks are timed like any beats of the run, so a tempo change during the count-in moves
-  the first beat, and a length or signature change made during it takes hold at the pattern's start.
+  one bar of the signature, clicked beat by beat with the first click high. The pattern starts one
+  bar later, from the bar the press would have started it from. No note starts in the count-in bar.
+  The clicks are timed like any beats of the run, so a tempo change during the count-in moves the
+  first beat, and a length or signature change made during it takes hold at the pattern's start.
   With COUNT-IN off, PLAY while armed starts recording together with the pattern, at the press.
 - **What shows (owner's choice):** only the clicks and REC show the count-in. PLAY lights at the
   press, REC keeps blinking and the header's record dot stays dim; the screen, the music line and
@@ -681,8 +681,8 @@ no way to arm and then start at a moment you choose, for example from the cursor
 
 **(owner's choice)**
 
-- **What is recorded:** a pad hit or a MIDI note that plays a sound while REC is on, or armed and
-  counting in (see "Count-in"), into the track and pattern current at the hit. It is recorded with a
+- **What is recorded:** a pad hit or a MIDI note that plays a sound while REC is on (or armed and
+  counting in, see "Count-in"), into the track and pattern current at the hit. It is recorded with a
   picker or a question open (Workflow A) and not under a held step. A hit from before REC turned on
   is not recorded, even when it is still held after.
 - **Sound and pitch:** in PADS mode the pad's sound at its unchanged pitch; in KEYS mode the
@@ -704,9 +704,10 @@ no way to arm and then start at a moment you choose, for example from the cursor
   next pass, but is never longer than the pattern.
 - **A note held across a pattern switch** belongs to the pattern it was pressed in. STOP, REC off or
   a jump (SHIFT + PLAY while playing) while a pad is held ends the note there, at that press
-  corrected for the output delay, and the later release adds nothing (Project model).
-- **A note is dropped,** not stored, when at its end its sound has left the pool, its bar or place
-  no longer fits the pattern after a length or signature change since the hit, or the pass is full.
+  corrected for the output delay; the later release adds nothing (Project model).
+- **A note is dropped,** not stored, in three cases. Its sound has left the pool by its end. Its bar
+  or place no longer fits the pattern after a length or signature change since the hit. The pass is
+  full.
 - **When memory runs out,** the pads keep sounding and nothing more is stored for the rest of the
   pass. The header shows "Full" in red; a press clears it as it clears any message, and each later
   hit while recording shows it again. REC turning on starts a pass that is not full (Project model).
