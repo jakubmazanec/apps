@@ -1,6 +1,7 @@
 use super::bars::Change;
 use super::held::write_length;
 use super::pages::{ItemDef, ItemKind, LIBRARY_METER, NOTE, Picture};
+use super::record::Rec;
 use super::samples::{self, rows};
 use super::step_view::{self, LANES_SHOWN, PAGE, cell_of};
 use super::view::{Picker, Question, Screen};
@@ -24,8 +25,8 @@ use crate::ui::frame::{Piece, draw_header, draw_strip};
 use crate::ui::item::{Bar, ItemView, draw_cursor, draw_item};
 use crate::ui::layout::{
     CHAIN_FIRST, HEADER_RIGHT, ITEM_HEIGHT, ITEM_PITCH, LIST_VISIBLE, METER_Y, METRONOME_WIDTH,
-    PAGE_FIRST, PAGE_VISIBLE, PAGE_WIDTH, PAGE_X, PICTURE, PIECE_GAP, ROW_FIRST, ROW_PITCH,
-    ROW_WIDTH, ROW_X, SAMPLES_VISIBLE, TEXT_INSET, TEXT_X, rect,
+    PAGE_FIRST, PAGE_VISIBLE, PAGE_WIDTH, PAGE_X, PICTURE, PIECE_GAP, RECORD_WIDTH, ROW_FIRST,
+    ROW_PITCH, ROW_WIDTH, ROW_X, SAMPLES_VISIBLE, TEXT_INSET, TEXT_X, rect,
 };
 use crate::ui::list::{Row, draw_rows};
 use crate::ui::plot::draw_line;
@@ -59,7 +60,8 @@ impl Control {
     /// screen and its page. The message is on the right, or while there is none the import's
     /// progress, in the room right of the pieces; a file's name in it is shortened with "…" so that
     /// the rest of the text fits there, and a message still too wide for it loses its end to a "…".
-    /// While neither shows, the transport is on the right (`transport`, S11), ending with the
+    /// While neither shows, the transport is on the right (`transport`, S11), with the record dot
+    /// after the tempo, dim while REC is armed and red while it is on (S6), ending with the
     /// metronome's icon while the metronome is on (S9) and then "Mute" and the numbers of the muted
     /// tracks in the dim colour while any is (S5), and the sound's name loses its end to a "…"
     /// where the pieces would come closer than 6 pixels to that group (S12). A page without a name,
@@ -108,6 +110,7 @@ impl Control {
                     text: "Loading library",
                     color: ACCENT,
                 }],
+                None,
                 false,
                 "",
             );
@@ -218,6 +221,11 @@ impl Control {
             text: piece.as_str(),
             color: TEXT,
         });
+        let record = match self.rec {
+            Rec::Off => None,
+            Rec::Armed(_) => Some(DIM),
+            Rec::On => Some(RECORD),
+        };
         let metronome = self.settings.get(METRONOME.id) == 1;
         let mut mute = Label::<12>::new();
         if self.project.tracks.iter().any(|track| track.muted()) {
@@ -243,6 +251,11 @@ impl Control {
                             .iter()
                             .map(|piece| text::width(piece.text) + PIECE_GAP)
                             .sum::<i32>()
+                        - if record.is_some() {
+                            RECORD_WIDTH + PIECE_GAP
+                        } else {
+                            0
+                        }
                         - if metronome {
                             METRONOME_WIDTH + PIECE_GAP
                         } else {
@@ -268,6 +281,7 @@ impl Control {
             message
                 .as_ref()
                 .map_or(transport.as_slice(), core::slice::from_ref),
+            record.filter(|_| message.is_none()),
             message.is_none() && metronome,
             if message.is_none() { mute.as_str() } else { "" },
         );

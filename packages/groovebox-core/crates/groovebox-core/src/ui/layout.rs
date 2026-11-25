@@ -30,6 +30,8 @@ pub const HEADER_RIGHT: i32 = 475;
 /// The width of the metronome's icon, which ends the header's right group while the metronome is
 /// on.
 pub const METRONOME_WIDTH: i32 = 7;
+/// The width of the record dot, which comes before the metronome's icon while REC is armed or on.
+pub const RECORD_WIDTH: i32 = 7;
 
 /// The first and the last row of the main area.
 pub const MAIN_TOP: i32 = 15;

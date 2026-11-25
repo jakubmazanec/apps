@@ -4,8 +4,8 @@ use crate::{
     ui::{
         item::{ItemView, draw_item},
         layout::{
-            HEADER_LINE, HEADER_RIGHT, HEADER_ROW, METRONOME_WIDTH, PIECE_GAP, STRIP_CELLS,
-            STRIP_ITEM, STRIP_LINE, TEXT_X,
+            HEADER_LINE, HEADER_RIGHT, HEADER_ROW, METRONOME_WIDTH, PIECE_GAP, RECORD_WIDTH,
+            STRIP_CELLS, STRIP_ITEM, STRIP_LINE, TEXT_X,
         },
         text,
     },
@@ -21,11 +21,13 @@ pub struct Piece<'a> {
 /// Draws the header: the `left` pieces from the left edge 6 pixels apart and the line under them
 /// all. The right group is laid out from the right edge inwards, 6 pixels apart: `mute` in the dim
 /// colour unless it is empty (S5), with `metronome` the metronome's icon, a dim triangle on the
-/// capitals' rows (S9), then the `right` pieces from the last to the first.
+/// capitals' rows (S9), with `record` the record dot in its colour, a disc on the same rows (S6),
+/// then the `right` pieces from the last to the first.
 pub fn draw_header(
     canvas: &mut impl Canvas,
     left: &[Piece],
     right: &[Piece],
+    record: Option<Color>,
     metronome: bool,
     mute: &str,
 ) {
@@ -53,6 +55,12 @@ pub fn draw_header(
             DIM,
         );
         x -= METRONOME_WIDTH + PIECE_GAP;
+    }
+    if let Some(color) = record {
+        for (row, width) in (HEADER_ROW + 3..).zip([3, 5, 7, 7, 7, 5, 3]) {
+            canvas.hline(x - 3 - width / 2, row, width as u32, color);
+        }
+        x -= RECORD_WIDTH + PIECE_GAP;
     }
     for piece in right.iter().rev() {
         text::draw_right(canvas, x, HEADER_ROW, piece.text, piece.color);
@@ -97,6 +105,7 @@ mod tests {
                 piece("Pads", DIM),
             ],
             &[],
+            None,
             false,
             "",
         );
@@ -121,6 +130,7 @@ mod tests {
             &mut screen,
             &[piece("Step", ACCENT)],
             &[piece("Storage full. Not saved", RECORD)],
+            None,
             false,
             "",
         );
@@ -137,6 +147,7 @@ mod tests {
             &mut screen,
             &[piece("Step", ACCENT)],
             &[piece("P1", TEXT), piece("1/1", TEXT), piece("120.0", TEXT)],
+            None,
             false,
             "",
         );
@@ -155,6 +166,7 @@ mod tests {
             &mut screen,
             &[piece("Step", ACCENT)],
             &[piece("P1", TEXT), piece("1/1", TEXT), piece("120.0", TEXT)],
+            None,
             true,
             "",
         );
@@ -179,6 +191,7 @@ mod tests {
             &mut screen,
             &[piece("Step", ACCENT)],
             &[piece("P1", TEXT), piece("1/1", TEXT), piece("120.0", TEXT)],
+            None,
             true,
             "Mute 2 4",
         );
@@ -188,6 +201,49 @@ mod tests {
         assert_eq!(span(&screen, 400..=422, 4..=10, DIM), Some((416, 422)));
         // The tempo ends 6 pixels before the icon.
         assert_eq!(span(&screen, 380..=415, 4..=10, TEXT), Some((381, 409)));
+    }
+
+    #[test]
+    fn the_record_dot_sits_between_the_tempo_and_the_metronome() {
+        let transport = [piece("P1", TEXT), piece("1/1", TEXT), piece("120.0", TEXT)];
+        let mut screen = Screen::new();
+
+        draw_header(
+            &mut screen,
+            &[piece("Step", ACCENT)],
+            &transport,
+            Some(RECORD),
+            true,
+            "Mute 3",
+        );
+
+        // "Mute 3" ends at x 475, the metronome's icon 6 pixels before it at 428 to 434 and the
+        // dot 6 pixels before that: a disc on the capitals' rows from HEADER_ROW + 3.
+        assert_eq!(span(&screen, 423..=479, 4..=10, DIM), Some((428, 475)));
+        assert_eq!(
+            picture(&screen, 415..=421, 4..=10, RECORD),
+            [
+                "..###..", ".#####.", "#######", "#######", "#######", ".#####.", "..###.."
+            ]
+        );
+        assert_eq!(ink(&screen, RECORD), 3 + 5 + 7 + 7 + 7 + 5 + 3);
+        // The tempo ends 6 pixels before the dot.
+        assert_eq!(span(&screen, 374..=414, 4..=10, TEXT), Some((380, 408)));
+
+        let mut dim = Screen::new();
+        draw_header(
+            &mut dim,
+            &[piece("Step", ACCENT)],
+            &transport,
+            Some(DIM),
+            true,
+            "Mute 3",
+        );
+        assert_eq!(
+            picture(&dim, 415..=421, 4..=10, DIM),
+            picture(&screen, 415..=421, 4..=10, RECORD)
+        );
+        assert_eq!(ink(&dim, RECORD), 0);
     }
 
     #[test]

@@ -25,6 +25,7 @@ mod library;
 mod mix;
 mod pattern;
 mod pool;
+mod record;
 mod sample_sounds;
 mod sound;
 mod step_view;
@@ -224,7 +225,7 @@ fn drawn(
             .collect()
     });
     let mut screen = Screen::new();
-    draw_header(&mut screen, &left, &right, false, "");
+    draw_header(&mut screen, &left, &right, None, false, "");
     main(&mut screen);
     draw_strip(&mut screen, strip);
     screen

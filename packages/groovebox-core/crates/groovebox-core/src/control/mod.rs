@@ -6,6 +6,7 @@ mod lanes;
 pub mod notes;
 pub mod pages;
 mod pool;
+mod record;
 pub mod samples;
 pub(crate) mod step_view;
 mod steps;
@@ -36,7 +37,7 @@ use crate::queue::Producer;
 use crate::ring::Ring;
 use crate::sample_ram::{SampleRam, Tables};
 use crate::screen::Color;
-use crate::sequencer::Sequencer;
+use crate::sequencer::{Run, Sequencer};
 use crate::storage::{Reply, Request};
 use crate::store::note::Key;
 use crate::store::{RESERVE, Store};
@@ -52,6 +53,7 @@ use held::Held;
 use lanes::Lane;
 use notes::{Notes, Source};
 use pages::{ItemDef, ItemKind, MENU, NOTE, PageDef, Pages, Picture, TIMING, pages};
+use record::Rec;
 use samples::Deleting;
 use step_view::{GRID_CELLS, LANES_SHOWN, PAGE, cell_of, cells, place_of};
 use view::{
@@ -196,6 +198,9 @@ pub struct Control {
     notes: Notes,
     /// Whether a preview was started since the last stop, which a stop fades out.
     previewing: bool,
+    rec: Rec,
+    /// Whether the recording pass stores no more notes, as the note memory had no room (S14).
+    full: bool,
     /// The samples the platform's output takes to sound what the audio part renders, as the latest
     /// `Input::OutputDelay` said; 0 until one comes (S8).
     output_delay: u16,
@@ -270,6 +275,8 @@ impl Control {
             buttons: Buttons::new(),
             notes: Notes::new(),
             previewing: false,
+            rec: Rec::Off,
+            full: false,
             output_delay: 0,
             player: Sequencer::new(),
             moment: 0,
@@ -345,9 +352,9 @@ impl Control {
     /// awaited messages, the queued inputs and the repeats of held buttons, and returns whether
     /// the screen must be redrawn. That is the case on the first step, whenever it handled an
     /// event, whenever the header's bar numbers changed since the step before (the bar the step
-    /// buttons show, `shown_bar`, and the bar playing), whenever the music's line on STEP moved a
-    /// pixel (`music_x`) and, while a text scrolls, whenever a pixel's time has passed since the
-    /// step before.
+    /// buttons show, `shown_bar`, and the bar playing) or REC did (the record dot), whenever the
+    /// music's line on STEP moved a pixel (`music_x`) and, while a text scrolls, whenever a
+    /// pixel's time has passed since the step before.
     ///
     /// On equal samples a reply goes first, then a report, then an input and then a repeat, so a
     /// release at the sample of a repeat ends the hold before it. A reply ends the wait for its
@@ -367,7 +374,8 @@ impl Control {
     /// wait for reports. While it runs the step handles no event. The control part's own
     /// sequencer (`player`) advances to each event's sample before the event, and to `until` once
     /// no event is left before it; a step that stops early leaves it at the last event it
-    /// handled. Its events go nowhere, and it keeps the notes that sound.
+    /// handled. Its events go nowhere, and it keeps the notes that sound. After each advance an
+    /// armed REC whose count-in is over turns on (`count_in_over`, S5).
     ///
     /// The first step starts the start-up's job, and a reply goes to it with `io`, the I/O buffer,
     /// as its request left it. When the job ends the project opens, with the job's result as the
@@ -415,14 +423,15 @@ impl Control {
             self.request = Some(startup.request(&self.library));
         }
         let mut redraw = first;
-        let header_bars = |control: &Self, sample| {
+        let header = |control: &Self, sample| {
             (
                 control.shown_bar(sample),
                 control.player.at(sample).map(|(bar, _)| bar),
                 control.music_x(sample),
+                control.rec,
             )
         };
-        let shown = header_bars(self, self.now);
+        let shown = header(self, self.now);
         loop {
             while messages.free() > 0
                 && let Some(sound) = self.unsent.pop()
@@ -472,9 +481,11 @@ impl Control {
                 .min_by_key(|&(sample, _)| sample)
             else {
                 self.player.advance(until, &store.reader(), |_| {});
+                self.count_in_over(until);
                 break;
             };
             self.player.advance(sample, &store.reader(), |_| {});
+            self.count_in_over(sample);
             match event {
                 Event::Reply(reply) => {
                     self.replies.pop();
@@ -641,7 +652,7 @@ impl Control {
         // picture; compare offsets if the hardware's redraw cost matters.
         let pixels = |sample: u64| sample.saturating_sub(self.landed) / SCROLL_PIXEL;
         redraw |= self.scrolling.get() && pixels(until) != pixels(self.now);
-        redraw |= header_bars(self, until) != shown;
+        redraw |= header(self, until) != shown;
         if redraw {
             self.held_values = self.summary(store);
         }
@@ -706,7 +717,9 @@ impl Control {
     /// the screens or pages that exist light: the steps whose tiles are not empty. Otherwise the
     /// steps of the page the step buttons show light where a note of the selected sound starts
     /// (`step_notes`), and while playing the step the music is in, on that page of the bar the
-    /// buttons show (`shown_bar`), is flipped (S6). PLAY lights while playing (S10), and TEMPO
+    /// buttons show (`shown_bar`), is flipped (S6). REC lights while on and, while armed, for the
+    /// first half of each beat: the clicks' beats during the count-in, and while stopped the beats
+    /// of the run from the press that armed it (S7). PLAY lights while playing (S10), and TEMPO
     /// while the metronome is on (S9).
     pub fn lights(&self) -> Lights {
         let track = self.track();
@@ -780,6 +793,19 @@ impl Control {
                         })
                         .map_or(0, |(_, place)| 1 << (place / 480 % 16)),
             ) << Lights::STEP;
+        }
+        let rec = match self.rec {
+            Rec::Off => false,
+            Rec::Armed(_) if self.player.run().is_some() => self.player.beat_on(self.now),
+            Rec::Armed(run) => {
+                let signature = self.project.signature;
+                let beat = u64::from(signature.bar_ticks() / u32::from(signature.beats));
+                (run.first_tick_after(self.now) - 1) % beat < beat / 2
+            }
+            Rec::On => true,
+        };
+        if rec {
+            lights.light(Lights::REC);
         }
         if self.player.run().is_some() {
             lights.light(Lights::PLAY);
@@ -1006,8 +1032,8 @@ impl Control {
     /// - T1 to T4 select the track and land POOL's cursor (`land_on_selection`). With SHIFT held
     ///   they flip that track's mute instead, on every screen and while a picker, a question, MENU
     ///   or PAGE is open or a step is held, and the current track stays (`set_on`, S4).
-    /// - SHIFT + OK, SHIFT + STOP, SHIFT + an encoder push and SHIFT + a step do nothing, though a
-    ///   step under MENU or PAGE still shows its screen or page.
+    /// - SHIFT + OK, SHIFT + STOP, SHIFT + REC, SHIFT + an encoder push and SHIFT + a step do
+    ///   nothing, though a step under MENU or PAGE still shows its screen or page.
     /// - PADS/KEYS held + up or down moves the octave in KEYS mode, stopping at C0 and C8, and in
     ///   PADS mode does nothing. PADS/KEYS held + left or right does nothing. Each arrow under
     ///   PADS/KEYS is taken, so it does not repeat, and like any press it still counts as another
@@ -1039,11 +1065,11 @@ impl Control {
     /// Otherwise the arrows, - and + nudge (`nudge`), OK uses the item under the cursor, or acts on
     /// SAMPLES' row (`ok_in_samples`) or POOL's (`ok_in_pool`), or on STEP enters a note in the
     /// cursor's cell where none starts (`enter_note`, S10), and an encoder push the item its
-    /// encoder holds. PLAY and SHIFT + PLAY start or jump (`play`) and STOP stops (`stop`), also
-    /// while MENU or PAGE is held. A step and TEMPO act when they are let go (`release`), a step on
-    /// the bar and sixteenth it showed at its press (`pressed`, S16), and so does CANCEL on STEP, on
-    /// the cell the cursor showed at its press (`cancel_at`, S11), unless SHIFT is held at its
-    /// press, which takes it.
+    /// encoder holds. PLAY and SHIFT + PLAY start or jump (`play`), STOP stops (`stop`) and REC
+    /// arms, disarms or drops in and out (`press_rec`), also while MENU or PAGE is held. A step and
+    /// TEMPO act when they are let go (`release`), a step on the bar and sixteenth it showed at its
+    /// press (`pressed`, S16), and so does CANCEL on STEP, on the cell the cursor showed at its
+    /// press (`cancel_at`, S11), unless SHIFT is held at its press, which takes it.
     fn press(
         &mut self,
         button: Button,
@@ -1076,7 +1102,9 @@ impl Control {
                 );
                 self.buttons.take(button);
             }
-            Button::Ok | Button::Stop | Button::Push(_) if self.buttons.is_held(Button::Shift) => {
+            Button::Ok | Button::Stop | Button::Rec | Button::Push(_)
+                if self.buttons.is_held(Button::Shift) =>
+            {
                 self.buttons.take(button);
             }
             // SHIFT + CANCEL on STEP stays free for undo (Milestone 4), as CANCEL alone removes.
@@ -1273,8 +1301,9 @@ impl Control {
             Button::Play if (picker || question) && self.buttons.is_held(Button::Shift) => {
                 self.buttons.take(button);
             }
-            Button::Play => self.play(sample, messages, store),
-            Button::Stop => self.stop(sample, messages),
+            Button::Play => self.play(sample, messages, versions, store),
+            Button::Stop => self.stop(sample, messages, versions, store),
+            Button::Rec => self.press_rec(sample, versions, store),
             Button::Menu | Button::Page if overlay != Some(button) => self.buttons.take(button),
             Button::Menu | Button::Page => self.end_held_repeats(),
             Button::Step(step) if overlay == Some(Button::Menu) => {
@@ -1782,7 +1811,8 @@ impl Control {
     /// Stores `value` for the entry `id` of `target` and tells the audio part, unless the entry
     /// holds it already. MUTE also mutes the control part's own sequencer. The tempo sends a
     /// `SetParam` only while stopped, for the delays, and the next PLAY carries it; while playing
-    /// the music goes on at it from the first tick after `sample`, in both parts (S2, S14).
+    /// the music goes on at it from the first tick after `sample`, in both parts (S2, S14). While
+    /// stopped an armed REC's blink goes on at it from the first tick after `sample` too (S7).
     fn set_on(
         &mut self,
         target: Target,
@@ -1802,6 +1832,14 @@ impl Control {
                 self.send(sample, MessageKind::Tempo { run }, messages);
                 self.player.retime(run);
             } else {
+                if let Rec::Armed(run) = &mut self.rec {
+                    let tick = run.first_tick_after(sample);
+                    *run = Run {
+                        anchor: run.sample(tick),
+                        tick,
+                        tempo: self.project.tempo,
+                    };
+                }
                 self.send(
                     sample,
                     MessageKind::SetParam { target, id, value },

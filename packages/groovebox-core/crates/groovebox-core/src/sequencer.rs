@@ -445,7 +445,7 @@ impl Sequencer {
     /// in, the count-in's beats included (answer 3).
     pub fn beat_on(&self, sample: u64) -> bool {
         // The beat it is in started a beat of the meter in force before the next one.
-        self.tick_at(sample) < self.beat - self.meter.beat() / 2
+        self.tick_at(sample) + self.meter.beat() / 2 < self.beat
     }
 
     /// The meter that holds `tick`, the meter in force's tick or later, counting the waiting ones.

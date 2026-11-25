@@ -75,7 +75,7 @@ fn timing(tempo: &str, filled: u64, cursor: i32) -> Screen {
             .collect()
     });
     let mut screen = Screen::new();
-    draw_header(&mut screen, &left, &right, false, "");
+    draw_header(&mut screen, &left, &right, None, false, "");
     for (y, item) in (17..).step_by(18).zip(cells.iter().flatten()) {
         draw_item(&mut screen, 2, y, 160, item, true, None);
     }
@@ -95,6 +95,7 @@ fn with_the_metronome(mut screen: Screen, header: &[(&str, Color)]) -> Screen {
             .map(|&(text, color)| Piece { text, color })
             .collect::<Vec<_>>(),
         &["P1", "1/1", "120.0"].map(|text| Piece { text, color: TEXT }),
+        None,
         true,
         "",
     );
@@ -701,7 +702,7 @@ fn bars_header(sound: (&str, Color), bar: &str) -> Screen {
             .collect()
     });
     let mut screen = Screen::new();
-    draw_header(&mut screen, &left, &right, false, "");
+    draw_header(&mut screen, &left, &right, None, false, "");
     screen
 }
 

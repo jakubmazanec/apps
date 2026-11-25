@@ -120,6 +120,7 @@ fn delay_page(tempo: &str, items: &[ItemView; 5], cursor: i32) -> Screen {
         &mut screen,
         &header("Delay").map(|(text, color)| Piece { text, color }),
         &["P1", "1/1", tempo].map(|text| Piece { text, color: TEXT }),
+        None,
         false,
         "",
     );

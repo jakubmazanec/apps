@@ -1,8 +1,10 @@
 //! PLAY, SHIFT + PLAY and STOP (Workflow B).
 
 use super::Control;
+use super::record::Rec;
 use crate::input::Button;
-use crate::message::{MESSAGE_QUEUE, Message, MessageKind};
+use crate::message::{MESSAGE_QUEUE, Message, MessageKind, VERSION_QUEUE, Version};
+use crate::param::COUNT_IN;
 use crate::queue::Producer;
 use crate::sequencer::Run;
 use crate::store::Store;
@@ -12,13 +14,19 @@ impl Control {
     /// and no lead, and while playing changes nothing but following (S7). SHIFT + PLAY starts from
     /// the start of the bar the step buttons show (`shown_bar`), and while playing jumps there at
     /// once with a new run anchored at the press (S8). Both follow the music from then on (S16).
-    /// The control part's own sequencer plays the same run.
+    /// The control part's own sequencer plays the same run. With REC armed and COUNT-IN at 1 bar
+    /// the start counts in: the pattern starts a bar after the press; with COUNT-IN off REC turns
+    /// on at the press. During the count-in both do nothing at all (S4).
     pub(super) fn play(
         &mut self,
         sample: u64,
         messages: &mut Producer<'_, Message, MESSAGE_QUEUE>,
-        store: &Store<'_>,
+        _versions: &mut Producer<'_, Version, VERSION_QUEUE>,
+        store: &mut Store<'_>,
     ) {
+        if self.player.counting_in(sample) {
+            return;
+        }
         let start = if self.buttons.is_held(Button::Shift) {
             Some(self.shown_bar(sample))
         } else {
@@ -31,26 +39,24 @@ impl Control {
             tick: u64::from(bar) * u64::from(self.project.signature.bar_ticks()),
             tempo: self.project.tempo,
         };
-        self.send(
-            sample,
-            MessageKind::Play {
-                run,
-                count_in: false,
-            },
-            messages,
-        );
-        self.player.play(run, false, &store.reader());
+        let count_in = matches!(self.rec, Rec::Armed(_)) && self.settings.get(COUNT_IN.id) == 1;
+        self.send(sample, MessageKind::Play { run, count_in }, messages);
+        self.player.play(run, count_in, &store.reader());
+        self.count_in_over(sample);
     }
 
     /// STOP at its press: while playing the cursor stays on the bar the step buttons show
     /// (`shown_bar`, S16), the pattern stops, its sounding notes end with their own release and the
     /// preview plays on; while stopped every voice fades within one chunk and the preview stops
-    /// (S9). The control part's own sequencer stops too.
+    /// (S9). The control part's own sequencer stops too, and REC turns off (S3).
     pub(super) fn stop(
         &mut self,
         sample: u64,
         messages: &mut Producer<'_, Message, MESSAGE_QUEUE>,
+        _versions: &mut Producer<'_, Version, VERSION_QUEUE>,
+        _store: &mut Store<'_>,
     ) {
+        self.rec = Rec::Off;
         if self.player.run().is_some() {
             self.view.steps.bar = self.shown_bar(sample);
             self.send(sample, MessageKind::Stop, messages);

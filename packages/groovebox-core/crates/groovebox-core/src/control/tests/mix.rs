@@ -126,6 +126,7 @@ fn the_header_names_the_muted_tracks_after_the_metronome() {
         &mut expected,
         &STEP_HEADER.map(|(text, color)| Piece { text, color }),
         &["P1", "1/1", "120.0"].map(|text| Piece { text, color: TEXT }),
+        None,
         true,
         "Mute 2 4",
     );
@@ -246,6 +247,7 @@ fn mix(mute: &str, items: &[ItemView<'static>; 5], cursor: i32) -> Screen {
         &mut screen,
         &MIX_HEADER.map(|(text, color)| Piece { text, color }),
         &["P1", "1/1", "120.0"].map(|text| Piece { text, color: TEXT }),
+        None,
         false,
         mute,
     );
