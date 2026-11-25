@@ -211,6 +211,13 @@ export const STATES: ReadonlyArray<{title: string; frame: string; approved?: str
     approved: 'mix.png',
   },
   {title: 'MENU held with FX and MIX', frame: 'mix/frame-345600.png', approved: 'menu-held.png'},
+  {title: 'STEP armed', frame: 'record/frame-64000.png'},
+  {title: 'STEP during the count-in', frame: 'record/frame-150400.png'},
+  {title: 'STEP while recording', frame: 'record/frame-345600.png', approved: 'step-playing.png'},
+  {title: 'STEP after a take', frame: 'record/frame-579200.png'},
+  {title: 'PATTERN Timing with Quantize', frame: 'record-loose/frame-35200.png'},
+  {title: 'STEP with loose notes', frame: 'record-loose/frame-243200.png'},
+  {title: 'SETTINGS Playing with Count-in', frame: 'record-loose/frame-251520.png'},
   {title: 'Every glyph of the font', frame: 'gallery/font.png', approved: 'font.png'},
   {
     title: 'Every named colour of the palette',

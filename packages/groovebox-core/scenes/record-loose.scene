@@ -1,0 +1,73 @@
+groovebox-scene 1
+# Recording with Quantize off, through the panel only. Syn 1 on pad 1 of T4, the track the factory
+# project leaves empty: T4, then MENU + step 3, OK, down twice and OK in the sound picker. A tap of
+# PADS/KEYS then makes the pads keys: pads 1, 5 and 8 play C4, E4 and G4 of Syn 1.
+input 1600 press t4
+input 2400 release t4
+input 3200 press menu
+input 4800 press step-3
+input 6400 release step-3
+input 8000 release menu
+input 9600 press ok
+input 11200 release ok
+input 12800 press down
+input 14400 release down
+input 16000 press down
+input 17600 release down
+input 19200 press ok
+input 20800 release ok
+input 22400 press pads-keys
+input 24000 release pads-keys
+# MENU + step 9 shows PATTERN's Timing page, and a turn of encoder 4 down turns Quantize off.
+# Frame: PATTERN Timing with Quantize.
+input 25600 press menu
+input 27200 press step-9
+input 28800 release step-9
+input 30400 release menu
+input 32000 turn encoder-4 -1
+frame 35200
+# The shell reports an output delay of 1,200 samples, 25 ms. A hit lands that much before the
+# sample it reached the core at.
+input 36800 output-delay 1200
+# MENU + step 1 shows STEP. REC arms and PLAY counts in one bar: the pattern starts at 147,200.
+input 38400 press menu
+input 40000 press step-1
+input 41600 release step-1
+input 43200 release menu
+input 44800 press rec
+input 46400 release rec
+input 51200 press play
+input 52800 release play
+# With Quantize off each hit is kept where it was played, less the output delay. C4 with pressure
+# on its pad lands on step 1 and is held for a beat.
+input 148400 pad-hit 0 100
+input 151400 pad-pressure 0 80
+input 152900 pad-pressure 0 40
+input 154400 pad-release 0
+# E4 lands 224 ticks into step 4.
+input 169200 pad-hit 4 95
+input 175200 pad-release 4
+# MIDI note 67 with pressure of its own and then of the channel lands 224 ticks into step 8.
+input 193200 note-on 67 80
+input 194200 note-pressure 67 90
+input 196200 channel-pressure 100
+input 198000 channel-pressure 60
+input 199200 note-off 67
+# G4 played 120 ticks before step 13 lands in step 12, drawn 2 px right of its step.
+input 218900 pad-hit 7 100
+input 224000 pad-release 7
+# MIDI note 72 lands 384 ticks into step 15. STOP comes before the loop restarts at 243,200.
+# Frame: STEP with loose notes, step 1 on its step and the others 2 px right.
+input 237200 note-on 72 110
+input 240200 note-off 72
+input 241600 press stop
+input 242000 release stop
+frame 243200
+# MENU + step 8 shows SETTINGS' Playing page.
+# Frame: SETTINGS Playing with Count-in.
+input 244800 press menu
+input 246400 press step-8
+input 248000 release step-8
+input 249600 release menu
+frame 251520
+end 256000

@@ -1,0 +1,95 @@
+groovebox-scene 1
+# Recording through the panel only. Syn 1 on pad 1 of T4, the track the factory project leaves
+# empty: T4, then MENU + step 3, OK, down twice and OK in the sound picker. A tap of PADS/KEYS then
+# makes the pads keys: pads 1, 5 and 8 play C4, E4 and G4 of Syn 1.
+input 1600 press t4
+input 2400 release t4
+input 3200 press menu
+input 4800 press step-3
+input 6400 release step-3
+input 8000 release menu
+input 9600 press ok
+input 11200 release ok
+input 12800 press down
+input 14400 release down
+input 16000 press down
+input 17600 release down
+input 19200 press ok
+input 20800 release ok
+input 22400 press pads-keys
+input 24000 release pads-keys
+# MENU + step 9 shows PATTERN, PAGE + step 2 its Bars page and push 1 the Length picker on 1 bar;
+# down once onto 2 bars and OK choose it. MENU + step 1 shows STEP.
+input 25600 press menu
+input 27200 press step-9
+input 28800 release step-9
+input 30400 release menu
+input 32000 press page
+input 33600 press step-2
+input 35200 release step-2
+input 36800 release page
+input 38400 press push-1
+input 40000 release push-1
+input 41600 press down
+input 43200 release down
+input 44800 press ok
+input 46400 release ok
+input 48000 press menu
+input 49600 press step-1
+input 51200 release step-1
+input 52800 release menu
+# REC while stopped arms it: REC blinks with the beat and the header's record dot is dim.
+# Frame: STEP armed, the dim dot.
+input 57600 press rec
+input 59200 release rec
+frame 64000
+# PLAY counts in one bar, 96,000 samples at 120 BPM, and the pattern starts at 198,400. The music
+# line, the step buttons and the screen stand on bar 1 and the record dot stays dim.
+# Frame: STEP during the count-in, halfway, standing on bar 1.
+input 102400 press play
+input 104000 release play
+frame 150400
+# A hit of C4 2,000 samples before the first beat is snapped onto it, as Quantize is on.
+input 196400 pad-hit 0 100
+input 207200 pad-release 0
+# Bar 1: E4 a little early on beat 2 and G4 a little late on beat 3, each snapped onto its beat.
+input 220900 pad-hit 4 90
+input 228000 pad-release 4
+input 247700 pad-hit 7 110
+input 254000 pad-release 7
+# Bar 2: C4 a little early on beat 1, snapped onto it, and E4 a little late on beat 2.
+input 293400 pad-hit 0 120
+input 300000 pad-release 0
+input 319200 pad-hit 4 70
+input 324000 pad-release 4
+# REC has been steady and the dot red since the first beat, and the music line moves.
+# Frame: STEP while recording, the red dot, the notes of bar 2 so far (step-playing.png).
+frame 345600
+# G4 a little early on beat 4 is held over the loop point at 390,400, and E4 is hit 1,500 samples
+# before the loop restarts and snapped onto the first beat of the next pass. Their releases are in
+# the second pass and they go in then.
+input 366000 pad-hit 7 100
+input 388900 pad-hit 4 110
+input 394000 pad-release 4
+input 414400 pad-release 7
+# REC off in bar 2 of the second pass drops out: the hit of C4 plays and is not recorded. REC on
+# again drops back in.
+input 495000 press rec
+input 496600 release rec
+input 504000 pad-hit 0 100
+input 508000 pad-release 0
+input 514000 press rec
+input 515600 release rec
+# A second pass overdubs: G4 a little early on beat 4 replaces the held G4 of the first pass, and
+# not a second one goes in.
+input 557600 pad-hit 7 100
+input 563000 pad-release 7
+# C4 is held when STOP comes at 576,000: the note ends there, 480 ticks long, and its release adds
+# nothing. STOP leaves the cursor on bar 2.
+# Frame: STEP after a take, the notes after STOP.
+input 570000 pad-hit 0 90
+input 576000 press stop
+input 577600 release stop
+input 578400 pad-release 0
+frame 579200
+end 588800

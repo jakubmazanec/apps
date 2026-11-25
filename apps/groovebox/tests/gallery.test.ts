@@ -37,6 +37,8 @@ describe('the gallery', () => {
           'mix/',
           'new-synth/',
           'picker-while-playing/',
+          'record/',
+          'record-loose/',
           'reverb/',
           'step-view/',
           'steps/',
