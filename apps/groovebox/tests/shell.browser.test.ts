@@ -895,8 +895,8 @@ describe(runShell, () => {
     });
 
     let {saveSession, start} = await runStarted();
-    let {baseLatency} = await start();
-    let samples = (latency: number) => String(Math.round((baseLatency + latency) * 48_000));
+    let context = await start();
+    let samples = (latency: number) => String(Math.round((context.baseLatency + latency) * 48_000));
     // The values of the output-delay lines of the session saved as the download `index`
     let delays = async (index: number) => {
       let session = await (await fetch(downloads[index] as string)).text();
@@ -910,6 +910,8 @@ describe(runShell, () => {
     await userEvent.click(saveSession);
 
     await expect.poll(() => downloads).toHaveLength(1);
+    // The save resumes the audio after the download
+    await expect.poll(() => context.state).toBe('running');
 
     await expect(delays(0)).resolves.toEqual([samples(0.05)]);
 
@@ -924,6 +926,7 @@ describe(runShell, () => {
     await userEvent.click(saveSession);
 
     await expect.poll(() => downloads).toHaveLength(2);
+    await expect.poll(() => context.state).toBe('running');
 
     await expect(delays(1)).resolves.toEqual([samples(0.05), samples(0.02)]);
   });
