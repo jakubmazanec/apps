@@ -696,6 +696,7 @@ impl Control {
                         tail: before.tail.max(
                             u16::try_from(note.length.saturating_sub(480) / 60).unwrap_or(u16::MAX),
                         ),
+                        late: (before.count == 0 || before.late) && note.place % 480 != 0,
                     });
                 }
             }

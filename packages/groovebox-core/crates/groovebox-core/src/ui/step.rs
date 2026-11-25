@@ -17,6 +17,8 @@ const LEFT: i32 = 1;
 /// A note's block: 2 px right of its cell's left line, 1 px below its lane's top, 5 px wide and 11
 /// high (S6).
 const NOTE_X: i32 = 2;
+/// The block of a late cell (`Mark::late`): 2 px further right.
+const LATE_NOTE_X: i32 = NOTE_X + 2;
 const NOTE_WIDTH: i32 = CELL - 3;
 const NOTE_HEIGHT: i32 = ROW_HEIGHT - 2;
 
@@ -30,6 +32,8 @@ pub struct Mark {
     /// How many pixels the longest note's tail is long: its length past a sixteenth, 8 px to
     /// 480 ticks, rounded down.
     pub tail: u16,
+    /// Whether none of the notes starts on its sixteenth's first tick.
+    pub late: bool,
 }
 
 /// A lane as the names column shows it.
@@ -143,7 +147,7 @@ pub fn draw_step(canvas: &mut impl Canvas, picture: &StepPicture) {
                 60.. => NOTE_MID,
                 _ => NOTE_SOFT,
             };
-            let block = x(column) + NOTE_X;
+            let block = x(column) + if mark.late { LATE_NOTE_X } else { NOTE_X };
             canvas.fill_rect(rect(block, y + 1, NOTE_WIDTH, NOTE_HEIGHT), color);
             // The tail runs on the block's middle rows and stops at the last cell.
             let tail = i32::from(mark.tail).min(CELL * (shown - column - 1) as i32);
@@ -226,6 +230,7 @@ mod tests {
             velocity,
             count,
             tail,
+            late: false,
         }
     }
 
@@ -248,6 +253,28 @@ mod tests {
             );
             assert_eq!(ink(&screen, grey), 5 * 11, "velocity {velocity}");
         }
+    }
+
+    #[test]
+    fn a_late_cell_draws_its_note_2_px_right() {
+        let late = marked(
+            0,
+            Mark {
+                late: true,
+                ..note(100, 1, 4)
+            },
+        );
+        let on_time = marked(0, note(100, 1, 4));
+
+        // The block from the cell's left line + 4, x 26 to 30, and its tail from the block's right
+        // edge, x 31 to 34.
+        assert!(filled(&late, 26..=30, 18..=28, NOTE_LOUD));
+        assert!(filled(&late, 31..=34, 22..=23, NOTE_LOUD));
+        assert_eq!(ink(&late, NOTE_LOUD), 5 * 11 + 4 * 2);
+        // Not late: from + 2, x 24 to 28, its tail x 29 to 32.
+        assert!(filled(&on_time, 24..=28, 18..=28, NOTE_LOUD));
+        assert!(filled(&on_time, 29..=32, 22..=23, NOTE_LOUD));
+        assert_eq!(ink(&on_time, NOTE_LOUD), 5 * 11 + 4 * 2);
     }
 
     #[test]

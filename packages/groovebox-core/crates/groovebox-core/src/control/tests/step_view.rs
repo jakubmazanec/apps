@@ -411,6 +411,7 @@ fn lanes_show_names_copies_missing_sounds_and_notes() {
         velocity: 127,
         count: 1,
         tail: 0,
+        late: false,
     });
     marks[0][1] = marks[0][0];
     // 1,440 ticks are 2 sixteenths more than the block, 16 px.
@@ -418,6 +419,7 @@ fn lanes_show_names_copies_missing_sounds_and_notes() {
         velocity: 59,
         count: 1,
         tail: 16,
+        late: false,
     });
     assert_eq!(rig.control.marks[..13], marks);
     assert!(
@@ -481,6 +483,7 @@ fn a_cell_shows_its_loudest_note_its_longest_tail_and_how_many_there_are() {
             count: 3,
             // 960 ticks are 8 px past a sixteenth's 8 px, 700 are 3.
             tail: 8,
+            late: false,
         })
     );
     // Syn 2 has no pad: its lane is the first extra lane, 13th.
@@ -490,7 +493,42 @@ fn a_cell_shows_its_loudest_note_its_longest_tail_and_how_many_there_are() {
             velocity: 127,
             count: 1,
             tail: 0,
+            late: false,
         })
+    );
+}
+
+#[test]
+fn a_cell_is_late_when_none_of_its_notes_starts_on_its_step() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    let syn_1 = rig.synth_on(0);
+    let at = |place, pitch| Note {
+        place,
+        ..entered(0, syn_1, pitch)
+    };
+    // Sixteenth 1 holds a note 10 ticks late, sixteenth 2 one on its first tick beside one 10
+    // ticks late, sixteenth 3 a note 10 ticks late and sixteenth 4 one on its first tick.
+    put(
+        &mut rig,
+        0,
+        0,
+        &[
+            at(490, 60),
+            at(960, 60),
+            at(970, 62),
+            at(970 + 480, 60),
+            at(1_920, 60),
+        ],
+    );
+
+    rig.tap(10, Button::T1);
+    rig.step(20);
+
+    let late = |column: usize| rig.control.marks[0][column].map(|mark| mark.late);
+    assert_eq!(
+        [late(0), late(1), late(2), late(3), late(4)],
+        [None, Some(true), Some(false), Some(true), Some(false)]
     );
 }
 
