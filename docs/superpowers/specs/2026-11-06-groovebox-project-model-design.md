@@ -327,10 +327,14 @@ The screen side turns the pad's press and release timestamps into ticks with Fou
 and the tempo anchor in effect at the hit, quantizes if QUANTIZE is on and inserts the note when the
 pad is released. A note with the same track, sound, pitch, bar and place replaces the old one, so
 two quantized hits in one cell within a pass become one. A hit that quantize snaps forward has
-already sounded live; its version's moment is set just after the snapped start, so the sequencer
-never plays it in the same pass, and nothing is stored or cleared on the sound side. A note pressed
-in one pattern and released after a switch belongs to the pattern it was pressed in; STOP or REC off
-while a pad is held ends the note there; a note can never be longer than its pattern.
+already sounded live; its version's moment is one sample after the snapped start's sample in its
+pass, so the sequencer never plays it again in that pass, and nothing is stored or cleared on the
+sound side. A note pressed in one pattern and released after a switch belongs to the pattern it was
+pressed in; STOP, REC off or a jump while a pad is held ends the note there, at that press less the
+output delay, and the later release adds nothing; a note can never be longer than its pattern. A
+note is dropped at its end, with no version made, when its sound has left the pool, when its bar or
+place no longer fits the pattern after a length or signature change since the hit, or when the pass
+is full; a dropped note gives back the curve block it holds.
 
 ### Erasing while playing
 
@@ -371,18 +375,27 @@ never panics.
 - **One block per note, at most.** A note that has pressure points at its curve block; a note with
   none (every step-entered note, and any hit whose pressure never changed) stores nothing, so
   pressure costs nothing where it is not played.
-- **A point is "ticks since the last point, value 0 to 127".** The first point is the pressure at
-  the hit. About 160 points fit in a block.
+- **A point is "ticks since the point before, value 0 to 127".** The first point is the first
+  pressure that arrives after the hit, its ticks counted from the hit. A long pause holds its ticks
+  at 65,535.
+- **The block** says in its first byte that it is a curve block, 255, a kind no tree block has; the
+  next two bytes count its points, which follow from byte 4, three bytes each: two for the ticks and
+  one for the value. 169 points fit.
 - **Recording keeps a point only when it says something new:** the value has moved by at least 2, or
-  a 1/32 beat has passed since the last kept point **(my call)**. When the block fills, every second
-  point is dropped and the minimum spacing doubles, so a long expressive hold ends with a complete
-  but coarser curve. Both rules are whole-number arithmetic on timestamps and values, so they replay
-  identically.
+  a 1/32 beat, 60 ticks, has passed since the last kept point **(my call)**. When the block fills,
+  every second point is dropped, the second, the fourth and so on, each adding its ticks to the
+  point after it, and the minimum spacing doubles, so a long expressive hold ends with a complete
+  but coarser curve that keeps its first and last points and every tick. Both rules are whole-number
+  arithmetic on timestamps and values, so they replay identically.
 - **While a pad is held,** its points go into a block nobody else can see yet; the curve joins the
-  note's version at release, and from then on the block is never changed, shared by copies, undo and
-  the clipboard like any other block. MIDI channel aftertouch, one value for the whole keyboard
-  (Workflow A), gives every held note the same point.
-- **If no block is free,** the note is kept without its curve, never dropped for its curve's sake.
+  note's version at release, and from then on the block is never changed. A note block holds the
+  curve blocks of its notes the way an index block holds its children, so copies, undo and the
+  clipboard share a curve like any other block, and it goes with the last note block that held it.
+  MIDI channel aftertouch, one value for the whole keyboard (Workflow A), gives every held recorded
+  note the same point.
+- **A curve starts only while more than 256 blocks are free** (`RESERVE`), at the note's first
+  pressure; with 256 or fewer the note is kept without its curve, never dropped for its curve's
+  sake.
 - **Later,** when modulation plays pressure, the sound side walks the points with the same
   tick-to-sample formula the sequencer uses; automation lanes can use this block kind with a lane
   header instead of a note.

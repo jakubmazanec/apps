@@ -90,6 +90,10 @@ controls do. What part 1 teaches then decides the physical layout and look (part
   POOL.
 - **Milestone 3 is planned in four plans (decided):** playing a pattern; timing and bars; the STEP
   view; then mix, mute and track effects.
+- **Milestone 4 is planned in four plans (decided):** recording, which is REC, the count-in,
+  quantize, overdub and notes with their velocity, length and pressure; then ROLL and the NOTE
+  panel; then undo and redo for everything built by then, with UNDO LOST and the undo budget; then
+  erasing, clearing and copying, each with its undo.
 
 ## Subparts
 
@@ -484,11 +488,6 @@ settles it with the owner.
   stays.
 - **The CANCEL + pad question.** When it appears and what letting go of CANCEL does. Proposed: it
   appears on the hit and waits for OK or a new tap of CANCEL; no notes, no question.
-- **REC during the count-in.** What the light and the header dot do. Proposed: the light blinks and
-  the dot stays dim through the count-in; steady and red from the first beat.
-- **Blink speed of the fast blinks.** REC armed and a queued pattern blink with no rate yet; the
-  slow blink of a muted track is settled (Look, "The lights"). Proposed: a quicker speed, a named
-  constant counted in samples, set with Milestones 4 and 5; the speed: none yet.
 - **An empty pad selected.** What OK does and where the view opens on ROLL. Proposed: none yet.
 
 ### Sound and settings

@@ -208,7 +208,10 @@ and gave the picker a refusal; the EP-133 has one library, one limit and one pla
 
 - **Live playing.** The shell stamps each input with its position on the audio clock and passes it
   to the core. The core shifts it back by the known output delay, so the note lands where the player
-  heard the beat. The delay used is recorded with the input, so replays match.
+  heard the beat. The delay used is recorded with the input, so replays match. The output delay is
+  an input of its own that the shell sends whenever it changes, so the session log keeps it. The
+  browser shell reads it from the audio context; until one is sent it is 0, and the device's own
+  comes with part 3.
 - **Syncing to other gear later.** Incoming MIDI clock pulses or Ableton Link positions become
   ordinary input events converted to ticks, so replays stay identical.
 

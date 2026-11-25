@@ -318,13 +318,23 @@ Rejected:
 
 - When recording starts from a stop, one bar of clicks plays first, even with the metronome off.
 - COUNT-IN, OFF or 1 BAR, is a device setting on SETTINGS. It starts at 1 BAR **(my call)**.
+- **The bar before the start.** PLAY or SHIFT + PLAY while REC is armed and COUNT-IN is on starts
+  one bar of the signature, clicked beat by beat with the first click high, and the pattern starts
+  one bar later, from the bar the press would have started it from. No note starts in the count-in
+  bar. The clicks are timed like any beats of the run, so a tempo change during the count-in moves
+  the first beat, and a length or signature change made during it takes hold at the pattern's start.
+  With COUNT-IN off, PLAY while armed starts recording together with the pattern, at the press.
+- **What shows (owner's choice):** only the clicks and REC show the count-in. PLAY lights at the
+  press, REC keeps blinking and the header's record dot stays dim; the screen, the music line and
+  the step buttons stand still on the start bar. At the first beat REC turns steady, the dot turns
+  red and the music line starts moving.
 - **REC during the count-in** only cancels the recording **(owner's choice)**: the clicks finish and
   the pattern starts on time without recording. REC again before the first beat puts recording back.
   So REC means the same during the count-in as while playing.
 - **STOP during the count-in** ends it: nothing has played, nothing is recorded and recording is
   disarmed.
-- **PLAY and SHIFT + PLAY during the count-in** change nothing: the count-in is not restarted and
-  the start point is not moved.
+- **PLAY and SHIFT + PLAY during the count-in** change nothing at all: the count-in is not
+  restarted, the start point is not moved and nothing is made to follow.
 - **Pads and keys hit during the count-in** sound but are not recorded. One exception: with quantize
   on, a hit just before the first beat, whose nearest grid position is the first step that plays,
   lands on that step, as a hit just before the loop restarts does (see "Recorded notes"), so a
@@ -463,7 +473,10 @@ row per pitch. Everything else in this section works the same on both.
 - **Empty:** no note starts here.
 - **Filled:** a note starts here; the brighter, the louder.
 - **A tail to the right:** the note keeps sounding over the next cells.
-- **Drawn slightly off-centre:** the note was recorded a little before or after the grid position.
+- **Drawn slightly to the right:** the note starts later than the first tick of its sixteenth, as a
+  note recorded with quantize off does. A note off the grid belongs to the step whose sixteenth it
+  starts in, so a slightly early loose hit lights the step before the one aimed at. Nothing is drawn
+  left of centre **(owner's choice)**.
 - **A small number:** more than one note starts here, such as a chord.
 - **Pitch is not shown on STEP.** It is on ROLL, and in PITCH when a note is edited.
 
@@ -582,12 +595,14 @@ go brings back what the strip showed before.
   by the same amount. Values that differ show as a range, as on Push and Maschine: the lowest and
   the highest joined by an en dash, such as "C3–E3", "60–100", "1/16–1/8" and "−1–+2" **(my call)**.
 - **Where a turn stops several notes (my call).** VELOCITY and LENGTH stop note by note at their
-  ends: a note at its end stays there while the others go on, as Maschine's manual implies. PITCH
-  and POSITION move the notes together and stop where the first of them reaches its end, so that two
-  held notes never land on one pitch and start, where one would replace the other. A moved note
-  replaces a note of the same sound and pitch where it lands, as recording does (see "Recorded
-  notes"). A turn that does not fit in memory changes nothing and shows NOT ENOUGH MEMORY (Project
-  model).
+  ends: a note at its end stays there while the others go on, as Maschine's manual implies. The
+  range each note stops within reaches the note's own value, so a recorded note longer than a bar or
+  a tap shorter than 30 ticks never moves against the turn: a turn further out leaves it where it
+  is, and a turn the other way moves it as usual. PITCH and POSITION move the notes together and
+  stop where the first of them reaches its end, so that two held notes never land on one pitch and
+  start, where one would replace the other. A moved note replaces a note of the same sound and pitch
+  where it lands, as recording does (see "Recorded notes"). A turn that does not fit in memory
+  changes nothing and shows NOT ENOUGH MEMORY (Project model).
 
 Rejected: holding a step and pressing a later one to set the length (OP-XY, Deluge, Hapax). It
 clashes with holding several steps, and LENGTH covers it.
@@ -653,7 +668,8 @@ inaudible and would need a fifth item in the NOTE strip.
 - **STOP** stops playback and recording, and disarms.
 - **Overdub:** recorded notes are always added to what is there.
 - **On every screen:** recording works wherever you are, into the current track. T1–T4 while
-  recording switch the track recorded into.
+  recording switch the track recorded into. REC acts under MENU or PAGE too, and with a picker or a
+  question open, as PLAY and STOP do. SHIFT + REC does nothing and stays free.
 - **On a muted track** recording works as usual: what you play sounds, and the recorded notes stay
   silent until the track is unmuted (Sound).
 - **Across pattern switches:** recording carries on into the next pattern when it takes over.
@@ -665,13 +681,19 @@ no way to arm and then start at a moment you choose, for example from the cursor
 
 **(owner's choice)**
 
+- **What is recorded:** a pad hit or a MIDI note that plays a sound while REC is on, or armed and
+  counting in (see "Count-in"), into the track and pattern current at the hit. It is recorded with a
+  picker or a question open (Workflow A) and not under a held step. A hit from before REC turned on
+  is not recorded, even when it is still held after.
 - **Sound and pitch:** in PADS mode the pad's sound at its unchanged pitch; in KEYS mode the
   selected sound at the key's pitch.
 - **Velocity** from the hit when VELOCITY is on, full when it is off.
-- **Pressure** as played, and **length** as held.
+- **Pressure** as played, and **length** as held: the note's end less its hit, both corrected for
+  the output delay (Foundation), so the delay does not change it. A note is at least 1 tick long.
 - **Quantize on,** the default: the start snaps to the nearest grid position, so a hit slightly
-  early lands on the step it was aimed at. The length stays as played: the note moves, it does not
-  stretch. The stored note is quantized for good.
+  early lands on the step it was aimed at, and a hit exactly halfway between two positions lands on
+  the later one. The length stays as played: the note moves, it does not stretch. The stored note is
+  quantized for good.
 - **Quantize off:** the start is kept exactly as played, corrected for the output delay
   (Foundation).
 - **A hit just before the loop restarts,** whose nearest grid position is the pattern's start, snaps
@@ -680,8 +702,14 @@ no way to arm and then start at a moment you choose, for example from the cursor
   not pile up doubled notes that sound like flams.
 - **A note held across the loop point** keeps its full length and rings on into the start of the
   next pass, but is never longer than the pattern.
-- **A note held across a pattern switch** belongs to the pattern it was pressed in. STOP or REC off
-  while a pad is held ends the note there (Project model).
+- **A note held across a pattern switch** belongs to the pattern it was pressed in. STOP, REC off or
+  a jump (SHIFT + PLAY while playing) while a pad is held ends the note there, at that press
+  corrected for the output delay, and the later release adds nothing (Project model).
+- **A note is dropped,** not stored, when at its end its sound has left the pool, its bar or place
+  no longer fits the pattern after a length or signature change since the hit, or the pass is full.
+- **When memory runs out,** the pads keep sounding and nothing more is stored for the rest of the
+  pass. The header shows "Full" in red; a press clears it as it clears any message, and each later
+  hit while recording shows it again. REC turning on starts a pass that is not full (Project model).
 - **Mono legato and glide** come from overlapping notes: playing legato, or lengths that reach the
   next note.
 - **No accents** in part 1; velocity does the job.

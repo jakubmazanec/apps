@@ -203,10 +203,12 @@ the owner "for now", expected to change with testing.
 - **The transport**, pushed to the right edge, from the left: the pattern (P3; P3→4 while pattern 4
   is queued), the bar the step buttons show over the pattern's length (2/4; "2/4 ▶1" while playing,
   the bar playing after ▶), the tempo with one decimal (120.0); then only while they apply: a record
-  dot, dim while armed and red while recording; a small metronome icon while the metronome is on,
-  dim, 7 px wide and drawn on the capitals' rows 4 to 10; "Mute 2 4" while tracks are muted, dim and
-  at the right end after the metronome icon, counted in the room that shortens a sound's name like
-  the rest of the transport. The items are 6 px apart and the last one ends at x 475.
+  dot after the tempo, dim while armed, the count-in included, and red while recording, a disc 7 px
+  wide whose rows are 3, 5, 7, 7, 7, 5 and 3 px wide, centred, on the same rows as the metronome
+  icon; a small metronome icon while the metronome is on, dim, 7 px wide and drawn on the capitals'
+  rows 4 to 10; "Mute 2 4" while tracks are muted, dim and at the right end after the metronome
+  icon, counted in the room that shortens a sound's name like the rest of the transport. The items
+  are 6 px apart and the last one ends at x 475.
 - **A message** replaces the transport group, in red for errors (Storage full. Not saved; kick.wav
   not imported: library full; Library can't be read) and in the accent for notices (2 samples
   missing; Loading library; No unused sounds), until a later press of a button clears it **(owner's
@@ -270,8 +272,11 @@ choice)**.
 **Notes.** A light block 5 px wide in the 8 px cell, 1 px from the grid lines on both sides, 11 px
 tall in the 13 px row; three greys by velocity; a 2 px tail for the note's length; a chord's count
 from 2 to 9 as a digit on the block (5 px, no side padding at this scale), and none for 10 or more,
-since two digits do not fit; a note recorded off the grid drawn shifted 2 px, Workflow B's marking,
-kept.
+since two digits do not fit; a note that starts later than the first tick of its sixteenth, as a
+note recorded with quantize off can, drawn shifted 2 px to the right, its tail with it, Workflow B's
+marking **(owner's choice)**: it belongs to the step whose sixteenth it starts in, so a slightly
+early loose hit shows on the step before the one aimed at, and nothing is drawn left of centre.
+`step-playing.png`'s left-shifted note is older than this choice, which the text overrules.
 
 **The music** is a 1 px white line. **The cursor** is the orange outline around the cell, 1 px
 outside it.
@@ -280,8 +285,7 @@ outside it.
 ![STEP in 5/4](./2026-11-07-groovebox-look/step-5-4.png)
 
 Open: whether bars should instead be drawn edge to edge at their true length, which would be a
-Workflow B change; whether the chord digit stays legible on the panel; whether the off-grid shift
-stays. The owner asked about the shift and accepted it so far.
+Workflow B change; whether the chord digit stays legible on the panel.
 
 ## ROLL
 
@@ -362,13 +366,13 @@ shows the filter's curve with a faint line at the cutoff. Richer graphics come l
   muted" with its name in red, and its strip cell reads the same in the strip's usual colours
   (`mix.png`).
 - **SETTINGS**: a first page named **Playing** (header "Settings Playing", tile "1 Playing") with
-  Velocity, Metronome and Metronome level as items, and Count-in once the count-in is built, each on
-  the encoder of its place, 1 to 4 **(owner's choice)**; and a **Dev page** (tile "2 Dev") with
-  library and note memory as items with bars, so the device itself has them and the hardware later
-  shows them in the same place; meters are not set, so the encoders hold nothing there and the strip
-  is empty **(owner's choice)**. The "Note memory" item sits under Library and reads "0.0 of 8 MB"
-  when empty, in the library meter's format, with its bar; it counts 520 bytes for each block in
-  use, the block and its bookkeeping.
+  Velocity, Metronome, Metronome level and Count-in as items, each on the encoder of its place, 1 to
+  4 **(owner's choice)**; Count-in is a list, so turns, − and + move it and OK does nothing; and a
+  **Dev page** (tile "2 Dev") with library and note memory as items with bars, so the device itself
+  has them and the hardware later shows them in the same place; meters are not set, so the encoders
+  hold nothing there and the strip is empty **(owner's choice)**. The "Note memory" item sits under
+  Library and reads "0.0 of 8 MB" when empty, in the library meter's format, with its bar; it counts
+  520 bytes for each block in use, the block and its bookkeeping.
 - **POOL**: Remove unused first, with no label; then every sound in number order, its name at the
   left and a dim label at the right: the engine word (for a missing sample "missing" and the file's
   name), the pads and a loaded sample's size, two spaces apart (`sample  pads 1, 12  38 KB`,
@@ -384,9 +388,10 @@ shows the filter's curve with a faint line at the cutoff. Richer graphics come l
 - **PROJECT**: New first, then the projects, the open one marked "open", an old-format one marked
   "old format" in red; the strip empty.
 - **PATTERN**: Timing and Bars as pages (headers "Pattern Timing" and "Pattern Bars"); Timing,
-  PAGE + 1, holds Tempo on encoder 1 and Grid on 2 until Swing and Quantize are built, and Bars,
-  PAGE + 2, holds Length on 1 and Signature on 2; the Patterns page lists New, then every pattern
-  with its bars and note count, playing and queued marked, empty ones dim; its strip empty.
+  PAGE + 1, holds Tempo on encoder 1, Grid on 2 and Quantize on 4, a switch that OK flips, with
+  encoder 3 holding nothing until Swing is built, so the timing strip's third cell stays empty, and
+  Bars, PAGE + 2, holds Length on 1 and Signature on 2; the Patterns page lists New, then every
+  pattern with its bars and note count, playing and queued marked, empty ones dim; its strip empty.
 - **SAMPLES**: the library by folder, in the sample picker's order, with a folder as its name and
   "/" and a file as its stored name with ".wav", its length and size dim at the right; a file
   start-up could not load in red with "not loaded". Inside a folder a dim line names the folder and
@@ -448,7 +453,7 @@ while the eyes are on the hands.
 | Light           | On                                                                                                                                                                                                                                                                                       |
 | --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | T1–T4           | the selected track; a muted track blinks slowly, selected or not                                                                                                                                                                                                                         |
-| REC             | blinking while armed, lit while recording                                                                                                                                                                                                                                                |
+| REC             | blinking with the beat while armed, lit while recording                                                                                                                                                                                                                                  |
 | PLAY            | while playing                                                                                                                                                                                                                                                                            |
 | TEMPO           | while the metronome is on                                                                                                                                                                                                                                                                |
 | ROLL            | while ROLL is the screen                                                                                                                                                                                                                                                                 |
@@ -459,8 +464,12 @@ while the eyes are on the hands.
 
 The slow blink is once a second: half a second on, half a second off, at any tempo and while stopped
 **(owner's choice)**. It counts from sample 0 of the audio clock and is on for the first half of
-each second, so every muted track blinks together. The fast blinks (REC armed, a queued pattern) get
-their own quicker speed when they are built.
+each second, so every muted track blinks together. The fast blink goes with the beat **(owner's
+choice)**: on for the first half of each beat at the current tempo and off for the second, the beat
+being what the signature counts, a quarter in x/4 and an eighth in x/8. REC armed uses it, and a
+queued pattern's step button will use the same speed. While stopped, the beats run at the current
+tempo from the press that armed REC, and a tempo turn while armed starts them again from that turn;
+during the count-in they are the clicks' beats, and at the first beat REC turns steady.
 
 Unless CANCEL or COPY is held, a pad lit by its selection or by a note does not blink. While one is
 held, every pad it would erase or copy blinks, the selected pad included. The control part works the
