@@ -214,10 +214,12 @@ impl Control {
     /// held from its tick before snapping, at least 1 tick and at most the pattern. It holds the
     /// tree it makes before it lets go of `tree`, unless that is the track's, replaces a note of
     /// the same sound, pitch and start (counting it only when it replaced none) and raises
-    /// `moment` past the start's sample in its pass (S12). The note takes the take's curve. It
-    /// gives `tree` itself for a take it drops, and gives its curve back: one whose sound left the
-    /// pool or whose bar or place no longer fits the pattern, and any once the pass is full or with
-    /// fewer than `RESERVE` blocks free, which make the pass full and show "Full" (S13, S14).
+    /// `moment` past the start's sample in its pass (S12). The note takes the take's curve, which
+    /// goes back first when fewer than `RESERVE` blocks are free with it (Project model: the curve
+    /// gives way first). It gives `tree` itself for a take it drops: one whose sound left the pool
+    /// or whose bar or place no longer fits the pattern, and any once the pass is full or with
+    /// fewer than `RESERVE` blocks free even without its curve, which make the pass full and show
+    /// "Full" (S13, S14). A dropped take gives its curve back.
     fn recorded(
         &mut self,
         tree: Tree,
@@ -228,6 +230,12 @@ impl Control {
         let take = note.take.expect("a recorded note has a take");
         let pattern = self.project.patterns[usize::from(take.pattern)];
         let bar_ticks = self.project.signature.bar_ticks();
+        let mut curve = take.curve.map(|curve| curve.block());
+        if store.free() < RESERVE
+            && let Some(block) = curve.take()
+        {
+            store.give_back(block);
+        }
         let fits = self.project.pool.get(take.sound).is_some()
             && take.bar < pattern.bars
             && u32::from(take.place) < bar_ticks;
@@ -236,8 +244,8 @@ impl Control {
             self.say("Full", RECORD);
         }
         if !fits || self.full {
-            if let Some(curve) = take.curve {
-                store.give_back(curve.block());
+            if let Some(block) = curve {
+                store.give_back(block);
             }
             return tree;
         }
@@ -255,7 +263,7 @@ impl Control {
                 sound: take.sound,
                 pitch: note.pitch,
                 velocity: take.velocity,
-                curve: take.curve.map(|curve| curve.block()),
+                curve,
             },
         );
         store.hold(made);

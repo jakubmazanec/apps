@@ -1108,6 +1108,30 @@ fn without_room_a_note_is_kept_without_its_curve() {
 }
 
 #[test]
+fn a_note_short_of_room_only_by_its_curve_is_kept_without_it() {
+    let queue = Queue::new();
+    let (mut rig, synth) = recording(&queue, 1);
+    rig.hit(6_000, 0, 100);
+    rig.queue(
+        6_250,
+        Input::PadPressure {
+            pad: 0,
+            pressure: 40,
+        },
+    );
+    rig.step(6_378);
+    // Giving back the curve's block leaves `RESERVE` free.
+    fill_until(&rig, RESERVE - 1);
+
+    rig.release(9_000, 0);
+    rig.step(9_128);
+
+    assert_eq!(on_t4(&rig), [played(480, 240, synth)]);
+    assert_eq!(said(&rig), None);
+    assert_eq!(count(&rig, synth), 1);
+}
+
+#[test]
 fn a_dropped_note_gives_its_curve_back() {
     let queue = Queue::new();
     let (mut rig, synth) = recording(&queue, 1);
