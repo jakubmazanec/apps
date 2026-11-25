@@ -6,8 +6,8 @@ use crate::queue::Producer;
 use crate::sequencer::Run;
 use crate::store::Store;
 
-/// Whether REC records: off, armed for the next PLAY or during the count-in, or on (S3). An armed
-/// REC's run times its blink while stopped, from the press that armed it (S7).
+/// Whether REC is on, off or armed for the next PLAY or during the count-in (S3). An armed REC's
+/// run times its blink while stopped, from the press that armed it (S7).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum Rec {
     Off,
@@ -17,8 +17,8 @@ pub(super) enum Rec {
 
 impl Control {
     /// REC at its press, which sends nothing (S3). While stopped or during the count-in it arms
-    /// and disarms; while playing it drops in, starting a pass that is not full (S14), and drops
-    /// out.
+    /// and disarms; while playing it drops in or out, a drop in starting a pass that is not full
+    /// (S14).
     pub(super) fn press_rec(
         &mut self,
         sample: u64,

@@ -1,6 +1,6 @@
-//! REC: arming while stopped, the count-in after PLAY, dropping in and out while playing, and the
-//! record dot and REC's light that show it. At 120 BPM in 4/4 a beat is 24,000 samples and a bar
-//! 96,000.
+//! REC: arming while stopped, the count-in after PLAY and dropping in and out while playing, with
+//! the record dot and REC's light that show them. At 120 BPM in 4/4 a beat is 24,000 samples and a
+//! bar 96,000.
 
 use super::timing::{choose, on_bars};
 use super::*;

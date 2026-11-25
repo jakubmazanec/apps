@@ -718,8 +718,8 @@ impl Control {
     /// steps of the page the step buttons show light where a note of the selected sound starts
     /// (`step_notes`), and while playing the step the music is in, on that page of the bar the
     /// buttons show (`shown_bar`), is flipped (S6). REC lights while on and, while armed, for the
-    /// first half of each beat: the clicks' beats during the count-in, and while stopped the beats
-    /// of the run from the press that armed it (S7). PLAY lights while playing (S10), and TEMPO
+    /// first half of each beat: during the count-in the clicks' beats and while stopped those of
+    /// the run from the press that armed it (S7). PLAY lights while playing (S10), and TEMPO
     /// while the metronome is on (S9).
     pub fn lights(&self) -> Lights {
         let track = self.track();
