@@ -196,6 +196,9 @@ pub struct Control {
     notes: Notes,
     /// Whether a preview was started since the last stop, which a stop fades out.
     previewing: bool,
+    /// The samples the platform's output takes to sound what the audio part renders, as the latest
+    /// `Input::OutputDelay` said; 0 until one comes (S8).
+    output_delay: u16,
     /// The control part's own sequencer, which plays and stops with the audio part's runs, plays
     /// the trees of the versions sent and whose events go nowhere: the lights and the header read
     /// the pattern's playing from it (S20).
@@ -267,6 +270,7 @@ impl Control {
             buttons: Buttons::new(),
             notes: Notes::new(),
             previewing: false,
+            output_delay: 0,
             player: Sequencer::new(),
             moment: 0,
             step_notes: 0,
@@ -367,9 +371,10 @@ impl Control {
     ///
     /// The first step starts the start-up's job, and a reply goes to it with `io`, the I/O buffer,
     /// as its request left it. When the job ends the project opens, with the job's result as the
-    /// header's message. Until then every input is dropped but a turn of the volume encoder and a
-    /// drop, whose files wait for the project. Then the import's job takes them, and the replies go
-    /// to it with `io` and `ram`, the sample RAM; when it ends, its result is the header's message.
+    /// header's message. Until then every input is dropped but a turn of the volume encoder, an
+    /// output delay (which the control part keeps) and a drop, whose files wait for the project.
+    /// Then the import's job takes them, and the replies go to it with `io` and `ram`, the sample
+    /// RAM; when it ends, its result is the header's message.
     /// A delete's job sends its `Delete` between two of the import's requests (`put_request`), and
     /// that request's reply goes to it (`deleted`).
     ///
@@ -546,6 +551,7 @@ impl Control {
                                 encoder: VOLUME,
                                 ..
                             } | Input::Dropped { .. }
+                                | Input::OutputDelay { .. }
                         )
                     {
                         self.input(stamped, messages, versions, store);
@@ -854,6 +860,9 @@ impl Control {
                 self.message = None;
                 self.start_import(sample, messages);
             }
+            // The output delay is no control of the device: it clears no message and uses no held
+            // button.
+            Input::OutputDelay { samples } => self.output_delay = samples,
             Input::NoteOn { .. }
             | Input::PadPressure { .. }
             | Input::NotePressure { .. }

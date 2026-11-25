@@ -28,6 +28,10 @@ function sceneWords(input: ShellInput): string {
       return `note-pressure ${input.note} ${input.pressure}`;
     }
 
+    case 'output-delay': {
+      return `output-delay ${input.samples}`;
+    }
+
     case 'pad-hit': {
       return `pad-hit ${input.pad} ${input.velocity}`;
     }

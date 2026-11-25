@@ -118,7 +118,8 @@ fn within(value: u32, range: impl RangeBounds<u8>) -> Option<u8> {
 /// them in range: pads below `PADS`, encoders below `ENCODERS`, `clicks` from -127 to 127 and not
 /// 0, notes and pressures from 0 to 127, velocities from 1 to 127 and dropped files from 1.
 /// `Dropped` says that the platform copied a drop's `files` .wav files into `tmp/`, each into the
-/// next numbered folder.
+/// next numbered folder. `OutputDelay` says how many samples the platform's output takes to sound
+/// what the audio part renders.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Input {
     PadHit { pad: u8, velocity: u8 },
@@ -132,6 +133,7 @@ pub enum Input {
     NotePressure { note: u8, pressure: u8 },
     ChannelPressure { pressure: u8 },
     Dropped { files: u16 },
+    OutputDelay { samples: u16 },
 }
 
 impl Input {
@@ -182,6 +184,9 @@ impl Input {
             10 => Self::Dropped {
                 files: u16::try_from(a).ok().filter(|&files| files > 0)?,
             },
+            11 => Self::OutputDelay {
+                samples: u16::try_from(a).ok()?,
+            },
             _ => return None,
         })
     }
@@ -201,6 +206,7 @@ impl Input {
             Self::NotePressure { note, pressure } => (8, note.into(), pressure.into()),
             Self::ChannelPressure { pressure } => (9, pressure.into(), 0),
             Self::Dropped { files } => (10, files.into(), 0),
+            Self::OutputDelay { samples } => (11, samples.into(), 0),
         }
     }
 }
@@ -278,6 +284,7 @@ mod tests {
             },
             Input::ChannelPressure { pressure: 0 },
             Input::Dropped { files: 65_535 },
+            Input::OutputDelay { samples: 65_535 },
         ];
 
         for (kind, input) in (0..).zip(inputs) {
@@ -342,6 +349,18 @@ mod tests {
         );
         assert_eq!(wire(Input::ChannelPressure { pressure: 40 }), (9, 40, 0));
         assert_eq!(wire(Input::Dropped { files: 3 }), (10, 3, 0));
+        assert_eq!(wire(Input::OutputDelay { samples: 2_816 }), (11, 2_816, 0));
+    }
+
+    #[test]
+    fn the_output_delay_round_trips_on_the_wire() {
+        let delay = Input::OutputDelay { samples: 1_200 };
+
+        assert_eq!(Input::from_wire(11, 1_200, 0), Some(delay));
+        assert_eq!(delay.to_wire(), (11, 1_200, 0));
+        // `b` is ignored.
+        assert_eq!(Input::from_wire(11, 1_200, 7), Some(delay));
+        assert_eq!(Input::from_wire(11, 65_536, 0), None);
     }
 
     #[test]
@@ -369,6 +388,8 @@ mod tests {
             (9, 127, 0),
             (10, 1, 0),
             (10, 65_535, 0),
+            (11, 0, 0),
+            (11, 65_535, 0),
         ] {
             assert!(Input::from_wire(kind, a, b).is_some(), "{kind} {a} {b}");
         }
@@ -379,7 +400,8 @@ mod tests {
         for (kind, a, b) in [
             (10, 0, 0),
             (10, 65_536, 0),
-            (11, 1, 0),
+            (11, 65_536, 0),
+            (12, 0, 0),
             (u32::MAX, 0, 0),
             (0, 12, 100),
             (0, 256, 100),

@@ -95,6 +95,8 @@ export async function runShell({
   let midiAllowed = true;
   let audio: Promise<AudioContext> | undefined;
   let context: AudioContext | undefined;
+  // The output delay last sent to the core
+  let sentDelay: number | undefined;
   let frame = 0;
   let view = storedView();
   let stored = storedPixelsPerMm();
@@ -504,6 +506,17 @@ export async function runShell({
       ['tempo', tempo],
     ] as const) {
       panel.lights.get(control)?.toggleAttribute('data-lit', lit);
+    }
+
+    // The audio's output delay goes to the core once the audio runs and again each time it
+    // changes, as when headphones are plugged in
+    if (context) {
+      let samples = Math.round((context.baseLatency + context.outputLatency) * context.sampleRate);
+
+      if (samples !== sentDelay) {
+        sentDelay = samples;
+        send({kind: 'output-delay', samples});
+      }
     }
 
     frame = requestAnimationFrame(present);

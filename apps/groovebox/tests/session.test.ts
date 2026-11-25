@@ -35,6 +35,7 @@ describe(SessionLog, () => {
       {kind: 'note-off', note: 60},
       {kind: 'note-pressure', note: 60, pressure: 0},
       {kind: 'channel-pressure', pressure: 99},
+      {kind: 'output-delay', samples: 1200},
     ];
 
     for (let [index, input] of inputs.entries()) {
@@ -56,6 +57,7 @@ describe(SessionLog, () => {
       'input 110 note-off 60',
       'input 120 note-pressure 60 0',
       'input 130 channel-pressure 99',
+      'input 140 output-delay 1200',
     ]);
   });
 

@@ -217,7 +217,8 @@ function pointerEvent(type: string, target: Element) {
   );
 }
 
-// The inputs the shell sends to the control worker from now on
+// The inputs the shell sends to the control worker from now on, but for the output delay, which it
+// sends whenever the audio's changes
 function watchInputs({core}: {core: Core}) {
   let postMessage = vitest.spyOn(core.worker, 'postMessage');
 
@@ -226,11 +227,13 @@ function watchInputs({core}: {core: Core}) {
   });
 
   return () =>
-    postMessage.mock.calls.flatMap(([request]) =>
-      (request as WorkerRequest).type === 'input' ?
-        [(request as Extract<WorkerRequest, {type: 'input'}>).stamped]
-      : [],
-    );
+    postMessage.mock.calls
+      .flatMap(([request]) =>
+        (request as WorkerRequest).type === 'input' ?
+          [(request as Extract<WorkerRequest, {type: 'input'}>).stamped]
+        : [],
+      )
+      .filter(({input}) => input.kind !== 'output-delay');
 }
 
 function inputsOf(stamped: StampedInput[]) {
@@ -871,6 +874,58 @@ describe(runShell, () => {
     let {status} = await runStarted();
 
     await expect.poll(() => status.textContent).toBe('MIDI not allowed');
+  });
+
+  test('the shell sends the output delay of the audio once it runs and again when it changes', async () => {
+    let downloads: string[] = [];
+    let click = vitest
+      .spyOn(HTMLAnchorElement.prototype, 'click')
+      .mockImplementation(function recordDownload(this: HTMLAnchorElement) {
+        downloads.push(this.href);
+      });
+    let revoke = vitest.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+    let outputLatency = vitest
+      .spyOn(AudioContext.prototype, 'outputLatency', 'get')
+      .mockReturnValue(0.05);
+
+    onTestFinished(() => {
+      click.mockRestore();
+      revoke.mockRestore();
+      outputLatency.mockRestore();
+    });
+
+    let {saveSession, start} = await runStarted();
+    let {baseLatency} = await start();
+    let samples = (latency: number) => String(Math.round((baseLatency + latency) * 48_000));
+    // The values of the output-delay lines of the session saved as the download `index`
+    let delays = async (index: number) => {
+      let session = await (await fetch(downloads[index] as string)).text();
+
+      return session
+        .split('\n')
+        .filter((line) => line.includes(' output-delay '))
+        .map((line) => line.split(' ').at(-1));
+    };
+
+    await userEvent.click(saveSession);
+
+    await expect.poll(() => downloads).toHaveLength(1);
+
+    await expect(delays(0)).resolves.toEqual([samples(0.05)]);
+
+    // Headphones are plugged in: the next frame sends the new delay
+    outputLatency.mockReturnValue(0.02);
+    await new Promise((resolve) => {
+      requestAnimationFrame(resolve);
+    });
+    await new Promise((resolve) => {
+      requestAnimationFrame(resolve);
+    });
+    await userEvent.click(saveSession);
+
+    await expect.poll(() => downloads).toHaveLength(2);
+
+    await expect(delays(1)).resolves.toEqual([samples(0.05), samples(0.02)]);
   });
 
   test('Save picture downloads screen-<position>.png', async () => {

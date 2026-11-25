@@ -66,13 +66,14 @@ export function encoderName(encoder: number): 'volume' | `encoder-${number}` {
 
 // One member per kind of the "Inputs" table, named as its scene line is. Pads 0–11, encoders 0–4
 // (4 is the volume), clicks and velocities in the ranges that the core takes (`clicks` from -127
-// to 127 and not 0, `files` from 1 to 65,535)
+// to 127 and not 0, `files` from 1 to 65,535, `samples` from 0 to 65,535)
 export type ShellInput =
   | {kind: 'channel-pressure'; pressure: number}
   | {kind: 'dropped'; files: number}
   | {kind: 'note-off'; note: number}
   | {kind: 'note-on'; note: number; velocity: number}
   | {kind: 'note-pressure'; note: number; pressure: number}
+  | {kind: 'output-delay'; samples: number}
   | {kind: 'pad-hit'; pad: number; velocity: number}
   | {kind: 'pad-pressure'; pad: number; pressure: number}
   | {kind: 'pad-release'; pad: number}
@@ -106,6 +107,10 @@ export function coreArguments(input: ShellInput): [kind: number, a: number, b: n
 
     case 'note-pressure': {
       return [8, input.note, input.pressure];
+    }
+
+    case 'output-delay': {
+      return [11, input.samples, 0];
     }
 
     case 'pad-hit': {

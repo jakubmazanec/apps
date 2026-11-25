@@ -1788,6 +1788,49 @@ fn the_volume_encoder_sets_the_output_volume_everywhere() {
     );
 }
 
+#[test]
+fn the_control_part_keeps_the_latest_output_delay() {
+    let queue = Queue::new();
+    let mut rig = Rig::new(&queue);
+    let mut text = Label::new();
+    text.push_str("Pool full");
+    let message = Some(HeaderMessage {
+        text,
+        color: RECORD,
+        name: (0, 0),
+    });
+    assert_eq!(rig.control.output_delay, 0);
+
+    // The delay is no control: it clears no message, and the release of a PADS/KEYS press that
+    // came before it still taps.
+    rig.queue(0, Input::OutputDelay { samples: 1_200 });
+    rig.press(2, Button::PadsKeys);
+    rig.step(3);
+    rig.control.message = message;
+    rig.queue(10, Input::OutputDelay { samples: 900 });
+    rig.let_go(12, Button::PadsKeys);
+    rig.step(20);
+
+    assert_eq!(rig.control.output_delay, 900);
+    assert_eq!(rig.track().mode, PadMode::Keys);
+    assert_eq!(rig.control.message, message);
+    assert_eq!(rig.sent(), []);
+}
+
+#[test]
+fn the_output_delay_is_kept_while_the_library_loads() {
+    let queue = Queue::new();
+    let mut rig = Rig::with_files(&queue, &[]);
+    rig.queue(10, Input::OutputDelay { samples: 1_200 });
+    rig.step(50);
+
+    assert!(rig.control.startup.is_some());
+    assert_eq!(rig.control.output_delay, 1_200);
+    rig.open();
+    assert_eq!(rig.control.output_delay, 1_200);
+    assert_eq!(rig.sent(), []);
+}
+
 /// A reply to request `number` with nothing to report.
 fn done(number: u32) -> Reply {
     Reply {

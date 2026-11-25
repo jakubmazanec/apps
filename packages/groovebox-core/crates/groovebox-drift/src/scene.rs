@@ -381,6 +381,12 @@ pub fn parse(text: &str) -> Result<Vec<SceneLine>, String> {
                     },
                 },
             }),
+            ["input", sample, "output-delay", samples] => SceneLine::Input(Stamped {
+                sample: decimal(number, sample)?,
+                input: Input::OutputDelay {
+                    samples: decimal(number, samples)?,
+                },
+            }),
             ["storage", bytes] => SceneLine::Storage(decimal(number, bytes)?),
             ["file", path_word, ref words @ ..] => {
                 let path = path(number, path_word)?;
@@ -700,6 +706,20 @@ mod tests {
     }
 
     #[test]
+    fn a_scene_reads_the_output_delay() {
+        assert_eq!(
+            parse("groovebox-scene 1\ninput 64 output-delay 1200\nend 128"),
+            Ok(vec![
+                SceneLine::Input(Stamped {
+                    sample: 64,
+                    input: Input::OutputDelay { samples: 1_200 }
+                }),
+                SceneLine::End(128)
+            ])
+        );
+    }
+
+    #[test]
     fn every_button_name_round_trips() {
         for code in 0..=u8::MAX {
             if let Some(button) = Button::from_code(code) {
@@ -734,6 +754,8 @@ mod tests {
             "channel-pressure 128",
             "dropped 0",
             "dropped 65536",
+            "output-delay 65536",
+            "output-delay -1",
         ] {
             let error =
                 parse(&format!("groovebox-scene 1\ninput 0 {line}\nend 128")).expect_err(line);
