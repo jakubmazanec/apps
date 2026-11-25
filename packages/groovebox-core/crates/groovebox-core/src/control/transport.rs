@@ -31,8 +31,15 @@ impl Control {
             tick: u64::from(bar) * u64::from(self.project.signature.bar_ticks()),
             tempo: self.project.tempo,
         };
-        self.send(sample, MessageKind::Play { run }, messages);
-        self.player.play(run, &store.reader());
+        self.send(
+            sample,
+            MessageKind::Play {
+                run,
+                count_in: false,
+            },
+            messages,
+        );
+        self.player.play(run, false, &store.reader());
     }
 
     /// STOP at its press: while playing the cursor stays on the bar the step buttons show

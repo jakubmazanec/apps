@@ -122,9 +122,11 @@ pub enum MessageKind {
     ForgetSample {
         file: FileId,
     },
-    /// The current pattern plays from `run`: it starts, or jumps while playing (S7, S8).
+    /// The current pattern plays from `run`: it starts, or jumps while playing (S7, S8). With
+    /// `count_in` it starts one bar of clicks after the run's tick (S4).
     Play {
         run: Run,
+        count_in: bool,
     },
     /// The pattern stops and its sounding notes end, each with its own release (S9).
     Stop,

@@ -311,7 +311,17 @@ fn a_tempo_change_while_stopped_sends_the_tempo_and_play_carries_it() {
         tick: 0,
         tempo: 12_100,
     };
-    assert_eq!(rig.sent(), [message(1, 9_600, MessageKind::Play { run })]);
+    assert_eq!(
+        rig.sent(),
+        [message(
+            1,
+            9_600,
+            MessageKind::Play {
+                run,
+                count_in: false
+            }
+        )]
+    );
     assert_eq!(rig.control.player.run(), Some(run));
 }
 
@@ -345,6 +355,7 @@ fn an_event_reads_the_music_at_its_own_sample() {
                     tick: 0,
                     tempo: 12_000,
                 },
+                count_in: false,
             },
         ),
         message(1, 3_000, tempo(3_012, 241, 12_100)),
@@ -1655,6 +1666,7 @@ fn play_from(anchor: u64, tick: u64) -> MessageKind {
             tick,
             tempo: 12_000,
         },
+        count_in: false,
     }
 }
 

@@ -20,6 +20,7 @@ fn play(anchor: u64) -> MessageKind {
             tick: 0,
             tempo: 12_000,
         },
+        count_in: false,
     }
 }
 

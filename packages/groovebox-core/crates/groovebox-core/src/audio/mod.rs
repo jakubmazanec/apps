@@ -49,7 +49,7 @@ pub struct Audio {
     table: u8,
     /// Plays the trees of the versions.
     sequencer: Sequencer,
-    /// Whether a beat starts the click: METRONOME is on.
+    /// Whether a beat of the pattern starts the click: METRONOME is on.
     metronome: bool,
     click: Click,
     /// The click's level, gliding as the output volume does.
@@ -90,7 +90,8 @@ impl Audio {
     /// applies every message that is due, then every version whose moment is due, and reports the
     /// sample at which it applied each. Then the sequencer starts and ends the pattern's notes due
     /// by the chunk start: a note of a sound the audio part does not hold starts nothing (S22),
-    /// and the others play their sound's engine; a beat starts the click while the metronome is on.
+    /// and the others play their sound's engine; a beat starts the click while the metronome is on,
+    /// and a count-in's beat whatever it says (S4).
     /// It then adds up each track's voices and the last chunk of each voice a new note took or
     /// choked or a `ForgetSample`, `DeleteSound` or `Silence` faded into its bus, sends each bus
     /// through its track's effect slots and multiplies it by its track's level, adds the buses and
@@ -210,8 +211,8 @@ impl Audio {
                         self.voices.forget(file, &mut fades);
                         self.sounds.forget(file);
                     }
-                    MessageKind::Play { run } => {
-                        self.sequencer.play(run, notes);
+                    MessageKind::Play { run, count_in } => {
+                        self.sequencer.play(run, count_in, notes);
                         self.slots.set_tempo(run.tempo);
                     }
                     MessageKind::Stop => self.sequencer.stop(|event| {
@@ -311,7 +312,9 @@ impl Audio {
                             &mut fades,
                         );
                     }
-                    Event::Beat { first } if self.metronome => self.click.start(first),
+                    Event::Beat { first, count_in } if self.metronome || count_in => {
+                        self.click.start(first);
+                    }
                     Event::Start { .. } | Event::Beat { .. } => {}
                     Event::End(sounding) => self.voices.note_off(sounding.id, &self.sounds, reader),
                 });
@@ -2307,6 +2310,7 @@ mod tests {
                 tick: 0,
                 tempo: 12_000,
             },
+            count_in: false,
         }
     }
 
@@ -2598,6 +2602,31 @@ mod tests {
         assert!(silent(0, true));
         assert!(silent(1, false));
         assert!(!silent(1, true));
+    }
+
+    #[test]
+    fn the_count_in_clicks_with_the_metronome_off() {
+        let (messages, reports) = (Queue::new(), Queue::new());
+        let mut rig = Rig::new(&messages, &reports);
+        rig.send(0, 0, set_device(&METRONOME, 0));
+        rig.send(
+            1,
+            0,
+            MessageKind::Play {
+                run: Run {
+                    anchor: 0,
+                    tick: 0,
+                    tempo: 12_000,
+                },
+                count_in: true,
+            },
+        );
+
+        let out = rig.render(192_000);
+
+        // The metronome's bar: a high click at 0, then clicks at 24,000, 48,000 and 72,000.
+        assert_eq!(bits(&out[..96_000]), bits(&clicking(&[], 96_000)));
+        assert!(is_silent(&out[96_000..]));
     }
 
     #[test]

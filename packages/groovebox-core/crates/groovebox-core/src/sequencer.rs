@@ -71,12 +71,13 @@ pub struct Sounding {
     pub pitch: u8,
 }
 
-/// A note's start or end, or a beat, `first` at a bar's start (S7).
+/// A note's start or end, or a beat, `first` at a bar's start (S7) and `count_in` in the bar
+/// before the pattern's start (S4).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Event {
     Start { id: NoteId, track: u8, note: Note },
     End(Sounding),
-    Beat { first: bool },
+    Beat { first: bool, count_in: bool },
 }
 
 /// A track's tree and where it plays.
@@ -146,8 +147,10 @@ impl Sequencer {
 
     /// Plays from `run`, starting or jumping: every note whose sample is the run's anchor or later
     /// is due. Notes sounding keep sounding. The latest waiting meter takes over at once and a
-    /// waiting run is dropped; tick 0 of the run is the start of bar 0.
-    pub fn play(&mut self, run: Run, notes: &NoteReader<'_>) {
+    /// waiting run is dropped. Without `count_in` tick 0 of the run is the start of bar 0; with it
+    /// the beats start at the run's tick and the pattern one bar later, at bar `run.tick /
+    /// bar_ticks` (S4).
+    pub fn play(&mut self, run: Run, count_in: bool, notes: &NoteReader<'_>) {
         self.run = Some(run);
         self.waiting_run = None;
         self.due = run.tick;
@@ -157,15 +160,18 @@ impl Sequencer {
             .take()
             .or(self.waiting_meter)
             .unwrap_or(self.meter);
-        self.take(
-            Meter {
-                tick: 0,
-                bar: 0,
-                ..latest
-            },
-            run.tick,
-            notes,
-        );
+        let bar_ticks = u64::from(latest.signature.bar_ticks());
+        let bar = run.tick / bar_ticks;
+        let meter = Meter {
+            tick: (bar + u64::from(count_in)) * bar_ticks,
+            // A run starts in the pattern's first pass, so its bar fits.
+            bar: bar as u16,
+            ..latest
+        };
+        self.take(meter, run.tick.max(meter.tick), notes);
+        if count_in {
+            self.beat = run.tick;
+        }
     }
 
     /// Ends every sounding note, then stops. The latest waiting meter takes over at once and a
@@ -198,7 +204,8 @@ impl Sequencer {
     /// Track `track` plays `tree` from its first note not yet due, so no note starts twice.
     pub fn switch(&mut self, track: u8, tree: Tree, notes: &NoteReader<'_>) {
         self.tracks[usize::from(track)].tree = tree;
-        self.seek(usize::from(track), self.due, notes);
+        // In the count-in nothing is due before the pattern's start.
+        self.seek(usize::from(track), self.due.max(self.meter.tick), notes);
     }
 
     /// Stopped, the pattern takes `meter`'s bars and signature at once. Playing, `meter` waits for
@@ -250,26 +257,36 @@ impl Sequencer {
         }
     }
 
-    /// The tick of the bar line where a change from `sample` takes hold, and the bar that ends
-    /// there: the latest waiting meter's tick, else the first bar line whose sample is `sample` or
-    /// later (S13, S14). Only while playing, and that bar line must be past the tick of the meter
-    /// in force.
+    /// The tick of the bar line where a change from `sample` takes hold, and the bar that starts
+    /// there, which may be the pattern's bars: the latest waiting meter's tick, else the first bar
+    /// line whose sample is `sample` or later (S13, S14). During the count-in that is the
+    /// pattern's start and its bar (S4). Only while playing.
     pub fn next_bar_line(&self, sample: u64) -> (u64, u16) {
         let run = self
             .run
             .expect("a change waits for a bar line only while playing (S13)");
         let Meter {
-            tick, signature, ..
+            tick,
+            bar,
+            signature,
+            ..
         } = self.meter;
         let bar_ticks = u64::from(signature.bar_ticks());
         let line = self.queued_meter.or(self.waiting_meter).map_or_else(
             || {
-                let since = self.first_tick_after(run, sample - 1) - tick;
+                let since = self.first_tick_after(run, sample - 1).saturating_sub(tick);
                 tick + since.div_ceil(bar_ticks) * bar_ticks
             },
             |meter| meter.tick,
         );
-        (line, self.meter_at(line - 1).locate(line - 1).1)
+        (
+            line,
+            if line == tick {
+                bar
+            } else {
+                self.meter_at(line - 1).locate(line - 1).1 + 1
+            },
+        )
     }
 
     /// Every event due by `until`, in sample order: at one sample ends before starts (S14), and
@@ -313,8 +330,15 @@ impl Sequencer {
                     out(Event::End(sounding));
                 }
                 _ if beat <= until && start.is_none_or(|(sample, ..)| beat <= sample) => {
+                    let count_in = self.beat < self.meter.tick;
                     out(Event::Beat {
-                        first: self.meter.locate(self.beat).2 == 0,
+                        first: if count_in {
+                            self.meter.tick - self.beat
+                                == u64::from(self.meter.signature.bar_ticks())
+                        } else {
+                            self.meter.locate(self.beat).2 == 0
+                        },
+                        count_in,
                     });
                     self.beat += self.meter.beat();
                 }
@@ -370,11 +394,58 @@ impl Sequencer {
 
     /// While playing, the bar and the place in it where the music is at `sample`: the tick before
     /// the first after `sample`, within the pattern, counting the waiting meters and run.
-    /// `sample` is that of the last advance or later, so the meter in force holds it.
+    /// `sample` is that of the last advance or later, so the meter in force holds it, or it is in
+    /// the count-in, where the music stands at the pattern's start (answer 2).
     pub fn at(&self, sample: u64) -> Option<(u16, u32)> {
         let tick = self.first_tick_after(self.run?, sample).saturating_sub(1);
-        let (_, bar, place) = self.meter_at(tick).locate(tick);
-        Some((bar, place))
+        self.place(tick.max(self.meter.tick))
+    }
+
+    /// Playing, whether the tick at `sample` is in the count-in, before the meter in force's tick
+    /// (S4).
+    pub fn counting_in(&self, sample: u64) -> bool {
+        self.run.is_some() && self.tick_at(sample) < self.meter.tick
+    }
+
+    /// While playing, the last tick whose sample is `sample` or earlier, counting a waiting run;
+    /// the run's tick for a sample before its anchor.
+    pub fn tick_at(&self, sample: u64) -> u64 {
+        let run = self.run.expect("only a playing sequencer has ticks");
+        self.first_tick_after(run, sample)
+            .saturating_sub(1)
+            .max(run.tick)
+    }
+
+    /// While playing, the sample of `tick`, the run's tick or later, counting a waiting run.
+    pub fn sample_at(&self, tick: u64) -> u64 {
+        self.sample(self.run.expect("only a playing sequencer has ticks"), tick)
+    }
+
+    /// The nearest sixteenth to `tick` counted from the tick of the meter that holds it, or from
+    /// the meter in force's for a tick in the count-in: the later one at exactly half (S10).
+    pub fn snap(&self, tick: u64) -> u64 {
+        let from = self.meter_at(tick).tick;
+        if tick < from {
+            from - (from - tick + 239) / 480 * 480
+        } else {
+            from + (tick - from + 240) / 480 * 480
+        }
+    }
+
+    /// The bar and the place of `tick` in the pattern, counting the waiting meters, on across
+    /// passes: none before the pattern's start (S10).
+    pub fn place(&self, tick: u64) -> Option<(u16, u32)> {
+        (tick >= self.meter.tick).then(|| {
+            let (_, bar, place) = self.meter_at(tick).locate(tick);
+            (bar, place)
+        })
+    }
+
+    /// While playing and advanced to `sample`, whether it is in the first half of the beat it is
+    /// in, the count-in's beats included (answer 3).
+    pub fn beat_on(&self, sample: u64) -> bool {
+        // The beat it is in started a beat of the meter in force before the next one.
+        self.tick_at(sample) < self.beat - self.meter.beat() / 2
     }
 
     /// The meter that holds `tick`, the meter in force's tick or later, counting the waiting ones.
@@ -539,8 +610,14 @@ mod tests {
             };
             rig.sequencer.meter(meter, &rig.notes);
             rig.switch(0, track);
-            rig.sequencer.play(RUN, &rig.notes);
+            rig.sequencer.play(RUN, false, &rig.notes);
             rig
+        }
+
+        /// The rig counting in from run tick `tick` at sample 0 instead.
+        fn counting_in(mut self, tick: u64) -> Self {
+            self.sequencer.play(Run { tick, ..RUN }, true, &self.notes);
+            self
         }
 
         /// Track `track` plays a held tree of `notes`.
@@ -734,7 +811,7 @@ mod tests {
             tempo: 12_000,
         };
 
-        rig.sequencer.play(jump, &rig.notes);
+        rig.sequencer.play(jump, false, &rig.notes);
 
         assert_eq!(rig.heard(29_999), []);
         assert_eq!(rig.heard(30_000), [Heard::Start(0, 1_920)]);
@@ -841,7 +918,10 @@ mod tests {
         assert_eq!(
             rig.events(6_000),
             [
-                Event::Beat { first: true },
+                Event::Beat {
+                    first: true,
+                    count_in: false
+                },
                 Event::Start {
                     id: NoteId(0x8000_0000),
                     track: 0,
@@ -878,7 +958,16 @@ mod tests {
 
     #[test]
     fn beats_come_every_quarter_in_4_4_and_every_eighth_in_7_8() {
-        let (first, other) = (Event::Beat { first: true }, Event::Beat { first: false });
+        let (first, other) = (
+            Event::Beat {
+                first: true,
+                count_in: false,
+            },
+            Event::Beat {
+                first: false,
+                count_in: false,
+            },
+        );
         let ram = NoteRam::boxed();
         let mut rig = Rig::with(&ram, FOUR_BARS, []);
 
@@ -928,7 +1017,10 @@ mod tests {
                 events[..],
                 [
                     Event::End(_),
-                    Event::Beat { first: false },
+                    Event::Beat {
+                        first: false,
+                        count_in: false
+                    },
                     Event::Start { .. }
                 ]
             ),
@@ -1063,7 +1155,10 @@ mod tests {
                         ..
                     },
                     Event::End(_),
-                    Event::Beat { first: true },
+                    Event::Beat {
+                        first: true,
+                        count_in: false
+                    },
                     Event::Start {
                         note: Note { bar: 1, .. },
                         ..
@@ -1072,7 +1167,16 @@ mod tests {
             ),
             "{events:?}"
         );
-        let (first, other) = (Event::Beat { first: true }, Event::Beat { first: false });
+        let (first, other) = (
+            Event::Beat {
+                first: true,
+                count_in: false,
+            },
+            Event::Beat {
+                first: false,
+                count_in: false,
+            },
+        );
         let ram = NoteRam::boxed();
         let mut rig = Rig::with(&ram, FOUR_BARS, []);
         rig.sequencer.meter(THREE_FOUR, &rig.notes);
@@ -1185,7 +1289,7 @@ mod tests {
         rig.sequencer.stop(|_| {});
 
         rig.sequencer.meter(THREE_FOUR, &rig.notes);
-        rig.sequencer.play(RUN, &rig.notes);
+        rig.sequencer.play(RUN, false, &rig.notes);
 
         assert_eq!(rig.heard(71_999), []);
         assert_eq!(rig.heard(72_000), [Heard::Start(0, 0)]);
@@ -1203,6 +1307,7 @@ mod tests {
                 tick: 0,
                 tempo: 12_000,
             },
+            false,
             &rig.notes,
         );
 
@@ -1225,7 +1330,7 @@ mod tests {
             &rig.notes,
         );
 
-        rig.sequencer.play(RUN, &rig.notes);
+        rig.sequencer.play(RUN, false, &rig.notes);
 
         assert_eq!(rig.heard(83_999), []);
         assert_eq!(rig.heard(84_000), [Heard::Start(0, 0)]);
@@ -1242,7 +1347,7 @@ mod tests {
         rig.sequencer.stop(|_| {});
         // A switch while stopped seeks with the meter taken.
         rig.switch(0, [Note { bar: 1, ..step(0) }]);
-        rig.sequencer.play(RUN, &rig.notes);
+        rig.sequencer.play(RUN, false, &rig.notes);
 
         assert_eq!(rig.heard(71_999), []);
         assert_eq!(rig.heard(72_000), [Heard::Start(0, 0)]);
@@ -1274,10 +1379,10 @@ mod tests {
         let ram = NoteRam::boxed();
         let mut rig = Rig::with(&ram, FOUR_BARS, []);
 
-        assert_eq!(rig.sequencer.next_bar_line(51_024), (7_680, 0));
-        assert_eq!(rig.sequencer.next_bar_line(96_524), (15_360, 1));
+        assert_eq!(rig.sequencer.next_bar_line(51_024), (7_680, 1));
+        assert_eq!(rig.sequencer.next_bar_line(96_524), (15_360, 2));
         rig.sequencer.meter(THREE_FOUR, &rig.notes);
-        assert_eq!(rig.sequencer.next_bar_line(96_524), (7_680, 0));
+        assert_eq!(rig.sequencer.next_bar_line(96_524), (7_680, 1));
         assert_eq!(rig.sequencer.at(100_000), Some((1, 320)));
         // In bar 2 of the waiting 3/4, still bar 1 of the 4/4.
         assert_eq!(rig.sequencer.at(170_000), Some((2, 160)));
@@ -1291,7 +1396,7 @@ mod tests {
             },
             &rig.notes,
         );
-        assert_eq!(rig.sequencer.next_bar_line(96_524), (30_720, 0));
+        assert_eq!(rig.sequencer.next_bar_line(96_524), (30_720, 1));
         assert_eq!(rig.sequencer.at(170_000), Some((2, 160)));
         assert_eq!(rig.sequencer.at(459_000), Some((1, 6_000)));
         // A waiting run.
@@ -1309,7 +1414,7 @@ mod tests {
         let mut rig = Rig::new(&ram, [step(0), step(2)]);
         rig.switch(1, [step(0)]);
         rig.sequencer.mute(0, true);
-        rig.sequencer.play(RUN, &rig.notes);
+        rig.sequencer.play(RUN, false, &rig.notes);
 
         // Track 1's notes, at samples 0 and 12,000, pass unheard; track 2's note sounds.
         assert_eq!(rig.heard(0), [Heard::Start(1, 0)]);
@@ -1339,5 +1444,247 @@ mod tests {
         rig.sequencer.mute(0, true);
 
         assert_eq!(rig.heard(6_000), [Heard::End(6_000)]);
+    }
+
+    #[test]
+    fn a_count_in_clicks_one_bar_before_the_pattern_starts() {
+        let ram = NoteRam::boxed();
+        let mut rig = Rig::new(&ram, [step(0)]).counting_in(0);
+        let beat = |first| Event::Beat {
+            first,
+            count_in: true,
+        };
+
+        assert_eq!(rig.events(0), [beat(true)]);
+        for sample in [24_000, 48_000, 72_000] {
+            assert_eq!(rig.events(sample - 1), []);
+            assert_eq!(rig.events(sample), [beat(false)]);
+        }
+        assert_eq!(rig.events(95_999), []);
+        let events = rig.events(96_000);
+        assert!(
+            matches!(
+                events[..],
+                [
+                    Event::Beat {
+                        first: true,
+                        count_in: false
+                    },
+                    Event::Start { note, .. }
+                ] if note == step(0)
+            ),
+            "{events:?}"
+        );
+    }
+
+    #[test]
+    fn no_note_starts_during_the_count_in() {
+        let ram = NoteRam::boxed();
+        let mut rig = Rig::new(&ram, (0..16).map(step)).counting_in(0);
+
+        assert_eq!(rig.heard(95_999), []);
+        assert_eq!(rig.heard(96_000), [Heard::Start(0, 0)]);
+    }
+
+    #[test]
+    fn the_music_stands_at_the_start_during_the_count_in() {
+        let ram = NoteRam::boxed();
+        let rig = Rig::new(&ram, []).counting_in(0);
+
+        assert_eq!(rig.sequencer.at(50_000), Some((0, 0)));
+        assert!(rig.sequencer.counting_in(95_999));
+        assert!(!rig.sequencer.counting_in(96_000));
+        assert!(!Sequencer::new().counting_in(0));
+        let ram = NoteRam::boxed();
+        let rig = Rig::with(&ram, FOUR_BARS, []).counting_in(2 * 7_680);
+        assert_eq!(rig.sequencer.at(50_000), Some((2, 0)));
+    }
+
+    #[test]
+    fn a_tempo_turn_during_the_count_in_moves_the_first_beat() {
+        let ram = NoteRam::boxed();
+        let mut rig = Rig::new(&ram, [step(0)]).counting_in(0);
+        rig.events(48_000);
+
+        let run = rig.sequencer.retimed(48_000, 6_000);
+        rig.sequencer.retime(run);
+
+        assert_eq!(
+            run,
+            Run {
+                anchor: 48_012,
+                tick: 3_841,
+                tempo: 6_000
+            }
+        );
+        // The count-in's last beat, at tick 5,760.
+        assert_eq!(
+            rig.events(143_986),
+            [Event::Beat {
+                first: false,
+                count_in: true
+            }]
+        );
+        let events = rig.events(143_987);
+        assert!(
+            matches!(
+                events[..],
+                [
+                    Event::Beat {
+                        first: true,
+                        count_in: false
+                    },
+                    Event::Start { .. }
+                ]
+            ),
+            "{events:?}"
+        );
+    }
+
+    #[test]
+    fn a_change_during_the_count_in_takes_hold_at_the_start() {
+        let ram = NoteRam::boxed();
+        let mut rig = Rig::new(&ram, []).counting_in(0);
+
+        assert_eq!(rig.sequencer.next_bar_line(10_000), (7_680, 0));
+        // A 7/8 waiting there leaves the count-in's beats quarters.
+        rig.sequencer.meter(
+            Meter {
+                tick: 7_680,
+                bar: 0,
+                bars: 1,
+                signature: Signature { beats: 7, unit: 8 },
+            },
+            &rig.notes,
+        );
+        assert_eq!(rig.events(95_999).len(), 4);
+        assert_eq!(
+            rig.events(108_000),
+            [
+                Event::Beat {
+                    first: true,
+                    count_in: false
+                },
+                Event::Beat {
+                    first: false,
+                    count_in: false
+                }
+            ]
+        );
+        let ram = NoteRam::boxed();
+        let rig = Rig::with(&ram, FOUR_BARS, []).counting_in(2 * 7_680);
+        assert_eq!(rig.sequencer.next_bar_line(10_000), (3 * 7_680, 2));
+    }
+
+    #[test]
+    fn next_bar_line_names_the_bar_that_starts_there() {
+        let ram = NoteRam::boxed();
+        let rig = Rig::with(&ram, FOUR_BARS, []);
+
+        // Playing bar 2.
+        assert_eq!(rig.sequencer.next_bar_line(100_000), (2 * 7_680, 2));
+        // In the last bar, wrapped by the caller.
+        assert_eq!(rig.sequencer.next_bar_line(300_000), (4 * 7_680, 4));
+    }
+
+    #[test]
+    fn ticks_and_samples_of_the_run() {
+        let ram = NoteRam::boxed();
+        let mut rig = Rig::with(&ram, FOUR_BARS, []);
+
+        assert_eq!(
+            [rig.sequencer.tick_at(5_900), rig.sequencer.tick_at(6_000)],
+            [472, 480]
+        );
+        assert_eq!(rig.sequencer.sample_at(480), 6_000);
+        rig.sequencer.retime(Run {
+            anchor: 3_012,
+            tick: 241,
+            tempo: 6_000,
+        });
+        for until in [0, 30_000] {
+            // Waiting, then taken over.
+            rig.events(until);
+            assert_eq!(rig.sequencer.tick_at(28_012), 1_241);
+            assert_eq!(rig.sequencer.sample_at(1_241), 28_012);
+        }
+        rig.sequencer.play(
+            Run {
+                anchor: 10_000,
+                tick: 7_680,
+                tempo: 12_000,
+            },
+            false,
+            &rig.notes,
+        );
+        assert_eq!(rig.sequencer.tick_at(9_000), 7_680);
+    }
+
+    #[test]
+    fn snap_goes_to_the_nearest_sixteenth_and_the_later_one_at_half() {
+        let ram = NoteRam::boxed();
+        let mut rig = Rig::with(&ram, FOUR_BARS, []);
+
+        assert_eq!(
+            [239, 240, 7_600].map(|tick| rig.sequencer.snap(tick)),
+            [0, 480, 7_680]
+        );
+        rig.sequencer.meter(
+            Meter {
+                signature: Signature { beats: 7, unit: 8 },
+                ..THREE_FOUR
+            },
+            &rig.notes,
+        );
+        rig.events(100_000);
+        assert_eq!(rig.sequencer.snap(7_680 + 250), 7_680 + 480);
+        // From bar 3: the start line at tick 23,040.
+        let ram = NoteRam::boxed();
+        let rig = Rig::with(&ram, FOUR_BARS, []).counting_in(2 * 7_680);
+        assert_eq!(
+            [23_040 - 240, 23_040 - 241, 15_360].map(|tick| rig.sequencer.snap(tick)),
+            [23_040, 22_560, 15_360]
+        );
+    }
+
+    #[test]
+    fn place_counts_on_across_passes() {
+        let ram = NoteRam::boxed();
+        let rig = Rig::new(&ram, []);
+
+        assert_eq!(rig.sequencer.place(7_680), Some((0, 0)));
+        assert_eq!(rig.sequencer.place(8_160), Some((0, 480)));
+        let ram = NoteRam::boxed();
+        let rig = Rig::new(&ram, []).counting_in(0);
+        assert_eq!(rig.sequencer.place(100), None);
+        assert_eq!(rig.sequencer.place(7_680), Some((0, 0)));
+    }
+
+    #[test]
+    fn beat_on_is_the_first_half_of_each_beat() {
+        let on = |mut rig: Rig<'_>, samples: [u64; 4]| {
+            samples.map(|sample| {
+                rig.events(sample);
+                rig.sequencer.beat_on(sample)
+            })
+        };
+        let quarters = [0, 11_999, 12_000, 24_000];
+
+        let ram = NoteRam::boxed();
+        assert_eq!(on(Rig::new(&ram, []), quarters), [true, true, false, true]);
+        let ram = NoteRam::boxed();
+        assert_eq!(
+            on(Rig::new(&ram, []).counting_in(0), quarters),
+            [true, true, false, true]
+        );
+        let ram = NoteRam::boxed();
+        let seven_eight = Meter {
+            signature: Signature { beats: 7, unit: 8 },
+            ..FOUR_BARS
+        };
+        assert_eq!(
+            on(Rig::with(&ram, seven_eight, []), [0, 5_999, 6_000, 12_000]),
+            [true, true, false, true]
+        );
     }
 }

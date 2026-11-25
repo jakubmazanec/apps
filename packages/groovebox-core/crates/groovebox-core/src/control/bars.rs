@@ -82,9 +82,10 @@ impl Control {
     /// stay inside the new length and bar; both sequencers get the new meter. Stopped, they take
     /// it at once. Playing, it takes hold at the first bar line `EDIT_LEAD` after `sample`, or at
     /// that of a meter already waiting (S14), so the bar under the music keeps its length; the
-    /// pattern goes on there with the bar after the one ending there, or with bar 1 when that is
-    /// past the new length. Then the removal of the notes the change no longer fits starts, which
-    /// `step` runs before any later event (`next_removal`, S15).
+    /// pattern goes on there with the bar after the one ending there (in the count-in the start
+    /// bar, S4), or with bar 1 when that is past the new length. Then the removal of the notes the
+    /// change no longer fits starts, which `step` runs before any later event (`next_removal`,
+    /// S15).
     pub(super) fn reshape(
         &mut self,
         change: Change,
@@ -103,10 +104,10 @@ impl Control {
         // A bar has 64 sixteenths at most, which fits.
         steps.step = steps.step.min(signature.sixteenths() as u8 - 1);
         let meter = if self.player.run().is_some() {
-            let (tick, ended) = self.player.next_bar_line(sample + budget::EDIT_LEAD as u64);
+            let (tick, bar) = self.player.next_bar_line(sample + budget::EDIT_LEAD as u64);
             Meter {
                 tick,
-                bar: if ended + 1 < bars { ended + 1 } else { 0 },
+                bar: if bar < bars { bar } else { 0 },
                 bars,
                 signature,
             }
