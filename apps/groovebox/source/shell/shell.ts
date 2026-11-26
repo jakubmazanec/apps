@@ -95,8 +95,10 @@ export async function runShell({
   let midiAllowed = true;
   let audio: Promise<AudioContext> | undefined;
   let context: AudioContext | undefined;
-  // The output delay last sent to the core
+  // The output delay last sent to the core, and the readings of the second since delayStart
   let sentDelay: number | undefined;
+  let delayReadings: number[] = [];
+  let delayStart = 0;
   let frame = 0;
   let view = storedView();
   let stored = storedPixelsPerMm();
@@ -480,7 +482,7 @@ export async function runShell({
   };
 
   // Each frame shows the core's front buffer and its lights
-  let present = () => {
+  let present = (now: number) => {
     pixels.set(
       new Uint8Array(
         memory.buffer,
@@ -508,15 +510,29 @@ export async function runShell({
       panel.lights.get(control)?.toggleAttribute('data-lit', lit);
     }
 
-    // The audio's output delay goes to the core once the audio runs and again each time it
-    // changes, as when headphones are plugged in
-    if (context) {
-      let samples = Math.round((context.baseLatency + context.outputLatency) * context.sampleRate);
+    // The audio's output delay goes to the core as the mean of each second of readings, when it
+    // differs from the last sent, as Chromium rounds a reading to 8 ms steps and it flips between
+    // two of them. A reading of 0 is no reading: the browser has not measured yet
+    let outputLatency = context?.outputLatency ?? 0;
 
-      if (samples !== sentDelay) {
-        sentDelay = samples;
-        send({kind: 'output-delay', samples});
+    if (context && outputLatency > 0) {
+      if (delayReadings.length > 0 && now - delayStart >= 1000) {
+        let mean = delayReadings.reduce((sum, reading) => sum + reading) / delayReadings.length;
+        let samples = Math.round(mean * context.sampleRate);
+
+        delayReadings = [];
+
+        if (samples !== sentDelay) {
+          sentDelay = samples;
+          send({kind: 'output-delay', samples});
+        }
       }
+
+      if (delayReadings.length === 0) {
+        delayStart = now;
+      }
+
+      delayReadings.push(context.baseLatency + outputLatency);
     }
 
     frame = requestAnimationFrame(present);

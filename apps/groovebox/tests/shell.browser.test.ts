@@ -217,9 +217,8 @@ function pointerEvent(type: string, target: Element) {
   );
 }
 
-// The inputs the shell sends to the control worker from now on, but for the output delay, which it
-// sends whenever the audio's changes
-function watchInputs({core}: {core: Core}) {
+// The inputs the shell sends to the control worker from now on
+function watchAllInputs({core}: {core: Core}) {
   let postMessage = vitest.spyOn(core.worker, 'postMessage');
 
   onTestFinished(() => {
@@ -227,17 +226,49 @@ function watchInputs({core}: {core: Core}) {
   });
 
   return () =>
-    postMessage.mock.calls
-      .flatMap(([request]) =>
-        (request as WorkerRequest).type === 'input' ?
-          [(request as Extract<WorkerRequest, {type: 'input'}>).stamped]
-        : [],
-      )
-      .filter(({input}) => input.kind !== 'output-delay');
+    postMessage.mock.calls.flatMap(([request]) =>
+      (request as WorkerRequest).type === 'input' ?
+        [(request as Extract<WorkerRequest, {type: 'input'}>).stamped]
+      : [],
+    );
+}
+
+// The same, but for the output delay, which the shell sends whenever the audio's changes
+function watchInputs(shell: {core: Core}) {
+  let inputs = watchAllInputs(shell);
+
+  return () => inputs().filter(({input}) => input.kind !== 'output-delay');
 }
 
 function inputsOf(stamped: StampedInput[]) {
   return stamped.map(({input}) => input);
+}
+
+// Frames whose timestamps are 1/64 s apart, so that a second of them holds 64 frames whatever
+// rate the browser runs at
+function stubFrameClock() {
+  let frames = 0;
+  let requestFrame = globalThis.requestAnimationFrame.bind(globalThis);
+  let stub = vitest.spyOn(globalThis, 'requestAnimationFrame').mockImplementation((callback) =>
+    requestFrame(() => {
+      frames += 1;
+      callback(frames * 15.625);
+    }),
+  );
+
+  onTestFinished(() => {
+    stub.mockRestore();
+  });
+}
+
+function stubOutputLatency() {
+  let outputLatency = vitest.spyOn(AudioContext.prototype, 'outputLatency', 'get');
+
+  onTestFinished(() => {
+    outputLatency.mockRestore();
+  });
+
+  return outputLatency;
 }
 
 function stubDisplayScale(initialRatio: number) {
@@ -876,60 +907,62 @@ describe(runShell, () => {
     await expect.poll(() => status.textContent).toBe('MIDI not allowed');
   });
 
-  test('the shell sends the output delay of the audio once it runs and again when it changes', async () => {
-    let downloads: string[] = [];
-    let click = vitest
-      .spyOn(HTMLAnchorElement.prototype, 'click')
-      .mockImplementation(function recordDownload(this: HTMLAnchorElement) {
-        downloads.push(this.href);
-      });
-    let revoke = vitest.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
-    let outputLatency = vitest
-      .spyOn(AudioContext.prototype, 'outputLatency', 'get')
-      .mockReturnValue(0.05);
+  test('the shell sends no output delay while the browser reports 0', async () => {
+    stubFrameClock();
 
-    onTestFinished(() => {
-      click.mockRestore();
-      revoke.mockRestore();
-      outputLatency.mockRestore();
-    });
+    let outputLatency = stubOutputLatency().mockReturnValue(0);
+    let shell = await runMounted();
+    let inputs = watchAllInputs(shell);
 
-    let {saveSession, start} = await runStarted();
-    let context = await start();
-    let samples = (latency: number) => String(Math.round((context.baseLatency + latency) * 48_000));
-    // The values of the output-delay lines of the session saved as the download `index`
-    let delays = async (index: number) => {
-      let session = await (await fetch(downloads[index] as string)).text();
+    await userEvent.click(shell.status);
+    await shell.start();
 
-      return session
-        .split('\n')
-        .filter((line) => line.includes(' output-delay '))
-        .map((line) => line.split(' ').at(-1));
-    };
+    // Two seconds of frames
+    await expect.poll(() => outputLatency.mock.calls.length, {timeout: 3000}).toBeGreaterThan(128);
 
-    await userEvent.click(saveSession);
-
-    await expect.poll(() => downloads).toHaveLength(1);
-    // The save resumes the audio after the download
-    await expect.poll(() => context.state).toBe('running');
-
-    await expect(delays(0)).resolves.toEqual([samples(0.05)]);
-
-    // Headphones are plugged in: the next frame sends the new delay
-    outputLatency.mockReturnValue(0.02);
-    await new Promise((resolve) => {
-      requestAnimationFrame(resolve);
-    });
-    await new Promise((resolve) => {
-      requestAnimationFrame(resolve);
-    });
-    await userEvent.click(saveSession);
-
-    await expect.poll(() => downloads).toHaveLength(2);
-    await expect.poll(() => context.state).toBe('running');
-
-    await expect(delays(1)).resolves.toEqual([samples(0.05), samples(0.02)]);
+    expect(inputs().filter(({input}) => input.kind === 'output-delay')).toEqual([]);
   });
+
+  test(
+    'the shell sends the mean of each second of output delays when it differs from the last',
+    {timeout: 15_000},
+    async () => {
+      stubFrameClock();
+
+      let outputLatency = stubOutputLatency().mockReturnValue(0);
+      let shell = await runStarted();
+      let inputs = watchAllInputs(shell);
+      let context = await shell.start();
+      let reads = 0;
+
+      // Three seconds of readings flipping between two 8 ms steps, as Chromium's do, then a steady
+      // one, as when headphones are plugged in
+      outputLatency.mockImplementation(() => {
+        reads += 1;
+
+        if (reads > 192) {
+          return 0.02;
+        }
+
+        return reads % 2 ? 0.04 : 0.048;
+      });
+
+      let samples = (latency: number) => Math.round((context.baseLatency + latency) * 48_000);
+      let delays = () =>
+        inputs().flatMap(({input}) => (input.kind === 'output-delay' ? [input.samples] : []));
+
+      // The first second of readings
+      await expect.poll(delays, {timeout: 3000}).toEqual([samples(0.044)]);
+
+      // Two more seconds of flipping readings
+      await expect.poll(() => reads, {timeout: 3000}).toBeGreaterThan(192);
+
+      expect(delays()).toEqual([samples(0.044)]);
+
+      // The second of the steady readings
+      await expect.poll(delays, {timeout: 3000}).toEqual([samples(0.044), samples(0.02)]);
+    },
+  );
 
   test('Save picture downloads screen-<position>.png', async () => {
     let downloads: Array<{name: string; url: string}> = [];
