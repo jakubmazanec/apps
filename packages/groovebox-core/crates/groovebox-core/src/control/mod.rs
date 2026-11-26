@@ -375,7 +375,8 @@ impl Control {
     /// sequencer (`player`) advances to each event's sample before the event, and to `until` once
     /// no event is left before it; a step that stops early leaves it at the last event it
     /// handled. Its events go nowhere, and it keeps the notes that sound. After each advance an
-    /// armed REC whose count-in is over turns on (`count_in_over`, S5).
+    /// armed REC whose count-in is over turns on (`count_in_over`, S5), and the takes let go of in
+    /// the count-in go in as an event of their own: the event after them waits for room again.
     ///
     /// The first step starts the start-up's job, and a reply goes to it with `io`, the I/O buffer,
     /// as its request left it. When the job ends the project opens, with the job's result as the
@@ -481,11 +482,13 @@ impl Control {
                 .min_by_key(|&(sample, _)| sample)
             else {
                 self.player.advance(until, &store.reader(), |_| {});
-                self.count_in_over(until);
+                self.count_in_over(until, versions, store);
                 break;
             };
             self.player.advance(sample, &store.reader(), |_| {});
-            self.count_in_over(sample);
+            if self.count_in_over(sample, versions, store) {
+                continue;
+            }
             match event {
                 Event::Reply(reply) => {
                     self.replies.pop();
@@ -1029,7 +1032,7 @@ impl Control {
     ) {
         if let Some(note) = self.notes.end(source) {
             self.send(sample, MessageKind::NoteOff { note: note.id }, messages);
-            self.keep(note, sample, versions, store);
+            self.keep(source, note, sample, versions, store);
         }
     }
 

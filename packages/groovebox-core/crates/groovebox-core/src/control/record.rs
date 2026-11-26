@@ -50,15 +50,23 @@ impl Control {
         }
     }
 
-    /// An armed REC whose player plays past its count-in at `sample` turns on (S5). Arming started
-    /// the pass, which stays full if a take of the count-in filled it (S14).
-    pub(super) fn count_in_over(&mut self, sample: u64) {
-        if matches!(self.rec, Rec::Armed(_))
+    /// An armed REC whose player plays past its count-in at `sample` turns on (S5), and the takes
+    /// let go of in the count-in go in there (`go_in`); it gives whether REC turned on. Arming
+    /// started the pass, which stays full if a take of the count-in filled it (S14).
+    pub(super) fn count_in_over(
+        &mut self,
+        sample: u64,
+        versions: &mut Producer<'_, Version, VERSION_QUEUE>,
+        store: &mut Store<'_>,
+    ) -> bool {
+        let over = matches!(self.rec, Rec::Armed(_))
             && self.player.run().is_some()
-            && !self.player.counting_in(sample)
-        {
+            && !self.player.counting_in(sample);
+        if over {
             self.rec = Rec::On;
+            self.go_in(sample, versions, store);
         }
+        over
     }
 
     /// The take of a hit at `sample` that plays `sound` at `velocity`, on the current track and
@@ -138,28 +146,37 @@ impl Control {
             .tick_at(sample.saturating_sub(u64::from(self.output_delay)))
     }
 
-    /// The release of `note` at `sample`: what it recorded goes into its track's tree
-    /// (`recorded`), which the track takes (`edit`).
+    /// The release of `note` from `source` at `sample`, less the output delay: what it recorded
+    /// waits (`Notes::wait`) and goes in at once (`go_in`), or at the first beat when let go of in
+    /// the count-in (`count_in_over`). A second take of `source` let go of in the count-in takes
+    /// the first one's place, and the first one's curve goes back.
     pub(super) fn keep(
         &mut self,
+        source: Source,
         note: notes::Note,
         sample: u64,
         versions: &mut Producer<'_, Version, VERSION_QUEUE>,
         store: &mut Store<'_>,
     ) {
-        let Some(take) = note.take else { return };
-        let old = self.project.patterns[usize::from(take.pattern)].tracks[usize::from(note.track)];
-        let tree = self.recorded(old, note, sample, store);
-        if tree != old {
-            self.edit(take.pattern, note.track, tree, sample, versions, store);
-            store.release(tree, None);
+        if note.take.is_none() {
+            return;
+        }
+        if let Some(curve) = self
+            .notes
+            .wait(source, note, self.played_tick(sample))
+            .and_then(|(note, _)| note.take?.curve)
+        {
+            store.give_back(curve.block());
+        }
+        if !self.player.counting_in(sample) {
+            self.go_in(sample, versions, store);
         }
     }
 
-    /// REC turning off, STOP or a jump at `sample` (S11): every held take goes into its track's
-    /// tree there (`recorded`), and each track takes all of its own at once (`edit`), in track
-    /// order. During the count-in nothing has played, so the takes go instead, each giving back its
-    /// curve. The notes stay on without their takes, so their release adds nothing.
+    /// REC turning off, STOP or a jump at `sample` (S11): every held take ends there, less the
+    /// output delay, and goes in (`go_in`). During the count-in nothing has played, so the takes go
+    /// instead, held or let go of, each giving back its curve. The notes stay on without their
+    /// takes, so their release adds nothing.
     pub(super) fn end_takes(
         &mut self,
         sample: u64,
@@ -172,15 +189,36 @@ impl Control {
                     store.give_back(curve.block());
                 }
             }
+            for waiting in self.notes.waiting() {
+                if let Some(curve) = waiting.take().and_then(|(note, _)| note.take?.curve) {
+                    store.give_back(curve.block());
+                }
+            }
             return;
         }
+        // Notes record only while the player plays, which alone has ticks.
+        if self.notes.taken().next().is_some() {
+            self.notes.end_takes(self.played_tick(sample));
+        }
+        self.go_in(sample, versions, store);
+    }
+
+    /// At `sample`, every take that waits goes into its track's tree (`recorded`), and each track
+    /// takes all of its own at once (`edit`), in track order.
+    fn go_in(
+        &mut self,
+        sample: u64,
+        versions: &mut Producer<'_, Version, VERSION_QUEUE>,
+        store: &mut Store<'_>,
+    ) {
         while let Some((track, pattern)) = self
             .notes
-            .taken()
-            .map(|note| {
+            .waiting()
+            .flatten()
+            .map(|(note, _)| {
                 (
                     note.track,
-                    note.take.expect("a taken note has a take").pattern,
+                    note.take.expect("a note waits with its take").pattern,
                 )
             })
             .min()
@@ -190,25 +228,20 @@ impl Control {
             // `let else` rather than `while let`, whose iterator would borrow the notes for the
             // body.
             loop {
-                let Some(note) = self
+                let Some((note, end)) = self
                     .notes
-                    .taken()
-                    .find(|note| {
-                        note.track == track && note.take.is_some_and(|take| take.pattern == pattern)
+                    .waiting()
+                    .find(|waiting| {
+                        waiting.is_some_and(|(note, _)| {
+                            note.track == track
+                                && note.take.is_some_and(|take| take.pattern == pattern)
+                        })
                     })
-                    .map(|note| {
-                        core::mem::replace(
-                            note,
-                            notes::Note {
-                                take: None,
-                                ..*note
-                            },
-                        )
-                    })
+                    .and_then(Option::take)
                 else {
                     break;
                 };
-                tree = self.recorded(tree, note, sample, store);
+                tree = self.recorded(tree, note, end, store);
             }
             if tree != old {
                 self.edit(pattern, track, tree, sample, versions, store);
@@ -218,23 +251,17 @@ impl Control {
     }
 
     /// `tree`, the tree of the track and pattern of `note`'s take or one made from it, with the
-    /// note the take recorded, ended at `sample` less the output delay (S11): as long as it was
-    /// held from its tick before snapping, at least 1 tick and at most the pattern. It holds the
-    /// tree it makes before it lets go of `tree`, unless that is the track's, replaces a note of
-    /// the same sound, pitch and start (counting it only when it replaced none) and raises
-    /// `moment` past the start's sample in its pass (S12). The note takes the take's curve, which
-    /// goes back first when fewer than `RESERVE` blocks are free with it (Project model: the curve
-    /// gives way first). It gives `tree` itself for a take it drops: one whose sound left the pool
-    /// or whose bar or place no longer fits the pattern, and any once the pass is full or with
-    /// fewer than `RESERVE` blocks free even without its curve, which make the pass full and show
-    /// "Full" (S13, S14). A dropped take gives its curve back.
-    fn recorded(
-        &mut self,
-        tree: Tree,
-        note: notes::Note,
-        sample: u64,
-        store: &mut Store<'_>,
-    ) -> Tree {
+    /// note the take recorded, ended at tick `end` (S11): as long as it was held from its tick
+    /// before snapping, at least 1 tick and at most the pattern. It holds the tree it makes before
+    /// it lets go of `tree`, unless that is the track's, replaces a note of the same sound, pitch
+    /// and start (counting it only when it replaced none) and raises `moment` past the start's
+    /// sample in its pass (S12). The note takes the take's curve, which goes back first when fewer
+    /// than `RESERVE` blocks are free with it (Project model: the curve gives way first). It gives
+    /// `tree` itself for a take it drops: one whose sound left the pool or whose bar or place no
+    /// longer fits the pattern, and any once the pass is full or with fewer than `RESERVE` blocks
+    /// free even without its curve, which make the pass full and show "Full" (S13, S14). A dropped
+    /// take gives its curve back.
+    fn recorded(&mut self, tree: Tree, note: notes::Note, end: u64, store: &mut Store<'_>) -> Tree {
         let take = note.take.expect("a recorded note has a take");
         let pattern = self.project.patterns[usize::from(take.pattern)];
         let bar_ticks = self.project.signature.bar_ticks();
@@ -263,8 +290,7 @@ impl Control {
                 bar: take.bar,
                 place: take.place,
                 // A pattern of 64 bars of 30,720 ticks fits.
-                length: self
-                    .played_tick(sample)
+                length: end
                     .saturating_sub(take.tick)
                     .clamp(1, u64::from(pattern.bars) * u64::from(bar_ticks))
                     as u32,

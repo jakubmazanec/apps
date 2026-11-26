@@ -46,7 +46,7 @@ impl Control {
         self.end_takes(sample, versions, store);
         self.send(sample, MessageKind::Play { run, count_in }, messages);
         self.player.play(run, count_in, &store.reader());
-        self.count_in_over(sample);
+        self.count_in_over(sample, versions, store);
     }
 
     /// STOP at its press: while playing the cursor stays on the bar the step buttons show

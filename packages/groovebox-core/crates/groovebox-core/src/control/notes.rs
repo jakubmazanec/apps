@@ -50,6 +50,9 @@ pub struct Notes {
     pads: [Option<Note>; PADS as usize],
     /// By MIDI note, 0 to 127.
     midi: [Option<Note>; 128],
+    /// The notes ended whose takes wait to go in, with the tick each ended at: at most one for
+    /// each source, the pads' first.
+    waiting: [Option<(Note, u64)>; PADS as usize + 128],
     /// The ID of the next note.
     next: u32,
 }
@@ -59,6 +62,7 @@ impl Notes {
         Self {
             pads: [None; PADS as usize],
             midi: [None; 128],
+            waiting: [None; PADS as usize + 128],
             next: 0,
         }
     }
@@ -106,6 +110,39 @@ impl Notes {
             .chain(&mut self.midi)
             .flatten()
             .filter(|note| note.take.is_some())
+    }
+
+    /// Keeps `note` of `source`, ended at tick `end`, waiting with its take, and gives the note of
+    /// `source` that waited before.
+    pub fn wait(&mut self, source: Source, note: Note, end: u64) -> Option<(Note, u64)> {
+        self.waiting[match source {
+            Source::Pad(pad) => usize::from(pad),
+            Source::Midi(midi) => PADS as usize + usize::from(midi),
+        }]
+        .replace((note, end))
+    }
+
+    /// Ends the takes of the notes on at tick `end`, while none waits: each waits with its note
+    /// (`wait`), and the note stays on without it.
+    pub fn end_takes(&mut self, end: u64) {
+        for (on, waiting) in self
+            .pads
+            .iter_mut()
+            .chain(&mut self.midi)
+            .zip(&mut self.waiting)
+        {
+            if let Some(note) = on
+                && note.take.is_some()
+            {
+                *waiting = Some((*note, end));
+                note.take = None;
+            }
+        }
+    }
+
+    /// Every source's place for a note that waits with its take (`wait`).
+    pub fn waiting(&mut self) -> impl Iterator<Item = &mut Option<(Note, u64)>> {
+        self.waiting.iter_mut()
     }
 
     /// The pads whose own hit has a note on, held from the hit to its release.

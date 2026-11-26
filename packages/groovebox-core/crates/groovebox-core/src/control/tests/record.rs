@@ -786,6 +786,119 @@ fn stop_or_rec_during_the_count_in_drops_the_held_takes() {
 }
 
 #[test]
+fn a_count_in_hit_released_before_the_first_beat_goes_in_at_the_first_beat() {
+    let queue = Queue::new();
+    let (mut rig, synth) = counting_in_on_t4(&queue);
+    // Ticks 7,600, which snaps onto the first beat, and 7,640.
+    rig.hit(95_000, 0, 100);
+    rig.release(95_500, 0);
+
+    rig.step(95_999);
+    assert_eq!(versions(&mut rig), []);
+    assert_eq!(on_t4(&rig), []);
+
+    rig.step(96_000);
+    assert_eq!(moments(&mut rig), [(3, 96_000 + 1_024)]);
+    assert_eq!(on_t4(&rig), [played(0, 40, synth)]);
+    assert_eq!(count(&rig, synth), 1);
+}
+
+#[test]
+fn stop_or_rec_during_the_count_in_drops_released_takes_too() {
+    for button in [Button::Stop, Button::Rec] {
+        let queue = Queue::new();
+        let (mut rig, synth) = counting_in_on_t4(&queue);
+        let before = ready(&rig);
+        rig.hit(95_000, 0, 100);
+        rig.queue(
+            95_200,
+            Input::PadPressure {
+                pad: 0,
+                pressure: 40,
+            },
+        );
+        rig.release(95_500, 0);
+
+        rig.tap(95_800, button);
+        rig.step(200_000);
+
+        assert_eq!(versions(&mut rig), [], "{button:?}");
+        assert_eq!(on_t4(&rig), [], "{button:?}");
+        assert_eq!(count(&rig, synth), 0, "{button:?}");
+        assert_eq!(ready(&rig), before, "{button:?}");
+    }
+}
+
+#[test]
+fn a_second_count_in_take_of_a_pad_replaces_its_first() {
+    let queue = Queue::new();
+    let (mut rig, synth) = counting_in_on_t4(&queue);
+    let before = ready(&rig);
+    for (hit, velocity, pressure) in [(95_000, 100, 40), (95_400, 50, 60)] {
+        rig.hit(hit, 0, velocity);
+        rig.queue(hit + 100, Input::PadPressure { pad: 0, pressure });
+        rig.release(hit + 300, 0);
+    }
+    // A take that waits has its note off.
+    rig.queue(95_800, Input::ChannelPressure { pressure: 90 });
+
+    rig.step(95_999);
+    // The first take's curve went back.
+    assert_eq!(ready(&rig), before - 1);
+
+    rig.step(96_000);
+    // Ticks 7,632, which snaps onto the first beat, and 7,656.
+    let [note] = on_t4(&rig)[..] else {
+        panic!("one note on T4");
+    };
+    assert_eq!(
+        Note {
+            curve: None,
+            ..note
+        },
+        Note {
+            velocity: 50,
+            ..played(0, 24, synth)
+        }
+    );
+    assert_eq!(points_of(&rig, &note), [(8, 60)]);
+    assert_eq!(count(&rig, synth), 1);
+}
+
+#[test]
+#[allow(unsafe_code)]
+fn the_first_beat_puts_its_takes_in_as_an_event_of_its_own() {
+    let queue = Queue::new();
+    let (mut rig, synth) = counting_in_on_t4(&queue);
+    let syn_2 = rig.synth_on(1);
+    rig.hit(95_000, 0, 100);
+    rig.release(95_500, 0);
+    // Ticks 7,648, which snaps onto the first beat, and 7,720.
+    rig.hit(95_600, 1, 100);
+    rig.release(96_500, 1);
+    // SAFETY: the producer lives while no step runs, and the rig takes its own only for a step.
+    let mut producer = unsafe { rig.versions.producer() };
+    while producer.free() > MAX_VERSIONS_PER_EVENT {
+        producer
+            .push(Version {
+                number: u32::MAX,
+                moment: 0,
+                track: 0,
+                tree: Tree(None),
+            })
+            .unwrap();
+    }
+
+    // The first beat's version leaves too little room for the release's.
+    rig.step(96_628);
+    assert_eq!(on_t4(&rig), [played(0, 40, synth)]);
+
+    versions(&mut rig);
+    rig.step(96_756);
+    assert_eq!(on_t4(&rig), [played(0, 40, synth), played(0, 72, syn_2)]);
+}
+
+#[test]
 fn rec_off_stop_and_a_jump_end_the_held_notes_there() {
     for button in [Button::Rec, Button::Stop, Button::Play] {
         let queue = Queue::new();
