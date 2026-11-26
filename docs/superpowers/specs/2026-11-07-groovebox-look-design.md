@@ -179,11 +179,13 @@ column of STEP ("Žluťoučký k…") **(my call: 12)**.
 | note soft, mid, loud | `#5c5c5c`, `#a0a0a0`, `#f2f2f2`                                                                                         | notes on STEP by velocity: below 60, 60 to 99, 100 and up        |
 | sound colours 1–12   | `#e0607a` `#d9a441` `#b6c94a` `#5ec36b` `#3fc9b0` `#4fb8e6` `#6f8cf2` `#a27ef0` `#d173d6` `#e8e0c8` `#9ab0c0` `#c9a07e` | notes on ROLL; twelve hues of similar lightness, none orange     |
 
-**A sound's colour belongs to the sound, not the pad**: its pool number, cycling through the twelve,
-so Kick keeps its colour wherever it sits. On ROLL the selected sound's notes are its colour at
-three brightnesses by velocity (the colour mixed with black at 1, 0.72 and 0.48); every other
-sound's notes are the same hue at 0.32. STEP stays in greys. The whole palette is about sixty
-entries.
+**A sound's colour belongs to the sound, not the pad**: its pool number, cycling through the twelve
+(sound 13 has sound 1's colour), so Kick keeps its colour wherever it sits. On ROLL the selected
+sound's notes are its colour at three brightnesses by velocity, the colour mixed with black at 1 for
+velocity 100 and up, 0.72 for 60 to 99 and 0.48 below 60; every other sound's notes are the same hue
+at 0.32. Each colour channel is rounded to the nearest whole value, a half rounding up. STEP stays
+in greys. The palette has 59 entries: the 11 above and 48 sound entries, each of the twelve hues at
+its four brightnesses.
 
 ![The palette](./2026-11-07-groovebox-look/palette.png)
 ![The font](./2026-11-07-groovebox-look/font.png)
@@ -297,11 +299,26 @@ Workflow B change; whether the chord digit stays legible on the panel.
 
 ## ROLL
 
-One 13 px row per semitone, 17 rows on screen, from the same 2 px under the header; the pitch names
-at the left (sharps dim); a brighter line above each C; STEP's grid, pages, tint, cursor and music
-line. Every note of the track in its sound's colour, the selected sound's notes bright by velocity
-and the others dim, the selected sound drawn last so it is on top; a note is a block from its exact
-start as long as the note; drums sit on their root row.
+One 13 px row per semitone for every pitch a note can have, from C−1 at the bottom to G9 at the top,
+16 rows on screen as STEP has 16 lanes, from the same 2 px under the header; STEP's grid, pages,
+tint, cursor and music line. Every note of the track in its sound's colour, the selected sound's
+notes bright by velocity and the others dim (see "Colour"), the other sounds' notes drawn first and
+the selected sound's last so it is on top; drums sit on their root row.
+
+**The names column.** At the left, each row's pitch name in Root note's format ("C4", "C#4", "C−1"),
+the sharps dim and the others in the text colour, 3 px from the screen's edge. As on STEP, it is as
+wide whatever rows show: 3 px, the widest name, "C#−1", and 3 px, 29 px in all, so the grid has room
+for 55 cells and its left line is at x 38. The lines between rows run as on STEP: faint, and in the
+line grey between each B and the C above it, which marks each octave (`roll.png`).
+
+**Notes.** A note is a block from its exact start as long as the note, drawn by STEP's rule (see
+"Notes" under STEP): its start and its end each at 60 ticks a pixel, counted from the line at the
+left of its cell and rounded to the nearest whole pixel, a half rounding up; its first pixel 2 px
+right of the line at its start and its last 2 px left of the line at its end, never fewer than 5 px
+wide; 11 px tall in the 13 px row, with no tail and no count. Its end is in the bar and sixteenth
+its end tick lies in, so a note over the dark cells of a short bar ends where the next bar shows it.
+A note that starts before the first shown cell runs in from the grid's left line, and nothing is
+drawn past the grid's end, as on STEP.
 
 ![ROLL](./2026-11-07-groovebox-look/roll.png)
 
@@ -323,8 +340,15 @@ start as long as the note; drums sit on their root row.
   left out when nothing uses the sound; and "OK deletes, Cancel keeps" (dim), as in `question.png`;
   "Remove 3 unused sounds?" or "Remove 1 unused sound?" (text) and "OK removes, Cancel keeps" (dim).
   With no unused sound there is no question: the header says "No unused sounds" in the accent.
-- **The NOTE panel** is a box over STEP with the cell's four values as parameter items, the cursor
-  on one; the strip shows the same four, since the encoders hold them while the panel is open.
+- **The NOTE panel** is a box over the main area of STEP or ROLL, as a question's is: 124 × 77 px at
+  x 178, in the middle of the main area (y 96), filled black with a 1 px outline in the line grey.
+  It holds the cell's four values as parameter items, 118 px wide and 18 px apart from (181, 99),
+  the cursor on one as an outline around the item; the cell's own outline stays where it shows under
+  the box. The items carry no encoder numbers, which belong to a page's items. The bar under a
+  single Pitch or Velocity fills by its value out of 127; otherwise it is the bare track, as in the
+  NOTE strip. The strip shows the same four items, since the encoders hold them while the panel is
+  open. `note-panel.png` sits 1 px higher and fills Length's and Position's bars, which this text
+  overrules.
 
 ![MENU held](./2026-11-07-groovebox-look/menu-held.png)
 ![PAGE held on SOUND](./2026-11-07-groovebox-look/page-held.png)

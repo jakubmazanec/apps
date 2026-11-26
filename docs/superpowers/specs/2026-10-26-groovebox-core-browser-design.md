@@ -483,12 +483,8 @@ the plan that reaches a point settles it with the owner.
   counts; the other is ignored until both are let go.
 - **CANCEL or COPY held + a step button.** No meaning is given. Proposed: nothing happens and the
   step's own tap does not fire.
-- **An encoder whose item is not on the screen.** On ROLL the cursor cannot move to the item. On
-  STEP's own strip the encoders act in full (Workflow A). Proposed: the value changes; the cursor
-  stays.
 - **The CANCEL + pad question.** When it appears and what letting go of CANCEL does. Proposed: it
   appears on the hit and waits for OK or a new tap of CANCEL; no notes, no question.
-- **An empty pad selected.** What OK does and where the view opens on ROLL. Proposed: none yet.
 
 ### Sound and settings
 

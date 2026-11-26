@@ -409,6 +409,7 @@ row per pitch. Everything else in this section works the same on both.
 - **While playing, the view follows.** As the music reaches each new bar, the cursor jumps to the
   same spot in it, and the step buttons and the view go along.
 - **Moving the cursor into another bar,** with the arrows or SHIFT + left or right, stops following.
+  Opening the NOTE panel does too.
 - **Pressing PLAY while playing** follows again **(owner's choice)**: the cursor and view return to
   the bar that is playing and keep following, whatever screen is shown. The music, the playhead,
   recording and the count-in are untouched. Starting playback also follows, with PLAY or with
@@ -491,11 +492,23 @@ move, or appear and disappear as notes are entered.
 - **Every note of the current track,** each in its sound's colour. The selected sound's notes are
   bright and the others dim, there for context such as the bass against the kick. Adding, removing
   and editing only ever touch the selected sound's notes.
-- **Rows:** one per semitone from C0 to B8, KEYS mode's full range **(owner's choice)**, with note
-  names at the left edge. About an octave fits on screen.
-- **Where the view opens:** opening ROLL or selecting another sound scrolls the view to the selected
-  sound's notes, with the cursor at the middle of them. A sound with no notes yet opens at the pitch
-  where it plays unchanged.
+- **Rows:** one per semitone for every pitch a note can have, from C−1 (0) at the bottom to G9 (127)
+  at the top, so every note shows and can be edited there **(owner's choice)**, with note names at
+  the left edge. KEYS mode still plays C0 to B8 only; a sample's Root note and the NOTE strip's
+  PITCH already reach the whole range. About an octave fits on screen.
+- **Where the view opens:** ROLL scrolls to the selected sound's notes only the first time it shows
+  that sound: on its first showing, or after another sound or track was selected (a pad hit, T1–T4
+  or POOL) **(owner's choice)**. Going from ROLL to STEP and back with the same sound brings ROLL
+  back on the row you left. The cursor goes to the middle of the sound's notes on the current track
+  of the current pattern, halfway between the lowest and the highest pitch, rounded down, and the
+  view puts it on the eighth of the 16 rows shown, as near as the ends of the range allow. A sound
+  with no notes there opens at the pitch where it plays unchanged: C4 for a synth, its Root note for
+  a sample.
+- **An empty pad selected** leaves ROLL on its row, since there is no selected sound, and the next
+  sound selected scrolls it to that sound's notes. Every note is dim, OK and CANCEL do nothing and
+  the strip is empty.
+- **The encoders act in full** as on STEP (Workflow A): a turn changes the item it holds on SOUND's
+  page and moves that page's remembered cursor to it, and ROLL's own cursor stays.
 - **A note** is a bar from its exact start, as long as the note, brighter when louder. A chord is
   several bars stacked on different rows.
 - **Drums** sit on one or two rows, since a drum hit plays at its unchanged pitch. Hits of different
@@ -617,27 +630,49 @@ clashes with holding several steps, and LENGTH covers it.
 - **OK on an empty cell** adds a note: the lane's sound on STEP, the selected sound at the cursor's
   pitch on ROLL. On STEP a cell is empty when the lane's sound has no note starting in its
   sixteenth, and the note is the one a step's tap enters (see "What a step-entered note gets"), in
-  the bar and sixteenth the cursor shows, in the cursor's lane. It is refused with NOT ENOUGH MEMORY
-  when it does not fit, as every step entry is. On the lane of an empty pad OK does nothing.
-- **OK on a cell with notes** opens the NOTE panel.
+  the bar and sixteenth the cursor shows, in the cursor's lane. On ROLL a cell is one pitch: it is
+  empty when the selected sound has no note of the row's pitch starting in its sixteenth, whatever
+  other sounds have there, and the note is a step-entered one at that pitch. It is refused with NOT
+  ENOUGH MEMORY when it does not fit, as every step entry is. On the lane of an empty pad, and on
+  ROLL with no selected sound, OK does nothing.
+- **OK on a cell with notes** opens the NOTE panel: on STEP where the selected sound has notes
+  starting in the cell's sixteenth, whatever their pitch, and on ROLL where it has notes of the
+  row's pitch.
 - **CANCEL on a cell with notes** removes them: on STEP every note of the lane's sound that starts
-  in the cell's sixteenth, whatever its pitch. Like every button that also does something when held,
-  its tap acts when you let go, on the cell the cursor showed when CANCEL went down, so a bar line
-  between the press and the release moves nothing. On an empty cell it does nothing. A removal works
-  even when memory is nearly full, as every removal does (Project model).
+  in the cell's sixteenth, whatever its pitch; on ROLL the selected sound's notes of the row's pitch
+  that start in it. Like every button that also does something when held, its tap acts when you let
+  go, on the cell the cursor showed when CANCEL went down, so a bar line between the press and the
+  release moves nothing, and a tap cannot change the row. On an empty cell it does nothing. A
+  removal works even when memory is nearly full, as every removal does (Project model).
 - **With a picker or a question open** OK and CANCEL act on that instead (Workflow A).
 
 ### The NOTE panel
 
-- A second level like a picker, drawn over the main area. It lists PITCH, VELOCITY, LENGTH and
-  POSITION for the cell's notes.
-- Up and down move between them, and − and + change them by one click. While the panel is open the
-  encoders hold its four items, so they change them too and the strip shows them. The panel is a
-  page of four, not a picker, which is why the encoders work here and not in a picker.
-- CANCEL closes it and puts the cursor back on the cell.
+- A second level like a picker, drawn over the main area of STEP or ROLL. It lists PITCH, VELOCITY,
+  LENGTH and POSITION for the cell's notes, and opens on PITCH. Arrows, − and + held when it opens
+  stop repeating.
+- **Opening it stops following (owner's choice),** as moving the cursor into another bar does. The
+  cursor takes the cell as it showed, and the cell, the view and the step buttons stay on that bar
+  while the music plays on. While the panel is open the bar shown ignores following, so PLAY or
+  SHIFT + PLAY act on the music as usual and the following they turn on takes the view once the
+  panel is closed.
+- Up and down move between the items and stop at PITCH and POSITION; SHIFT + up or down, left and
+  right do nothing, since the panel is a page of one column. − and + change the item by one click, a
+  fine one while SHIFT is held, and repeat while held. While the panel is open the encoders hold its
+  four items, so a turn changes its item and puts the panel's cursor on it, and the strip shows
+  them. The panel is a page of four, not a picker, which is why the encoders work here and not in a
+  picker. OK and an encoder's push do nothing, as on the NOTE strip's items.
+- A tap of CANCEL closes it and the cursor stays on the cell. SHIFT + CANCEL does nothing.
 - Apart from the controls described here, the panel follows the rule for an open picker (Workflow
-  A): the music carries on, pads and keys sound but do not select or move the cursor, and buttons
-  that lead elsewhere do nothing until the panel is closed.
+  A): the music carries on; PLAY, STOP, REC, SHIFT + T1–T4 and the volume act; pads and keys sound
+  and are recorded but do not select or move anything; and T1–T4, MENU, PAGE, ROLL, PADS/KEYS,
+  TEMPO, COPY and the step buttons do nothing until the panel is closed.
+- Its values are the NOTE strip's, with the same ranges, clicks and stops, and POSITION counts in
+  grid steps from the cell the panel opened on, "+0" at first. The panel stands for the cell its
+  notes moved to, as the edit follows the note: POSITION moves the cursor with them, the view
+  scrolling to keep it in sight, and on ROLL PITCH moves the row with them, so every turn edits the
+  same notes. While the panel is open the held steps do not count, and a pad hit does not edit the
+  notes.
 - On ROLL a cell is one pitch, so this is how a single note of a chord is edited.
 - It is the screen route for a note's values; a held step is the fast route.
 
@@ -939,7 +974,7 @@ On top of Foundation's and Workflow A's testing:
     and their questions;
   - taps and holds for every kind of button, timed by the core;
   - cursor moves, scrolling by a beat or a row, stopping at the ends, the SHIFT jumps;
-  - ROLL's rows covering KEYS mode's range from C0 to B8;
+  - ROLL's rows covering every pitch from C−1 to G9;
   - following and when it stops;
   - PLAY while playing leaving the music untouched and following again;
   - step entry in PADS and KEYS mode, and adding sounds or pitches by holding a step;
