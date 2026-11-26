@@ -523,3 +523,7 @@ settles it with the owner.
 - **Fixed table sizes.** How many projects and queue entries; the message when one is full.
   Proposed: none yet; each is a budget-profile entry. The library's 4,096 files and 1,024 folders
   are settled (Foundation).
+- **A hit just before a change takes hold, while recording.** A note played within the output delay
+  before a bar line where a length, time-signature or pattern change takes hold is lost today,
+  because the old meter is not kept. Milestone 5's pattern switches make it common, so that plan
+  keeps the old meter until the delay has passed (owner's choice, 2026-11-26).

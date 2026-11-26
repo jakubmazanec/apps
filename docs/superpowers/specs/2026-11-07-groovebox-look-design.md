@@ -269,14 +269,19 @@ where the next bar would start closes it, so a pattern too short to fill the gri
 the row empty but for the lines between lanes, which run on to the grid's right end **(owner's
 choice)**.
 
-**Notes.** A light block 5 px wide in the 8 px cell, 1 px from the grid lines on both sides, 11 px
-tall in the 13 px row; three greys by velocity; a 2 px tail for the note's length; a chord's count
-from 2 to 9 as a digit on the block (5 px, no side padding at this scale), and none for 10 or more,
-since two digits do not fit; a note that starts later than the first tick of its sixteenth, as a
-note recorded with quantize off can, drawn shifted 2 px to the right, its tail with it, Workflow B's
-marking **(owner's choice)**: it belongs to the step whose sixteenth it starts in, so a slightly
-early loose hit shows on the step before the one aimed at, and nothing is drawn left of centre.
-`step-playing.png`'s left-shifted note is older than this choice, which the text overrules.
+**Notes.** Each note is drawn at its real start and end **(owner's choice)**, 60 ticks a pixel, so
+480 ticks, a step, are 8 px. Its start and its end, counted from the line at the left of its cell,
+are each rounded to the nearest whole pixel, a half rounding up, so every edge is crisp. Its first
+pixel is 2 px right of the line at its start and its last is 2 px left of the line at its end, which
+leaves 1 px clear beside each line, so an on-time note whose length is a whole number of steps looks
+as before: 5 px wide for one step, 13 px for two. The first 5 px are the block, 11 px tall in the 13
+px row, in three greys by velocity; the rest is a tail 2 px tall on the block's middle rows. A note
+is never drawn narrower than the block, so a short tap stays visible. A cell with several notes
+draws one block from the earliest start to the latest end, with a chord's count from 2 to 9 as a
+digit on the block (5 px, no side padding at this scale), and none for 10 or more, since two digits
+do not fit. A note belongs to the step whose sixteenth it starts in, so a slightly early loose hit
+shows on the step before the one aimed at, and nothing is drawn left of centre. `step-playing.png`'s
+left-shifted note is older than this choice, which the text overrules.
 
 **The music** is a 1 px white line. **The cursor** is the orange outline around the cell, 1 px
 outside it.

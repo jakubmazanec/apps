@@ -338,7 +338,9 @@ Rejected:
 - **Pads and keys hit during the count-in** sound but are not recorded. One exception: with quantize
   on, a hit just before the first beat, whose nearest grid position is the first step that plays,
   lands on that step, as a hit just before the loop restarts does (see "Recorded notes"), so a
-  slightly early first note is not swallowed.
+  slightly early first note is not swallowed. Such a hit goes into the track at the first beat, not
+  when its pad is let go; its length is still as held. So STOP or REC during the count-in records
+  nothing of it, whether its pad is still held or already let go **(owner's choice)**.
 
 Rejected: REC during the count-in calling the whole start off. REC would then stop the transport in
 this one case, which is STOP's job.
@@ -684,7 +686,8 @@ no way to arm and then start at a moment you choose, for example from the cursor
 - **What is recorded:** a pad hit or a MIDI note that plays a sound while REC is on (or armed and
   counting in, see "Count-in"), into the track and pattern current at the hit. It is recorded with a
   picker or a question open (Workflow A) and not under a held step. A hit from before REC turned on
-  is not recorded, even when it is still held after.
+  is not recorded, even when it is still held after. A hit recorded while counting in goes into the
+  track at the first beat, not when it is let go (see "Count-in").
 - **Sound and pitch:** in PADS mode the pad's sound at its unchanged pitch; in KEYS mode the
   selected sound at the key's pitch.
 - **Velocity** from the hit when VELOCITY is on, full when it is off.

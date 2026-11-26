@@ -209,9 +209,13 @@ and gave the picker a refusal; the EP-133 has one library, one limit and one pla
 - **Live playing.** The shell stamps each input with its position on the audio clock and passes it
   to the core. The core shifts it back by the known output delay, so the note lands where the player
   heard the beat. The delay used is recorded with the input, so replays match. The output delay is
-  an input of its own that the shell sends whenever it changes, so the session log keeps it. The
-  browser shell reads it from the audio context; until one is sent it is 0, and the device's own
-  comes with part 3.
+  an input of its own that the shell sends when it changes, so the session log keeps it; the core
+  keeps the latest value it is sent. The browser shell reads it from the audio context and sends the
+  mean of the output delays the browser reported over each second, not each reported value
+  **(owner's choice)**: Chromium rounds the value it reports to 8 ms steps, for privacy, so the raw
+  value flips between two steps around the real delay. Readings from before the browser has
+  measured, an output latency of 0, do not count. Until one is sent the delay is 0, and the device's
+  own comes with part 3.
 - **Syncing to other gear later.** Incoming MIDI clock pulses or Ableton Link positions become
   ordinary input events converted to ticks, so replays stay identical.
 
