@@ -325,7 +325,7 @@ inputs stamped before this batch", a pure function of the log.
 
 The screen side turns the pad's press and release timestamps into ticks with Foundation's formula
 and the tempo anchor in effect at the hit, quantizes if QUANTIZE is on and inserts the note when the
-pad is released, or at the first beat for a hit recorded in the count-in, which STOP or REC before
+pad is released, or at the first beat for a hit let go in the count-in, which STOP or REC before
 then drops, giving back any curve block it holds. A note with the same track, sound, pitch, bar and
 place replaces the old one, so two quantized hits in one cell within a pass become one. A hit that
 quantize snaps forward has already sounded live; its version's moment is one sample after the
@@ -389,12 +389,11 @@ never panics.
   coarser curve that keeps its first and last points and every tick. Both rules are whole-number
   arithmetic on timestamps and values, so they replay identically.
 - **While a pad is held,** its points go into a block nobody else can see yet; the curve joins the
-  note's version when the note goes in, at release or for a hit recorded in the count-in at the
-  first beat, and from then on the block is never changed. A note block holds the curve blocks of
-  its notes the way an index block holds its children, so copies, undo and the clipboard share a
-  curve like any other block, and it goes with the last note block that held it. MIDI channel
-  aftertouch, one value for the whole keyboard (Workflow A), gives every held recorded note the same
-  point.
+  note's version when the note goes in, at release or for a hit let go in the count-in at the first
+  beat, and from then on the block is never changed. A note block holds the curve blocks of its
+  notes the way an index block holds its children, so copies, undo and the clipboard share a curve
+  like any other block, and it goes with the last note block that held it. MIDI channel aftertouch,
+  one value for the whole keyboard (Workflow A), gives every held recorded note the same point.
 - **A curve starts only while more than 256 blocks are free** (`RESERVE`), at the note's first
   pressure; with 256 or fewer the note is kept without its curve, never dropped for its curve's
   sake.
