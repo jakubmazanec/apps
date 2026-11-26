@@ -738,9 +738,9 @@ impl Control {
             let bars = self.project.patterns[usize::from(self.project.pattern)].bars;
             let first_cell = self.view.step_view.first_cell;
             let left = grid_left(ROLL_COLUMNS);
-            // The x of a tick of the pattern: the left line of its bar and sixteenth's cell and its
-            // ticks into the sixteenth, 60 to a pixel (S7).
-            let x = |tick: u32| {
+            // The x of `after` ticks past a tick of the pattern: the left line of the tick's bar
+            // and sixteenth's cell and its ticks into the sixteenth and `after`, 60 to a pixel (S7).
+            let x = |tick: u32, after: u32| {
                 let place = tick % bar_ticks;
                 let cell = cell_of(
                     StepCursor {
@@ -749,7 +749,8 @@ impl Control {
                     },
                     signature,
                 );
-                left + CELL * (cell as i32 - first_cell as i32) + pixel((place % 480) as u16)
+                left + CELL * (cell as i32 - first_cell as i32)
+                    + pixel((place % 480 + after) as u16)
             };
             let closing =
                 left + CELL * ROLL_COLUMNS.min(cells(bars, signature) - first_cell) as i32;
@@ -783,12 +784,19 @@ impl Control {
                         continue;
                     }
                     let start = u32::from(note.bar) * bar_ticks + u32::from(note.place);
-                    // No note ends past the pattern's end.
-                    let end = x((start + note.length).min(u32::from(bars) * bar_ticks));
+                    // No note ends past the pattern's end. A note ends in the bar and sixteenth of
+                    // its last tick, a note of no ticks in those of its first.
+                    let end = x(
+                        (start + note.length)
+                            .min(u32::from(bars) * bar_ticks)
+                            .max(start + 1)
+                            - 1,
+                        1,
+                    );
                     // A note from before the view runs in from the grid's left line once it reaches
                     // into the view, and a block that would cross the closing line ends on it.
                     let first = if cell >= first_cell {
-                        (x(start) + NOTE_X).min(closing - NOTE_WIDTH + 1)
+                        (x(start, 0) + NOTE_X).min(closing - NOTE_WIDTH + 1)
                     } else if end > left {
                         left
                     } else {

@@ -506,8 +506,8 @@ fn the_header_names_roll_only() {
     ));
 }
 
-/// Puts `notes` on T2, shows ROLL and moves its cursor 4 rows up from where it centred, off the
-/// notes' row, and gives the picture.
+/// Puts `notes` on T2, shows ROLL and moves its cursor 4 rows up from where it centred (off the
+/// notes' row) and gives the picture.
 fn rolled(rig: &mut Rig<'_>, notes: &[Note]) -> Screen {
     put(rig, 0, 1, notes);
     rig.menu(0, 1);
@@ -541,7 +541,7 @@ fn roll_draws_its_names_rows_and_octave_lines() {
     assert_eq!(row(&rig), (60, 67));
     let screen = picture(&rig.control);
 
-    // G4 in the text colour from (4, 17), and F#4 dim on the next row, 14 px lower.
+    // G4 in the text colour from (4, 17); F#4 dim on the next row, 14 px lower.
     for (row, name, color) in [(0, "G4", TEXT), (1, "F#4", DIM)] {
         let top = 17 + 14 * row;
         let mut expected = Screen::new();
@@ -554,7 +554,7 @@ fn roll_draws_its_names_rows_and_octave_lines() {
     }
     // The grid's left line at x 38, where bar 0 starts.
     assert!(filled(&screen, 38..=38, 17..=29, LINE));
-    // Separators from x 1 to the grid's end: the line grey above B3, row 8 under C4, and faint
+    // Separators from x 1 to the grid's end: the line grey above B3 (row 8, under C4) and faint
     // above the others. The cursor's outline on C4's first cell covers x 38 to 46 of the lines
     // above and below its row.
     assert!(filled(&screen, 0..=479, 16..=16, BACKGROUND));
@@ -565,12 +565,12 @@ fn roll_draws_its_names_rows_and_octave_lines() {
         assert!(filled(&screen, 47..=478, y..=y, line), "row {row}");
         assert_eq!(screen.pixel(479, y), BACKGROUND, "row {row}");
     }
-    // The shown bar, bar 0, is tinted as on STEP, and bar 1 is not.
+    // The shown bar (bar 0) is tinted as on STEP and bar 1 is not.
     assert!(filled(&screen, 39..=69, 17..=29, SHOWN_BAR));
     assert!(filled(&screen, 167..=197, 17..=29, BACKGROUND));
 
-    // With the cursor on the pattern's last cell the view starts at cell 9, and the pattern's
-    // end closes the grid at x 478.
+    // With the cursor on the pattern's last cell the view starts at cell 9 and the pattern's end
+    // closes the grid at x 478.
     rig.control.view.steps = StepCursor { bar: 3, step: 15 };
     rig.step(20);
     assert_eq!(rig.control.view.step_view.first_cell, 9);
@@ -580,7 +580,7 @@ fn roll_draws_its_names_rows_and_octave_lines() {
 #[test]
 fn a_note_is_a_block_from_its_start_to_its_end_in_its_sounds_colour() {
     // Bass at bar 0 place 0 for 960 ticks at velocity 127: from the left line + 2 to 2 px before
-    // the line of the cell its end lies in, 2 cells on.
+    // the line that ends the cell of its last tick, 2 cells on.
     let queue = Queue::new();
     let (mut rig, [bass, ..]) = on_t2(&queue);
     let screen = rolled(
@@ -680,8 +680,8 @@ fn a_note_reaching_in_from_the_left_and_one_over_dark_cells() {
     assert_eq!(rig.control.view.step_view.first_cell, 16);
     assert_eq!(block(&rig, &screen, 60, bright), Some((38, 164)));
 
-    // In 3/4 a note at bar 0 step 10 for 3 sixteenths ends at bar 1 step 1: over the dark cells
-    // to 2 px before cell 17's line.
+    // In 3/4 a note at bar 0 step 10 for 3 sixteenths has its last tick in bar 1 step 0: over the
+    // dark cells to 2 px before cell 17's line.
     let queue = Queue::new();
     let (mut rig, [bass, ..]) = on_t2(&queue);
     rig.control.project.signature = Signature { beats: 3, unit: 4 };
@@ -696,6 +696,20 @@ fn a_note_reaching_in_from_the_left_and_one_over_dark_cells() {
     let top = row_top(&rig, 60);
     assert_eq!(block(&rig, &screen, 60, bright), Some((120, 172)));
     assert!(filled(&screen, 134..=165, top + 1..=top + 11, bright));
+
+    // A note of a sixteenth on bar 0's last step 11 ends with its bar: 5 px, not over the dark
+    // cells.
+    let queue = Queue::new();
+    let (mut rig, [bass, ..]) = on_t2(&queue);
+    rig.control.project.signature = Signature { beats: 3, unit: 4 };
+    let screen = rolled(
+        &mut rig,
+        &[Note {
+            place: 5_280,
+            ..entered(0, bass, 60)
+        }],
+    );
+    assert_eq!(block(&rig, &screen, 60, bright), Some((128, 132)));
 }
 
 #[test]
@@ -741,7 +755,7 @@ fn the_cursor_and_the_music_line_show_on_roll() {
     taps(&mut rig, at, Button::Up, false, 1);
     assert_eq!(row(&rig), (61, 67));
 
-    // C#4 is row 6 from the top: the outline lies 1 px outside step 2's cell of that row, and no
+    // C#4 is row 6 from the top: the outline lies 1 px outside step 2's cell of that row and no
     // row's name is inverted.
     let screen = picture(&rig.control);
     assert!(outlined(&screen, 54, 16 + 14 * 6, 9, 15, ACCENT));

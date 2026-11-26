@@ -315,10 +315,10 @@ line grey between each B and the C above it, which marks each octave (`roll.png`
 "Notes" under STEP): its start and its end each at 60 ticks a pixel, counted from the line at the
 left of its cell and rounded to the nearest whole pixel, a half rounding up; its first pixel 2 px
 right of the line at its start and its last 2 px left of the line at its end, never fewer than 5 px
-wide; 11 px tall in the 13 px row, with no tail and no count. Its end is in the bar and sixteenth
-its end tick lies in, so a note over the dark cells of a short bar ends where the next bar shows it.
-A note that starts before the first shown cell runs in from the grid's left line, and nothing is
-drawn past the grid's end, as on STEP.
+wide; 11 px tall in the 13 px row, with no tail and no count. Its end lies in the bar and sixteenth
+of its last tick, so a note that runs on into the next bar ends where that bar shows it while one
+that ends with its bar ends there. A note that starts before the first shown cell runs in from the
+grid's left line, and nothing is drawn past the grid's end, as on STEP.
 
 ![ROLL](./2026-11-07-groovebox-look/roll.png)
 
