@@ -517,8 +517,10 @@ export async function runShell({
 
     if (context && outputLatency > 0) {
       if (delayReadings.length > 0 && now - delayStart >= 1000) {
-        let mean = delayReadings.reduce((sum, reading) => sum + reading) / delayReadings.length;
-        let samples = Math.round(mean * context.sampleRate);
+        let samples = Math.round(
+          (delayReadings.reduce((sum, reading) => sum + reading) / delayReadings.length) *
+            context.sampleRate,
+        );
 
         delayReadings = [];
 

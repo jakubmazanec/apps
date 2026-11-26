@@ -30,7 +30,7 @@ pub struct Take {
     pub curve: Option<Curve>,
 }
 
-/// A note that is on.
+/// A note that is on, or ended with its take waiting to go in.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Note {
     pub id: NoteId,
@@ -43,7 +43,8 @@ pub struct Note {
     pub take: Option<Take>,
 }
 
-/// The notes that are on, by source: at most one for each of the 12 pads and the 128 MIDI notes.
+/// The notes that are on and the notes ended whose takes wait to go in, by source: at most one of
+/// each kind for each of the 12 pads and the 128 MIDI notes.
 /// It gives every note its ID, counting up from 0 and never reusing one.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Notes {

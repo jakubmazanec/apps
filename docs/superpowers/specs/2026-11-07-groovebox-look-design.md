@@ -279,9 +279,11 @@ px row, in three greys by velocity; the rest is a tail 2 px tall on the block's 
 is never drawn narrower than the block, so a short tap stays visible. A cell with several notes
 draws one block from the earliest start to the latest end, with a chord's count from 2 to 9 as a
 digit on the block (5 px, no side padding at this scale), and none for 10 or more, since two digits
-do not fit. A note belongs to the step whose sixteenth it starts in, so a slightly early loose hit
-shows on the step before the one aimed at, and nothing is drawn left of centre. `step-playing.png`'s
-left-shifted note is older than this choice, which the text overrules.
+do not fit. Nothing is drawn past the grid's end, where the pattern or the screen ends: a tail stops
+2 px before the line that closes the grid, and a block that would cross that line moves left to end
+on it, still 5 px wide. A note belongs to the step whose sixteenth it starts in, so a slightly early
+loose hit belongs to and lights the step before the one aimed at, though it is drawn where it was
+played. `step-playing.png`'s left-shifted note is older than this choice, which the text overrules.
 
 **The music** is a 1 px white line. **The cursor** is the orange outline around the cell, 1 px
 outside it.

@@ -474,8 +474,8 @@ Spec: [Look and panel](./2026-11-07-groovebox-look-design.md). In short:
 ## Open points for planning
 
 The consistency pass of 2026-11-10 found the points below stated by no spec. None contradicts a
-spec. Each carries a proposed reading that is not yet approved; the plan that reaches a point
-settles it with the owner.
+spec. Each carries a proposed reading that is not yet approved, unless marked as the owner's choice;
+the plan that reaches a point settles it with the owner.
 
 ### On the device
 

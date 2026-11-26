@@ -14,8 +14,8 @@ use crate::ui::text;
 
 /// The first column of the labels and the separators, 1 px inside the screen's edge.
 const LEFT: i32 = 1;
-/// A note's block: 2 px right of its cell's left line, 1 px below its lane's top, 5 px wide and 11
-/// high (S6). A note ends 2 px before the line it reaches.
+/// A note's block: 2 px right of the pixel its note starts at, 1 px below its lane's top, 5 px wide
+/// and 11 high (S6). A note ends 2 px before the line it reaches.
 const NOTE_X: i32 = 2;
 const NOTE_WIDTH: i32 = CELL - 3;
 const NOTE_HEIGHT: i32 = ROW_HEIGHT - 2;
@@ -156,12 +156,11 @@ pub fn draw_step(canvas: &mut impl Canvas, picture: &StepPicture) {
             canvas.fill_rect(rect(block, y + 1, NOTE_WIDTH, NOTE_HEIGHT), color);
             // The tail runs on the block's middle rows from its right edge to the note's last
             // pixel, which is not past the grid's end, and is none when the block is longer.
-            let last = (pixel(mark.end) - NOTE_X).min(edge - NOTE_X);
             canvas.fill_rect(
                 rect(
                     block + NOTE_WIDTH,
                     y + ROW_HEIGHT / 2 - 1,
-                    last + 1 - first - NOTE_WIDTH,
+                    (pixel(mark.end) - NOTE_X).min(edge - NOTE_X) + 1 - first - NOTE_WIDTH,
                     2,
                 ),
                 color,

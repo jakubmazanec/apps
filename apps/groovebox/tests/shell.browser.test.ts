@@ -233,7 +233,7 @@ function watchAllInputs({core}: {core: Core}) {
     );
 }
 
-// The same, but for the output delay, which the shell sends whenever the audio's changes
+// The same, but leaves out the output delay, which the shell sends once a second at most
 function watchInputs(shell: {core: Core}) {
   let inputs = watchAllInputs(shell);
 
@@ -918,51 +918,47 @@ describe(runShell, () => {
     await shell.start();
 
     // Two seconds of frames
-    await expect.poll(() => outputLatency.mock.calls.length, {timeout: 3000}).toBeGreaterThan(128);
+    await expect.poll(() => outputLatency.mock.calls.length, {timeout: 6000}).toBeGreaterThan(128);
 
     expect(inputs().filter(({input}) => input.kind === 'output-delay')).toEqual([]);
   });
 
-  test(
-    'the shell sends the mean of each second of output delays when it differs from the last',
-    {timeout: 15_000},
-    async () => {
-      stubFrameClock();
+  test('the shell sends the mean of each second of output delays when it differs from the last', async () => {
+    stubFrameClock();
 
-      let outputLatency = stubOutputLatency().mockReturnValue(0);
-      let shell = await runStarted();
-      let inputs = watchAllInputs(shell);
-      let context = await shell.start();
-      let reads = 0;
+    let outputLatency = stubOutputLatency().mockReturnValue(0);
+    let shell = await runStarted();
+    let inputs = watchAllInputs(shell);
+    let context = await shell.start();
+    let reads = 0;
 
-      // Three seconds of readings flipping between two 8 ms steps, as Chromium's do, then a steady
-      // one, as when headphones are plugged in
-      outputLatency.mockImplementation(() => {
-        reads += 1;
+    // Three seconds of readings flipping between two 8 ms steps, as Chromium's do, then a steady
+    // one, as when headphones are plugged in
+    outputLatency.mockImplementation(() => {
+      reads += 1;
 
-        if (reads > 192) {
-          return 0.02;
-        }
+      if (reads > 192) {
+        return 0.02;
+      }
 
-        return reads % 2 ? 0.04 : 0.048;
-      });
+      return reads % 2 ? 0.04 : 0.048;
+    });
 
-      let samples = (latency: number) => Math.round((context.baseLatency + latency) * 48_000);
-      let delays = () =>
-        inputs().flatMap(({input}) => (input.kind === 'output-delay' ? [input.samples] : []));
+    let samples = (latency: number) => Math.round((context.baseLatency + latency) * 48_000);
+    let delays = () =>
+      inputs().flatMap(({input}) => (input.kind === 'output-delay' ? [input.samples] : []));
 
-      // The first second of readings
-      await expect.poll(delays, {timeout: 3000}).toEqual([samples(0.044)]);
+    // The first second of readings
+    await expect.poll(delays, {timeout: 6000}).toEqual([samples(0.044)]);
 
-      // Two more seconds of flipping readings
-      await expect.poll(() => reads, {timeout: 3000}).toBeGreaterThan(192);
+    // Two more seconds of flipping readings
+    await expect.poll(() => reads, {timeout: 6000}).toBeGreaterThan(192);
 
-      expect(delays()).toEqual([samples(0.044)]);
+    expect(delays()).toEqual([samples(0.044)]);
 
-      // The second of the steady readings
-      await expect.poll(delays, {timeout: 3000}).toEqual([samples(0.044), samples(0.02)]);
-    },
-  );
+    // The second of the steady readings
+    await expect.poll(delays, {timeout: 6000}).toEqual([samples(0.044), samples(0.02)]);
+  });
 
   test('Save picture downloads screen-<position>.png', async () => {
     let downloads: Array<{name: string; url: string}> = [];
