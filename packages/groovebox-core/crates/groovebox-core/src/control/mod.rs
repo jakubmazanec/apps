@@ -691,15 +691,21 @@ impl Control {
                     && let Some(column) = cell.checked_sub(view.first_cell)
                 {
                     let mark = &mut self.marks[row][column as usize];
-                    let before = mark.unwrap_or_default();
-                    *mark = Some(Mark {
-                        velocity: before.velocity.max(note.velocity),
-                        count: before.count.saturating_add(1),
-                        // 8 px to 480 ticks, so 60 ticks to a pixel.
-                        tail: before.tail.max(
-                            u16::try_from(note.length.saturating_sub(480) / 60).unwrap_or(u16::MAX),
-                        ),
-                        late: (before.count == 0 || before.late) && note.place % 480 != 0,
+                    let start = note.place % 480;
+                    let end = u16::try_from(u32::from(start) + note.length).unwrap_or(u16::MAX);
+                    *mark = Some(match *mark {
+                        None => Mark {
+                            velocity: note.velocity,
+                            count: 1,
+                            start,
+                            end,
+                        },
+                        Some(before) => Mark {
+                            velocity: before.velocity.max(note.velocity),
+                            count: before.count.saturating_add(1),
+                            start: before.start.min(start),
+                            end: before.end.max(end),
+                        },
                     });
                 }
             }

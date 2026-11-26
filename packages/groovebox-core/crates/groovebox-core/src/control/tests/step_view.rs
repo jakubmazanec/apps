@@ -410,16 +410,16 @@ fn lanes_show_names_copies_missing_sounds_and_notes() {
     marks[0][0] = Some(Mark {
         velocity: 127,
         count: 1,
-        tail: 0,
-        late: false,
+        start: 0,
+        end: 480,
     });
     marks[0][1] = marks[0][0];
-    // 1,440 ticks are 2 sixteenths more than the block, 16 px.
+    // 1,440 ticks end 3 sixteenths after the cell's first tick.
     marks[12][3] = Some(Mark {
         velocity: 59,
         count: 1,
-        tail: 16,
-        late: false,
+        start: 0,
+        end: 1_440,
     });
     assert_eq!(rig.control.marks[..13], marks);
     assert!(
@@ -481,9 +481,9 @@ fn a_cell_shows_its_loudest_note_its_longest_tail_and_how_many_there_are() {
         Some(Mark {
             velocity: 99,
             count: 3,
-            // 960 ticks are 8 px past a sixteenth's 8 px, 700 are 3.
-            tail: 8,
-            late: false,
+            start: 0,
+            // The notes of 480, 960 and 700 ticks end at 480, 960 and 700: the latest is 960.
+            end: 960,
         })
     );
     // Syn 2 has no pad: its lane is the first extra lane, 13th.
@@ -492,43 +492,45 @@ fn a_cell_shows_its_loudest_note_its_longest_tail_and_how_many_there_are() {
         Some(Mark {
             velocity: 127,
             count: 1,
-            tail: 0,
-            late: false,
+            start: 0,
+            end: 480,
         })
     );
 }
 
 #[test]
-fn a_cell_is_late_when_none_of_its_notes_starts_on_its_step() {
+fn a_cell_shows_its_earliest_start_and_its_latest_end() {
     let queue = Queue::new();
     let mut rig = Rig::new(&queue);
     let syn_1 = rig.synth_on(0);
-    let at = |place, pitch| Note {
+    let at = |place, length| Note {
         place,
-        ..entered(0, syn_1, pitch)
+        length,
+        ..entered(0, syn_1, 60)
     };
-    // Sixteenth 1 holds a note 10 ticks late, sixteenth 2 one on its first tick beside one 10
-    // ticks late, sixteenth 3 a note 10 ticks late and sixteenth 4 one on its first tick.
+    // Sixteenth 0 holds a note of 480 ticks on its first tick and one of 700 ticks from tick 250,
+    // sixteenth 1 a note 10 ticks late and sixteenth 2 a note from tick 479 that ends in
+    // sixteenth 3.
     put(
         &mut rig,
         0,
         0,
-        &[
-            at(490, 60),
-            at(960, 60),
-            at(970, 62),
-            at(970 + 480, 60),
-            at(1_920, 60),
-        ],
+        &[at(0, 480), at(250, 700), at(490, 480), at(960 + 479, 480)],
     );
 
     rig.tap(10, Button::T1);
     rig.step(20);
 
-    let late = |column: usize| rig.control.marks[0][column].map(|mark| mark.late);
+    let ticks =
+        |column: usize| rig.control.marks[0][column].map(|mark| (mark.count, mark.start, mark.end));
     assert_eq!(
-        [late(0), late(1), late(2), late(3), late(4)],
-        [None, Some(true), Some(false), Some(true), Some(false)]
+        [ticks(0), ticks(1), ticks(2), ticks(3)],
+        [
+            Some((2, 0, 950)),
+            Some((1, 10, 490)),
+            Some((1, 479, 959)),
+            None
+        ]
     );
 }
 

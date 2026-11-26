@@ -15,25 +15,27 @@ use crate::ui::text;
 /// The first column of the labels and the separators, 1 px inside the screen's edge.
 const LEFT: i32 = 1;
 /// A note's block: 2 px right of its cell's left line, 1 px below its lane's top, 5 px wide and 11
-/// high (S6).
+/// high (S6). A note ends 2 px before the line it reaches.
 const NOTE_X: i32 = 2;
-/// The block of a late cell (`Mark::late`): 2 px further right.
-const LATE_NOTE_X: i32 = NOTE_X + 2;
 const NOTE_WIDTH: i32 = CELL - 3;
 const NOTE_HEIGHT: i32 = ROW_HEIGHT - 2;
 
 /// What a cell shows (S6): the notes of its lane's sound that start in its sixteenth.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Mark {
     /// The loudest note's velocity.
     pub velocity: u8,
     /// How many notes there are.
     pub count: u8,
-    /// How many pixels the longest note's tail is long: its length past a sixteenth, 8 px to
-    /// 480 ticks, rounded down.
-    pub tail: u16,
-    /// Whether none of the notes starts on its sixteenth's first tick.
-    pub late: bool,
+    /// The earliest start of the notes, in ticks after their cell's first tick.
+    pub start: u16,
+    /// The latest end of the notes, in ticks after their cell's first tick.
+    pub end: u16,
+}
+
+/// The pixel nearest to `ticks`, half up: 8 px to 480 ticks, so 60 ticks to a pixel.
+fn pixel(ticks: u16) -> i32 {
+    (i32::from(ticks) + 30) / 60
 }
 
 /// A lane as the names column shows it.
@@ -147,12 +149,19 @@ pub fn draw_step(canvas: &mut impl Canvas, picture: &StepPicture) {
                 60.. => NOTE_MID,
                 _ => NOTE_SOFT,
             };
-            let block = x(column) + if mark.late { LATE_NOTE_X } else { NOTE_X };
+            let first = NOTE_X + pixel(mark.start);
+            let block = x(column) + first;
             canvas.fill_rect(rect(block, y + 1, NOTE_WIDTH, NOTE_HEIGHT), color);
-            // The tail runs on the block's middle rows and stops at the grid's end.
-            let tail = i32::from(mark.tail).min(CELL * (shown - column - 1) as i32);
+            // The tail runs on the block's middle rows from its right edge to the note's last
+            // pixel, which is not past the grid's end, and is none when the block is longer.
+            let last = (pixel(mark.end) - NOTE_X).min(CELL * (shown - column) as i32 - NOTE_X);
             canvas.fill_rect(
-                rect(block + NOTE_WIDTH, y + ROW_HEIGHT / 2 - 1, tail, 2),
+                rect(
+                    block + NOTE_WIDTH,
+                    y + ROW_HEIGHT / 2 - 1,
+                    last + 1 - first - NOTE_WIDTH,
+                    2,
+                ),
                 color,
             );
             // Two digits do not fit on the block.
@@ -225,12 +234,13 @@ mod tests {
         })
     }
 
-    fn note(velocity: u8, count: u8, tail: u16) -> Mark {
+    /// A note from its cell's first tick to tick `end`.
+    fn note(velocity: u8, count: u8, end: u16) -> Mark {
         Mark {
             velocity,
             count,
-            tail,
-            late: false,
+            start: 0,
+            end,
         }
     }
 
@@ -256,30 +266,55 @@ mod tests {
     }
 
     #[test]
-    fn a_late_cell_draws_its_note_2_px_right() {
-        let late = marked(
-            0,
-            Mark {
-                late: true,
-                ..note(100, 1, 4)
-            },
-        );
-        let on_time = marked(0, note(100, 1, 4));
+    fn a_note_on_its_step_of_one_or_two_steps_is_drawn_as_it_always_was() {
+        let one = marked(0, note(100, 1, 480));
+        let two = marked(0, note(100, 1, 960));
 
-        // The block from the cell's left line + 4, x 26 to 30, and its tail from the block's right
-        // edge, x 31 to 34.
-        assert!(filled(&late, 26..=30, 18..=28, NOTE_LOUD));
-        assert!(filled(&late, 31..=34, 22..=23, NOTE_LOUD));
-        assert_eq!(ink(&late, NOTE_LOUD), 5 * 11 + 4 * 2);
-        // Not late: from + 2, x 24 to 28, its tail x 29 to 32.
-        assert!(filled(&on_time, 24..=28, 18..=28, NOTE_LOUD));
-        assert!(filled(&on_time, 29..=32, 22..=23, NOTE_LOUD));
-        assert_eq!(ink(&on_time, NOTE_LOUD), 5 * 11 + 4 * 2);
+        // From the cell's left line + 2 to + 6 and no tail, x 24 to 28.
+        assert_eq!(span(&one, 0..=479, 22..=22, NOTE_LOUD), Some((24, 28)));
+        assert_eq!(ink(&one, NOTE_LOUD), 5 * 11);
+        // To + 14, x 36: the block and a tail of 8 px.
+        assert_eq!(span(&two, 0..=479, 22..=22, NOTE_LOUD), Some((24, 36)));
+        assert_eq!(span(&two, 0..=479, 18..=18, NOTE_LOUD), Some((24, 28)));
+        assert_eq!(ink(&two, NOTE_LOUD), 5 * 11 + 8 * 2);
+    }
+
+    #[test]
+    fn a_note_starts_at_the_pixel_nearest_to_its_start() {
+        // 60 ticks to a pixel, half up, from the cell's left line + 2 at x 24.
+        for (start, left) in [(29, 24), (30, 25), (224, 28)] {
+            let screen = marked(
+                0,
+                Mark {
+                    start,
+                    end: start + 480,
+                    ..note(100, 1, 0)
+                },
+            );
+
+            assert_eq!(
+                span(&screen, 0..=479, 18..=18, NOTE_LOUD),
+                Some((left, left + 4)),
+                "{start} ticks late"
+            );
+        }
+    }
+
+    #[test]
+    fn a_note_ends_at_the_pixel_nearest_to_its_end_and_a_tap_is_the_block_alone() {
+        // 700 ticks are 12 px less the 2 px gap, + 10: x 32.
+        let long = marked(0, note(100, 1, 700));
+        // 248 ticks would end at + 2, inside the block.
+        let tap = marked(0, note(100, 1, 248));
+
+        assert_eq!(span(&long, 0..=479, 22..=22, NOTE_LOUD), Some((24, 32)));
+        assert_eq!(span(&tap, 0..=479, 22..=22, NOTE_LOUD), Some((24, 28)));
+        assert_eq!(ink(&tap, NOTE_LOUD), 5 * 11);
     }
 
     #[test]
     fn a_long_note_has_a_tail_and_a_chord_its_count() {
-        let tail = marked(0, note(100, 1, 8));
+        let tail = marked(0, note(100, 1, 960));
 
         // 2 px high from the block's right edge at the lane's top + 5: x 29 to 36, y 22 and 23.
         assert!(filled(&tail, 29..=36, 22..=23, NOTE_LOUD));
@@ -307,8 +342,8 @@ mod tests {
     fn a_tail_stops_at_the_last_cell() {
         // 57 columns, the last one 56: its block ends at x 476 and has no tail, and the tail of
         // column 55 ends there too.
-        let second_last = marked(55, note(100, 1, 500));
-        let last = marked(56, note(100, 1, 500));
+        let second_last = marked(55, note(100, 1, 30_480));
+        let last = marked(56, note(100, 1, 30_480));
 
         assert_eq!(
             span(&second_last, 0..=479, 22..=22, NOTE_LOUD),
@@ -323,7 +358,7 @@ mod tests {
 
         // Where the pattern ends before the columns do, the last cell of its 16 is the end.
         let mut marks = NO_MARKS;
-        marks[0][14] = Some(note(100, 1, 500));
+        marks[0][14] = Some(note(100, 1, 30_480));
         let short = drawn(&StepPicture {
             marks: &marks[..1],
             ..one_lane()
