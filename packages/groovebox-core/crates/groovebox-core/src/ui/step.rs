@@ -149,12 +149,14 @@ pub fn draw_step(canvas: &mut impl Canvas, picture: &StepPicture) {
                 60.. => NOTE_MID,
                 _ => NOTE_SOFT,
             };
-            let first = NOTE_X + pixel(mark.start);
+            // From the cell's left line to the grid's closing line, which no block crosses.
+            let edge = CELL * (shown - column) as i32;
+            let first = (NOTE_X + pixel(mark.start)).min(edge - NOTE_WIDTH + 1);
             let block = x(column) + first;
             canvas.fill_rect(rect(block, y + 1, NOTE_WIDTH, NOTE_HEIGHT), color);
             // The tail runs on the block's middle rows from its right edge to the note's last
             // pixel, which is not past the grid's end, and is none when the block is longer.
-            let last = (pixel(mark.end) - NOTE_X).min(CELL * (shown - column) as i32 - NOTE_X);
+            let last = (pixel(mark.end) - NOTE_X).min(edge - NOTE_X);
             canvas.fill_rect(
                 rect(
                     block + NOTE_WIDTH,
@@ -364,6 +366,34 @@ mod tests {
             ..one_lane()
         });
         assert_eq!(span(&short, 0..=479, 22..=22, NOTE_LOUD), Some((136, 148)));
+    }
+
+    #[test]
+    fn a_block_that_would_cross_the_grids_closing_line_ends_on_it() {
+        // A note from tick 479 starts at + 10 of its cell, past the last cell's closing line at + 8.
+        let late = Mark {
+            start: 479,
+            end: 479 + 480,
+            ..note(100, 1, 0)
+        };
+
+        // The last of 57 columns of a pattern that goes on: its line at x 478 and the block, still
+        // 5 px wide, x 474 to 478.
+        let cut = marked(56, late);
+        assert_eq!(span(&cut, 0..=479, 18..=18, NOTE_LOUD), Some((474, 478)));
+        assert_eq!(ink(&cut, NOTE_LOUD), 5 * 11);
+        // The last of a pattern of 16 cells, its line at x 150.
+        let mut marks = NO_MARKS;
+        marks[0][15] = Some(late);
+        let ended = drawn(&StepPicture {
+            marks: &marks[..1],
+            ..one_lane()
+        });
+        assert_eq!(span(&ended, 0..=479, 18..=18, NOTE_LOUD), Some((146, 150)));
+        assert_eq!(ink(&ended, NOTE_LOUD), 5 * 11);
+        // One column before the last it has room: from + 10, x 472 to 476.
+        let inside = marked(55, late);
+        assert_eq!(span(&inside, 0..=479, 18..=18, NOTE_LOUD), Some((472, 476)));
     }
 
     #[test]
