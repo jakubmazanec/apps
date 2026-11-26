@@ -16,8 +16,8 @@ fn named(rig: &mut Rig<'_>, sound: SoundNumber, name: &str) {
     label.push_str(name);
 }
 
-/// A rig on T2 of the factory project's sounds, Bass on pad 1, Sub on pad 2 and Acid on pad 3, in 4
-/// bars of 4/4. Bass is selected.
+/// A rig on T2 with three new synths named as the factory project's T2 sounds: Bass on pad 1, Sub
+/// on pad 2 and Acid on pad 3, in 4 bars of 4/4. Bass is selected.
 fn on_t2(queue: &Queue<Message, MESSAGE_QUEUE>) -> (Rig<'_>, [SoundNumber; 3]) {
     let mut rig = Rig::new(queue);
     rig.control.project.track = 1;

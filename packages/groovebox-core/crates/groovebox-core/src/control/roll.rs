@@ -6,7 +6,7 @@ use super::view::Screen;
 use crate::store::Store;
 use crate::store::note::Key;
 
-/// The width of ROLL's names column: 3 px, the widest name, "C#−1", and 3 px (S3).
+/// The width of ROLL's names column: 3 px, the widest name ("C#−1") and 3 px (S3).
 pub const ROLL_NAMES: i32 = 29;
 /// The cells ROLL's grid shows: the whole cells between its names column and the screen's right
 /// edge, with a pixel on each side (S3).
