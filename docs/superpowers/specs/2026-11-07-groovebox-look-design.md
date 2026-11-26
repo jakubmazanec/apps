@@ -307,7 +307,7 @@ the selected sound's last so it is on top; drums sit on their root row.
 
 **The names column.** At the left, each row's pitch name in Root note's format ("C4", "C#4", "C−1"),
 the sharps dim and the others in the text colour, 3 px from the screen's edge. As on STEP, it is as
-wide whatever rows show: 3 px, the widest name, "C#−1", and 3 px, 29 px in all, so the grid has room
+wide whatever rows show: 3 px, the widest name ("C#−1") and 3 px: 29 px in all, so the grid has room
 for 55 cells and its left line is at x 38. The lines between rows run as on STEP: faint, and in the
 line grey between each B and the C above it, which marks each octave (`roll.png`).
 

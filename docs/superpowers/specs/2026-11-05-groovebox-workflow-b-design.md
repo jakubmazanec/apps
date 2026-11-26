@@ -411,9 +411,11 @@ row per pitch. Everything else in this section works the same on both.
 - **Moving the cursor into another bar,** with the arrows or SHIFT + left or right, stops following.
   Opening the NOTE panel does too.
 - **Pressing PLAY while playing** follows again **(owner's choice)**: the cursor and view return to
-  the bar that is playing and keep following, whatever screen is shown. The music, the playhead,
-  recording and the count-in are untouched. Starting playback also follows, with PLAY or with
-  SHIFT + PLAY, and SHIFT + PLAY while playing jumps to the cursor's bar and follows from there.
+  the bar that is playing and keep following, whatever screen is shown, unless the NOTE panel is
+  open: the view then stays on its bar until the panel is closed (see "The NOTE panel"). The music,
+  the playhead, recording and the count-in are untouched. Starting playback also follows, with PLAY
+  or with SHIFT + PLAY, and SHIFT + PLAY while playing jumps to the cursor's bar and follows from
+  there.
 - **A bar past a new shorter length** that is still playing out shows the pattern's last bar.
 - **A step's tap acts on the bar the buttons showed when the step went down,** so a bar line between
   the press and the release never moves the note into the next bar.
