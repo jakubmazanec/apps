@@ -26,6 +26,7 @@ mod mix;
 mod pattern;
 mod pool;
 mod record;
+mod roll;
 mod sample_sounds;
 mod sound;
 mod step_view;
@@ -1155,6 +1156,7 @@ fn menu_with_step_8_shows_settings_at_the_steps_press() {
         [
             pad(0),
             step(0),
+            step(1),
             step(2),
             step(3),
             step(4),
@@ -1177,6 +1179,7 @@ fn menu_with_step_8_shows_settings_at_the_steps_press() {
         [
             pad(0),
             step(0),
+            step(1),
             step(2),
             step(3),
             step(4),
@@ -1241,9 +1244,9 @@ fn menu_let_go_alone_changes_nothing() {
 fn a_dark_step_under_menu_does_nothing() {
     let queue = Queue::new();
     let mut rig = Rig::new(&queue);
-    // Step 2 is ROLL's, which does not exist yet.
+    // Step 7 is PROJECT's, which does not exist yet.
     rig.press(0, Button::Menu);
-    rig.press(100, Button::Step(1));
+    rig.press(100, Button::Step(6));
 
     rig.step(101);
     assert_eq!(rig.control.view.screen, view::Screen::Step);
@@ -1251,9 +1254,9 @@ fn a_dark_step_under_menu_does_nothing() {
         &rig.control,
         &tiles(&MENU_HEADER, &menu_tiles(view::Screen::Step))
     ));
-    assert_eq!(rig.control.buttons.first_held(&[Button::Step(1)]), None);
+    assert_eq!(rig.control.buttons.first_held(&[Button::Step(6)]), None);
 
-    rig.let_go(200, Button::Step(1));
+    rig.let_go(200, Button::Step(6));
     rig.let_go(300, Button::Menu);
     rig.step(301);
     assert!(shows_step(&rig.control, &STEP_HEADER));

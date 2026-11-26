@@ -120,6 +120,7 @@ impl core::ops::Deref for Pages {
 pub const MENU: [Option<Screen>; STEPS as usize] = {
     let mut menu = [None; STEPS as usize];
     menu[0] = Some(Screen::Step);
+    menu[1] = Some(Screen::Roll);
     menu[2] = Some(Screen::Sound);
     menu[3] = Some(Screen::Fx);
     menu[4] = Some(Screen::Mix);
@@ -415,8 +416,8 @@ const fn sound_pages(pad: PageDef, engine: PageDef) -> [PageDef; 7] {
 
 /// The pages of `screen` in the order of their steps under PAGE, while `sound` is the selected
 /// sound of the current track, `pad` says whether the track has a selected pad and `slots` are the
-/// track's effect slots. STEP has none of its own: PAGE there acts on SOUND's pages. SAMPLES and
-/// POOL have none.
+/// track's effect slots. STEP and ROLL have none of their own: PAGE there acts on SOUND's pages.
+/// SAMPLES and POOL have none.
 ///
 /// SOUND works on the track's selected pad: its Pad page, then the page of the sound's engine
 /// (Sample or Synth) and the pages of its chain, its voice and its pitch. While that pad is empty
@@ -426,7 +427,7 @@ const fn sound_pages(pad: PageDef, engine: PageDef) -> [PageDef; 7] {
 /// effect's or an empty slot's (S16). PATTERN has its Timing and Bars pages and MIX its one page.
 pub fn pages(screen: Screen, sound: Option<&Sound>, pad: bool, slots: &[Slot; 6]) -> Pages {
     let pages: &[PageDef] = match screen {
-        Screen::Step | Screen::Pool | Screen::Samples => &[],
+        Screen::Step | Screen::Roll | Screen::Pool | Screen::Samples => &[],
         Screen::Fx => {
             return Pages {
                 pages: core::array::from_fn(|page| match page {

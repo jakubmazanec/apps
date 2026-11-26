@@ -12,6 +12,7 @@ use crate::ui::tiles::{Tile, TileState};
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Screen {
     Step,
+    Roll,
     Sound,
     Fx,
     Mix,
@@ -30,6 +31,7 @@ impl Screen {
     /// Every screen, in the order of their steps under MENU.
     pub const ALL: [Self; SCREENS] = [
         Self::Step,
+        Self::Roll,
         Self::Sound,
         Self::Fx,
         Self::Mix,
@@ -43,6 +45,7 @@ impl Screen {
     pub fn name(self) -> &'static str {
         match self {
             Self::Step => "Step",
+            Self::Roll => "Roll",
             Self::Sound => "Sound",
             Self::Fx => "Fx",
             Self::Mix => "Mix",
@@ -53,11 +56,11 @@ impl Screen {
         }
     }
 
-    /// The screen whose pages PAGE shows here and whose page the encoders use: SOUND on STEP,
-    /// which has no pages of its own, and the screen itself elsewhere.
+    /// The screen whose pages PAGE shows here and whose page the encoders use: SOUND on STEP and
+    /// ROLL, which have no pages of their own, and the screen itself elsewhere.
     pub fn paged(self) -> Self {
         match self {
-            Self::Step => Self::Sound,
+            Self::Step | Self::Roll => Self::Sound,
             screen => screen,
         }
     }
@@ -177,10 +180,21 @@ pub struct StepCursor {
     pub step: u8,
 }
 
+/// ROLL's own state: its cursor's pitch, the pitch of the top row it shows and the track and
+/// selected sound its row was last put on (S5). Its bar and sixteenth are STEP's (`StepCursor`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct RollView {
+    pub pitch: u8,
+    pub top: u8,
+    /// The current track and its selected sound when ROLL last centred its row on them, or last
+    /// found none selected; ROLL centres again once they differ.
+    pub shows: (u8, Option<SoundNumber>),
+}
+
 /// What the screen shows: the screen, the page each screen shows, the cursor of each page, the
 /// folder and cursor of SAMPLES and of the sample picker, POOL's cursor, the step cursor, STEP's
-/// view, whether it follows the music, FX Chain's slot and a picker or a question while one is
-/// open. They are kept while the control part lives and are not saved.
+/// view, ROLL's, whether it follows the music, FX Chain's slot and a picker or a question while one
+/// is open. They are kept while the control part lives and are not saved.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct View {
     pub screen: Screen,
@@ -194,9 +208,10 @@ pub struct View {
     pub pool: PoolView,
     pub steps: StepCursor,
     pub step_view: StepView,
+    pub roll: RollView,
     /// Whether the step buttons and the header show the bar playing while the music plays (S16).
-    /// PLAY and SHIFT + PLAY set it, and an arrow on STEP that moves the cursor into another bar
-    /// clears it.
+    /// PLAY and SHIFT + PLAY set it, and an arrow on STEP or ROLL that moves the cursor into
+    /// another bar clears it.
     pub following: bool,
     /// FX Chain's chosen slot, 0 to 5: the one the cursor last stood on among the tiles, drawn in
     /// the accent, which Type and Move act on and which stays when the track changes (S15).
@@ -212,7 +227,8 @@ impl View {
     /// STEP, where a new project opens, with every screen on its first page, every cursor on the
     /// first item, SAMPLES and the sample picker at the top level, POOL's cursor on Remove unused
     /// for T1 with no sound selected, the step cursor on bar 1, step 1, STEP's view at its first
-    /// cell and lane, not following, FX Chain on slot 1 and no picker or question open.
+    /// cell and lane, ROLL's cursor on C4 under its top row G4 with no sound centred on, not
+    /// following, FX Chain on slot 1 and no picker or question open.
     pub const fn new() -> Self {
         Self {
             screen: Screen::Step,
@@ -228,6 +244,11 @@ impl View {
             step_view: StepView {
                 first_cell: 0,
                 first_lane: 0,
+            },
+            roll: RollView {
+                pitch: 60,
+                top: 67,
+                shows: (0, None),
             },
             following: false,
             fx_slot: 0,
@@ -396,13 +417,20 @@ mod tests {
     }
 
     #[test]
-    fn the_menu_tiles_show_step_sound_fx_mix_pool_settings_pattern_and_samples() {
+    fn the_menu_tiles_show_step_roll_sound_fx_mix_pool_settings_pattern_and_samples() {
         let tiles = menu_tiles(Screen::Settings);
 
         assert_eq!(
             tiles[0],
             Tile {
                 name: Some("Step"),
+                state: TileState::Exists
+            }
+        );
+        assert_eq!(
+            tiles[1],
+            Tile {
+                name: Some("Roll"),
                 state: TileState::Exists
             }
         );
@@ -456,7 +484,8 @@ mod tests {
                 state: TileState::Exists
             }
         );
-        assert_eq!(tiles.iter().filter(|&&tile| tile == EMPTY).count(), 8);
+        assert_eq!(tiles.iter().filter(|&&tile| tile == EMPTY).count(), 7);
+        assert_eq!(menu_tiles(Screen::Roll)[1].state, TileState::Current);
         assert_eq!(menu_tiles(Screen::Fx)[3].state, TileState::Current);
         assert_eq!(menu_tiles(Screen::Mix)[4].state, TileState::Current);
         assert_eq!(menu_tiles(Screen::Step)[0].state, TileState::Current);

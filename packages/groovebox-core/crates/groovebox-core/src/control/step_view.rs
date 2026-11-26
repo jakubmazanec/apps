@@ -128,7 +128,7 @@ impl Control {
     }
 
     /// Moves STEP's view so the cursor's cell at `sample` and its lane show (S8): cells by a beat
-    /// and lanes by one.
+    /// and lanes by one. ROLL shares the first cell and keeps it with its own columns (`columns`).
     pub(super) fn keep_step_view(&mut self, sample: u64) {
         let signature = self.project.signature;
         let view = self.view.step_view;
@@ -136,7 +136,7 @@ impl Control {
             first_cell: kept(
                 cell_of(self.cursor_at(sample), signature),
                 view.first_cell,
-                self.step_columns().1,
+                self.columns(),
                 PAGE / u32::from(signature.unit),
                 cells(
                     self.project.patterns[usize::from(self.project.pattern)].bars,

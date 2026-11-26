@@ -7,6 +7,7 @@ pub mod notes;
 pub mod pages;
 mod pool;
 mod record;
+pub mod roll;
 pub mod samples;
 pub(crate) mod step_view;
 mod steps;
@@ -54,6 +55,7 @@ use lanes::Lane;
 use notes::{Notes, Source};
 use pages::{ItemDef, ItemKind, MENU, NOTE, PageDef, Pages, Picture, TIMING, pages};
 use record::Rec;
+use roll::HIGHEST;
 use samples::Deleting;
 use step_view::{GRID_CELLS, LANES_SHOWN, PAGE, cell_of, cells, place_of};
 use view::{
@@ -393,10 +395,10 @@ impl Control {
     /// only the jobs they drive change the library; from the reply that opens the project on, so
     /// that start-up, which lists the library page by page in another order, leaves it on the
     /// first row. While POOL shows, its cursor follows the current track's selection
-    /// (`follow_selection`). STEP's view is kept on the cursor's cell and lane (`keep_step_view`),
-    /// also at the end of the step, where following has moved the cursor's bar with no event. When
-    /// the cursor has then landed on something new (`Focus`), the text under it scrolls from that
-    /// event's sample.
+    /// (`follow_selection`). STEP's view is kept on the cursor's cell and lane (`keep_step_view`)
+    /// and ROLL's on the cursor's row (`keep_roll_view`), also at the end of the step, where
+    /// following has moved the cursor's bar with no event. When the cursor has then landed on
+    /// something new (`Focus`), the text under it scrolls from that event's sample.
     ///
     /// Last, while the screen's page shows the waveform and the audio part may read the selected
     /// sound's file (`sample_file`), it reads that file's peaks through `tables` from `ram` unless
@@ -587,6 +589,7 @@ impl Control {
             }
             self.follow_selection();
             self.keep_step_view(sample);
+            self.keep_roll_view(store);
             let paged = self.view.screen.paged();
             let track = self.track();
             let focus = Some(Focus {
@@ -616,6 +619,7 @@ impl Control {
             redraw = true;
         }
         self.keep_step_view(until);
+        self.keep_roll_view(store);
         if self.page(self.view.screen).and_then(|page| page.picture) == Some(Picture::Waveform)
             && let Some(audio) = self.sample_file()
         {
@@ -722,15 +726,15 @@ impl Control {
     /// note of the current track sounding in the pattern (S13). In KEYS mode pad 1, the C, is lit
     /// and so is every pad whose pitch in the current octave has a MIDI note on or is a pitch the
     /// pattern sounds on the current track in the selected sound (S13). T1 to T4 light the
-    /// current track, a muted one's blinking instead (`BLINK_SLOW`, S6), and PADS/KEYS lights in
-    /// KEYS mode. While MENU or PAGE is held, the steps of
-    /// the screens or pages that exist light: the steps whose tiles are not empty. Otherwise the
-    /// steps of the page the step buttons show light where a note of the selected sound starts
-    /// (`step_notes`), and while playing the step the music is in, on that page of the bar the
-    /// buttons show (`shown_bar`), is flipped (S6). REC lights while on and, while armed, for the
-    /// first half of each beat: during the count-in the clicks' beats and while stopped those of
-    /// the run from the press that armed it (S7). PLAY lights while playing (S10), and TEMPO
-    /// while the metronome is on (S9).
+    /// current track, a muted one's blinking instead (`BLINK_SLOW`, S6), PADS/KEYS lights in KEYS
+    /// mode and ROLL while ROLL shows. While MENU or PAGE is held, the steps of the screens or
+    /// pages that exist light: the steps whose tiles are not empty. Otherwise the steps of the
+    /// page the step buttons show light where a note of the selected sound starts (`step_notes`),
+    /// and while playing the step the music is in, on that page of the bar the buttons show
+    /// (`shown_bar`), is flipped (S6). REC lights while on and, while armed, for the first half of
+    /// each beat: during the count-in the clicks' beats and while stopped those of the run from
+    /// the press that armed it (S7). PLAY lights while playing (S10), and TEMPO while the
+    /// metronome is on (S9).
     pub fn lights(&self) -> Lights {
         let track = self.track();
         let midi = self
@@ -784,6 +788,9 @@ impl Control {
                     lights.light(Lights::PAD + u32::from(pitch - c));
                 }
             }
+        }
+        if self.view.screen == Screen::Roll {
+            lights.light(Lights::ROLL);
         }
         if let Some(tiles) = self.tiles() {
             for (step, tile) in tiles.iter().enumerate() {
@@ -1091,11 +1098,12 @@ impl Control {
     /// Otherwise the arrows, - and + nudge (`nudge`), OK uses the item under the cursor, or acts on
     /// SAMPLES' row (`ok_in_samples`) or POOL's (`ok_in_pool`), or on STEP enters a note in the
     /// cursor's cell where none starts (`enter_note`, S10), and an encoder push the item its
-    /// encoder holds. PLAY and SHIFT + PLAY start or jump (`play`), STOP stops (`stop`) and REC
-    /// arms, disarms or drops in and out (`press_rec`), also while MENU or PAGE is held. A step and
-    /// TEMPO act when they are let go (`release`), a step on the bar and sixteenth it showed at its
-    /// press (`pressed`, S16), and so does CANCEL on STEP, on the cell the cursor showed at its
-    /// press (`cancel_at`, S11), unless SHIFT is held at its press, which takes it.
+    /// encoder holds. The ROLL button shows ROLL (`show`), as MENU + 2 does. PLAY and SHIFT + PLAY
+    /// start or jump (`play`), STOP stops (`stop`) and REC arms, disarms or drops in and out
+    /// (`press_rec`), also while MENU or PAGE is held. A step and TEMPO act when they are let go
+    /// (`release`), a step on the bar and sixteenth it showed at its press (`pressed`, S16), and so
+    /// does CANCEL on STEP, on the cell the cursor showed at its press (`cancel_at`, S11), unless
+    /// SHIFT is held at its press, which takes it.
     fn press(
         &mut self,
         button: Button,
@@ -1335,13 +1343,7 @@ impl Control {
             Button::Step(step) if overlay == Some(Button::Menu) => {
                 self.buttons.take(button);
                 if let Some(screen) = MENU[usize::from(step)] {
-                    if self.view.screen == Screen::Samples && screen != Screen::Samples {
-                        self.stop_preview(sample, messages);
-                    }
-                    self.view.screen = screen;
-                    if screen == Screen::Pool {
-                        self.land_on_selection();
-                    }
+                    self.show(screen, sample, messages);
                 }
             }
             Button::Step(step) if overlay == Some(Button::Page) => {
@@ -1377,6 +1379,7 @@ impl Control {
                 };
                 self.land_on_selection();
             }
+            Button::Roll => self.show(Screen::Roll, sample, messages),
             Button::Up | Button::Down | Button::Left | Button::Right if pads_keys => {
                 self.buttons.take(button);
                 let track = self.track_mut();
@@ -1425,22 +1428,40 @@ impl Control {
         }
     }
 
+    /// Shows `screen`: leaving SAMPLES stops its preview, and opening POOL lands its cursor on the
+    /// selection (`land_on_selection`).
+    fn show(
+        &mut self,
+        screen: Screen,
+        sample: u64,
+        messages: &mut Producer<'_, Message, MESSAGE_QUEUE>,
+    ) {
+        if self.view.screen == Screen::Samples && screen != Screen::Samples {
+            self.stop_preview(sample, messages);
+        }
+        self.view.screen = screen;
+        if screen == Screen::Pool {
+            self.land_on_selection();
+        }
+    }
+
     /// An arrow, - or + at its press and at each of its repeats, which reads SHIFT anew. In the
     /// picker up, down, - and + move the highlight one row and left and right a picker page of 16
     /// rows, stopping at the ends, and on SAMPLES, in the sample picker and on POOL they move its
     /// cursor the same way by as many rows as fit (`move_in_samples`, `move_in_pool`); with SHIFT
     /// held none of them does anything there. On a page up and down move the cursor one item,
     /// stopping at the ends, and - and + move the value under it by a click, a fine one while SHIFT
-    /// is held. SHIFT + an arrow does nothing outside STEP, and left and right do nothing on a page
-    /// of one column, but on FX Chain's tiles move the cursor's slot, stopping at slots 1 and 6
-    /// (S15). None of them gets here while MENU or PAGE is held (`press`). STEP has no
-    /// page, and - and + do nothing there. Its left and right move the cursor one sixteenth, over
-    /// dark cells into the next or previous bar, and with SHIFT a page of 16 cells to the same
+    /// is held. SHIFT + an arrow does nothing outside STEP and ROLL, and left and right do nothing
+    /// on a page of one column, but on FX Chain's tiles move the cursor's slot, stopping at slots 1
+    /// and 6 (S15). None of them gets here while MENU or PAGE is held (`press`). STEP and ROLL have
+    /// no page, and - and + do nothing there. Their left and right move the cursor one sixteenth,
+    /// over dark cells into the next or previous bar, and with SHIFT a page of 16 cells to the same
     /// place on that page or its last sixteenth where it is shorter; a move that would leave the
     /// pattern does nothing. They start from the cursor as shown (`cursor_at`), and one into
-    /// another bar stops following, the cursor keeping that bar. Its up and down select the sound
-    /// of the lane a lane above or below, SHIFT 12 lanes, stopping at the first and last, as a hit
-    /// of a pad selects it or as POOL selects a sound (S9).
+    /// another bar stops following, the cursor keeping that bar. STEP's up and down select the
+    /// sound of the lane a lane above or below, SHIFT 12 lanes, stopping at the first and last, as
+    /// a hit of a pad selects it or as POOL selects a sound (S9). ROLL's move its pitch a semitone
+    /// up or down, SHIFT 12, stopping at G9 and C-1.
     fn nudge(
         &mut self,
         button: Button,
@@ -1473,7 +1494,7 @@ impl Control {
             }
             return;
         }
-        if screen == Screen::Step {
+        if matches!(screen, Screen::Step | Screen::Roll) {
             match button {
                 Button::Left | Button::Right => {
                     let signature = self.project.signature;
@@ -1499,6 +1520,15 @@ impl Control {
                     .unwrap_or(cursor);
                     self.view.following &= target.bar == cursor.bar;
                     self.view.steps = target;
+                }
+                Button::Up | Button::Down if screen == Screen::Roll => {
+                    let by = if shift { 12 } else { 1 };
+                    let pitch = &mut self.view.roll.pitch;
+                    *pitch = if button == Button::Up {
+                        pitch.saturating_add(by).min(HIGHEST)
+                    } else {
+                        pitch.saturating_sub(by)
+                    };
                 }
                 Button::Up | Button::Down => {
                     let by = if shift { 12 } else { 1 };

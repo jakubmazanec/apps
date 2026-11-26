@@ -566,8 +566,7 @@ fn shift_menu_page_or_a_picker_take_the_step() {
     rig.press(100, Button::Shift);
     rig.tap(110, Button::Step(4));
     rig.let_go(120, Button::Shift);
-    // Under MENU step 2 is ROLL's, which does not exist yet; under PAGE step 1 shows the page
-    // shown already.
+    // Under MENU step 2 shows ROLL; under PAGE step 1 shows the page shown already.
     rig.menu(200, 1);
     rig.page(300, 0);
     // The sound picker, from SOUND's Pad page.
