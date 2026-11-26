@@ -1191,14 +1191,14 @@ impl Control {
     /// arrows, - and + are taken too, and the other controls act as with a picker open.
     ///
     /// Otherwise the arrows, - and + nudge (`nudge`), OK uses the item under the cursor, or acts on
-    /// SAMPLES' row (`ok_in_samples`) or POOL's (`ok_in_pool`), or on STEP enters a note in the
-    /// cursor's cell where none starts (`enter_note`, S10), and an encoder push the item its
-    /// encoder holds. The ROLL button shows ROLL (`show`), as MENU + 2 does. PLAY and SHIFT + PLAY
-    /// start or jump (`play`), STOP stops (`stop`) and REC arms, disarms or drops in and out
+    /// SAMPLES' row (`ok_in_samples`) or POOL's (`ok_in_pool`), or on STEP and ROLL enters a note
+    /// in the cursor's cell where none starts (`ok_on_cell`, S10), and an encoder push the item
+    /// its encoder holds. The ROLL button shows ROLL (`show`), as MENU + 2 does. PLAY and SHIFT +
+    /// PLAY start or jump (`play`), STOP stops (`stop`) and REC arms, disarms or drops in and out
     /// (`press_rec`), also while MENU or PAGE is held. A step and TEMPO act when they are let go
     /// (`release`), a step on the bar and sixteenth it showed at its press (`pressed`, S16), and so
-    /// does CANCEL on STEP, on the cell the cursor showed at its press (`cancel_at`, S11), unless
-    /// SHIFT is held at its press, which takes it.
+    /// does CANCEL on STEP and ROLL, on the cell the cursor showed at its press (`cancel_at`, S11),
+    /// unless SHIFT is held at its press, which takes it.
     fn press(
         &mut self,
         button: Button,
@@ -1236,9 +1236,10 @@ impl Control {
             {
                 self.buttons.take(button);
             }
-            // SHIFT + CANCEL on STEP stays free for undo (Milestone 4), as CANCEL alone removes.
+            // SHIFT + CANCEL on STEP and ROLL stays free for undo (Milestone 4), as CANCEL alone
+            // removes.
             Button::Cancel
-                if self.view.screen == Screen::Step
+                if matches!(self.view.screen, Screen::Step | Screen::Roll)
                     && !picker
                     && !question
                     && self.buttons.is_held(Button::Shift) =>
@@ -1496,8 +1497,8 @@ impl Control {
                 self.ok_in_samples(sample, messages);
             }
             Button::Ok if self.view.screen == Screen::Pool => self.ok_in_pool(),
-            Button::Ok if self.view.screen == Screen::Step => {
-                self.enter_note(self.cursor_at(sample), sample, versions, store);
+            Button::Ok if matches!(self.view.screen, Screen::Step | Screen::Roll) => {
+                self.ok_on_cell(sample, versions, store);
             }
             Button::Ok => {
                 let screen = self.view.screen;
@@ -2363,7 +2364,8 @@ impl Control {
     /// enters or removes notes (`tap_step`) and a tap of TEMPO turns the metronome on or off, also
     /// while MENU or PAGE is held. A tap of CANCEL closes the picker without choosing, answers the
     /// question no or, on SAMPLES and in the sample picker, goes up (`cancel_in_samples`) and on
-    /// STEP removes the notes of the cell the cursor showed at its press (`remove_notes`).
+    /// STEP and ROLL removes the notes of the cell the cursor showed at its press
+    /// (`remove_notes`).
     fn release(
         &mut self,
         button: Button,
@@ -2402,8 +2404,10 @@ impl Control {
             (Button::Cancel, Release::Tap) if self.view.screen == Screen::Samples => {
                 self.cancel_in_samples(sample, messages);
             }
-            (Button::Cancel, Release::Tap) if self.view.screen == Screen::Step => {
-                self.remove_notes(self.cancel_at, sample, versions, store);
+            (Button::Cancel, Release::Tap)
+                if matches!(self.view.screen, Screen::Step | Screen::Roll) =>
+            {
+                self.remove_notes(self.cancel_at, self.cell_pitch(), sample, versions, store);
             }
             _ => {}
         }

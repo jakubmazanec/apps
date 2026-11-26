@@ -1,7 +1,7 @@
 //! ROLL: its screen, its cursor, the row it keeps and its picture (Workflow B, Look).
 
 use super::library::converted_with;
-use super::pattern::{entered, put};
+use super::pattern::{count, entered, fill_until, notes_in, put, versions};
 use super::timing::playing_4_bars;
 use super::*;
 use crate::palette::{SHOWN_BAR, sound_color};
@@ -789,4 +789,213 @@ fn roll_redraws_when_a_note_goes_in() {
     let screen = picture(&rig.control);
     assert_eq!(block(&rig, &screen, 60, bright), Some((40, 44)));
     assert_eq!(ink(&screen, bright), 5 * 11);
+}
+
+/// Shows ROLL on T2 and puts its cursor on `pitch` in sixteenth `step` of bar 1.
+fn at_cell(rig: &mut Rig<'_>, pitch: u8, step: u8) {
+    rig.menu(0, 1);
+    rig.step(10);
+    rig.control.view.roll.pitch = pitch;
+    rig.control.view.steps = StepCursor { bar: 0, step };
+}
+
+#[test]
+fn ok_on_an_empty_roll_cell_adds_a_note_at_its_pitch() {
+    let queue = Queue::new();
+    let (mut rig, [bass, sub, _]) = on_t2(&queue);
+    // Bass's note of another pitch and Sub's of this one leave the cell empty: a cell is a pitch.
+    put(&mut rig, 0, 1, &[entered(3, bass, 46), entered(3, sub, 43)]);
+    at_cell(&mut rig, 43, 3);
+
+    rig.tap(100, Button::Ok);
+    rig.step(110);
+
+    let note = Note {
+        bar: 0,
+        place: 1_440,
+        length: 480,
+        sound: bass,
+        pitch: 43,
+        velocity: 127,
+        curve: None,
+    };
+    let notes = notes_in(&rig, rig.control.track_tree());
+    assert_eq!(notes.len(), 3);
+    assert!(notes.contains(&note));
+    assert_eq!(count(&rig, bass), 2);
+    assert_eq!(versions(&mut rig).len(), 1);
+
+    // In KEYS mode the last key played, D4 on pad 3, does not change the pitch.
+    rig.tap(200, Button::PadsKeys);
+    hit(&mut rig, 210, 2);
+    rig.control.view.steps = StepCursor { bar: 0, step: 4 };
+    rig.tap(300, Button::Ok);
+    rig.step(310);
+    assert!(notes_in(&rig, rig.control.track_tree()).contains(&entered(4, bass, 43)));
+    assert_eq!(count(&rig, bass), 3);
+}
+
+#[test]
+fn ok_on_a_cell_with_the_sounds_notes_adds_nothing() {
+    let queue = Queue::new();
+    let (mut rig, [bass, ..]) = on_t2(&queue);
+    // The note starts at place 1_500, inside sixteenth 3.
+    let note = Note {
+        place: 1_500,
+        ..entered(3, bass, 43)
+    };
+    put(&mut rig, 0, 1, &[note]);
+    at_cell(&mut rig, 43, 3);
+    let before = rig.control.track_tree();
+
+    rig.tap(100, Button::Ok);
+    rig.step(110);
+
+    assert_eq!(rig.control.track_tree(), before);
+    assert_eq!(notes_in(&rig, before), [note]);
+    assert_eq!(versions(&mut rig), []);
+}
+
+#[test]
+fn cancel_on_roll_removes_the_sounds_notes_of_its_pitch_only() {
+    let queue = Queue::new();
+    let (mut rig, [bass, sub, _]) = on_t2(&queue);
+    put(
+        &mut rig,
+        0,
+        1,
+        &[
+            entered(3, bass, 43),
+            entered(3, bass, 46),
+            entered(3, sub, 43),
+        ],
+    );
+    at_cell(&mut rig, 43, 3);
+
+    rig.tap(100, Button::Cancel);
+    rig.step(110);
+
+    assert_eq!(
+        notes_in(&rig, rig.control.track_tree()),
+        [entered(3, bass, 46), entered(3, sub, 43)]
+    );
+    assert_eq!(count(&rig, bass), 1);
+    assert_eq!(count(&rig, sub), 1);
+    assert_eq!(versions(&mut rig).len(), 1);
+
+    // It acts on the cell it showed at its press: bar 2 starts at sample 96,100, so CANCEL goes
+    // down in bar 1 and up in bar 2.
+    let queue = Queue::new();
+    let mut rig = playing_4_bars(&queue);
+    let syn_1 = rig.synth_on(0);
+    let in_bar_2 = Note {
+        bar: 1,
+        ..entered(0, syn_1, 60)
+    };
+    put(
+        &mut rig,
+        0,
+        0,
+        &[entered(0, syn_1, 60), entered(0, syn_1, 62), in_bar_2],
+    );
+    rig.menu(120, 1);
+    rig.step(130);
+    rig.control.view.roll.pitch = 60;
+
+    rig.press(96_000, Button::Cancel);
+    rig.let_go(96_200, Button::Cancel);
+    rig.step(96_300);
+
+    assert_eq!(
+        notes_in(&rig, rig.control.track_tree()),
+        [entered(0, syn_1, 62), in_bar_2]
+    );
+}
+
+#[test]
+fn ok_and_cancel_do_nothing_on_roll_with_an_empty_pad() {
+    let queue = Queue::new();
+    let (mut rig, [bass, ..]) = on_t2(&queue);
+    put(&mut rig, 0, 1, &[entered(3, bass, 43)]);
+    at_cell(&mut rig, 43, 4);
+    hit(&mut rig, 50, 11);
+    assert_eq!(rig.track().selected_sound, None);
+    let before = rig.control.track_tree();
+
+    // OK on an empty cell and CANCEL on the cell with the note.
+    rig.tap(100, Button::Ok);
+    rig.step(110);
+    rig.control.view.steps = StepCursor { bar: 0, step: 3 };
+    rig.tap(200, Button::Cancel);
+    rig.step(210);
+
+    assert_eq!(rig.control.track_tree(), before);
+    assert_eq!(count(&rig, bass), 1);
+    assert_eq!(rig.control.message, None);
+    assert_eq!(versions(&mut rig), []);
+}
+
+#[test]
+fn shift_cancel_is_taken_on_roll() {
+    let queue = Queue::new();
+    let (mut rig, [bass, ..]) = on_t2(&queue);
+    put(&mut rig, 0, 1, &[entered(3, bass, 43)]);
+    at_cell(&mut rig, 43, 3);
+
+    // SHIFT + CANCEL stays free for undo, whichever button goes up first.
+    rig.press(100, Button::Shift);
+    rig.tap(110, Button::Cancel);
+    rig.let_go(120, Button::Shift);
+    rig.press(200, Button::Shift);
+    rig.press(210, Button::Cancel);
+    rig.let_go(220, Button::Shift);
+    rig.let_go(230, Button::Cancel);
+    rig.step(300);
+    assert_eq!(
+        notes_in(&rig, rig.control.track_tree()),
+        [entered(3, bass, 43)]
+    );
+    assert_eq!(versions(&mut rig), []);
+
+    // It still closes a picker.
+    rig.tap(400, Button::Push(0));
+    rig.step(405);
+    assert!(rig.control.view.picker.is_some());
+    rig.press(410, Button::Shift);
+    rig.tap(420, Button::Cancel);
+    rig.let_go(430, Button::Shift);
+    rig.step(500);
+    assert!(rig.control.view.picker.is_none());
+    assert_eq!(
+        notes_in(&rig, rig.control.track_tree()),
+        [entered(3, bass, 43)]
+    );
+}
+
+#[test]
+fn ok_on_roll_under_the_reserve_says_not_enough_memory() {
+    let queue = Queue::new();
+    let (mut rig, [bass, ..]) = on_t2(&queue);
+    put(&mut rig, 0, 1, &[entered(4, bass, 43)]);
+    at_cell(&mut rig, 43, 2);
+    fill_until(&rig, RESERVE - 1);
+    let before = rig.control.track_tree();
+
+    rig.tap(100, Button::Ok);
+    rig.step(110);
+
+    assert_eq!(rig.control.track_tree(), before);
+    assert_eq!(count(&rig, bass), 1);
+    assert_eq!(versions(&mut rig), []);
+    let message = rig.control.message.unwrap();
+    assert_eq!(message.text.as_str(), "Not enough memory");
+    assert_eq!(message.color, RECORD);
+
+    // A removal may use the reserve.
+    rig.control.view.steps = StepCursor { bar: 0, step: 4 };
+    rig.tap(200, Button::Cancel);
+    rig.step(210);
+    assert_eq!(notes_in(&rig, rig.control.track_tree()), []);
+    assert_eq!(count(&rig, bass), 0);
+    assert_eq!(versions(&mut rig).len(), 1);
 }

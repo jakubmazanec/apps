@@ -2,7 +2,7 @@
 //! of a track that give its notes to the audio part (Workflow B).
 
 use super::Control;
-use super::view::StepCursor;
+use super::view::{Screen, StepCursor};
 use crate::budget;
 use crate::message::{VERSION_QUEUE, Version};
 use crate::palette::RECORD;
@@ -23,8 +23,8 @@ impl Control {
     /// A tap of step `button` (0 to 15) on the page the step buttons show (S1 to S5) acts on the
     /// bar and sixteenth the button showed when it went down (`pressed`, S16): the cursor's step
     /// goes to the sixteenth, and a step past the bar's end does nothing. With a selected sound,
-    /// the sound's notes that start in the sixteenth are removed (`remove_notes`), and with none
-    /// there a note goes in (`enter_note`).
+    /// the sound's notes that start in the sixteenth are removed (`remove_notes`), whatever their
+    /// pitch, and with none there a note goes in (`enter_note`).
     pub(super) fn tap_step(
         &mut self,
         button: u8,
@@ -37,16 +37,47 @@ impl Control {
             return;
         }
         self.view.steps.step = place.step;
-        if !self.remove_notes(place, sample, versions, store) {
-            self.enter_note(place, sample, versions, store);
+        if !self.remove_notes(place, None, sample, versions, store) {
+            self.enter_note(place, None, sample, versions, store);
         }
     }
 
-    /// Removes the notes of the selected sound that start in the sixteenth of `place`, whatever
-    /// their pitch, and says whether there were any. A removal may use the reserve (S19).
+    /// OK on the cursor's cell of STEP or ROLL: where the selected sound has no note starting in
+    /// the cell's sixteenth, of the row's pitch on ROLL, a note goes in (`enter_note`).
+    pub(super) fn ok_on_cell(
+        &mut self,
+        sample: u64,
+        versions: &mut Producer<'_, Version, VERSION_QUEUE>,
+        store: &mut Store<'_>,
+    ) {
+        let Some(sound) = self.selected() else {
+            return;
+        };
+        let place = self.cursor_at(sample);
+        let pitch = self.cell_pitch();
+        let keys = sixteenth(place);
+        if store
+            .reader()
+            .notes(self.track_tree(), keys.start)
+            .take_while(|note| keys.contains(&note.key()))
+            .any(|note| note.sound == sound.number && pitch.is_none_or(|pitch| note.pitch == pitch))
+        {
+            return;
+        }
+        self.enter_note(place, pitch, sample, versions, store);
+    }
+
+    /// The pitch a cell is of: ROLL's row, and none on STEP, where a cell holds every pitch.
+    pub(super) fn cell_pitch(&self) -> Option<u8> {
+        (self.view.screen == Screen::Roll).then_some(self.view.roll.pitch)
+    }
+
+    /// Removes the notes of the selected sound that start in the sixteenth of `place`, of `pitch`
+    /// or of every pitch, and says whether there were any. A removal may use the reserve (S19).
     pub(super) fn remove_notes(
         &mut self,
         place: StepCursor,
+        pitch: Option<u8>,
         sample: u64,
         versions: &mut Producer<'_, Version, VERSION_QUEUE>,
         store: &mut Store<'_>,
@@ -54,7 +85,7 @@ impl Control {
         let Some(sound) = self.track().selected_sound else {
             return false;
         };
-        let (tree, removed) = self.cleared(self.track_tree(), place, sound, None, store);
+        let (tree, removed) = self.cleared(self.track_tree(), place, sound, pitch, store);
         if removed == 0 {
             return false;
         }
@@ -70,14 +101,15 @@ impl Control {
         true
     }
 
-    /// Enters a note of the selected sound in the sixteenth of `place`, unless a note of the sound
-    /// starts there already (S10). It starts the sixteenth, is a sixteenth long, has velocity 127
-    /// and no pressure curve, and its pitch is where the sound plays unchanged in PADS mode, and in
-    /// KEYS mode the last key played, or the C of the octave before any key. With fewer than
-    /// `RESERVE` blocks free no note goes in, and "Not enough memory" shows in red instead (S19).
+    /// Enters a note of the selected sound in the sixteenth of `place`. It starts the sixteenth, is
+    /// a sixteenth long, has velocity 127 and no pressure curve, and its pitch is `pitch`, or where
+    /// the sound plays unchanged in PADS mode, and in KEYS mode the last key played, or the C of
+    /// the octave before any key. With fewer than `RESERVE` blocks free no note goes in, and "Not
+    /// enough memory" shows in red instead (S19).
     pub(super) fn enter_note(
         &mut self,
         place: StepCursor,
+        pitch: Option<u8>,
         sample: u64,
         versions: &mut Producer<'_, Version, VERSION_QUEUE>,
         store: &mut Store<'_>,
@@ -85,16 +117,6 @@ impl Control {
         let Some(sound) = self.selected() else {
             return;
         };
-        let number = sound.number;
-        let keys = sixteenth(place);
-        if store
-            .reader()
-            .notes(self.track_tree(), keys.start)
-            .take_while(|note| keys.contains(&note.key()))
-            .any(|note| note.sound == number)
-        {
-            return;
-        }
         if store.free() < RESERVE {
             self.say("Not enough memory", RECORD);
             return;
@@ -102,11 +124,11 @@ impl Control {
         let tree = self.added(
             self.track_tree(),
             place,
-            number,
-            match self.track().mode {
+            sound.number,
+            pitch.unwrap_or(match self.track().mode {
                 PadMode::Pads => sound.unchanged_pitch(),
                 PadMode::Keys => self.track().last_key.unwrap_or(self.track().key_pitch(0)),
-            },
+            }),
             store,
         );
         self.edit(
