@@ -716,14 +716,14 @@ impl Control {
             for (index, item) in NOTE.iter().enumerate() {
                 let item_y = y + PANEL_INSET + ITEM_PITCH * index as i32;
                 let (mut name, mut value) = (Label::new(), Label::new());
-                draw_item(
+                scrolls |= draw_item(
                     canvas,
                     x + PANEL_INSET,
                     item_y,
                     PANEL_ITEM_WIDTH,
                     &self.item_view(item, &mut name, &mut value),
                     false,
-                    None,
+                    (index == panel.item).then_some(elapsed),
                 );
                 if index == panel.item {
                     draw_cursor(

@@ -138,6 +138,8 @@ struct Focus {
     picker: Option<usize>,
     /// The question while one is open.
     question: Option<Question>,
+    /// The item of the NOTE panel's cursor while the panel is open.
+    note_panel: Option<usize>,
     /// The row under the cursor of SAMPLES or of the sample picker while it shows.
     samples: Option<samples::Row>,
     /// The row of POOL's cursor while POOL shows (S18).
@@ -617,6 +619,7 @@ impl Control {
                 item: self.cursor(paged).item,
                 picker: self.view.picker.map(|(_, highlight)| highlight.item),
                 question: self.view.question,
+                note_panel: self.view.note_panel.map(|panel| panel.item),
                 samples: match self.view.picker {
                     Some((Picker::Sample(_), _)) => self.view.sample_picker.on,
                     _ => self
@@ -1193,8 +1196,10 @@ impl Control {
     /// every sound unused at that moment; on Delete notes it applies the change (`reshape`). The
     /// arrows, - and + are taken too, and the other controls act as with a picker open. While the
     /// NOTE panel is open the controls act as with a picker open, but the arrows, - and + move its
-    /// cursor and change its item (`nudge`), with SHIFT too, OK is taken, SHIFT + CANCEL is taken
-    /// as on STEP and ROLL, SHIFT + PLAY acts and a tap of CANCEL closes it (`release`, S12).
+    /// cursor and change its item (`nudge`), with SHIFT too though not under PADS/KEYS, which takes
+    /// them, OK is taken, SHIFT + CANCEL is taken as on STEP and ROLL, SHIFT + PLAY acts and a tap
+    /// of CANCEL closes it (`release`, S12). Opening and closing it take the held arrows, - and +
+    /// (`end_held_repeats`).
     ///
     /// Otherwise the arrows, - and + nudge (`nudge`), OK uses the item under the cursor, or acts on
     /// SAMPLES' row (`ok_in_samples`) or POOL's (`ok_in_pool`), or on STEP and ROLL enters a note
@@ -1261,9 +1266,8 @@ impl Control {
             | Button::Minus
             | Button::Plus
                 if question
-                    || picker
-                        && (self.buttons.is_held(Button::Shift)
-                            || self.buttons.is_held(Button::PadsKeys)) =>
+                    || picker && self.buttons.is_held(Button::Shift)
+                    || (picker || panel) && self.buttons.is_held(Button::PadsKeys) =>
             {
                 self.buttons.take(button);
             }
@@ -2430,6 +2434,7 @@ impl Control {
             ),
             (Button::Cancel, Release::Tap) if self.view.note_panel.is_some() => {
                 self.view.note_panel = None;
+                self.end_held_repeats();
             }
             (Button::Cancel, Release::Tap)
                 if matches!(self.view.picker, Some((Picker::Sample(_), _))) =>
@@ -2457,7 +2462,8 @@ impl Control {
 
     /// Takes every held arrow, - and +, so they stop repeating and act again only after a new
     /// press. Their repeats would otherwise carry on into what changed under them: the tiles of a
-    /// counted MENU or PAGE, and the sound picker as it opens or closes.
+    /// counted MENU or PAGE, the sound picker as it opens or closes and the NOTE panel as it opens
+    /// or closes.
     fn end_held_repeats(&mut self) {
         for held in REPEATING {
             self.buttons.take(held);

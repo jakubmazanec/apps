@@ -10,6 +10,7 @@ use crate::control::step_view::place_of;
 use crate::project::FOUR_FOUR;
 use crate::store::note::Note;
 use crate::ui::layout::rect;
+use crate::ui::test_pixels::MOVED;
 use view::{NotePanel, StepCursor};
 
 /// A note of `sound` at `pitch` and velocity 100 in sixteenth `step` of bar `bar` (from 0).
@@ -206,6 +207,56 @@ fn the_arrows_minus_plus_and_the_encoders_edit_it() {
 }
 
 #[test]
+fn the_name_under_the_panels_cursor_scrolls_from_where_it_landed() {
+    // Lengths of 17 and 19 256ths leave Length no room for its name.
+    let queue = Queue::new();
+    let (mut rig, [bass, ..]) = on_t2(&queue);
+    let long = |pitch, length| Note {
+        length,
+        ..soft(0, 3, bass, pitch)
+    };
+    put(&mut rig, 0, 1, &[long(48, 510), long(52, 570)]);
+    rig.control.view.steps = StepCursor { bar: 0, step: 3 };
+    rig.tap(100, Button::Ok);
+    // The Length item in the panel, `scroll` samples after the cursor landed on it or shortened
+    // with "…" without.
+    let length = |rig: &Rig<'_>, scroll: Option<u64>| {
+        let mut expected = Screen::new();
+        draw_item(
+            &mut expected,
+            181,
+            135,
+            118,
+            &ItemView {
+                encoder: None,
+                name: "Length",
+                value: "17/256–19/256",
+                bar: Bar::Track,
+                alert: false,
+            },
+            false,
+            scroll,
+        );
+        let actual = picture(&rig.control);
+        (181..299).all(|x| (135..152).all(|y| actual.pixel(x, y) == expected.pixel(x, y)))
+    };
+
+    // Down twice lands on Length at sample 211.
+    taps(&mut rig, 200, Button::Down, false, 2);
+    rig.step(211 + MOVED);
+    assert!(length(&rig, Some(MOVED)));
+    assert!(!length(&rig, None));
+    assert!(rig.step(211 + MOVED + SCROLL_PIXEL));
+
+    // Up leaves it shortened, and Down lands on it again from its start.
+    taps(&mut rig, 100_000, Button::Up, false, 1);
+    assert!(length(&rig, None));
+    taps(&mut rig, 200_000, Button::Down, false, 1);
+    rig.step(201_000);
+    assert!(length(&rig, Some(201_000 - 200_001)));
+}
+
+#[test]
 fn position_carries_the_cell_and_the_view_with_the_notes() {
     let queue = Queue::new();
     let (mut rig, [bass, ..]) = on_t2(&queue);
@@ -349,6 +400,21 @@ fn cancel_closes_the_panel_on_its_cell() {
 }
 
 #[test]
+fn closing_the_panel_ends_held_repeats() {
+    // Down held through the CANCEL that closes the panel would repeat on STEP into Sub's lane.
+    let queue = Queue::new();
+    let (mut rig, [bass, ..]) = chord(&queue);
+    rig.tap(100, Button::Ok);
+    rig.press(200, Button::Down);
+    rig.tap(300, Button::Cancel);
+    rig.step(200 + REPEAT_DELAY + 5 * REPEAT_EVERY);
+
+    assert_eq!(rig.control.view.note_panel, None);
+    assert_eq!(rig.track().selected_sound, Some(bass));
+    assert_eq!(rig.control.cursor_lane(), 0);
+}
+
+#[test]
 fn the_panel_stops_following_and_play_follows_once_it_closes() {
     // Bar 2 starts at sample 96,100 and bar 4 at 288,100. STEP's 55 columns show bar 4's eighth
     // sixteenth, cell 55, only once the view moves a beat.
@@ -453,6 +519,18 @@ fn the_panel_takes_the_controls_a_picker_takes() {
     rig.step(40_030);
     assert!(rig.control.project.tracks[0].muted());
     assert_eq!(rig.control.view.note_panel, view.note_panel);
+
+    // Under PADS/KEYS, which the panel takes, an arrow, - or + is taken and does not repeat.
+    rig.press(50_000, Button::PadsKeys);
+    rig.press(50_010, Button::Up);
+    rig.tap(50_020, Button::Plus);
+    rig.step(50_010 + REPEAT_DELAY + 5 * REPEAT_EVERY);
+    rig.let_go(60_000 + REPEAT_DELAY, Button::Up);
+    rig.let_go(60_010 + REPEAT_DELAY, Button::PadsKeys);
+    rig.step(70_000 + REPEAT_DELAY);
+    assert_eq!(rig.control.view.note_panel, view.note_panel);
+    assert_eq!(rig.control.track_tree(), tree);
+    assert_eq!(rig.track().mode, PadMode::Pads);
 }
 
 #[test]
