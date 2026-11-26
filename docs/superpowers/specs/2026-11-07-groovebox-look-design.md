@@ -283,7 +283,8 @@ do not fit. Nothing is drawn past the grid's end, where the pattern or the scree
 2 px before the line that closes the grid, and a block that would cross that line moves left to end
 on it, still 5 px wide. A note belongs to the step whose sixteenth it starts in, so a slightly early
 loose hit belongs to and lights the step before the one aimed at, though it is drawn where it was
-played. `step-playing.png`'s left-shifted note is older than this choice, which the text overrules.
+played, and nothing is drawn left of centre. `step-playing.png`'s left-shifted note is older than
+this choice, which the text overrules.
 
 **The music** is a 1 px white line. **The cursor** is the orange outline around the cell, 1 px
 outside it.
