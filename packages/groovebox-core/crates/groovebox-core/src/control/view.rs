@@ -191,10 +191,18 @@ pub struct RollView {
     pub shows: (u8, Option<SoundNumber>),
 }
 
+/// The NOTE panel while it is open over STEP or ROLL (S13): its cursor, 0 (Pitch) to 3
+/// (Position), and the cell it opened on, from which Position counts.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct NotePanel {
+    pub item: usize,
+    pub from: StepCursor,
+}
+
 /// What the screen shows: the screen, the page each screen shows, the cursor of each page, the
 /// folder and cursor of SAMPLES and of the sample picker, POOL's cursor, the step cursor, STEP's
-/// view, ROLL's, whether it follows the music, FX Chain's slot and a picker or a question while one
-/// is open. They are kept while the control part lives and are not saved.
+/// view, ROLL's, whether it follows the music, FX Chain's slot and a picker, a question or the NOTE
+/// panel while one is open. They are kept while the control part lives and are not saved.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct View {
     pub screen: Screen,
@@ -221,6 +229,8 @@ pub struct View {
     pub picker: Option<(Picker, Cursor)>,
     /// The question while it is open over the middle of the main area of `screen`.
     pub question: Option<Question>,
+    /// The NOTE panel while it is open over the middle of the main area of STEP or ROLL.
+    pub note_panel: Option<NotePanel>,
 }
 
 impl View {
@@ -228,7 +238,7 @@ impl View {
     /// first item, SAMPLES and the sample picker at the top level, POOL's cursor on Remove unused
     /// for T1 with no sound selected, the step cursor on bar 1, step 1, STEP's view at its first
     /// cell and lane, ROLL's cursor on C4 under its top row G4 with no sound centred on, not
-    /// following, FX Chain on slot 1 and no picker or question open.
+    /// following, FX Chain on slot 1 and no picker, question or NOTE panel open.
     pub const fn new() -> Self {
         Self {
             screen: Screen::Step,
@@ -254,6 +264,7 @@ impl View {
             fx_slot: 0,
             picker: None,
             question: None,
+            note_panel: None,
         }
     }
 

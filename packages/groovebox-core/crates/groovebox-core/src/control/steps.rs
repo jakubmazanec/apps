@@ -2,7 +2,7 @@
 //! of a track that give its notes to the audio part (Workflow B).
 
 use super::Control;
-use super::view::{Screen, StepCursor};
+use super::view::{NotePanel, Screen, StepCursor};
 use crate::budget;
 use crate::message::{VERSION_QUEUE, Version};
 use crate::palette::RECORD;
@@ -17,6 +17,12 @@ use core::ops::Range;
 pub(super) fn sixteenth(place: StepCursor) -> Range<Key> {
     let start = u16::from(place.step) * 480;
     Key::at(place.bar, start)..Key::at(place.bar, start + 480)
+}
+
+/// Whether `note` is a note of `sound` of `pitch`, or of any pitch with none: a ROLL cell's notes
+/// are one pitch and a STEP cell's every pitch.
+pub(super) fn is_of(note: &Note, sound: SoundNumber, pitch: Option<u8>) -> bool {
+    note.sound == sound && pitch.is_none_or(|pitch| note.pitch == pitch)
 }
 
 impl Control {
@@ -43,7 +49,9 @@ impl Control {
     }
 
     /// OK on the cursor's cell of STEP or ROLL: where the selected sound has no note starting in
-    /// the cell's sixteenth, of the row's pitch on ROLL, a note goes in (`enter_note`).
+    /// the cell's sixteenth, of the row's pitch on ROLL, a note goes in (`enter_note`). Where it
+    /// has, the NOTE panel opens on Pitch, the step cursor takes the cell as shown, following
+    /// stops and the held arrows, - and + stop repeating (S11).
     pub(super) fn ok_on_cell(
         &mut self,
         sample: u64,
@@ -60,8 +68,15 @@ impl Control {
             .reader()
             .notes(self.track_tree(), keys.start)
             .take_while(|note| keys.contains(&note.key()))
-            .any(|note| note.sound == sound.number && pitch.is_none_or(|pitch| note.pitch == pitch))
+            .any(|note| is_of(&note, sound.number, pitch))
         {
+            self.view.steps = place;
+            self.view.following = false;
+            self.view.note_panel = Some(NotePanel {
+                item: 0,
+                from: place,
+            });
+            self.end_held_repeats();
             return;
         }
         self.enter_note(place, pitch, sample, versions, store);
@@ -157,7 +172,7 @@ impl Control {
         let keys = sixteenth(place);
         let mut removed = 0;
         let kept = store.remove(tree, keys.start, keys.end, |note| {
-            let taken = note.sound == sound && pitch.is_none_or(|pitch| note.pitch == pitch);
+            let taken = is_of(note, sound, pitch);
             removed += u32::from(taken);
             taken
         });

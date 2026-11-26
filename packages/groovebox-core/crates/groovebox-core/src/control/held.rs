@@ -1,10 +1,11 @@
 //! Held steps and the NOTE strip, whose encoders change the pitch, velocity, length and position
 //! of the selected sound's notes in the held steps' sixteenths, and whose steps a pad or key hit
-//! adds a sound or pitch to or removes it from (Workflow B).
+//! adds a sound or pitch to or removes it from, and the NOTE panel, which changes them in its cell
+//! (Workflow B).
 
 use super::Control;
 use super::pages::ItemKind;
-use super::steps::sixteenth;
+use super::steps::{is_of, sixteenth};
 use super::view::StepCursor;
 use crate::input::{Button, STEPS};
 use crate::message::{VERSION_QUEUE, Version};
@@ -17,12 +18,14 @@ use crate::store::{RESERVE, Store};
 use core::fmt::Write;
 
 /// The held steps' notes as the strip shows them (S13): the lowest and the highest of each value.
+/// The NOTE panel's notes show the same way.
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub struct Held {
     pub pitch: (u8, u8),
     pub velocity: (u8, u8),
     pub length: (u32, u32),
-    /// How many grid steps the notes lie from the sixteenths their steps showed at their press.
+    /// How many grid steps the notes lie from the sixteenths their steps showed at their press, or
+    /// from the cell the NOTE panel opened on.
     pub position: (i32, i32),
 }
 
@@ -64,29 +67,45 @@ impl Control {
             .map(move |step| (step, self.held[usize::from(step)]))
     }
 
-    /// The held notes as the strip shows them: the selected sound's notes in each held step's
-    /// sixteenth. None while there are none.
-    pub(super) fn summary(&self, store: &Store<'_>) -> Option<Held> {
-        let sound = self.track().selected_sound?;
-        let sixteenths = self.project.signature.sixteenths();
-        let mut summary = None;
+    /// The cells the NOTE strip or panel edits, each with where its notes lie now and where they
+    /// lay when it started, and ROLL's pitch for the panel (S13). While the panel is open they are
+    /// its cell, the step cursor's; otherwise they are the held steps, by step.
+    pub(super) fn edited(
+        &self,
+    ) -> (
+        [Option<(StepCursor, StepCursor)>; STEPS as usize],
+        Option<u8>,
+    ) {
+        let mut cells = [None; STEPS as usize];
+        if let Some(panel) = self.view.note_panel {
+            cells[0] = Some((self.view.steps, panel.from));
+            return (cells, self.cell_pitch());
+        }
         for (step, place) in self.held_steps() {
             // A step pressed where an earlier one's notes lie shares them, at the earlier one's
             // position.
-            if self
-                .held_steps()
-                .any(|(earlier, at)| earlier < step && at == place)
-            {
-                continue;
+            if !cells.iter().flatten().any(|&(at, _)| at == place) {
+                cells[usize::from(step)] = Some((place, self.pressed[usize::from(step)]));
             }
-            let position = grid(place, sixteenths) as i32
-                - grid(self.pressed[usize::from(step)], sixteenths) as i32;
+        }
+        (cells, None)
+    }
+
+    /// The edited notes as the strip and the panel show them: the selected sound's notes in each
+    /// edited cell's sixteenth, of its pitch on ROLL (`edited`). None while there are none.
+    pub(super) fn summary(&self, store: &Store<'_>) -> Option<Held> {
+        let sound = self.track().selected_sound?;
+        let sixteenths = self.project.signature.sixteenths();
+        let (cells, pitch) = self.edited();
+        let mut summary = None;
+        for &(place, from) in cells.iter().flatten() {
+            let position = grid(place, sixteenths) as i32 - grid(from, sixteenths) as i32;
             let keys = sixteenth(place);
             for note in store
                 .reader()
                 .notes(self.track_tree(), keys.start)
                 .take_while(|note| keys.contains(&note.key()))
-                .filter(|note| note.sound == sound)
+                .filter(|note| is_of(note, sound, pitch))
             {
                 let held = summary.get_or_insert(Held {
                     pitch: (note.pitch, note.pitch),
@@ -105,18 +124,19 @@ impl Control {
         summary
     }
 
-    /// A turn of `clicks` on the NOTE item `kind` (S13, S14). Every held note moves by the same
-    /// amount: PITCH a semitone and VELOCITY one a click, LENGTH 480 ticks and 30 while SHIFT is
-    /// held, POSITION a grid step. VELOCITY and LENGTH stop each note at its own end, 1 to 127 and
-    /// 30 ticks to a bar, or at its own length for a note longer or shorter than that (S18); PITCH
-    /// stops all of them where the first note reaches 0 or 127, and
-    /// POSITION where the first held step, with notes or without, reaches the pattern's first or
-    /// last grid position, so no held note lands on another. A turn that changes nothing does
+    /// A turn of `clicks` on the NOTE item `kind` (S13, S14). Every edited note (`edited`) moves by
+    /// the same amount: PITCH a semitone and VELOCITY one a click, LENGTH 480 ticks and 30 while
+    /// SHIFT is held, POSITION a grid step. VELOCITY and LENGTH stop each note at its own end, 1 to
+    /// 127 and 30 ticks to a bar, or at its own length for a note longer or shorter than that
+    /// (S18); PITCH stops all of them where the first note reaches 0 or 127, and
+    /// POSITION where the first edited cell, with notes or without, reaches the pattern's first or
+    /// last grid position, so no edited note lands on another. A turn that changes nothing does
     /// nothing, and with fewer than `RESERVE` blocks free none changes and "Not enough memory"
-    /// shows in red. The held notes leave the track's tree and go back changed, read from the old
+    /// shows in red. The edited notes leave the track's tree and go back changed, read from the old
     /// tree, which the track holds until `edit`. A moved note replaces a note of the sound and
     /// pitch where it lands, which goes off its counts, and every held step moves by the same
-    /// number (`held`), so each stands for the sixteenth its notes moved to.
+    /// number (`held`), so each stands for the sixteenth its notes moved to. The NOTE panel's cell
+    /// moves with its notes too: POSITION moves the step cursor and, on ROLL, PITCH its row.
     pub(super) fn turn_held(
         &mut self,
         kind: ItemKind,
@@ -128,6 +148,7 @@ impl Control {
         let (Some(sound), Some(held)) = (self.track().selected_sound, self.summary(store)) else {
             return;
         };
+        let (cells, pitch) = self.edited();
         let signature = self.project.signature;
         let sixteenths = signature.sixteenths();
         let by = match kind {
@@ -135,12 +156,13 @@ impl Control {
                 clicks.clamp(-i32::from(held.pitch.0), 127 - i32::from(held.pitch.1))
             }
             ItemKind::NotePosition => {
-                let (first, last) = self
-                    .held_steps()
-                    .map(|(_, place)| grid(place, sixteenths))
+                let (first, last) = cells
+                    .iter()
+                    .flatten()
+                    .map(|&(place, _)| grid(place, sixteenths))
                     .fold((u32::MAX, 0), spread);
-                // A held place lies inside the pattern (`held_steps`), so the last grid position is
-                // never before it.
+                // A held place lies inside the pattern (`held_steps`), as the cursor's does, so the
+                // last grid position is never before it.
                 clicks.clamp(
                     -(first as i32),
                     (u32::from(self.project.patterns[usize::from(self.project.pattern)].bars)
@@ -180,20 +202,14 @@ impl Control {
             self.say("Not enough memory", RECORD);
             return;
         }
-        let mut steps = [None; STEPS as usize];
-        for (step, place) in self.held_steps() {
-            steps[usize::from(step)] = Some(place);
-        }
         let old = self.track_tree();
         let mut tree = old;
-        for &place in steps.iter().flatten() {
-            tree = self.cleared(tree, place, sound, None, store).0;
+        for &(place, _) in cells.iter().flatten() {
+            tree = self.cleared(tree, place, sound, pitch, store).0;
         }
-        for (step, place) in steps.iter().enumerate() {
-            // A step pressed where an earlier one's notes lie shares them, and they go in once.
-            let Some(place) = place.filter(|place| !steps[..step].contains(&Some(*place))) else {
-                continue;
-            };
+        // A step pressed where an earlier one's notes lie shares them, which `edited` leaves out,
+        // so they go in once.
+        for &(place, _) in cells.iter().flatten() {
             let keys = sixteenth(place);
             let mut cursor = store.reader().seek(old, keys.start);
             while let Some(note) = store
@@ -202,7 +218,7 @@ impl Control {
                 .filter(|note| keys.contains(&note.key()))
             {
                 store.reader().advance(&mut cursor);
-                if note.sound != sound {
+                if !is_of(&note, sound, pitch) {
                     continue;
                 }
                 let (added, replaced) = store.insert(
@@ -240,12 +256,21 @@ impl Control {
                 );
             }
         }
-        if kind == ItemKind::NotePosition {
-            for (held, place) in self.held.iter_mut().zip(steps) {
-                if let Some(place) = place {
-                    *held = moved(place);
-                }
+        match (kind, pitch) {
+            (ItemKind::NotePosition, _) if self.view.note_panel.is_some() => {
+                self.view.steps = moved(self.view.steps);
             }
+            (ItemKind::NotePosition, _) => {
+                let mut held = self.held;
+                for (step, place) in self.held_steps() {
+                    held[usize::from(step)] = moved(place);
+                }
+                self.held = held;
+            }
+            (ItemKind::NotePitch, Some(pitch)) => {
+                self.view.roll.pitch = (i32::from(pitch) + by) as u8;
+            }
+            _ => {}
         }
         self.edit(
             self.project.pattern,

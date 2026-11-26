@@ -239,8 +239,8 @@ pub struct Control {
     /// Where the notes of each step button lie while it is held: the place it showed at its press,
     /// which POSITION moves by as many grid steps as the notes, with notes there or not (S14).
     held: [StepCursor; 16],
-    /// The held steps' notes as the latest step that asked for a redraw left them, none while
-    /// there are none (S13).
+    /// The held steps' notes, or the NOTE panel's, as the latest step that asked for a redraw left
+    /// them, none while there are none (S13, `summary`).
     held_values: Option<Held>,
     /// The cell the cursor showed when CANCEL last went down, on which its tap acts (S11).
     cancel_at: StepCursor,
@@ -420,10 +420,11 @@ impl Control {
     /// it holds them already (`waveform`), it works out which steps of the page and bar the step
     /// buttons show (`shown_bar`) start a note of the selected sound (`step_notes`) and it notes
     /// how much of the note memory is in use (`note_memory`). When it returns true it also notes
-    /// the held steps' notes as the strip shows them (`held_values`), while STEP shows what the
-    /// cells of the shown lanes hold and while ROLL shows the colour of each pixel of its shown
-    /// rows (`shown_notes`): every note of the current track, those of the other sounds first and
-    /// the selected sound's on top, each from the pixel of its start to the pixel of its end (S7).
+    /// the held steps' or the NOTE panel's notes as the strip shows them (`held_values`), while
+    /// STEP shows what the cells of the shown lanes hold and while ROLL shows the colour of each
+    /// pixel of its shown rows (`shown_notes`): every note of the current track, those of the
+    /// other sounds first and the selected sound's on top, each from the pixel of its start to the
+    /// pixel of its end (S7).
     #[expect(
         clippy::too_many_arguments,
         reason = "the control part writes two queues and reads and writes three memories"
@@ -592,7 +593,7 @@ impl Control {
                 }
                 Event::Repeat(button) => {
                     // Each repeat makes the same move as the press.
-                    self.nudge(button, sample, messages);
+                    self.nudge(button, sample, messages, versions, store);
                     self.buttons.repeated(button);
                 }
             }
@@ -1017,15 +1018,15 @@ impl Control {
 
     /// A hit from `source`. In PADS mode it hits `pad`: it plays the pad's sound at its own pitch,
     /// C4 for a synth, where it sounds unchanged, and its Root note for a sample sound, where it
-    /// sounds as recorded (S2), and selects the pad and its sound unless a picker or a question is
-    /// open, as a new selection would change what it is for, or a step is held; a selected pad
-    /// lands POOL's cursor (`land_on_selection`). In KEYS mode it is the key of the pitch `key`:
-    /// that becomes the last key played, and it plays the selected sound at that pitch. With no
-    /// sound it plays nothing, and neither does a source that has a note on already. Its note
-    /// plays the sound's `note_engine`. With a step held and no picker or question open, what
-    /// sounds also goes in or out of each held step's notes (`toggle_held`, S15), and that uses
-    /// the held buttons, a MIDI note too; otherwise its note records what it plays while REC is
-    /// on (`take`, S9).
+    /// sounds as recorded (S2), and selects the pad and its sound unless a picker, a question or
+    /// the NOTE panel is open, as a new selection would change what it is for, or a step is held;
+    /// a selected pad lands POOL's cursor (`land_on_selection`). In KEYS mode it is the key of the
+    /// pitch `key`: that becomes the last key played, and it plays the selected sound at that
+    /// pitch. With no sound it plays nothing, and neither does a source that has a note on
+    /// already. Its note plays the sound's `note_engine`. With a step held and no picker, question
+    /// or NOTE panel open, what sounds also goes in or out of each held step's notes
+    /// (`toggle_held`, S15), and that uses the held buttons, a MIDI note too; otherwise its note
+    /// records what it plays while REC is on (`take`, S9).
     #[expect(
         clippy::too_many_arguments,
         reason = "a hit writes the message queue, the version queue and the note memory"
@@ -1041,7 +1042,9 @@ impl Control {
         versions: &mut Producer<'_, Version, VERSION_QUEUE>,
         store: &mut Store<'_>,
     ) {
-        let open = self.view.picker.is_some() || self.view.question.is_some();
+        let open = self.view.picker.is_some()
+            || self.view.question.is_some()
+            || self.view.note_panel.is_some();
         let held = !open && self.held_steps().next().is_some();
         let selecting = !open && !held;
         let track = self.track_mut();
@@ -1188,14 +1191,18 @@ impl Control {
     /// file (`delete_file`) unless the import replaces a file; on POOL's DELETE it deletes the sound
     /// (`delete_sound`) and moves the cursor to the row above (S16); on Remove unused it deletes
     /// every sound unused at that moment; on Delete notes it applies the change (`reshape`). The
-    /// arrows, - and + are taken too, and the other controls act as with a picker open.
+    /// arrows, - and + are taken too, and the other controls act as with a picker open. While the
+    /// NOTE panel is open the controls act as with a picker open, but the arrows, - and + move its
+    /// cursor and change its item (`nudge`), with SHIFT too, OK is taken, SHIFT + CANCEL is taken
+    /// as on STEP and ROLL, SHIFT + PLAY acts and a tap of CANCEL closes it (`release`, S12).
     ///
     /// Otherwise the arrows, - and + nudge (`nudge`), OK uses the item under the cursor, or acts on
     /// SAMPLES' row (`ok_in_samples`) or POOL's (`ok_in_pool`), or on STEP and ROLL enters a note
-    /// in the cursor's cell where none starts (`ok_on_cell`, S10), and an encoder push the item
-    /// its encoder holds. The ROLL button shows ROLL (`show`), as MENU + 2 does. PLAY and SHIFT +
-    /// PLAY start or jump (`play`), STOP stops (`stop`) and REC arms, disarms or drops in and out
-    /// (`press_rec`), also while MENU or PAGE is held. A step and TEMPO act when they are let go
+    /// in the cursor's cell where none starts and opens the NOTE panel where some do (`ok_on_cell`,
+    /// S10, S11), and an encoder push the item its encoder holds. The ROLL button shows ROLL
+    /// (`show`), as MENU + 2 does. PLAY and SHIFT + PLAY start or jump (`play`), STOP stops
+    /// (`stop`) and REC arms, disarms or drops in and out (`press_rec`), also while MENU or PAGE is
+    /// held. A step and TEMPO act when they are let go
     /// (`release`), a step on the bar and sixteenth it showed at its press (`pressed`, S16), and so
     /// does CANCEL on STEP and ROLL, on the cell the cursor showed at its press (`cancel_at`, S11),
     /// unless SHIFT is held at its press, which takes it.
@@ -1215,6 +1222,7 @@ impl Control {
         let overlay = self.overlay();
         let picker = self.view.picker.is_some();
         let question = self.view.question.is_some();
+        let panel = self.view.note_panel.is_some();
         let pads_keys = self.buttons.first_held(&[Button::PadsKeys]).is_some();
         match button {
             Button::T1 | Button::T2 | Button::T3 | Button::T4
@@ -1265,9 +1273,9 @@ impl Control {
             | Button::Right
             | Button::Minus
             | Button::Plus
-                if picker =>
+                if picker || panel =>
             {
-                self.nudge(button, sample, messages);
+                self.nudge(button, sample, messages, versions, store);
             }
             // No delete starts while the import replaces a file (`Import::replacing`).
             Button::Ok if let Some(Question::DeleteFile(file)) = self.view.question => {
@@ -1412,6 +1420,7 @@ impl Control {
                     .expect("the sound picker belongs to the selected pad");
                 self.project.put(pad, sound);
             }
+            Button::Ok if panel => self.buttons.take(button),
             Button::T1
             | Button::T2
             | Button::T3
@@ -1424,7 +1433,7 @@ impl Control {
             | Button::Tempo
             | Button::Step(_)
             | Button::Push(_)
-                if picker || question =>
+                if picker || question || panel =>
             {
                 self.buttons.take(button);
             }
@@ -1492,7 +1501,7 @@ impl Control {
             | Button::Left
             | Button::Right
             | Button::Minus
-            | Button::Plus => self.nudge(button, sample, messages),
+            | Button::Plus => self.nudge(button, sample, messages, versions, store),
             Button::Ok if self.view.screen == Screen::Samples => {
                 self.ok_in_samples(sample, messages);
             }
@@ -1557,14 +1566,39 @@ impl Control {
     /// another bar stops following, the cursor keeping that bar. STEP's up and down select the
     /// sound of the lane a lane above or below, SHIFT 12 lanes, stopping at the first and last, as
     /// a hit of a pad selects it or as POOL selects a sound (S9). ROLL's move its pitch a semitone
-    /// up or down, SHIFT 12, stopping at G9 and C-1.
+    /// up or down, SHIFT 12, stopping at G9 and C-1. In the NOTE panel up and down move its cursor
+    /// one item, stopping at Pitch and Position, and - and + change the item under it by a click
+    /// (`turn_held`), a fine one while SHIFT is held; SHIFT + up or down, left and right do nothing
+    /// there, as on a page of one column (S12).
     fn nudge(
         &mut self,
         button: Button,
         sample: u64,
         messages: &mut Producer<'_, Message, MESSAGE_QUEUE>,
+        versions: &mut Producer<'_, Version, VERSION_QUEUE>,
+        store: &mut Store<'_>,
     ) {
         let shift = self.buttons.is_held(Button::Shift);
+        if let Some(panel) = &mut self.view.note_panel {
+            match button {
+                Button::Up | Button::Down if shift => {}
+                Button::Up => panel.item = panel.item.saturating_sub(1),
+                Button::Down => panel.item = (panel.item + 1).min(NOTE.len() - 1),
+                Button::Minus | Button::Plus => {
+                    // The panel's item, read before `turn_held` borrows the whole control part.
+                    let kind = NOTE[panel.item].kind;
+                    self.turn_held(
+                        kind,
+                        if button == Button::Plus { 1 } else { -1 },
+                        sample,
+                        versions,
+                        store,
+                    );
+                }
+                _ => {}
+            }
+            return;
+        }
         if let Some((picker, highlight)) = self.view.picker {
             match picker {
                 _ if shift => {}
@@ -2027,26 +2061,29 @@ impl Control {
         );
     }
 
-    /// The item that encoder `encoder` holds on the page the encoders use, with that page's
-    /// cursor put on it where the screen shows that page: under TEMPO only on the Timing page, as
-    /// elsewhere the item is not there to move to (S5). None when the encoder holds nothing there.
+    /// The item that encoder `encoder` holds on the page the encoders use, with the NOTE panel's
+    /// cursor put on it while the panel is open (S12), and otherwise that page's cursor where the
+    /// screen shows that page: under TEMPO only on the Timing page, as elsewhere the item is not
+    /// there to move to (S5). None when the encoder holds nothing there.
     fn reach(&mut self, encoder: u8) -> Option<ItemDef> {
         let items = self.encoder_items();
         let item = items
             .iter()
             .position(|item| item.encoder == Some(encoder))?;
         let screen = self.view.screen.paged();
-        if items == self.items(screen) {
+        if let Some(panel) = &mut self.view.note_panel {
+            panel.item = item;
+        } else if items == self.items(screen) {
             self.move_cursor(screen, item);
         }
         Some(items[item])
     }
 
     /// The items of the page the encoders use, of which each encoder holds the one that names it:
-    /// on every screen Timing's while TEMPO is held and the NOTE strip's while steps are held
-    /// (`held_steps`), the first of them pressed counting, unless a picker or a question is open
-    /// (S5, S12). A screen that uses SOUND's page, as STEP does, has none while the selected pad
-    /// is empty.
+    /// the NOTE panel's while it is open, and otherwise on every screen Timing's while TEMPO is
+    /// held and the NOTE strip's while steps are held (`held_steps`), the first of them pressed
+    /// counting, unless a picker or a question is open (S5, S12). A screen that uses SOUND's page,
+    /// as STEP does, has none while the selected pad is empty.
     fn encoder_items(&self) -> &'static [ItemDef] {
         let screen = self.view.screen;
         // The slots past the held steps repeat TEMPO.
@@ -2056,6 +2093,7 @@ impl Control {
         }
         let open = self.view.picker.is_some() || self.view.question.is_some();
         match self.buttons.first_held(&counted) {
+            _ if self.view.note_panel.is_some() => &NOTE,
             Some(Button::Tempo) if !open => TIMING.items,
             Some(Button::Step(_)) if !open => &NOTE,
             _ if screen.paged() != screen && self.track().selected_sound.is_none() => &[],
@@ -2341,11 +2379,12 @@ impl Control {
 
     /// The bar the step buttons show at `sample`, as their lights, their taps and the header's
     /// first bar number use it (S16): while following and playing the bar playing then, or the
-    /// pattern's last bar while a bar past a new shorter length plays out; otherwise the cursor's.
+    /// pattern's last bar while a bar past a new shorter length plays out; otherwise, and while
+    /// the NOTE panel is open (S11), the cursor's.
     fn shown_bar(&self, sample: u64) -> u16 {
         self.player
             .at(sample)
-            .filter(|_| self.view.following)
+            .filter(|_| self.view.following && self.view.note_panel.is_none())
             .map_or(self.view.steps.bar, |(bar, _)| {
                 bar.min(self.project.patterns[usize::from(self.project.pattern)].bars - 1)
             })
@@ -2362,10 +2401,10 @@ impl Control {
 
     /// A button goes up. A tap of PADS/KEYS switches the current track's pad mode, a tap of a step
     /// enters or removes notes (`tap_step`) and a tap of TEMPO turns the metronome on or off, also
-    /// while MENU or PAGE is held. A tap of CANCEL closes the picker without choosing, answers the
-    /// question no or, on SAMPLES and in the sample picker, goes up (`cancel_in_samples`) and on
-    /// STEP and ROLL removes the notes of the cell the cursor showed at its press
-    /// (`remove_notes`).
+    /// while MENU or PAGE is held. A tap of CANCEL closes the NOTE panel, the cursor staying on
+    /// its cell (S12), closes the picker without choosing, answers the question no or, on SAMPLES
+    /// and in the sample picker, goes up (`cancel_in_samples`) and on STEP and ROLL removes the
+    /// notes of the cell the cursor showed at its press (`remove_notes`).
     fn release(
         &mut self,
         button: Button,
@@ -2389,6 +2428,9 @@ impl Control {
                 sample,
                 messages,
             ),
+            (Button::Cancel, Release::Tap) if self.view.note_panel.is_some() => {
+                self.view.note_panel = None;
+            }
             (Button::Cancel, Release::Tap)
                 if matches!(self.view.picker, Some((Picker::Sample(_), _))) =>
             {

@@ -22,7 +22,7 @@ fn named(rig: &mut Rig<'_>, sound: SoundNumber, name: &str) {
 
 /// A rig on T2 with three new synths named as the factory project's T2 sounds: Bass on pad 1, Sub
 /// on pad 2 and Acid on pad 3, in 4 bars of 4/4. Bass is selected.
-fn on_t2(queue: &Queue<Message, MESSAGE_QUEUE>) -> (Rig<'_>, [SoundNumber; 3]) {
+pub(super) fn on_t2(queue: &Queue<Message, MESSAGE_QUEUE>) -> (Rig<'_>, [SoundNumber; 3]) {
     let mut rig = Rig::new(queue);
     rig.control.project.track = 1;
     rig.control.project.patterns[0].bars = 4;
@@ -68,14 +68,20 @@ fn bass_notes(rig: &mut Rig<'_>, bass: SoundNumber) {
 }
 
 /// ROLL's row and its top row.
-fn row(rig: &Rig<'_>) -> (u8, u8) {
+pub(super) fn row(rig: &Rig<'_>) -> (u8, u8) {
     let roll = rig.control.view.roll;
     (roll.pitch, roll.top)
 }
 
 /// Taps `button` `times` times from `sample` on, 10 samples apart and each with SHIFT held when
 /// `shift`, and steps after each. Gives the sample the next tap may start at.
-fn taps(rig: &mut Rig<'_>, mut sample: u64, button: Button, shift: bool, times: u64) -> u64 {
+pub(super) fn taps(
+    rig: &mut Rig<'_>,
+    mut sample: u64,
+    button: Button,
+    shift: bool,
+    times: u64,
+) -> u64 {
     for _ in 0..times {
         if shift {
             rig.press(sample, Button::Shift);
@@ -792,7 +798,7 @@ fn roll_redraws_when_a_note_goes_in() {
 }
 
 /// Shows ROLL on T2 and puts its cursor on `pitch` in sixteenth `step` of bar 1.
-fn at_cell(rig: &mut Rig<'_>, pitch: u8, step: u8) {
+pub(super) fn at_cell(rig: &mut Rig<'_>, pitch: u8, step: u8) {
     rig.menu(0, 1);
     rig.step(10);
     rig.control.view.roll.pitch = pitch;

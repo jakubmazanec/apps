@@ -23,6 +23,7 @@ use std::vec::Vec;
 mod fx;
 mod library;
 mod mix;
+mod panel;
 mod pattern;
 mod pool;
 mod record;

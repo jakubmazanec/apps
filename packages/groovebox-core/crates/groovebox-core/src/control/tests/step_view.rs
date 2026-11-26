@@ -6,7 +6,7 @@ use super::timing::{choose, on_bars, playing_4_bars, timing_cells};
 use super::*;
 use crate::control::lanes::Lane;
 use crate::control::step_view::{GRID_CELLS, LANES_SHOWN};
-use crate::control::view::StepCursor;
+use crate::control::view::{NotePanel, StepCursor};
 use crate::project::pool::{Engine, Sample};
 use crate::project::{FOUR_FOUR, Signature};
 use crate::storage::Path;
@@ -792,7 +792,7 @@ fn an_arrow_into_another_bar_stops_following() {
 }
 
 #[test]
-fn ok_on_an_empty_cell_enters_and_on_notes_does_nothing() {
+fn ok_on_an_empty_cell_enters_and_on_notes_opens_the_panel() {
     let queue = Queue::new();
     let mut rig = shaped(&queue, 1, FOUR_FOUR, place(0, 4));
     let syn_1 = rig.synth_on(0);
@@ -806,11 +806,20 @@ fn ok_on_an_empty_cell_enters_and_on_notes_does_nothing() {
     assert_eq!(sent[0].tree, track_1(&rig));
     assert_eq!(on_tracks(&rig, syn_1), [1, 0, 0, 0]);
 
-    // The cell has a note now.
+    // The cell has a note now: OK opens the NOTE panel on it and adds nothing, and CANCEL closes
+    // it.
     rig.tap(30, Button::Ok);
     rig.step(40);
+    assert_eq!(
+        rig.control.view.note_panel,
+        Some(NotePanel {
+            item: 0,
+            from: place(0, 4)
+        })
+    );
     assert_eq!(notes_in(&rig, track_1(&rig)).len(), 1);
     assert_eq!(versions(&mut rig), []);
+    rig.tap(45, Button::Cancel);
 
     // In KEYS mode the last key sets the pitch: D4 on pad 3.
     rig.tap(50, Button::PadsKeys);
@@ -1065,7 +1074,7 @@ fn ok_and_cancel_under_the_reserve() {
 
 /// The NOTE strip's cells: Pitch and Velocity showing these values over these bars, then Length and
 /// Position over the bare track (S13).
-fn note_strip<'a>(
+pub(super) fn note_strip<'a>(
     pitch: (&'a str, Bar),
     velocity: (&'a str, Bar),
     length: &'a str,

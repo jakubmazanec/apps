@@ -14,14 +14,21 @@ pub fn draw_question(canvas: &mut impl Canvas, lines: &[(&str, Color)]) {
         .max()
         .unwrap_or(0)
         + 2 * inside;
-    let height = ROW_PITCH * lines.len() as i32 + 1;
+    let (x, y) = draw_box(canvas, width, ROW_PITCH * lines.len() as i32 + 1);
+    for (row, &(line, color)) in (0..).zip(lines) {
+        text::draw(canvas, x + inside, y + 1 + ROW_PITCH * row, line, color);
+    }
+}
+
+/// Draws a box of `width` by `height` pixels in the middle of the main area, as a question's and
+/// the NOTE panel's: 1 pixel outlined and black inside, hiding what was drawn under it. Gives its
+/// top left corner.
+pub fn draw_box(canvas: &mut impl Canvas, width: i32, height: i32) -> (i32, i32) {
     let x = (WIDTH as i32 - width) / 2;
     let y = (MAIN_TOP + STRIP_LINE + 1 - height) / 2;
     canvas.fill_rect(rect(x, y, width, height), BACKGROUND);
     canvas.outline_rect(rect(x, y, width, height), LINE);
-    for (row, &(line, color)) in (0..).zip(lines) {
-        text::draw(canvas, x + inside, y + 1 + ROW_PITCH * row, line, color);
-    }
+    (x, y)
 }
 
 #[cfg(test)]

@@ -30,7 +30,7 @@ use crate::ui::layout::{
 };
 use crate::ui::list::{Row, draw_rows};
 use crate::ui::plot::draw_line;
-use crate::ui::question::draw_question;
+use crate::ui::question::{draw_box, draw_question};
 use crate::ui::step::{GridNotes, LaneView, StepPicture, draw_step};
 use crate::ui::text;
 use crate::ui::tiles::{PadTile, draw_chain, draw_pad_tiles, draw_tiles};
@@ -48,6 +48,10 @@ const ROWS: i32 = BOTTOM_ROW - TOP_ROW;
 const VALUE_BYTES: usize = 19;
 /// The most bytes an item's name takes when it is written into a label: "Track 3 muted".
 const TRACK_NAME_BYTES: usize = 13;
+/// The width of the NOTE panel's items and how far inside its box they lie, room for the cursor's
+/// outline between them (S14).
+const PANEL_ITEM_WIDTH: i32 = 118;
+const PANEL_INSET: i32 = 3;
 
 impl Control {
     /// Draws the whole picture from the state of the control part alone, whatever the canvas held
@@ -87,7 +91,9 @@ impl Control {
     /// every track, if any, as "On 2 pads" (S12), and its notes in every pattern, if any, as "On 2
     /// pads, 24 notes" or "24 notes" (S21); Remove unused counts the unused sounds as it is
     /// drawn (S13); Delete notes counts the notes a length or signature no longer fits, as "Delete
-    /// 24 notes?", with no count line (S12). The strip shows the items that the encoders hold
+    /// 24 notes?", with no count line (S12). The NOTE panel shows over STEP or ROLL in a box placed
+    /// as a question's, its four items unnumbered under each other with the cursor around one
+    /// (S14). The strip shows the items that the encoders hold
     /// (`encoder_items`), also on SAMPLES and POOL while TEMPO or a step is held, and nothing while
     /// MENU or PAGE is held, a picker or a question is open or the held steps have no notes of the
     /// selected sound (`held_values`, S12).
@@ -701,6 +707,35 @@ impl Control {
                     .map(|item| self.item_view(item, name, value));
             }
         }
+        if let Some(panel) = self.view.note_panel {
+            let (x, y) = draw_box(
+                canvas,
+                PANEL_ITEM_WIDTH + 2 * PANEL_INSET,
+                ITEM_PITCH * (NOTE.len() as i32 - 1) + ITEM_HEIGHT + 2 * PANEL_INSET,
+            );
+            for (index, item) in NOTE.iter().enumerate() {
+                let item_y = y + PANEL_INSET + ITEM_PITCH * index as i32;
+                let (mut name, mut value) = (Label::new(), Label::new());
+                draw_item(
+                    canvas,
+                    x + PANEL_INSET,
+                    item_y,
+                    PANEL_ITEM_WIDTH,
+                    &self.item_view(item, &mut name, &mut value),
+                    false,
+                    None,
+                );
+                if index == panel.item {
+                    draw_cursor(
+                        canvas,
+                        x + PANEL_INSET,
+                        item_y,
+                        PANEL_ITEM_WIDTH,
+                        ITEM_HEIGHT,
+                    );
+                }
+            }
+        }
         if let Some(open) = self.view.question {
             let mut question = Label::<{ 7 + 64 + 1 }>::new();
             // "On 48 pads, 4294967295 notes" at most.
@@ -971,9 +1006,10 @@ impl Control {
             | ItemKind::NoteVelocity
             | ItemKind::NoteLength
             | ItemKind::NotePosition) => {
-                let held = self
-                    .held_values
-                    .expect("the NOTE strip's items show only while the held steps have notes");
+                let held = self.held_values.expect(
+                    "the NOTE strip's items show only while the held steps have notes, and the \
+                     NOTE panel's while its cell has",
+                );
                 let (name, (low, high)) = match kind {
                     ItemKind::NotePitch => {
                         ("Pitch", (i32::from(held.pitch.0), i32::from(held.pitch.1)))
