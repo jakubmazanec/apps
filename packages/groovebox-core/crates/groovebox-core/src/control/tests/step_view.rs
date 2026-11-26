@@ -12,7 +12,7 @@ use crate::project::{FOUR_FOUR, Signature};
 use crate::storage::Path;
 use crate::store::note::Note;
 use crate::store::{NOTE_BLOCKS, Tree};
-use crate::ui::step::{LaneView, Mark, StepPicture, draw_step};
+use crate::ui::step::{GridNotes, LaneView, Mark, StepPicture, draw_step};
 
 /// The current track's lanes.
 fn lanes(rig: &Rig<'_>) -> Vec<Lane> {
@@ -305,6 +305,14 @@ fn the_view_keeps_the_cursor_after_a_lane_goes() {
     assert_eq!(rig.control.view.step_view.first_lane, 22 - LANES_SHOWN);
 }
 
+/// What STEP's cells hold, as the latest step that asked for a redraw noted them.
+fn noted<'a>(rig: &'a Rig<'_>) -> &'a [[Option<Mark>; GRID_CELLS]; LANES_SHOWN] {
+    match &rig.control.shown_notes {
+        ShownNotes::Step(marks) => marks,
+        ShownNotes::Roll(_) => panic!("STEP shows"),
+    }
+}
+
 /// STEP of a new project on T1 under `strip`, with these lanes, drawn by `draw_step`: as many
 /// columns as a names column of `names` px leaves, 1 bar, the cursor at (`cursor`), the header
 /// `header` and `marks`.
@@ -324,6 +332,7 @@ fn step_picture(
             label,
             color,
             selected: lane == cursor.0,
+            line_above: Some(lane) == first_extra,
         })
         .collect();
     drawn(
@@ -339,8 +348,7 @@ fn step_picture(
                     cells: 16,
                     signature: FOUR_FOUR,
                     shown_page: 0,
-                    first_extra,
-                    marks,
+                    notes: GridNotes::Marks(marks),
                     cursor: Some(cursor),
                     music: None,
                 },
@@ -421,13 +429,8 @@ fn lanes_show_names_copies_missing_sounds_and_notes() {
         start: 0,
         end: 1_440,
     });
-    assert_eq!(rig.control.marks[..13], marks);
-    assert!(
-        rig.control.marks[13..]
-            .iter()
-            .flatten()
-            .all(Option::is_none)
-    );
+    assert_eq!(noted(&rig)[..13], marks);
+    assert!(noted(&rig)[13..].iter().flatten().all(Option::is_none));
     assert!(shows(
         &rig.control,
         &step_picture(
@@ -477,7 +480,7 @@ fn a_cell_shows_its_loudest_note_its_longest_tail_and_how_many_there_are() {
 
     assert!(rig.step(20));
     assert_eq!(
-        rig.control.marks[0][2],
+        noted(&rig)[0][2],
         Some(Mark {
             velocity: 99,
             count: 3,
@@ -488,7 +491,7 @@ fn a_cell_shows_its_loudest_note_its_longest_tail_and_how_many_there_are() {
     );
     // Syn 2 has no pad: its lane is the first extra lane, 13th.
     assert_eq!(
-        rig.control.marks[12][2],
+        noted(&rig)[12][2],
         Some(Mark {
             velocity: 127,
             count: 1,
@@ -522,7 +525,7 @@ fn a_cell_shows_its_earliest_start_and_its_latest_end() {
     rig.step(20);
 
     let ticks =
-        |column: usize| rig.control.marks[0][column].map(|mark| (mark.count, mark.start, mark.end));
+        |column: usize| noted(&rig)[0][column].map(|mark| (mark.count, mark.start, mark.end));
     assert_eq!(
         [ticks(0), ticks(1), ticks(2), ticks(3)],
         [
@@ -556,7 +559,7 @@ fn the_marks_start_at_the_views_first_cell() {
 
     assert_eq!(rig.control.view.step_view.first_cell, 9);
     let marked: Vec<_> = (0..GRID_CELLS)
-        .filter(|&column| rig.control.marks[0][column].is_some())
+        .filter(|&column| noted(&rig)[0][column].is_some())
         .collect();
     assert_eq!(marked, [0, 7, 54]);
 }
@@ -574,7 +577,7 @@ fn the_music_line_redraws_as_it_moves() {
     assert_eq!(rig.control.music_x(950), Some(23));
     assert!(!rig.step(1_050));
 
-    // The line shows on STEP only.
+    // The line shows on STEP and ROLL only.
     rig.menu(1_100, 2);
     assert!(rig.step(1_200));
     assert_eq!(rig.control.music_x(1_200), None);

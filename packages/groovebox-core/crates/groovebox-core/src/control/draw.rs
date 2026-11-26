@@ -5,7 +5,7 @@ use super::record::Rec;
 use super::samples::{self, rows};
 use super::step_view::{self, LANES_SHOWN, PAGE, cell_of};
 use super::view::{Picker, Question, Screen};
-use super::{Control, Entry, HeaderMessage};
+use super::{Control, Entry, HeaderMessage, ShownNotes};
 use crate::audio::delay::ticks_in_use;
 use crate::budget;
 use crate::font::ADVANCE;
@@ -31,7 +31,7 @@ use crate::ui::layout::{
 use crate::ui::list::{Row, draw_rows};
 use crate::ui::plot::draw_line;
 use crate::ui::question::draw_question;
-use crate::ui::step::{LaneView, StepPicture, draw_step};
+use crate::ui::step::{GridNotes, LaneView, StepPicture, draw_step};
 use crate::ui::text;
 use crate::ui::tiles::{PadTile, draw_chain, draw_pad_tiles, draw_tiles};
 use core::fmt::Write;
@@ -68,7 +68,8 @@ impl Control {
     /// as MIX's, is left out of the header (S7).
     ///
     /// The main area shows the page's items with the cursor and the page's picture, the tiles while
-    /// MENU or PAGE is held, or the picker while one is open. STEP shows its lanes (`draw_step`).
+    /// MENU or PAGE is held, or the picker while one is open. STEP shows its lanes and ROLL its rows
+    /// (`draw_step`).
     /// FX Chain shows the current track's slots as tiles in the place of its first item
     /// (`draw_chain`), the chosen slot in the accent whatever the cursor is on and
     /// with the cursor around it while the cursor is on them, and Type and Move under
@@ -92,8 +93,12 @@ impl Control {
     /// selected sound (`held_values`, S12).
     ///
     /// STEP's lanes start at the view's first lane, each with its label (`lane_label`). Its cells
-    /// start at the view's first cell and show the notes that the latest redraw noted (`marks`),
-    /// the cursor and, while playing, the music's line (`music_x`), as S3 to S7 have them.
+    /// start at the view's first cell and show the notes that the latest redraw noted
+    /// (`shown_notes`), the cursor and, while playing, the music's line (`music_x`), as S3 to S7
+    /// have them. ROLL's rows run a semitone each down from its top row, named as Root note names
+    /// a pitch with the sharps dim and with the line grey above each B; its grid is STEP's from the
+    /// same first cell with the pixels that the latest redraw noted, its cursor on its own row and
+    /// no row selected (S3, S7).
     ///
     /// The text under the cursor, the current tile's name and the selected pad's name scroll when
     /// they do not fit, as far as the samples since the cursor landed say; the strip never scrolls.
@@ -464,21 +469,37 @@ impl Control {
                 elapsed,
             );
             self.draw_library_meter(canvas);
-        } else if screen == Screen::Step {
+        } else if matches!(screen, Screen::Step | Screen::Roll) {
             let signature = self.project.signature;
             let view = self.view.step_view;
-            let columns = self.step_columns().1;
+            let roll = self.view.roll;
+            let columns = self.columns();
             let mut labels = [(Label::<NAME_BYTES>::new(), TEXT); LANES_SHOWN];
             let mut shown = 0;
-            for (label, lane) in labels.iter_mut().zip(self.lanes().skip(view.first_lane)) {
-                *label = self.lane_label(lane);
-                shown += 1;
+            if screen == Screen::Roll {
+                for ((label, color), pitch) in labels.iter_mut().zip((0..=roll.top).rev()) {
+                    param::format(&ROOT_NOTE, i32::from(pitch), label);
+                    if label.as_str().contains('#') {
+                        *color = DIM;
+                    }
+                    shown += 1;
+                }
+            } else {
+                for (label, lane) in labels.iter_mut().zip(self.lanes().skip(view.first_lane)) {
+                    *label = self.lane_label(lane);
+                    shown += 1;
+                }
             }
             let cursor_lane = self.cursor_lane();
             let lanes: [_; LANES_SHOWN] = core::array::from_fn(|row| LaneView {
                 label: labels[row].0.as_str(),
                 color: labels[row].1,
-                selected: view.first_lane + row == cursor_lane,
+                selected: screen == Screen::Step && view.first_lane + row == cursor_lane,
+                line_above: if screen == Screen::Roll {
+                    (roll.top - row as u8) % 12 == 11
+                } else {
+                    view.first_lane + row == usize::from(PADS)
+                },
             });
             // The cursor's cell, whose page is the page the step buttons show.
             let cell = cell_of(self.cursor_at(self.now), signature);
@@ -494,17 +515,21 @@ impl Control {
                     ),
                     signature,
                     shown_page: cell / PAGE,
-                    first_extra: usize::from(PADS)
-                        .checked_sub(view.first_lane)
-                        .filter(|&row| row < shown),
-                    marks: &self.marks[..shown],
-                    cursor: cursor_lane
-                        .checked_sub(view.first_lane)
-                        .filter(|&lane| lane < shown)
-                        .zip(
-                            cell.checked_sub(view.first_cell)
-                                .filter(|&column| column < columns),
-                        ),
+                    notes: match &self.shown_notes {
+                        ShownNotes::Step(marks) => GridNotes::Marks(&marks[..shown]),
+                        ShownNotes::Roll(pixels) => GridNotes::Pixels(pixels),
+                    },
+                    cursor: if screen == Screen::Roll {
+                        Some(usize::from(roll.top - roll.pitch))
+                    } else {
+                        cursor_lane
+                            .checked_sub(view.first_lane)
+                            .filter(|&lane| lane < shown)
+                    }
+                    .zip(
+                        cell.checked_sub(view.first_cell)
+                            .filter(|&column| column < columns),
+                    ),
                     music: self.music_x(self.now),
                 },
             );

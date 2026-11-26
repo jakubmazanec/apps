@@ -1,6 +1,7 @@
-//! STEP's main area: the lanes' labels, the grid with its tint and lines, the notes, the cursor and
-//! the music (Look, "STEP").
+//! STEP's main area, which ROLL shares: the lanes' labels, the grid with its tint and lines, the
+//! notes, the cursor and the music (Look, "STEP" and "ROLL").
 
+use crate::control::roll::ROLL_PIXELS;
 use crate::control::step_view::{CELL, GRID_CELLS, GRID_END, PAGE, grid_left, place_of};
 use crate::font::glyph;
 use crate::palette::{
@@ -16,8 +17,8 @@ use crate::ui::text;
 const LEFT: i32 = 1;
 /// A note's block: 2 px right of the pixel its note starts at, 1 px below its lane's top, 5 px wide
 /// and 11 high (S6). A note ends 2 px before the line it reaches.
-const NOTE_X: i32 = 2;
-const NOTE_WIDTH: i32 = CELL - 3;
+pub const NOTE_X: i32 = 2;
+pub const NOTE_WIDTH: i32 = CELL - 3;
 const NOTE_HEIGHT: i32 = ROW_HEIGHT - 2;
 
 /// What a cell shows (S6): the notes of its lane's sound that start in its sixteenth.
@@ -34,7 +35,7 @@ pub struct Mark {
 }
 
 /// The pixel nearest to `ticks`, half up: 8 px to 480 ticks, so 60 ticks to a pixel.
-fn pixel(ticks: u16) -> i32 {
+pub fn pixel(ticks: u16) -> i32 {
     (i32::from(ticks) + 30) / 60
 }
 
@@ -45,9 +46,21 @@ pub struct LaneView<'a> {
     pub color: Color,
     /// Whether the cursor is on the lane: its label is inverted.
     pub selected: bool,
+    /// Whether the separator above the lane is in the line grey instead of faint: STEP's first
+    /// extra lane, ROLL's B under each C.
+    pub line_above: bool,
 }
 
-/// STEP's main area as `draw_step` draws it.
+/// The notes of the shown lanes, from the first shown cell.
+#[derive(Clone, Copy)]
+pub enum GridNotes<'a> {
+    /// STEP's cells.
+    Marks(&'a [[Option<Mark>; GRID_CELLS]]),
+    /// ROLL's colour of each pixel from the grid's left line, the background where no note is.
+    Pixels(&'a [[Color; ROLL_PIXELS]]),
+}
+
+/// STEP's main area as `draw_step` draws it, or ROLL's with its rows as the lanes.
 pub struct StepPicture<'a> {
     /// The shown lanes, at most `LANES_SHOWN`.
     pub lanes: &'a [LaneView<'a>],
@@ -58,10 +71,7 @@ pub struct StepPicture<'a> {
     pub signature: Signature,
     /// The page the step buttons show, counted over the pattern.
     pub shown_page: u32,
-    /// The shown index of the first extra lane.
-    pub first_extra: Option<usize>,
-    /// The cells of the shown lanes, from the first shown cell.
-    pub marks: &'a [[Option<Mark>; GRID_CELLS]],
+    pub notes: GridNotes<'a>,
     /// The shown lane and column of the cursor.
     pub cursor: Option<(usize, u32)>,
     /// The music line's x.
@@ -71,7 +81,8 @@ pub struct StepPicture<'a> {
 /// Draws STEP's main area (S3 to S7): the cells from the first one, as many as the columns and the
 /// pattern have, with a tint on the dark cells and the page the step buttons show, then the lines
 /// that start at each cell's left edge and after the last one; the lanes with their labels,
-/// separators and notes; the cursor and last the music.
+/// separators and notes, a `Pixels` lane's pixels on its rows + 1 to + 11; the cursor and last the
+/// music.
 pub fn draw_step(canvas: &mut impl Canvas, picture: &StepPicture) {
     let StepPicture {
         lanes,
@@ -80,8 +91,7 @@ pub fn draw_step(canvas: &mut impl Canvas, picture: &StepPicture) {
         cells,
         signature,
         shown_page,
-        first_extra,
-        marks,
+        notes,
         cursor,
         music,
         ..
@@ -110,7 +120,7 @@ pub fn draw_step(canvas: &mut impl Canvas, picture: &StepPicture) {
         };
         canvas.vline(x(column), ROW_FIRST, height, line);
     }
-    for (row, (lane, marks)) in lanes.iter().zip(marks).enumerate() {
+    for (row, lane) in lanes.iter().enumerate() {
         let y = ROW_FIRST + ROW_PITCH * row as i32;
         if lane.selected {
             canvas.fill_rect(
@@ -135,13 +145,20 @@ pub fn draw_step(canvas: &mut impl Canvas, picture: &StepPicture) {
             },
         );
         if row > 0 {
-            let line = if first_extra == Some(row) {
-                LINE
-            } else {
-                FAINT
-            };
+            let line = if lane.line_above { LINE } else { FAINT };
             canvas.hline(LEFT, y - 1, (GRID_END - LEFT + 1) as u32, line);
         }
+        let marks = match notes {
+            GridNotes::Marks(marks) => &marks[row],
+            GridNotes::Pixels(pixels) => {
+                for (x, &color) in (grid_left(columns)..).zip(&pixels[row]) {
+                    if color != BACKGROUND {
+                        canvas.vline(x, y + 1, NOTE_HEIGHT as u32, color);
+                    }
+                }
+                continue;
+            }
+        };
         for (column, &mark) in (0..shown).zip(marks) {
             let Some(mark) = mark else { continue };
             let color = match mark.velocity {
@@ -185,10 +202,12 @@ pub fn draw_step(canvas: &mut impl Canvas, picture: &StepPicture) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::control::roll::ROLL_COLUMNS;
     use crate::palette::{
         ACCENT, BACKGROUND, DIM, FAINT, LINE, NOTE_LOUD, NOTE_MID, NOTE_SOFT, RECORD, SHOWN_BAR,
-        TEXT,
+        TEXT, sound_color,
     };
+    use crate::project::pool::SoundNumber;
     use crate::project::{FOUR_FOUR, Signature};
     use crate::screen::{Canvas, Screen};
     use crate::ui::layout::rect;
@@ -205,14 +224,14 @@ mod tests {
                 label: "1",
                 color: DIM,
                 selected: false,
+                line_above: false,
             }],
             columns: 57,
             first_cell: 0,
             cells: 16,
             signature: FOUR_FOUR,
             shown_page: 0,
-            first_extra: None,
-            marks: &NO_MARKS[..1],
+            notes: GridNotes::Marks(&NO_MARKS[..1]),
             cursor: None,
             music: None,
         }
@@ -230,7 +249,7 @@ mod tests {
         marks[0][column] = Some(mark);
         drawn(&StepPicture {
             cells: 64,
-            marks: &marks[..1],
+            notes: GridNotes::Marks(&marks[..1]),
             ..one_lane()
         })
     }
@@ -361,7 +380,7 @@ mod tests {
         let mut marks = NO_MARKS;
         marks[0][14] = Some(note(100, 1, 30_480));
         let short = drawn(&StepPicture {
-            marks: &marks[..1],
+            notes: GridNotes::Marks(&marks[..1]),
             ..one_lane()
         });
         assert_eq!(span(&short, 0..=479, 22..=22, NOTE_LOUD), Some((136, 148)));
@@ -385,7 +404,7 @@ mod tests {
         let mut marks = NO_MARKS;
         marks[0][15] = Some(late);
         let ended = drawn(&StepPicture {
-            marks: &marks[..1],
+            notes: GridNotes::Marks(&marks[..1]),
             ..one_lane()
         });
         assert_eq!(span(&ended, 0..=479, 18..=18, NOTE_LOUD), Some((146, 150)));
@@ -483,6 +502,7 @@ mod tests {
             label: "",
             color: DIM,
             selected: false,
+            line_above: false,
         }; 14];
         let others = [
             (1, "Kick", TEXT),
@@ -498,11 +518,12 @@ mod tests {
             label: "Hat",
             color: TEXT,
             selected: true,
+            line_above: false,
         };
+        lanes[12].line_above = true;
         let screen = drawn(&StepPicture {
             lanes: &lanes,
-            first_extra: Some(12),
-            marks: &NO_MARKS[..14],
+            notes: GridNotes::Marks(&NO_MARKS[..14]),
             ..one_lane()
         });
 
@@ -537,16 +558,72 @@ mod tests {
     }
 
     #[test]
+    fn a_row_marked_line_above_has_the_line_grey_above_it() {
+        let mut lanes = [LaneView {
+            label: "",
+            color: DIM,
+            selected: false,
+            line_above: false,
+        }; 12];
+        for row in [0, 5, 9] {
+            lanes[row].line_above = true;
+        }
+        let screen = drawn(&StepPicture {
+            lanes: &lanes,
+            notes: GridNotes::Marks(&NO_MARKS[..12]),
+            ..one_lane()
+        });
+
+        // A row's separator lies 1 px above its top, from x 1 to the grid's end; the first row has
+        // none.
+        assert!(filled(&screen, 0..=479, 16..=16, BACKGROUND));
+        for row in 1..12 {
+            let y = 16 + 14 * row;
+            let line = if row == 5 || row == 9 { LINE } else { FAINT };
+            assert!(filled(&screen, 1..=478, y..=y, line), "row {row}");
+        }
+    }
+
+    #[test]
+    fn pixels_fill_their_rows_inner_eleven_lines() {
+        let lanes = [LaneView {
+            label: "",
+            color: DIM,
+            selected: false,
+            line_above: false,
+        }; 2];
+        let color = sound_color(SoundNumber(7), 127, true);
+        let mut pixels = [[BACKGROUND; ROLL_PIXELS]; 2];
+        pixels[1][2..=6].fill(color);
+        let screen = drawn(&StepPicture {
+            lanes: &lanes,
+            columns: ROLL_COLUMNS,
+            notes: GridNotes::Pixels(&pixels),
+            ..one_lane()
+        });
+        let left = grid_left(ROLL_COLUMNS) as usize;
+
+        // Row 1 lies on rows 31 to 43, and its pixels fill 32 to 42.
+        assert!(filled(&screen, left + 2..=left + 6, 32..=42, color));
+        assert_eq!(ink(&screen, color), 5 * 11);
+        assert_eq!(span(&screen, 0..=479, 31..=31, color), None);
+        assert_eq!(span(&screen, 0..=479, 43..=43, color), None);
+        // The background pixels leave the grid under them: its left line, a bar line.
+        assert!(filled(&screen, left..=left, 31..=43, LINE));
+    }
+
+    #[test]
     fn the_cursor_outline_and_the_music_line() {
         let lanes = [LaneView {
             label: "1",
             color: DIM,
             selected: false,
+            line_above: false,
         }; 3];
         let with = |cursor, music| {
             drawn(&StepPicture {
                 lanes: &lanes,
-                marks: &NO_MARKS[..3],
+                notes: GridNotes::Marks(&NO_MARKS[..3]),
                 cursor,
                 music,
                 ..one_lane()

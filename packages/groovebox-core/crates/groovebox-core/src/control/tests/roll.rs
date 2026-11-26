@@ -1,12 +1,16 @@
-//! ROLL: its screen, its cursor and the row it keeps (Workflow B).
+//! ROLL: its screen, its cursor, the row it keeps and its picture (Workflow B, Look).
 
 use super::library::converted_with;
 use super::pattern::{entered, put};
 use super::timing::playing_4_bars;
 use super::*;
+use crate::palette::{SHOWN_BAR, sound_color};
 use crate::param::ROOT_NOTE;
 use crate::project::pool::{Engine, Sample};
 use crate::storage::Path;
+use crate::store::note::Note;
+use crate::ui::test_pixels::{self, ink};
+use crate::ui::text;
 use view::StepCursor;
 
 /// Names `sound`.
@@ -500,4 +504,275 @@ fn the_header_names_roll_only() {
             ],
         )
     ));
+}
+
+/// Puts `notes` on T2, shows ROLL and moves its cursor 4 rows up from where it centred, off the
+/// notes' row, and gives the picture.
+fn rolled(rig: &mut Rig<'_>, notes: &[Note]) -> Screen {
+    put(rig, 0, 1, notes);
+    rig.menu(0, 1);
+    rig.step(10);
+    taps(rig, 100, Button::Up, false, 4);
+    picture(&rig.control)
+}
+
+/// The top of the row of `pitch` as ROLL shows it.
+fn row_top(rig: &Rig<'_>, pitch: u8) -> usize {
+    17 + 14 * usize::from(rig.control.view.roll.top - pitch)
+}
+
+/// The first and the last column of `color` on the inner 11 lines of the row of `pitch`, which
+/// it fills between them, while the row's top and bottom lines have none of it.
+fn block(rig: &Rig<'_>, screen: &Screen, pitch: u8, color: Color) -> Option<(usize, usize)> {
+    let top = row_top(rig, pitch);
+    let (first, last) = span(screen, 0..=479, top + 1..=top + 11, color)?;
+    assert!(filled(screen, first..=last, top + 1..=top + 11, color));
+    assert_eq!(span(screen, 0..=479, top..=top, color), None);
+    assert_eq!(span(screen, 0..=479, top + 12..=top + 12, color), None);
+    Some((first, last))
+}
+
+#[test]
+fn roll_draws_its_names_rows_and_octave_lines() {
+    let queue = Queue::new();
+    let (mut rig, _) = on_t2(&queue);
+    rig.menu(0, 1);
+    rig.step(10);
+    assert_eq!(row(&rig), (60, 67));
+    let screen = picture(&rig.control);
+
+    // G4 in the text colour from (4, 17), and F#4 dim on the next row, 14 px lower.
+    for (row, name, color) in [(0, "G4", TEXT), (1, "F#4", DIM)] {
+        let top = 17 + 14 * row;
+        let mut expected = Screen::new();
+        text::draw(&mut expected, 4, top as i32, name, color);
+        assert_eq!(
+            test_pixels::picture(&screen, 0..=37, top..=top + 12, color),
+            test_pixels::picture(&expected, 0..=37, top..=top + 12, color),
+            "{name}"
+        );
+    }
+    // The grid's left line at x 38, where bar 0 starts.
+    assert!(filled(&screen, 38..=38, 17..=29, LINE));
+    // Separators from x 1 to the grid's end: the line grey above B3, row 8 under C4, and faint
+    // above the others. The cursor's outline on C4's first cell covers x 38 to 46 of the lines
+    // above and below its row.
+    assert!(filled(&screen, 0..=479, 16..=16, BACKGROUND));
+    for row in 1..16 {
+        let y = 16 + 14 * row;
+        let line = if row == 8 { LINE } else { FAINT };
+        assert!(filled(&screen, 1..=37, y..=y, line), "row {row}");
+        assert!(filled(&screen, 47..=478, y..=y, line), "row {row}");
+        assert_eq!(screen.pixel(479, y), BACKGROUND, "row {row}");
+    }
+    // The shown bar, bar 0, is tinted as on STEP, and bar 1 is not.
+    assert!(filled(&screen, 39..=69, 17..=29, SHOWN_BAR));
+    assert!(filled(&screen, 167..=197, 17..=29, BACKGROUND));
+
+    // With the cursor on the pattern's last cell the view starts at cell 9, and the pattern's
+    // end closes the grid at x 478.
+    rig.control.view.steps = StepCursor { bar: 3, step: 15 };
+    rig.step(20);
+    assert_eq!(rig.control.view.step_view.first_cell, 9);
+    assert!(filled(&picture(&rig.control), 478..=478, 17..=29, LINE));
+}
+
+#[test]
+fn a_note_is_a_block_from_its_start_to_its_end_in_its_sounds_colour() {
+    // Bass at bar 0 place 0 for 960 ticks at velocity 127: from the left line + 2 to 2 px before
+    // the line of the cell its end lies in, 2 cells on.
+    let queue = Queue::new();
+    let (mut rig, [bass, ..]) = on_t2(&queue);
+    let screen = rolled(
+        &mut rig,
+        &[Note {
+            length: 960,
+            ..entered(0, bass, 60)
+        }],
+    );
+    let bright = sound_color(bass, 127, true);
+    assert_eq!(row(&rig), (64, 67));
+    assert_eq!(block(&rig, &screen, 60, bright), Some((40, 52)));
+    assert_eq!(ink(&screen, bright), 13 * 11);
+
+    // A note of 10 ticks is 5 px still.
+    let queue = Queue::new();
+    let (mut rig, [bass, ..]) = on_t2(&queue);
+    let screen = rolled(
+        &mut rig,
+        &[Note {
+            place: 480,
+            length: 10,
+            ..entered(0, bass, 60)
+        }],
+    );
+    assert_eq!(block(&rig, &screen, 60, bright), Some((48, 52)));
+    assert_eq!(ink(&screen, bright), 5 * 11);
+
+    // A note 30 ticks late starts half a pixel late, a half rounding up.
+    let queue = Queue::new();
+    let (mut rig, [bass, ..]) = on_t2(&queue);
+    let screen = rolled(
+        &mut rig,
+        &[Note {
+            place: 30,
+            ..entered(0, bass, 60)
+        }],
+    );
+    assert_eq!(block(&rig, &screen, 60, bright), Some((41, 45)));
+}
+
+#[test]
+fn other_sounds_are_dim_and_the_selected_sound_is_drawn_last() {
+    // Bass's note of a sixteenth and Sub's of two from the same tick at C4, Bass's first in key
+    // order.
+    let queue = Queue::new();
+    let (mut rig, [bass, sub, _]) = on_t2(&queue);
+    let screen = rolled(
+        &mut rig,
+        &[
+            entered(0, bass, 60),
+            Note {
+                length: 960,
+                ..entered(0, sub, 60)
+            },
+        ],
+    );
+
+    // Bass is selected: its note is bright over Sub's, which is dim.
+    assert_eq!(
+        block(&rig, &screen, 60, sound_color(bass, 127, true)),
+        Some((40, 44))
+    );
+    assert_eq!(
+        block(&rig, &screen, 60, sound_color(sub, 127, false)),
+        Some((45, 52))
+    );
+
+    // With Sub selected, Sub's note is bright over all of Bass's.
+    hit(&mut rig, 200, 1);
+    taps(&mut rig, 300, Button::Up, false, 4);
+    let screen = picture(&rig.control);
+    assert_eq!(
+        block(&rig, &screen, 60, sound_color(sub, 127, true)),
+        Some((40, 52))
+    );
+    assert_eq!(ink(&screen, sound_color(bass, 127, false)), 0);
+}
+
+#[test]
+fn a_note_reaching_in_from_the_left_and_one_over_dark_cells() {
+    // A note of 2 bars from bar 0, in 8 bars viewed from cell 16 with the cursor in bar 1: it
+    // runs in from the grid's left line and ends 2 px before cell 32's line.
+    let queue = Queue::new();
+    let (mut rig, [bass, ..]) = on_t2(&queue);
+    rig.control.project.patterns[0].bars = 8;
+    rig.control.view.steps = StepCursor { bar: 1, step: 4 };
+    rig.control.view.step_view.first_cell = 16;
+    let screen = rolled(
+        &mut rig,
+        &[Note {
+            length: 2 * 7_680,
+            ..entered(0, bass, 60)
+        }],
+    );
+    let bright = sound_color(bass, 127, true);
+    assert_eq!(rig.control.view.step_view.first_cell, 16);
+    assert_eq!(block(&rig, &screen, 60, bright), Some((38, 164)));
+
+    // In 3/4 a note at bar 0 step 10 for 3 sixteenths ends at bar 1 step 1: over the dark cells
+    // to 2 px before cell 17's line.
+    let queue = Queue::new();
+    let (mut rig, [bass, ..]) = on_t2(&queue);
+    rig.control.project.signature = Signature { beats: 3, unit: 4 };
+    let screen = rolled(
+        &mut rig,
+        &[Note {
+            place: 4_800,
+            length: 1_440,
+            ..entered(0, bass, 60)
+        }],
+    );
+    let top = row_top(&rig, 60);
+    assert_eq!(block(&rig, &screen, 60, bright), Some((120, 172)));
+    assert!(filled(&screen, 134..=165, top + 1..=top + 11, bright));
+}
+
+#[test]
+fn nothing_passes_the_grids_end() {
+    // A note of 2 bars in a pattern of 1 bar stops 2 px before the line that closes the grid.
+    let queue = Queue::new();
+    let (mut rig, [bass, ..]) = on_t2(&queue);
+    rig.control.project.patterns[0].bars = 1;
+    let screen = rolled(
+        &mut rig,
+        &[Note {
+            length: 2 * 7_680,
+            ..entered(0, bass, 60)
+        }],
+    );
+    let bright = sound_color(bass, 127, true);
+    let top = row_top(&rig, 60);
+    assert_eq!(block(&rig, &screen, 60, bright), Some((40, 164)));
+    assert!(filled(&screen, 166..=166, top + 1..=top + 11, LINE));
+
+    // On the last of the 55 columns of 4 bars, cell 54, a note of 2 sixteenths ends 2 px before
+    // the grid's end.
+    let queue = Queue::new();
+    let (mut rig, [bass, ..]) = on_t2(&queue);
+    let screen = rolled(
+        &mut rig,
+        &[Note {
+            bar: 3,
+            length: 960,
+            ..entered(6, bass, 60)
+        }],
+    );
+    assert_eq!(block(&rig, &screen, 60, bright), Some((472, 476)));
+}
+
+#[test]
+fn the_cursor_and_the_music_line_show_on_roll() {
+    let queue = Queue::new();
+    let (mut rig, _) = on_t2(&queue);
+    rig.menu(0, 1);
+    rig.step(10);
+    let at = taps(&mut rig, 100, Button::Right, false, 2);
+    taps(&mut rig, at, Button::Up, false, 1);
+    assert_eq!(row(&rig), (61, 67));
+
+    // C#4 is row 6 from the top: the outline lies 1 px outside step 2's cell of that row, and no
+    // row's name is inverted.
+    let screen = picture(&rig.control);
+    assert!(outlined(&screen, 54, 16 + 14 * 6, 9, 15, ACCENT));
+    assert_eq!(span(&screen, 0..=479, 16..=252, ACCENT), Some((54, 62)));
+
+    // 120 BPM: 60 ticks are 750 samples, a pixel of the music line over the 16 rows.
+    rig.tap(1_000, Button::Play);
+    assert!(rig.step(1_100));
+    assert_eq!(rig.control.music_x(1_100), Some(38));
+    assert!(filled(&picture(&rig.control), 38..=38, 17..=239, TEXT));
+    assert!(rig.step(1_750));
+    assert_eq!(rig.control.music_x(1_750), Some(39));
+    assert!(filled(&picture(&rig.control), 39..=39, 17..=239, TEXT));
+    assert!(!rig.step(1_850));
+}
+
+#[test]
+fn roll_redraws_when_a_note_goes_in() {
+    let queue = Queue::new();
+    let (mut rig, [bass, ..]) = on_t2(&queue);
+    rig.menu(0, 1);
+    rig.step(10);
+    taps(&mut rig, 100, Button::Up, false, 4);
+    let bright = sound_color(bass, 127, true);
+    assert_eq!(ink(&picture(&rig.control), bright), 0);
+
+    // A tap of step 1 enters Bass's note at C4 in sixteenth 0.
+    rig.tap(1_000, Button::Step(0));
+    assert!(rig.step(1_010));
+
+    let screen = picture(&rig.control);
+    assert_eq!(block(&rig, &screen, 60, bright), Some((40, 44)));
+    assert_eq!(ink(&screen, bright), 5 * 11);
 }

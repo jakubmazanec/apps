@@ -7,7 +7,7 @@ pub mod notes;
 pub mod pages;
 mod pool;
 mod record;
-pub mod roll;
+pub(crate) mod roll;
 pub mod samples;
 pub(crate) mod step_view;
 mod steps;
@@ -25,7 +25,7 @@ use crate::message::{
     MAX_MESSAGES_PER_EVENT, MAX_VERSIONS_PER_EVENT, MESSAGE_QUEUE, Message, MessageKind,
     NoteEngine, SampleFile, Target, VERSION_QUEUE, Version,
 };
-use crate::palette::RECORD;
+use crate::palette::{BACKGROUND, RECORD, sound_color};
 use crate::param::{
     self, Curve, END, ENTRIES, LOOP_END, LOOP_START, METRONOME, MUTE, OUTPUT_VOLUME, ParamId,
     QUANTIZE, START, Scope, TEMPO, TRACK_LEVEL, VELOCITY,
@@ -43,7 +43,7 @@ use crate::storage::{Reply, Request};
 use crate::store::note::Key;
 use crate::store::{RESERVE, Store};
 use crate::ui::layout::{LIST_VISIBLE, PICTURE};
-use crate::ui::step::Mark;
+use crate::ui::step::{Mark, NOTE_WIDTH, NOTE_X, pixel};
 use crate::ui::text::SCROLL_PIXEL;
 use crate::ui::tiles::{Tile, TileState};
 use bars::{Change, LENGTHS, Trim};
@@ -55,9 +55,9 @@ use lanes::Lane;
 use notes::{Notes, Source};
 use pages::{ItemDef, ItemKind, MENU, NOTE, PageDef, Pages, Picture, TIMING, pages};
 use record::Rec;
-use roll::HIGHEST;
+use roll::{HIGHEST, ROLL_COLUMNS, ROLL_PIXELS};
 use samples::Deleting;
-use step_view::{GRID_CELLS, LANES_SHOWN, PAGE, cell_of, cells, place_of};
+use step_view::{CELL, GRID_CELLS, LANES_SHOWN, PAGE, cell_of, cells, grid_left, place_of};
 use view::{
     Cursor, Pick, Picker, Question, Screen, StepCursor, View, menu_tiles, moved, page_tiles,
 };
@@ -147,6 +147,21 @@ struct Focus {
     sound: Option<SoundNumber>,
 }
 
+/// What the main area of STEP or ROLL shows of the current track's notes: one at a time, as only
+/// one of the two screens shows (S9).
+#[expect(
+    clippy::large_enum_variant,
+    reason = "the two share the working memory, and the control part never allocates"
+)]
+enum ShownNotes {
+    /// What each cell of STEP's shown lanes holds, by lane and then by column from the view's first
+    /// cell (S6).
+    Step([[Option<Mark>; GRID_CELLS]; LANES_SHOWN]),
+    /// The colour of each pixel of ROLL's shown rows, by row from the top and then from the grid's
+    /// left line to its closing line (S9).
+    Roll([[Color; ROLL_PIXELS]; LANES_SHOWN]),
+}
+
 /// The control part: it turns stamped inputs into numbered messages for the audio part. It keeps
 /// the project, the device settings, the library, the held buttons, the notes that are on, whether
 /// a preview plays, where the pattern plays, what the screen shows and the header's message, works
@@ -215,9 +230,9 @@ pub struct Control {
     /// A bit for each step of the page the step buttons show whose sixteenth a note of the
     /// selected sound starts in, from step 1's bit 0, as the latest step left them (S6).
     step_notes: u16,
-    /// What each cell of STEP's shown lanes holds, by lane and then by column from the view's first
-    /// cell, as the latest step that asked for a redraw left it (S6).
-    marks: [[Option<Mark>; GRID_CELLS]; LANES_SHOWN],
+    /// What STEP's cells or ROLL's pixels hold, as the latest step that asked for a redraw left
+    /// them (S6, S9).
+    shown_notes: ShownNotes,
     /// The bar and sixteenth each step button showed when it last went down, on which its tap acts
     /// (S16).
     pressed: [StepCursor; 16],
@@ -283,7 +298,7 @@ impl Control {
             player: Sequencer::new(),
             moment: 0,
             step_notes: 0,
-            marks: [[None; GRID_CELLS]; LANES_SHOWN],
+            shown_notes: ShownNotes::Step([[None; GRID_CELLS]; LANES_SHOWN]),
             pressed: [StepCursor { bar: 0, step: 0 }; 16],
             held: [StepCursor { bar: 0, step: 0 }; 16],
             held_values: None,
@@ -355,7 +370,7 @@ impl Control {
     /// the screen must be redrawn. That is the case on the first step, whenever it handled an
     /// event, whenever the header's bar numbers changed since the step before (the bar the step
     /// buttons show, `shown_bar`, and the bar playing) or REC did (the record dot), whenever the
-    /// music's line on STEP moved a pixel (`music_x`) and, while a text scrolls, whenever a
+    /// music's line on STEP or ROLL moved a pixel (`music_x`) and, while a text scrolls, whenever a
     /// pixel's time has passed since the step before.
     ///
     /// On equal samples a reply goes first, then a report, then an input and then a repeat, so a
@@ -405,8 +420,10 @@ impl Control {
     /// it holds them already (`waveform`), it works out which steps of the page and bar the step
     /// buttons show (`shown_bar`) start a note of the selected sound (`step_notes`) and it notes
     /// how much of the note memory is in use (`note_memory`). When it returns true it also notes
-    /// the held steps' notes as the strip shows them (`held_values`), and while STEP shows what
-    /// the cells of the shown lanes hold (`marks`).
+    /// the held steps' notes as the strip shows them (`held_values`), while STEP shows what the
+    /// cells of the shown lanes hold and while ROLL shows the colour of each pixel of its shown
+    /// rows (`shown_notes`): every note of the current track, those of the other sounds first and
+    /// the selected sound's on top, each from the pixel of its start to the pixel of its end (S7).
     #[expect(
         clippy::too_many_arguments,
         reason = "the control part writes two queues and reads and writes three memories"
@@ -675,7 +692,7 @@ impl Control {
                     lane => self.lane_sound(lane),
                 };
             }
-            self.marks = [[None; GRID_CELLS]; LANES_SHOWN];
+            let mut marks = [[None::<Mark>; GRID_CELLS]; LANES_SHOWN];
             for note in store.reader().notes(
                 self.project.patterns[usize::from(self.project.pattern)].tracks
                     [usize::from(self.project.track)],
@@ -694,7 +711,7 @@ impl Control {
                 if let Some(row) = sounds.iter().position(|&sound| sound == Some(note.sound))
                     && let Some(column) = cell.checked_sub(view.first_cell)
                 {
-                    let mark = &mut self.marks[row][column as usize];
+                    let mark = &mut marks[row][column as usize];
                     let start = note.place % 480;
                     let end = u16::try_from(u32::from(start) + note.length).unwrap_or(u16::MAX);
                     *mark = Some(match *mark {
@@ -713,6 +730,76 @@ impl Control {
                     });
                 }
             }
+            self.shown_notes = ShownNotes::Step(marks);
+        }
+        if redraw && self.view.screen == Screen::Roll {
+            let signature = self.project.signature;
+            let bar_ticks = signature.bar_ticks();
+            let bars = self.project.patterns[usize::from(self.project.pattern)].bars;
+            let first_cell = self.view.step_view.first_cell;
+            let left = grid_left(ROLL_COLUMNS);
+            // The x of a tick of the pattern: the left line of its bar and sixteenth's cell and its
+            // ticks into the sixteenth, 60 to a pixel (S7).
+            let x = |tick: u32| {
+                let place = tick % bar_ticks;
+                let cell = cell_of(
+                    StepCursor {
+                        bar: (tick / bar_ticks) as u16,
+                        step: (place / 480) as u8,
+                    },
+                    signature,
+                );
+                left + CELL * (cell as i32 - first_cell as i32) + pixel((place % 480) as u16)
+            };
+            let closing =
+                left + CELL * ROLL_COLUMNS.min(cells(bars, signature) - first_cell) as i32;
+            let mut pixels = [[BACKGROUND; ROLL_PIXELS]; LANES_SHOWN];
+            // The other sounds' notes first, then the selected sound's on top (S7).
+            for on_top in [false, true] {
+                // shortcut: reads every note before the view to find the ones that reach into it;
+                // keep each track's longest note if the device's redraw time matters.
+                for note in store.reader().notes(self.track_tree(), Key::at(0, 0)) {
+                    let cell = cell_of(
+                        StepCursor {
+                            bar: note.bar,
+                            step: (note.place / 480) as u8,
+                        },
+                        signature,
+                    );
+                    if cell >= first_cell + ROLL_COLUMNS {
+                        break;
+                    }
+                    let Some(row) = self
+                        .view
+                        .roll
+                        .top
+                        .checked_sub(note.pitch)
+                        .map(usize::from)
+                        .filter(|&row| row < LANES_SHOWN)
+                    else {
+                        continue;
+                    };
+                    if (Some(note.sound) == self.track().selected_sound) != on_top {
+                        continue;
+                    }
+                    let start = u32::from(note.bar) * bar_ticks + u32::from(note.place);
+                    // No note ends past the pattern's end.
+                    let end = x((start + note.length).min(u32::from(bars) * bar_ticks));
+                    // A note from before the view runs in from the grid's left line once it reaches
+                    // into the view, and a block that would cross the closing line ends on it.
+                    let first = if cell >= first_cell {
+                        (x(start) + NOTE_X).min(closing - NOTE_WIDTH + 1)
+                    } else if end > left {
+                        left
+                    } else {
+                        continue;
+                    };
+                    let last = (end.min(closing) - NOTE_X).max(first + NOTE_WIDTH - 1);
+                    pixels[row][(first - left) as usize..=(last - left) as usize]
+                        .fill(sound_color(note.sound, note.velocity, on_top));
+                }
+            }
+            self.shown_notes = ShownNotes::Roll(pixels);
         }
         self.now = until;
         redraw

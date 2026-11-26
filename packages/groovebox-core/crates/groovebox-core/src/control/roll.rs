@@ -1,8 +1,9 @@
 //! ROLL's rows and columns: one row for each pitch, and STEP's cursor and first cell (Workflow B).
 
 use super::Control;
-use super::step_view::{LANES_SHOWN, kept};
+use super::step_view::{CELL, LANES_SHOWN, kept};
 use super::view::Screen;
+use crate::screen::WIDTH;
 use crate::store::Store;
 use crate::store::note::Key;
 
@@ -10,7 +11,7 @@ use crate::store::note::Key;
 pub const ROLL_NAMES: i32 = 29;
 /// The cells ROLL's grid shows: the whole cells between its names column and the screen's right
 /// edge, with a pixel on each side (S3).
-pub const ROLL_COLUMNS: u32 = 55;
+pub const ROLL_COLUMNS: u32 = ((WIDTH as i32 - 2 - ROLL_NAMES - 2) / CELL) as u32;
 /// The pixels of a row of ROLL's grid, from the grid's left line to its closing line (S9).
 pub const ROLL_PIXELS: usize = 441;
 /// The highest pitch, G9, ROLL's top row at the most.
@@ -79,17 +80,13 @@ impl Control {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::control::step_view::{CELL, GRID_END, grid_left};
-    use crate::screen::WIDTH;
+    use crate::control::step_view::{GRID_END, grid_left};
     use crate::ui::text;
 
     #[test]
     fn the_names_column_the_columns_and_the_pixels_follow_from_the_widest_name() {
         assert_eq!(ROLL_NAMES, 3 + text::width("C#\u{2212}1") + 3);
-        assert_eq!(
-            ROLL_COLUMNS,
-            ((WIDTH as i32 - 2 - ROLL_NAMES - 2) / CELL) as u32
-        );
+        assert_eq!(ROLL_COLUMNS, 55);
         assert_eq!(grid_left(ROLL_COLUMNS), 38);
         assert_eq!(
             ROLL_PIXELS,

@@ -153,13 +153,14 @@ impl Control {
         };
     }
 
-    /// The x of the music's line while STEP shows it (S7): the left line of the music's cell and
-    /// its ticks into the sixteenth at 8 px to 480 ticks, rounded down, where that cell shows.
+    /// The x of the music's line while STEP or ROLL shows it (S7): the left line of the music's
+    /// cell and its ticks into the sixteenth at 8 px to 480 ticks, rounded down, where that cell
+    /// shows among the shown screen's columns (`columns`).
     pub(super) fn music_x(&self, sample: u64) -> Option<i32> {
         let (bar, place) = self
             .player
             .at(sample)
-            .filter(|_| self.view.screen == Screen::Step)?;
+            .filter(|_| matches!(self.view.screen, Screen::Step | Screen::Roll))?;
         let signature = self.project.signature;
         let cell = cell_of(
             StepCursor {
@@ -168,7 +169,7 @@ impl Control {
             },
             signature,
         );
-        let columns = self.step_columns().1;
+        let columns = self.columns();
         let column = cell
             .checked_sub(self.view.step_view.first_cell)
             .filter(|&column| {
