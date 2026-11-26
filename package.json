@@ -24,26 +24,26 @@
     "unrs-resolver": true
   },
   "devDependencies": {
-    "@changesets/cli": "^3.0.0",
+    "@changesets/cli": "^3.0.3",
     "@jakubmazanec/carson": "^4.0.0",
     "@jakubmazanec/carson-templates": "^10.0.0",
-    "@jakubmazanec/changesets-changelog": "^2.0.18",
-    "@types/node": "^26.0.0",
+    "@jakubmazanec/changesets-changelog": "^2.0.19",
+    "@types/node": "^26.6.6",
     "@types/semver": "^7.8.0",
-    "del-cli": "^8.0.0",
+    "del-cli": "^8.0.1",
     "execa": "^10.2.1",
     "lodash": "^4.18.1",
     "patch-package": "^8.0.1",
-    "prettier": "^3.9.10",
-    "prettier-plugin-packagejson": "^3.0.0",
-    "semver": "^7.8.5",
+    "prettier": "^3.10.1",
+    "prettier-plugin-packagejson": "^3.1.0",
+    "semver": "^7.8.6",
     "tsx": "^4.23.15",
     "turbo": "^2.5.6",
     "typescript": "^6.0.3"
   },
-  "packageManager": "npm@12.0.0",
+  "packageManager": "npm@12.2.2",
   "engines": {
-    "node": "^26.0.0",
-    "npm": "^12.0.0"
+    "node": "^26.13.1",
+    "npm": "^12.2.2"
   }
 }
