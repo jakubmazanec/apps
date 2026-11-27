@@ -100,7 +100,7 @@ input 140800 press left
 input 142400 release left
 input 144000 release shift
 # A take of Acid 2 bars long: REC arms and PLAY counts in one bar, so the pattern starts 96,000
-# samples after the press. G2 is hit 2,000 samples before the first beat, snapped onto it, and held
+# samples after the press. G2 is hit 2,000 samples before the first beat, snapped onto it and held
 # past the loop point at 192,000 samples; its release in the second pass ends a note as long as the
 # pattern, 2 bars. STOP ends the take.
 input 145600 press rec
@@ -113,9 +113,8 @@ input 476800 press stop
 input 478400 release stop
 # Bass: a tap of PADS/KEYS, a hit on pad 1 and a tap of PADS/KEYS. SHIFT + left puts the cursor on
 # bar 1 and SHIFT + right on bar 2, where hits and taps enter C2 on steps 1 and 4, D#2 on step 7,
-# G2 on step 9, F2 on step 12 and A#2 on step 15. The NOTE strip makes the note of step 4 quieter,
-# by 80 with encoder 2 while the step is held, and the note of step 1 longer by a click of
-# encoder 3.
+# G2 on step 9, F2 on step 12 and A#2 on step 15. The NOTE strip makes the note of step 4 quieter by
+# 80 with encoder 2 while the step is held and the note of step 1 longer by a click of encoder 3.
 input 480000 press pads-keys
 input 481600 release pads-keys
 input 483200 pad-hit 0 100
@@ -197,7 +196,7 @@ input 598400 pad-release 5
 input 600000 press step-13
 input 601600 release step-13
 # A tap of PADS/KEYS makes the pads play and a hit on pad 1 selects Bass. The ROLL button shows ROLL
-# with its row on F2, the middle of the notes of Bass, and Sub and Acid dim.
+# with Sub and Acid dim and its row on F2, the middle of the notes of Bass.
 # Frame: ROLL on T2 with Bass bright and Sub and Acid dim (roll.png).
 input 603200 press pads-keys
 input 604800 release pads-keys
