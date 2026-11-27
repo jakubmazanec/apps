@@ -742,8 +742,9 @@ impl Control {
             let bars = self.project.patterns[usize::from(self.project.pattern)].bars;
             let first_cell = self.view.step_view.first_cell;
             let left = grid_left(ROLL_COLUMNS);
-            // The x of `after` ticks past a tick of the pattern: the left line of the tick's bar
-            // and sixteenth's cell and its ticks into the sixteenth and `after`, 60 to a pixel (S7).
+            // The x of `after` ticks past a tick of the pattern (S7). It starts at the left line of
+            // the cell of the tick's bar and sixteenth. It adds the tick's ticks into the sixteenth
+            // and `after`, 60 to a pixel.
             let x = |tick: u32, after: u32| {
                 let place = tick % bar_ticks;
                 let cell = cell_of(
@@ -1196,10 +1197,10 @@ impl Control {
     /// every sound unused at that moment; on Delete notes it applies the change (`reshape`). The
     /// arrows, - and + are taken too, and the other controls act as with a picker open. While the
     /// NOTE panel is open the controls act as with a picker open, but the arrows, - and + move its
-    /// cursor and change its item (`nudge`), with SHIFT too though not under PADS/KEYS, which takes
-    /// them, OK is taken, SHIFT + CANCEL is taken as on STEP and ROLL, SHIFT + PLAY acts and a tap
-    /// of CANCEL closes it (`release`, S12). Opening and closing it take the held arrows, - and +
-    /// (`end_held_repeats`).
+    /// cursor and change its item (`nudge`). They do so with SHIFT held too, though not under
+    /// PADS/KEYS, which takes them. OK is taken. SHIFT + CANCEL is taken as on STEP and ROLL.
+    /// SHIFT + PLAY acts. A tap of CANCEL closes the panel (`release`, S12). Opening and closing it
+    /// take the held arrows, - and + (`end_held_repeats`).
     ///
     /// Otherwise the arrows, - and + nudge (`nudge`), OK uses the item under the cursor, or acts on
     /// SAMPLES' row (`ok_in_samples`) or POOL's (`ok_in_pool`), or on STEP and ROLL enters a note

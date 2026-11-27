@@ -351,6 +351,31 @@ fn pitch_on_roll_carries_the_row_and_stops_at_the_ends() {
 }
 
 #[test]
+fn on_roll_the_panel_edits_only_its_rows_note_of_a_chord() {
+    let queue = Queue::new();
+    let (mut rig, [bass, ..]) = chord(&queue);
+    at_cell(&mut rig, 52, 3);
+    rig.tap(100, Button::Ok);
+
+    rig.turn(200, 1, 1);
+    rig.step(210);
+    rig.turn(300, 3, 1);
+    rig.step(310);
+
+    assert_eq!(
+        notes_in(&rig, rig.control.track_tree()),
+        [
+            soft(0, 3, bass, 48),
+            Note {
+                velocity: 101,
+                ..soft(0, 4, bass, 52)
+            }
+        ]
+    );
+    assert_eq!(count(&rig, bass), 2);
+}
+
+#[test]
 fn a_moved_note_replaces_the_one_it_lands_on() {
     let queue = Queue::new();
     let (mut rig, [bass, ..]) = on_t2(&queue);
@@ -525,8 +550,8 @@ fn the_panel_takes_the_controls_a_picker_takes() {
     rig.press(50_010, Button::Up);
     rig.tap(50_020, Button::Plus);
     rig.step(50_010 + REPEAT_DELAY + 5 * REPEAT_EVERY);
-    rig.let_go(60_000 + REPEAT_DELAY, Button::Up);
-    rig.let_go(60_010 + REPEAT_DELAY, Button::PadsKeys);
+    rig.let_go(81_220, Button::Up);
+    rig.let_go(81_230, Button::PadsKeys);
     rig.step(70_000 + REPEAT_DELAY);
     assert_eq!(rig.control.view.note_panel, view.note_panel);
     assert_eq!(rig.control.track_tree(), tree);

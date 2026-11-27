@@ -1,7 +1,7 @@
 //! Held steps and the NOTE strip, whose encoders change the pitch, velocity, length and position
-//! of the selected sound's notes in the held steps' sixteenths, and whose steps a pad or key hit
-//! adds a sound or pitch to or removes it from, and the NOTE panel, which changes them in its cell
-//! (Workflow B).
+//! of the selected sound's notes in the held steps' sixteenths. A pad or key hit adds a sound or
+//! pitch to the held steps or removes it from them. The NOTE panel changes the same four values of
+//! the notes in its cell (Workflow B).
 
 use super::Control;
 use super::pages::ItemKind;
