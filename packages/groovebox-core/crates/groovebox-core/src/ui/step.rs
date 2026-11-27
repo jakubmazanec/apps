@@ -30,7 +30,8 @@ pub struct Mark {
     pub count: u8,
     /// The earliest start of the notes, in ticks after their cell's first tick.
     pub start: u16,
-    /// The latest end of the notes, in ticks after their cell's first tick.
+    /// The latest end of the notes, in ticks after their cell's first tick at 480 to a cell, dark
+    /// cells too.
     pub end: u16,
 }
 
@@ -54,8 +55,9 @@ pub struct LaneView<'a> {
 /// The notes of the shown lanes, from the first shown cell.
 #[derive(Clone, Copy)]
 pub enum GridNotes<'a> {
-    /// STEP's cells.
-    Marks(&'a [[Option<Mark>; GRID_CELLS]]),
+    /// STEP's cells, and each lane's notes from before the first shown cell that reach into it as a
+    /// mark of that cell's first tick, drawn as its tail alone from the grid's left line.
+    Marks(&'a [[Option<Mark>; GRID_CELLS]], &'a [Option<Mark>]),
     /// ROLL's colour of each pixel from the grid's left line, the background where no note is.
     Pixels(&'a [[Color; ROLL_PIXELS]]),
 }
@@ -148,8 +150,8 @@ pub fn draw_step(canvas: &mut impl Canvas, picture: &StepPicture) {
             let line = if lane.line_above { LINE } else { FAINT };
             canvas.hline(LEFT, y - 1, (GRID_END - LEFT + 1) as u32, line);
         }
-        let marks = match notes {
-            GridNotes::Marks(marks) => &marks[row],
+        let (marks, from_left) = match notes {
+            GridNotes::Marks(marks, from_left) => (&marks[row], from_left[row]),
             GridNotes::Pixels(pixels) => {
                 for (x, &color) in (grid_left(columns)..).zip(&pixels[row]) {
                     if color != BACKGROUND {
@@ -159,13 +161,23 @@ pub fn draw_step(canvas: &mut impl Canvas, picture: &StepPicture) {
                 continue;
             }
         };
+        let grey = |mark: Mark| match mark.velocity {
+            100.. => NOTE_LOUD,
+            60.. => NOTE_MID,
+            _ => NOTE_SOFT,
+        };
+        // The last pixel of `mark` in `column`: 2 px before the line at its end or the grid's
+        // closing line, whichever comes first.
+        let last = |column: u32, mark: Mark| (x(column) + pixel(mark.end)).min(x(shown)) - NOTE_X;
+        if let Some(mark) = from_left {
+            canvas.fill_rect(
+                rect(x(0), y + ROW_HEIGHT / 2 - 1, last(0, mark) + 1 - x(0), 2),
+                grey(mark),
+            );
+        }
         for (column, &mark) in (0..shown).zip(marks) {
             let Some(mark) = mark else { continue };
-            let color = match mark.velocity {
-                100.. => NOTE_LOUD,
-                60.. => NOTE_MID,
-                _ => NOTE_SOFT,
-            };
+            let color = grey(mark);
             // From the cell's left line to the grid's closing line, which no block crosses.
             let edge = CELL * (shown - column) as i32;
             let first = (NOTE_X + pixel(mark.start)).min(edge - NOTE_WIDTH + 1);
@@ -177,7 +189,7 @@ pub fn draw_step(canvas: &mut impl Canvas, picture: &StepPicture) {
                 rect(
                     block + NOTE_WIDTH,
                     y + ROW_HEIGHT / 2 - 1,
-                    (pixel(mark.end) - NOTE_X).min(edge - NOTE_X) + 1 - first - NOTE_WIDTH,
+                    last(column, mark) + 1 - block - NOTE_WIDTH,
                     2,
                 ),
                 color,
@@ -231,7 +243,7 @@ mod tests {
             cells: 16,
             signature: FOUR_FOUR,
             shown_page: 0,
-            notes: GridNotes::Marks(&NO_MARKS[..1]),
+            notes: GridNotes::Marks(&NO_MARKS[..1], &[None]),
             cursor: None,
             music: None,
         }
@@ -249,7 +261,7 @@ mod tests {
         marks[0][column] = Some(mark);
         drawn(&StepPicture {
             cells: 64,
-            notes: GridNotes::Marks(&marks[..1]),
+            notes: GridNotes::Marks(&marks[..1], &[None]),
             ..one_lane()
         })
     }
@@ -380,7 +392,7 @@ mod tests {
         let mut marks = NO_MARKS;
         marks[0][14] = Some(note(100, 1, 30_480));
         let short = drawn(&StepPicture {
-            notes: GridNotes::Marks(&marks[..1]),
+            notes: GridNotes::Marks(&marks[..1], &[None]),
             ..one_lane()
         });
         assert_eq!(span(&short, 0..=479, 22..=22, NOTE_LOUD), Some((136, 148)));
@@ -404,7 +416,7 @@ mod tests {
         let mut marks = NO_MARKS;
         marks[0][15] = Some(late);
         let ended = drawn(&StepPicture {
-            notes: GridNotes::Marks(&marks[..1]),
+            notes: GridNotes::Marks(&marks[..1], &[None]),
             ..one_lane()
         });
         assert_eq!(span(&ended, 0..=479, 18..=18, NOTE_LOUD), Some((146, 150)));
@@ -412,6 +424,30 @@ mod tests {
         // One column before the last it has room: from + 10, x 472 to 476.
         let inside = marked(55, late);
         assert_eq!(span(&inside, 0..=479, 18..=18, NOTE_LOUD), Some((472, 476)));
+    }
+
+    #[test]
+    fn a_tail_from_the_left_stops_2_px_before_the_grids_closing_line() {
+        // Notes from before the view that end far past the grid, from cell 16.
+        let from_left = [Some(note(100, 1, 30_480))];
+        let from_cell_16 = |cells| {
+            drawn(&StepPicture {
+                first_cell: 16,
+                cells,
+                notes: GridNotes::Marks(&NO_MARKS[..1], &from_left),
+                ..one_lane()
+            })
+        };
+
+        // 2 bars end the grid at cell 32's line, x 150: the tail alone, on the lane's middle rows
+        // from the left line at x 22 to x 148.
+        let ended = from_cell_16(32);
+        assert!(filled(&ended, 22..=148, 22..=23, NOTE_LOUD));
+        assert_eq!(ink(&ended, NOTE_LOUD), 127 * 2);
+        // A pattern that goes on past the 57 columns: to x 476, 2 px before the line at x 478.
+        let cut = from_cell_16(128);
+        assert!(filled(&cut, 22..=476, 22..=23, NOTE_LOUD));
+        assert_eq!(ink(&cut, NOTE_LOUD), 455 * 2);
     }
 
     #[test]
@@ -523,7 +559,7 @@ mod tests {
         lanes[12].line_above = true;
         let screen = drawn(&StepPicture {
             lanes: &lanes,
-            notes: GridNotes::Marks(&NO_MARKS[..14]),
+            notes: GridNotes::Marks(&NO_MARKS[..14], &[None; 14]),
             ..one_lane()
         });
 
@@ -570,7 +606,7 @@ mod tests {
         }
         let screen = drawn(&StepPicture {
             lanes: &lanes,
-            notes: GridNotes::Marks(&NO_MARKS[..12]),
+            notes: GridNotes::Marks(&NO_MARKS[..12], &[None; 12]),
             ..one_lane()
         });
 
@@ -623,7 +659,7 @@ mod tests {
         let with = |cursor, music| {
             drawn(&StepPicture {
                 lanes: &lanes,
-                notes: GridNotes::Marks(&NO_MARKS[..3]),
+                notes: GridNotes::Marks(&NO_MARKS[..3], &[None; 3]),
                 cursor,
                 music,
                 ..one_lane()

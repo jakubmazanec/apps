@@ -57,7 +57,9 @@ use pages::{ItemDef, ItemKind, MENU, NOTE, PageDef, Pages, Picture, TIMING, page
 use record::Rec;
 use roll::{HIGHEST, ROLL_COLUMNS, ROLL_PIXELS};
 use samples::Deleting;
-use step_view::{CELL, GRID_CELLS, LANES_SHOWN, PAGE, cell_of, cells, grid_left, place_of};
+use step_view::{
+    CELL, GRID_CELLS, LANES_SHOWN, PAGE, cell_of, cells, grid_left, note_end, place_of,
+};
 use view::{
     Cursor, Pick, Picker, Question, Screen, StepCursor, View, menu_tiles, moved, page_tiles,
 };
@@ -157,8 +159,11 @@ struct Focus {
 )]
 enum ShownNotes {
     /// What each cell of STEP's shown lanes holds, by lane and then by column from the view's first
-    /// cell (S6).
-    Step([[Option<Mark>; GRID_CELLS]; LANES_SHOWN]),
+    /// cell (S6), and each lane's notes from before that cell that reach into it.
+    Step(
+        [[Option<Mark>; GRID_CELLS]; LANES_SHOWN],
+        [Option<Mark>; LANES_SHOWN],
+    ),
     /// The colour of each pixel of ROLL's shown rows, by row from the top and then from the grid's
     /// left line to its closing line (S9).
     Roll([[Color; ROLL_PIXELS]; LANES_SHOWN]),
@@ -300,7 +305,7 @@ impl Control {
             player: Sequencer::new(),
             moment: 0,
             step_notes: 0,
-            shown_notes: ShownNotes::Step([[None; GRID_CELLS]; LANES_SHOWN]),
+            shown_notes: ShownNotes::Step([[None; GRID_CELLS]; LANES_SHOWN], [None; LANES_SHOWN]),
             pressed: [StepCursor { bar: 0, step: 0 }; 16],
             held: [StepCursor { bar: 0, step: 0 }; 16],
             held_values: None,
@@ -686,6 +691,7 @@ impl Control {
         }
         if redraw && self.view.screen == Screen::Step {
             let signature = self.project.signature;
+            let bars = self.project.patterns[usize::from(self.project.pattern)].bars;
             let view = self.view.step_view;
             let columns = self.step_columns().1;
             // The sound each shown lane shows: none on a copy lane or an empty pad's.
@@ -697,11 +703,10 @@ impl Control {
                 };
             }
             let mut marks = [[None::<Mark>; GRID_CELLS]; LANES_SHOWN];
-            for note in store.reader().notes(
-                self.project.patterns[usize::from(self.project.pattern)].tracks
-                    [usize::from(self.project.track)],
-                Key::at((view.first_cell / cells(1, signature)) as u16, 0),
-            ) {
+            let mut from_left = [None::<Mark>; LANES_SHOWN];
+            // shortcut: reads every note before the view to find the ones that reach into it, as
+            // ROLL does; keep each track's longest note if the device's redraw time matters.
+            for note in store.reader().notes(self.track_tree(), Key::at(0, 0)) {
                 let cell = cell_of(
                     StepCursor {
                         bar: note.bar,
@@ -712,50 +717,47 @@ impl Control {
                 if cell >= view.first_cell + columns {
                     break;
                 }
-                if let Some(row) = sounds.iter().position(|&sound| sound == Some(note.sound))
-                    && let Some(column) = cell.checked_sub(view.first_cell)
-                {
-                    let mark = &mut marks[row][column as usize];
-                    let start = note.place % 480;
-                    let end = u16::try_from(u32::from(start) + note.length).unwrap_or(u16::MAX);
-                    *mark = Some(match *mark {
-                        None => Mark {
-                            velocity: note.velocity,
-                            count: 1,
-                            start,
-                            end,
-                        },
-                        Some(before) => Mark {
-                            velocity: before.velocity.max(note.velocity),
-                            count: before.count.saturating_add(1),
-                            start: before.start.min(start),
-                            end: before.end.max(end),
-                        },
-                    });
+                let Some(row) = sounds.iter().position(|&sound| sound == Some(note.sound)) else {
+                    continue;
+                };
+                // A note from before the view counts from the view's first tick.
+                let (mark, from, start) = match cell.checked_sub(view.first_cell) {
+                    Some(column) => (&mut marks[row][column as usize], cell, note.place % 480),
+                    None => (&mut from_left[row], view.first_cell, 0),
+                };
+                let end = note_end(note, bars, signature);
+                // One that ends at or before the grid's left line shows nothing.
+                if end <= from * 480 {
+                    continue;
                 }
+                let end = u16::try_from(end - from * 480).unwrap_or(u16::MAX);
+                *mark = Some(match *mark {
+                    None => Mark {
+                        velocity: note.velocity,
+                        count: 1,
+                        start,
+                        end,
+                    },
+                    Some(before) => Mark {
+                        velocity: before.velocity.max(note.velocity),
+                        count: before.count.saturating_add(1),
+                        start: before.start.min(start),
+                        end: before.end.max(end),
+                    },
+                });
             }
-            self.shown_notes = ShownNotes::Step(marks);
+            self.shown_notes = ShownNotes::Step(marks, from_left);
         }
         if redraw && self.view.screen == Screen::Roll {
             let signature = self.project.signature;
-            let bar_ticks = signature.bar_ticks();
             let bars = self.project.patterns[usize::from(self.project.pattern)].bars;
             let first_cell = self.view.step_view.first_cell;
             let left = grid_left(ROLL_COLUMNS);
-            // The x of `after` ticks past a tick of the pattern (S7). It starts at the left line of
-            // the cell of the tick's bar and sixteenth. It adds the tick's ticks into the sixteenth
-            // and `after`, 60 to a pixel.
-            let x = |tick: u32, after: u32| {
-                let place = tick % bar_ticks;
-                let cell = cell_of(
-                    StepCursor {
-                        bar: (tick / bar_ticks) as u16,
-                        step: (place / 480) as u8,
-                    },
-                    signature,
-                );
-                left + CELL * (cell as i32 - first_cell as i32)
-                    + pixel((place % 480 + after) as u16)
+            // The x of a tick of the grid, counted 480 to a cell from the pattern's first (S7). It
+            // starts at the left line of the tick's cell and adds its ticks into the cell, 60 to a
+            // pixel.
+            let x = |tick: u32| {
+                left + CELL * ((tick / 480) as i32 - first_cell as i32) + pixel((tick % 480) as u16)
             };
             let closing =
                 left + CELL * ROLL_COLUMNS.min(cells(bars, signature) - first_cell) as i32;
@@ -788,20 +790,12 @@ impl Control {
                     if (Some(note.sound) == self.track().selected_sound) != on_top {
                         continue;
                     }
-                    let start = u32::from(note.bar) * bar_ticks + u32::from(note.place);
-                    // No note ends past the pattern's end. A note ends in the bar and sixteenth of
-                    // its last tick, a note of no ticks in those of its first.
-                    let end = x(
-                        (start + note.length)
-                            .min(u32::from(bars) * bar_ticks)
-                            .max(start + 1)
-                            - 1,
-                        1,
-                    );
+                    let end = x(note_end(note, bars, signature));
                     // A note from before the view runs in from the grid's left line once it reaches
                     // into the view, and a block that would cross the closing line ends on it.
                     let first = if cell >= first_cell {
-                        (x(start, 0) + NOTE_X).min(closing - NOTE_WIDTH + 1)
+                        (x(cell * 480 + u32::from(note.place % 480)) + NOTE_X)
+                            .min(closing - NOTE_WIDTH + 1)
                     } else if end > left {
                         left
                     } else {

@@ -9,6 +9,7 @@ use crate::palette::{DIM, RECORD, TEXT};
 use crate::project::Signature;
 use crate::project::pool::NAME_BYTES;
 use crate::screen::{Color, WIDTH};
+use crate::store::note::Note;
 use crate::ui::text;
 use core::fmt::Write;
 
@@ -53,6 +54,26 @@ pub fn place_of(cell: u32, signature: Signature) -> Option<StepCursor> {
         bar: (cell / bar_cells) as u16,
         step: step as u8,
     })
+}
+
+/// Where `note` ends on the grid, in ticks counted 480 to a cell from the pattern's first, dark
+/// cells too. No note ends past the end of the pattern's `bars`. A note ends in the bar and
+/// sixteenth of its last tick, a note of no ticks in those of its first.
+pub fn note_end(note: Note, bars: u16, signature: Signature) -> u32 {
+    let bar_ticks = signature.bar_ticks();
+    let start = u32::from(note.bar) * bar_ticks + u32::from(note.place);
+    let last = (start + note.length)
+        .min(u32::from(bars) * bar_ticks)
+        .max(start + 1)
+        - 1;
+    let cell = cell_of(
+        StepCursor {
+            bar: (last / bar_ticks) as u16,
+            step: (last % bar_ticks / 480) as u8,
+        },
+        signature,
+    );
+    cell * 480 + last % 480 + 1
 }
 
 /// A pattern's cells: every bar takes its pages.

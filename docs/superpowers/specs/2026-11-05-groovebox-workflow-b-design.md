@@ -479,6 +479,8 @@ row per pitch. Everything else in this section works the same on both.
 - **Empty:** no note starts here.
 - **Filled:** a note starts here; the brighter, the louder.
 - **A tail to the right:** the note keeps sounding over the next cells.
+- **A tail in from the left edge:** a note that started before the shown cells is still sounding
+  **(owner's choice)**.
 - **Drawn slightly to the right:** the note starts later than the first tick of its sixteenth, as a
   note recorded with quantize off can. A note off the grid is drawn at its real start and end (Look)
   and belongs to the step whose sixteenth it starts in, so a slightly early loose hit lights the

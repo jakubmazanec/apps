@@ -7,12 +7,14 @@ use super::*;
 use crate::control::lanes::Lane;
 use crate::control::step_view::{GRID_CELLS, LANES_SHOWN};
 use crate::control::view::{NotePanel, StepCursor};
+use crate::palette::{NOTE_LOUD, NOTE_MID, NOTE_SOFT};
 use crate::project::pool::{Engine, Sample};
 use crate::project::{FOUR_FOUR, Signature};
 use crate::storage::Path;
 use crate::store::note::Note;
 use crate::store::{NOTE_BLOCKS, Tree};
 use crate::ui::step::{GridNotes, LaneView, Mark, StepPicture, draw_step};
+use crate::ui::test_pixels::ink;
 
 /// The current track's lanes.
 fn lanes(rig: &Rig<'_>) -> Vec<Lane> {
@@ -308,7 +310,7 @@ fn the_view_keeps_the_cursor_after_a_lane_goes() {
 /// What STEP's cells hold, as the latest step that asked for a redraw noted them.
 fn noted<'a>(rig: &'a Rig<'_>) -> &'a [[Option<Mark>; GRID_CELLS]; LANES_SHOWN] {
     match &rig.control.shown_notes {
-        ShownNotes::Step(marks) => marks,
+        ShownNotes::Step(marks, _) => marks,
         ShownNotes::Roll(_) => panic!("STEP shows"),
     }
 }
@@ -348,7 +350,7 @@ fn step_picture(
                     cells: 16,
                     signature: FOUR_FOUR,
                     shown_page: 0,
-                    notes: GridNotes::Marks(marks),
+                    notes: GridNotes::Marks(marks, &[None; LANES_SHOWN][..marks.len()]),
                     cursor: Some(cursor),
                     music: None,
                 },
@@ -562,6 +564,105 @@ fn the_marks_start_at_the_views_first_cell() {
         .filter(|&column| noted(&rig)[0][column].is_some())
         .collect();
     assert_eq!(marked, [0, 7, 54]);
+}
+
+#[test]
+fn a_tail_over_a_short_bars_end_skips_the_dark_cells() {
+    // A note on step 9 held 8 steps, in 2 bars of "Syn 1", whose 55 columns start at x 38.
+    for (signature, last) in [
+        // 3/4: its last tick lies in bar 1 step 4, so its tail runs over the 4 dark cells to 2 px
+        // before cell 21's line.
+        (Signature { beats: 3, unit: 4 }, 204),
+        // 4/4: in bar 1 step 0, to 2 px before cell 17's line as before.
+        (FOUR_FOUR, 172),
+    ] {
+        let queue = Queue::new();
+        let mut rig = shaped(&queue, 2, signature, place(0, 0));
+        let syn_1 = rig.synth_on(0);
+        put(
+            &mut rig,
+            0,
+            0,
+            &[Note {
+                place: 4_320,
+                length: 3_840,
+                ..entered(0, syn_1, 60)
+            }],
+        );
+
+        rig.tap(10, Button::T1);
+        rig.step(20);
+
+        // The block from cell 9's line + 2 and the tail on the lane's middle rows.
+        let screen = picture(&rig.control);
+        assert_eq!(
+            span(&screen, 0..=479, 18..=18, NOTE_LOUD),
+            Some((112, 116)),
+            "{signature:?}"
+        );
+        assert_eq!(
+            span(&screen, 0..=479, 22..=23, NOTE_LOUD),
+            Some((112, last)),
+            "{signature:?}"
+        );
+    }
+}
+
+/// STEP's picture of 8 bars of 4/4 viewed from cell 16, with the cursor in bar 2 clear of the
+/// tails, and these notes of Syn 1 on pad 1 in bar 0, each at its place for its length at its
+/// velocity.
+fn from_cell_16(notes: &[(u16, u32, u8)]) -> Screen {
+    let queue = Queue::new();
+    let mut rig = shaped(&queue, 8, FOUR_FOUR, place(2, 4));
+    let syn_1 = rig.synth_on(0);
+    rig.control.view.step_view.first_cell = 16;
+    let notes: Vec<_> = notes
+        .iter()
+        .map(|&(place, length, velocity)| Note {
+            place,
+            length,
+            velocity,
+            ..entered(0, syn_1, 60)
+        })
+        .collect();
+    put(&mut rig, 0, 0, &notes);
+
+    rig.tap(10, Button::T1);
+    rig.step(20);
+
+    assert_eq!(rig.control.view.step_view.first_cell, 16);
+    picture(&rig.control)
+}
+
+#[test]
+fn a_note_from_before_the_view_shows_its_tail_from_the_left_line() {
+    // A note of 2 bars from bar 0 step 0: its tail on the lane's middle rows from the grid's left
+    // line at x 38 to 2 px before cell 32's line, in its grey, and no block.
+    let screen = from_cell_16(&[(0, 2 * 7_680, 80)]);
+
+    assert!(filled(&screen, 38..=164, 22..=23, NOTE_MID));
+    assert_eq!(ink(&screen, NOTE_MID), 127 * 2);
+}
+
+#[test]
+fn notes_reaching_in_draw_one_tail_to_the_latest_end_in_the_loudest_grey() {
+    // A loud note to cell 20 and a soft one to cell 32.
+    let screen = from_cell_16(&[(0, 7_680 + 4 * 480, 110), (960, 2 * 7_680 - 960, 40)]);
+
+    assert!(filled(&screen, 38..=164, 22..=23, NOTE_LOUD));
+    assert_eq!(ink(&screen, NOTE_LOUD), 127 * 2);
+    assert_eq!(ink(&screen, NOTE_SOFT), 0);
+}
+
+#[test]
+fn a_note_ending_at_the_left_line_shows_nothing() {
+    // A loud note of a bar from step 0 ends on cell 16's line, and a soft one from step 4 reaches
+    // 4 cells in: only the soft one's tail shows, in its own grey.
+    let screen = from_cell_16(&[(0, 7_680, 127), (1_920, 7_680, 40)]);
+
+    assert_eq!(ink(&screen, NOTE_LOUD), 0);
+    assert!(filled(&screen, 38..=68, 22..=23, NOTE_SOFT));
+    assert_eq!(ink(&screen, NOTE_SOFT), 31 * 2);
 }
 
 #[test]

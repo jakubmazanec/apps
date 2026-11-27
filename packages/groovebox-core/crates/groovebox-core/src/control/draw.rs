@@ -522,7 +522,9 @@ impl Control {
                     signature,
                     shown_page: cell / PAGE,
                     notes: match &self.shown_notes {
-                        ShownNotes::Step(marks) => GridNotes::Marks(&marks[..shown]),
+                        ShownNotes::Step(marks, from_left) => {
+                            GridNotes::Marks(&marks[..shown], &from_left[..shown])
+                        }
                         ShownNotes::Roll(pixels) => GridNotes::Pixels(pixels),
                     },
                     cursor: if screen == Screen::Roll {
