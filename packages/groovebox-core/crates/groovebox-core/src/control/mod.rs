@@ -725,12 +725,13 @@ impl Control {
                     Some(column) => (&mut marks[row][column as usize], cell, note.place % 480),
                     None => (&mut from_left[row], view.first_cell, 0),
                 };
-                let end = note_end(note, bars, signature);
-                // One that ends at or before the grid's left line shows nothing.
-                if end <= from * 480 {
+                let end = u16::try_from(note_end(note, bars, signature).saturating_sub(from * 480))
+                    .unwrap_or(u16::MAX);
+                // One that ends too close to the grid's left line for its tail to draw a pixel
+                // shows nothing.
+                if cell < view.first_cell && pixel(end) < NOTE_X {
                     continue;
                 }
-                let end = u16::try_from(end - from * 480).unwrap_or(u16::MAX);
                 *mark = Some(match *mark {
                     None => Mark {
                         velocity: note.velocity,

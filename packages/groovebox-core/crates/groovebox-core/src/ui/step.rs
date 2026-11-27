@@ -21,14 +21,16 @@ pub const NOTE_X: i32 = 2;
 pub const NOTE_WIDTH: i32 = CELL - 3;
 const NOTE_HEIGHT: i32 = ROW_HEIGHT - 2;
 
-/// What a cell shows (S6): the notes of its lane's sound that start in its sixteenth.
+/// What a cell shows (S6): the notes of its lane's sound that start in its sixteenth, or for a
+/// lane's tail from the left, those that start before the first shown cell and reach into it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Mark {
     /// The loudest note's velocity.
     pub velocity: u8,
     /// How many notes there are.
     pub count: u8,
-    /// The earliest start of the notes, in ticks after their cell's first tick.
+    /// The earliest start of the notes, in ticks after their cell's first tick, 0 for notes from
+    /// before the first shown cell.
     pub start: u16,
     /// The latest end of the notes, in ticks after their cell's first tick at 480 to a cell, dark
     /// cells too.

@@ -279,12 +279,13 @@ leaves 1 px clear beside each line, so an on-time note whose length is a whole n
 as before: 5 px wide for one step, 13 px for two. The first 5 px are the block, 11 px tall in the 13
 px row, in three greys by velocity; the rest is a tail 2 px tall on the block's middle rows. A
 note's end lies in the bar and sixteenth of its last tick, as on ROLL, so a tail over a short bar's
-end runs over the dark cells to where the next bar shows that end **(owner's choice)**. A note is
-never drawn narrower than the block, so a short tap stays visible. A cell with several notes draws
-one block from the earliest start to the latest end, with a chord's count from 2 to 9 as a digit on
-the block (5 px, no side padding at this scale), and none for 10 or more, since two digits do not
-fit. A note that starts before the first shown cell shows its tail alone from the grid's left line,
-one tail a lane to the latest end in the loudest one's grey **(owner's choice)**. Nothing is drawn
+end runs over the dark cells to where the next bar shows that end, and a note that runs past the
+pattern's end stops at its last step **(owner's choice)**. A note is never drawn narrower than the
+block, so a short tap stays visible. A cell with several notes draws one block from the earliest
+start to the latest end, with a chord's count from 2 to 9 as a digit on the block (5 px, no side
+padding at this scale), and none for 10 or more, since two digits do not fit. A note that starts
+before the first shown cell shows its tail alone from the grid's left line, one tail a lane to the
+latest end in the grey of the loudest note whose tail shows **(owner's choice)**. Nothing is drawn
 past the grid's end, where the pattern or the screen ends: a tail stops 2 px before the line that
 closes the grid, and a block that would cross that line moves left to end on it, still 5 px wide. A
 note belongs to the step whose sixteenth it starts in, so a slightly early loose hit belongs to and

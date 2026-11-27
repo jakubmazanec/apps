@@ -666,6 +666,42 @@ fn a_note_ending_at_the_left_line_shows_nothing() {
 }
 
 #[test]
+fn a_note_reaching_in_that_draws_nothing_leaves_the_tail_its_grey() {
+    // A loud note ends 60 ticks past cell 16's line, 1 px, which leaves its tail no pixel; a soft
+    // one from step 4 reaches 4 cells in.
+    let screen = from_cell_16(&[(0, 7_680 + 60, 127), (1_920, 7_680, 40)]);
+
+    assert_eq!(ink(&screen, NOTE_LOUD), 0);
+    assert!(filled(&screen, 38..=68, 22..=23, NOTE_SOFT));
+    assert_eq!(ink(&screen, NOTE_SOFT), 31 * 2);
+}
+
+#[test]
+fn a_note_past_the_patterns_end_stops_at_its_last_step() {
+    // 1 bar of 3/4 and a note of 2 sixteenths on its last step 11: only the block, from cell 11's
+    // line + 2, ends 2 px before cell 12's line and not over the dark cells to cell 13's.
+    let queue = Queue::new();
+    let mut rig = shaped(&queue, 1, Signature { beats: 3, unit: 4 }, place(0, 0));
+    let syn_1 = rig.synth_on(0);
+    put(
+        &mut rig,
+        0,
+        0,
+        &[Note {
+            length: 960,
+            ..entered(11, syn_1, 60)
+        }],
+    );
+
+    rig.tap(10, Button::T1);
+    rig.step(20);
+
+    let screen = picture(&rig.control);
+    assert_eq!(span(&screen, 0..=479, 22..=23, NOTE_LOUD), Some((128, 132)));
+    assert_eq!(ink(&screen, NOTE_LOUD), 5 * 11);
+}
+
+#[test]
 fn the_music_line_redraws_as_it_moves() {
     let queue = Queue::new();
     let mut rig = Rig::new(&queue);
