@@ -218,6 +218,18 @@ export const STATES: ReadonlyArray<{title: string; frame: string; approved?: str
   {title: 'PATTERN Timing with Quantize', frame: 'record-loose/frame-35200.png'},
   {title: 'STEP with loose notes', frame: 'record-loose/frame-243200.png'},
   {title: 'SETTINGS Playing with Count-in', frame: 'record-loose/frame-251520.png'},
+  {
+    title: 'ROLL on T2 with Bass selected',
+    frame: 'roll/frame-614400.png',
+    approved: 'roll.png',
+  },
+  {title: 'The NOTE panel on ROLL', frame: 'roll/frame-636800.png'},
+  {
+    title: 'The NOTE panel on STEP',
+    frame: 'roll/frame-670464.png',
+    approved: 'note-panel.png',
+  },
+  {title: 'ROLL in 5/4', frame: 'roll/frame-731264.png'},
   {title: 'Every glyph of the font', frame: 'gallery/font.png', approved: 'font.png'},
   {
     title: 'Every named colour of the palette',

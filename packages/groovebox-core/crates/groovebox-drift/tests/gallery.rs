@@ -95,9 +95,10 @@ fn the_palette_picture_shows_every_named_entry() {
     indices.sort_unstable();
 
     assert!(indices.into_iter().eq(0..ENTRIES.len() as u8));
-    // Every index without a name is black.
+    // Every index without a name or a sound colour, the four shades of each of the 12 hues, is
+    // black.
     assert!(
-        PALETTE[ENTRIES.len()..]
+        PALETTE[ENTRIES.len() + 4 * 12..]
             .iter()
             .all(|&entry| entry == [0; 3])
     );

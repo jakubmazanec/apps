@@ -1,0 +1,292 @@
+groovebox-scene 1
+# ROLL and the NOTE panel, driven through the panel only. T2 of the factory project holds Bass on
+# pad 1, Sub on pad 2 and Acid on pad 3. A hit on pad 2 selects Sub, a tap of PADS/KEYS makes the
+# pads keys and PADS/KEYS held with down twice moves the octave to C2, where pad 1 plays C2.
+input 1600 press t2
+input 3200 release t2
+input 4800 pad-hit 1 100
+input 6400 pad-release 1
+input 8000 press pads-keys
+input 9600 release pads-keys
+input 11200 press pads-keys
+input 12800 press down
+input 14400 release down
+input 16000 press down
+input 17600 release down
+input 19200 release pads-keys
+# MENU + step 9 shows PATTERN, PAGE + step 2 its Bars page and push 1 the Length picker on 1 bar;
+# down onto 2 bars and OK choose it. MENU + step 1 shows STEP.
+input 20800 press menu
+input 22400 press step-9
+input 24000 release step-9
+input 25600 release menu
+input 27200 press page
+input 28800 press step-2
+input 30400 release step-2
+input 32000 release page
+input 33600 press push-1
+input 35200 release push-1
+input 36800 press down
+input 38400 release down
+input 40000 press ok
+input 41600 release ok
+input 43200 press menu
+input 44800 press step-1
+input 46400 release step-1
+input 48000 release menu
+# Sub: a hit of C2, then taps of steps 3 and 11 enter notes of C2 in the cursor's bar. SHIFT +
+# right moves the cursor to bar 2 for the same two notes, and SHIFT + left back to bar 1.
+input 49600 pad-hit 0 100
+input 51200 pad-release 0
+input 52800 press step-3
+input 54400 release step-3
+input 56000 press step-11
+input 57600 release step-11
+input 59200 press shift
+input 60800 press right
+input 62400 release right
+input 64000 release shift
+input 65600 press step-3
+input 67200 release step-3
+input 68800 press step-11
+input 70400 release step-11
+input 72000 press shift
+input 73600 press left
+input 75200 release left
+input 76800 release shift
+# Acid: a tap of PADS/KEYS makes the pads play, a hit on pad 3 selects Acid and a second tap gives
+# the keys back. In each bar A2 goes on steps 2 and 14, B2 on step 6 and G#2 on step 10, each
+# pitch hit once before the taps of its steps.
+input 78400 press pads-keys
+input 80000 release pads-keys
+input 81600 pad-hit 2 100
+input 83200 pad-release 2
+input 84800 press pads-keys
+input 86400 release pads-keys
+input 88000 pad-hit 9 100
+input 89600 pad-release 9
+input 91200 press step-2
+input 92800 release step-2
+input 94400 press step-14
+input 96000 release step-14
+input 97600 pad-hit 11 100
+input 99200 pad-release 11
+input 100800 press step-6
+input 102400 release step-6
+input 104000 pad-hit 8 100
+input 105600 pad-release 8
+input 107200 press step-10
+input 108800 release step-10
+input 110400 press shift
+input 112000 press right
+input 113600 release right
+input 115200 release shift
+input 116800 pad-hit 9 100
+input 118400 pad-release 9
+input 120000 press step-2
+input 121600 release step-2
+input 123200 press step-14
+input 124800 release step-14
+input 126400 pad-hit 11 100
+input 128000 pad-release 11
+input 129600 press step-6
+input 131200 release step-6
+input 132800 pad-hit 8 100
+input 134400 pad-release 8
+input 136000 press step-10
+input 137600 release step-10
+input 139200 press shift
+input 140800 press left
+input 142400 release left
+input 144000 release shift
+# A take of Acid 2 bars long: REC arms and PLAY counts in one bar, so the pattern starts 96,000
+# samples after the press. G2 is hit 2,000 samples before the first beat, snapped onto it, and held
+# past the loop point at 192,000 samples; its release in the second pass ends a note as long as the
+# pattern, 2 bars. STOP ends the take.
+input 145600 press rec
+input 147200 release rec
+input 148800 press play
+input 150400 release play
+input 242800 pad-hit 7 100
+input 460800 pad-release 7
+input 476800 press stop
+input 478400 release stop
+# Bass: a tap of PADS/KEYS, a hit on pad 1 and a tap of PADS/KEYS. SHIFT + left puts the cursor on
+# bar 1 and SHIFT + right on bar 2, where hits and taps enter C2 on steps 1 and 4, D#2 on step 7,
+# G2 on step 9, F2 on step 12 and A#2 on step 15. The NOTE strip makes the note of step 4 quieter,
+# by 80 with encoder 2 while the step is held, and the note of step 1 longer by a click of
+# encoder 3.
+input 480000 press pads-keys
+input 481600 release pads-keys
+input 483200 pad-hit 0 100
+input 484800 pad-release 0
+input 486400 press pads-keys
+input 488000 release pads-keys
+input 489600 press shift
+input 491200 press left
+input 492800 release left
+input 494400 release shift
+input 496000 press shift
+input 497600 press right
+input 499200 release right
+input 500800 release shift
+input 502400 pad-hit 0 100
+input 504000 pad-release 0
+input 505600 press step-1
+input 507200 release step-1
+input 508800 press step-4
+input 510400 release step-4
+input 512000 pad-hit 3 100
+input 513600 pad-release 3
+input 515200 press step-7
+input 516800 release step-7
+input 518400 pad-hit 7 100
+input 520000 pad-release 7
+input 521600 press step-9
+input 523200 release step-9
+input 524800 pad-hit 5 100
+input 526400 pad-release 5
+input 528000 press step-12
+input 529600 release step-12
+input 531200 pad-hit 10 100
+input 532800 pad-release 10
+input 534400 press step-15
+input 536000 release step-15
+input 537600 press step-4
+input 539200 turn encoder-2 -80
+input 540800 release step-4
+input 542400 press step-1
+input 544000 turn encoder-3 1
+input 545600 release step-1
+input 547200 press shift
+input 548800 press left
+input 550400 release left
+input 552000 release shift
+# Bar 1 has C2 on steps 1 and 4 and D#2 on step 7 the same way, and hits of C2, D#2 and G2 under
+# the held step 9 enter a chord there. The strip lowers step 4 by 50 and lengthens steps 1 and 9. A
+# hit of F2 and a tap of step 13 enter its last note and leave the cursor on step 13.
+input 553600 pad-hit 0 100
+input 555200 pad-release 0
+input 556800 press step-1
+input 558400 release step-1
+input 560000 press step-4
+input 561600 release step-4
+input 563200 pad-hit 3 100
+input 564800 pad-release 3
+input 566400 press step-7
+input 568000 release step-7
+input 569600 press step-9
+input 571200 pad-hit 0 100
+input 572800 pad-release 0
+input 574400 pad-hit 3 100
+input 576000 pad-release 3
+input 577600 pad-hit 7 100
+input 579200 pad-release 7
+input 580800 release step-9
+input 582400 press step-4
+input 584000 turn encoder-2 -50
+input 585600 release step-4
+input 587200 press step-1
+input 588800 turn encoder-3 1
+input 590400 release step-1
+input 592000 press step-9
+input 593600 turn encoder-3 1
+input 595200 release step-9
+input 596800 pad-hit 5 100
+input 598400 pad-release 5
+input 600000 press step-13
+input 601600 release step-13
+# A tap of PADS/KEYS makes the pads play and a hit on pad 1 selects Bass. The ROLL button shows ROLL
+# with its row on F2, the middle of the notes of Bass, and Sub and Acid dim.
+# Frame: ROLL on T2 with Bass bright and Sub and Acid dim (roll.png).
+input 603200 press pads-keys
+input 604800 release pads-keys
+input 606400 pad-hit 0 100
+input 608000 pad-release 0
+input 609600 press roll
+input 611200 release roll
+frame 614400
+# Down moves the cursor to E2 and OK on the empty cell adds a note of E2. Up and a tap of CANCEL
+# remove the note of F2 under the cursor, and down and OK on the new note open the NOTE panel.
+# Frame: the NOTE panel on ROLL.
+input 616000 press down
+input 617600 release down
+input 619200 press ok
+input 620800 release ok
+input 622400 press up
+input 624000 release up
+input 625600 press cancel
+input 627200 release cancel
+input 628800 press down
+input 630400 release down
+input 632000 press ok
+input 633600 release ok
+frame 636800
+# Pitch + moves the note up to F2 and encoder 2 turns Velocity down 40 clicks, to 87. A tap of
+# CANCEL closes the panel.
+input 638400 press plus
+input 640000 release plus
+input 641600 turn encoder-2 -40
+input 643200 press cancel
+input 644800 release cancel
+# MENU + step 1 shows STEP. Left four times moves the cursor to step 9, and OK on Bass's chord
+# opens the NOTE panel on its three notes.
+# Frame: the NOTE panel on STEP (note-panel.png).
+input 646400 press menu
+input 648000 press step-1
+input 649600 release step-1
+input 651200 release menu
+input 652800 press left
+input 654400 release left
+input 656000 press left
+input 657600 release left
+input 659200 press left
+input 660800 release left
+input 662400 press left
+input 664000 release left
+input 665600 press ok
+input 667200 release ok
+frame 670464
+# A tap of CANCEL closes the panel. The Length picker goes on to 4 bars, so that bar 3 scrolls the
+# view, which two bars never do. Push 2 opens the Signature picker on 4/4: down onto 5/4 and OK.
+input 672064 press cancel
+input 673664 release cancel
+input 675264 press menu
+input 676864 press step-9
+input 678464 release step-9
+input 680064 release menu
+input 681664 press page
+input 683264 press step-2
+input 684864 release step-2
+input 686464 release page
+input 688064 press push-1
+input 689664 release push-1
+input 691264 press down
+input 692864 release down
+input 694464 press ok
+input 696064 release ok
+input 697664 press push-2
+input 699264 release push-2
+input 700864 press down
+input 702464 release down
+input 704064 press ok
+input 705664 release ok
+# MENU + step 2 shows ROLL. SHIFT + right four times moves the cursor a page on each time: to the
+# last step of bar 1's short page, then to bar 2, its short page and bar 3. The view follows it.
+# Frame: ROLL in 5/4 with its short page, the note of Acid reaching in from the left.
+input 707264 press menu
+input 708864 press step-2
+input 710464 release step-2
+input 712064 release menu
+input 713664 press shift
+input 715264 press right
+input 716864 release right
+input 718464 press right
+input 720064 release right
+input 721664 press right
+input 723264 release right
+input 724864 press right
+input 726464 release right
+input 728064 release shift
+frame 731264
+end 737664

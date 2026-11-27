@@ -40,6 +40,7 @@ describe('the gallery', () => {
           'record/',
           'record-loose/',
           'reverb/',
+          'roll/',
           'step-view/',
           'steps/',
           'synth-pages/',
